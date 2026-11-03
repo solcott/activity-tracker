@@ -240,7 +240,7 @@ internal fun batchRows(
                 month = LocalDate(local.year, local.month, 1),
                 elapsed = activity.elapsed,
                 distanceMeters = activity.distanceMeters,
-                dive = activity.dive?.let { DiveRowExtras(it.maxDepthMeters, it.diveNumber) },
+                dive = activity.dive?.let { DiveRowExtras(it.header.maxDepthMeters, it.header.diveNumber) },
                 device = activity.device,
                 fileName = batch.files[item.file].name,
                 selected = selection.isSelected(index, match),

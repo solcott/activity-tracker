@@ -29,7 +29,7 @@ class UddfParserTest {
     @Test
     fun readsEveryDiveInOrder() {
         val dives = read(logbook())
-        assertEquals(listOf(12, 13), dives.map { it.dive?.diveNumber })
+        assertEquals(listOf(12, 13), dives.map { it.dive?.header?.diveNumber })
         assertEquals(listOf(Instant.parse("2024-05-12T16:02:00Z"), Instant.parse("2024-05-12T20:30:00Z")), dives.map { it.startedAt })
     }
 
@@ -48,17 +48,17 @@ class UddfParserTest {
         assertEquals(25.0, activity.avgTemperatureCelsius!!, 0.01, "Kelvin to °C, skipping a waypoint with none")
 
         val dive = assertNotNull(activity.dive)
-        assertEquals(30.1, dive.maxDepthMeters)
-        assertEquals(17.2, dive.avgDepthMeters)
+        assertEquals(30.1, dive.header.maxDepthMeters)
+        assertEquals(17.2, dive.header.avgDepthMeters)
         assertEquals(24.0, dive.minWaterTempCelsius!!, 0.01)
-        assertEquals(listOf(DiveGas(32, 0)), dive.gases)
-        assertNull(dive.surfaceIntervalMinutes, "the first dive's interval is infinity")
+        assertEquals(listOf(DiveGas(32, 0)), dive.header.gases)
+        assertNull(dive.header.surfaceIntervalMinutes, "the first dive's interval is infinity")
         assertEquals(
             listOf(DiveTank(200.0, 50.0, null, volumeLiters = 12.0, gas = DiveGas(32, 0), sensor = "tank0")),
-            dive.tanks,
+            dive.header.tanks,
             "Pascal to bar, with the tank's volume and mix",
         )
-        assertEquals(DivePosition(17.3157, -87.5346), dive.entry)
+        assertEquals(DivePosition(17.3157, -87.5346), dive.header.entry)
         assertEquals(listOf(0L, 600L, 1200L, 2700L), dive.profile.map { it.seconds })
     }
 
@@ -67,8 +67,8 @@ class UddfParserTest {
         val deco = read(logbook()).last()
         assertEquals(SubSport.MULTI_GAS, deco.type.subSport)
         val dive = assertNotNull(deco.dive)
-        assertEquals(listOf(DiveGas(21, 35), DiveGas(50, 0)), dive.gases)
-        assertEquals(213, dive.surfaceIntervalMinutes)
+        assertEquals(listOf(DiveGas(21, 35), DiveGas(50, 0)), dive.header.gases)
+        assertEquals(213, dive.header.surfaceIntervalMinutes)
         assertEquals(3600.seconds, deco.elapsed, "the last waypoint, with no duration given")
         assertNull(deco.title, "no site linked")
     }
@@ -188,7 +188,7 @@ class UddfParserTest {
     @Test
     fun skipsAnUndatedDive() {
         val undated = decoDive.replace("<datetime>2024-05-12T14:30:00</datetime>", "")
-        assertEquals(listOf(12), read(logbook(listOf(nitroxDive(), undated))).map { it.dive?.diveNumber })
+        assertEquals(listOf(12), read(logbook(listOf(nitroxDive(), undated))).map { it.dive?.header?.diveNumber })
     }
 
     @Test

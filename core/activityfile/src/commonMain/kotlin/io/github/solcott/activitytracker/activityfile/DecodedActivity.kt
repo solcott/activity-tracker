@@ -373,7 +373,7 @@ data class DecodedDive(
     val tanks: List<DiveTank> = emptyList(),
     /** Where the diver went in and came out, if the computer had a GPS fix at the surface; a logbook's site position is the entry. */
     val entry: DivePosition? = null,
-    /** The dive site's name, from a logbook that names it. */
+    /** The dive site's name, from a logbook that names it. Unlike [entry], it goes into the public record. */
     val siteName: String? = null,
     val exit: DivePosition? = null,
     /** Nitrogen loading, in percent of the limit. */

@@ -104,62 +104,16 @@ fun ImportedActivity.summary(): ImportedActivity = copy(samples = emptyList(), s
 fun ImportedActivity.localZone(fallback: TimeZone): TimeZone =
     utcOffsetMinutes?.let { FixedOffsetTimeZone(UtcOffset(seconds = it * SECONDS_PER_MINUTE)) } ?: fallback
 
-/** A dive's depths, gases and decompression state, in SI units. */
+/**
+ * A dive's depths, gases and decompression state, in SI units: its log's [header], with the maximum and average depth taken from the
+ * [profile] where the dive computer gave none (the average time-weighted over the samples below the surface), and what the samples add.
+ */
 data class ImportedDive(
-    val maxDepthMeters: Double?,
-    /** The dive computer's, else time-weighted over the samples below the surface. */
-    val avgDepthMeters: Double?,
+    val header: DecodedDive,
     /** The coldest water, usually at depth. */
     val minWaterTempCelsius: Double?,
-    /** The dive computer's own count. */
-    val diveNumber: Int?,
-    val surfaceIntervalMinutes: Int?,
-    val gradientFactorLow: Int?,
-    val gradientFactorHigh: Int?,
-    val startCns: Int?,
-    val endCns: Int?,
-    /** In order of first use. */
-    val gases: List<DiveGas>,
-    val closedCircuit: Boolean,
     /** Depth over time, from the start of the dive. */
     val profile: List<DepthPoint>,
-    val bottomTimeSeconds: Double? = null,
-    val oxygenToxicityOtu: Int? = null,
-    val rmvLitersPerMinute: Double? = null,
-    val sacBarPerMinute: Double? = null,
-    val tanks: List<DiveTank> = emptyList(),
-    val entry: DivePosition? = null,
-    /** The dive site's name, from a logbook that names it. Unlike [entry], it goes into the public record. */
-    val siteName: String? = null,
-    val exit: DivePosition? = null,
-    /** Nitrogen loading, in percent of the limit. */
-    val startN2: Int? = null,
-    val endN2: Int? = null,
-    val avgAscentRateMps: Double? = null,
-    val maxAscentRateMps: Double? = null,
-    val avgDescentRateMps: Double? = null,
-    val maxDescentRateMps: Double? = null,
-    val descentTimeSeconds: Double? = null,
-    /** A `WaterType` token. */
-    val waterType: String? = null,
-    val waterDensityKgPerM3: Double? = null,
-    val airTemperatureCelsius: Double? = null,
-    val visibilityMeters: Double? = null,
-    val altitudeMeters: Double? = null,
-    val noFlyTimeSeconds: Double? = null,
-    val desaturationTimeSeconds: Double? = null,
-    val highestPpO2Bar: Double? = null,
-    /** A `DecoModel` token. */
-    val decoModel: String? = null,
-    /** The dive computer's ppO₂ limits. */
-    val ppO2WarnBar: Double? = null,
-    val ppO2CriticalBar: Double? = null,
-    val ppO2DecoBar: Double? = null,
-    /** A rebreather's setpoints. */
-    val lowSetpointBar: Double? = null,
-    val highSetpointBar: Double? = null,
-    /** The safety stop the computer was set for; null when it was off. */
-    val safetyStopSeconds: Int? = null,
 )
 
 data class DepthPoint(val seconds: Long, val depthMeters: Double)

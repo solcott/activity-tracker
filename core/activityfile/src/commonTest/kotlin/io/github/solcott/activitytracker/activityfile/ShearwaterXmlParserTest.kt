@@ -45,14 +45,14 @@ class ShearwaterXmlParserTest {
         assertEquals(28.06, activity.avgTemperatureCelsius!!, 0.01, "82.5 °F")
 
         val dive = assertNotNull(activity.dive)
-        assertEquals(21.824, dive.maxDepthMeters!!, 0.001, "71.6 ft")
+        assertEquals(21.824, dive.header.maxDepthMeters!!, 0.001, "71.6 ft")
         assertEquals(27.78, dive.minWaterTempCelsius!!, 0.01, "82 °F")
-        assertEquals(listOf(DiveGas(32, 0)), dive.gases)
-        assertEquals(false, dive.closedCircuit)
-        assertEquals(21, dive.diveNumber)
-        assertEquals(355, dive.surfaceIntervalMinutes)
-        assertEquals(40 to 85, dive.gradientFactorLow to dive.gradientFactorHigh)
-        assertEquals(1 to 10, dive.startCns to dive.endCns)
+        assertEquals(listOf(DiveGas(32, 0)), dive.header.gases)
+        assertEquals(false, dive.header.closedCircuit)
+        assertEquals(21, dive.header.diveNumber)
+        assertEquals(355, dive.header.surfaceIntervalMinutes)
+        assertEquals(40 to 85, dive.header.gradientFactorLow to dive.header.gradientFactorHigh)
+        assertEquals(1 to 10, dive.header.startCns to dive.header.endCns)
         assertEquals(listOf(0L, 10L, 20L, 30L), dive.profile.map { it.seconds })
         assertEquals(21.702, dive.profile[2].depthMeters, 0.001, "71.2 ft")
     }
@@ -95,7 +95,7 @@ class ShearwaterXmlParserTest {
     fun metricDivesStayAsWritten() {
         val activity = read(dive(records = listOf(record(0, 1.0, 28.0), record(10_000, 18.5, 27.0)), imperial = false, maxDepth = "18.7"))
         val dive = assertNotNull(activity.dive)
-        assertEquals(18.7, dive.maxDepthMeters)
+        assertEquals(18.7, dive.header.maxDepthMeters)
         assertEquals(listOf(1.0, 18.5), dive.profile.map { it.depthMeters })
         assertEquals(27.0, dive.minWaterTempCelsius)
     }
@@ -114,11 +114,11 @@ class ShearwaterXmlParserTest {
                 )
             )
         assertEquals(SubSport.MULTI_GAS, switched.type.subSport)
-        assertEquals(listOf(DiveGas(18, 45), DiveGas(50, 0)), switched.dive?.gases)
+        assertEquals(listOf(DiveGas(18, 45), DiveGas(50, 0)), switched.dive?.header?.gases)
 
         val rebreather = read(dive(records = listOf(record(0, 10.0, 80.0, o2 = 0.21, circuit = "CC"))))
         assertEquals(SubSport.CCR, rebreather.type.subSport)
-        assertEquals(true, rebreather.dive?.closedCircuit)
+        assertEquals(true, rebreather.dive?.header?.closedCircuit)
     }
 
     @Test

@@ -246,8 +246,8 @@ class DecodedActivityMapperTest {
         val header = DecodedDive(null, null, null, null, null, null, null, listOf(DiveGas(21, 0)), closedCircuit = false)
         val dive = DecodedActivityMapper.map(DecodedActivity(null, listOf(summary("diving")), emptyList(), records, header)).dive!!
 
-        assertEquals(10.0, dive.maxDepthMeters, "the deepest sample, with no header value")
-        assertEquals(20.0 / 3, dive.avgDepthMeters!!, 1e-9)
+        assertEquals(10.0, dive.header.maxDepthMeters, "the deepest sample, with no header value")
+        assertEquals(20.0 / 3, dive.header.avgDepthMeters!!, 1e-9)
         assertEquals(listOf(0L, 60L, 120L, 180L, 240L, 300L), dive.profile.map { it.seconds })
     }
 
@@ -261,8 +261,8 @@ class DecodedActivityMapperTest {
             )
 
         val dive = activity.dive!!
-        assertEquals(12.0, dive.avgDepthMeters, "the computer's average over the profile's")
-        assertEquals(18.0, dive.maxDepthMeters)
+        assertEquals(12.0, dive.header.avgDepthMeters, "the computer's average over the profile's")
+        assertEquals(18.0, dive.header.maxDepthMeters)
         assertEquals(null, activity.distanceMeters, "a dive computer's 0 m is no distance")
         assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), activity.type, "one gas breathed, whatever the watch's dive mode")
     }
@@ -301,10 +301,10 @@ class DecodedActivityMapperTest {
                 )
             )
         val dive = activity.dive!!
-        assertEquals(DecoModel.ZHL16C, dive.decoModel)
-        assertEquals(Triple(1.4, 1.6, 1.6), Triple(dive.ppO2WarnBar, dive.ppO2CriticalBar, dive.ppO2DecoBar))
-        assertEquals(0.7 to 1.3, dive.lowSetpointBar to dive.highSetpointBar)
-        assertEquals(180, dive.safetyStopSeconds)
+        assertEquals(DecoModel.ZHL16C, dive.header.decoModel)
+        assertEquals(Triple(1.4, 1.6, 1.6), Triple(dive.header.ppO2WarnBar, dive.header.ppO2CriticalBar, dive.header.ppO2DecoBar))
+        assertEquals(0.7 to 1.3, dive.header.lowSetpointBar to dive.header.highSetpointBar)
+        assertEquals(180, dive.header.safetyStopSeconds)
         assertEquals(listOf(DiveAlert(60, DiveAlertKind.NDL_REACHED)), activity.streams?.diveAlerts)
     }
 
@@ -351,16 +351,16 @@ class DecodedActivityMapperTest {
                 )
             )
         val dive = activity.dive!!
-        assertEquals(listOf(tank), dive.tanks)
-        assertEquals(10 to 55, dive.startN2 to dive.endN2)
-        assertEquals(0.3, dive.maxAscentRateMps)
-        assertEquals(300.0, dive.descentTimeSeconds)
-        assertEquals("salt" to 1025.0, dive.waterType to dive.waterDensityKgPerM3)
-        assertEquals(30.0, dive.airTemperatureCelsius)
-        assertEquals(15.0, dive.visibilityMeters)
-        assertEquals(450.0, dive.altitudeMeters)
-        assertEquals(64_800.0 to 72_000.0, dive.noFlyTimeSeconds to dive.desaturationTimeSeconds)
-        assertEquals(1.4, dive.highestPpO2Bar)
+        assertEquals(listOf(tank), dive.header.tanks)
+        assertEquals(10 to 55, dive.header.startN2 to dive.header.endN2)
+        assertEquals(0.3, dive.header.maxAscentRateMps)
+        assertEquals(300.0, dive.header.descentTimeSeconds)
+        assertEquals("salt" to 1025.0, dive.header.waterType to dive.header.waterDensityKgPerM3)
+        assertEquals(30.0, dive.header.airTemperatureCelsius)
+        assertEquals(15.0, dive.header.visibilityMeters)
+        assertEquals(450.0, dive.header.altitudeMeters)
+        assertEquals(64_800.0 to 72_000.0, dive.header.noFlyTimeSeconds to dive.header.desaturationTimeSeconds)
+        assertEquals(1.4, dive.header.highestPpO2Bar)
         assertEquals("Turtle at the wall", activity.description)
         assertEquals(listOf(GasSwitch(0, 32, 0)), activity.streams?.gasSwitches)
         assertEquals(listOf(null, 150_000, null), activity.streams?.tankPressures?.single()?.pressure)

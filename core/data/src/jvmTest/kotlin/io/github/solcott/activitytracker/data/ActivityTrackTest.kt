@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.activityfile.DecodedDive
 import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
@@ -85,20 +86,23 @@ class ActivityTrackTest {
     fun aTracklessDivesSurfaceFixesAreItsTrackInTheSelfSpaceAndNeverItsRecord() = runTest {
         val dive =
             ImportedDive(
-                maxDepthMeters = 18.0,
-                avgDepthMeters = null,
+                header =
+                    DecodedDive(
+                        maxDepthMeters = 18.0,
+                        avgDepthMeters = null,
+                        diveNumber = null,
+                        surfaceIntervalMinutes = null,
+                        gradientFactorLow = null,
+                        gradientFactorHigh = null,
+                        startCns = null,
+                        endCns = null,
+                        gases = listOf(DiveGas(21, 0)),
+                        closedCircuit = false,
+                        entry = DivePosition(13.86622, -61.07885),
+                        exit = DivePosition(13.86701, -61.07912),
+                    ),
                 minWaterTempCelsius = null,
-                diveNumber = null,
-                surfaceIntervalMinutes = null,
-                gradientFactorLow = null,
-                gradientFactorHigh = null,
-                startCns = null,
-                endCns = null,
-                gases = listOf(DiveGas(21, 0)),
-                closedCircuit = false,
                 profile = emptyList(),
-                entry = DivePosition(13.86622, -61.07885),
-                exit = DivePosition(13.86701, -61.07912),
             )
         val imported =
             ImportedActivity(

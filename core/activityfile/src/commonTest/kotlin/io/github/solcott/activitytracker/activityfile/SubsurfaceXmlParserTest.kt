@@ -27,7 +27,7 @@ class SubsurfaceXmlParserTest {
     @Test
     fun readsDivesInTripsAndOutside() {
         val dives = read(logbook())
-        assertEquals(listOf(41, 42), dives.map { it.dive?.diveNumber })
+        assertEquals(listOf(41, 42), dives.map { it.dive?.header?.diveNumber })
         assertEquals(Instant.parse("2024-03-02T14:15:00Z"), dives[0].startedAt)
         assertEquals(LocalDateTime(2024, 3, 2, 9, 15, 0), dives[0].localStart)
     }
@@ -43,12 +43,12 @@ class SubsurfaceXmlParserTest {
         assertEquals("Palancar Gardens", activity.title)
 
         val dive = assertNotNull(activity.dive)
-        assertEquals(24.3, dive.maxDepthMeters)
-        assertEquals(14.1, dive.avgDepthMeters)
+        assertEquals(24.3, dive.header.maxDepthMeters)
+        assertEquals(14.1, dive.header.avgDepthMeters)
         assertEquals(27.0, dive.minWaterTempCelsius!!, 0.01, "samples without temp don't count as 0")
-        assertEquals(listOf(DiveGas(32, 0)), dive.gases)
-        assertEquals(listOf(DiveTank(206.8, 68.9, null, sensor = "0")), dive.tanks)
-        assertEquals(DivePosition(20.354, -87.026), dive.entry)
+        assertEquals(listOf(DiveGas(32, 0)), dive.header.gases)
+        assertEquals(listOf(DiveTank(206.8, 68.9, null, sensor = "0")), dive.header.tanks)
+        assertEquals(DivePosition(20.354, -87.026), dive.header.entry)
         assertEquals(listOf(10L, 600L, 1800L, 3140L), dive.profile.map { it.seconds })
     }
 
@@ -92,10 +92,10 @@ class SubsurfaceXmlParserTest {
         assertEquals(22.0, activity.avgTemperatureCelsius!!, 0.01, "the header's water temperature, with none in the samples")
 
         val dive = assertNotNull(activity.dive)
-        assertEquals(45.0, dive.maxDepthMeters, "not the second computer's")
-        assertEquals(true, dive.closedCircuit)
-        assertEquals(listOf(DiveGas(100, 0), DiveGas(21, 35)), dive.gases)
-        assertEquals(emptyList(), dive.tanks, "no pressures logged")
+        assertEquals(45.0, dive.header.maxDepthMeters, "not the second computer's")
+        assertEquals(true, dive.header.closedCircuit)
+        assertEquals(listOf(DiveGas(100, 0), DiveGas(21, 35)), dive.header.gases)
+        assertEquals(emptyList(), dive.header.tanks, "no pressures logged")
         assertEquals(3, dive.profile.size)
     }
 
@@ -146,7 +146,7 @@ class SubsurfaceXmlParserTest {
 
     @Test
     fun skipsAnUndatedDive() {
-        assertEquals(listOf(42), read(logbook(trip(date = "") + ccrDive)).map { it.dive?.diveNumber })
+        assertEquals(listOf(42), read(logbook(trip(date = "") + ccrDive)).map { it.dive?.header?.diveNumber })
     }
 
     @Test

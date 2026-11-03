@@ -79,20 +79,20 @@ class FitRoundTripTest {
         assertEquals(ActivityType(Sport.DIVE, SubSport.CCR), read.type)
         assertEquals(dive.points.map { (it.depthMeters!! * 100).toInt() }, read.streams!!.depth)
         val back = assertNotNull(read.dive)
-        assertEquals(30.0, back.maxDepthMeters)
-        assertEquals(25.0, back.avgDepthMeters)
-        assertEquals(90.0, back.bottomTimeSeconds)
-        assertEquals(60, back.surfaceIntervalMinutes)
-        assertEquals(42, back.diveNumber)
-        assertEquals(30, back.gradientFactorLow)
-        assertEquals(70, back.gradientFactorHigh)
-        assertEquals(5, back.startCns)
-        assertEquals(18, back.endCns)
-        assertEquals(25, back.oxygenToxicityOtu)
-        assertEquals(true, back.closedCircuit)
+        assertEquals(30.0, back.header.maxDepthMeters)
+        assertEquals(25.0, back.header.avgDepthMeters)
+        assertEquals(90.0, back.header.bottomTimeSeconds)
+        assertEquals(60, back.header.surfaceIntervalMinutes)
+        assertEquals(42, back.header.diveNumber)
+        assertEquals(30, back.header.gradientFactorLow)
+        assertEquals(70, back.header.gradientFactorHigh)
+        assertEquals(5, back.header.startCns)
+        assertEquals(18, back.header.endCns)
+        assertEquals(25, back.header.oxygenToxicityOtu)
+        assertEquals(true, back.header.closedCircuit)
         // Later gases are in the file, but with no switch times the import counts only the first as breathed.
-        assertEquals(DiveGas(21, 0), back.gases.first())
-        assertEquals(listOf(DiveTank(200.0, 80.0, 1200.0, sensor = "1")), back.tanks)
+        assertEquals(DiveGas(21, 0), back.header.gases.first())
+        assertEquals(listOf(DiveTank(200.0, 80.0, 1200.0, sensor = "1")), back.header.tanks)
     }
 
     @Test
@@ -100,7 +100,7 @@ class FitRoundTripTest {
         val read = reader.read(write(decoDive)).single()
         val streams = read.streams!!
         assertEquals(decoDive.gasSwitches, streams.gasSwitches)
-        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0), DiveGas(100, 0)), read.dive!!.gases)
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0), DiveGas(100, 0)), read.dive!!.header.gases)
         assertEquals(
             decoDive.points.map { p -> p.tankPressuresBar.map { it?.let { bar -> (bar * 1000).toInt() } } },
             streams.tankPressures!!.let { tanks -> streams.time.indices.map { i -> tanks.map { it.pressure[i] } } },
@@ -110,12 +110,12 @@ class FitRoundTripTest {
         assertEquals(decoDive.points.map { it.nextStopDepthMeters?.let { m -> (m * 100).toInt() } }, streams.decoStopDepth)
         assertEquals(decoDive.points.map { it.ttsSeconds?.toInt() }, streams.tts)
         val back = assertNotNull(read.dive)
-        assertEquals(listOf("1", "2"), back.tanks.map { it.sensor })
-        assertEquals(WaterType.SALT, back.waterType)
-        assertEquals(1025.0, back.waterDensityKgPerM3)
-        assertEquals(10 to 58, back.startN2 to back.endN2)
-        assertEquals(20.0, back.descentTimeSeconds)
-        assertEquals(0.15, back.avgAscentRateMps!!, 1e-6)
+        assertEquals(listOf("1", "2"), back.header.tanks.map { it.sensor })
+        assertEquals(WaterType.SALT, back.header.waterType)
+        assertEquals(1025.0, back.header.waterDensityKgPerM3)
+        assertEquals(10 to 58, back.header.startN2 to back.header.endN2)
+        assertEquals(20.0, back.header.descentTimeSeconds)
+        assertEquals(0.15, back.header.avgAscentRateMps!!, 1e-6)
     }
 
     @Test
@@ -127,13 +127,13 @@ class FitRoundTripTest {
             "every alert FIT can name",
         )
         val back = assertNotNull(read.dive)
-        assertEquals(DecoModel.ZHL16C, back.decoModel)
-        assertEquals(1.4, back.ppO2WarnBar!!, 1e-6)
-        assertEquals(1.6, back.ppO2CriticalBar!!, 1e-6)
-        assertEquals(1.6, back.ppO2DecoBar!!, 1e-6)
-        assertEquals(0.7, back.lowSetpointBar!!, 1e-6)
-        assertEquals(1.3, back.highSetpointBar!!, 1e-6)
-        assertEquals(180, back.safetyStopSeconds)
+        assertEquals(DecoModel.ZHL16C, back.header.decoModel)
+        assertEquals(1.4, back.header.ppO2WarnBar!!, 1e-6)
+        assertEquals(1.6, back.header.ppO2CriticalBar!!, 1e-6)
+        assertEquals(1.6, back.header.ppO2DecoBar!!, 1e-6)
+        assertEquals(0.7, back.header.lowSetpointBar!!, 1e-6)
+        assertEquals(1.3, back.header.highSetpointBar!!, 1e-6)
+        assertEquals(180, back.header.safetyStopSeconds)
     }
 
     @Test

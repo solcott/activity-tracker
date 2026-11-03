@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.activity
 
+import io.github.solcott.activitytracker.activityfile.DecodedDive
 import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.DiveTank
@@ -131,22 +132,25 @@ class ActivityDraftTest {
     fun importedDiveBecomesTheRecordsSummaryInLexiconUnits() {
         val dive =
             ImportedDive(
-                maxDepthMeters = 30.124,
-                avgDepthMeters = 14.5,
+                header =
+                    DecodedDive(
+                        maxDepthMeters = 30.124,
+                        avgDepthMeters = 14.5,
+                        diveNumber = 42,
+                        surfaceIntervalMinutes = 75,
+                        gradientFactorLow = 30,
+                        gradientFactorHigh = 70,
+                        startCns = 3,
+                        endCns = 18,
+                        gases = listOf(DiveGas(32, 0), DiveGas(100, 0)),
+                        closedCircuit = false,
+                        bottomTimeSeconds = 1520.4,
+                        sacBarPerMinute = 1.234,
+                        rmvLitersPerMinute = 14.8,
+                        tanks = listOf(DiveTank(startPressureBar = 210.0, endPressureBar = 62.5, volumeUsedLiters = null)),
+                    ),
                 minWaterTempCelsius = 7.86,
-                diveNumber = 42,
-                surfaceIntervalMinutes = 75,
-                gradientFactorLow = 30,
-                gradientFactorHigh = 70,
-                startCns = 3,
-                endCns = 18,
-                gases = listOf(DiveGas(32, 0), DiveGas(100, 0)),
-                closedCircuit = false,
                 profile = emptyList(),
-                bottomTimeSeconds = 1520.4,
-                sacBarPerMinute = 1.234,
-                rmvLitersPerMinute = 14.8,
-                tanks = listOf(DiveTank(startPressureBar = 210.0, endPressureBar = 62.5, volumeUsedLiters = null)),
             )
         val record = ActivityDraft.fromImport(imported(emptyList()).copy(dive = dive), ActivityType(Sport.DIVE), null).toRecord(start)
         assertEquals(
@@ -172,47 +176,53 @@ class ActivityDraftTest {
 
     private val diveFields =
         ImportedDive(
-            maxDepthMeters = 25.0,
-            avgDepthMeters = null,
+            header =
+                DecodedDive(
+                    maxDepthMeters = 25.0,
+                    avgDepthMeters = null,
+                    diveNumber = null,
+                    surfaceIntervalMinutes = null,
+                    gradientFactorLow = null,
+                    gradientFactorHigh = null,
+                    startCns = null,
+                    endCns = null,
+                    gases = listOf(DiveGas(32, 0)),
+                    closedCircuit = false,
+                    tanks = listOf(DiveTank(200.0, 60.0, null, volumeLiters = 11.1, gas = DiveGas(32, 0), sensor = "t")),
+                    startN2 = 10,
+                    endN2 = 55,
+                    avgAscentRateMps = 0.15,
+                    maxAscentRateMps = 0.3,
+                    avgDescentRateMps = 0.2,
+                    maxDescentRateMps = 0.4,
+                    descentTimeSeconds = 300.4,
+                    waterType = WaterType.SALT,
+                    waterDensityKgPerM3 = 1025.0,
+                    airTemperatureCelsius = -2.5,
+                    visibilityMeters = 15.0,
+                    altitudeMeters = 450.0,
+                    noFlyTimeSeconds = 64_800.0,
+                    desaturationTimeSeconds = 72_000.0,
+                    highestPpO2Bar = 1.4,
+                ),
             minWaterTempCelsius = null,
-            diveNumber = null,
-            surfaceIntervalMinutes = null,
-            gradientFactorLow = null,
-            gradientFactorHigh = null,
-            startCns = null,
-            endCns = null,
-            gases = listOf(DiveGas(32, 0)),
-            closedCircuit = false,
             profile = emptyList(),
-            tanks = listOf(DiveTank(200.0, 60.0, null, volumeLiters = 11.1, gas = DiveGas(32, 0), sensor = "t")),
-            startN2 = 10,
-            endN2 = 55,
-            avgAscentRateMps = 0.15,
-            maxAscentRateMps = 0.3,
-            avgDescentRateMps = 0.2,
-            maxDescentRateMps = 0.4,
-            descentTimeSeconds = 300.4,
-            waterType = WaterType.SALT,
-            waterDensityKgPerM3 = 1025.0,
-            airTemperatureCelsius = -2.5,
-            visibilityMeters = 15.0,
-            altitudeMeters = 450.0,
-            noFlyTimeSeconds = 64_800.0,
-            desaturationTimeSeconds = 72_000.0,
-            highestPpO2Bar = 1.4,
         )
 
     @Test
     fun aDivesComputerSettingsPublishInMillibar() {
         val settings =
             diveFields.copy(
-                decoModel = DecoModel.ZHL16C,
-                ppO2WarnBar = 1.4,
-                ppO2CriticalBar = 1.6,
-                ppO2DecoBar = 1.6,
-                lowSetpointBar = 0.7,
-                highSetpointBar = 1.3,
-                safetyStopSeconds = 180,
+                header =
+                    diveFields.header.copy(
+                        decoModel = DecoModel.ZHL16C,
+                        ppO2WarnBar = 1.4,
+                        ppO2CriticalBar = 1.6,
+                        ppO2DecoBar = 1.6,
+                        lowSetpointBar = 0.7,
+                        highSetpointBar = 1.3,
+                        safetyStopSeconds = 180,
+                    )
             )
         val dive =
             ActivityDraft.fromImport(imported(emptyList()).copy(dive = settings), ActivityType(Sport.DIVE), null).toRecord(start).dive!!
@@ -345,14 +355,14 @@ class ActivityDraftTest {
 
     @Test
     fun aTracklessDiveKeepsItsSurfaceFixesInItsTrackOnly() {
-        val dive = diveFields.copy(entry = DivePosition(13.86, -61.07), exit = DivePosition(13.87, -61.08))
+        val dive = diveFields.copy(header = diveFields.header.copy(entry = DivePosition(13.86, -61.07), exit = DivePosition(13.87, -61.08)))
         val draft = ActivityDraft.fromImport(imported(emptyList()).copy(dive = dive), ActivityType(Sport.DIVE), null)
         val gpx = draft.gpx!!.decodeToString()
         assertTrue("13.86" in gpx && "13.87" in gpx, gpx)
         assertTrue(draft.route.isEmpty(), "no route, so no polyline")
         assertNull(draft.toRecord(start).polyline)
 
-        val logbook = diveFields.copy(entry = DivePosition(17.3157, -87.5346))
+        val logbook = diveFields.copy(header = diveFields.header.copy(entry = DivePosition(17.3157, -87.5346)))
         assertEquals(
             1,
             Regex("<trkpt")

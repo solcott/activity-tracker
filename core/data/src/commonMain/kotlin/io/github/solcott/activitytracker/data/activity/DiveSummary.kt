@@ -21,11 +21,12 @@ object DiveSummary {
     private const val MAX_TOKEN = 64
 
     @Suppress("CyclomaticComplexMethod") // A conversion per field.
-    fun of(dive: ImportedDive): ActivityDive =
-        ActivityDive(
+    fun of(imported: ImportedDive): ActivityDive {
+        val dive = imported.header
+        return ActivityDive(
             maxDepth = dive.maxDepthMeters?.let { (it * CM_PER_M).count() },
             avgDepth = dive.avgDepthMeters?.let { (it * CM_PER_M).count() },
-            minTemperature = dive.minWaterTempCelsius?.let { (it * TENTHS_PER_DEGREE).roundToLong() },
+            minTemperature = imported.minWaterTempCelsius?.let { (it * TENTHS_PER_DEGREE).roundToLong() },
             bottomTime = dive.bottomTimeSeconds?.count(),
             surfaceInterval = dive.surfaceIntervalMinutes?.let { it.coerceAtLeast(0) * SECONDS_PER_MINUTE },
             diveNumber = dive.diveNumber,
@@ -75,6 +76,7 @@ object DiveSummary {
             highSetpoint = dive.highSetpointBar?.let(::millibar),
             safetyStopTime = dive.safetyStopSeconds?.takeIf { it > 0 },
         )
+    }
 
     private fun millibar(bar: Double): Int = (bar * MBAR_PER_BAR).count().toInt()
 

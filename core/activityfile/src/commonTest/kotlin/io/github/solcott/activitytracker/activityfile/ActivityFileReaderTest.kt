@@ -93,8 +93,8 @@ class ActivityFileReaderTest {
 
     @Test
     fun readsEveryDiveInALogbook() = runTest {
-        assertEquals(listOf(12, 13), reader.read(UddfFixtures.logbook().encodeToByteArray()).map { it.dive?.diveNumber })
-        assertEquals(listOf(41, 42), reader.read(SubsurfaceFixtures.logbook().encodeToByteArray()).map { it.dive?.diveNumber })
+        assertEquals(listOf(12, 13), reader.read(UddfFixtures.logbook().encodeToByteArray()).map { it.dive?.header?.diveNumber })
+        assertEquals(listOf(41, 42), reader.read(SubsurfaceFixtures.logbook().encodeToByteArray()).map { it.dive?.header?.diveNumber })
     }
 
     @Test

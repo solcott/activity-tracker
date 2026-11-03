@@ -142,7 +142,7 @@ class ActivityExporterTest {
         assertEquals("Shearwater Perdix 2", read.device)
         assertEquals(listOf(0, 1800, 0), read.streams?.depth)
         assertEquals(switches, read.streams?.gasSwitches)
-        assertEquals(7, read.dive?.diveNumber)
+        assertEquals(7, read.dive?.header?.diveNumber)
     }
 
     @Test
@@ -305,7 +305,7 @@ class ActivityExporterTest {
 
         val read = ActivityFileReader(GarminJavaFitDecoder()).read(s.exporter.export(dive, ExportFormat.FIT).bytes).single()
         assertEquals(switches, read.streams?.gasSwitches)
-        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), read.dive?.gases)
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), read.dive?.header?.gases)
     }
 
     @Test
@@ -327,9 +327,9 @@ class ActivityExporterTest {
         val read = ActivityFileReader(GarminJavaFitDecoder()).read(s.exporter.export(dive, ExportFormat.FIT).bytes).single()
         assertEquals(Sport.DIVE, read.type.sport)
         assertEquals(listOf(0, 1800, 0), read.streams?.depth)
-        assertEquals(18.0, read.dive?.maxDepthMeters)
-        assertEquals(7, read.dive?.diveNumber)
-        assertEquals(listOf(DiveGas(32, 0)), read.dive?.gases)
+        assertEquals(18.0, read.dive?.header?.maxDepthMeters)
+        assertEquals(7, read.dive?.header?.diveNumber)
+        assertEquals(listOf(DiveGas(32, 0)), read.dive?.header?.gases)
     }
 
     @Test

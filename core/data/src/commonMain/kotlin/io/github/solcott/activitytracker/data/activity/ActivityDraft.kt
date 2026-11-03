@@ -372,8 +372,10 @@ data class ActivityDraft(
          */
         private fun diveFixes(dive: ImportedDive, imported: ImportedActivity): List<LocationSample> =
             listOfNotNull(
-                dive.entry?.let { LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt) },
-                dive.exit?.let { LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt + imported.elapsed) },
+                dive.header.entry?.let { LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt) },
+                dive.header.exit?.let {
+                    LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt + imported.elapsed)
+                },
             )
 
         /**

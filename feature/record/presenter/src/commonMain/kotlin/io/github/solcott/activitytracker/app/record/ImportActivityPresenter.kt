@@ -330,7 +330,10 @@ fun ImportActivityPresenter(
         }
         fileTitle = named
         // The file's notes (a logbook's, GPX `desc`, TCX `Notes`) start the description, for the athlete to keep, change or clear.
-        details.seed(description = first.description.takeIf { read.size == 1 }, diveSite = first.dive?.siteName.takeIf { read.size == 1 })
+        details.seed(
+            description = first.description.takeIf { read.size == 1 },
+            diveSite = first.dive?.header?.siteName.takeIf { read.size == 1 },
+        )
     }
 
     fun pick(sources: List<ImportSource>) {
@@ -689,23 +692,25 @@ private fun ImportedShifting.toPreview() =
     )
 
 private fun ImportedDive.toPreview() =
-    DivePreview(
-        maxDepthMeters = maxDepthMeters,
-        avgDepthMeters = avgDepthMeters,
-        minWaterTempCelsius = minWaterTempCelsius,
-        diveNumber = diveNumber,
-        surfaceIntervalMinutes = surfaceIntervalMinutes,
-        gradientFactorLow = gradientFactorLow,
-        gradientFactorHigh = gradientFactorHigh,
-        startCns = startCns,
-        endCns = endCns,
-        gases = gases.map { DiveGasPreview(it.oxygenPercent, it.heliumPercent) }.toImmutableList(),
-        closedCircuit = closedCircuit,
-        profile = StreamAnalytics.everyNth(profile).map { DepthPreviewPoint(it.seconds, it.depthMeters) }.toImmutableList(),
-        bottomTimeSeconds = bottomTimeSeconds?.roundToLong(),
-        oxygenToxicityOtu = oxygenToxicityOtu,
-        rmvLitersPerMinute = rmvLitersPerMinute,
-        sacBarPerMinute = sacBarPerMinute,
-        tanks = tanks.map { DiveTankPreview(it.startPressureBar, it.endPressureBar) }.toImmutableList(),
-        site = (entry ?: exit)?.let { DiveSitePreview(it.latitude, it.longitude) },
-    )
+    with(header) {
+        DivePreview(
+            maxDepthMeters = maxDepthMeters,
+            avgDepthMeters = avgDepthMeters,
+            minWaterTempCelsius = minWaterTempCelsius,
+            diveNumber = diveNumber,
+            surfaceIntervalMinutes = surfaceIntervalMinutes,
+            gradientFactorLow = gradientFactorLow,
+            gradientFactorHigh = gradientFactorHigh,
+            startCns = startCns,
+            endCns = endCns,
+            gases = gases.map { DiveGasPreview(it.oxygenPercent, it.heliumPercent) }.toImmutableList(),
+            closedCircuit = closedCircuit,
+            profile = StreamAnalytics.everyNth(profile).map { DepthPreviewPoint(it.seconds, it.depthMeters) }.toImmutableList(),
+            bottomTimeSeconds = bottomTimeSeconds?.roundToLong(),
+            oxygenToxicityOtu = oxygenToxicityOtu,
+            rmvLitersPerMinute = rmvLitersPerMinute,
+            sacBarPerMinute = sacBarPerMinute,
+            tanks = tanks.map { DiveTankPreview(it.startPressureBar, it.endPressureBar) }.toImmutableList(),
+            site = (entry ?: exit)?.let { DiveSitePreview(it.latitude, it.longitude) },
+        )
+    }

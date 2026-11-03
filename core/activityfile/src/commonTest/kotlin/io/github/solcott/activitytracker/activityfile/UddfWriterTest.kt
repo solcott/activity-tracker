@@ -39,25 +39,25 @@ class UddfWriterTest {
         assertEquals(2880.seconds, read.elapsed)
         assertEquals("Shearwater Perdix 2", read.device)
         val dive = read.dive!!
-        assertEquals(31.2, dive.maxDepthMeters)
-        assertEquals(22.1, dive.avgDepthMeters)
-        assertEquals(212, dive.diveNumber)
-        assertEquals(90, dive.surfaceIntervalMinutes)
-        assertEquals("Blue Hole", dive.siteName)
-        assertEquals(DivePosition(17.3155, -87.5347), dive.entry)
-        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), dive.gases)
-        assertEquals(29.1, dive.airTemperatureCelsius!!, 1e-9)
-        assertEquals(25.0, dive.visibilityMeters)
-        assertEquals(0.0, dive.altitudeMeters)
-        assertEquals(72_000.0, dive.noFlyTimeSeconds)
-        assertEquals(50_400.0, dive.desaturationTimeSeconds)
-        assertEquals(1.61, dive.highestPpO2Bar)
+        assertEquals(31.2, dive.header.maxDepthMeters)
+        assertEquals(22.1, dive.header.avgDepthMeters)
+        assertEquals(212, dive.header.diveNumber)
+        assertEquals(90, dive.header.surfaceIntervalMinutes)
+        assertEquals("Blue Hole", dive.header.siteName)
+        assertEquals(DivePosition(17.3155, -87.5347), dive.header.entry)
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), dive.header.gases)
+        assertEquals(29.1, dive.header.airTemperatureCelsius!!, 1e-9)
+        assertEquals(25.0, dive.header.visibilityMeters)
+        assertEquals(0.0, dive.header.altitudeMeters)
+        assertEquals(72_000.0, dive.header.noFlyTimeSeconds)
+        assertEquals(50_400.0, dive.header.desaturationTimeSeconds)
+        assertEquals(1.61, dive.header.highestPpO2Bar)
         assertEquals(
             listOf(
                 DiveTank(200.0, 84.8, null, volumeLiters = 11.1, gas = DiveGas(21, 0), sensor = "tank0"),
                 DiveTank(210.0, 162.0, null, volumeLiters = 5.7, gas = DiveGas(50, 0), sensor = "tank1"),
             ),
-            dive.tanks.map { it.copy(volumeLiters = it.volumeLiters?.let { v -> kotlin.math.round(v * 10) / 10 }) },
+            dive.header.tanks.map { it.copy(volumeLiters = it.volumeLiters?.let { v -> kotlin.math.round(v * 10) / 10 }) },
         )
         val back = read.streams!!
         assertEquals(streams.time, back.time)
@@ -128,8 +128,8 @@ class UddfWriterTest {
         val read = readBack(olderDive)
         assertEquals(start, read.startedAt)
         assertEquals(streams.depth, read.streams!!.depth)
-        assertEquals(31.2, read.dive!!.maxDepthMeters)
-        assertEquals(DiveGas(21, 0), read.dive.gases.first())
+        assertEquals(31.2, read.dive!!.header.maxDepthMeters)
+        assertEquals(DiveGas(21, 0), read.dive.header.gases.first())
         assertEquals(listOf(GasSwitch(0, 21, 0)), read.streams.gasSwitches)
     }
 
@@ -144,8 +144,8 @@ class UddfWriterTest {
         assertTrue("""<tankdata id="tank0"><link ref="mix-21-0"/></tankdata>""" in xml)
         assertTrue("""<tankdata id="tank1"><link ref="mix-50-0"/></tankdata>""" in xml)
         val read = readBack(noTanks)
-        assertEquals(emptyList(), read.dive!!.tanks, "a gas-only tank isn't imported as a tank")
-        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), read.dive.gases)
+        assertEquals(emptyList(), read.dive!!.header.tanks, "a gas-only tank isn't imported as a tank")
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), read.dive.header.gases)
         assertEquals(streams.gasSwitches, read.streams!!.gasSwitches)
 
         val oneTank = decoDive.copy(dive = decoDive.dive.copy(tanks = decoDive.dive.tanks!!.take(1)))
@@ -177,7 +177,7 @@ class UddfWriterTest {
         val ccr = decoDive.copy(dive = decoDive.dive!!.copy(closedCircuit = true))
         val xml = write(ccr)
         assertEquals(1, Regex("""<divemode type="closedcircuit"/>""").findAll(xml).count())
-        assertTrue(readBack(ccr).dive!!.closedCircuit)
+        assertTrue(readBack(ccr).dive!!.header.closedCircuit)
         assertFalse("divemode" in write(decoDive))
     }
 
@@ -186,7 +186,7 @@ class UddfWriterTest {
         val xml = write(olderDive)
         assertFalse("divesite" in xml)
         assertFalse("""<link ref="site"/>""" in xml)
-        assertNull(readBack(olderDive).dive!!.siteName)
+        assertNull(readBack(olderDive).dive!!.header.siteName)
     }
 
     @Test
@@ -211,7 +211,7 @@ class UddfWriterTest {
         assertTrue("<name>Dan&apos;s &lt;Reef&gt; &amp; &quot;Wall&quot;</name>" in xml)
         assertTrue("<model>A&amp;B &lt;DC&gt;</model>" in xml)
         val read = readBack(activity)
-        assertEquals("Dan's <Reef> & \"Wall\"", read.dive!!.siteName)
+        assertEquals("Dan's <Reef> & \"Wall\"", read.dive!!.header.siteName)
         assertEquals("A&B <DC>", read.device)
     }
 }
