@@ -2,10 +2,10 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
-import io.github.solcott.activitytracker.appview.db.GROUPING_MODES
 import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.groupableTracks
+import io.github.solcott.activitytracker.appview.db.groupingIn
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -18,6 +18,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -56,7 +57,7 @@ internal fun JdbcTransaction.deleteGroupPrefs(author: Did) {
 
 /** Whether [author]'s grouping choice is on now. */
 internal fun JdbcTransaction.groupingOn(author: Did): Boolean =
-    !GroupPrefs.select(GroupPrefs.did).where { (GroupPrefs.did eq author.value) and (GroupPrefs.mode inList GROUPING_MODES) }.empty()
+    !GroupPrefs.select(GroupPrefs.did).where { groupingIn(stringParam(author.value)) }.empty()
 
 /** Grouping off for [author]: their pairs go, and their segment tracks too unless segment matching still reads them. */
 private fun JdbcTransaction.dropGrouping(author: Did) {

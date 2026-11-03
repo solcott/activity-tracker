@@ -674,8 +674,11 @@ object GroupMode {
     /** Grouped with any opted-in athlete. */
     const val ANYONE = "anyone"
 
-    /** Whether [mode] lets the athlete be grouped: [CONNECTED] or [ANYONE], never an unknown value. */
-    fun isOn(mode: String?): Boolean = mode == CONNECTED || mode == ANYONE
+    /** The modes that let the athlete be grouped: [CONNECTED] and [ANYONE], never an unknown value. */
+    val ON: List<String> = listOf(CONNECTED, ANYONE)
+
+    /** Whether [mode] lets the athlete be grouped: one of [ON]. */
+    fun isOn(mode: String?): Boolean = mode in ON
 }
 
 /**

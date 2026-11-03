@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -17,6 +18,7 @@ import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 
@@ -40,10 +42,11 @@ internal fun JdbcTransaction.isMutual(a: String, b: String): Boolean = follows(a
 
 /** Whether [author]'s follow of [subject] is effective ([effectiveFollow]): who reads a `followers` space and sees Followers streams. */
 internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
-    !Follows.select(Follows.uri)
-        .where { (Follows.authorDid eq author) and (Follows.subjectDid eq subject) and effectiveFollow() }
-        .limit(1)
-        .empty()
+    !Follows.select(Follows.uri).where { effectivelyFollows(stringParam(author), stringParam(subject)) }.limit(1).empty()
+
+/** A [Follows] row of [author]'s for [subject] that counts ([effectiveFollow]): [follows] for expressions, such as a pair's columns. */
+internal fun effectivelyFollows(author: Expression<String>, subject: Expression<String>): Op<Boolean> =
+    (Follows.authorDid eq author) and (Follows.subjectDid eq subject) and effectiveFollow()
 
 /**
  * True for a `follows` row that counts: its subject's policy is open (no `approve` on their actor row, or no row at all), or the subject

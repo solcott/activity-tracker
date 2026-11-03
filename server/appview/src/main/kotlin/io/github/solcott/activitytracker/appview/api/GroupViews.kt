@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GROUPING_MODES
 import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.groupingIn
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
@@ -101,21 +102,16 @@ internal fun JdbcTransaction.partnersOf(
 
 /**
  * True while the pair row's two athletes may still be paired: both chose to be grouped, an effective follow either way unless both chose
- * Anyone, and no block between them.
+ * Anyone, and no block between them. `GroupPairing.mayPair` is the same rule for the indexer, which has the two modes in hand; both build
+ * on [groupingIn], [effectivelyFollows] and [blocked].
  */
 private fun pairRuleHolds(): Op<Boolean> {
     fun modeIn(author: Column<String>, modes: List<String>): Op<Boolean> =
-        exists(GroupPrefs.select(GroupPrefs.did).where { (GroupPrefs.did eq author) and (GroupPrefs.mode inList modes) })
+        exists(GroupPrefs.select(GroupPrefs.did).where { groupingIn(author, modes) })
     val a = ActivityGroupPairs.authorA
     val b = ActivityGroupPairs.authorB
     val bothAnyone = modeIn(a, listOf(GroupMode.ANYONE)) and modeIn(b, listOf(GroupMode.ANYONE))
-    val followed =
-        exists(
-            Follows.select(Follows.uri).where {
-                (((Follows.authorDid eq a) and (Follows.subjectDid eq b)) or ((Follows.authorDid eq b) and (Follows.subjectDid eq a))) and
-                    effectiveFollow()
-            }
-        )
+    val followed = exists(Follows.select(Follows.uri).where { effectivelyFollows(a, b) or effectivelyFollows(b, a) })
     return modeIn(a, GROUPING_MODES) and modeIn(b, GROUPING_MODES) and (bothAnyone or followed) and not(blocked(a, b))
 }
 

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.matchingOn
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -23,6 +24,7 @@ import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -136,7 +138,7 @@ internal fun JdbcTransaction.deleteSegmentPrefs(author: Did) {
 
 /** Whether [author]'s segment matching setting is on now. */
 internal fun JdbcTransaction.segmentMatchingOn(author: Did): Boolean =
-    !SegmentPrefs.select(SegmentPrefs.did).where { (SegmentPrefs.did eq author.value) and (SegmentPrefs.matching eq true) }.empty()
+    !SegmentPrefs.select(SegmentPrefs.did).where { matchingOn(stringParam(author.value)) }.empty()
 
 /**
  * Segment matching off for [author]: every effort matched from their tracks and their riders of staged candidates go (a candidate they made

@@ -187,7 +187,8 @@ internal class GroupPairing(private val db: Database, private val blobs: SpaceBl
 
 /**
  * Whether athletes [a] and [b], with grouping choices [modeA] and [modeB], may be paired now (feed/group-activities "Who may be paired"):
- * both on, an effective follow either way when either chose [GroupMode.CONNECTED], and no block between them.
+ * both on, an effective follow either way when either chose [GroupMode.CONNECTED], and no block between them. `GroupViews.pairRuleHolds` is
+ * the same rule as SQL, rechecked when pairs are read; change both together.
  */
 @Suppress("ReturnCount") // Each part of the rule.
 internal fun JdbcTransaction.mayPair(a: String, modeA: String, b: String, modeB: String): Boolean {
