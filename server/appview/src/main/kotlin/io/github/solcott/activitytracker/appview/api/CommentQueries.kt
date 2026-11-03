@@ -135,7 +135,7 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
 internal const val UNKNOWN_HANDLE = "handle.invalid"
 
 /** A comment row's place in a keyset on (created_at, uri). */
-internal fun commentCursor(row: ResultRow): String = "${row[Comments.createdAt]}::${row[Comments.uri]}"
+internal fun commentCursor(row: ResultRow): String = cursorOf(row[Comments.createdAt], row[Comments.uri])
 
 /** Replies listed with each thread in a page of threads; the rest come a page at a time with `root`. */
 private const val FIRST_REPLIES = 3
@@ -178,7 +178,7 @@ internal fun JdbcTransaction.threadPage(
             .orderBy(first to SortOrder.ASC, Comments.threadUri to SortOrder.ASC)
             .limit(pageSize)
             .toList()
-    val next = threads.takeIf { it.size == pageSize }?.last()?.let { "${it[first]}::${it[Comments.threadUri]}" }
+    val next = threads.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[first], it[Comments.threadUri]) }
     val threadUris = threads.map { it[Comments.threadUri] }
     if (threadUris.isEmpty()) return GetComments.Output(params.uri, emptyList(), next, emptyList())
     val isRoot = Comments.uri eq Comments.threadUri

@@ -55,9 +55,18 @@ internal fun keysetAfter(sort: Column<Long>, uri: Column<String>, cursor: String
 
 /** Splits a `"<sort>::<key>"` cursor; null when it is malformed. */
 internal fun parseCursor(cursor: String): Pair<Long, String>? {
-    val (sortAt, uri) = cursor.split("::", limit = 2).takeIf { it.size == 2 } ?: return null
+    val (sortAt, uri) = cursorParts(cursor, 2) ?: return null
     return sortAt.toLongOrNull()?.let { it to uri }
 }
+
+/** A keyset cursor of [parts], each written as a string and joined by `::`, as [cursorParts] reads it back. */
+internal fun cursorOf(vararg parts: Any?): String = parts.joinToString(CURSOR_SEPARATOR)
+
+/** The [count] `::`-separated parts of [cursor], the last taking the rest; null when it has fewer. */
+internal fun cursorParts(cursor: String, count: Int): List<String>? =
+    cursor.split(CURSOR_SEPARATOR, limit = count).takeIf { it.size == count }
+
+private const val CURSOR_SEPARATOR = "::"
 
 /** Basic views of [dids], with each account's labels, in two queries. */
 internal fun JdbcTransaction.basicProfiles(dids: Collection<String>, avatars: AvatarUrls): Map<String, ProfileViewBasic> {

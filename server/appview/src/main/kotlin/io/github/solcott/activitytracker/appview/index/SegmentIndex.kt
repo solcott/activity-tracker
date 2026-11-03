@@ -78,8 +78,7 @@ internal fun JdbcTransaction.deleteSegments(collection: String, uri: AtUri) {
  * false when only its leaderboard exclusion did, so it needn't be matched again. A changed group exclusion counts as a change.
  */
 internal fun JdbcTransaction.upsertSegmentTrack(record: SegmentTrackRecord, author: Did, uri: AtUri, now: Long): Boolean {
-    require(record.activity.authority == author.value && record.activity.collection == Nsid.FEED_ACTIVITY) { "another's activity" }
-    require(record.activity.rkey == uri.rkey) { "a segment track under another rkey" }
+    requireOwnActivityChild(record.activity, author, uri, "segment track")
     val cid = requireNotNull(record.data?.ref?.link) { "no data blob" }
     val revision = record.zonesRevision?.take(MAX_REVISION_LENGTH)
     val stored =

@@ -348,10 +348,10 @@ internal fun JdbcTransaction.actorGearPage(author: String, viewer: Did?, cursor:
 
 /** The cursor [actorGearPage] reads for [row]. */
 internal fun actorGearCursor(row: ResultRow): String =
-    "${if (row[GearItems.retiredAt] == null) 0 else 1}::${row[GearItems.uri]}::${row[GearItems.name]}"
+    cursorOf(if (row[GearItems.retiredAt] == null) 0 else 1, row[GearItems.uri], row[GearItems.name])
 
 private fun gearAfter(cursor: String?): Op<Boolean> {
-    val parts = cursor?.split("::", limit = 3)?.takeIf { it.size == 3 && it[0] in setOf("0", "1") } ?: return Op.TRUE
+    val parts = cursor?.let { cursorParts(it, 3) }?.takeIf { it[0] in setOf("0", "1") } ?: return Op.TRUE
     val (flag, uri, name) = parts
     val later = (GearItems.name greater name) or ((GearItems.name eq name) and (GearItems.uri greater uri))
     return if (flag == "0") (GearItems.retiredAt.isNull() and later) or GearItems.retiredAt.isNotNull()

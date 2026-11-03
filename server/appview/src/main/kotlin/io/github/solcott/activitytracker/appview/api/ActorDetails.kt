@@ -20,6 +20,7 @@ import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
 
 /**
@@ -47,6 +48,10 @@ internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
 /** A [Follows] row of [author]'s for [subject] that counts ([effectiveFollow]): [follows] for expressions, such as a pair's columns. */
 internal fun effectivelyFollows(author: Expression<String>, subject: Expression<String>): Op<Boolean> =
     (Follows.authorDid eq author) and (Follows.subjectDid eq subject) and effectiveFollow()
+
+/** The accounts [author] effectively follows ([effectiveFollow]), as a subquery: they may follow more than a query takes parameters. */
+internal fun effectivelyFollowedBy(author: String): Query =
+    Follows.select(Follows.subjectDid).where { (Follows.authorDid eq author) and effectiveFollow() }
 
 /**
  * True for a `follows` row that counts: its subject's policy is open (no `approve` on their actor row, or no row at all), or the subject

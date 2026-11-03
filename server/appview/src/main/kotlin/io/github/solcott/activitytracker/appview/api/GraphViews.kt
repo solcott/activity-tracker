@@ -49,22 +49,11 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
      * live in the athlete's own space, which the AppView never sees, so the client filters them out. Keyset pagination as [followPage].
      */
     suspend fun followRequests(viewer: Did, params: GetFollowRequests.Params): GetFollowRequests.Output = db.tx {
-        val pageSize = Paging.clamp(params.limit)
-        val rows =
-            Follows.select(Follows.uri, Follows.indexedAt, Follows.authorDid)
-                .where {
-                    // A follow a block makes ineffective isn't a request: the requester is blocked, not waiting.
-                    (Follows.subjectDid eq viewer.value) and
-                        not(effectiveFollow()) and
-                        not(blocked(Follows.authorDid, Follows.subjectDid)) and
-                        keysetBefore(Follows.indexedAt, Follows.uri, params.cursor)
-                }
-                .orderBy(Follows.indexedAt to SortOrder.DESC, Follows.uri to SortOrder.DESC)
-                .limit(pageSize)
-                .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Follows.indexedAt]}::${it[Follows.uri]}" }
-        val profiles = basicProfiles(rows.map { it[Follows.authorDid] }, avatars)
-        GetFollowRequests.Output(rows.mapNotNull { profiles[it[Follows.authorDid]] }.distinctBy { it.did }, next)
+        // A follow a block makes ineffective isn't a request: the requester is blocked, not waiting.
+        val pending =
+            (Follows.subjectDid eq viewer.value) and not(effectiveFollow()) and not(blocked(Follows.authorDid, Follows.subjectDid))
+        val (accounts, cursor) = followProfiles(pending, Follows.authorDid, params.limit, params.cursor)
+        GetFollowRequests.Output(accounts, cursor)
     }
 
     /** [actor]'s profile; an athlete [viewer] may not know of ([resolveShownActor]) answers as an unknown one, as `getProfile` does. */
@@ -119,21 +108,27 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
         other: Column<String>,
         limit: Int?,
         cursor: String?,
+    ): Pair<List<ProfileViewBasic>, String?> =
+        followProfiles(match and effectiveFollow() and notBlocked(viewer, other) and listed(viewer, other), other, limit, cursor)
+
+    /**
+     * Follows [where] admits, newest indexed first, as profiles of the [other] side: the page [followPage] and [followRequests] share,
+     * keyed on (indexed_at, uri) descending.
+     */
+    private fun JdbcTransaction.followProfiles(
+        where: Op<Boolean>,
+        other: Column<String>,
+        limit: Int?,
+        cursor: String?,
     ): Pair<List<ProfileViewBasic>, String?> {
         val pageSize = Paging.clamp(limit)
         val rows =
             Follows.select(Follows.uri, Follows.indexedAt, other)
-                .where {
-                    match and
-                        effectiveFollow() and
-                        notBlocked(viewer, other) and
-                        listed(viewer, other) and
-                        keysetBefore(Follows.indexedAt, Follows.uri, cursor)
-                }
+                .where { where and keysetBefore(Follows.indexedAt, Follows.uri, cursor) }
                 .orderBy(Follows.indexedAt to SortOrder.DESC, Follows.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Follows.indexedAt]}::${it[Follows.uri]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Follows.indexedAt], it[Follows.uri]) }
         val profiles = basicProfiles(rows.map { it[other] }, avatars)
         // An account can be followed more than once (duplicate records); list it once.
         return rows.mapNotNull { profiles[it[other]] }.distinctBy { it.did } to next

@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlinx.serialization.json.JsonObject
@@ -28,9 +27,7 @@ internal fun JdbcTransaction.upsertZones(
     now: Long,
 ) {
     val activity = record.activity
-    require(activity.authority == author.value && activity.collection == Nsid.FEED_ACTIVITY && activity.rkey == uri.rkey) {
-        "zones not under their activity's rkey"
-    }
+    requireOwnActivityChild(activity, author, uri, "zones")
     ActivityZones.upsert {
         it[ActivityZones.uri] = uri.value
         it[ActivityZones.cid] = cid

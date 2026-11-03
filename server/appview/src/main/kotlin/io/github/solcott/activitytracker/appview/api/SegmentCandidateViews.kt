@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.appview.index.MAX_LINE_CHARS
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
-import io.github.solcott.activitytracker.appview.index.e7
+import io.github.solcott.activitytracker.appview.index.setBox
 import io.github.solcott.activitytracker.appview.index.validAttribution
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
@@ -213,10 +213,13 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.name] = staged.name.take(MAX_NAME_LENGTH)
             this[SegmentCandidateRows.line] = candidate.line
             this[SegmentCandidateRows.distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
-            this[SegmentCandidateRows.minLatE7] = line.minOf { p -> p.lat }.e7()
-            this[SegmentCandidateRows.maxLatE7] = line.maxOf { p -> p.lat }.e7()
-            this[SegmentCandidateRows.minLngE7] = line.minOf { p -> p.lng }.e7()
-            this[SegmentCandidateRows.maxLngE7] = line.maxOf { p -> p.lng }.e7()
+            setBox(
+                line,
+                SegmentCandidateRows.minLatE7,
+                SegmentCandidateRows.maxLatE7,
+                SegmentCandidateRows.minLngE7,
+                SegmentCandidateRows.maxLngE7,
+            )
             this[SegmentCandidateRows.dataSource] = candidate.source
             this[SegmentCandidateRows.license] = candidate.license
             this[SegmentCandidateRows.attribution] = staged.attribution

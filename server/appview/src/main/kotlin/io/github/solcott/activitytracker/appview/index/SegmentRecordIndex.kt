@@ -22,12 +22,14 @@ import java.text.BreakIterator
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonObject
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -105,10 +107,7 @@ internal fun JdbcTransaction.upsertSegment(
         it[Segments.line] = record.line
         it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
-        it[minLatE7] = line.minOf { p -> p.lat }.e7()
-        it[maxLatE7] = line.maxOf { p -> p.lat }.e7()
-        it[minLngE7] = line.minOf { p -> p.lng }.e7()
-        it[maxLngE7] = line.maxOf { p -> p.lng }.e7()
+        it.setBox(line, minLatE7, maxLatE7, minLngE7, maxLngE7)
         it[dataSource] = record.source.take(MAX_TOKEN_LENGTH)
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[indexedAt] = now
@@ -247,6 +246,20 @@ private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint
 }
 
 internal fun Double.e7(): Int = (this * E7).roundToInt()
+
+/** Sets [line]'s bounding box, in degrees × 10^7, on the four columns that hold it: a segment's or a staged candidate's. */
+internal fun UpdateBuilder<*>.setBox(
+    line: List<GeoPoint>,
+    minLat: Column<Int>,
+    maxLat: Column<Int>,
+    minLng: Column<Int>,
+    maxLng: Column<Int>,
+) {
+    this[minLat] = line.minOf { it.lat }.e7()
+    this[maxLat] = line.maxOf { it.lat }.e7()
+    this[minLng] = line.minOf { it.lng }.e7()
+    this[maxLng] = line.maxOf { it.lng }.e7()
+}
 
 private fun graphemes(text: String): Int {
     val breaks = BreakIterator.getCharacterInstance().apply { setText(text) }

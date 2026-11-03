@@ -28,9 +28,7 @@ internal fun JdbcTransaction.upsertDetails(
 ) {
     require(placement.origin != Origins.REPO) { "details in a repo" }
     val activity = record.activity
-    require(activity.authority == author.value && activity.collection == Nsid.FEED_ACTIVITY && activity.rkey == uri.rkey) {
-        "details not under their activity's rkey"
-    }
+    requireOwnActivityChild(activity, author, uri, "details")
     // Re-encoded through the shared model, so only the fields it knows are stored; a polyline over the lexicon's limit is dropped.
     val bounded = record.copy(polyline = record.polyline?.takeIf { it.length <= MAX_POLYLINE_LENGTH })
     ActivityDetails.upsert {
@@ -48,3 +46,13 @@ internal fun JdbcTransaction.upsertDetails(
 
 // The lexicon's maxLength for polyline.
 private const val MAX_POLYLINE_LENGTH = 50_000
+
+/**
+ * Requires the record at [uri], a [what] of [activity], to sit under that activity's rkey in [author]'s own repo or spaces: a child record
+ * (details, streams, zones, a segment track) only ever belongs to its own athlete's activity. Throws [IllegalArgumentException] otherwise.
+ */
+internal fun requireOwnActivityChild(activity: AtUri, author: Did, uri: AtUri, what: String) {
+    require(activity.authority == author.value && activity.collection == Nsid.FEED_ACTIVITY && activity.rkey == uri.rkey) {
+        "$what not under their activity's rkey"
+    }
+}

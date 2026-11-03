@@ -67,7 +67,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 class Views(private val db: Database, private val avatars: AvatarUrls, private val mediaUrls: MediaUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         // A subquery rather than a list of DIDs: an athlete may follow more accounts than a query takes parameters.
-        val followed = Follows.select(Follows.subjectDid).where { (Follows.authorDid eq viewer.value) and effectiveFollow() }
+        val followed = effectivelyFollowedBy(viewer.value)
         val authors = (Activities.authorDid eq viewer.value) or (Activities.authorDid inSubQuery followed)
         val filter = feedFilter(params.type, params.since, params.until)
         // A muted athlete's activities leave only the muter's timeline; their profile still lists them.
@@ -109,7 +109,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 else -> views[key]?.let(TimelineItem::Activity)
             }
         }
-        val next = page.takeIf { entries.size > pageSize || activityRows.size == pageSize }?.last()?.let { "${it.first}::${it.second}" }
+        val next = page.takeIf { entries.size > pageSize || activityRows.size == pageSize }?.last()?.let { cursorOf(it.first, it.second) }
         return GetTimeline.Output(feed, next)
     }
 
@@ -162,7 +162,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.startedAt]}::${it[Activities.uri]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
         GetAuthorActivitiesByStart.Output(hydrate(rows, viewer), next)
     }
 
@@ -202,7 +202,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         requireVisibleGear(params.uri.value, viewer)
         val pageSize = Paging.clamp(params.limit)
         val rows = countedActivities(viewer, params.uri.value, params.cursor, pageSize).toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.startedAt]}::${it[Activities.uri]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
         GetGearActivities.Output(hydrate(rows, viewer), next)
     }
 
@@ -273,7 +273,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[latest]}::${it[Likes.authorDid]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Likes.authorDid]) }
         val profiles = basicProfiles(rows.map { it[Likes.authorDid] }, avatars)
         GetLikes.Output(params.uri, rows.mapNotNull { profiles[it[Likes.authorDid]] }, next)
     }
@@ -335,7 +335,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(sort to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[sort]}::${it[Activities.uri]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[sort], it[Activities.uri]) }
         return hydrate(rows, viewer) to next
     }
 
@@ -521,7 +521,7 @@ private fun feedFilter(types: List<String>?, since: Instant?, until: Instant?): 
 private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
 
 /** The athlete whose activity [uri] is; [notFound] when the viewer may not see it, as if it didn't exist. */
-private fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): String =
+internal fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): String =
     Activities.select(Activities.authorDid)
         .where { (Activities.uri eq uri) and visibleTo(viewer) }
         .singleOrNull()

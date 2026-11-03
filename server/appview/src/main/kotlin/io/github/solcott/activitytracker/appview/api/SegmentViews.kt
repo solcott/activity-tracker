@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
-import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -176,13 +175,13 @@ class SegmentViews(
                         .limit(searchBatch)
                         .toList()
                 exhausted = page.size < searchBatch
-                page.lastOrNull()?.let { cursor = "${it[Segments.indexedAt]}::${it[Segments.uri]}" }
+                page.lastOrNull()?.let { cursor = cursorOf(it[Segments.indexedAt], it[Segments.uri]) }
                 found += page.filter { crosses(it[Segments.line], minLat, minLng, maxLat, maxLng) }
             }
             val shown = found.take(limit)
             val next =
                 when {
-                    found.size > limit -> shown.last().let { "${it[Segments.indexedAt]}::${it[Segments.uri]}" }
+                    found.size > limit -> shown.last().let { cursorOf(it[Segments.indexedAt], it[Segments.uri]) }
                     exhausted -> null
                     else -> cursor
                 }
@@ -196,8 +195,7 @@ class SegmentViews(
      * why they aren't ranked (segments/segment-efforts).
      */
     suspend fun activitySegments(viewer: Did?, params: GetActivitySegments.Params): GetActivitySegments.Output = db.tx {
-        val visible = Activities.select(Activities.uri).where { (Activities.uri eq params.activity.value) and visibleTo(viewer) }.any()
-        if (!visible) throw notFound("Activity not found")
+        requireVisibleActivity(params.activity.value, viewer)
         val efforts = effortViews(viewer, SegmentEfforts.activityUri eq params.activity.value)
         val sport = Activities.select(Activities.sport).where { Activities.uri eq params.activity.value }.first()[Activities.sport]
         val own = viewer != null && params.activity.authority == viewer.value
@@ -223,8 +221,7 @@ class SegmentViews(
 
     /** One athlete's efforts on a segment the viewer may see, fastest first; `NotFound` when the segment isn't served. */
     suspend fun segmentEfforts(viewer: Did?, params: GetSegmentEfforts.Params): GetSegmentEfforts.Output = db.tx {
-        if (!Segments.select(Segments.uri).where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }.any())
-            throw notFound("Segment not found")
+        requireServedSegment(viewer, params.segment.value)
         val athlete = resolveShownActor(viewer, params.actor) ?: return@tx GetSegmentEfforts.Output(emptyList())
         val limit = Paging.clamp(params.limit)
         val efforts =
@@ -236,7 +233,7 @@ class SegmentViews(
                 order = listOf(SegmentEfforts.elapsedS to SortOrder.ASC, SegmentEfforts.id to SortOrder.ASC),
                 limit = limit,
             )
-        val next = efforts.takeIf { it.size == limit }?.last()?.let { "${it.elapsed}::${effortId(it)}" }
+        val next = efforts.takeIf { it.size == limit }?.last()?.let { cursorOf(it.elapsed, effortId(it)) }
         GetSegmentEfforts.Output(efforts, next)
     }
 
@@ -250,12 +247,7 @@ class SegmentViews(
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
-            val status =
-                Segments.select(Segments.status)
-                    .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
-                    .firstOrNull()
-                    ?.get(Segments.status) ?: throw notFound("Segment not found")
-            if (status != SegmentStatus.ACTIVE)
+            if (requireServedSegment(viewer, params.segment.value) != SegmentStatus.ACTIVE)
                 return@tx GetSegmentLeaderboard.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentLeaderboard.Output(emptyList())
@@ -271,7 +263,7 @@ class SegmentViews(
                     row[BEST]?.let { row[SegmentEfforts.authorDid] to it }
                 }
             val entries = entries(viewer, board, page)
-            val next = page.takeIf { it.size == limit }?.last()?.let { (did, best) -> "$best::$did" }
+            val next = page.takeIf { it.size == limit }?.last()?.let { (did, best) -> cursorOf(best, did) }
             val own = viewer?.let { me ->
                 bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
             }
@@ -292,12 +284,7 @@ class SegmentViews(
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
-            val status =
-                Segments.select(Segments.status)
-                    .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
-                    .firstOrNull()
-                    ?.get(Segments.status) ?: throw notFound("Segment not found")
-            if (status != SegmentStatus.ACTIVE)
+            if (requireServedSegment(viewer, params.segment.value) != SegmentStatus.ACTIVE)
                 return@tx GetSegmentMayors.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentMayors.Output(emptyList())
@@ -315,7 +302,7 @@ class SegmentViews(
                     .limit(limit)
                     .mapNotNull(::mayorRow)
             val entries = mayorEntries(board, page)
-            val next = page.takeIf { it.size == limit }?.last()?.let { (did, efforts, reached) -> "$efforts::$reached::$did" }
+            val next = page.takeIf { it.size == limit }?.last()?.let { (did, efforts, reached) -> cursorOf(efforts, reached, did) }
             val own = viewer?.let { me -> counts(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.let(::mayorRow) }
             GetSegmentMayors.Output(entries, own?.let { mayorEntries(board, listOf(it)).singleOrNull() }, next, served, boards)
         }
@@ -350,6 +337,11 @@ class SegmentViews(
             )
         return active or ((Segments.status eq SegmentStatus.PROPOSED) and ((Segments.authorDid eq viewer.value) or ridden))
     }
+
+    /** The status of [segment] when it's served to [viewer] ([segmentServed]); `NotFound` when it isn't. */
+    private fun JdbcTransaction.requireServedSegment(viewer: Did?, segment: String): String =
+        Segments.select(Segments.status).where { (Segments.uri eq segment) and segmentServed(viewer) }.firstOrNull()?.get(Segments.status)
+            ?: throw notFound("Segment not found")
 
     /** Segments served to [viewer]: not of an account that isn't served, nor taken down. */
     private fun segmentServed(viewer: Did?): Op<Boolean> = served(viewer, Segments.authorDid, Segments.uri, Segments.cid)
@@ -447,9 +439,7 @@ class SegmentViews(
             (since?.let { SegmentEfforts.startedOn greaterEq it } ?: Op.TRUE) and
             (until?.let { SegmentEfforts.startedOn less it } ?: Op.TRUE) and
             (if (following && own != null) {
-                (SegmentEfforts.authorDid eq own) or
-                    (SegmentEfforts.authorDid inSubQuery
-                        Follows.select(Follows.subjectDid).where { (Follows.authorDid eq own) and effectiveFollow() })
+                (SegmentEfforts.authorDid eq own) or (SegmentEfforts.authorDid inSubQuery effectivelyFollowedBy(own))
             } else Op.TRUE)
     }
 
@@ -752,8 +742,7 @@ class SegmentViews(
 
         /** Splits a `"<count>::<date>::<did>"` Mayors cursor; null when it is malformed. */
         private fun parseMayorCursor(cursor: String): Triple<Long, String, String>? {
-            val (efforts, reached, did) =
-                cursor.split("::", limit = MAYOR_CURSOR_PARTS).takeIf { it.size == MAYOR_CURSOR_PARTS } ?: return null
+            val (efforts, reached, did) = cursorParts(cursor, MAYOR_CURSOR_PARTS) ?: return null
             return efforts.toLongOrNull()?.let { Triple(it, reached, did) }
         }
 

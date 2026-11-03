@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -39,9 +38,7 @@ internal fun JdbcTransaction.upsertStreams(
     now: Long,
 ) {
     val activity = record.activity
-    require(activity.authority == author.value && activity.collection == Nsid.FEED_ACTIVITY && activity.rkey == uri.rkey) {
-        "streams not under their activity's rkey"
-    }
+    requireOwnActivityChild(activity, author, uri, "streams")
     val blob = requireNotNull(record.data?.ref?.link?.takeIf(ProfileDetailRules::isCid)) { "no data blob" }
     val replaced = streamBlobs { (ActivityStreams.uri eq uri.value) and (ActivityStreams.origin eq placement.origin) }
     ActivityStreams.upsert {
