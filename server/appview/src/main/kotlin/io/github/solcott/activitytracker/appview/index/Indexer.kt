@@ -338,7 +338,7 @@ class Indexer(
 
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
-                    updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
+                    writeProfile(author, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), now)
             }
         }
     }
@@ -428,22 +428,7 @@ class Indexer(
             }
 
             Nsid.ACTOR_PROFILE -> {
-                Actors.update({ Actors.did eq uri.authority }) {
-                    it[displayName] = null
-                    it[description] = null
-                    it[units] = null
-                    it[avatarCid] = null
-                    it[avatarMime] = null
-                    it[locality] = null
-                    it[region] = null
-                    it[country] = null
-                    it[birthDate] = null
-                    it[gender] = null
-                    it[weightGrams] = null
-                    it[heightMm] = null
-                    it[training] = null
-                    it[followPolicy] = null
-                }
+                if (uri.rkey == ProfileRecord.RKEY) writeProfile(Did(uri.authority), null, clock.now().toEpochMilliseconds())
             }
         }
     }
@@ -705,15 +690,16 @@ private fun JdbcTransaction.upsertApproval(record: FollowApprovalRecord, author:
     }
 }
 
-private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
-    val avatar = ProfileDetailRules.avatarCid(record.avatar)
-    val details = ProfileDetailRules.sanitize(record.details)
+/** Writes every profile column of [author] from [record], or clears them all when it's deleted (null), so no column outlives it. */
+private fun JdbcTransaction.writeProfile(author: Did, record: ProfileRecord?, now: Long) {
+    val avatar = record?.let { ProfileDetailRules.avatarCid(it.avatar) }
+    val details = record?.let { ProfileDetailRules.sanitize(it.details) }
     Actors.update({ Actors.did eq author.value }) {
-        it[displayName] = record.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
-        it[description] = record.description?.take(MAX_DESCRIPTION_LENGTH)
-        it[units] = record.units?.take(MAX_UNITS_LENGTH)
+        it[displayName] = record?.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
+        it[description] = record?.description?.take(MAX_DESCRIPTION_LENGTH)
+        it[units] = record?.units?.take(MAX_UNITS_LENGTH)
         it[avatarCid] = avatar
-        it[avatarMime] = record.avatar?.mimeType?.takeIf { avatar != null }
+        it[avatarMime] = record?.avatar?.mimeType?.takeIf { avatar != null }
         it[locality] = details?.location?.locality
         it[region] = details?.location?.region
         it[country] = details?.location?.country
@@ -722,7 +708,7 @@ private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, no
         it[weightGrams] = details?.weight
         it[heightMm] = details?.height
         it[training] = ProfileDetailRules.encodeTraining(details?.training)
-        it[followPolicy] = record.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
+        it[followPolicy] = record?.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
         it[indexedAt] = now
     }
 }
