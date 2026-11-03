@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.atproto.identity.HandleNotFoundExceptio
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.toDataError
 import io.github.solcott.dataresult.DataError
+import io.ktor.http.decodeURLQueryComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -100,38 +101,5 @@ fun parseRedirectParams(url: String): Map<String, String> =
             k.decodeUrlComponent() to v.decodeUrlComponent()
         }
 
-private const val HEX_RADIX = 16
-private const val PERCENT_HEX_DIGITS = 2
-
-private fun String.decodeUrlComponent(): String {
-    val bytes = ArrayList<Byte>(length)
-    var i = 0
-    while (i < length) {
-        when (val c = this[i]) {
-            '%' -> {
-                // A stray or cut-off escape (`?x=%`, `%zz`) is kept as written rather than failing the whole redirect.
-                val escape = substring(i + 1, minOf(length, i + 1 + PERCENT_HEX_DIGITS))
-                val byte =
-                    escape
-                        .takeIf { it.length == PERCENT_HEX_DIGITS && it.all { c -> c.digitToIntOrNull(HEX_RADIX) != null } }
-                        ?.toInt(HEX_RADIX)
-                if (byte == null) {
-                    bytes += '%'.code.toByte()
-                } else {
-                    bytes += byte.toByte()
-                    i += PERCENT_HEX_DIGITS
-                }
-            }
-
-            '+' -> {
-                bytes += ' '.code.toByte()
-            }
-
-            else -> {
-                c.toString().encodeToByteArray().forEach { bytes += it }
-            }
-        }
-        i++
-    }
-    return bytes.toByteArray().decodeToString()
-}
+// A stray or cut-off escape (`?x=%`, `%zz`) keeps the component as written rather than failing the whole redirect.
+private fun String.decodeUrlComponent(): String = runCatching { decodeURLQueryComponent(plusIsSpace = true) }.getOrDefault(this)
