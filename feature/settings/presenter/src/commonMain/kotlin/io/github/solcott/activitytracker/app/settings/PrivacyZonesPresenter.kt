@@ -13,6 +13,7 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -25,9 +26,6 @@ import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.location.LocationTracker
-import io.github.solcott.dataresult.Origin
-import io.github.solcott.uistate.ContentState
-import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
@@ -95,7 +93,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
 
     val current = settings
     return PrivacyZonesState(
-        content = if (readable) loaded.formContent(seeded = seed != null) else ContentState(Unit, Origin.Network, LoadStatus.Idle),
+        content = if (readable) loaded.formContent(seeded = seed != null) else readyFormContent(),
         zones = current?.zones?.toImmutableList(),
         hideEndsMeters = current?.hideEndsMeters ?: 0,
         choices = CHOICES,

@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
+import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -60,7 +61,6 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.dataresult.mapData
-import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.isLoading
@@ -284,7 +284,7 @@ fun ActivityDetailPresenter(
             copyGroupError = ownCopy.error,
         )
     }
-    return ActivityDetailState(ContentState(page, content.origin, content.status), sink)
+    return ActivityDetailState(content.mapContent { page }, sink)
 }
 
 /** The owner's delete, ungroup, split and member removal: [state] is null on someone else's activity. */

@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearCollection
@@ -21,7 +22,6 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.dataresult.mapData
-import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
@@ -46,7 +46,7 @@ fun GearListPresenter(navigator: Navigator, gear: GearRepository, collections: G
         produceRetainedContentState(LoadedGear(), Triple(retryKey, changes, collectionChanges)) {
             gear.gearAndCollectionsOutcome().map { outcome -> outcome.mapData { LoadedGear(it.items, it.collections) } }
         }
-    val lists = remember(content, totals) { content.map { listsOf(it.items, gear.did, totals, it.collections) } }
+    val lists = remember(content, totals) { content.mapContent { listsOf(it.items, gear.did, totals, it.collections) } }
     return GearListState(lists) { event ->
         when (event) {
             GearListEvent.Back -> navigator.pop()
@@ -62,8 +62,6 @@ fun GearListPresenter(navigator: Navigator, gear: GearRepository, collections: G
 
 /** The items and collections as read, wrapped so an empty first answer differs from the placeholder before it only by its load status. */
 private data class LoadedGear(val items: List<GearItem> = emptyList(), val collections: List<GearCollection> = emptyList())
-
-private fun <T, R> ContentState<T>.map(transform: (T) -> R): ContentState<R> = ContentState(transform(data), origin, status)
 
 /**
  * [items] as the list shows them: [collections] by name, active items grouped by type in picker order (unknown types under Other), then the

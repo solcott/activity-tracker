@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
+import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -43,9 +44,6 @@ import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearMounts
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.dataresult.Origin
-import io.github.solcott.uistate.ContentState
-import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.math.roundToLong
 import kotlin.time.Clock
@@ -212,7 +210,7 @@ fun EditGearPresenter(
         }
     }
 
-    val content = if (rkey == null) ContentState(Unit, Origin.Network, LoadStatus.Idle) else loaded.formContent(seeded = seed != null)
+    val content = if (rkey == null) readyFormContent() else loaded.formContent(seeded = seed != null)
     return EditGearState(
         content = content,
         isNew = rkey == null,
