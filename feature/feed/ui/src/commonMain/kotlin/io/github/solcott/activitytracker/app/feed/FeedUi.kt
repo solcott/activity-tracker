@@ -38,6 +38,7 @@ import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -56,7 +57,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -246,7 +246,7 @@ private fun Timeline(
                     showProgress = showRefreshProgress,
                 )
             }
-            state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
+            state.error?.let { item { ErrorText(it) } }
             if (state.askSegments) item { SegmentsPrompt(state) }
             if (state.askGroups) item { GroupsPrompt(state) }
             timelineItems(state)

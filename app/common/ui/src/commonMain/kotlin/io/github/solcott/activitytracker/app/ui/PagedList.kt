@@ -1,9 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -142,12 +140,5 @@ private fun FailedColumn(error: UiError, onRetry: () -> Unit, firstPage: Boolean
 
 @Composable
 private fun FailedRow(error: UiError, onRetry: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag(TestTags.REFRESH_ERROR),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(errorText(error), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-        AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
-    }
+    ErrorRetryRow(error, onRetry, Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag(TestTags.REFRESH_ERROR))
 }

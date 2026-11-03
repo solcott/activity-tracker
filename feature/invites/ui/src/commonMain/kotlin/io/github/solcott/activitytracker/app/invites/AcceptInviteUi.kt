@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.RoutePreview
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -24,7 +25,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.accept_invite_accept
 import io.github.solcott.activitytracker.composeApp.resources.accept_invite_accepting
@@ -79,7 +79,7 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
                 )
                 ActivityVisibilityForm(state.visibility, enabled = !busy)
                 state.error?.let { error ->
-                    Text(errorText(error), color = MaterialTheme.colorScheme.error)
+                    ErrorText(error)
                     if (error.kind == UiError.Kind.SignInAgain) {
                         AppSecondaryButton(onClick = { state.eventSink(AcceptInviteEvent.SignInAgain) }) {
                             Text(stringResource(Res.string.action_sign_in_again))

@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -26,7 +27,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.chart_source_from
@@ -62,7 +62,7 @@ fun DataSourcesSection(sources: DataSources, eventSink: (ActivityDetailEvent) ->
         Text(stringResource(Res.string.data_sources), style = MaterialTheme.typography.labelLarge)
         if (sources.isLoading) AppProgressIndicator(small = true)
         sources.error?.let { error ->
-            Text(errorText(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            ErrorText(error, style = MaterialTheme.typography.bodySmall)
             AppTextButton(onClick = { eventSink(ActivityDetailEvent.RetrySources) }) { Text(stringResource(Res.string.action_retry)) }
         }
         sources.kinds.forEach { row -> SourceRow(row, saving = sources.saving, eventSink) }

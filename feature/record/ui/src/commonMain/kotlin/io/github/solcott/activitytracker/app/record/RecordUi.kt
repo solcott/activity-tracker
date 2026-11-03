@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
@@ -24,7 +25,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.record_discard
@@ -81,7 +81,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             )
             if (state.recovered) Text(stringResource(Res.string.record_recovered))
             if (state.saveFailed) Text(stringResource(Res.string.record_save_failed), color = MaterialTheme.colorScheme.error)
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.error?.let { ErrorText(it) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (state.status) {
                     RecordingState.Status.Idle -> {

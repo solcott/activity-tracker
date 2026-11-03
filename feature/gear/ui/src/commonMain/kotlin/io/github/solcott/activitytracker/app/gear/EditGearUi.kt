@@ -42,6 +42,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
@@ -67,7 +68,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.compressPhoto
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
 import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.sportLabel
@@ -290,7 +290,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.error?.let { ErrorText(it) }
         AppButton(onClick = { send(EditGearEvent.Save) }, Modifier.fillMaxWidth(), enabled = enabled) {
             Text(stringResource(Res.string.gear_save))
         }

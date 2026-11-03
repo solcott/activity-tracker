@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
@@ -27,7 +28,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_delete
@@ -78,9 +78,7 @@ fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) 
             ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
                     item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearCollection, onRetry = retry) }
-                    state.error?.let { error ->
-                        item(key = "error") { Text(errorText(error), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
-                    }
+                    state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(16.dp)) } }
                     detail.notes?.let { notes ->
                         item(key = "notes") {
                             Text(notes, Modifier.fillMaxWidth().padding(16.dp), style = MaterialTheme.typography.bodyMedium)

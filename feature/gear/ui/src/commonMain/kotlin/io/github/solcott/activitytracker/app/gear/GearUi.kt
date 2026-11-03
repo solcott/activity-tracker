@@ -29,6 +29,7 @@ import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -40,7 +41,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -186,11 +186,7 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
             item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
             state.error
                 ?.takeIf { it.kind !in MOUNT_ERRORS }
-                ?.let { error ->
-                    item(key = "action-error") {
-                        Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                ?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
             activityItems(
                 state.activities.items.toImmutableList(),
                 state.viewerDid,

@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.detail.ITEM_GAP
 import io.github.solcott.activitytracker.app.settings.monthName
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
@@ -355,7 +356,7 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
                 color = MaterialTheme.colorScheme.error,
             )
         } else {
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.error?.let { ErrorText(it) }
         }
         AppButton(
             onClick = { state.eventSink(ImportActivityEvent.SaveBatch(defaultTitles)) },
@@ -397,7 +398,7 @@ private fun ItemSheet(item: ImportItemPreview, row: ImportRow?, enabled: Boolean
                 enabled = enabled,
                 lineLimits = TextFieldLineLimits.SingleLine,
             )
-            item.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            item.error?.let { ErrorText(it) }
             val matched = item.matched
             val duplicate = row?.duplicate
             if (row != null && matched != null && duplicate != null) Comparison(row, matched, duplicate)

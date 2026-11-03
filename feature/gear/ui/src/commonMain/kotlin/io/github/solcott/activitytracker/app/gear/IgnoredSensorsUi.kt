@@ -18,12 +18,12 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_empty
 import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_sensors
@@ -53,11 +53,7 @@ fun IgnoredSensorsUi(state: IgnoredSensorsState, modifier: Modifier = Modifier) 
             ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
                     item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadIgnoredSensors, onRetry = retry) }
-                    state.error?.let { error ->
-                        item(key = "error") {
-                            Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
-                        }
-                    }
+                    state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
                     if (sensors.isEmpty()) {
                         item(key = "empty") {
                             Text(

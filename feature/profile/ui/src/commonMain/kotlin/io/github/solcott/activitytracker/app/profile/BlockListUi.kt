@@ -17,13 +17,13 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.AccountActionRow
 import io.github.solcott.activitytracker.app.ui.EmptyListText
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_unblock
@@ -60,11 +60,7 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
                 state = listState,
                 contentPadding = listPadding + PaddingValues(vertical = 8.dp),
             ) {
-                state.actionError?.let { error ->
-                    item(key = "action-error") {
-                        Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
                 pagedRows(
                     state.accounts,
                     state.kind.loadError,

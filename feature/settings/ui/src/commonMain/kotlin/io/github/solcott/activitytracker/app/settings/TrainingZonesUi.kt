@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -31,7 +32,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_edit
@@ -91,7 +91,7 @@ fun TrainingZonesUi(state: TrainingZonesState, modifier: Modifier = Modifier) {
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) { zones ->
             ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 RefreshStatus(state.content, UiError.Kind.LoadProfile, retry)
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                state.error?.let { ErrorText(it) }
                 if (zones != null) Zones(state, zones)
             }
         }

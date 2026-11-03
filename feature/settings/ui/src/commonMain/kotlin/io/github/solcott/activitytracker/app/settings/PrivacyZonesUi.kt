@@ -19,6 +19,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.rememberLocationPermissionRequest
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -30,7 +31,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_add_here
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_empty
@@ -76,8 +76,8 @@ fun PrivacyZonesUi(state: PrivacyZonesState, modifier: Modifier = Modifier) {
         ) {
             ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(Res.string.privacy_zones_help), style = MaterialTheme.typography.bodyMedium)
-                if (state.needsSignIn) Text(errorText(UiError(UiError.Kind.SignInAgain)), color = MaterialTheme.colorScheme.error)
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (state.needsSignIn) ErrorText(UiError(UiError.Kind.SignInAgain))
+                state.error?.let { ErrorText(it) }
                 val zones = state.zones ?: return@ReadableScrollColumn
                 val enabled = state.canEdit && !state.saving
                 if (zones.isEmpty()) Text(stringResource(Res.string.privacy_zones_empty), style = MaterialTheme.typography.bodyMedium)

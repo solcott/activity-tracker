@@ -27,17 +27,17 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.shownName
+import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_hidden
 import io.github.solcott.activitytracker.composeApp.resources.comment_hidden_by
@@ -210,16 +210,11 @@ private fun CommentsLoading(state: ActivityDetailPage, modifier: Modifier = Modi
     val failed = (paging.refresh as? LoadStatus.Failed) ?: (paging.append as? LoadStatus.Failed)
     when {
         failed != null ->
-            Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    errorText(UiError(UiError.Kind.LoadComments, failed.error)),
-                    Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.error,
-                )
-                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.RetryComments) }) {
-                    Text(stringResource(Res.string.action_retry))
-                }
-            }
+            ErrorRetryRow(
+                UiError(UiError.Kind.LoadComments, failed.error),
+                onRetry = { state.eventSink(ActivityDetailEvent.RetryComments) },
+                modifier,
+            )
         paging.refresh is LoadStatus.Loading || paging.append is LoadStatus.Loading ->
             Box(modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
         else -> Spacer(modifier)
@@ -256,7 +251,7 @@ private fun CommentField(state: ActivityDetailPage, modifier: Modifier = Modifie
                 { state.eventSink(ActivityDetailEvent.SendComment) },
             )
         }
-        state.commentError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.commentError?.let { ErrorText(it) }
     }
 }
 

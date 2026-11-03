@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
@@ -43,7 +44,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_add_items
@@ -138,7 +138,7 @@ private fun CollectionForm(state: EditGearCollectionState, modifier: Modifier = 
                 Text(stringResource(Res.string.gear_collection_add_items))
             }
         }
-        state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.error?.let { ErrorText(it) }
         AppButton(onClick = { send(EditGearCollectionEvent.Save) }, Modifier.fillMaxWidth(), enabled = enabled) {
             Text(stringResource(Res.string.gear_collection_save))
         }

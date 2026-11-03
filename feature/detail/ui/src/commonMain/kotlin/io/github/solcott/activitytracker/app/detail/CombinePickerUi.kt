@@ -27,6 +27,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
@@ -35,7 +36,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.combine_explained
 import io.github.solcott.activitytracker.composeApp.resources.combine_none
@@ -74,9 +74,7 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
                         )
                     }
                     item { RefreshStatus(state.content, UiError.Kind.LoadCombineCandidates, retry, Modifier.padding(horizontal = 16.dp)) }
-                    state.error?.let { error ->
-                        item { Text(errorText(error), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
-                    }
+                    state.error?.let { error -> item { ErrorText(error, Modifier.padding(16.dp)) } }
                     if (candidates.isEmpty()) {
                         item { Centered { Text(stringResource(Res.string.combine_none)) } }
                     } else {

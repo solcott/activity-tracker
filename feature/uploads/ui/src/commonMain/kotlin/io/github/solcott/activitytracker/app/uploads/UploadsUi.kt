@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.startTime
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
@@ -35,7 +36,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_confirm
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_message
@@ -158,9 +158,7 @@ private fun QueueList(state: UploadsState, view: UploadQueueView, padding: Paddi
 
 /** The pauses, the time left, where uploads go on, and why the last action failed. */
 private fun LazyListScope.banners(state: UploadsState, view: UploadQueueView) {
-    state.error?.let { error ->
-        item(key = "error") { Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error) }
-    }
+    state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
     val importing = view.imports.any { it.live.isNotEmpty() }
     if (state.importsPaused) {
         item(key = "paused") {

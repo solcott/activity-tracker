@@ -20,13 +20,13 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.settings.monthName
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.EmptyListText
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -64,11 +64,7 @@ fun ImportBatchUi(state: ImportBatchState, modifier: Modifier = Modifier) {
     ) { padding ->
         ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
-                state.error?.let { error ->
-                    item(key = "error") {
-                        Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
                 pagedRefreshStatus(state.activities, UiError.Kind.LoadImportBatch) { state.eventSink(ImportBatchEvent.Retry) }
                 months.forEach { (month, activities) ->
                     val (year, number) = month

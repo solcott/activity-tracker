@@ -13,13 +13,13 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent.CombineSuggested
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent.DontCombineSuggestion
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent.NotNowSuggestion
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.combine_suggestion_combine
 import io.github.solcott.activitytracker.composeApp.resources.combine_suggestion_dont
@@ -66,7 +66,7 @@ internal fun CombineSuggestionBanner(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(combineCueLabel(suggestion.cue), style = MaterialTheme.typography.titleSmall)
             Text(suggestionMessage(suggestion), style = MaterialTheme.typography.bodyMedium)
-            suggestion.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            suggestion.error?.let { ErrorText(it) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppButton(onClick = { eventSink(CombineSuggested) }, enabled = !suggestion.busy) {
                     Text(stringResource(Res.string.combine_suggestion_combine))

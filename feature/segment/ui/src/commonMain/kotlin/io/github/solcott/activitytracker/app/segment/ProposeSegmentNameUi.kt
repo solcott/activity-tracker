@@ -11,9 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitInject
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_disclosure
@@ -64,7 +64,7 @@ fun ProposeSegmentNameUi(state: ProposeSegmentNameState, modifier: Modifier = Mo
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            state.error?.let { ErrorText(it, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }

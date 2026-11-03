@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.DetailVisibilityPicker
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -25,7 +26,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.lockedVisibilityNote
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
@@ -100,7 +100,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             )
             HorizontalDivider()
             state.defaults?.let { defaults -> DefaultVisibility(defaults, state.savingDefaults) }
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.error?.let { ErrorText(it) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenZones) }) { Text(stringResource(Res.string.settings_zones)) }
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenPrivacyZones) }) {

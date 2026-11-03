@@ -48,6 +48,7 @@ import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.DiveSite
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
@@ -67,7 +68,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
@@ -353,8 +353,8 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
             EditCombinationSheet(state.activity, state.dataSources, state.eventSink, onDismiss = { editing = false })
         }
         state.combineSuggestion?.takeIf { !it.asPrompt }?.let { CombineSuggestionBanner(it, state.eventSink) }
-        state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-        state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.manage?.error?.let { ErrorText(it) }
+        state.routeError?.let { ErrorText(it) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
         if (state.segmentCreated) Text(stringResource(Res.string.detail_segment_created), style = MaterialTheme.typography.bodySmall)
     }
@@ -408,7 +408,7 @@ private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
                 }
             }
         }
-        state.likeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.likeError?.let { ErrorText(it) }
         state.likesList?.let { LikesList(it, state.eventSink) }
     }
 }
@@ -439,7 +439,7 @@ private fun LikesList(list: LikesList, eventSink: (ActivityDetailEvent) -> Unit,
     Column(modifier.fillMaxWidth()) {
         when {
             list.isLoading -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
-            error != null -> Text(errorText(error), color = MaterialTheme.colorScheme.error)
+            error != null -> ErrorText(error)
             list.athletes.isEmpty() -> Text(stringResource(Res.string.detail_no_likes), style = MaterialTheme.typography.bodyMedium)
             else -> {
                 list.athletes.forEach { athlete ->

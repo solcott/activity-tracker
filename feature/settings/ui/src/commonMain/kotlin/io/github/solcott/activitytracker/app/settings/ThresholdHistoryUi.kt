@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -56,7 +57,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.zones_history
@@ -107,9 +107,7 @@ fun ThresholdHistoryUi(state: ThresholdHistoryState, modifier: Modifier = Modifi
             ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
                 LazyColumn(state = listState, contentPadding = listPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item { RefreshStatus(state.content, UiError.Kind.LoadProfile, retry, Modifier.padding(top = 16.dp)) }
-                    state.error?.let { error ->
-                        item { Text(errorText(error), Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.error) }
-                    }
+                    state.error?.let { error -> item { ErrorText(error, Modifier.padding(top = 16.dp)) } }
                     if (groups.isEmpty()) {
                         item { Text(stringResource(Res.string.zones_history_empty), Modifier.padding(top = 16.dp)) }
                     } else {

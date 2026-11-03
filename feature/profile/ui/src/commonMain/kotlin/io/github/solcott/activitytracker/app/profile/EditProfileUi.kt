@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Countries
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
@@ -62,7 +63,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.stripDiacritics
@@ -196,8 +196,8 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                if (state.needsSignIn) Text(errorText(UiError(UiError.Kind.SignInAgain)), color = MaterialTheme.colorScheme.error)
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (state.needsSignIn) ErrorText(UiError(UiError.Kind.SignInAgain))
+                state.error?.let { ErrorText(it) }
                 if (state.needsSignIn || state.error?.kind == UiError.Kind.SignInAgain) {
                     AppSecondaryButton(onClick = { state.eventSink(EditProfileEvent.SignInAgain) }) {
                         Text(stringResource(Res.string.action_sign_in_again))

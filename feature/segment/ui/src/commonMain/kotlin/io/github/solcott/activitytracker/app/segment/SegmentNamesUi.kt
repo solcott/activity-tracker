@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitContent
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
@@ -25,7 +26,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -90,7 +90,7 @@ fun SegmentNames(state: SegmentState, segment: SegmentView, modifier: Modifier =
             }
             segment.nameProposals.forEach { proposal -> Proposal(state, proposal, own = proposal.proposer.did.value == state.self) }
         }
-        state.nameError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        state.nameError?.let { ErrorText(it, style = MaterialTheme.typography.bodySmall) }
         if (segment.nameHistory.isNotEmpty()) History(segment)
     }
 }

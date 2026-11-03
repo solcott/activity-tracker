@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.record.GearPicker
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -29,7 +30,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -107,7 +107,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     )
                 }
                 state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                state.error?.let { ErrorText(it) }
                 AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
                     Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                 }

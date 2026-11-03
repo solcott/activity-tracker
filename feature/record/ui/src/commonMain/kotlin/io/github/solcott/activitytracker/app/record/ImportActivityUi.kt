@@ -25,6 +25,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.detail.ITEM_GAP
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -38,7 +39,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
@@ -185,7 +185,7 @@ internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifie
             }
         }
         // Once a file is read, errors are saving's, shown by Save.
-        if (!picked) state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        if (!picked) state.error?.let { ErrorText(it) }
         if (!picked) {
             state.savingImport?.let { SavingImportCard(it) { state.eventSink(ImportActivityEvent.Saved.ViewUploads) } }
             state.stoppedImports.forEach { stopped ->
@@ -216,7 +216,7 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         if (!state.addsRecording) ActivityVisibilityForm(state.visibility, enabled = !state.saving)
         val preview = state.preview
         if (save != null && preview != null) {
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.error?.let { ErrorText(it) }
             AppButton(onClick = save, Modifier.fillMaxWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
         }
     }
@@ -232,7 +232,7 @@ private fun SaveBar(state: ImportActivityState, preview: ImportPreview, save: ()
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            state.error?.let { Text(errorText(it), Modifier.readableWidth(), color = MaterialTheme.colorScheme.error) }
+            state.error?.let { ErrorText(it, Modifier.readableWidth()) }
             AppButton(onClick = save, Modifier.readableWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
         }
     }

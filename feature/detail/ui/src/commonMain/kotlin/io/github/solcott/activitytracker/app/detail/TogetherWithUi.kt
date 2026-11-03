@@ -14,8 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_add_people
 import io.github.solcott.activitytracker.composeApp.resources.detail_group_leave
@@ -59,13 +59,13 @@ internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifi
             ) {
                 Text(stringResource(if (own.left) Res.string.detail_group_rejoin else Res.string.detail_group_leave))
             }
-            own.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            own.error?.let { ErrorText(it) }
         }
         if (state.isOwnCopy) {
             AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.LeaveCopyGroup) }, enabled = !state.leavingCopyGroup) {
                 Text(stringResource(Res.string.detail_leave_copy_group))
             }
-            state.copyGroupError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.copyGroupError?.let { ErrorText(it) }
         }
         if (state.canAddPeople) {
             AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.AddPeople) }) {

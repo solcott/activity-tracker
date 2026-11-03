@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
@@ -34,7 +35,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_component_actions
@@ -79,11 +79,7 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
         }
         state.error
             ?.takeIf { it.kind in MOUNT_ERRORS }
-            ?.let { error ->
-                item(key = "components-error") {
-                    Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
-                }
-            }
+            ?.let { error -> item(key = "components-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
         if (page.isOwner) {
             item(key = "components-mount") {
                 AppTextButton(onClick = { state.eventSink(GearEvent.Mount) }, enabled = !state.mountSaving) {

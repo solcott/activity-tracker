@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.LocalClock
@@ -54,7 +55,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.countryName
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
@@ -130,7 +130,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                     item(key = HEADER_KEY) {
                         // The activities show their own refresh below; the header's shows here only when they don't.
                         RefreshStatus(state.content, UiError.Kind.LoadProfile, retry, showProgress = state.blocking)
-                        state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                        state.error?.let { ErrorText(it) }
                         profile?.let { p ->
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Avatar(

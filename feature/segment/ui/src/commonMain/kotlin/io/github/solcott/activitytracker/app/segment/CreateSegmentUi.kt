@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -27,7 +28,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_all_hidden
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_crosses_gap
@@ -112,7 +112,7 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
         )
         if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateSegmentEvent.OpenSegment(it.uri)) }
         if (state.limitReached) Text(stringResource(Res.string.segment_create_limit), color = MaterialTheme.colorScheme.error)
-        state.actionError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.actionError?.let { ErrorText(it) }
         AppButton(onClick = { state.eventSink(CreateSegmentEvent.Publish) }, enabled = state.canPublish) {
             Text(stringResource(Res.string.segment_create_publish))
         }

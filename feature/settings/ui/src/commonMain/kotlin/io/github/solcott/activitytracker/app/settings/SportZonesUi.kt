@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -24,7 +25,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
@@ -144,7 +144,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                         numberRange(it, stringResource(Res.string.zones_unit_watts))
                     }
                 }
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                state.error?.let { ErrorText(it) }
                 AppButton(
                     onClick = { state.eventSink(SportZonesEvent.Save) },
                     enabled = state.loaded && state.valid && !state.saving,

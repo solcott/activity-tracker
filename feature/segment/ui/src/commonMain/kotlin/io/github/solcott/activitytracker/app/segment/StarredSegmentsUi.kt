@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.EmptyListText
+import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -67,11 +68,7 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
                         )
                     }
                 }
-                state.actionError?.let { error ->
-                    item(key = "action-error") {
-                        Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
                 pagedRows(
                     state.segments,
                     UiError.Kind.LoadStarredSegments,

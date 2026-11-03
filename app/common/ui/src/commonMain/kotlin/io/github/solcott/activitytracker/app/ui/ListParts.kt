@@ -44,7 +44,7 @@ fun LazyListScope.signInAgainItem(error: UiError?, needsSignIn: Boolean, onSignI
     item(key = "error") {
         val shown = error ?: UiError(UiError.Kind.SignInAgain)
         Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(errorText(shown), color = MaterialTheme.colorScheme.error)
+            ErrorText(shown)
             if (needsSignIn || shown.kind == UiError.Kind.SignInAgain) {
                 AppSecondaryButton(onClick = onSignInAgain) { Text(stringResource(Res.string.action_sign_in_again)) }
             }
