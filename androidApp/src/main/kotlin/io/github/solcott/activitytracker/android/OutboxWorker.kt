@@ -1,10 +1,7 @@
 package io.github.solcott.activitytracker.android
 
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -54,35 +51,17 @@ class OutboxWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             return
         }
         if (!notifications.areNotificationsEnabled()) return
-        ensureChannel()
         val context = applicationContext
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_upload)
-                .setContentTitle(context.getString(R.string.uploads_title))
+            uploadsProgressNotification(context, context.getString(R.string.uploads_title))
                 .setContentText(context.getString(R.string.uploads_text, progress.uploaded, progress.saved))
                 .setProgress(progress.saved, progress.uploaded, false)
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setSilent(true)
-                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
         notifications.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun ensureChannel() {
-        val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, applicationContext.getString(R.string.uploads_channel), NotificationManager.IMPORTANCE_LOW)
-            )
-        }
-    }
-
     companion object {
         private const val NAME = "outbox-drain"
-        private const val CHANNEL_ID = "uploads"
 
         /** Apart from the recording's (`RecordingService`), so the two never replace each other. */
         private const val NOTIFICATION_ID = 2

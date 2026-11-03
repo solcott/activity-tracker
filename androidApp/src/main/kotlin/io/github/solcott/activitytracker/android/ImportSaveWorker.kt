@@ -1,10 +1,7 @@
 package io.github.solcott.activitytracker.android
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ServiceInfo
-import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
@@ -73,17 +70,8 @@ internal constructor(
     }
 
     private fun foregroundInfo(counts: ImportSaveCounts?): ForegroundInfo {
-        ensureChannel()
         val context = applicationContext
-        val builder =
-            NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_upload)
-                .setContentTitle(context.getString(R.string.saving_title))
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setSilent(true)
-                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+        val builder = uploadsProgressNotification(context, context.getString(R.string.saving_title))
         if (counts == null) builder.setProgress(0, 0, true)
         else {
             val saved = counts.done + counts.skipped
@@ -92,23 +80,11 @@ internal constructor(
         return ForegroundInfo(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
-    private fun ensureChannel() {
-        val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, applicationContext.getString(R.string.uploads_channel), NotificationManager.IMPORTANCE_LOW)
-            )
-        }
-    }
-
     companion object {
         private const val NAME = "import-save"
 
         /** Runs of one request before a save that keeps failing waits for the app instead. */
         internal const val MAX_ATTEMPTS = 10
-
-        /** The Uploads channel, [OutboxWorker]'s. */
-        private const val CHANNEL_ID = "uploads"
 
         /** Apart from the recording's and the uploads', so none replaces another. */
         private const val NOTIFICATION_ID = 3
