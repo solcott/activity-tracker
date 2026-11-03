@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.atproto.crypto.base32
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -209,10 +210,6 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
 
         private const val ID_CHARS = 26
         private const val E5 = 1e5
-        private const val BASE32 = "abcdefghijklmnopqrstuvwxyz234567"
-        private const val BITS_PER_CHAR = 5
-        private const val BYTE_MASK = 0xff
-        private const val CHAR_MASK = 0x1f
         private const val QUARTER_TURN = 90.0
         private const val HALF_TURN = 180.0
         private const val FULL_TURN = 360.0
@@ -266,21 +263,7 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
         private fun e5(point: GeoPoint): String = "${(point.lat * E5).roundToLong()},${(point.lng * E5).roundToLong()}"
 
         /** 26 base32 characters of [key]'s SHA-256. */
-        private fun hashed(key: String): String {
-            val digest = MessageDigest.getInstance("SHA-256").digest(key.toByteArray())
-            val out = StringBuilder()
-            var buffer = 0
-            var bits = 0
-            for (byte in digest) {
-                buffer = (buffer shl Byte.SIZE_BITS) or (byte.toInt() and BYTE_MASK)
-                bits += Byte.SIZE_BITS
-                while (bits >= BITS_PER_CHAR && out.length < ID_CHARS) {
-                    out.append(BASE32[(buffer shr (bits - BITS_PER_CHAR)) and CHAR_MASK])
-                    bits -= BITS_PER_CHAR
-                }
-            }
-            return out.toString()
-        }
+        private fun hashed(key: String): String = MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).base32().take(ID_CHARS)
 
         /** How far apart a whole trail's ends may be for it to be a loop, in meters: the AppView's duplicate distance. */
         private val LOOP_M = SegmentGeometry.DUPLICATE_DISTANCE_M

@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.appview.auth
 
+import io.github.solcott.activitytracker.atproto.crypto.base58Btc
+import io.github.solcott.activitytracker.atproto.crypto.base58BtcDecode
 import java.math.BigInteger
 import java.security.MessageDigest
 import org.bouncycastle.asn1.x9.X9ECParameters
@@ -36,7 +38,7 @@ object Multikey {
 
     fun decode(multibase: String): SigningKey {
         require(multibase.startsWith('z')) { "Only base58btc multibase keys are supported" }
-        val bytes = Base58.decode(multibase.substring(1))
+        val bytes = base58BtcDecode(multibase.substring(1))
         val (curve, prefix) =
             when {
                 bytes.startsWith(K256_PREFIX) -> SigningKey.Curve.K256 to K256_PREFIX
@@ -56,44 +58,8 @@ object Multikey {
     /** Encodes a compressed public key as a multibase multikey (used by tests). */
     fun encode(curve: SigningKey.Curve, compressedPoint: ByteArray): String {
         val prefix = if (curve == SigningKey.Curve.K256) K256_PREFIX else P256_PREFIX
-        return "z" + Base58.encode(prefix + compressedPoint)
+        return "z" + (prefix + compressedPoint).base58Btc()
     }
 
     private fun ByteArray.startsWith(prefix: ByteArray) = size > prefix.size && prefix.indices.all { this[it] == prefix[it] }
-}
-
-internal object Base58 {
-    private const val ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-    private val BASE = BigInteger.valueOf(58)
-
-    fun decode(input: String): ByteArray {
-        var value = BigInteger.ZERO
-        for (c in input) {
-            val digit = ALPHABET.indexOf(c)
-            require(digit >= 0) { "Invalid base58 character '$c'" }
-            value = value.multiply(BASE).add(BigInteger.valueOf(digit.toLong()))
-        }
-        val bytes =
-            value.toByteArray().let {
-                if (it.size > 1 && it[0] == 0.toByte()) {
-                    it.copyOfRange(1, it.size)
-                } else {
-                    it
-                }
-            }
-        val leadingZeros = input.takeWhile { it == '1' }.length
-        return ByteArray(leadingZeros) + if (value == BigInteger.ZERO) ByteArray(0) else bytes
-    }
-
-    fun encode(input: ByteArray): String {
-        var value = BigInteger(1, input)
-        val sb = StringBuilder()
-        while (value > BigInteger.ZERO) {
-            val (q, r) = value.divideAndRemainder(BASE)
-            sb.append(ALPHABET[r.toInt()])
-            value = q
-        }
-        repeat(input.takeWhile { it == 0.toByte() }.size) { sb.append('1') }
-        return sb.reverse().toString()
-    }
 }

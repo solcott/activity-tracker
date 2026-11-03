@@ -6,7 +6,7 @@ private const val BYTE_MASK = 0xFF
 private const val BYTE_BITS = 8
 
 /** Bitcoin-alphabet base58 (multibase `z`), as `did:key` uses. Each leading zero byte becomes a leading `1`. */
-internal fun ByteArray.base58Btc(): String {
+fun ByteArray.base58Btc(): String {
     val zeros = takeWhile { it.toInt() == 0 }.size
     // Little-endian base-58 digits of the big-endian number in this array.
     val digits = mutableListOf<Int>()
@@ -26,7 +26,7 @@ internal fun ByteArray.base58Btc(): String {
 }
 
 /** Inverse of [base58Btc]. Throws [IllegalArgumentException] on a character outside the alphabet. */
-internal fun base58BtcDecode(value: String): ByteArray {
+fun base58BtcDecode(value: String): ByteArray {
     val zeros = value.takeWhile { it == '1' }.length
     // Little-endian base-256 digits of the number the base-58 string spells.
     val bytes = mutableListOf<Int>()
