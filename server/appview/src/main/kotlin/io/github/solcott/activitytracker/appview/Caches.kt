@@ -8,14 +8,15 @@ import kotlin.time.Duration
 import kotlin.time.toJavaDuration
 
 /**
- * A cache of at most [maxSize] entries (the least useful go first), each kept for [ttl] after it's written when one is given, timed by
- * [clock] so tests can move time. Eviction runs on the calling thread, so the cache is within its bound whenever a call returns.
+ * A cache of at most [maxSize] entries (the least useful go first), each kept for [ttl] after it's written when one is given. It's timed by
+ * the system's monotonic clock, so a step of the wall clock can't stretch or cut a TTL, unless a test passes its own [clock] to move time.
+ * Eviction runs on the calling thread, so the cache is within its bound whenever a call returns.
  */
 internal fun <K : Any, V : Any> boundedCache(maxSize: Long, ttl: Duration? = null, clock: Clock = Clock.System): Cache<K, V> =
     Caffeine.newBuilder()
         .maximumSize(maxSize)
         .apply { if (ttl != null) expireAfterWrite(ttl.toJavaDuration()) }
-        .ticker(clock.ticker())
+        .ticker(if (clock == Clock.System) Ticker.systemTicker() else clock.ticker())
         .executor(Runnable::run)
         .build()
 
