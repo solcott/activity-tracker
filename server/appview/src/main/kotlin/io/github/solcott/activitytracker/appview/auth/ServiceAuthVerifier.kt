@@ -1,17 +1,15 @@
 package io.github.solcott.activitytracker.appview.auth
 
+import io.github.solcott.activitytracker.appview.boundedCache
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.identity.isResolvableDid
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import java.util.Base64
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Instant
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -41,9 +39,14 @@ class ServiceAuthVerifier(
         extraAudiences: Set<String> = emptySet(),
     ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
 
-    /** Keys by account, each with when it was looked up: reused for [KEY_TTL], so a rotated key stops verifying soon after. */
-    private val keyCache = ConcurrentHashMap<Did, Pair<SigningKey, Instant>>()
-    private val failed = FailedLookups(clock)
+    /**
+     * Keys by account, each reused for [KEY_TTL] after it was looked up, so a rotated key stops verifying soon after. Anyone can make DIDs
+     * (did:web on a wildcard domain), so both this and [failed] are bounded.
+     */
+    private val keyCache = boundedCache<Did, SigningKey>(MAX_CACHED_KEYS, KEY_TTL, clock)
+
+    /** DIDs whose signing key couldn't be looked up, refused for [FAILED_TTL] without another lookup. */
+    private val failed = boundedCache<Did, Unit>(MAX_CACHED_KEYS, FAILED_TTL, clock)
 
     /** A verifier with the same keys and clock that accepts only [audiences]. */
     fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, clock)
@@ -91,21 +94,18 @@ class ServiceAuthVerifier(
 
     /** [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup. */
     private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey {
-        keyCache[did]
-            ?.takeUnless { fresh || clock.now() - it.second >= KEY_TTL }
-            ?.let {
-                return it.first
+        if (!fresh)
+            keyCache.getIfPresent(did)?.let {
+                return it
             }
-        if (failed.contains(did)) throw AuthException("No signing key for $did")
+        if (failed.getIfPresent(did) != null) throw AuthException("No signing key for $did")
         val key = runSuspendCatching { keys(did)?.let(Multikey::decode) }.getOrNull()
         if (key == null) {
-            failed.add(did)
+            failed.put(did, Unit)
             throw AuthException("No signing key for $did")
         }
-        failed.remove(did)
-        // Anyone can make DIDs (did:web on a wildcard domain), so the cache is bounded: past the limit it starts over.
-        if (keyCache.size >= MAX_CACHED_KEYS) keyCache.clear()
-        keyCache[did] = key to clock.now()
+        failed.invalidate(did)
+        keyCache.put(did, key)
         return key
     }
 
@@ -122,37 +122,11 @@ class ServiceAuthVerifier(
             (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
 
         private const val JWT_PARTS = 3
-        private const val MAX_CACHED_KEYS = 10_000
+        private const val MAX_CACHED_KEYS = 10_000L
         private val KEY_TTL = 10.minutes
+        private val FAILED_TTL = 5.minutes
         private val MAX_LIFETIME = 1.hours
     }
 }
 
 class AuthException(message: String) : Exception(message)
-
-/** DIDs whose signing key couldn't be looked up, each remembered for [ttl], at most [capacity] of them (the oldest go first). */
-private class FailedLookups(private val clock: Clock, private val ttl: Duration = 5.minutes, capacity: Int = 10_000) {
-    private val failedAt =
-        object : LinkedHashMap<Did, Instant>() {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Did, Instant>?) = size > capacity
-        }
-
-    fun contains(did: Did): Boolean =
-        synchronized(failedAt) {
-            val at = failedAt[did] ?: return false
-            val recent = clock.now() - at < ttl
-            if (!recent) failedAt.remove(did)
-            recent
-        }
-
-    fun add(did: Did) {
-        synchronized(failedAt) {
-            failedAt.remove(did)
-            failedAt[did] = clock.now()
-        }
-    }
-
-    fun remove(did: Did) {
-        synchronized(failedAt) { failedAt.remove(did) }
-    }
-}

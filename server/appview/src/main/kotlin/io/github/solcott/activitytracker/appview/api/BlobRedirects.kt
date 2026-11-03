@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
+import io.github.solcott.activitytracker.appview.boundedCache
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
@@ -27,11 +28,9 @@ import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RoutingContext
 import io.ktor.server.routing.get
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
@@ -77,18 +76,17 @@ fun interface PdsLookup {
     suspend fun pdsFor(did: Did): String?
 }
 
-class ResolvingPdsLookup(private val resolver: IdentityResolver, private val clock: Clock = Clock.System) : PdsLookup {
-    private val cache = ConcurrentHashMap<Did, Pair<String, Instant>>()
+class ResolvingPdsLookup(private val resolver: IdentityResolver, clock: Clock = Clock.System) : PdsLookup {
+    /** Bounded, since any DID can be asked for: each of an avatar's or photo's athletes. */
+    private val cache = boundedCache<Did, String>(MAX_ENTRIES, TTL, clock)
 
     override suspend fun pdsFor(did: Did): String? =
-        cache[did]?.takeIf { (_, at) -> clock.now() - at < TTL }?.first
-            ?: runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }
-                .getOrNull()
-                ?.trimEnd('/')
-                ?.also { cache[did] = it to clock.now() }
+        cache.getIfPresent(did)
+            ?: runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }.getOrNull()?.trimEnd('/')?.also { cache.put(did, it) }
 
     private companion object {
         val TTL = 1.hours
+        const val MAX_ENTRIES = 50_000L
     }
 }
 

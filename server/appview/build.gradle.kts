@@ -65,6 +65,7 @@ dependencies {
     // Segment geometry and cells (SegmentGeometry, SegmentCells), shared with clients.
     implementation(projects.coreLocation)
     implementation(libs.bouncycastle)
+    implementation(libs.caffeine)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.flyway.core)

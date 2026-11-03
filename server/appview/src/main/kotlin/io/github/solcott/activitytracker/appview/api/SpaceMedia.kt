@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.api
 
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
@@ -30,15 +31,18 @@ fun interface SpaceBlobs {
  */
 class MemberSpaceBlobs(private val member: SpaceMember, private val maxBytes: Int = MAX_BYTES, private val cacheBytes: Long = CACHE_BYTES) :
     SpaceBlobs {
-    private val cache = LinkedHashMap<String, XrpcBytes>(CACHE_ENTRIES, LOAD_FACTOR, true)
-    private var cached = 0L
+    private val cache =
+        Caffeine.newBuilder()
+            .maximumWeight(cacheBytes)
+            .weigher<String, XrpcBytes> { _, blob -> blob.bytes.size }
+            .executor(Runnable::run)
+            .build<String, XrpcBytes>()
 
     override suspend fun fetch(space: SpaceUri, repo: Did, cid: String): XrpcBytes? {
         val key = "${repo.value} $cid"
-        synchronized(cache) { cache[key] }
-            ?.let {
-                return it
-            }
+        cache.getIfPresent(key)?.let {
+            return it
+        }
         val blob =
             try {
                 member
@@ -48,28 +52,14 @@ class MemberSpaceBlobs(private val member: SpaceMember, private val maxBytes: In
                 if (e.error != SpaceErrors.BLOB_NOT_FOUND && e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
                 null
             }
-        if (blob != null) remember(key, blob)
+        if (blob != null && blob.bytes.size <= cacheBytes) cache.put(key, blob)
         return blob
     }
-
-    private fun remember(key: String, blob: XrpcBytes) =
-        synchronized(cache) {
-            if (blob.bytes.size > cacheBytes || cache.containsKey(key)) return
-            cache[key] = blob
-            cached += blob.bytes.size
-            val oldest = cache.entries.iterator()
-            while (cached > cacheBytes && oldest.hasNext()) {
-                cached -= oldest.next().value.bytes.size
-                oldest.remove()
-            }
-        }
 
     private companion object {
         /** Above the largest photo or stream data blob the lexicons allow. */
         const val MAX_BYTES = 16 * 1024 * 1024
         const val CACHE_BYTES = 64L * 1024 * 1024
-        const val CACHE_ENTRIES = 64
-        const val LOAD_FACTOR = 0.75f
     }
 }
 

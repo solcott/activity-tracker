@@ -83,6 +83,8 @@ postgresql = "42.7.14"
 hikari = "7.1.0"
 logback = "1.6.6"
 bouncycastle = "1.86"
+# Bounded in-memory caches for the AppView (keys, PDS endpoints, space blobs).
+caffeine = "3.3.1"
 jackson = "2.22.4"
 h2 = "2.5.252"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
@@ -190,6 +192,7 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
 jackson-dataformat-cbor = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor", version.ref = "jackson" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
 osmpbf = { module = "org.openstreetmap.pbf:osmpbf", version.ref = "osmpbf" }
