@@ -23,11 +23,11 @@ import com.slack.circuit.foundation.NavigableCircuitContent
 import com.slack.circuit.foundation.navstack.ProvidedValues
 import com.slack.circuit.foundation.rememberCircuitNavigator
 import com.slack.circuit.subcircuit.LocalSubCircuit
-import com.slack.circuitx.gesturenavigation.GestureNavigationDecorationFactory
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
+import io.github.solcott.activitytracker.app.nav.appNavDecoration
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -101,7 +101,8 @@ fun App(
                 LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
                 val units by sessionGraph.unitsRepository.units.collectAsState()
                 CompositionLocalProvider(LocalUnitSystem provides units, LocalSubCircuit provides sessionGraph.subCircuit) {
-                    CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
+                    val circuit = sessionGraph.sessionCircuit.circuit
+                    CircuitCompositionLocals(circuit) {
                         val backStack = rememberSaveableBackStack(root = FeedScreen)
                         val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
                         // An unfinished recording of this account's, from before the app stopped, is offered back first, and one
@@ -127,8 +128,9 @@ fun App(
                                 navStack = backStack,
                                 modifier = contentModifier,
                                 providedValues = rootFlags(backStack),
-                                // iOS's edge swipe back and Android's predictive back; the default transition elsewhere.
-                                decoratorFactory = remember { GestureNavigationDecorationFactory() },
+                                // Settings beside its page on a wide window; otherwise iOS's edge swipe back and Android's
+                                // predictive back, and the default transition elsewhere.
+                                decoration = remember(circuit) { appNavDecoration(circuit) },
                             )
                         }
                     }
