@@ -105,6 +105,7 @@ fun parseRedirectParams(url: String): Map<String, String> =
 // the component's other escapes still decode.
 private fun String.decodeUrlComponent(): String = runCatching {
     replace(STRAY_ESCAPE, "%25").decodeURLQueryComponent(plusIsSpace = true)
-}.getOrDefault(this)
+}
+    .getOrDefault(this)
 
 private val STRAY_ESCAPE = Regex("%(?![0-9A-Fa-f]{2})")
