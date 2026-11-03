@@ -96,8 +96,30 @@ class GuardedHttpTest {
                 "ff02::1",
                 "::ffff:127.0.0.1",
                 "::ffff:10.0.0.5",
+                "198.18.0.1",
+                "198.19.255.255",
+                "192.0.0.8",
+                "240.0.0.1",
+                "255.255.255.255",
+                // NAT64, 6to4 and Teredo forms of 127.0.0.1, 10.0.0.5 and 192.168.1.10 (Teredo inverts the client's address).
+                "64:ff9b::7f00:1",
+                "2002:a00:5::1",
+                "2001:0:4136:e378:8000:63bf:3f57:fef5",
             )
-        val public = listOf("8.8.8.8", "100.128.0.1", "172.32.0.1", "2606:4700:4700::1111", "::ffff:8.8.8.8")
+        val public =
+            listOf(
+                "8.8.8.8",
+                "100.128.0.1",
+                "172.32.0.1",
+                "192.0.1.1",
+                "198.20.0.1",
+                "223.255.255.255",
+                "2606:4700:4700::1111",
+                "::ffff:8.8.8.8",
+                "64:ff9b::808:808",
+                "2002:808:808::1",
+                "2001:0:4136:e378:8000:63bf:f7f7:f7f7",
+            )
         for (ip in private) assertTrue(GuardedHttp.isPrivate(InetAddress.getByName(ip)), ip)
         for (ip in public) assertFalse(GuardedHttp.isPrivate(InetAddress.getByName(ip)), ip)
     }

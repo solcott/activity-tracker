@@ -13,9 +13,10 @@ import okhttp3.Response
 /**
  * The HTTP client for hosts learned from DID documents and handles (identity/outbound-requests): PDS endpoints, `did:web` documents and
  * handle `.well-known` checks. Unless [allowPrivate], it refuses to connect to a private, loopback, link-local, unique-local, CGNAT,
- * unspecified or multicast address. The [Dns] filter checks the addresses a name resolves to, and OkHttp connects only to those, so a name
- * that resolves differently later can't get past it; the interceptor covers IP-literal hosts, for which OkHttp skips [Dns]. Ktor follows
- * redirects itself, so every hop passes both again. Configured endpoints (PLC, Jetstream, labelers, Ozone) use the trusted client instead.
+ * reserved, unspecified or multicast address. The [Dns] filter checks the addresses a name resolves to, and OkHttp connects only to those,
+ * so a name that resolves differently later can't get past it; the interceptor covers IP-literal hosts, for which OkHttp skips [Dns]. Ktor
+ * follows redirects itself, so every hop passes both again. Configured endpoints (PLC, Jetstream, labelers, Ozone) use the trusted client
+ * instead.
  */
 object GuardedHttp {
     fun create(allowPrivate: Boolean, dns: Dns = Dns.SYSTEM): HttpClient = create(allowPrivate, dns, ::isPrivate)
@@ -34,9 +35,12 @@ object GuardedHttp {
             }
         }
 
-    /** Whether [address] is one an identity's host may not point the AppView at. IPv4-mapped IPv6 forms count as their IPv4 address. */
+    /**
+     * Whether [address] is one an identity's host may not point the AppView at. An IPv6 address embedding an IPv4 one (IPv4-mapped, NAT64,
+     * 6to4, Teredo) counts as that IPv4 address, since a gateway may forward to it.
+     */
     fun isPrivate(address: InetAddress): Boolean {
-        val ip = (address as? Inet6Address)?.mappedIpv4() ?: address
+        val ip = (address as? Inet6Address)?.embeddedIpv4() ?: address
         val bytes = ip.address.map { it.toInt() and BYTE }
         return ip.isLoopbackAddress ||
             ip.isSiteLocalAddress ||
@@ -44,18 +48,40 @@ object GuardedHttp {
             ip.isAnyLocalAddress ||
             ip.isMulticastAddress ||
             when (ip) {
-                // 0.0.0.0/8 ("this network") and 100.64.0.0/10 (carrier-grade NAT).
-                is Inet4Address -> bytes[0] == 0 || (bytes[0] == CGNAT_FIRST && bytes[1] and CGNAT_MASK == CGNAT_SECOND)
+                is Inet4Address -> reservedIpv4(bytes)
                 // fc00::/7 (unique local).
                 else -> bytes[0] and ULA_MASK == ULA_PREFIX
             }
     }
 
-    private fun Inet6Address.mappedIpv4(): InetAddress? {
-        val bytes = address
-        val mapped = (0 until MAPPED_PREFIX).all { bytes[it] == 0.toByte() } && bytes[MAPPED_PREFIX] == FF && bytes[MAPPED_PREFIX + 1] == FF
-        return if (mapped) InetAddress.getByAddress(bytes.copyOfRange(MAPPED_PREFIX + 2, bytes.size)) else null
+    /**
+     * 0.0.0.0/8 ("this network"), 100.64.0.0/10 (carrier-grade NAT), 192.0.0.0/24 (protocol assignments), 198.18.0.0/15 (benchmarking) and
+     * 240.0.0.0/4 (reserved, with the broadcast address).
+     */
+    private fun reservedIpv4(bytes: List<Int>): Boolean =
+        bytes[0] == 0 ||
+            (bytes[0] == CGNAT_FIRST && bytes[1] and CGNAT_MASK == CGNAT_SECOND) ||
+            (bytes[0] == IETF_FIRST && bytes[1] == 0 && bytes[2] == 0) ||
+            (bytes[0] == BENCHMARK_FIRST && bytes[1] and BENCHMARK_MASK == BENCHMARK_SECOND) ||
+            bytes[0] >= RESERVED_FIRST
+
+    /**
+     * The IPv4 address this one carries: `::ffff:a.b.c.d` (IPv4-mapped) and `64:ff9b::a.b.c.d` (NAT64) in their last four bytes, 6to4
+     * (`2002::/16`) in bytes 2 to 5, and Teredo (`2001:0::/32`) its client's, the last four bytes inverted. Null for any other address.
+     */
+    private fun Inet6Address.embeddedIpv4(): InetAddress? {
+        val bytes = address.map { it.toInt() and BYTE }
+        val ipv4 =
+            when {
+                bytes.startsWith(MAPPED) || bytes.startsWith(NAT64) -> bytes.subList(IPV6_BYTES - IPV4_BYTES, IPV6_BYTES)
+                bytes.startsWith(SIX_TO_FOUR) -> bytes.subList(SIX_TO_FOUR.size, SIX_TO_FOUR.size + IPV4_BYTES)
+                bytes.startsWith(TEREDO) -> bytes.subList(IPV6_BYTES - IPV4_BYTES, IPV6_BYTES).map { it xor BYTE }
+                else -> return null
+            }
+        return InetAddress.getByAddress(ByteArray(IPV4_BYTES) { ipv4[it].toByte() })
     }
+
+    private fun List<Int>.startsWith(prefix: List<Int>) = size >= prefix.size && subList(0, prefix.size) == prefix
 
     private class PublicDns(private val delegate: Dns, private val private: (InetAddress) -> Boolean) : Dns {
         override fun lookup(hostname: String): List<InetAddress> =
@@ -81,8 +107,17 @@ object GuardedHttp {
     private const val CGNAT_MASK = 0xc0
     private const val ULA_MASK = 0xfe
     private const val ULA_PREFIX = 0xfc
-    private const val MAPPED_PREFIX = 10
-    private const val FF = 0xff.toByte()
+    private const val IETF_FIRST = 192
+    private const val BENCHMARK_FIRST = 198
+    private const val BENCHMARK_SECOND = 18
+    private const val BENCHMARK_MASK = 0xfe
+    private const val RESERVED_FIRST = 240
+    private const val IPV4_BYTES = 4
+    private const val IPV6_BYTES = 16
+    private val MAPPED = List(10) { 0 } + listOf(BYTE, BYTE)
+    private val NAT64 = listOf(0x00, 0x64, 0xff, 0x9b) + List(8) { 0 }
+    private val SIX_TO_FOUR = listOf(0x20, 0x02)
+    private val TEREDO = listOf(0x20, 0x01, 0x00, 0x00)
 }
 
 /** [host] resolves only to addresses the AppView may not reach for an identity. */
