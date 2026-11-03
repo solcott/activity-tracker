@@ -59,6 +59,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.like
@@ -187,12 +190,7 @@ class Indexer(
                 .forEach { delete(collection, AtUri(it), placement) }
         }
         RecordShadows.deleteWhere { origin eq placement.origin }
-        ActivityGear.deleteWhere { origin eq placement.origin }
-        Likes.deleteWhere { origin eq placement.origin }
-        Comments.deleteWhere { origin eq placement.origin }
-        CommentHides.deleteWhere { origin eq placement.origin }
-        Blocks.deleteWhere { origin eq placement.origin }
-        Mutes.deleteWhere { origin eq placement.origin }
+        for (held in HELD_ROWS) held.origin?.let { column -> held.table.deleteWhere { column eq placement.origin } }
         if (space.skey == AthleteSpace.INTERACTIONS) SegmentNameVotes.deleteWhere { voterDid eq space.authority.value }
         if (space.skey == AthleteSpace.SELF) {
             SegmentPrefs.deleteWhere { did eq space.authority.value }
@@ -376,6 +374,13 @@ class Indexer(
 
     @Suppress("LongMethod", "CyclomaticComplexMethod") // A branch per indexed collection.
     private fun JdbcTransaction.deleteRecord(collection: String, uri: AtUri, placement: Placement) {
+        val held = HELD_ROWS.firstOrNull { it.collection == collection }
+        if (held != null) {
+            val record = requireNotNull(held.uri)
+            val origin = held.origin
+            held.table.deleteWhere { (record eq uri.value) and (if (origin == null) Op.TRUE else origin eq placement.origin) }
+            return
+        }
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES,
@@ -407,26 +412,6 @@ class Indexer(
                 ActivityGear.deleteWhere {
                     (activityUri eq activity.value) and (listedIn eq ActivityGear.SOURCE_DETAILS) and (origin eq placement.origin)
                 }
-            }
-
-            Nsid.FEED_LIKE -> {
-                Likes.deleteWhere { (Likes.uri eq uri.value) and (origin eq placement.origin) }
-            }
-
-            Nsid.FEED_COMMENT -> {
-                Comments.deleteWhere { (Comments.uri eq uri.value) and (origin eq placement.origin) }
-            }
-
-            Nsid.FEED_COMMENT_HIDE -> {
-                CommentHides.deleteWhere { (CommentHides.uri eq uri.value) and (origin eq placement.origin) }
-            }
-
-            Nsid.GRAPH_FOLLOW -> {
-                Follows.deleteWhere { Follows.uri eq uri.value }
-            }
-
-            Nsid.GRAPH_FOLLOW_APPROVAL -> {
-                FollowApprovals.deleteWhere { FollowApprovals.uri eq uri.value }
             }
 
             in BLOCKS_AND_MUTES -> deleteBlockOrMute(collection, uri, placement)
@@ -520,17 +505,10 @@ class Indexer(
         ActivityStreams.deleteWhere { authorDid eq did.value }
         ActivityDetails.deleteWhere { authorDid eq did.value }
         ActivityZones.deleteWhere { authorDid eq did.value }
-        ActivityGear.deleteWhere { authorDid eq did.value }
         GearItems.deleteWhere { authorDid eq did.value }
         GearMountRows.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData(streamBlobs)
-        Likes.deleteWhere { authorDid eq did.value }
-        Comments.deleteWhere { authorDid eq did.value }
-        CommentHides.deleteWhere { authorDid eq did.value }
-        Follows.deleteWhere { authorDid eq did.value }
-        FollowApprovals.deleteWhere { authorDid eq did.value }
-        Blocks.deleteWhere { authorDid eq did.value }
-        Mutes.deleteWhere { authorDid eq did.value }
+        for (held in HELD_ROWS) held.table.deleteWhere { held.author eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
         GroupPrefs.deleteWhere { GroupPrefs.did eq did.value }
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
@@ -562,6 +540,24 @@ class Indexer(
                 Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
                 Triple(GearItems.uri, GearItems.origin, Nsid.GEAR_ITEM),
             )
+        /**
+         * Tables whose rows go with their author's account ([deleteActor]) and, when they have an [HeldRows.origin], with the space they
+         * came from ([dropSpace]). Those naming a [HeldRows.collection] are also deleted by URI (and origin) when their record is
+         * ([deleteRecord]). A new table of this shape joins this list, so no delete path misses it.
+         */
+        private val HELD_ROWS =
+            listOf(
+                HeldRows(Likes, Likes.authorDid, Likes.origin, Nsid.FEED_LIKE, Likes.uri),
+                HeldRows(Comments, Comments.authorDid, Comments.origin, Nsid.FEED_COMMENT, Comments.uri),
+                HeldRows(CommentHides, CommentHides.authorDid, CommentHides.origin, Nsid.FEED_COMMENT_HIDE, CommentHides.uri),
+                HeldRows(Follows, Follows.authorDid, origin = null, Nsid.GRAPH_FOLLOW, Follows.uri),
+                HeldRows(FollowApprovals, FollowApprovals.authorDid, origin = null, Nsid.GRAPH_FOLLOW_APPROVAL, FollowApprovals.uri),
+                // Deleted by record through deleteBlockOrMute and deleteRecord's activity branches.
+                HeldRows(Blocks, Blocks.authorDid, Blocks.origin),
+                HeldRows(Mutes, Mutes.authorDid, Mutes.origin),
+                HeldRows(ActivityGear, ActivityGear.authorDid, ActivityGear.origin),
+            )
+
         /** Blocks (the app's and Bluesky's) and mutes, which all go through [upsertBlockOrMute] and [deleteBlockOrMute]. */
         private val BLOCKS_AND_MUTES = setOf(Nsid.GRAPH_BLOCK, Nsid.BSKY_GRAPH_BLOCK, Nsid.GRAPH_MUTE)
 
@@ -750,3 +746,15 @@ private const val MAX_COMMENT_LENGTH = 10_000
 private const val MAX_DISPLAY_NAME_LENGTH = 640
 private const val MAX_DESCRIPTION_LENGTH = 2560
 private const val MAX_UNITS_LENGTH = 16
+
+/**
+ * A table of [Indexer.HELD_ROWS]: its [author] column, its [origin] column when its rows are held by origin, and the [collection] and [uri]
+ * column of the records it holds one row each of, when deleting a record is just deleting its row.
+ */
+private class HeldRows(
+    val table: Table,
+    val author: Column<String>,
+    val origin: Column<String>?,
+    val collection: String? = null,
+    val uri: Column<String>? = null,
+)
