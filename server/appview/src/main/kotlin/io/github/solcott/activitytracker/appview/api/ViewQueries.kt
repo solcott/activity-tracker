@@ -30,6 +30,14 @@ internal fun JdbcTransaction.resolveActor(actor: String): String? {
     return Actors.select(Actors.did).where(condition).firstOrNull()?.get(Actors.did)
 }
 
+/**
+ * The DID [actor] names, for a query about that athlete, or null when [viewer] may not know of them: unknown, an athlete who blocks the
+ * viewer (answered exactly as an unknown one; the viewer's own block shows in `viewer.blocking`), or an account not served to the viewer
+ * (inactive or taken down). Every query naming an athlete resolves them through this, so each answers the same way.
+ */
+internal fun JdbcTransaction.resolveShownActor(viewer: Did?, actor: String): String? =
+    resolveActor(actor)?.takeIf { did -> (viewer == null || ownBlock(did, viewer.value) == null) && isAccountServed(did, viewer) }
+
 /** Rows strictly after a `"<sort>::<uri>"` cursor in (sort, uri) descending order; everything when there is no valid cursor. */
 internal fun keysetBefore(sort: Column<Long>, uri: Column<String>, cursor: String?): Op<Boolean> {
     val (sortValue, uriValue) = cursor?.let(::parseCursor) ?: return Op.TRUE

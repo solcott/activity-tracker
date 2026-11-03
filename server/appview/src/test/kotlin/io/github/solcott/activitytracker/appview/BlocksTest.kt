@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.BlockSource
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
@@ -194,7 +195,11 @@ class BlocksTest {
         block(alice, bob)
         assertEquals(listOf(activityUri(bob, "3kpb")), client.timeline(bob), "bob sees none of alice's activities")
         assertEquals(listOf(activityUri(alice, "3kpa"), activityUri(alice, "3kfa")).toSet(), client.timeline(alice).toSet())
-        assertEquals(emptyList(), client.activitiesOf(alice, bob))
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.raw(GetAuthorActivities.method.nsid, bob, "?actor=$alice").status,
+            "alice answers bob as an unknown athlete, as getProfile does",
+        )
         assertEquals(emptyList(), client.activitiesOf(bob, alice), "the blocker doesn't see the blocked either")
         val unknown = client.activityStatus(activityUri(alice, "3kmissing"), bob)
         assertEquals(unknown, client.activityStatus(activityUri(alice, "3kpa"), bob), "a Public activity answers as one that doesn't exist")
@@ -239,6 +244,10 @@ class BlocksTest {
         assertEquals(unknown.status, blocked.status)
         assertEquals(unknown.bodyAsText().replace("did:plc:nobody", alice), blocked.bodyAsText(), "nothing says bob is blocked")
         assertEquals(unknown.status, client.raw(GetFollowers.method.nsid, bob, "?actor=$alice").status)
+        // Every query naming alice answers bob as it would for an unknown athlete, never with an empty page.
+        assertEquals(unknown.status, client.raw(GetAuthorActivities.method.nsid, bob, "?actor=$alice").status)
+        assertEquals(unknown.status, client.raw(GetActorGear.method.nsid, bob, "?actor=$alice").status)
+        assertEquals(HttpStatusCode.OK, client.raw(GetAuthorActivities.method.nsid, carol, "?actor=$alice").status)
 
         val alicesView = client.query(GetProfile.method, alice, "?actor=$bob")
         assertEquals("at://$alice/${Nsid.GRAPH_BLOCK}/$bob", alicesView.viewer?.blocking?.value, "the blocker sees their own block")

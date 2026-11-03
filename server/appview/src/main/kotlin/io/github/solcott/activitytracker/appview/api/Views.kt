@@ -118,7 +118,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         params: GetAuthorActivities.Params,
     ): GetAuthorActivities.Output = db.tx {
         val did =
-            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+            resolveShownActor(viewer, params.actor)
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val filter = feedFilter(params.type, params.since, params.until)
         val (views, cursor) =
             activityPage((Activities.authorDid eq did) and filter, params.limit, params.cursor, viewer, Activities.startedAt)
@@ -128,7 +129,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     /** [GetImportBatch]: an athlete's activities from one batch the viewer may see, newest started first (feed/import-cards). */
     suspend fun importBatch(viewer: Did?, params: GetImportBatch.Params): GetImportBatch.Output = db.tx {
         val did =
-            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+            resolveShownActor(viewer, params.actor)
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         if (!Tid.isValid(params.batch)) return@tx GetImportBatch.Output(emptyList())
         val inBatch = (Activities.authorDid eq did) and (Activities.importBatch eq params.batch)
         val (views, cursor) = activityPage(inBatch, params.limit, params.cursor, viewer, Activities.startedAt)
@@ -140,7 +142,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         params: GetAuthorActivitiesByStart.Params,
     ): GetAuthorActivitiesByStart.Output = db.tx {
         val did =
-            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+            resolveShownActor(viewer, params.actor)
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val since = params.since.toEpochMilliseconds()
         val until = params.until.toEpochMilliseconds()
         if (until <= since) throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", "until must be after since")
@@ -180,7 +183,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     /** A page of an athlete's gear items [viewer] may see, each with its totals for them, in use first, then by name. */
     suspend fun actorGear(viewer: Did?, params: GetActorGear.Params): GetActorGear.Output = db.tx {
         val did =
-            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+            resolveShownActor(viewer, params.actor)
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val pageSize = Paging.clamp(params.limit)
         val items = actorGearPage(did, viewer, params.cursor, pageSize)
         val totals = gearTotals(items, viewer)
@@ -275,13 +279,11 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {
-        val did = resolveActor(actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
-        // Silent: an athlete who blocks the viewer answers exactly as an unknown one. The viewer's own block shows in `viewer.blocking`.
-        if (viewer != null && ownBlock(did, viewer.value) != null)
-            throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
-        // Likewise an account that isn't served (inactive, or taken down itself or by its profile record), except to itself.
-        if (!isAccountServed(did, viewer) || (viewer?.value != did && isProfileTakenDown(did)))
-            throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
+        // Silent: an athlete who blocks the viewer, or whose account isn't served, answers exactly as an unknown one. So does one whose
+        // profile record is taken down, except to itself.
+        val did =
+            resolveShownActor(viewer, actor)?.takeUnless { viewer?.value != it && isProfileTakenDown(it) }
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
         val row = Actors.selectAll().where { Actors.did eq did }.single()
         ProfileView(
             did = Did(row[Actors.did]),

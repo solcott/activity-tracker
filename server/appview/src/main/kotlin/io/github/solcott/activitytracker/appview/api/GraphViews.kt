@@ -67,11 +67,10 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
         GetFollowRequests.Output(rows.mapNotNull { profiles[it[Follows.authorDid]] }.distinctBy { it.did }, next)
     }
 
-    /** [actor]'s profile; an athlete who blocks [viewer] answers as an unknown one, as `getProfile` does. */
+    /** [actor]'s profile; an athlete [viewer] may not know of ([resolveShownActor]) answers as an unknown one, as `getProfile` does. */
     private fun JdbcTransaction.resolveSubject(viewer: Did?, actor: String): ProfileViewBasic {
         val did =
-            resolveActor(actor)?.takeUnless { viewer != null && ownBlock(it, viewer.value) != null }
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor $actor")
+            resolveShownActor(viewer, actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor $actor")
         return basicProfiles(listOf(did), avatars).getValue(did)
     }
 

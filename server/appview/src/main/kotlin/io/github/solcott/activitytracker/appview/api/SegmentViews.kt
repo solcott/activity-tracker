@@ -225,7 +225,7 @@ class SegmentViews(
     suspend fun segmentEfforts(viewer: Did?, params: GetSegmentEfforts.Params): GetSegmentEfforts.Output = db.tx {
         if (!Segments.select(Segments.uri).where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }.any())
             throw notFound("Segment not found")
-        val athlete = resolveActor(params.actor) ?: return@tx GetSegmentEfforts.Output(emptyList())
+        val athlete = resolveShownActor(viewer, params.actor) ?: return@tx GetSegmentEfforts.Output(emptyList())
         val limit = Paging.clamp(params.limit)
         val efforts =
             effortViews(
