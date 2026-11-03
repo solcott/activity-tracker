@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +18,7 @@ import io.github.solcott.activitytracker.app.detail.suggestedActivityLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.combine_suggestion_combine
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved
@@ -48,43 +45,37 @@ internal fun SavedSuggestions(
     eventSink: (ImportActivityEvent) -> Unit,
     padding: PaddingValues,
 ) {
-    val scroll = rememberScrollState()
-    ScrollbarBox(scroll, contentPadding = padding) {
-        Column(
-            Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-        ) {
-            result?.let { BatchSavedSummary(it) }
-            if (!saved.isNullOrEmpty()) {
-                Text(stringResource(Res.string.import_saved_suggestions_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(Res.string.import_saved_suggestions_explained), style = MaterialTheme.typography.bodyMedium)
-            }
-            saved.orEmpty().forEach { suggestion ->
-                AppCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(combineCueLabel(suggestion.cue), style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            stringResource(
-                                Res.string.import_saved_suggestion_row,
-                                suggestion.title ?: startTime(FigureValue.StartTime(suggestion.startEpochSeconds, null, dateOnly = false)),
-                                suggestedActivityLabel(suggestion.other),
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        AppSecondaryButton(onClick = { eventSink(ImportActivityEvent.Saved.Open(suggestion.uri)) }) {
-                            Text(stringResource(Res.string.combine_suggestion_combine))
-                        }
+    ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+        result?.let { BatchSavedSummary(it) }
+        if (!saved.isNullOrEmpty()) {
+            Text(stringResource(Res.string.import_saved_suggestions_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.import_saved_suggestions_explained), style = MaterialTheme.typography.bodyMedium)
+        }
+        saved.orEmpty().forEach { suggestion ->
+            AppCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(combineCueLabel(suggestion.cue), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(
+                            Res.string.import_saved_suggestion_row,
+                            suggestion.title ?: startTime(FigureValue.StartTime(suggestion.startEpochSeconds, null, dateOnly = false)),
+                            suggestedActivityLabel(suggestion.other),
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    AppSecondaryButton(onClick = { eventSink(ImportActivityEvent.Saved.Open(suggestion.uri)) }) {
+                        Text(stringResource(Res.string.combine_suggestion_combine))
                     }
                 }
             }
-            if (result != null) {
-                AppSecondaryButton(onClick = { eventSink(ImportActivityEvent.Saved.ViewUploads) }, Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.import_view_uploads))
-                }
+        }
+        if (result != null) {
+            AppSecondaryButton(onClick = { eventSink(ImportActivityEvent.Saved.ViewUploads) }, Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.import_view_uploads))
             }
-            AppButton(onClick = { eventSink(ImportActivityEvent.Saved.Done) }, Modifier.fillMaxWidth()) {
-                Text(stringResource(Res.string.import_saved_suggestions_done))
-            }
+        }
+        AppButton(onClick = { eventSink(ImportActivityEvent.Saved.Done) }, Modifier.fillMaxWidth()) {
+            Text(stringResource(Res.string.import_saved_suggestions_done))
         }
     }
 }

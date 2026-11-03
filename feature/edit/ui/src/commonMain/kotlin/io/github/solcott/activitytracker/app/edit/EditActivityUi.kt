@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,8 +27,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
@@ -98,27 +95,21 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
             { state.eventSink(EditActivityEvent.Retry) },
             contentPadding = padding,
         ) {
-            val scroll = rememberScrollState()
-            ScrollbarBox(scroll, contentPadding = padding) {
-                Column(
-                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    val details = state.details ?: return@Column
-                    val type = state.type ?: return@Column
-                    ActivityDetailsForm(state.title, titlePlaceholder = activityTypeLabel(type), fields = details, enabled = !state.saving)
-                    state.gear?.let { GearPicker(it, enabled = !state.saving) }
-                    state.visibility?.let { visibility ->
-                        ActivityVisibilityForm(
-                            visibility,
-                            enabled = !state.saving,
-                        )
-                    }
-                    state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
-                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                    AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
-                        Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
-                    }
+            ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                val details = state.details ?: return@ReadableScrollColumn
+                val type = state.type ?: return@ReadableScrollColumn
+                ActivityDetailsForm(state.title, titlePlaceholder = activityTypeLabel(type), fields = details, enabled = !state.saving)
+                state.gear?.let { GearPicker(it, enabled = !state.saving) }
+                state.visibility?.let { visibility ->
+                    ActivityVisibilityForm(
+                        visibility,
+                        enabled = !state.saving,
+                    )
+                }
+                state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
+                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                 }
             }
         }

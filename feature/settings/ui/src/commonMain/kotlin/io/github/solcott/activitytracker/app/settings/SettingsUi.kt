@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +24,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.lockedVisibilityNote
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
@@ -79,10 +77,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.settings_title), onBack = { state.eventSink(SettingsEvent.Back) }) },
     ) { padding ->
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.settings_units_heading), style = MaterialTheme.typography.titleMedium)
             UnitSystemPicker(
                 state.units,

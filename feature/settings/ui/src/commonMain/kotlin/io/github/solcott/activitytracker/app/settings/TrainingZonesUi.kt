@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,8 +29,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
@@ -92,16 +89,10 @@ fun TrainingZonesUi(state: TrainingZonesState, modifier: Modifier = Modifier) {
     ) { padding ->
         val retry = { state.eventSink(TrainingZonesEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) { zones ->
-            val scroll = rememberScrollState()
-            ScrollbarBox(scroll, contentPadding = padding) {
-                Column(
-                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    RefreshStatus(state.content, UiError.Kind.LoadProfile, retry)
-                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                    if (zones != null) Zones(state, zones)
-                }
+            ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                RefreshStatus(state.content, UiError.Kind.LoadProfile, retry)
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (zones != null) Zones(state, zones)
             }
         }
     }

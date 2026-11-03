@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,8 +25,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -89,43 +86,37 @@ fun CreateSegmentUi(state: CreateSegmentState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Form(state: CreateSegmentState, route: String, padding: PaddingValues) {
-    val scroll = rememberScrollState()
-    ScrollbarBox(scroll, Modifier.fillMaxSize(), padding) {
-        Column(
-            Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            ActivityMap(route, Modifier.fillMaxWidth(), gaps = state.routeGaps, highlight = state.highlight)
-            Text(stringResource(Res.string.segment_create_range), style = MaterialTheme.typography.titleSmall)
-            AppRangeSlider(
-                value = state.start..state.end,
-                onValueChange = { range -> state.eventSink(CreateSegmentEvent.SelectionChanged(range.start, range.endInclusive)) },
-                valueRange = 0f..state.lengthMeters.coerceAtLeast(1f),
-                enabled = !state.publishing,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            SelectionText(state)
-            AppTextField(
-                state.name,
-                label = stringResource(Res.string.segment_create_name),
-                enabled = !state.publishing,
-                lineLimits = TextFieldLineLimits.SingleLine,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                stringResource(Res.string.segment_create_public) +
-                    if (state.namesActivity) " " + stringResource(Res.string.segment_create_links_activity) else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateSegmentEvent.OpenSegment(it.uri)) }
-            if (state.limitReached) Text(stringResource(Res.string.segment_create_limit), color = MaterialTheme.colorScheme.error)
-            state.actionError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            AppButton(onClick = { state.eventSink(CreateSegmentEvent.Publish) }, enabled = state.canPublish) {
-                Text(stringResource(Res.string.segment_create_publish))
-            }
-            if (state.publishing) AppProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
+    ReadableScrollColumn(padding, Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ActivityMap(route, Modifier.fillMaxWidth(), gaps = state.routeGaps, highlight = state.highlight)
+        Text(stringResource(Res.string.segment_create_range), style = MaterialTheme.typography.titleSmall)
+        AppRangeSlider(
+            value = state.start..state.end,
+            onValueChange = { range -> state.eventSink(CreateSegmentEvent.SelectionChanged(range.start, range.endInclusive)) },
+            valueRange = 0f..state.lengthMeters.coerceAtLeast(1f),
+            enabled = !state.publishing,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SelectionText(state)
+        AppTextField(
+            state.name,
+            label = stringResource(Res.string.segment_create_name),
+            enabled = !state.publishing,
+            lineLimits = TextFieldLineLimits.SingleLine,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            stringResource(Res.string.segment_create_public) +
+                if (state.namesActivity) " " + stringResource(Res.string.segment_create_links_activity) else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateSegmentEvent.OpenSegment(it.uri)) }
+        if (state.limitReached) Text(stringResource(Res.string.segment_create_limit), color = MaterialTheme.colorScheme.error)
+        state.actionError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        AppButton(onClick = { state.eventSink(CreateSegmentEvent.Publish) }, enabled = state.canPublish) {
+            Text(stringResource(Res.string.segment_create_publish))
         }
+        if (state.publishing) AppProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
     }
 }
 

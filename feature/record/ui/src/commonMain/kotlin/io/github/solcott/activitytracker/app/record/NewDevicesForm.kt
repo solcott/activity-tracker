@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,8 +31,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.after_import_done
 import io.github.solcott.activitytracker.composeApp.resources.after_import_links_not_saved
@@ -267,35 +264,29 @@ internal fun GearConflicts(conflicts: ImmutableList<GearConflict>, modifier: Mod
 /** The import is saved: that its links weren't, and the offer to add the new gear to earlier imports, before leaving. */
 @Composable
 internal fun AfterImportPanel(after: AfterImport, send: (ImportActivityEvent) -> Unit, padding: PaddingValues) {
-    val scroll = rememberScrollState()
-    ScrollbarBox(scroll, contentPadding = padding) {
-        Column(
-            Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(stringResource(Res.string.after_import_title), style = MaterialTheme.typography.titleMedium)
-            if (after.linksNotSaved) Text(stringResource(Res.string.after_import_links_not_saved), color = MaterialTheme.colorScheme.error)
-            val past = after.pastImports
-            if (past != null) {
-                Text(pluralStringResource(Res.plurals.past_imports_offer, past.count, past.count, past.gear.joinToString(", ")))
-                if (past.applying) {
-                    AppProgressIndicator()
-                    Text(
-                        stringResource(Res.string.past_imports_progress, past.done, past.count),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    AppButton(onClick = { send(ImportActivityEvent.After.ApplyToPast) }, Modifier.fillMaxWidth()) {
-                        Text(stringResource(Res.string.past_imports_apply))
-                    }
-                    AppTextButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
-                        Text(stringResource(Res.string.past_imports_skip))
-                    }
-                }
+    ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(Res.string.after_import_title), style = MaterialTheme.typography.titleMedium)
+        if (after.linksNotSaved) Text(stringResource(Res.string.after_import_links_not_saved), color = MaterialTheme.colorScheme.error)
+        val past = after.pastImports
+        if (past != null) {
+            Text(pluralStringResource(Res.plurals.past_imports_offer, past.count, past.count, past.gear.joinToString(", ")))
+            if (past.applying) {
+                AppProgressIndicator()
+                Text(
+                    stringResource(Res.string.past_imports_progress, past.done, past.count),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                AppButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.after_import_done))
+                AppButton(onClick = { send(ImportActivityEvent.After.ApplyToPast) }, Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.past_imports_apply))
                 }
+                AppTextButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.past_imports_skip))
+                }
+            }
+        } else {
+            AppButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.after_import_done))
             }
         }
     }

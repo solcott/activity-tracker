@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -15,7 +14,6 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -60,8 +58,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
@@ -130,93 +127,87 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
         },
     ) { padding ->
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, { state.eventSink(EditProfileEvent.Retry) }, contentPadding = padding) {
-            val scroll = rememberScrollState()
-            ScrollbarBox(scroll, contentPadding = padding) {
-                Column(
-                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    AvatarRow(state)
+            ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                AvatarRow(state)
+                LimitedTextField(
+                    state.displayName,
+                    label = stringResource(Res.string.edit_profile_display_name),
+                    maxLength = EditProfileState.DISPLAY_NAME_MAX_LENGTH,
+                    enabled = state.loaded,
+                    singleLine = true,
+                )
+                LimitedTextField(
+                    state.description,
+                    label = stringResource(Res.string.edit_profile_description),
+                    maxLength = EditProfileState.DESCRIPTION_MAX_LENGTH,
+                    enabled = state.loaded,
+                    singleLine = false,
+                )
+                HorizontalDivider()
+                ApproveFollowers(state)
+                HorizontalDivider()
+                Text(stringResource(Res.string.edit_profile_details_heading), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
+                DetailSection(DetailGroup.Location, state) {
                     LimitedTextField(
-                        state.displayName,
-                        label = stringResource(Res.string.edit_profile_display_name),
-                        maxLength = EditProfileState.DISPLAY_NAME_MAX_LENGTH,
+                        state.locality,
+                        label = stringResource(Res.string.edit_profile_locality),
+                        maxLength = EditProfileState.DETAIL_MAX_LENGTH,
                         enabled = state.loaded,
                         singleLine = true,
                     )
                     LimitedTextField(
-                        state.description,
-                        label = stringResource(Res.string.edit_profile_description),
-                        maxLength = EditProfileState.DESCRIPTION_MAX_LENGTH,
+                        state.region,
+                        label = stringResource(Res.string.edit_profile_region),
+                        maxLength = EditProfileState.DETAIL_MAX_LENGTH,
                         enabled = state.loaded,
-                        singleLine = false,
+                        singleLine = true,
                     )
-                    HorizontalDivider()
-                    ApproveFollowers(state)
-                    HorizontalDivider()
-                    Text(stringResource(Res.string.edit_profile_details_heading), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
-                    DetailSection(DetailGroup.Location, state) {
-                        LimitedTextField(
-                            state.locality,
-                            label = stringResource(Res.string.edit_profile_locality),
-                            maxLength = EditProfileState.DETAIL_MAX_LENGTH,
-                            enabled = state.loaded,
-                            singleLine = true,
-                        )
-                        LimitedTextField(
-                            state.region,
-                            label = stringResource(Res.string.edit_profile_region),
-                            maxLength = EditProfileState.DETAIL_MAX_LENGTH,
-                            enabled = state.loaded,
-                            singleLine = true,
-                        )
-                        CountryField(state.country, { state.eventSink(EditProfileEvent.CountryChanged(it)) }, enabled = state.loaded)
+                    CountryField(state.country, { state.eventSink(EditProfileEvent.CountryChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.BirthDate, state) {
+                    BirthDateField(state.birthDate, { state.eventSink(EditProfileEvent.BirthDateChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.Gender, state) {
+                    GenderField(state.gender, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.Body, state) {
+                    HeightFields(state)
+                    AppTextField(
+                        state.weight,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.loaded,
+                        label =
+                            stringResource(
+                                when (state.units) {
+                                    UnitSystem.Metric -> Res.string.edit_profile_weight_kg
+                                    UnitSystem.Imperial -> Res.string.edit_profile_weight_lb
+                                }
+                            ),
+                        isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        lineLimits = TextFieldLineLimits.SingleLine,
+                    )
+                }
+                state.nowHidden.forEach { group ->
+                    Text(
+                        stringResource(Res.string.edit_profile_now_hidden, detailGroupLabel(group)),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (state.needsSignIn) Text(errorText(UiError(UiError.Kind.SignInAgain)), color = MaterialTheme.colorScheme.error)
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (state.needsSignIn || state.error?.kind == UiError.Kind.SignInAgain) {
+                    AppSecondaryButton(onClick = { state.eventSink(EditProfileEvent.SignInAgain) }) {
+                        Text(stringResource(Res.string.action_sign_in_again))
                     }
-                    DetailSection(DetailGroup.BirthDate, state) {
-                        BirthDateField(state.birthDate, { state.eventSink(EditProfileEvent.BirthDateChanged(it)) }, enabled = state.loaded)
-                    }
-                    DetailSection(DetailGroup.Gender, state) {
-                        GenderField(state.gender, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
-                    }
-                    DetailSection(DetailGroup.Body, state) {
-                        HeightFields(state)
-                        AppTextField(
-                            state.weight,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = state.loaded,
-                            label =
-                                stringResource(
-                                    when (state.units) {
-                                        UnitSystem.Metric -> Res.string.edit_profile_weight_kg
-                                        UnitSystem.Imperial -> Res.string.edit_profile_weight_lb
-                                    }
-                                ),
-                            isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            lineLimits = TextFieldLineLimits.SingleLine,
-                        )
-                    }
-                    state.nowHidden.forEach { group ->
-                        Text(
-                            stringResource(Res.string.edit_profile_now_hidden, detailGroupLabel(group)),
-                            color = MaterialTheme.colorScheme.tertiary,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (state.needsSignIn) Text(errorText(UiError(UiError.Kind.SignInAgain)), color = MaterialTheme.colorScheme.error)
-                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                    if (state.needsSignIn || state.error?.kind == UiError.Kind.SignInAgain) {
-                        AppSecondaryButton(onClick = { state.eventSink(EditProfileEvent.SignInAgain) }) {
-                            Text(stringResource(Res.string.action_sign_in_again))
-                        }
-                    }
-                    AppButton(
-                        onClick = { state.eventSink(EditProfileEvent.Save) },
-                        enabled = state.loaded && state.valid && !state.saving,
-                    ) {
-                        Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
-                    }
+                }
+                AppButton(
+                    onClick = { state.eventSink(EditProfileEvent.Save) },
+                    enabled = state.loaded && state.valid && !state.saving,
+                ) {
+                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                 }
             }
         }

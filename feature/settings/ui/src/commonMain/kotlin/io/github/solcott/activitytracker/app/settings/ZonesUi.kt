@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,8 +30,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -93,48 +90,42 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
         },
     ) { padding ->
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, { state.eventSink(ZonesEvent.Retry) }, contentPadding = padding) {
-            val scroll = rememberScrollState()
-            ScrollbarBox(scroll, contentPadding = padding) {
-                Column(
-                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+            ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(Res.string.zones_default_help), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
+                ThresholdField(state, state.thresholdHeartRate, Threshold.THRESHOLD_HEART_RATE, Res.string.zones_threshold_heart_rate)
+                ThresholdField(state, state.maxHeartRate, Threshold.MAX_HEART_RATE, Res.string.zones_max_heart_rate)
+                ThresholdField(state, state.restingHeartRate, Threshold.RESTING_HEART_RATE, Res.string.zones_resting_heart_rate)
+                ThresholdField(state, state.functionalThresholdPower, Threshold.FUNCTIONAL_THRESHOLD_POWER, Res.string.zones_ftp)
+                Text(stringResource(Res.string.zones_auto_update_help), style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider()
+                ZoneSection(
+                    heading = stringResource(Res.string.zones_heart_rate_heading),
+                    model = state.heartRateModel,
+                    models = state.heartRateModels,
+                    zones = state.heartRateZones,
+                    enabled = state.loaded,
+                    onPick = { state.eventSink(ZonesEvent.HeartRateModelChanged(it)) },
                 ) {
-                    Text(stringResource(Res.string.zones_default_help), style = MaterialTheme.typography.bodyMedium)
-                    Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
-                    ThresholdField(state, state.thresholdHeartRate, Threshold.THRESHOLD_HEART_RATE, Res.string.zones_threshold_heart_rate)
-                    ThresholdField(state, state.maxHeartRate, Threshold.MAX_HEART_RATE, Res.string.zones_max_heart_rate)
-                    ThresholdField(state, state.restingHeartRate, Threshold.RESTING_HEART_RATE, Res.string.zones_resting_heart_rate)
-                    ThresholdField(state, state.functionalThresholdPower, Threshold.FUNCTIONAL_THRESHOLD_POWER, Res.string.zones_ftp)
-                    Text(stringResource(Res.string.zones_auto_update_help), style = MaterialTheme.typography.bodySmall)
-                    HorizontalDivider()
-                    ZoneSection(
-                        heading = stringResource(Res.string.zones_heart_rate_heading),
-                        model = state.heartRateModel,
-                        models = state.heartRateModels,
-                        zones = state.heartRateZones,
-                        enabled = state.loaded,
-                        onPick = { state.eventSink(ZonesEvent.HeartRateModelChanged(it)) },
-                    ) {
-                        numberRange(it, stringResource(Res.string.zones_unit_bpm))
-                    }
-                    HorizontalDivider()
-                    ZoneSection(
-                        heading = stringResource(Res.string.zones_power_heading),
-                        model = state.powerModel,
-                        models = state.powerModels,
-                        zones = state.powerZones,
-                        enabled = state.loaded,
-                        onPick = { state.eventSink(ZonesEvent.PowerModelChanged(it)) },
-                    ) {
-                        numberRange(it, stringResource(Res.string.zones_unit_watts))
-                    }
-                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                    AppButton(
-                        onClick = { state.eventSink(ZonesEvent.Save) },
-                        enabled = state.loaded && state.valid && !state.saving,
-                    ) {
-                        Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
-                    }
+                    numberRange(it, stringResource(Res.string.zones_unit_bpm))
+                }
+                HorizontalDivider()
+                ZoneSection(
+                    heading = stringResource(Res.string.zones_power_heading),
+                    model = state.powerModel,
+                    models = state.powerModels,
+                    zones = state.powerZones,
+                    enabled = state.loaded,
+                    onPick = { state.eventSink(ZonesEvent.PowerModelChanged(it)) },
+                ) {
+                    numberRange(it, stringResource(Res.string.zones_unit_watts))
+                }
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                AppButton(
+                    onClick = { state.eventSink(ZonesEvent.Save) },
+                    enabled = state.loaded && state.valid && !state.saving,
+                ) {
+                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                 }
             }
         }

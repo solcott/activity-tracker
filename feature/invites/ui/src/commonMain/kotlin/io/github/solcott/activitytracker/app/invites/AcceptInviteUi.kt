@@ -1,12 +1,9 @@
 package io.github.solcott.activitytracker.app.invites
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +22,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -59,14 +56,11 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
         val retry = { state.eventSink(AcceptInviteEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadActivityInvite, retry, contentPadding = padding) { invite ->
             val busy = state.accepting || state.declining
-            Column(
-                Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 RefreshStatus(state.content, UiError.Kind.LoadActivityInvite, retry)
                 if (invite == null) {
                     Text(stringResource(Res.string.accept_invite_gone))
-                    return@Column
+                    return@ReadableScrollColumn
                 }
                 InviteSummary(invite)
                 invite.record.polyline?.let {

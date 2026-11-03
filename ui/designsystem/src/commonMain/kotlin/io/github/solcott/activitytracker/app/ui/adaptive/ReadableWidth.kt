@@ -1,8 +1,11 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +14,8 @@ import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +64,27 @@ fun ScrollbarBox(
     Box(modifier) {
         content()
         AppVerticalScrollbar(state, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
+    }
+}
+
+/**
+ * A screen's scrolling column of text and cards: [content] in a [readableWidth] column with a 16dp margin, padded by [contentPadding] (a
+ * `Scaffold`'s) inside the scroll so it scrolls under the bars, and a [ScrollbarBox] scrollbar.
+ */
+@Composable
+fun ReadableScrollColumn(
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    state: ScrollState = rememberScrollState(),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ScrollbarBox(state, modifier, contentPadding) {
+        Column(
+            Modifier.verticalScroll(state).padding(contentPadding).readableWidth().padding(16.dp),
+            verticalArrangement = verticalArrangement,
+            content = content,
+        )
     }
 }
 

@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,7 +17,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
@@ -41,10 +39,7 @@ fun ModerationUi(state: ModerationState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.moderation_title), onBack = { state.eventSink(ModerationEvent.Back) }) },
     ) { padding ->
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.moderation_help), style = MaterialTheme.typography.bodyMedium)
             AppTextField(
                 state = state.uri,

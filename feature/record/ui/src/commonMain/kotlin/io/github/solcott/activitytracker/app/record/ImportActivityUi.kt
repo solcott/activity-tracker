@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
@@ -132,18 +133,12 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
 /** Under 840dp: one scrolling column, the preview then the save panel, Save pinned by the scaffold. */
 @Composable
 private fun NarrowContent(state: ImportActivityState, padding: PaddingValues, width: WindowWidth, onPick: () -> Unit) {
-    val scroll = rememberScrollState()
-    ScrollbarBox(scroll, contentPadding = padding) {
-        Column(
-            Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-        ) {
-            PickSection(state, onPick)
-            val preview = state.preview
-            if (preview != null) {
-                PreviewContent(state, preview, medium = width == WindowWidth.Medium)
-                SavePanel(state, save = null)
-            }
+    ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+        PickSection(state, onPick)
+        val preview = state.preview
+        if (preview != null) {
+            PreviewContent(state, preview, medium = width == WindowWidth.Medium)
+            SavePanel(state, save = null)
         }
     }
 }
