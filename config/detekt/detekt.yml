@@ -43,8 +43,9 @@ Compose:
     # LocalFloatingBottomBarHeight is AppShell's floating iOS tab bar, which every screen's AppScaffold pads for, and LocalBarBackdrop is
     # the content AppScaffold hands its iOS top bar to blur. LocalPinnedOverContent tells the checkboxes in a sticky header to put their
     # native iOS view over the Compose canvas, so rows scrolling under can't show through; threading it through every trailing slot would
-    # leak a UIKit layering detail into each picker.
-    allowedCompositionLocals: LocalUnitSystem,LocalClock,LocalTimeZone,LocalHourClock,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop,LocalPinnedOverContent
+    # leak a UIKit layering detail into each picker. LocalTopBarEdge is where AppScaffold's iOS top bar ends, which native views over the
+    # canvas read to hide under it, for the same reason.
+    allowedCompositionLocals: LocalUnitSystem,LocalClock,LocalTimeZone,LocalHourClock,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop,LocalPinnedOverContent,LocalTopBarEdge
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true

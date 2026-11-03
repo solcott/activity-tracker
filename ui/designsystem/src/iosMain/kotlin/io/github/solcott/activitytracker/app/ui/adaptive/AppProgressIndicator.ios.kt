@@ -22,7 +22,7 @@ actual fun AppProgressIndicator(modifier: Modifier, small: Boolean) {
 /**
  * UIKit's medium spinner in [color], which iOS uses at every size, faded to [alpha] on the view itself (a `graphicsLayer` alpha doesn't
  * reach native views). It goes over the Compose canvas: spinners sit on Compose-drawn fills, like a pending Follow button, which an interop
- * view's cut-out below the canvas would erase.
+ * view's cut-out below the canvas would erase. So it hides itself under the top bar ([UnderTopBar]), which can't blur it.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -31,13 +31,15 @@ internal fun ActivityIndicator(
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     alpha: Float = 1f,
 ) {
+    val underBar = rememberUnderTopBar()
     UIKitView(
         factory = { UIActivityIndicatorView(UIActivityIndicatorViewStyleMedium).apply { startAnimating() } },
         update = {
             it.color = color.toUIColor()
             it.alpha = alpha.toDouble()
+            underBar.update(it)
         },
-        modifier = modifier.size(MEDIUM_SIZE),
+        modifier = modifier.size(MEDIUM_SIZE).then(underBar.modifier),
         properties = UIKitInteropProperties(interactionMode = null, isNativeAccessibilityEnabled = true, placedAsOverlay = true),
     )
 }

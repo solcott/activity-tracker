@@ -35,7 +35,8 @@ actual fun AppTriStateCheckbox(state: ToggleableState, onClick: (() -> Unit)?, m
 /**
  * The SF Symbol iOS lists mark a picked row with, in a native `UIImageView`. It takes no touches and has no accessibility element of its
  * own: the enclosing row, or the caller's toggle modifier, handles both. Under [LocalPinnedOverContent] it goes over the Compose canvas,
- * because Compose doesn't restack a pinned view above rows that scroll in later, so their marks would show through its cut-out.
+ * because Compose doesn't restack a pinned view above rows that scroll in later, so their marks would show through its cut-out, and hides
+ * itself under the top bar there ([UnderTopBar]).
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -52,6 +53,7 @@ private fun CheckmarkSymbol(state: ToggleableState, enabled: Boolean, modifier: 
             state != ToggleableState.Off -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.outline
         }
+    val underBar = rememberUnderTopBar()
     UIKitView(
         factory = {
             UIImageView().apply {
@@ -66,8 +68,9 @@ private fun CheckmarkSymbol(state: ToggleableState, enabled: Boolean, modifier: 
                     withConfiguration = UIImageSymbolConfiguration.configurationWithPointSize(SYMBOL_POINT_SIZE),
                 )
             it.tintColor = tint.toUIColor()
+            underBar.update(it)
         },
-        modifier = modifier.size(24.dp),
+        modifier = modifier.size(24.dp).then(underBar.modifier),
         properties =
             UIKitInteropProperties(
                 interactionMode = null,

@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,7 +39,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -93,12 +96,13 @@ private fun IosNavigationBar(
     val scrolled by remember(scrollState) { derivedStateOf { (scrollState?.contentOffset ?: 0f) < 0f } }
     val material by animateFloatAsState(if (scrolled) 1f else 0f, label = "barMaterial")
     val backdrop = LocalBarBackdrop.current
+    val tracksEdge = rememberEdgeTracking { material }
     // At a root, like iOS 26, the large title hands over to the inline one once it's mostly scrolled under the bar: a short timed
     // cross-fade in which the outgoing title blurs away and the incoming one sharpens, rather than a fade tied to the scroll.
     val collapsed by remember(scrollState) { derivedStateOf { (scrollState?.collapsedFraction ?: 0f) >= INLINE_TITLE_THRESHOLD } }
     val inlineTitle by animateFloatAsState(if (!large || collapsed) 1f else 0f, tween(TITLE_SWAP_MILLIS), label = "inlineTitle")
     var barHeight by remember { mutableIntStateOf(0) }
-    Box(modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }) {
+    Box(modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }.then(tracksEdge)) {
         backdrop?.let { BarEffect(it, { material }, barHeight, Modifier.matchParentSize()) }
         Column(
             Modifier.fillMaxWidth()
@@ -143,6 +147,21 @@ private fun IosNavigationBar(
             )
         }
     }
+}
+
+/**
+ * Keeps the scaffold's [TopBarEdge] at the bar it's put on, with its [material] and how far its edge effect reaches, for native views under
+ * the bar to hide by ([UnderTopBar]).
+ */
+@Composable
+private fun rememberEdgeTracking(material: () -> Float): Modifier {
+    val edge = LocalTopBarEdge.current ?: return Modifier
+    val fade = with(LocalDensity.current) { (if (usesLiquidGlass) EDGE_OVERHANG else 0.dp).toPx() }
+    SideEffect {
+        edge.fade = fade
+        edge.material = material
+    }
+    return remember(edge) { Modifier.onGloballyPositioned { edge.bottom = it.positionInRoot().y + it.size.height } }
 }
 
 /**
