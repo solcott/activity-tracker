@@ -32,7 +32,7 @@ actual fun AppTopBar(
     titleMenu: ImmutableList<AppMenuItem>?,
     actions: @Composable RowScope.() -> Unit,
 ) {
-    val back = onBack?.takeUnless { LocalIsNavRoot.current }
+    val back = onBack?.takeUnless { LocalIsNavRoot.current || LocalIsPaneRoot.current }
     TopAppBar(
         title = {
             Column {

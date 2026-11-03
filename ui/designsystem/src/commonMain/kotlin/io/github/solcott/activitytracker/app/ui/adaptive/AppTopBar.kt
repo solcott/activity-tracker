@@ -29,6 +29,12 @@ import kotlinx.collections.immutable.ImmutableList
 val LocalIsNavRoot = compositionLocalOf { false }
 
 /**
+ * Whether this screen is the first page of a detail pane shown beside its list (Settings on a wide window), where the list stays in view.
+ * Its bar has no back button, but unlike [LocalIsNavRoot] no large title either.
+ */
+val LocalIsPaneRoot = compositionLocalOf { false }
+
+/**
  * How a screen's [AppTopBar] follows its content's scrolling. Pass it to the bar and put its `nestedScrollConnection` on the screen (or,
  * under pull to refresh, on the list inside it). At a tab's root on iOS the large title collapses into the bar as the content scrolls.
  */
@@ -38,9 +44,9 @@ val LocalIsNavRoot = compositionLocalOf { false }
  * A screen's title bar. Material platforms get Material 3's top app bar. iOS gets a navigation bar drawn in Compose (so it slides with the
  * screen and follows the swipe-back gesture): a back chevron, a centred title, tinted bar buttons, and a large title at a tab's root.
  *
- * [onBack] shows a back button unless this is the root screen ([LocalIsNavRoot]). Put [AppIconButton]s and [AppMenu]s in [actions]. With a
- * [scrollBehavior] ([rememberAppTopBarScrollBehavior]) the bar marks content scrolled under it (Material's scrolled colour, iOS's
- * hairline), and on iOS the large title collapses into the bar.
+ * [onBack] shows a back button unless this is the root screen ([LocalIsNavRoot]) or a detail pane's first page ([LocalIsPaneRoot]). Put
+ * [AppIconButton]s and [AppMenu]s in [actions]. With a [scrollBehavior] ([rememberAppTopBarScrollBehavior]) the bar marks content scrolled
+ * under it (Material's scrolled colour, iOS's hairline), and on iOS the large title collapses into the bar.
  *
  * With a [titleMenu] the title is a button with a down chevron that opens it, for a screen whose title is a choice (the feed's scope).
  */

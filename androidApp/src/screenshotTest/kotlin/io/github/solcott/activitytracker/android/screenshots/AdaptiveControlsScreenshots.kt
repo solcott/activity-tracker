@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListRow
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListSection
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
@@ -85,6 +87,20 @@ private fun CardAndTopBar() {
                 Text("Moving time")
                 Text("1:00:00")
             }
+        }
+    }
+}
+
+@PreviewTest
+@PreviewComponentVariants
+@Composable
+private fun ListSectionAndRows() {
+    ComponentPreview {
+        AppListSection("Privacy & sharing") {
+            AppListRow("Activity defaults", summary = "Followers", onClick = {}, selected = true)
+            AppListRow("Privacy zones", summary = "2 zones", onClick = {})
+            AppListRow("Segment matching", trailing = { AppSwitch(true, onCheckedChange = null) })
+            AppListRow("Blocked accounts", onClick = {}, enabled = false)
         }
     }
 }

@@ -76,7 +76,8 @@ actual fun AppTopBar(
     actions: @Composable RowScope.() -> Unit,
 ) {
     val root = LocalIsNavRoot.current
-    IosNavigationBar(title, subtitle, titleMenu, onBack?.takeUnless { root }, large = root, actions, scrollBehavior?.state, modifier)
+    val hidesBack = root || LocalIsPaneRoot.current
+    IosNavigationBar(title, subtitle, titleMenu, onBack?.takeUnless { hidesBack }, large = root, actions, scrollBehavior?.state, modifier)
 }
 
 @Composable
