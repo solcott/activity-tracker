@@ -42,7 +42,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
@@ -57,6 +56,7 @@ import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -74,9 +74,9 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.min
-import org.jetbrains.exposed.v1.core.notExists
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
-import org.jetbrains.exposed.v1.core.times
+import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -405,15 +405,21 @@ class SegmentViews(
      * Efforts a leaderboard ranks, over [rankedEfforts]: on an active segment, from an activity that isn't excluded, by an athlete who
      * doesn't hide from leaderboards, and no faster than the segment's sport group allows. All read now, so none needs a rematch.
      */
-    private fun rankable(): Op<Boolean> =
-        (Segments.status eq SegmentStatus.ACTIVE) and
-            (SegmentTracks.leaderboardExcluded eq false) and
-            notExists(
-                SegmentPrefs.select(SegmentPrefs.did).where {
-                    (SegmentPrefs.did eq SegmentEfforts.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
-                }
-            ) and
-            plausibleEffort()
+    private fun rankable(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and rankableEffort()
+
+    /** [rankable] less the segment's status: what [notRankedReasons] gives a reason for failing, from the same Ops. */
+    private fun rankableEffort(): Op<Boolean> = not(hidesFromLeaderboards()) and not(excludedFromLeaderboards()) and plausibleEffort()
+
+    /** The effort's athlete hides from leaderboards (`actor.segmentPrefs`). */
+    private fun hidesFromLeaderboards(): Op<Boolean> =
+        exists(
+            SegmentPrefs.select(SegmentPrefs.did).where {
+                (SegmentPrefs.did eq SegmentEfforts.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
+            }
+        )
+
+    /** The effort's activity is excluded from leaderboards, on the segment track it came from. */
+    private fun excludedFromLeaderboards(): Op<Boolean> = SegmentTracks.leaderboardExcluded eq true
 
     /**
      * The efforts on [segment]'s [board] (a [SegmentBoard] type) that [viewer] may see and that are [rankable], from [since] and before
@@ -527,39 +533,20 @@ class SegmentViews(
         return if (entry) (ahead(board, effort.elapsed).toInt() + 1).takeIf { it <= TOP_RANKS } else null
     }
 
-    /** Why leaderboards don't rank each of [activity]'s efforts that they don't, by effort ID, for its own athlete only. */
+    /**
+     * Why leaderboards don't rank each of [activity]'s efforts that they don't, by effort ID, for its own athlete only: the first of
+     * [rankableEffort]'s Ops each fails, read in SQL, so the reasons can't drift from the boards.
+     */
     private fun JdbcTransaction.notRankedReasons(activity: String): Map<String, String> {
-        val rows =
-            SegmentEfforts.join(Segments, JoinType.INNER, SegmentEfforts.segmentUri, Segments.uri)
-                .join(SegmentTracks, JoinType.INNER, SegmentEfforts.trackUri, SegmentTracks.uri)
-                .select(
-                    SegmentEfforts.id,
-                    SegmentEfforts.authorDid,
-                    SegmentEfforts.elapsedS,
-                    Segments.sport,
-                    Segments.distanceM,
-                    SegmentTracks.leaderboardExcluded,
-                )
-                .where { SegmentEfforts.activityUri eq activity }
-                .toList()
-        val author = rows.firstOrNull()?.get(SegmentEfforts.authorDid) ?: return emptyMap()
-        val hidden =
-            !SegmentPrefs.select(SegmentPrefs.did)
-                .where { (SegmentPrefs.did eq author) and (SegmentPrefs.hideFromLeaderboards eq true) }
-                .empty()
-        return rows
-            .mapNotNull { row ->
-                val implausible =
-                    row[SegmentEfforts.elapsedS] * SegmentSportGroup.maxSpeedMmPerS(row[Segments.sport]) <
-                        row[Segments.distanceM] * MM_PER_M
-                when {
-                    hidden -> NotRanked.HIDDEN
-                    row[SegmentTracks.leaderboardExcluded] -> NotRanked.EXCLUDED
-                    implausible -> NotRanked.IMPLAUSIBLE
-                    else -> null
-                }?.let { row[SegmentEfforts.id] to it }
-            }
-            .toMap()
+        val reason =
+            Case()
+                .When(hidesFromLeaderboards(), stringLiteral(NotRanked.HIDDEN))
+                .When(excludedFromLeaderboards(), stringLiteral(NotRanked.EXCLUDED))
+                .Else(stringLiteral(NotRanked.IMPLAUSIBLE))
+        return rankedEfforts()
+            .select(SegmentEfforts.id, reason)
+            .where { (SegmentEfforts.activityUri eq activity) and not(rankableEffort()) }
+            .associate { it[SegmentEfforts.id] to it[reason] }
     }
 
     /**
@@ -720,7 +707,6 @@ class SegmentViews(
         private const val E7 = 1e7
         private const val MAX_LAT_E7 = 900_000_000
         private const val MAX_LNG_E7 = 1_800_000_000
-        private const val MM_PER_M = 1_000L
 
         /** The batches of candidates one search reads at most: 300 rows at the default batch size. */
         private const val SEARCH_BATCHES = 3
