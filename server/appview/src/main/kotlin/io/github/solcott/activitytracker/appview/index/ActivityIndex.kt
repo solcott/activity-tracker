@@ -2,18 +2,11 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
-import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
-import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
-import io.github.solcott.activitytracker.appview.db.Blocks
-import io.github.solcott.activitytracker.appview.db.CommentHides
-import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.GearItems
-import io.github.solcott.activitytracker.appview.db.Likes
-import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -106,38 +99,6 @@ internal fun JdbcTransaction.place(
     }
     RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
     write()
-}
-
-/** The rkeys of the [collection] records indexed from [space]: the rows it holds, and its copies waiting in [RecordShadows]. */
-internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Set<String> {
-    val origin = Placement.of(space).origin
-    // Likes, comments, comment hides, blocks and mutes are never moved, so none is ever shadowed.
-    val rows =
-        when (collection) {
-            Nsid.FEED_LIKE -> Likes.select(Likes.uri).where { Likes.origin eq origin }.map { it[Likes.uri] }
-            Nsid.FEED_COMMENT -> Comments.select(Comments.uri).where { Comments.origin eq origin }.map { it[Comments.uri] }
-            Nsid.FEED_COMMENT_HIDE ->
-                CommentHides.select(CommentHides.uri).where { CommentHides.origin eq origin }.map { it[CommentHides.uri] }
-            Nsid.GRAPH_BLOCK -> Blocks.select(Blocks.uri).where { Blocks.origin eq origin }.map { it[Blocks.uri] }
-            Nsid.GRAPH_MUTE -> Mutes.select(Mutes.uri).where { Mutes.origin eq origin }.map { it[Mutes.uri] }
-            else -> {
-                val (uriColumn, originColumn) =
-                    when (collection) {
-                        Nsid.FEED_ACTIVITY -> Activities.uri to Activities.origin
-                        Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.uri to ActivityZones.origin
-                        Nsid.FEED_ACTIVITY_DETAILS -> ActivityDetails.uri to ActivityDetails.origin
-                        Nsid.GEAR_ITEM -> GearItems.uri to GearItems.origin
-                        else -> ActivityStreams.uri to ActivityStreams.origin
-                    }
-                val held = uriColumn.table.select(uriColumn).where { originColumn eq origin }.map { it[uriColumn] }
-                val shadowed =
-                    RecordShadows.select(RecordShadows.uri)
-                        .where { (RecordShadows.origin eq origin) and (RecordShadows.collection eq collection) }
-                        .map { it[RecordShadows.uri] }
-                held + shadowed
-            }
-        }
-    return rows.mapNotNull { AtUri(it).rkey }.toSet()
 }
 
 internal fun JdbcTransaction.heldCopy(collection: String, uri: AtUri): HeldCopy? =

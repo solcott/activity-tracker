@@ -23,7 +23,6 @@ import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
-import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
@@ -179,23 +178,19 @@ class Indexer(
         lockedOn(uri) { db.tx { delete(collection, uri, Placement.of(space)) } }
     }
 
-    /** Everything indexed from [space], after it was deleted: as if each record in it were deleted. */
+    /**
+     * Everything indexed from [space], after it was deleted: each record [spaceRkeys] lists for its collections deleted as from the space,
+     * then whatever no record names any more (its copies waiting in [RecordShadows], rows held by its origin, and what `self`'s tracks and
+     * invites derived).
+     */
     suspend fun dropSpace(space: SpaceUri) = db.tx {
         val placement = Placement.of(space)
-        for ((uriColumn, originColumn, collection) in PLACED) {
-            uriColumn.table
-                .select(uriColumn)
-                .where { originColumn eq placement.origin }
-                .map { it[uriColumn] }
-                .forEach { delete(collection, AtUri(it), placement) }
+        for (collection in spaceCollections(space.skey)) {
+            spaceRkeys(space, collection).forEach { delete(collection, AtUri.of(space.authority, collection, it), placement) }
         }
         RecordShadows.deleteWhere { origin eq placement.origin }
         for (held in HELD_ROWS) held.origin?.let { column -> held.table.deleteWhere { column eq placement.origin } }
-        if (space.skey == AthleteSpace.INTERACTIONS) SegmentNameVotes.deleteWhere { voterDid eq space.authority.value }
         if (space.skey == AthleteSpace.SELF) {
-            SegmentPrefs.deleteWhere { did eq space.authority.value }
-            GroupPrefs.deleteWhere { did eq space.authority.value }
-            LeaderboardBrackets.deleteWhere { did eq space.authority.value }
             dropSegmentTracks(space.authority)
             dropInvitesOf(space.authority)
         }
@@ -531,15 +526,6 @@ class Indexer(
         private val TIER_COLLECTIONS =
             setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES, Nsid.GEAR_ITEM)
 
-        /** The tables of records held by origin: each one's URI and origin columns, and its collection. */
-        private val PLACED =
-            listOf(
-                Triple(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY),
-                Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS),
-                Triple(ActivityDetails.uri, ActivityDetails.origin, Nsid.FEED_ACTIVITY_DETAILS),
-                Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
-                Triple(GearItems.uri, GearItems.origin, Nsid.GEAR_ITEM),
-            )
         /**
          * Tables whose rows go with their author's account ([deleteActor]) and, when they have an [HeldRows.origin], with the space they
          * came from ([dropSpace]). Those naming a [HeldRows.collection] are also deleted by URI (and origin) when their record is
