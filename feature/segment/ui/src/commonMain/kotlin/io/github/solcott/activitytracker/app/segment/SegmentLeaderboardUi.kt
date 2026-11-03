@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -315,9 +316,7 @@ private fun LazyListScope.footer(state: SegmentLeaderboardState) {
         }
     }
     pagedFooter(state.entries, UiError.Kind.LoadLeaderboard, onRetry = { state.eventSink(SegmentLeaderboardEvent.Retry) }) {
-        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-            Text(stringResource(Res.string.leaderboard_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        EmptyListText(stringResource(Res.string.leaderboard_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

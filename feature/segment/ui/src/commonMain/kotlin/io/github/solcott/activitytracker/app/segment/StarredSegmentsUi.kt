@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +21,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -91,9 +91,7 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
                         UiError.Kind.LoadStarredSegments,
                         onRetry = { state.eventSink(StarredSegmentsEvent.Retry) },
                     ) {
-                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text(stringResource(Res.string.starred_segments_empty))
-                        }
+                        EmptyListText(stringResource(Res.string.starred_segments_empty))
                     }
                 }
             }

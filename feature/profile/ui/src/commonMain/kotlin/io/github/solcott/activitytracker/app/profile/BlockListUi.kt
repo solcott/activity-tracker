@@ -1,9 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,13 +12,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.AccountRow
+import io.github.solcott.activitytracker.app.ui.AccountActionRow
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -74,18 +71,23 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
                 pagedRefreshStatus(state.accounts, state.kind.loadError) { state.eventSink(BlockListEvent.Retry) }
                 items(state.accounts.items, key = { it.profile.did.value }) { account ->
                     val did = account.profile.did
-                    Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            AccountRow(account.profile, onClick = { state.eventSink(BlockListEvent.Open(did)) })
+                    AccountActionRow(
+                        account.profile,
+                        onClick = { state.eventSink(BlockListEvent.Open(did)) },
+                        supporting =
                             if (account.onBluesky && !account.removable) {
-                                Text(
-                                    stringResource(Res.string.blocked_on_bluesky),
-                                    Modifier.padding(horizontal = 16.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
+                                {
+                                    Text(
+                                        stringResource(Res.string.blocked_on_bluesky),
+                                        Modifier.padding(horizontal = 16.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                    ) {
                         if (account.removable) {
                             AppSecondaryButton(
                                 onClick = { state.eventSink(BlockListEvent.Remove(did)) },
@@ -98,9 +100,7 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 pagedFooter(state.accounts, state.kind.loadError, onRetry = { state.eventSink(BlockListEvent.Retry) }) {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(state.kind.emptyText))
-                    }
+                    EmptyListText(stringResource(state.kind.emptyText))
                 }
             }
         }

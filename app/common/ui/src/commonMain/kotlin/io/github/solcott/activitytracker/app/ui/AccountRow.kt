@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -29,5 +30,23 @@ fun AccountRow(account: ProfileViewBasic, onClick: () -> Unit, modifier: Modifie
             Text(name, style = MaterialTheme.typography.titleMedium)
             Text(handleLabel(account.handle.value), style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/** An [AccountRow] with [actions] (buttons, a status) at its end and, under it, [supporting] lines. */
+@Composable
+fun AccountActionRow(
+    account: ProfileViewBasic,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    supporting: (@Composable () -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    Row(modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            AccountRow(account, onClick)
+            supporting?.invoke()
+        }
+        actions()
     }
 }

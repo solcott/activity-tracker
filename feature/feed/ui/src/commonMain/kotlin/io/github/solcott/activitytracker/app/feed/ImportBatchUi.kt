@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.feed
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +12,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -21,6 +19,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.settings.monthName
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -93,9 +92,7 @@ fun ImportBatchUi(state: ImportBatchState, modifier: Modifier = Modifier) {
                     }
                 }
                 pagedFooter(state.activities, UiError.Kind.LoadImportBatch, onRetry = { state.eventSink(ImportBatchEvent.Retry) }) {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(Res.string.import_batch_empty))
-                    }
+                    EmptyListText(stringResource(Res.string.import_batch_empty))
                 }
             }
         }

@@ -1,8 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,13 +12,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.AccountActionRow
 import io.github.solcott.activitytracker.app.ui.AccountRow
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -73,8 +72,7 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
                 pagedRefreshStatus(state.accounts, state.kind.loadError) { state.eventSink(FollowListEvent.Retry) }
                 items(state.accounts.items, key = { it.did.value }) { account ->
                     if (state.canRemove) {
-                        Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) }, Modifier.weight(1f))
+                        AccountActionRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) }) {
                             AppSecondaryButton(
                                 onClick = { state.eventSink(FollowListEvent.Remove(account.did)) },
                                 enabled = account.did !in state.removing,
@@ -88,9 +86,7 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 pagedFooter(state.accounts, state.kind.loadError, onRetry = { state.eventSink(FollowListEvent.Retry) }) {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(state.kind.emptyText))
-                    }
+                    EmptyListText(stringResource(state.kind.emptyText))
                 }
             }
         }
