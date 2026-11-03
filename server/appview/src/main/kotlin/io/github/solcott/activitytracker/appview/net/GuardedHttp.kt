@@ -49,8 +49,8 @@ object GuardedHttp {
             ip.isMulticastAddress ||
             when (ip) {
                 is Inet4Address -> reservedIpv4(bytes)
-                // fc00::/7 (unique local).
-                else -> bytes[0] and ULA_MASK == ULA_PREFIX
+                // fc00::/7 (unique local), and 64:ff9b:1::/48 (local-use NAT64, which puts the IPv4 address where its operator chooses).
+                else -> bytes[0] and ULA_MASK == ULA_PREFIX || bytes.startsWith(LOCAL_NAT64)
             }
     }
 
@@ -66,14 +66,16 @@ object GuardedHttp {
             bytes[0] >= RESERVED_FIRST
 
     /**
-     * The IPv4 address this one carries: `::ffff:a.b.c.d` (IPv4-mapped) and `64:ff9b::a.b.c.d` (NAT64) in their last four bytes, 6to4
-     * (`2002::/16`) in bytes 2 to 5, and Teredo (`2001:0::/32`) its client's, the last four bytes inverted. Null for any other address.
+     * The IPv4 address this one carries: `::ffff:a.b.c.d` (IPv4-mapped), `::a.b.c.d` (the deprecated IPv4-compatible form) and
+     * `64:ff9b::a.b.c.d` (NAT64) in their last four bytes, 6to4 (`2002::/16`) in bytes 2 to 5, and Teredo (`2001:0::/32`) its client's, the
+     * last four bytes inverted. Null for any other address.
      */
     private fun Inet6Address.embeddedIpv4(): InetAddress? {
         val bytes = address.map { it.toInt() and BYTE }
         val ipv4 =
             when {
-                bytes.startsWith(MAPPED) || bytes.startsWith(NAT64) -> bytes.subList(IPV6_BYTES - IPV4_BYTES, IPV6_BYTES)
+                bytes.startsWith(MAPPED) || bytes.startsWith(COMPATIBLE) || bytes.startsWith(NAT64) ->
+                    bytes.subList(IPV6_BYTES - IPV4_BYTES, IPV6_BYTES)
                 bytes.startsWith(SIX_TO_FOUR) -> bytes.subList(SIX_TO_FOUR.size, SIX_TO_FOUR.size + IPV4_BYTES)
                 bytes.startsWith(TEREDO) -> bytes.subList(IPV6_BYTES - IPV4_BYTES, IPV6_BYTES).map { it xor BYTE }
                 else -> return null
@@ -115,7 +117,9 @@ object GuardedHttp {
     private const val IPV4_BYTES = 4
     private const val IPV6_BYTES = 16
     private val MAPPED = List(10) { 0 } + listOf(BYTE, BYTE)
+    private val COMPATIBLE = List(12) { 0 }
     private val NAT64 = listOf(0x00, 0x64, 0xff, 0x9b) + List(8) { 0 }
+    private val LOCAL_NAT64 = listOf(0x00, 0x64, 0xff, 0x9b, 0x00, 0x01)
     private val SIX_TO_FOUR = listOf(0x20, 0x02)
     private val TEREDO = listOf(0x20, 0x01, 0x00, 0x00)
 }

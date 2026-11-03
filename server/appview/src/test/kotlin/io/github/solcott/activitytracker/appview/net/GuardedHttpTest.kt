@@ -105,6 +105,10 @@ class GuardedHttpTest {
                 "64:ff9b::7f00:1",
                 "2002:a00:5::1",
                 "2001:0:4136:e378:8000:63bf:3f57:fef5",
+                // IPv4-compatible 127.0.0.1, and local-use NAT64 whatever it carries.
+                "::7f00:1",
+                "64:ff9b:1::a00:1",
+                "64:ff9b:1:abcd::808:808",
             )
         val public =
             listOf(
