@@ -520,6 +520,14 @@
     <string name="settings_groups_anyone">Anyone</string>
     <string name="settings_groups_help">Links your activities with others' you did together, like a ride with friends. Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can tell who you were with. No one else sees it. "People I follow" groups you only with people you follow or who follow you; "Anyone" with anyone who also chose to be grouped. A partner is shown only to people who may see their activity, its start time and its map. You can leave the group on any activity.</string>
     <string name="settings_groups_sign_in_again">Sign in again to use group activities.</string>
+    <string name="settings_section_general">General</string>
+    <string name="settings_section_privacy">Privacy &amp; sharing</string>
+    <string name="settings_section_training">Training</string>
+    <string name="settings_section_safety">Safety</string>
+    <string name="settings_activity_defaults">Activity defaults</string>
+    <string name="settings_segments_and_groups">Segments &amp; groups</string>
+    <string name="settings_segments_on">Matching on</string>
+    <string name="settings_segments_off">Matching off</string>
     <string name="feed_segments_title">Find segments on your activities?</string>
     <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities, unless you keep off them in Settings. You can change this in Settings.</string>
     <string name="feed_segments_turn_on">Turn on</string>
@@ -1188,7 +1196,6 @@
     <string name="activity_visibility_badge_mutuals">Mutuals</string>
     <string name="activity_visibility_badge_self">Only me</string>
     <string name="activity_visibility_badge_description">Visible to: %1$s</string>
-    <string name="settings_defaults_heading">New activities</string>
     <string name="settings_defaults_activity">Who can see new activities</string>
     <string name="settings_defaults_help">Where you record, enter or import an activity, you can change these for that activity.</string>
     <string name="detail_visibility_heading">Who can see each detail</string>

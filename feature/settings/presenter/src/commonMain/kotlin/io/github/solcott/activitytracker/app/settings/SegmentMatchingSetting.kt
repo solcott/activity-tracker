@@ -15,9 +15,9 @@ import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsReposi
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 
 /**
- * The segment matching toggle in Settings, and while matching is on whether the athlete shows on leaderboards and on age, weight and gender
- * boards: read again on opening (another device may have changed them), and saved as soon as one is flipped. Each shows the saved setting,
- * so a failed save leaves it as it was. Each matching save sets the repository's `saved`, after which
+ * The segment matching toggle in Settings' Segments & groups page, and while matching is on whether the athlete shows on leaderboards and
+ * on age, weight and gender boards: read again on opening (another device may have changed them), and saved as soon as one is flipped. Each
+ * shows the saved setting, so a failed save leaves it as it was. Each matching save sets the repository's `saved`, after which
  * `ActivityRepository.repairRoutesOnSave` (run for the session) writes or deletes the segment tracks.
  */
 @Stable
@@ -78,11 +78,11 @@ internal constructor(
         }
     }
 
-    fun onEvent(event: SettingsEvent.SegmentSettingEvent) {
+    fun onEvent(event: SegmentsAndGroupsEvent.SegmentSettingEvent) {
         when (event) {
-            is SettingsEvent.SegmentMatchingChanged -> set(event.on)
-            is SettingsEvent.LeaderboardsChanged -> setShownOnLeaderboards(event.shown)
-            is SettingsEvent.BracketBoardsChanged -> setBracketBoards(event.on)
+            is SegmentsAndGroupsEvent.SegmentMatchingChanged -> set(event.on)
+            is SegmentsAndGroupsEvent.LeaderboardsChanged -> setShownOnLeaderboards(event.shown)
+            is SegmentsAndGroupsEvent.BracketBoardsChanged -> setBracketBoards(event.on)
         }
     }
 
@@ -93,9 +93,9 @@ internal constructor(
     }
 
     private companion object {
-        val KEY = SettingsEvent.SegmentMatchingChanged::class
-        val LEADERBOARDS_KEY = SettingsEvent.LeaderboardsChanged::class
-        val BRACKETS_KEY = SettingsEvent.BracketBoardsChanged::class
+        val KEY = SegmentsAndGroupsEvent.SegmentMatchingChanged::class
+        val LEADERBOARDS_KEY = SegmentsAndGroupsEvent.LeaderboardsChanged::class
+        val BRACKETS_KEY = SegmentsAndGroupsEvent.BracketBoardsChanged::class
     }
 }
 

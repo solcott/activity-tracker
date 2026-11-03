@@ -1,21 +1,24 @@
 package io.github.solcott.activitytracker.app
 
+import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.gear.GearListScreen
 import io.github.solcott.activitytracker.app.moderation.ModerationScreen
+import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen
+import io.github.solcott.activitytracker.app.settings.SegmentsAndGroupsScreen
 import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
+import io.github.solcott.activitytracker.app.settings.SettingsState
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
-import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
-import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
+import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -24,36 +27,31 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+/** Settings' list (ui/settings-layout): units, the rows' summaries, opening pages and moderation. */
 class SettingsPresenterTest {
     private val fixture = SessionTestFixture()
 
+    private suspend fun SessionTestFixture.settings(
+        navigator: FakeNavigator = FakeNavigator(SettingsScreen),
+        moderation: ModerationRepository? = null,
+        block: suspend app.cash.turbine.ReceiveTurbine<SettingsState>.() -> Unit,
+    ) {
+        val repos = repos()
+        val forModeration = moderation ?: moderation()
+        presenterTestOf({
+            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, forModeration, repos.segmentPrefs)
+        }) {
+            block()
+        }
+    }
+
     @Test
     fun choosingUnitsSavesThemToTheProfile() = runTest {
-        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        fixture.settings {
             val initial = awaitItem()
             assertEquals(UnitSystem.Metric, initial.units)
             assertNull(initial.error)
@@ -69,21 +67,7 @@ class SettingsPresenterTest {
     @Test
     fun failedSaveRevertsAndShowsError() = runTest {
         fixture.failWrites = true
-        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        fixture.settings {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
             // The revert comes through the units flow, which can land a frame after the error.
             val failed = awaitUntil { it.error != null && !it.saving && it.units == UnitSystem.Metric }
@@ -94,22 +78,8 @@ class SettingsPresenterTest {
 
     @Test
     fun backPops() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        fixture.settings(navigator) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -117,439 +87,80 @@ class SettingsPresenterTest {
     }
 
     @Test
-    fun zonesOpenTheZonesScreen() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
+    fun backWithAPageOpenLeavesSettings() = runTest {
+        // A wide window: Gear shows beside the list, which Settings was opened onto from the training zones.
+        val navigator = FakeNavigator(TrainingZonesScreen, SettingsScreen, GearListScreen)
+        fixture.settings(navigator) {
+            awaitItem().eventSink(SettingsEvent.Back)
+            assertEquals(listOf<Screen>(TrainingZonesScreen), navigator.peekBackStack())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun rowsSummarizeTheirPagesOnceRead() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers"}"""
+        fixture.privacyZones =
+            AtJson.encodeToString(
+                PrivacyZonesRecord.serializer(),
+                PrivacyZonesRecord(
+                    "3l2aaaaaaaa22",
+                    listOf(PrivacyZone(400_150_000, -1_052_700_000, 400), PrivacyZone(400_250_000, -1_052_800_000, 400)),
+                    hideEndsMeters = 200,
+                ),
             )
-        }) {
-            awaitItem().eventSink(SettingsEvent.OpenZones)
+        fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
+        fixture.settings {
+            val first = awaitItem()
+            assertNull(first.segmentMatching, "unread: no summary")
+            val read = awaitUntil { it.defaultActivityVisibility != null && it.privacyZoneCount != null && it.segmentMatching != null }
+            assertEquals(Visibility.FOLLOWERS, read.defaultActivityVisibility)
+            assertEquals(2, read.privacyZoneCount)
+            assertEquals(true, read.hidesRouteEnds)
+            assertEquals(true, read.segmentMatching)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun rowsOpenTheirPages() = runTest {
+        val navigator = FakeNavigator(SettingsScreen)
+        fixture.settings(navigator) {
+            val state = awaitItem()
+            state.eventSink(SettingsEvent.Open(TrainingZonesScreen))
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun gearOpensTheGearList() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            awaitItem().eventSink(SettingsEvent.OpenGear)
+    fun aRowReplacesThePageSettingsHasOpen() = runTest {
+        // A wide window: Privacy zones, and a page under it, show beside the list.
+        val navigator = FakeNavigator(SettingsScreen, PrivacyZonesScreen, SegmentsAndGroupsScreen)
+        fixture.settings(navigator) {
+            awaitItem().eventSink(SettingsEvent.Open(GearListScreen))
             assertEquals(GearListScreen, navigator.awaitNextScreen())
+            assertEquals(listOf(GearListScreen, SettingsScreen), navigator.peekBackStack())
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun defaultVisibilitiesSaveCappedAndReload() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.defaults != null }
-            assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
-            assertEquals(
-                DetailCategory.all.map { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
-                loaded.defaults?.categories?.map { it.visibility },
-                "Gear never set starts at Only me",
-            )
-            loaded.defaults!!.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.SELF))
-            // A save can finish before a frame shows it running, so each waits for its answer rather than for `savingDefaults`.
-            awaitUntil { !it.savingDefaults && it.defaults?.tierOf(DetailCategory.HEART_RATE) == Visibility.SELF }
-                .defaults!!
-                .eventSink(VisibilityEvent.ActivityChanged(Visibility.MUTUALS))
-            val saved = awaitUntil { !it.savingDefaults && it.defaults?.activity == Visibility.MUTUALS }
-            assertEquals(Visibility.MUTUALS, saved.defaults?.activity)
-            assertEquals(Visibility.SELF, saved.defaults?.tierOf(DetailCategory.HEART_RATE), "a narrower category stays")
-            assertEquals(Visibility.MUTUALS, saved.defaults?.tierOf(DetailCategory.POWER), "a wider one is capped")
-            assertEquals(persistentListOf(Visibility.MUTUALS, Visibility.SELF), saved.defaults?.categoryOptions)
-            cancelAndIgnoreRemainingEvents()
-        }
-        val record = AtJson.parseToJsonElement(fixture.activityDefaults!!).jsonObject
-        assertEquals(Visibility.MUTUALS, record.getValue("visibility").jsonPrimitive.content)
-        assertEquals(Visibility.SELF, record.getValue("details").jsonObject.getValue("heartRate").jsonPrimitive.content)
-        assertFalse("chartsVisibility" in record, "no charts default")
-
-        // Opening Settings again, in a new session, reads them back.
-        val again = fixture.repos()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                again.units,
-                again.auth,
-                again.defaults,
-                again.privacy,
-                moderation,
-                again.segmentPrefs,
-                again.leaderboardBrackets,
-                again.groupPrefs,
-            )
-        }) {
-            val reloaded = awaitUntil { it.defaults != null }.defaults
-            assertEquals(Visibility.MUTUALS, reloaded?.activity)
-            assertEquals(Visibility.SELF, reloaded?.tierOf(DetailCategory.HEART_RATE))
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun narrowingTheActivityDefaultCapsTheCategories() = runTest {
-        fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val defaults = awaitUntil { it.defaults != null }.defaults!!
-            val save = CompletableDeferred<Unit>().also { fixture.gate = it }
-            defaults.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
-            awaitUntil { it.savingDefaults }
-            save.complete(Unit)
-            val narrowed = awaitUntil { !it.savingDefaults }
-            assertEquals(Visibility.SELF, narrowed.defaults?.activity)
-            assertEquals(Visibility.SELF, narrowed.defaults?.tierOf(DetailCategory.CALORIES), "category default capped")
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun segmentMatchingStartsOffAndTurnsOnAndOff() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching != null }
-            assertEquals(false, loaded.segmentMatching, "never asked: off")
-            assertTrue(loaded.canUseSegments)
-
-            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            awaitUntil { it.segmentMatching == true && !it.savingSegments }.eventSink(SettingsEvent.SegmentMatchingChanged(false))
-            val off = awaitUntil { it.segmentMatching == false && !it.savingSegments }
-            assertNull(off.error)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertEquals("false", AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject.getValue("matching").jsonPrimitive.content)
-        assertNotNull(repos.segmentPrefs.saved.value, "each save starts the segment-track sweep for the session")
-    }
-
-    @Test
-    fun theLeaderboardChoiceShowsOnlyWhileMatchingIsOnAndKeepsIt() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val off = awaitUntil { it.segmentMatching != null && it.showOnLeaderboards != null }
-            assertEquals(true, off.showOnLeaderboards, "shown by default")
-            off.eventSink(SettingsEvent.LeaderboardsChanged(false))
-            off.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            val on = awaitUntil { it.segmentMatching == true && !it.savingSegments }
-            val saved = AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject
-            assertFalse("hideFromLeaderboards" in saved, "not offered while matching was off, so never saved")
-            assertEquals(true, on.showOnLeaderboards)
-            on.eventSink(SettingsEvent.LeaderboardsChanged(false))
-            val hidden = awaitUntil { it.showOnLeaderboards == false && !it.savingLeaderboards }
-            assertNull(hidden.error)
-            val stored = AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject
-            assertEquals("true", stored.getValue("hideFromLeaderboards").jsonPrimitive.content)
-            assertEquals("true", stored.getValue("matching").jsonPrimitive.content, "matching kept")
-
-            fixture.failWrites = true
-            hidden.eventSink(SettingsEvent.LeaderboardsChanged(true))
-            val failed = awaitUntil { it.error != null && !it.savingLeaderboards }
-            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
-            assertEquals(false, failed.showOnLeaderboards, "the saved choice")
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun bracketBoardsWriteOnlyBracketsAndAFailureKeepsTheChoice() = runTest {
-        fixture.privateDetails = """{"details":{"birthDate":"1984-03-02","weight":70000,"height":1700}}"""
-        fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val off = awaitUntil { it.segmentMatching == true && it.bracketBoards != null }
-            assertEquals(false, off.bracketBoards, "off by default")
-            assertTrue(off.canUseBracketBoards)
-            off.eventSink(SettingsEvent.BracketBoardsChanged(true))
-            val on = awaitUntil { it.bracketBoards == true && !it.savingBracketBoards }
-            assertNull(on.error)
-            val stored = AtJson.parseToJsonElement(fixture.leaderboardBrackets!!).jsonObject
-            assertEquals("65-74", stored.getValue("weightClass").jsonPrimitive.content)
-            assertFalse("1984" in stored.toString() || "70000" in stored.toString(), "brackets only")
-
-            fixture.failWrites = true
-            on.eventSink(SettingsEvent.BracketBoardsChanged(false))
-            val failed = awaitUntil { it.error != null && !it.savingBracketBoards }
-            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
-            assertEquals(true, failed.bracketBoards, "the saved choice")
-
-            fixture.failWrites = false
-            failed.eventSink(SettingsEvent.BracketBoardsChanged(false))
-            awaitUntil { it.bracketBoards == false && !it.savingBracketBoards }
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertNull(fixture.leaderboardBrackets, "off deletes the record")
-    }
-
-    @Test
-    fun bracketBoardsArentOfferedWhileMatchingIsOff() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching == false && it.bracketBoards != null }
-            assertEquals(false, loaded.bracketBoards)
-            // Ignored: the UI doesn't offer it, and nothing is saved.
-            loaded.eventSink(SettingsEvent.BracketBoardsChanged(true))
-            assertFalse(loaded.savingBracketBoards)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertNull(fixture.leaderboardBrackets)
-    }
-
-    @Test
-    fun anOldGrantCantUseBracketBoards() = runTest {
-        fixture.scope =
-            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.ACTOR_SEGMENT_PREFS}" +
-                "&collection=${Nsid.FEED_SEGMENT_TRACK}"
-        fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching == true }
-            assertFalse(loaded.canUseBracketBoards)
-            assertNull(loaded.bracketBoards)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching != null }
-            fixture.failWrites = true
-            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            val failed = awaitUntil { it.error != null && !it.savingSegments }
-            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
-            assertEquals(false, failed.segmentMatching)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertNull(fixture.segmentPrefs)
-        assertNull(repos.segmentPrefs.saved.value, "no sweep after a failed save")
-    }
-
-    @Test
-    fun spacesThatRefuseTheSessionLeaveSegmentMatchingUnknownAndUnsaved() = runTest {
-        fixture.scopeMissing = true
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val state = awaitItem()
-            state.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            val after = awaitUntil { !it.savingSegments }
-            assertNull(after.segmentMatching)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertNull(fixture.segmentPrefs)
-    }
-
-    @Test
-    fun aSegmentMatchingToggleSentTwiceSavesOnce() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching != null }
-            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
-            awaitUntil { it.segmentMatching == true && !it.savingSegments }
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertEquals(1, fixture.spacePuts.count { (_, record) -> "matching" in record })
     }
 
     @Test
     fun settingsOffersModerationOnlyToModerators() = runTest {
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(SettingsScreen)
-        val forModerator = moderationAs("moderator")
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                forModerator,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        val navigator = FakeNavigator(SettingsScreen, PrivacyZonesScreen)
+        fixture.settings(navigator, moderationAs("moderator")) {
             val offered = awaitUntil { it.canModerate }
             offered.eventSink(SettingsEvent.OpenModeration)
             assertEquals(ModerationScreen, navigator.awaitNextScreen())
+            assertEquals(listOf(ModerationScreen, SettingsScreen), navigator.peekBackStack(), "never stacked on a page")
             cancelAndIgnoreRemainingEvents()
         }
-        val forTriage = moderationAs("triage")
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                forTriage,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        val other = FakeNavigator(SettingsScreen)
+        fixture.settings(other, moderationAs("triage")) {
             val state = awaitItem()
             state.eventSink(SettingsEvent.OpenModeration)
             assertEquals(false, state.canModerate)
-            navigator.expectNoGoToEvents()
+            other.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -570,73 +181,5 @@ class SettingsPresenterTest {
                 expectSuccess = false
             }
         return ModerationRepository(signedInTestSession(http, labelerDid = Did("did:plc:labeler")).clients)
-    }
-
-    @Test
-    fun choosingGroupActivitiesSavesItInSelfAndAFailureKeepsTheEarlierChoice() = runTest {
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.groupActivities != null }
-            assertEquals(GroupChoice.NEVER_ASKED, loaded.groupActivities)
-
-            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.CONNECTED))
-            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.CONNECTED))
-            val saved = awaitUntil { it.groupActivities == GroupChoice.CONNECTED && !it.savingGroups }
-            assertNull(saved.error)
-            assertEquals(
-                "connected",
-                AtJson.parseToJsonElement(assertNotNull(fixture.groupPrefs)).jsonObject["mode"]?.jsonPrimitive?.content,
-            )
-            assertNotNull(repos.groupPrefs.saved.value, "a save starts the sweep")
-
-            fixture.failWrites = true
-            saved.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.ANYONE))
-            val failed = awaitUntil { it.error != null && !it.savingGroups }
-            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
-            assertEquals(GroupChoice.CONNECTED, failed.groupActivities)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun anOldGrantCantUseGroupActivities() = runTest {
-        fixture.scope =
-            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.ACTOR_SEGMENT_PREFS}" +
-                "&collection=${Nsid.FEED_SEGMENT_TRACK}"
-        val repos = fixture.repos()
-        val moderation = fixture.moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                FakeNavigator(SettingsScreen),
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                moderation,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
-            val loaded = awaitUntil { it.segmentMatching != null }
-            assertFalse(loaded.canUseGroups)
-            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.ANYONE))
-            assertFalse(loaded.savingGroups)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertNull(fixture.groupPrefs)
     }
 }

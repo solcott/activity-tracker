@@ -14,9 +14,9 @@ import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 
 /**
- * The group activities choice in Settings (feed/group-activities): read again on opening (another device may have changed it), and saved as
- * soon as one is picked. It shows the saved choice, so a failed save leaves it as it was. Each save sets the repository's `saved`, after
- * which `ActivityRepository.repairRoutesOnSave` (run for the session) writes or deletes the segment tracks.
+ * The group activities choice in Settings' Segments & groups page (feed/group-activities): read again on opening (another device may have
+ * changed it), and saved as soon as one is picked. It shows the saved choice, so a failed save leaves it as it was. Each save sets the
+ * repository's `saved`, after which `ActivityRepository.repairRoutesOnSave` (run for the session) writes or deletes the segment tracks.
  */
 @Stable
 class GroupActivitiesSetting
@@ -45,7 +45,7 @@ internal constructor(
     }
 
     private companion object {
-        val KEY = SettingsEvent.GroupActivitiesChanged::class
+        val KEY = SegmentsAndGroupsEvent.GroupActivitiesChanged::class
     }
 }
 

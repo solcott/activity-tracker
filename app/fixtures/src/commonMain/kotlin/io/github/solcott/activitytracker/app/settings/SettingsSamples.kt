@@ -1,10 +1,13 @@
 package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.foundation.text.input.TextFieldState
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
+import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.training.EffectiveTraining
 import io.github.solcott.activitytracker.data.training.PaceUnit
@@ -12,10 +15,12 @@ import io.github.solcott.activitytracker.data.training.ZoneKind
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -36,14 +41,71 @@ object SettingsSamples {
                 units = UnitSystem.Metric,
                 saving = false,
                 error = null,
+                defaultActivityVisibility = Visibility.FOLLOWERS,
                 privacyZoneCount = 1,
+                hidesRouteEnds = true,
                 segmentMatching = true,
-                groupActivities = GroupChoice.CONNECTED,
                 eventSink = {},
             )
 
     val all: Map<String, SettingsState>
-        get() = mapOf(SampleKind.LOADED to default)
+        get() =
+            mapOf(
+                SampleKind.LOADED to default,
+                SampleKind.LOADING to default.copy(defaultActivityVisibility = null, privacyZoneCount = null, segmentMatching = null),
+                "moderator" to default.copy(canModerate = true),
+            )
+}
+
+object ActivityDefaultsSamples {
+    /** Followers by default, heart rate kept to the athlete and gear Only me, as it starts. */
+    private val defaults =
+        VisibilityFields(
+            activity = Visibility.FOLLOWERS,
+            categories =
+                DetailCategory.all
+                    .map { category ->
+                        val narrowed = category == DetailCategory.HEART_RATE || category == DetailCategory.GEAR
+                        CategoryVisibility(category, if (narrowed) Visibility.SELF else Visibility.FOLLOWERS)
+                    }
+                    .toImmutableList(),
+        )
+
+    val default: ActivityDefaultsState
+        get() = ActivityDefaultsState(defaults = defaults, saving = false, error = null, eventSink = {})
+
+    val all: Map<String, ActivityDefaultsState>
+        get() =
+            mapOf(
+                SampleKind.LOADED to default,
+                SampleKind.LOADING to default.copy(defaults = null),
+                "locked" to default.copy(defaults = VisibilityFields(canChoose = false)),
+                "saveFailed" to default.copy(error = UiError(UiError.Kind.SaveSettings)),
+            )
+}
+
+object SegmentsAndGroupsSamples {
+    /** Matching on and shown on leaderboards, bracket boards off, grouped with people they follow. */
+    val default: SegmentsAndGroupsState
+        get() =
+            SegmentsAndGroupsState(
+                error = null,
+                segmentMatching = true,
+                showOnLeaderboards = true,
+                bracketBoards = false,
+                groupActivities = GroupChoice.CONNECTED,
+                eventSink = {},
+            )
+
+    val all: Map<String, SegmentsAndGroupsState>
+        get() =
+            mapOf(
+                SampleKind.LOADED to default,
+                SampleKind.LOADING to
+                    default.copy(segmentMatching = null, showOnLeaderboards = null, bracketBoards = null, groupActivities = null),
+                "signInAgain" to default.copy(segmentMatching = null, canUseSegments = false, groupActivities = null, canUseGroups = false),
+                "saveFailed" to default.copy(error = UiError(UiError.Kind.SaveSettings)),
+            )
 }
 
 object TrainingZonesSamples {

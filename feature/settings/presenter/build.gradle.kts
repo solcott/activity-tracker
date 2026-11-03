@@ -3,10 +3,9 @@ plugins { id("activitytracker.feature.presenter") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // Screens Settings opens: the gear list, moderation and the block lists.
-            implementation(projects.featureGearApi)
+            // Moderation, which Settings opens full width; its pages come from the UI's rows.
             implementation(projects.featureModerationApi)
-            implementation(projects.featureProfileApi)
         }
+        jvmTest.dependencies { implementation(projects.featureGearApi) }
     }
 }

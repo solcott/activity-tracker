@@ -9,11 +9,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import com.slack.circuit.runtime.popUntil
+import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.gear.GearListScreen
 import io.github.solcott.activitytracker.app.moderation.ModerationScreen
-import io.github.solcott.activitytracker.app.profile.BlockListKind
-import io.github.solcott.activitytracker.app.profile.BlockListScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
@@ -21,14 +20,12 @@ import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
-import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
-import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
 @Composable
-@Suppress("CyclomaticComplexMethod") // One branch per settings event; most open a screen.
+@Suppress("LongParameterList") // A summary's repository per row, plus units, moderation and sign-out.
 fun SettingsPresenter(
     navigator: Navigator,
     unitsRepository: UnitsRepository,
@@ -37,47 +34,37 @@ fun SettingsPresenter(
     privacy: PrivacyZones,
     moderation: ModerationRepository,
     segmentPrefs: SegmentPrefsRepository,
-    leaderboardBrackets: LeaderboardBracketsRepository,
-    groupPrefs: GroupPrefsRepository,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(SettingsEvent.UnitsChanged::class)
-    val defaultVisibility = rememberDefaultVisibilitySettings(defaults, flights) { error = it }
+    // The rows' summaries, each left out while unread: a failed read leaves it out, and the page says why.
+    val defaultVisibility by defaults.current.collectAsState()
+    LaunchedEffect(Unit) { runSuspendCatching { defaults.load() } }
     val privacySettings by privacy.current.collectAsState()
-    // Only the summary line: a failed read leaves it out, and the zones screen says why.
     LaunchedEffect(Unit) { privacy.refresh() }
+    val segments by segmentPrefs.current.collectAsState()
+    LaunchedEffect(Unit) { runSuspendCatching { segmentPrefs.refresh() } }
     // Asked once a session; an AppView that can't say leaves the entry out.
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
-    val segments = rememberSegmentMatchingSetting(segmentPrefs, leaderboardBrackets, flights) { error = it }
-    val groups = rememberGroupActivitiesSetting(groupPrefs, flights) { error = it }
 
     return SettingsState(
         units,
         saving,
         error,
-        defaultVisibility.fields,
-        defaultVisibility.saving,
+        defaultActivityVisibility = defaultVisibility?.activity,
         privacyZoneCount = privacySettings?.zones?.size,
         hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
+        segmentMatching = segments?.isOn,
         canModerate = canModerate,
-        segmentMatching = segments.matching,
-        canUseSegments = segments.canUse,
-        savingSegments = segments.saving,
-        showOnLeaderboards = segments.shownOnLeaderboards,
-        savingLeaderboards = segments.savingLeaderboards,
-        bracketBoards = segments.bracketBoards,
-        canUseBracketBoards = segments.canUseBracketBoards,
-        savingBracketBoards = segments.savingBracketBoards,
-        groupActivities = groups.choice,
-        canUseGroups = groups.canUse,
-        savingGroups = groups.saving,
     ) { event ->
         when (event) {
+            // Settings' own back leaves it: on a wide window that also closes the page shown beside the list.
             SettingsEvent.Back -> {
+                navigator.popUntil { it is SettingsScreen }
                 navigator.pop()
             }
 
@@ -91,36 +78,12 @@ fun SettingsPresenter(
                 }
             }
 
-            SettingsEvent.OpenZones -> {
-                navigator.goTo(TrainingZonesScreen)
-            }
-
-            SettingsEvent.OpenPrivacyZones -> {
-                navigator.goTo(PrivacyZonesScreen)
-            }
-
-            SettingsEvent.OpenGear -> {
-                navigator.goTo(GearListScreen)
-            }
-
-            SettingsEvent.OpenBlocked -> {
-                navigator.goTo(BlockListScreen(BlockListKind.Blocked))
-            }
-
-            SettingsEvent.OpenMuted -> {
-                navigator.goTo(BlockListScreen(BlockListKind.Muted))
+            is SettingsEvent.Open -> {
+                navigator.openFromSettings(event.page)
             }
 
             SettingsEvent.OpenModeration -> {
-                if (canModerate) navigator.goTo(ModerationScreen)
-            }
-
-            is SettingsEvent.SegmentSettingEvent -> {
-                segments.onEvent(event)
-            }
-
-            is SettingsEvent.GroupActivitiesChanged -> {
-                groups.set(event.choice)
+                if (canModerate) navigator.openFromSettings(ModerationScreen)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.
@@ -129,4 +92,13 @@ fun SettingsPresenter(
             }
         }
     }
+}
+
+/**
+ * Opens [screen] in place of whichever page Settings has open. On a phone Settings is on top, so nothing pops; on a wide window this swaps
+ * the detail pane's page rather than stacking a second one on it.
+ */
+private fun Navigator.openFromSettings(screen: Screen) {
+    popUntil { it is SettingsScreen }
+    goTo(screen)
 }
