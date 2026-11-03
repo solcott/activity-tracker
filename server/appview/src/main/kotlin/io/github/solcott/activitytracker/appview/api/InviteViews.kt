@@ -1,16 +1,14 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
-import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
 import io.github.solcott.activitytracker.appview.db.ActivityInvites
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.inviteLive
-import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.appview.segments.exactRecord
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
@@ -22,8 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -164,12 +160,7 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
      * dive data, gear, devices, photos, description) is kept.
      */
     private fun JdbcTransaction.granted(activity: ResultRow): ActivityRecord {
-        val details =
-            ActivityDetails.select(ActivityDetails.visibility, ActivityDetails.record)
-                .where { ActivityDetails.activityUri eq activity[Activities.uri] }
-                .sortedBy { Visibility.rank(it[ActivityDetails.visibility]) }
-                .map { AtJson.decodeFromString(ActivityDetailsRecord.serializer(), it[ActivityDetails.record]) }
-        val full = effectiveRecord(AtJson.decodeFromString(ActivityRecord.serializer(), activity[Activities.record]), details)
+        val full = exactRecord(activity)
         return ActivityRecord(
             sport = full.sport,
             subSport = full.subSport,
