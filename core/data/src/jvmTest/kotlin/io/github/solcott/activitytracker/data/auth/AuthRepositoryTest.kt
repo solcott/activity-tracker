@@ -122,9 +122,10 @@ class AuthRepositoryTest {
 
         assertFailsWith<SessionExpiredException> { manager.freshSession(forceRefresh = true) }
         auth.session.first { it == null }
+        // The session drops before the caches are cleared, on Room's own threads: wait for the clear, not the next read.
+        db.feed().observe("timeline").first { it.isEmpty() }
 
         assertNull(store.loadSession())
-        assertEquals(emptyList(), db.feed().byUri("at://did:plc:bob/app.activitytracker.feed.activity/1"))
         assertEquals(ExpiredSession(Did(did), Handle("alice.test")), auth.lastExpiry.value)
         assertEquals(0, revocations)
         assertNull(manager.expired.value)
