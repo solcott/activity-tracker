@@ -55,7 +55,8 @@ class ModeratorSubjectsTest : ModerationTestBase() {
                 val json = headersOf("Content-Type", "application/json")
                 val path = request.url.encodedPath
                 when {
-                    path.endsWith("createSession") -> respond("""{"accessJwt":"triage-session","did":"$triage"}""", headers = json)
+                    path.endsWith("createSession") ->
+                        respond("""{"accessJwt":"triage-session","refreshJwt":"triage-refresh","did":"$triage"}""", headers = json)
                     path.endsWith("getServiceAuth") -> respond("""{"token":"for-${request.url.parameters["lxm"]}"}""", headers = json)
                     ozoneDown -> throw IOException("connection refused")
                     path.endsWith(OzoneClient.LIST_MEMBERS) -> {

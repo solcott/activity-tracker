@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.appview.moderation
 import io.github.solcott.activitytracker.appview.AppViewConfig
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.atproto.CreateSession
+import io.github.solcott.activitytracker.lexicon.atproto.GetServiceAuth
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -73,12 +75,12 @@ class OzoneClient(
         repeat(2) { attempt ->
             val pds = pds()
             val response =
-                http.get("$pds/xrpc/com.atproto.server.getServiceAuth") {
+                http.get("$pds/xrpc/${GetServiceAuth.method.nsid}") {
                     header(HttpHeaders.Authorization, "Bearer ${session(fresh = attempt > 0)}")
                     parameter("aud", labeler.did)
                     parameter("lxm", method)
                 }
-            if (response.status.isSuccess()) return decode(response, ServiceAuth.serializer(), "getServiceAuth").token
+            if (response.status.isSuccess()) return decode(response, GetServiceAuth.Output.serializer(), "getServiceAuth").token
             if (response.status != HttpStatusCode.Unauthorized && response.status != HttpStatusCode.BadRequest) {
                 throw LabelerUnavailable("getServiceAuth: ${response.status}")
             }
@@ -90,11 +92,13 @@ class OzoneClient(
         session?.takeUnless { fresh }
             ?: run {
                 val response =
-                    http.post("${pds()}/xrpc/com.atproto.server.createSession") {
+                    http.post("${pds()}/xrpc/${CreateSession.method.nsid}") {
                         contentType(ContentType.Application.Json)
-                        setBody(AtJson.encodeToString(CreateSession.serializer(), CreateSession(triage.did, triage.appPassword)))
+                        setBody(
+                            AtJson.encodeToString(CreateSession.Input.serializer(), CreateSession.Input(triage.did, triage.appPassword))
+                        )
                     }
-                decode(response, Session.serializer(), "createSession").accessJwt.also { session = it }
+                decode(response, CreateSession.Output.serializer(), "createSession").accessJwt.also { session = it }
             }
     }
 
@@ -115,12 +119,6 @@ class OzoneClient(
     @Serializable private data class ListMembers(val members: List<Member> = emptyList(), val cursor: String? = null)
 
     @Serializable private data class QueryStatuses(val subjectStatuses: List<SubjectStatus> = emptyList())
-
-    @Serializable private data class CreateSession(val identifier: String, val password: String)
-
-    @Serializable private data class Session(val accessJwt: String)
-
-    @Serializable private data class ServiceAuth(val token: String)
 
     class LabelerUnavailable(message: String, cause: Throwable? = null) : Exception(message, cause)
 
