@@ -16,18 +16,14 @@ import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearItem
-import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
@@ -94,7 +90,7 @@ fun EditGearCollectionPresenter(
                 )
             runSuspendCatching { collections.save(existing, record) }
                 .onSuccess { navigator.pop() }
-                .onFailure { error = collectionSaveErrorOf(it) }
+                .onFailure { error = gearErrorOf(UiError.Kind.SaveGearCollection, it) }
         }
     }
 
@@ -124,12 +120,3 @@ fun EditGearCollectionPresenter(
         }
     }
 }
-
-/** A session whose grant predates collections asks to sign in again, whether this client or the PDS refused the save. */
-internal fun collectionSaveErrorOf(e: Throwable): UiError =
-    when {
-        e is GearNeedsSignInException -> UiError(UiError.Kind.GearSignInAgain)
-        e is SpacesUnsupportedException -> UiError(UiError.Kind.SpacesUnsupported)
-        e is XrpcException && e.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.GearSignInAgain)
-        else -> UiError.of(UiError.Kind.SaveGearCollection, e)
-    }

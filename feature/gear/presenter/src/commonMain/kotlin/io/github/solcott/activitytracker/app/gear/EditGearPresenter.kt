@@ -22,16 +22,13 @@ import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
 import io.github.solcott.activitytracker.data.gear.GearMountException
-import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearPhotoEdit
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -46,7 +43,6 @@ import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearMounts
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.LoadStatus
@@ -212,7 +208,7 @@ fun EditGearPresenter(
                 }
             }
                 .onSuccess { navigator.pop() }
-                .onFailure { error = if (it is GearMountException) mountErrorOf(it) else saveErrorOf(it) }
+                .onFailure { error = if (it is GearMountException) mountErrorOf(it) else gearErrorOf(UiError.Kind.SaveGear, it) }
         }
     }
 
@@ -298,15 +294,6 @@ private const val SAVE = "save"
 private const val DELETE = "delete"
 
 private fun TextFieldState.trimmedOrNull(): String? = text.trim().toString().ifEmpty { null }
-
-/** A session whose grant predates gear asks to sign in again, whether this client or the PDS refused the save. */
-private fun saveErrorOf(e: Throwable): UiError =
-    when {
-        e is GearNeedsSignInException -> UiError(UiError.Kind.GearSignInAgain)
-        e is SpacesUnsupportedException -> UiError(UiError.Kind.SpacesUnsupported)
-        e is XrpcException && e.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.GearSignInAgain)
-        else -> UiError.of(UiError.Kind.SaveGear, e)
-    }
 
 /** The field's number, in its unit, as stored ([toStored]: meters or seconds), rounded; null when empty, unreadable or negative. */
 private fun TextFieldState.parsedOrNull(toStored: (Double) -> Double): Long? =
