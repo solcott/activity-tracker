@@ -21,6 +21,7 @@ kotlin {
 
             implementation(libs.compose.runtime.annotation)
             implementation(libs.kermit)
+            implementation(libs.kotlinx.datetime)
         }
         nonWebMain {
             dependencies {
