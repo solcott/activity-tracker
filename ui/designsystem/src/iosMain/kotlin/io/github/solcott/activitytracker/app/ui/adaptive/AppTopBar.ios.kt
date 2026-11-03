@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -98,7 +99,7 @@ private fun IosNavigationBar(
     val inlineTitle by animateFloatAsState(if (!large || collapsed) 1f else 0f, tween(TITLE_SWAP_MILLIS), label = "inlineTitle")
     var barHeight by remember { mutableIntStateOf(0) }
     Box(modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }) {
-        backdrop?.let { BarEffect(it, material, barHeight, Modifier.matchParentSize()) }
+        backdrop?.let { BarEffect(it, { material }, barHeight, Modifier.matchParentSize()) }
         Column(
             Modifier.fillMaxWidth()
                 .then(if (backdrop == null) Modifier.background(colors.surface) else Modifier)
@@ -146,34 +147,37 @@ private fun IosNavigationBar(
 
 /**
  * The bar's [barMaterial] over [backdrop], laid out over a bar [barHeight] px tall. Like UIKit's scroll edge effect, iOS 26's soft edge
- * runs a little past the bar into the content, so it's at full strength behind the title and buttons and fades out below them.
+ * runs a little past the bar into the content, so it's at full strength behind the title and buttons and fades out below them. [material]
+ * is read only at draw time and in the style, so its fade redraws the bar without recomposing it.
  */
 @Composable
-private fun BarEffect(backdrop: HazeState, material: Float, barHeight: Int, modifier: Modifier = Modifier) {
+private fun BarEffect(backdrop: HazeState, material: () -> Float, barHeight: Int, modifier: Modifier = Modifier) {
     val overhang = if (usesLiquidGlass) EDGE_OVERHANG else 0.dp
     val overhangPx = with(LocalDensity.current) { overhang.toPx() }
     // Where the fade starts, as a fraction of the effect's height: the bar's bottom edge.
     val fadeStart = if (barHeight > 0) barHeight / (barHeight + overhangPx) else 1f
     val color = MaterialTheme.colorScheme.surface
+    // Haze compares a style built here by identity, so one made on each recomposition would reconfigure the blur every time.
+    val style = remember(color, fadeStart) { barMaterial(color, material, fadeStart, usesLiquidGlass) }
     Box(
         modifier
             // A native view under the list, like the route map, shows through the canvas's cut-out, which Haze copies into its layer
             // along with the content and so clears out the material's opaque fill. Filling the bar in the canvas itself covers that
             // cut-out; Compose content, already behind an opaque material there, looks the same.
-            .background(color.copy(alpha = material))
+            .drawBehind { drawRect(color, alpha = material()) }
             .overhang(overhang)
-            .hazeBlur(HazeInput.Sources(backdrop), barMaterial(color, material, fadeStart, usesLiquidGlass))
+            .hazeBlur(HazeInput.Sources(backdrop), style)
     )
 }
 
 /**
  * UIKit's bar background over content scrolled under it, faded in by [alpha]: a blur, mostly opaque in [color], so text behind the title
  * and buttons isn't legible. With [edgeEffect] it's iOS 26's soft scroll edge effect, which fades out from [fadeStart] (a fraction of the
- * effect's height) to untouched content at the bottom of its area.
+ * effect's height) to untouched content at the bottom of its area. Haze runs the block again whenever [alpha]'s state changes.
  */
-private fun barMaterial(color: Color, alpha: Float, fadeStart: Float, edgeEffect: Boolean): HazeBlurStyle = HazeBlurStyle {
+private fun barMaterial(color: Color, alpha: () -> Float, fadeStart: Float, edgeEffect: Boolean): HazeBlurStyle = HazeBlurStyle {
     blurRadius(BAR_BLUR)
-    alpha(alpha)
+    alpha(alpha())
     backgroundColor(color)
     colorEffects(listOf(HazeColorEffect.tint(color.copy(alpha = BAR_TINT_ALPHA))))
     if (edgeEffect) {
