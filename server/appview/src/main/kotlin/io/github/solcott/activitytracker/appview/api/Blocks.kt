@@ -20,11 +20,11 @@ import org.jetbrains.exposed.v1.jdbc.select
  * source doesn't matter. Correlated to the outer query when either is a column.
  */
 internal fun blocked(a: Expression<String>, b: Expression<String>): Op<Boolean> =
-    exists(
-        Blocks.select(Blocks.uri).where {
-            ((Blocks.authorDid eq a) and (Blocks.subjectDid eq b)) or ((Blocks.authorDid eq b) and (Blocks.subjectDid eq a))
-        }
-    )
+    exists(Blocks.select(Blocks.uri).where { blockBetween(a, b) })
+
+/** A [Blocks] row made by either of [a] and [b] against the other: the one rule [blocked] and [isBlocked] share. */
+private fun blockBetween(a: Expression<String>, b: Expression<String>): Op<Boolean> =
+    ((Blocks.authorDid eq a) and (Blocks.subjectDid eq b)) or ((Blocks.authorDid eq b) and (Blocks.subjectDid eq a))
 
 /** [blocked] for a known [viewer]; a null viewer (signed out) is in no block. */
 internal fun notBlocked(viewer: Did?, other: Expression<String>): Op<Boolean> =
@@ -37,10 +37,7 @@ internal fun notMuted(viewer: Did?, subject: Expression<String>): Op<Boolean> =
 
 /** Whether [a] and [b] are in a block, made by either. */
 internal fun JdbcTransaction.isBlocked(a: String, b: String): Boolean =
-    !Blocks.select(Blocks.uri)
-        .where { ((Blocks.authorDid eq a) and (Blocks.subjectDid eq b)) or ((Blocks.authorDid eq b) and (Blocks.subjectDid eq a)) }
-        .limit(1)
-        .empty()
+    !Blocks.select(Blocks.uri).where { blockBetween(stringParam(a), stringParam(b)) }.limit(1).empty()
 
 /**
  * [viewer]'s own block of [subject]: their `graph.block` if they have one, else their `app.bsky.graph.block`. Never [subject]'s block of

@@ -263,12 +263,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val rows =
             admittedLikes()
                 .select(Likes.authorDid, latest)
-                .where {
-                    (Likes.subjectUri inList subjects) and
-                        visibleTo(Likes.authorDid) and
-                        notBlocked(viewer, Likes.authorDid) and
-                        listed(viewer, Likes.authorDid)
-                }
+                .where { (Likes.subjectUri inList subjects) and likesShownTo(viewer) }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -410,12 +405,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     private fun JdbcTransaction.likeCountsOf(countedAs: Map<String, String>, viewer: Did?): Map<String, Long> =
         admittedLikes()
             .select(Likes.subjectUri, Likes.authorDid)
-            .where {
-                (Likes.subjectUri inList countedAs.keys) and
-                    visibleTo(Likes.authorDid) and
-                    notBlocked(viewer, Likes.authorDid) and
-                    listed(viewer, Likes.authorDid)
-            }
+            .where { (Likes.subjectUri inList countedAs.keys) and likesShownTo(viewer) }
             .withDistinct()
             .toList()
             .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
@@ -472,6 +462,13 @@ class XrpcError(val status: Int, val error: String, override val message: String
  * the activity at its current visibility, wherever the like is stored. Likes follow the activity when it's narrowed or widened.
  */
 private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subjectUri, Activities.uri)
+
+/**
+ * The likes over [admittedLikes] that [viewer] is shown: the giver may see the activity, and the giver is neither in a block with the
+ * viewer nor hidden from them. `getLikes` and `hydrate`'s counts both use it, so a count never includes a like the list leaves out.
+ */
+private fun likesShownTo(viewer: Did?): Op<Boolean> =
+    visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) and listed(viewer, Likes.authorDid)
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
