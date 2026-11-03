@@ -29,7 +29,10 @@ object CalendarDate {
         return if (birth > today) null else birth.yearsUntil(today)
     }
 
-    private fun parse(date: String): LocalDate? = LocalDate.Formats.ISO.parseOrNull(date)
+    /** Only `YYYY-MM-DD`: ISO also allows a signed or longer year (`+12345-01-01`), which birthdates never use. */
+    private fun parse(date: String): LocalDate? = date.takeIf { pattern.matches(it) }?.let { LocalDate.Formats.ISO.parseOrNull(it) }
+
+    private val pattern = Regex("""\d{4}-\d{2}-\d{2}""")
 
     private fun utcDate(now: Instant): LocalDate = now.toLocalDateTime(TimeZone.UTC).date
 }

@@ -21,6 +21,10 @@ class CalendarDateTest {
         assertNull(CalendarDate.toEpochDay("2023-02-29"))
         assertNull(CalendarDate.toEpochDay("1990-13-01"))
         assertNull(CalendarDate.toEpochDay("1990-4-1"))
+        // ISO allows a signed or longer year; a birthdate never has one.
+        assertNull(CalendarDate.toEpochDay("+12345-01-01"))
+        assertNull(CalendarDate.toEpochDay("-0001-06-01"))
+        assertNull(CalendarDate.age("-0001-06-01", Instant.parse("2026-01-01T00:00:00Z")))
         assertEquals(LocalDate.parse("2024-02-29").toEpochDay(), CalendarDate.toEpochDay("2024-02-29"))
     }
 
