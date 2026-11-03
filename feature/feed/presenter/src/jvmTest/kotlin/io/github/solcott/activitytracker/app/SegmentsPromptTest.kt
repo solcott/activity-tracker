@@ -38,7 +38,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -183,7 +182,6 @@ class SegmentsPromptTest {
                     ),
                 )
             },
-            timeout = 10.seconds,
             block = block,
         )
     }

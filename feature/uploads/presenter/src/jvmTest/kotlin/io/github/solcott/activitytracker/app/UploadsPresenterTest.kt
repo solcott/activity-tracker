@@ -40,7 +40,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 
@@ -120,7 +119,7 @@ class UploadsPresenterTest {
         val likes = LocalLikes()
         val rejected = RejectedChanges(db, clients, OutboxProcessor(db, clients, Logger), FeedRepository(db, clients, likes, Logger), likes)
         val uploads = UploadQueue(db, clients, rejected, Clock.System, testImportSaves(db))
-        presenterTestOf({ UploadsPresenter(navigator, uploads, location) }, timeout = 10.seconds) { block(db, clients) }
+        presenterTestOf({ UploadsPresenter(navigator, uploads, location) }) { block(db, clients) }
     }
 
     @Test

@@ -71,7 +71,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.CompletableDeferred
@@ -146,7 +145,6 @@ class FeedPresenterTest {
         val uploads = UploadQueue(r.db, r.clients, r.rejected, Clock.System, testImportSaves(r.db))
         presenterTestOf(
             { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.groupPrefs, uploads) },
-            timeout = TURBINE_TIMEOUT,
             block = block,
         )
     }
@@ -285,7 +283,6 @@ class FeedPresenterTest {
                     ),
                 )
             },
-            timeout = TURBINE_TIMEOUT,
             block = block,
         )
     }
@@ -606,9 +603,3 @@ class FeedPresenterTest {
         }
     }
 }
-
-/**
- * How long a test waits for the next state. Turbine's default of 1 s is too short for a refresh (Room and the mock AppView) while
- * `./gradlew check` runs other test tasks alongside, and a stuck test still fails within this.
- */
-private val TURBINE_TIMEOUT = 10.seconds

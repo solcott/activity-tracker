@@ -12,10 +12,17 @@ import com.slack.circuit.runtime.presenter.Presenter
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.ExperimentalForInheritanceCircuitTestApi
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+
+/**
+ * How long a presenter test waits for the next state, in real time. Presenters reach Room and the mock AppView on real IO threads, which
+ * take longer than Turbine's 3 s default while `./gradlew check` runs other test tasks alongside; a stuck test still fails within this.
+ */
+val PRESENTER_TEST_TIMEOUT = 10.seconds
 
 /**
  * circuit-test's `presenterTestOf`, with the presenter composed on the test thread only. Turbine collects on an unconfined dispatcher, so
@@ -25,7 +32,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  */
 suspend fun <UiState : CircuitUiState> presenterTestOf(
     presentFunction: @Composable () -> UiState,
-    timeout: Duration? = null,
+    timeout: Duration = PRESENTER_TEST_TIMEOUT,
     name: String? = null,
     policy: SnapshotMutationPolicy<UiState> = structuralEqualityPolicy(),
     block: suspend CircuitReceiveTurbine<UiState>.() -> Unit,
@@ -38,7 +45,7 @@ suspend fun <UiState : CircuitUiState> presenterTestOf(
 
 /** circuit-test's `Presenter.test`, through [presenterTestOf]. */
 suspend fun <UiState : CircuitUiState> Presenter<UiState>.test(
-    timeout: Duration? = null,
+    timeout: Duration = PRESENTER_TEST_TIMEOUT,
     name: String? = null,
     policy: SnapshotMutationPolicy<UiState> = structuralEqualityPolicy(),
     block: suspend CircuitReceiveTurbine<UiState>.() -> Unit,
