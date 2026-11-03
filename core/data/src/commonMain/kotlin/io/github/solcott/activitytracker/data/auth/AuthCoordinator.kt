@@ -101,5 +101,10 @@ fun parseRedirectParams(url: String): Map<String, String> =
             k.decodeUrlComponent() to v.decodeUrlComponent()
         }
 
-// A stray or cut-off escape (`?x=%`, `%zz`) keeps the component as written rather than failing the whole redirect.
-private fun String.decodeUrlComponent(): String = runCatching { decodeURLQueryComponent(plusIsSpace = true) }.getOrDefault(this)
+// A stray or cut-off escape (`?x=%`, `%zz`) is kept as written, escaped as `%25` before decoding, rather than failing the whole redirect;
+// the component's other escapes still decode.
+private fun String.decodeUrlComponent(): String = runCatching {
+    replace(STRAY_ESCAPE, "%25").decodeURLQueryComponent(plusIsSpace = true)
+}.getOrDefault(this)
+
+private val STRAY_ESCAPE = Regex("%(?![0-9A-Fa-f]{2})")
