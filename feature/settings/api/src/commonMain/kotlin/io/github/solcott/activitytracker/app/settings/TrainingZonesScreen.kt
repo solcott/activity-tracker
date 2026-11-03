@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -21,7 +20,7 @@ import kotlinx.collections.immutable.ImmutableSet
  * An overview of the signed-in athlete's training zones: the defaults, then each sport with its own. Each opens its editor ([ZonesScreen],
  * [SportZonesScreen]), and another sport can be added.
  */
-@CircuitSerializable(SessionScope::class) data object TrainingZonesScreen : Screen
+@CircuitSerializable(SessionScope::class) data object TrainingZonesScreen : SettingsPage
 
 @Immutable
 data class TrainingZonesState(

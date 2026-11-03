@@ -12,6 +12,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.coreData)
+            // Only for Screen: the SettingsPage marker that settings' pages in several features carry.
+            api(libs.circuit.runtime)
             // Only for TextFieldState: a State holds its text fields' state, which the presenter owns.
             api(libs.compose.foundation)
             api(libs.kotlinx.collections.immutable)

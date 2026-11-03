@@ -2,9 +2,9 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.settings.SettingsPage
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -23,7 +23,7 @@ enum class BlockListKind {
 }
 
 /** The signed-in athlete's blocked or muted accounts, from Settings. */
-@CircuitSerializable(SessionScope::class) data class BlockListScreen(val kind: BlockListKind) : Screen
+@CircuitSerializable(SessionScope::class) data class BlockListScreen(val kind: BlockListKind) : SettingsPage
 
 /** One listed account; [removable] when this app can unblock or unmute it, which a block made only on Bluesky ([onBluesky]) isn't. */
 @Immutable data class BlockListAccount(val profile: ProfileViewBasic, val removable: Boolean = true, val onBluesky: Boolean = false)

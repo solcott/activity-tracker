@@ -2,8 +2,8 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.settings.SettingsPage
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
@@ -13,7 +13,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 /** The signed-in athlete's gear: their collections, then items grouped by type, active items first and then the retired ones. */
-@CircuitSerializable(SessionScope::class) data object GearListScreen : Screen
+@CircuitSerializable(SessionScope::class) data object GearListScreen : SettingsPage
 
 /**
  * One item as a list shows it. [type] is a known `GearType` (one this client doesn't know is `other`), and [kind] one of its kinds or null.

@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -19,7 +18,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
 /** One sport's own thresholds and zone models, overriding the defaults on [ZonesScreen]. [sport] is a `Sport` value. */
-@CircuitSerializable(SessionScope::class) data class SportZonesScreen(val sport: String) : Screen
+@CircuitSerializable(SessionScope::class) data class SportZonesScreen(val sport: String) : SettingsPage
 
 @Immutable
 data class SportZonesState(

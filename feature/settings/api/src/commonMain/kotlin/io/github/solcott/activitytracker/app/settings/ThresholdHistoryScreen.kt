@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -17,7 +16,7 @@ import kotlinx.collections.immutable.persistentListOf
  * Every value the signed-in athlete's thresholds have had, grouped by the defaults and each sport, then by threshold, with a chart of each
  * threshold's progress and a way to remove a value.
  */
-@CircuitSerializable(SessionScope::class) data object ThresholdHistoryScreen : Screen
+@CircuitSerializable(SessionScope::class) data object ThresholdHistoryScreen : SettingsPage
 
 @Immutable
 data class ThresholdHistoryState(

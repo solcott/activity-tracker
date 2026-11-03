@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -16,7 +15,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
 /** Edits the signed-in athlete's default training thresholds and the heart rate and power zones derived from them. */
-@CircuitSerializable(SessionScope::class) data object ZonesScreen : Screen
+@CircuitSerializable(SessionScope::class) data object ZonesScreen : SettingsPage
 
 @Immutable
 data class ZonesState(
