@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -355,7 +356,7 @@ private fun rememberManage(
                 error = null
                 runSuspendCatching { manager.delete(activity, withRecordings) }
                     .onSuccess { navigator.pop() }
-                    .onFailure { error = UiError.of(UiError.Kind.DeleteActivity, it) }
+                    .onFailure { error = uiErrorOf(UiError.Kind.DeleteActivity, it) }
             }
         },
         ungroup = {
@@ -368,7 +369,7 @@ private fun rememberManage(
                         else manager.ungroup(activity.uri, from = recordingOf, visibility)
                     }
                         .onSuccess { reload() }
-                        .onFailure { error = UiError.of(UiError.Kind.UngroupActivity, it) }
+                        .onFailure { error = uiErrorOf(UiError.Kind.UngroupActivity, it) }
                 }
             }
         },
@@ -378,7 +379,7 @@ private fun rememberManage(
                 runSuspendCatching { manager.removeMember(activity, member) }
                     // Taking out one of two members splits the combined activity, which is then gone.
                     .onSuccess { if (members.size - 1 < CombinedActivity.MIN_MEMBERS) navigator.pop() else reload() }
-                    .onFailure { error = UiError.of(UiError.Kind.SplitActivity, it) }
+                    .onFailure { error = uiErrorOf(UiError.Kind.SplitActivity, it) }
             }
         },
         split = {
@@ -386,7 +387,7 @@ private fun rememberManage(
                 error = null
                 runSuspendCatching { manager.split(activity) }
                     .onSuccess { navigator.pop() }
-                    .onFailure { error = UiError.of(UiError.Kind.SplitActivity, it) }
+                    .onFailure { error = uiErrorOf(UiError.Kind.SplitActivity, it) }
             }
         },
     )

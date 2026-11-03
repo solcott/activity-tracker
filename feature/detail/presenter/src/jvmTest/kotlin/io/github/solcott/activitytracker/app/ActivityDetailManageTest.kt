@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -69,6 +70,9 @@ class ActivityDetailManageTest {
     /** Holds each `deleteRecord` until completed, so the test sees the delete in flight. */
     private var gate = CompletableDeferred(Unit)
     private var failGetRecord = false
+
+    /** `getRecord` answers 403 ScopeMissingError while set, as a PDS does for a grant that doesn't cover the read. */
+    private var scopeMissing = false
 
     /** `getActivity` for the main activity answers InternalServerError while set. */
     private var failMain = false
@@ -119,7 +123,9 @@ class ActivityDetailManageTest {
                     }
 
                     "/xrpc/com.atproto.repo.getRecord" -> {
-                        if (failGetRecord) {
+                        if (scopeMissing) {
+                            respond("""{"error":"${SpaceErrors.SCOPE_MISSING}"}""", HttpStatusCode.Forbidden, json)
+                        } else if (failGetRecord) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         } else {
                             val rkey = request.url.parameters["rkey"]!!
@@ -346,6 +352,18 @@ class ActivityDetailManageTest {
             assertEquals(UiError.Kind.DeleteActivity, failed.manage?.error?.kind)
             assertTrue(writes.isEmpty())
             navigator.assertPopIsEmpty()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anUngroupTheGrantDoesntCoverAsksToSignInAgain() = runTest {
+        scopeMissing = true
+        presenterTestOf(presenter(main)) {
+            awaitLoaded().eventSink(ActivityDetailEvent.Ungroup)
+            val failed = awaitUntil { it.page()?.manage?.error != null }.page()!!
+            assertEquals(UiError.Kind.SignInAgain, failed.manage?.error?.kind, "not a generic ungroup failure")
+            assertTrue(writes.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

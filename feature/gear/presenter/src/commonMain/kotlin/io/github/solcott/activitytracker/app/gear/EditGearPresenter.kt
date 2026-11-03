@@ -281,7 +281,7 @@ fun EditGearPresenter(
                 flights.launch(DELETE) {
                     runSuspendCatching { gear.delete(item) }
                         .onSuccess { navigator.pop() }
-                        .onFailure { error = UiError.of(UiError.Kind.DeleteGear, it) }
+                        .onFailure { error = gearErrorOf(UiError.Kind.DeleteGear, it) }
                 }
             }
         }

@@ -63,7 +63,7 @@ fun GearCollectionPresenter(
                 flights.launch(GearCollectionEvent.ConfirmDelete) {
                     runSuspendCatching { collections.delete(screen.rkey) }
                         .onSuccess { navigator.pop() }
-                        .onFailure { error = UiError.of(UiError.Kind.DeleteGearCollection, it) }
+                        .onFailure { error = gearErrorOf(UiError.Kind.DeleteGearCollection, it) }
                 }
             }
         }

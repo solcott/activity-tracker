@@ -12,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -71,7 +72,7 @@ fun CombinePickerPresenter(
                                 navigator.pop()
                                 navigator.goTo(ActivityDetailScreen(combined.value))
                             }
-                            .onFailure { error = UiError.of(UiError.Kind.CombineActivity, it) }
+                            .onFailure { error = uiErrorOf(UiError.Kind.CombineActivity, it) }
                     }
                 }
             }

@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.gear.GearListEvent
 import io.github.solcott.activitytracker.app.gear.GearListPresenter
 import io.github.solcott.activitytracker.app.gear.GearListScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -110,6 +111,23 @@ class GearCollectionPresenterTest {
         }
         assertTrue(fixture.gearCollections.isEmpty())
         assertEquals(3, fixture.gear.values.sumOf { it.size })
+    }
+
+    @Test
+    fun anOlderSessionDeletingACollectionIsAskedToSignInAgain() = runTest {
+        diveKit()
+        fixture.scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}"
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(GearCollectionScreen("3dive"))
+        presenterTestOf({ GearCollectionPresenter(GearCollectionScreen("3dive"), navigator, repos.gear, repos.gearCollections) }) {
+            awaitItem().eventSink(GearCollectionEvent.Delete)
+            awaitUntil { it.confirmingDelete }.eventSink(GearCollectionEvent.ConfirmDelete)
+            val failed = awaitUntil { it.error != null && !it.deleting }
+            assertEquals(UiError.Kind.GearSignInAgain, failed.error?.kind, "not a generic delete failure")
+            navigator.assertPopIsEmpty()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue("3dive" in fixture.gearCollections)
     }
 
     @Test
