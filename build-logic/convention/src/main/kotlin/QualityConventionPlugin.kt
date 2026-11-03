@@ -6,13 +6,15 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.FileTreeElement
 import org.gradle.api.specs.Spec
+import org.gradle.api.tasks.testing.AbstractTestTask
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 /**
  * Formatting and static analysis for every module: ktfmt, sort-dependencies, detekt with the Compose rules, the module-boundaries check,
- * and (in modules that apply the Compose compiler) the Compose stability check.
+ * (in modules that apply the Compose compiler) the Compose stability check, and every test failure's full message in the console.
  */
 class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -52,6 +54,9 @@ class QualityConventionPlugin : Plugin<Project> {
                 }
             // Detekt only wires the plain task into check; the type-resolution ones find what it can't (`!!`, unused properties).
             plugins.withType<LifecycleBasePlugin> { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(detektAll) } }
+
+            // CI keeps only the console: without the message, a Turbine timeout and a wrong value both read "AssertionError at Test.kt:N".
+            tasks.withType<AbstractTestTask>().configureEach { testLogging.exceptionFormat = TestExceptionFormat.FULL }
 
             pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") { configureComposeStability() }
             configureModuleBoundaries()

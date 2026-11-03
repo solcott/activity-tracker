@@ -82,6 +82,19 @@ class QualityConventionPluginTest {
         assertContains(result.output, ":detektTest SKIPPED")
     }
 
+    @Test
+    fun `a failing test prints its message`() {
+        projectDir.resolve("build.gradle.kts").appendText("\ndependencies { testImplementation(kotlin(\"test\")) }\n")
+        projectDir
+            .resolve("src/test/kotlin/FailingTest.kt")
+            .apply { parentFile.mkdirs() }
+            .writeText("class FailingTest {\n    @kotlin.test.Test fun fails() = kotlin.test.assertEquals(1, 2, \"the reason\")\n}\n")
+
+        val result = runner("test").buildAndFail()
+
+        assertContains(result.output, "the reason")
+    }
+
     private fun writeViolation(path: String) {
         val file = projectDir.resolve(path).apply { parentFile.mkdirs() }
         val name = file.nameWithoutExtension
