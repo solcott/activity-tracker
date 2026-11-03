@@ -9,6 +9,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
@@ -63,7 +64,7 @@ internal constructor(
         if (on == bracketBoards || matching != true) return
         onError(null)
         flights.launch(BRACKETS_KEY) {
-            runSuspendCatching { brackets.save(on) }.onFailure { e -> onError(UiError.of(UiError.Kind.SaveSettings, e)) }
+            runSuspendCatching { brackets.save(on) }.onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) }
         }
     }
 
@@ -73,7 +74,7 @@ internal constructor(
         onError(null)
         flights.launch(LEADERBOARDS_KEY) {
             runSuspendCatching { prefs.saveLeaderboards(hidden = !shown) }
-                .onFailure { e -> onError(UiError.of(UiError.Kind.SaveSettings, e)) }
+                .onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) }
         }
     }
 
@@ -88,7 +89,7 @@ internal constructor(
     private fun set(on: Boolean) {
         if (on == matching) return
         onError(null)
-        flights.launch(KEY) { runSuspendCatching { prefs.save(on) }.onFailure { e -> onError(UiError.of(UiError.Kind.SaveSettings, e)) } }
+        flights.launch(KEY) { runSuspendCatching { prefs.save(on) }.onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) } }
     }
 
     private companion object {

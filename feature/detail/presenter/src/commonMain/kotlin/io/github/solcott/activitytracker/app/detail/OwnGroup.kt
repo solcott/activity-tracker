@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -52,7 +53,7 @@ internal fun rememberOwnGroup(activity: AtUri?, loadKey: Int, groups: OwnGroups,
                 error = null
                 runSuspendCatching { groups.setLeft(activity, leave) }
                     .onSuccess { chosen = leave }
-                    .onFailure { e -> error = UiError.of(UiError.Kind.ChangeGroup, e) }
+                    .onFailure { e -> error = uiErrorOf(UiError.Kind.ChangeGroup, e) }
             }
         }
     }

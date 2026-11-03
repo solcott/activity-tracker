@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.UploadQueue
@@ -170,7 +171,7 @@ fun FeedPresenter(
                 flights.launch(FeedEvent.AnswerSegments::class) {
                     runSuspendCatching { segmentPrefs.save(event.on) }
                         .onSuccess { askSegments = false }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveSettings, e) }
                 }
             }
 
@@ -179,7 +180,7 @@ fun FeedPresenter(
                     flights.launch(FeedEvent.AnswerGroups::class) {
                         runSuspendCatching { groupPrefs.save(event.choice) }
                             .onSuccess { askGroups = false }
-                            .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                            .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveSettings, e) }
                     }
                 }
             }
