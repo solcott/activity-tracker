@@ -253,6 +253,7 @@ class SegmentLeaderboardPresenterTest {
             // The default board was served as ride: asking for it by name would load it twice.
             state.eventSink(SegmentLeaderboardEvent.BoardChanged("ride"))
             state.eventSink(SegmentLeaderboardEvent.BoardChanged("kayak"))
+            testScheduler.runCurrent()
             expectNoEvents()
             assertEquals(1, requests.size)
             cancelAndIgnoreRemainingEvents()
@@ -329,6 +330,7 @@ class SegmentLeaderboardPresenterTest {
             val back = awaitUntil { it.name == "Hill" }
             assertEquals(LeaderboardPeriod.MONTH, back.period)
             assertEquals(listOf(1, 2, 3), back.entries.items.map { it.rank }, "no loading state in between")
+            testScheduler.runCurrent()
             expectNoEvents()
             assertEquals(sent, requests.size, "no page loaded again")
             cancelAndIgnoreRemainingEvents()

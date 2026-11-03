@@ -606,7 +606,9 @@ class SegmentPresenterTest {
             val state = awaitUntil { it.segment != null }
             assertFalse(state.canPropose)
             state.eventSink(SegmentEvent.ProposeName)
-            expectNoEvents()
+            // Other parts of the page may still be loading, so check only what the event would open.
+            testScheduler.runCurrent()
+            assertNull(mostRecentItemOr(state).nameSheet)
             cancelAndIgnoreRemainingEvents()
         }
         renamed(canPropose = true)
@@ -659,7 +661,10 @@ class SegmentPresenterTest {
             val state = awaitUntil { it.segment != null }
             state.eventSink(SegmentEvent.EditProposal(AtUri(bobsProposal)))
             state.eventSink(SegmentEvent.DeleteProposal(AtUri(bobsProposal)))
-            expectNoEvents()
+            testScheduler.runCurrent()
+            val after = mostRecentItemOr(state)
+            assertNull(after.nameSheet)
+            assertNull(after.confirmDelete)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -672,7 +677,8 @@ class SegmentPresenterTest {
             val state = awaitUntil { it.segment != null }
             // Alice's adopted "Wiggly Woods" is in the history only, not among the open proposals.
             state.eventSink(SegmentEvent.EditProposal(AtUri("at://$alice/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kadopted")))
-            expectNoEvents()
+            testScheduler.runCurrent()
+            assertNull(mostRecentItemOr(state).nameSheet)
             cancelAndIgnoreRemainingEvents()
         }
     }

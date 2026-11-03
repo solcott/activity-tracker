@@ -611,6 +611,7 @@ class EditActivityPresenterTest {
             val loaded = awaitLoaded()
             assertNull(loaded.leaderboardExclusion)
             loaded.eventSink(EditActivityEvent.LeaderboardExclusionChanged(true))
+            testScheduler.runCurrent()
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }

@@ -84,6 +84,7 @@ class ApprovesFollowersTest {
             assertFalse(awaitItem().approves)
             answered.await()
             assertEquals(1, recordReads)
+            testScheduler.runCurrent()
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }
