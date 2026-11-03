@@ -82,6 +82,17 @@ class ExportWritersTest {
     }
 
     @Test
+    fun charactersXmlCantHoldAreDroppedSoTheFileReadsBack() = runTest {
+        // A control character, a noncharacter and a lone surrogate; the emoji's surrogate pair and the tab stay.
+        val named = ride.copy(name = "Morning\u0001 Ride\uFFFF \uD83D\uDEB4\tlap\uD800", sport = "ride\u001B")
+        val gpx = GpxWriter.write(named)
+        assertFalse(gpx.any { it == '\u0001' || it == '\u001B' || it == '\uFFFF' })
+        val read = reader.read(gpx.encodeToByteArray()).single()
+        assertEquals("Morning Ride \uD83D\uDEB4\tlap", read.title)
+        assertEquals(Sport.RIDE, read.type.sport)
+    }
+
+    @Test
     fun aDivesTemperatureIsTheWatersAndItsDepthIsKept() {
         val dive =
             activity(
