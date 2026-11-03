@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.settings.monthName
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
@@ -41,7 +42,7 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 internal fun ImportCard(card: ImportCardView, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val author = card.author.displayName ?: card.author.handle.value
+    val author = card.author.shownName
     val openLabel = stringResource(Res.string.import_card_open)
     Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel, onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
@@ -56,6 +57,7 @@ import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_block
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -108,7 +110,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = profile?.displayName ?: profile?.handle?.value ?: stringResource(Res.string.profile_title),
+                title = profile?.shownName ?: stringResource(Res.string.profile_title),
                 onBack = { state.eventSink(ProfileEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = { ProfileBarActions(state) },
@@ -133,7 +135,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Avatar(
                                     p.avatar,
-                                    p.displayName ?: p.handle.value,
+                                    p.shownName,
                                     72.dp,
                                     blur = ModerationDecision.mediaOf(p.labels, null),
                                     revealed = p.did.value in state.revealed,
@@ -211,7 +213,7 @@ private fun ProfileBarActions(state: ProfileState) {
             { state.eventSink(ProfileEvent.OpenSettings) },
         )
     } else if (profile != null) {
-        val name = profile.displayName ?: handleLabel(profile.handle.value)
+        val name = shownNameLabel(profile)
         val reporting = state.reporting
         BlockMuteMenu(
             name = name,

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -101,7 +102,7 @@ fun MediaGalleryPresenter(
 /** Opens the report sheet for the photo at [page] of [activity]: the report names the activity and says which photo, counting from 1. */
 private fun Reporting.reportPhoto(activity: ActivityView, page: Int) {
     val target = ReportTarget.Photo(ReportTarget.Activity(activity.uri, activity.cid, activity.author.did), page + 1)
-    eventSink(ReportingEvent.Open(target, activity.author.displayName ?: activity.author.handle.value))
+    eventSink(ReportingEvent.Open(target, activity.author.shownName))
 }
 
 /** Whether [this], shown to [viewer], is their own taken-down activity, and its photos' media label. */

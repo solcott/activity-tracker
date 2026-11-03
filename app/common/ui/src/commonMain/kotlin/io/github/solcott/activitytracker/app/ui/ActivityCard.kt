@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.detail.startTime
 import io.github.solcott.activitytracker.app.detail.startTimeValue
 import io.github.solcott.activitytracker.app.media.mediaItems
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
@@ -68,7 +69,7 @@ fun ActivityCard(
     val blur = remember(activity) { ModerationDecision.mediaOf(activity.labels, activity.author.labels) }
     Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val author = activity.author.displayName ?: activity.author.handle.value
+            val author = activity.author.shownName
             Row(
                 if (onAuthorClick != null) Modifier.clickable(onClick = onAuthorClick).handCursor() else Modifier,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -185,7 +186,7 @@ private fun TogetherWith(activity: ActivityView) {
 /** Whom an activity was done with (feed/group-activities): "with Bob", "with Bob and Carol", or "with Bob and 2 others". */
 @Composable
 fun togetherWith(partners: ImmutableList<GroupPartner>): String {
-    fun name(partner: GroupPartner) = partner.author.displayName ?: partner.author.handle.value
+    fun name(partner: GroupPartner) = partner.author.shownName
     return when (partners.size) {
         1 -> stringResource(Res.string.card_with_one, name(partners[0]))
         2 -> stringResource(Res.string.card_with_two, name(partners[0]), name(partners[1]))

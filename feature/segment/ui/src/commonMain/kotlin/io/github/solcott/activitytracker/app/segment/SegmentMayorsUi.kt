@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
@@ -125,7 +126,7 @@ internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modif
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                val name = leader.athlete.displayName ?: leader.athlete.handle.value
+                val name = leader.athlete.shownName
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(leader.athlete.avatar, name, 36.dp)
                     Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)

@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
@@ -199,7 +200,7 @@ private fun boundsOf(token: String): Pair<Int, Int?> =
 /** One athlete's place on a board: [rank] (in the accent colour when [accented]), avatar and name, [detail] under it, and [value]. */
 @Composable
 internal fun RankRow(rank: Int, accented: Boolean, athlete: ProfileViewBasic, detail: String, value: String, onClick: () -> Unit) {
-    val name = athlete.displayName ?: athlete.handle.value
+    val name = athlete.shownName
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

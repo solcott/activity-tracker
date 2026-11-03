@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -148,7 +149,7 @@ fun FeedPresenter(
 
             is FeedEvent.OpenImportBatch -> {
                 val author = event.card.author
-                navigator.goTo(ImportBatchScreen(author.did.value, event.card.batch, author.displayName ?: author.handle.value))
+                navigator.goTo(ImportBatchScreen(author.did.value, event.card.batch, author.shownName))
             }
 
             FeedEvent.Record -> {

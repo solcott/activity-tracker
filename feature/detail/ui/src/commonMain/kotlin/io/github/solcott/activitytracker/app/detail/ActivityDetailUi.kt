@@ -42,6 +42,7 @@ import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.CategoryLock
@@ -69,6 +70,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
+import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
@@ -127,7 +129,7 @@ private fun OthersActivityMenu(state: ActivityDetailPage) {
     var open by remember { mutableStateOf(false) }
     val report = stringResource(Res.string.report_activity)
     val activity = state.activity
-    val name = activity.author.displayName ?: handleLabel(activity.author.handle.value)
+    val name = shownNameLabel(activity.author)
     val items =
         remember(report, activity.uri, activity.cid, name) {
             persistentListOf(
@@ -317,7 +319,7 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                state.activity.author.displayName ?: state.activity.author.handle.value,
+                state.activity.author.shownName,
                 Modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenAuthor) },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
@@ -446,7 +448,7 @@ private fun LikesList(list: LikesList, eventSink: (ActivityDetailEvent) -> Unit,
                             .clickable { eventSink(ActivityDetailEvent.OpenProfile(athlete.did)) }
                             .padding(vertical = 6.dp)
                     ) {
-                        Text(athlete.displayName ?: athlete.handle.value, style = MaterialTheme.typography.titleSmall)
+                        Text(athlete.shownName, style = MaterialTheme.typography.titleSmall)
                         Text(handleLabel(athlete.handle.value), style = MaterialTheme.typography.bodySmall)
                     }
                 }

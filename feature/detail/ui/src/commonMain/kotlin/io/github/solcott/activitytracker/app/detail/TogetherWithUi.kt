@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -37,7 +38,7 @@ internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifi
         if (state.partners.isNotEmpty()) {
             Text(stringResource(Res.string.detail_together_with), style = MaterialTheme.typography.titleMedium)
             state.partners.forEach { partner ->
-                val name = partner.author.displayName ?: partner.author.handle.value
+                val name = partner.author.shownName
                 Row(
                     Modifier.fillMaxWidth()
                         .clickable { state.eventSink(ActivityDetailEvent.OpenActivity(partner.uri)) }

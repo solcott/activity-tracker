@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -19,7 +20,7 @@ internal fun InviteSummary(invite: InviteView, modifier: Modifier = Modifier) {
     val record = invite.record
     Column(modifier) {
         Text(
-            stringResource(Res.string.activity_invites_from, invite.inviter.displayName ?: invite.inviter.handle.value),
+            stringResource(Res.string.activity_invites_from, invite.inviter.shownName),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

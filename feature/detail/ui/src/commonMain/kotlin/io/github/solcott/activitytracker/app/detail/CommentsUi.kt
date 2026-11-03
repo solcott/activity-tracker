@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -34,6 +35,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_reply
@@ -130,9 +132,9 @@ private fun CommentRow(
     state: ActivityDetailPage,
     modifier: Modifier = Modifier,
 ) {
-    val name = comment.author.displayName ?: handleLabel(comment.author.handle.value)
+    val name = shownNameLabel(comment.author)
     CommentRow(
-        author = comment.author.displayName ?: comment.author.handle.value,
+        author = comment.author.shownName,
         text = comment.text,
         hidden = comment.hidden == true,
         actions = actions,
@@ -150,7 +152,7 @@ private fun CommentRow(
 @Composable
 private fun SentCommentRow(comment: SentComment, state: ActivityDetailPage, modifier: Modifier = Modifier) =
     CommentRow(
-        author = comment.author.displayName ?: comment.author.handle.value,
+        author = comment.author.shownName,
         text = comment.text,
         hidden = false,
         actions = persistentSetOf(CommentAction.Delete),
@@ -180,7 +182,7 @@ private fun CommentRow(
             ModerationNotice(decision, isOwn = false)
             Text(text, style = MaterialTheme.typography.bodyMedium)
             if (hidden) {
-                val athlete = state.activity.author.let { it.displayName ?: it.handle.value }
+                val athlete = state.activity.author.shownName
                 Text(
                     if (state.isOwn) stringResource(Res.string.comment_hidden) else stringResource(Res.string.comment_hidden_by, athlete),
                     style = MaterialTheme.typography.labelSmall,

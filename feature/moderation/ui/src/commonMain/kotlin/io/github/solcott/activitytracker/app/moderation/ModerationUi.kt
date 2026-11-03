@@ -21,7 +21,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
-import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.moderation_help
@@ -76,7 +76,7 @@ private fun Subject(subject: ModerationSubject, modifier: Modifier = Modifier) {
             is ModerationSubject.Comment -> {
                 Visibility(subject.visibility)
                 val author = subject.comment.author
-                Text(author.displayName ?: handleLabel(author.handle.value), style = MaterialTheme.typography.labelLarge)
+                Text(shownNameLabel(author), style = MaterialTheme.typography.labelLarge)
                 Text(subject.comment.text, style = MaterialTheme.typography.bodyMedium)
             }
         }

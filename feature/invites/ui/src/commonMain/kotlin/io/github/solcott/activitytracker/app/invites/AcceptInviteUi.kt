@@ -15,6 +15,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -72,7 +73,7 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
                     RoutePreview(it, Modifier.fillMaxWidth(), gaps = invite.record.polylineGaps?.toImmutableList())
                 }
                 Text(
-                    stringResource(Res.string.accept_invite_intro, invite.inviter.displayName ?: invite.inviter.handle.value),
+                    stringResource(Res.string.accept_invite_intro, invite.inviter.shownName),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (state.overlaps) Text(stringResource(Res.string.accept_invite_overlap), color = MaterialTheme.colorScheme.error)
