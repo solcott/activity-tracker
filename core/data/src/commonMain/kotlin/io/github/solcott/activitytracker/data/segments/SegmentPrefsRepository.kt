@@ -4,10 +4,11 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
+import io.github.solcott.activitytracker.data.activity.readSelfRecord
 import io.github.solcott.activitytracker.data.activity.requireSpacesFor
+import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
@@ -122,12 +123,7 @@ class SegmentPrefsRepository(private val clients: SessionClients, private val cl
     private suspend fun write(matching: Boolean, hidden: Boolean): SegmentPrefsRecord {
         clients.requireSpacesFor(Visibility.SELF, Nsid.ACTOR_SEGMENT_PREFS)
         val record = SegmentPrefsRecord(matching = matching, updatedAt = clock.now(), hideFromLeaderboards = hidden.takeIf { it })
-        clients.spaces.putRecord(
-            clients.tiers.ensure(AthleteSpace.SELF),
-            Nsid.ACTOR_SEGMENT_PREFS,
-            SegmentPrefsRecord.RKEY,
-            AtJson.encodeToJsonElement(SegmentPrefsRecord.serializer(), record),
-        )
+        clients.writeSelfRecord(Nsid.ACTOR_SEGMENT_PREFS, SegmentPrefsRecord.RKEY, SegmentPrefsRecord.serializer(), record)
         return record
     }
 
@@ -144,14 +140,12 @@ class SegmentPrefsRepository(private val clients: SessionClients, private val cl
     private suspend fun read(): Read? {
         if (!canUse) return null
         val read = runSuspendCatching {
-            clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_SEGMENT_PREFS, SegmentPrefsRecord.RKEY)
+            clients.readSelfRecord(Nsid.ACTOR_SEGMENT_PREFS, SegmentPrefsRecord.RKEY, SegmentPrefsRecord.serializer())
         }
             .getOrNull()
         return when (read) {
             is SpaceRead.Found ->
-                runCatching { AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), read.value.value) }
-                    .getOrNull()
-                    ?.let { Read(if (it.matching) SegmentMatching.ON else SegmentMatching.OFF, it.hideFromLeaderboards == true) }
+                read.value?.let { Read(if (it.matching) SegmentMatching.ON else SegmentMatching.OFF, it.hideFromLeaderboards == true) }
                     ?: Read(SegmentMatching.OFF, hidden = false)
             SpaceRead.NotFound -> Read(SegmentMatching.NEVER_ASKED, hidden = false)
             SpaceRead.NoAccess,

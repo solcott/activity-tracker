@@ -6,11 +6,12 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.activity.readSelfRecord
 import io.github.solcott.activitytracker.data.activity.requireSpacesFor
+import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardBracketsRecord
@@ -116,11 +117,11 @@ class LeaderboardBracketsRepository(
                 weightClass = brackets.weightClass,
                 gender = brackets.gender,
             )
-        clients.spaces.putRecord(
-            clients.tiers.ensure(AthleteSpace.SELF),
+        clients.writeSelfRecord(
             Nsid.ACTOR_LEADERBOARD_BRACKETS,
             LeaderboardBracketsRecord.RKEY,
-            AtJson.encodeToJsonElement(LeaderboardBracketsRecord.serializer(), record),
+            LeaderboardBracketsRecord.serializer(),
+            record,
         )
         stored = brackets
     }
@@ -138,21 +139,14 @@ class LeaderboardBracketsRepository(
     private suspend fun read(): Read? {
         if (!canUse) return null
         val read = runSuspendCatching {
-            clients.spaces.getRecord(
-                clients.tiers.uri(AthleteSpace.SELF),
-                clients.did,
-                Nsid.ACTOR_LEADERBOARD_BRACKETS,
-                LeaderboardBracketsRecord.RKEY,
-            )
+            clients.readSelfRecord(Nsid.ACTOR_LEADERBOARD_BRACKETS, LeaderboardBracketsRecord.RKEY, LeaderboardBracketsRecord.serializer())
         }
             .getOrNull()
         return when (read) {
             is SpaceRead.Found ->
                 Read(
                     on = true,
-                    runCatching { AtJson.decodeFromJsonElement(LeaderboardBracketsRecord.serializer(), read.value.value) }
-                        .getOrNull()
-                        ?.let { LeaderboardBrackets(it.ageGroup, it.weightClass, it.gender) },
+                    read.value?.let { LeaderboardBrackets(it.ageGroup, it.weightClass, it.gender) },
                 )
             SpaceRead.NotFound -> Read(on = false, brackets = null)
             SpaceRead.NoAccess,

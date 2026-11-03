@@ -4,10 +4,11 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
+import io.github.solcott.activitytracker.data.activity.readSelfRecord
 import io.github.solcott.activitytracker.data.activity.requireSpacesFor
+import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
@@ -89,12 +90,7 @@ class GroupPrefsRepository(private val clients: SessionClients, private val cloc
         val mode = requireNotNull(choice.mode) { "Never asked isn't a choice" }
         clients.requireSpacesFor(Visibility.SELF, Nsid.ACTOR_GROUP_PREFS)
         val record = GroupPrefsRecord(mode = mode, updatedAt = clock.now())
-        clients.spaces.putRecord(
-            clients.tiers.ensure(AthleteSpace.SELF),
-            Nsid.ACTOR_GROUP_PREFS,
-            GroupPrefsRecord.RKEY,
-            AtJson.encodeToJsonElement(GroupPrefsRecord.serializer(), record),
-        )
+        clients.writeSelfRecord(Nsid.ACTOR_GROUP_PREFS, GroupPrefsRecord.RKEY, GroupPrefsRecord.serializer(), record)
         current.value = choice
         saved.value = record.updatedAt
         choice
@@ -104,14 +100,11 @@ class GroupPrefsRepository(private val clients: SessionClients, private val cloc
     private suspend fun read(): GroupChoice? {
         if (!canUse) return null
         val read = runSuspendCatching {
-            clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_GROUP_PREFS, GroupPrefsRecord.RKEY)
+            clients.readSelfRecord(Nsid.ACTOR_GROUP_PREFS, GroupPrefsRecord.RKEY, GroupPrefsRecord.serializer())
         }
             .getOrNull()
         return when (read) {
-            is SpaceRead.Found ->
-                runCatching { AtJson.decodeFromJsonElement(GroupPrefsRecord.serializer(), read.value.value) }
-                    .getOrNull()
-                    ?.let { GroupChoice.of(it.mode) } ?: GroupChoice.OFF
+            is SpaceRead.Found -> read.value?.let { GroupChoice.of(it.mode) } ?: GroupChoice.OFF
             SpaceRead.NotFound -> GroupChoice.NEVER_ASKED
             SpaceRead.NoAccess,
             null -> null

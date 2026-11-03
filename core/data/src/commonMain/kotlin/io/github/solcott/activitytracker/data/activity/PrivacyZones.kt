@@ -8,11 +8,9 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.outcomeOf
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
-import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -273,8 +271,7 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         clients.requireSpacesFor(Visibility.SELF, Nsid.ACTOR_PRIVACY_ZONES)
         val revision = Tid.next(clock)
         val record = PrivacyZonesRecord(revision, settings.zones.ifEmpty { null }, settings.hideEndsMeters.takeIf { it > 0 })
-        val space = clients.tiers.ensure(AthleteSpace.SELF)
-        clients.spaces.putRecord(space, Nsid.ACTOR_PRIVACY_ZONES, RKEY, AtJson.encodeToJsonElement(PrivacyZonesRecord.serializer(), record))
+        clients.writeSelfRecord(Nsid.ACTOR_PRIVACY_ZONES, RKEY, PrivacyZonesRecord.serializer(), record)
         remember(RouteTrim.Known(settings, revision))
         saved.value = revision
         return settings
@@ -293,18 +290,15 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
                 else -> null
             }
         if (withoutSpaces != null) return withoutSpaces
-        val answer = outcomeOf {
-            clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_PRIVACY_ZONES, RKEY)
-        }
+        val answer = outcomeOf { clients.readSelfRecord(Nsid.ACTOR_PRIVACY_ZONES, RKEY, PrivacyZonesRecord.serializer()) }
         // Hide rather than guess: a failed read, a refusal, or a record another client wrote that doesn't decode.
         val (known, failure) =
             when (answer) {
                 is Outcome.Data ->
                     when (val read = answer.data) {
                         is SpaceRead.Found ->
-                            runCatching { AtJson.decodeFromJsonElement(PrivacyZonesRecord.serializer(), read.value.value) }
-                                .getOrNull()
-                                ?.let { RouteTrim.Known(PrivacySettings.of(it), it.revision) to null } ?: (null to DataError.Serialization)
+                            read.value?.let { RouteTrim.Known(PrivacySettings.of(it), it.revision) to null }
+                                ?: (null to DataError.Serialization)
                         SpaceRead.NotFound -> RouteTrim.Known(PrivacySettings.NONE, null) to null
                         SpaceRead.NoAccess -> null to DataError.Unknown(message = "No access to the self space")
                     }

@@ -7,10 +7,8 @@ import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.di.SpacesSupport
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
-import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailVisibilities
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -18,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.JsonObject
 
 /**
  * Who an activity and each of its [DetailCategory]s are shown to: [Visibility] values, no category wider than the activity. A category
@@ -92,13 +89,7 @@ class ActivityDefaults(private val clients: SessionClients) {
     suspend fun save(choice: VisibilityChoice): VisibilityChoice = mutex.withLock {
         val capped = choice.capped()
         val record = ActivityDefaultsRecord(visibility = capped.activity, details = DetailVisibilities.of(capped.details))
-        val space = clients.tiers.ensure(AthleteSpace.SELF)
-        clients.spaces.putRecord(
-            space,
-            Nsid.ACTOR_ACTIVITY_DEFAULTS,
-            RKEY,
-            AtJson.encodeToJsonElement(ActivityDefaultsRecord.serializer(), record),
-        )
+        clients.writeSelfRecord(Nsid.ACTOR_ACTIVITY_DEFAULTS, RKEY, ActivityDefaultsRecord.serializer(), record)
         current.value = capped
         capped
     }
@@ -108,7 +99,7 @@ class ActivityDefaults(private val clients: SessionClients) {
         val read =
             if (clients.canUseSpaces) {
                 runSuspendCatching {
-                    clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_ACTIVITY_DEFAULTS, RKEY)
+                    clients.readSelfRecord(Nsid.ACTOR_ACTIVITY_DEFAULTS, RKEY, ActivityDefaultsRecord.serializer())
                 }
                     .getOrNull()
             } else {
@@ -116,21 +107,18 @@ class ActivityDefaults(private val clients: SessionClients) {
             }
         return when (read) {
             null -> null
-            is SpaceRead.Found -> decode(read.value.value)
+            is SpaceRead.Found -> choiceOf(read.value)
             SpaceRead.NotFound,
             SpaceRead.NoAccess -> VisibilityChoice.PUBLIC
         }
     }
 
     /**
-     * The record's choice, Public where it says nothing or doesn't decode (any client can write it). A category with no default starts at
-     * [DetailCategory.defaultWhenUnset], and an old `chartsVisibility` is ignored ([ActivityDefaultsRecord.resolved]).
+     * The record's choice, Public where it says nothing or doesn't decode (null: any client can write it). A category with no default
+     * starts at [DetailCategory.defaultWhenUnset], and an old `chartsVisibility` is ignored ([ActivityDefaultsRecord.resolved]).
      */
-    private fun decode(value: JsonObject): VisibilityChoice =
-        runCatching { AtJson.decodeFromJsonElement(ActivityDefaultsRecord.serializer(), value) }
-            .getOrNull()
-            ?.resolved()
-            ?.let { (activity, details) -> VisibilityChoice(activity, details) } ?: VisibilityChoice.PUBLIC
+    private fun choiceOf(record: ActivityDefaultsRecord?): VisibilityChoice =
+        record?.resolved()?.let { (activity, details) -> VisibilityChoice(activity, details) } ?: VisibilityChoice.PUBLIC
 
     private companion object {
         const val RKEY = ActivityDefaultsRecord.RKEY

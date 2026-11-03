@@ -4,17 +4,17 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
+import io.github.solcott.activitytracker.data.activity.readSelfRecord
 import io.github.solcott.activitytracker.data.activity.requireSpacesFor
+import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
-import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
 import io.github.solcott.activitytracker.lexicon.app.GearProfileLink
 import io.github.solcott.activitytracker.lexicon.app.GearSensorLink
@@ -95,12 +95,7 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
         val changed = change(before)
         val record = changed.copy(updatedAt = clock.now())
         if (changed != before) {
-            clients.spaces.putRecord(
-                clients.tiers.ensure(AthleteSpace.SELF),
-                Nsid.GEAR_AUTO_ASSIGN,
-                GearAutoAssignRecord.RKEY,
-                AtJson.encodeToJsonElement(GearAutoAssignRecord.serializer(), record),
-            )
+            clients.writeSelfRecord(Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY, GearAutoAssignRecord.serializer(), record)
         }
         current.value = record
         record
@@ -114,11 +109,10 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
     /** The record; empty when there's none or this session can't use spaces. Throws when it can't be read, the space refusing included. */
     private suspend fun readOrThrow(): GearAutoAssignRecord {
         if (!clients.canUseSpaces) return empty()
-        val read =
-            clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY)
-        return when (read) {
-            is SpaceRead.Found ->
-                runCatching { AtJson.decodeFromJsonElement(GearAutoAssignRecord.serializer(), read.value.value) }.getOrNull() ?: empty()
+        return when (
+            val read = clients.readSelfRecord(Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY, GearAutoAssignRecord.serializer())
+        ) {
+            is SpaceRead.Found -> read.value ?: empty()
             SpaceRead.NotFound -> empty()
             SpaceRead.NoAccess -> error("The self space refused its own athlete")
         }
