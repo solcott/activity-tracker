@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,8 +29,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
-import io.github.solcott.activitytracker.app.ui.pagedFooter
-import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.starred_segment_unavailable
@@ -75,24 +72,23 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
                         Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                pagedRefreshStatus(state.segments, UiError.Kind.LoadStarredSegments) { state.eventSink(StarredSegmentsEvent.Retry) }
-                items(state.segments.items, key = { it.uri.value }) { starred ->
+                pagedRows(
+                    state.segments,
+                    UiError.Kind.LoadStarredSegments,
+                    onRetry = { state.eventSink(StarredSegmentsEvent.Retry) },
+                    key = { it.uri.value },
+                    empty =
+                        if (state.needsSignIn) null
+                        else {
+                            { EmptyListText(stringResource(Res.string.starred_segments_empty)) }
+                        },
+                ) { starred ->
                     StarredRow(
                         starred,
                         removing = starred.uri in state.removing,
                         onOpen = { state.eventSink(StarredSegmentsEvent.Open(starred.uri)) },
                         onUnstar = { state.eventSink(StarredSegmentsEvent.Unstar(starred.uri)) },
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                if (!state.needsSignIn) {
-                    pagedFooter(
-                        state.segments,
-                        UiError.Kind.LoadStarredSegments,
-                        onRetry = { state.eventSink(StarredSegmentsEvent.Retry) },
-                    ) {
-                        EmptyListText(stringResource(Res.string.starred_segments_empty))
-                    }
                 }
             }
         }

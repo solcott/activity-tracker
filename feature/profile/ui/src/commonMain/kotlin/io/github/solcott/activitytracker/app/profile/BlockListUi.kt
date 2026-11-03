@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,8 +24,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
-import io.github.solcott.activitytracker.app.ui.pagedFooter
-import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_unblock
 import io.github.solcott.activitytracker.composeApp.resources.action_unmute
@@ -68,8 +65,13 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
                         Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                pagedRefreshStatus(state.accounts, state.kind.loadError) { state.eventSink(BlockListEvent.Retry) }
-                items(state.accounts.items, key = { it.profile.did.value }) { account ->
+                pagedRows(
+                    state.accounts,
+                    state.kind.loadError,
+                    onRetry = { state.eventSink(BlockListEvent.Retry) },
+                    key = { it.profile.did.value },
+                    empty = { EmptyListText(stringResource(state.kind.emptyText)) },
+                ) { account ->
                     val did = account.profile.did
                     AccountActionRow(
                         account.profile,
@@ -97,10 +99,6 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
                             }
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                pagedFooter(state.accounts, state.kind.loadError, onRetry = { state.eventSink(BlockListEvent.Retry) }) {
-                    EmptyListText(stringResource(state.kind.emptyText))
                 }
             }
         }

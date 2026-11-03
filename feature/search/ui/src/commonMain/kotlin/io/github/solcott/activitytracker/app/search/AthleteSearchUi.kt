@@ -8,14 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,8 +40,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.pagedFooter
-import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.search_label
@@ -79,12 +75,16 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
                     state = listState,
                     contentPadding = listPadding + PaddingValues(bottom = 8.dp),
                 ) {
-                    pagedRefreshStatus(state.results, UiError.Kind.SearchAthletes) { state.eventSink(AthleteSearchEvent.Retry) }
-                    items(state.results.items, key = { it.did.value }) { account ->
+                    pagedRows(
+                        state.results,
+                        UiError.Kind.SearchAthletes,
+                        onRetry = { state.eventSink(AthleteSearchEvent.Retry) },
+                        key = { it.did.value },
+                        empty = state.empty(),
+                    ) { account ->
                         AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                    footer(state)
+                    if (state.query.text.isBlank()) item { Message(stringResource(Res.string.search_prompt)) }
                 }
             }
         }
@@ -118,16 +118,12 @@ private fun SearchField(query: TextFieldState, modifier: Modifier = Modifier) {
     )
 }
 
-/** The prompt before a search; then a spinner, why the search failed, or the no-matches message, below the results. */
-private fun LazyListScope.footer(state: AthleteSearchState) {
-    if (state.query.text.isBlank()) {
-        item { Message(stringResource(Res.string.search_prompt)) }
-        return
+/** What the results say when empty: that nothing matched; none before a query, which shows the prompt instead. */
+private fun AthleteSearchState.empty(): (@Composable () -> Unit)? =
+    if (query.text.isBlank()) null
+    else {
+        { Message(stringResource(Res.string.search_no_results, query.text.trim().toString())) }
     }
-    pagedFooter(state.results, UiError.Kind.SearchAthletes, onRetry = { state.eventSink(AthleteSearchEvent.Retry) }) {
-        Message(stringResource(Res.string.search_no_results, state.query.text.trim().toString()))
-    }
-}
 
 @Composable
 private fun Message(text: String, modifier: Modifier = Modifier) {

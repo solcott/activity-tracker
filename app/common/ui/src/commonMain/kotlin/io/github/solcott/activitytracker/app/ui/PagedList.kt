@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,6 +96,27 @@ fun LazyListScope.pagedFooter(
         LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = true, TestTags.PAGE_LOADING) }
         LoadStatus.Idle -> if (endReached && !isEmpty) item(key = "paged-end") { Spacer(Modifier.testTag(TestTags.LIST_END)) }
     }
+}
+
+/**
+ * A paged list's rows (ui/content-loading): its [pagedRefreshStatus], each item's [row] keyed by [key] with a divider under it, then its
+ * [pagedFooter] with [empty], or no footer when [empty] is null (a list the screen explains itself, such as one it can't load yet).
+ */
+@Suppress("LongParameterList") // A paged list's state, its error and retry, and the three pieces a screen fills in.
+fun <T : Any> LazyListScope.pagedRows(
+    state: PagedState<T, *>,
+    errorKind: UiError.Kind,
+    onRetry: () -> Unit,
+    key: (T) -> Any,
+    empty: (@Composable () -> Unit)?,
+    row: @Composable (T) -> Unit,
+) {
+    pagedRefreshStatus(state, errorKind, onRetry)
+    items(state.items, key = key) { item ->
+        row(item)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+    if (empty != null) pagedFooter(state, errorKind, onRetry, empty)
 }
 
 @Composable

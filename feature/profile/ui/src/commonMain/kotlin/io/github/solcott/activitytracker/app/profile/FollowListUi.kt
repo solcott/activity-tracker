@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,8 +26,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
-import io.github.solcott.activitytracker.app.ui.pagedFooter
-import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_followers
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_following
@@ -69,8 +66,13 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
                         Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                pagedRefreshStatus(state.accounts, state.kind.loadError) { state.eventSink(FollowListEvent.Retry) }
-                items(state.accounts.items, key = { it.did.value }) { account ->
+                pagedRows(
+                    state.accounts,
+                    state.kind.loadError,
+                    onRetry = { state.eventSink(FollowListEvent.Retry) },
+                    key = { it.did.value },
+                    empty = { EmptyListText(stringResource(state.kind.emptyText)) },
+                ) { account ->
                     if (state.canRemove) {
                         AccountActionRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) }) {
                             AppSecondaryButton(
@@ -83,10 +85,6 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
                     } else {
                         AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                pagedFooter(state.accounts, state.kind.loadError, onRetry = { state.eventSink(FollowListEvent.Retry) }) {
-                    EmptyListText(stringResource(state.kind.emptyText))
                 }
             }
         }
