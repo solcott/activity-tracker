@@ -39,37 +39,15 @@ internal actual suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray =
     if (inflateInit2_(stream.ptr, GZIP_WINDOW_BITS, ZLIB_VERSION, sizeOf<z_stream>().convert()) != Z_OK) {
         activityFileError("Couldn't start gzip decompression")
     }
-    val out = mutableListOf<ByteArray>()
-    var total = 0
     try {
-        bytes.usePinned { input ->
-            stream.next_in = input.addressOf(0).reinterpret()
-            stream.avail_in = bytes.size.convert()
-            val chunk = ByteArray(CHUNK_BYTES)
-            chunk.usePinned { output ->
-                var status: Int
-                do {
-                    stream.next_out = output.addressOf(0).reinterpret()
-                    stream.avail_out = CHUNK_BYTES.convert()
-                    status = inflate(stream.ptr, Z_NO_FLUSH)
-                    // Z_BUF_ERROR here means the input ran out before the end of the stream: a truncated file.
-                    if (status != Z_OK && status != Z_STREAM_END) activityFileError("Corrupt or truncated gzip file")
-                    val produced = CHUNK_BYTES - stream.avail_out.toInt()
-                    total += produced
-                    if (total > maxBytes) tooLargeError(maxBytes)
-                    out += chunk.copyOf(produced)
-                } while (status != Z_STREAM_END)
-            }
+        stream.pump(bytes, maxBytes) {
+            val status = inflate(stream.ptr, Z_NO_FLUSH)
+            // Z_BUF_ERROR here means the input ran out before the end of the stream: a truncated (or empty) file.
+            if (status != Z_OK && status != Z_STREAM_END) activityFileError("Corrupt or truncated gzip file")
+            status == Z_STREAM_END
         }
     } finally {
         inflateEnd(stream.ptr)
-    }
-    ByteArray(total).also { result ->
-        var offset = 0
-        for (part in out) {
-            part.copyInto(result, offset)
-            offset += part.size
-        }
     }
 }
 
@@ -89,36 +67,52 @@ internal actual suspend fun gzip(bytes: ByteArray): ByteArray = memScoped {
             sizeOf<z_stream>().convert(),
         )
     check(started == Z_OK) { "Couldn't start gzip compression" }
-    val out = mutableListOf<ByteArray>()
-    var total = 0
     try {
-        // An empty array can't be pinned at index 0, so compress one placeholder byte with no input available instead.
-        val input = if (bytes.isEmpty()) ByteArray(1) else bytes
-        input.usePinned { pinned ->
-            stream.next_in = pinned.addressOf(0).reinterpret()
-            stream.avail_in = bytes.size.convert()
-            val chunk = ByteArray(CHUNK_BYTES)
-            chunk.usePinned { output ->
-                var status: Int
-                do {
-                    stream.next_out = output.addressOf(0).reinterpret()
-                    stream.avail_out = CHUNK_BYTES.convert()
-                    status = deflate(stream.ptr, Z_FINISH)
-                    check(status == Z_OK || status == Z_STREAM_END) { "gzip compression failed ($status)" }
-                    val produced = CHUNK_BYTES - stream.avail_out.toInt()
-                    total += produced
-                    out += chunk.copyOf(produced)
-                } while (status != Z_STREAM_END)
-            }
+        stream.pump(bytes, maxBytes = Int.MAX_VALUE) {
+            val status = deflate(stream.ptr, Z_FINISH)
+            check(status == Z_OK || status == Z_STREAM_END) { "gzip compression failed ($status)" }
+            status == Z_STREAM_END
         }
     } finally {
         deflateEnd(stream.ptr)
     }
+}
+
+/**
+ * Feeds [bytes] to this started stream and runs [step] (one `inflate` or `deflate` call, true once the stream has ended) a chunk of output
+ * at a time, failing once the output passes [maxBytes]. Returns the output in one array.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private inline fun z_stream.pump(bytes: ByteArray, maxBytes: Int, step: () -> Boolean): ByteArray {
+    val parts = mutableListOf<ByteArray>()
+    var total = 0
+    // An empty array can't be pinned at index 0, so pin one placeholder byte with no input available instead.
+    val input = if (bytes.isEmpty()) ByteArray(1) else bytes
+    input.usePinned { pinned ->
+        next_in = pinned.addressOf(0).reinterpret()
+        avail_in = bytes.size.convert()
+        val chunk = ByteArray(CHUNK_BYTES)
+        chunk.usePinned { output ->
+            do {
+                next_out = output.addressOf(0).reinterpret()
+                avail_out = CHUNK_BYTES.convert()
+                val ended = step()
+                val produced = CHUNK_BYTES - avail_out.toInt()
+                total += produced
+                if (total > maxBytes) tooLargeError(maxBytes)
+                parts += chunk.copyOf(produced)
+            } while (!ended)
+        }
+    }
+    return concat(parts, total)
+}
+
+/** [parts], [total] bytes in all, as one array. */
+private fun concat(parts: List<ByteArray>, total: Int): ByteArray =
     ByteArray(total).also { result ->
         var offset = 0
-        for (part in out) {
+        for (part in parts) {
             part.copyInto(result, offset)
             offset += part.size
         }
     }
-}
