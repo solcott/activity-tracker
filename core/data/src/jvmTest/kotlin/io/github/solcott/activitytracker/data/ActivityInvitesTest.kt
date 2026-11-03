@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data
 
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
@@ -31,7 +32,6 @@ import io.github.solcott.dataresult.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -76,6 +76,13 @@ class ActivityInvitesTest {
                 ),
             createdAt = start,
         )
+
+    /**
+     * The first inbox that loaded and matches [predicate]. The inbox `combine`s the read with this session's answers, which keeps only the
+     * latest of each, so its loading state may never show.
+     */
+    private suspend fun ReceiveTurbine<Outcome<Incoming>>.awaitIncoming(predicate: (Incoming) -> Boolean = { true }): Incoming =
+        (awaitUntil { it is Outcome.Data && predicate(it.data) } as Outcome.Data).data
 
     private fun sample(lat: Double, lon: Double) = LocationSample(lat, lon, null, null, null, start)
 
@@ -196,13 +203,12 @@ class ActivityInvitesTest {
         val s = pds.session()
         val invites = repository(s)
         pds.invitesServed = listOf(inviteView())
-        invites.incomingOutcome().test {
-            assertEquals(Outcome.Loading, awaitItem())
-            assertEquals(listOf(carolsInvite), assertIs<Outcome.Data<Incoming>>(awaitItem()).data.pending.map { it.uri })
+        invites.incomingOutcome().test(FLOW_TEST_TIMEOUT) {
+            assertEquals(listOf(carolsInvite), awaitIncoming().pending.map { it.uri })
 
             invites.accept(GetActivityInvite.Output(inviteView()), VisibilityChoice(Visibility.PUBLIC), null)
             // The AppView still lists it, but the open inbox and every later read leave it out.
-            val incoming = assertIs<Outcome.Data<Incoming>>(awaitItem()).data
+            val incoming = awaitIncoming { it.pending.isEmpty() }
             assertEquals(emptyList(), incoming.pending + incoming.declined)
         }
         assertEquals(emptyList(), invites.incoming().pending)
@@ -213,12 +219,11 @@ class ActivityInvitesTest {
         val s = pds.session()
         val invites = repository(s)
         pds.invitesServed = listOf(inviteView())
-        invites.incomingOutcome().test {
-            assertEquals(Outcome.Loading, awaitItem())
-            assertEquals(listOf(carolsInvite), assertIs<Outcome.Data<Incoming>>(awaitItem()).data.pending.map { it.uri })
+        invites.incomingOutcome().test(FLOW_TEST_TIMEOUT) {
+            assertEquals(listOf(carolsInvite), awaitIncoming().pending.map { it.uri })
 
             invites.decline(carolsInvite)
-            val incoming = assertIs<Outcome.Data<Incoming>>(awaitItem()).data
+            val incoming = awaitIncoming { it.declined.isNotEmpty() }
             assertEquals(emptyList(), incoming.pending)
             assertEquals(listOf(carolsInvite), incoming.declined.map { it.uri })
         }

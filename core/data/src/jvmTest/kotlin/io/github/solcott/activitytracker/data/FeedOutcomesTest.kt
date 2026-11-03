@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.data
 
-import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.di.signedInTestSession
@@ -77,21 +76,13 @@ class FeedOutcomesTest {
     private val Outcome<List<ActivityView>>.rkeys
         get() = (this as? Outcome.Data)?.data?.map { it.uri.rkey }
 
-    /** Skips outcomes until one matches [predicate]; Room may read the same page more than once. */
-    private suspend fun <T> ReceiveTurbine<T>.awaitUntil(predicate: (T) -> Boolean): T {
-        while (true) {
-            val item = awaitItem()
-            if (predicate(item)) return item
-        }
-    }
-
     @Test
     fun cachedPageShowsThenTheRefreshedOne() = runTest {
         val feed = feed()
         feed.refreshTimeline()
         served = listOf("3kride", "3krun")
         val answer = CompletableDeferred<Unit>().also { gate = it }
-        feed.timelineOutcomes().test {
+        feed.timelineOutcomes().test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             val cached = awaitItem()
             answer.complete(Unit)
@@ -104,7 +95,7 @@ class FeedOutcomesTest {
 
     @Test
     fun emptyCacheIsHeldBackUntilTheRefreshAnswers() = runTest {
-        feed().timelineOutcomes().test {
+        feed().timelineOutcomes().test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             // Room's read of the refreshed page may beat the refresh's own answer, so either may come first, but never the empty miss.
             assertEquals(listOf("3kride"), awaitItem().rkeys)
@@ -115,7 +106,7 @@ class FeedOutcomesTest {
     @Test
     fun emptyAnswerIsShownOnceTheRefreshAnswers() = runTest {
         served = emptyList()
-        feed().timelineOutcomes().test {
+        feed().timelineOutcomes().test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             assertEquals(Outcome.Data(emptyList<ActivityView>(), Origin.Network), awaitItem())
             cancelAndIgnoreRemainingEvents()
@@ -127,7 +118,7 @@ class FeedOutcomesTest {
         val feed = feed()
         feed.refreshTimeline()
         served = null
-        feed.timelineOutcomes().test {
+        feed.timelineOutcomes().test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             val seen = mutableListOf<Outcome<List<ActivityView>>>()
             // A cached read after the failure is followed by the failure again, so it always ends on one.
@@ -141,7 +132,7 @@ class FeedOutcomesTest {
     @Test
     fun emptyCacheIsNeverAnAnswerWhenTheRefreshFails() = runTest {
         served = null
-        feed().timelineOutcomes().test {
+        feed().timelineOutcomes().test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             assertEquals(Outcome.Error(DataError.Http(500), Origin.Network), awaitItem())
             // Room's first read, empty, may come after the failure: it's still a miss.
@@ -152,7 +143,7 @@ class FeedOutcomesTest {
 
     @Test
     fun failureBeforeRefreshFailsIt() = runTest {
-        feed().timelineOutcomes(beforeRefresh = { throw kotlinx.io.IOException("offline") }).test {
+        feed().timelineOutcomes(beforeRefresh = { throw kotlinx.io.IOException("offline") }).test(FLOW_TEST_TIMEOUT) {
             assertEquals(Outcome.Loading, awaitItem())
             assertEquals(Outcome.Error(DataError.Network, Origin.Network), awaitItem())
             cancelAndIgnoreRemainingEvents()
