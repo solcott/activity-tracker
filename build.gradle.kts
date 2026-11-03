@@ -14,6 +14,8 @@ plugins {
     alias(libs.plugins.sort.dependencies) apply false
     // Formats the root scripts. Modules get ktfmt, detekt and sort-dependencies from activitytracker.quality.
     id("activitytracker.ktfmt")
+    // Root-only: one cpdCheck over every module's sources.
+    id("activitytracker.cpd")
 }
 
 tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(gradle.includedBuild("build-logic").task(":convention:ktfmtCheck")) }
