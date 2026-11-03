@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,17 +23,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.gear.gearKindLabel
 import io.github.solcott.activitytracker.app.gear.gearTypeLabel
+import io.github.solcott.activitytracker.app.ui.TapField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -62,19 +58,7 @@ fun GearPicker(field: GearField, modifier: Modifier = Modifier, enabled: Boolean
     var choosing by rememberSaveable { mutableStateOf(false) }
     val names = field.selected.mapNotNull { uri -> field.options.firstOrNull { it.uri == uri }?.name }
     val shown = if (names.isEmpty()) stringResource(Res.string.gear_field_none) else names.joinToString(", ")
-    Box(modifier.fillMaxWidth()) {
-        AppTextField(
-            rememberReadOnlyTextFieldState(shown),
-            Modifier.fillMaxWidth(),
-            label = stringResource(Res.string.gear_field_title),
-            enabled = enabled,
-            readOnly = true,
-            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-            lineLimits = TextFieldLineLimits.SingleLine,
-        )
-        // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
-        Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.Button) { choosing = true })
-    }
+    TapField(shown, stringResource(Res.string.gear_field_title), onClick = { choosing = true }, modifier.fillMaxWidth(), enabled)
     if (choosing) GearSheet(field, onDismiss = { choosing = false })
 }
 

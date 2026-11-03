@@ -1,8 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +22,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
+import io.github.solcott.activitytracker.app.ui.TapField
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
@@ -33,7 +32,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
-import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.sportTypeList
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -58,19 +56,15 @@ fun ActivityTypePicker(field: ActivityTypeField, modifier: Modifier = Modifier, 
     val onSelect: (ActivityType) -> Unit = { field.eventSink(ActivityTypeEvent.Select(it)) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box {
-            AppTextField(
-                rememberReadOnlyTextFieldState(activityTypeLabel(selected)),
-                readOnly = true,
-                enabled = enabled,
-                label = stringResource(Res.string.sport_picker_label),
-                leadingIcon = { ActivityTypeIcon(selected) },
-                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
-            Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.DropdownList) { sheetOpen = true })
-        }
+        TapField(
+            activityTypeLabel(selected),
+            stringResource(Res.string.sport_picker_label),
+            onClick = { sheetOpen = true },
+            enabled = enabled,
+            role = Role.DropdownList,
+            leadingIcon = { ActivityTypeIcon(selected) },
+            lineLimits = TextFieldLineLimits.Default,
+        )
         SubSportChips(selected, onSelect, enabled, outdoorOnly)
     }
     if (sheetOpen) {

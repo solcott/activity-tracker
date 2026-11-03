@@ -20,6 +20,36 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /**
+ * A read-only field showing [shown], with a dropdown arrow, that runs [onClick] when tapped: for a field that opens a sheet, a dialog or a
+ * menu. A read-only field doesn't report clicks, so a transparent layer on top takes them, announced as [role].
+ */
+@Composable
+fun TapField(
+    shown: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    role: Role = Role.Button,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    lineLimits: TextFieldLineLimits = TextFieldLineLimits.SingleLine,
+) {
+    Box(modifier) {
+        AppTextField(
+            rememberReadOnlyTextFieldState(shown),
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            readOnly = true,
+            label = label,
+            leadingIcon = leadingIcon,
+            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
+            lineLimits = lineLimits,
+        )
+        Box(Modifier.matchParentSize().clickable(enabled = enabled, role = role, onClick = onClick))
+    }
+}
+
+/**
  * A read-only field showing [shown] that opens a menu of [items] when tapped: a dropdown. Each item's `onClick` runs, and the menu closes.
  */
 @Composable
@@ -32,17 +62,7 @@ fun MenuField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
-        AppTextField(
-            rememberReadOnlyTextFieldState(shown),
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            readOnly = true,
-            label = label,
-            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-            lineLimits = TextFieldLineLimits.SingleLine,
-        )
-        // A read-only field doesn't report clicks, so a transparent layer on top opens the menu.
-        Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.DropdownList) { expanded = true })
+        TapField(shown, label, onClick = { expanded = true }, enabled = enabled, role = Role.DropdownList)
         AppMenu(
             expanded = expanded,
             onDismiss = { expanded = false },

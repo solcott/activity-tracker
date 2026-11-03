@@ -35,6 +35,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
+import io.github.solcott.activitytracker.app.ui.pickedDate
+import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_component_actions
@@ -55,7 +57,8 @@ import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.datetime.LocalDate
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
@@ -231,14 +234,13 @@ private fun UnmountDatePicker(component: GearComponent, send: (GearEvent) -> Uni
     val zone = LocalTimeZone.current
     val clock = LocalClock.current
     val today = remember { clock.now().toEpochMilliseconds() }
-    val firstDay = remember(component) { component.from.toLocalDateTime(zone).date.toEpochDays() + 1 }
-    val bounds = remember(firstDay) { DateBounds(minDateMillis = firstDay * MILLIS_PER_DAY) }
+    val firstDay = remember(component) { component.from.toLocalDateTime(zone).date.plus(1, DateTimeUnit.DAY).toPickerMillis() }
+    val bounds = remember(firstDay) { DateBounds(minDateMillis = firstDay) }
     AppDatePickerDialog(
-        initialSelectedDateMillis = maxOf(today, firstDay * MILLIS_PER_DAY),
+        initialSelectedDateMillis = maxOf(today, firstDay),
         selectableDates = bounds,
         onConfirm = { millis ->
-            if (millis == null) send(GearEvent.DismissUnmount)
-            else send(GearEvent.ConfirmUnmount(LocalDate.fromEpochDays(millis.floorDiv(MILLIS_PER_DAY).toInt())))
+            if (millis == null) send(GearEvent.DismissUnmount) else send(GearEvent.ConfirmUnmount(pickedDate(millis)))
         },
         onDismiss = { send(GearEvent.DismissUnmount) },
     )
@@ -252,8 +254,6 @@ private fun dateOf(instant: Instant): String = instant.toLocalDateTime(LocalTime
 private fun datesOf(from: Instant, to: Instant?): String =
     if (to == null) stringResource(Res.string.gear_component_since, dateOf(from))
     else stringResource(Res.string.gear_component_between, dateOf(from), dateOf(to))
-
-private const val MILLIS_PER_DAY = 86_400_000L
 
 /** The errors a mount, unmount or replace shows by the Components section rather than above the activities. */
 internal val MOUNT_ERRORS =

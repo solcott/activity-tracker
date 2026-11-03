@@ -36,7 +36,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.Avatar
@@ -44,13 +43,11 @@ import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Countries
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
+import io.github.solcott.activitytracker.app.ui.PastDateField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -64,7 +61,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.genderLabel
-import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.app.ui.visibilityScopeLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -411,8 +407,7 @@ private data class CountryOption(val code: String, val name: String, val key: St
 /** Folds case and accents, so "cote" finds "Côte d'Ivoire". */
 private fun searchKey(text: String): String = stripDiacritics(text).lowercase()
 
-/** A past date from Material's date picker, shown as `YYYY-MM-DD`. [date] is empty when unset. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** A past date from the date picker, shown as `YYYY-MM-DD`. [date] is empty when unset. */
 @Composable
 private fun BirthDateField(
     date: String,
@@ -420,48 +415,17 @@ private fun BirthDateField(
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    var picking by remember { mutableStateOf(false) }
-    AppTextField(
-        rememberReadOnlyTextFieldState(date),
+    PastDateField(
+        shown = date,
+        label = stringResource(Res.string.edit_profile_birth_date),
+        chooseLabel = stringResource(Res.string.edit_profile_birth_date_choose),
+        clearLabel = stringResource(Res.string.edit_profile_clear),
+        pickedMillis = CalendarDate.toPickerMillis(date),
+        onPick = { onChange(CalendarDate.fromPickerMillis(it)) },
+        onClear = if (date.isNotEmpty()) ({ onChange("") }) else null,
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
-        readOnly = true,
-        label = stringResource(Res.string.edit_profile_birth_date),
-        trailingIcon = {
-            Row {
-                if (date.isNotEmpty()) {
-                    AppIconButton(
-                        AppIcon.Clear,
-                        stringResource(Res.string.edit_profile_clear),
-                        { onChange("") },
-                        enabled = enabled,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                AppIconButton(
-                    AppIcon.Calendar,
-                    stringResource(Res.string.edit_profile_birth_date_choose),
-                    { picking = true },
-                    enabled = enabled,
-                )
-            }
-        },
-        lineLimits = TextFieldLineLimits.SingleLine,
     )
-    if (picking) {
-        val clock = LocalClock.current
-        val now = remember { clock.now().toEpochMilliseconds() }
-        val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
-        AppDatePickerDialog(
-            initialSelectedDateMillis = CalendarDate.toPickerMillis(date),
-            selectableDates = pastOnly,
-            onConfirm = { millis ->
-                millis?.let { onChange(CalendarDate.fromPickerMillis(it)) }
-                picking = false
-            },
-            onDismiss = { picking = false },
-        )
-    }
 }
 
 /** One of the known genders, or the athlete's own words. [gender] is empty when unset. */

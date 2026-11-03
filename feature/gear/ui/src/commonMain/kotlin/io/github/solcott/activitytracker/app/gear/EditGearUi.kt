@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,28 +32,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
+import io.github.solcott.activitytracker.app.ui.PastDateField
+import io.github.solcott.activitytracker.app.ui.TapField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
-import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -62,16 +57,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.compressPhoto
+import io.github.solcott.activitytracker.app.ui.pickedDate
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
-import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.sportTypeList
+import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -327,19 +322,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
 private fun SportsField(sports: ImmutableList<String>, enabled: Boolean, onToggle: (String) -> Unit) {
     var choosing by remember { mutableStateOf(false) }
     val shown = if (sports.isEmpty()) stringResource(Res.string.gear_sports_none) else sports.map { sportLabel(it) }.joinToString(", ")
-    Box(Modifier.fillMaxWidth()) {
-        AppTextField(
-            rememberReadOnlyTextFieldState(shown),
-            Modifier.fillMaxWidth(),
-            label = stringResource(Res.string.gear_sports),
-            enabled = enabled,
-            readOnly = true,
-            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-            lineLimits = TextFieldLineLimits.SingleLine,
-        )
-        // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
-        Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.Button) { choosing = true })
-    }
+    TapField(shown, stringResource(Res.string.gear_sports), onClick = { choosing = true }, Modifier.fillMaxWidth(), enabled)
     if (choosing) {
         val done = stringResource(Res.string.gear_sports_done)
         AppBottomSheet(onDismiss = { choosing = false }, sheetState = rememberAppSheetState()) {
@@ -375,19 +358,7 @@ private fun DefaultForField(types: ImmutableList<ActivityType>, enabled: Boolean
     val shown =
         if (types.isEmpty()) stringResource(Res.string.gear_default_for_none) else types.map { activityTypeLabel(it) }.joinToString(", ")
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(Modifier.fillMaxWidth()) {
-            AppTextField(
-                rememberReadOnlyTextFieldState(shown),
-                Modifier.fillMaxWidth(),
-                label = stringResource(Res.string.gear_default_for),
-                enabled = enabled,
-                readOnly = true,
-                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-                lineLimits = TextFieldLineLimits.SingleLine,
-            )
-            // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
-            Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.Button) { choosing = true })
-        }
+        TapField(shown, stringResource(Res.string.gear_default_for), onClick = { choosing = true }, Modifier.fillMaxWidth(), enabled)
         Text(
             stringResource(Res.string.gear_default_for_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -432,43 +403,17 @@ private val SPORT_GROUPS =
 /** The date the athlete got the item, picked from a calendar, with a button to clear it. */
 @Composable
 private fun AcquiredField(date: LocalDate?, enabled: Boolean, onChange: (LocalDate?) -> Unit, modifier: Modifier = Modifier) {
-    var picking by remember { mutableStateOf(false) }
-    AppTextField(
-        rememberReadOnlyTextFieldState(date?.toString().orEmpty()),
-        modifier,
+    PastDateField(
+        shown = date?.toString().orEmpty(),
         label = stringResource(Res.string.gear_acquired),
+        chooseLabel = stringResource(Res.string.gear_acquired_choose),
+        clearLabel = stringResource(Res.string.gear_acquired_clear),
+        pickedMillis = date?.toPickerMillis(),
+        onPick = { onChange(pickedDate(it)) },
+        onClear = if (date != null) ({ onChange(null) }) else null,
+        modifier = modifier,
         enabled = enabled,
-        readOnly = true,
-        trailingIcon = {
-            Row {
-                if (date != null) {
-                    AppIconButton(
-                        AppIcon.Clear,
-                        stringResource(Res.string.gear_acquired_clear),
-                        { onChange(null) },
-                        enabled = enabled,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                AppIconButton(AppIcon.Calendar, stringResource(Res.string.gear_acquired_choose), { picking = true }, enabled = enabled)
-            }
-        },
-        lineLimits = TextFieldLineLimits.SingleLine,
     )
-    if (picking) {
-        val clock = LocalClock.current
-        val now = remember { clock.now().toEpochMilliseconds() }
-        val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
-        AppDatePickerDialog(
-            initialSelectedDateMillis = date?.let { it.toEpochDays() * MILLIS_PER_DAY },
-            selectableDates = pastOnly,
-            onConfirm = { millis ->
-                millis?.let { onChange(LocalDate.fromEpochDays(it.floorDiv(MILLIS_PER_DAY).toInt())) }
-                picking = false
-            },
-            onDismiss = { picking = false },
-        )
-    }
 }
 
 /** The item's photo, with buttons to pick one (compressed here, which drops its metadata) or remove it. */
@@ -515,5 +460,4 @@ private const val MAX_WEIGHT_DIGITS = 7
 
 /** Room for a used bike's 100,000 km, or a helmet's thousands of hours, to a decimal. */
 private const val MAX_STARTING_CHARS = 9
-private const val MILLIS_PER_DAY = 86_400_000L
 private val PHOTO_SIZE = 72.dp

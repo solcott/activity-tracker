@@ -44,8 +44,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTriStateCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
+import io.github.solcott.activitytracker.app.ui.pickedDate
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
 import io.github.solcott.activitytracker.app.ui.sportTypeList
+import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_all_types
@@ -65,7 +67,6 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -157,7 +158,7 @@ private fun CustomRangeDialog(range: CustomRangeState, eventSink: (FeedFilterEve
             selectableDates = bounds,
             onConfirm = { millis ->
                 if (millis == null) eventSink(FeedFilterEvent.DismissCustomRange)
-                else eventSink(FeedFilterEvent.PickRangeDate(LocalDate.fromEpochDays(millis.floorDiv(MILLIS_PER_DAY).toInt())))
+                else eventSink(FeedFilterEvent.PickRangeDate(pickedDate(millis)))
             },
             onDismiss = { eventSink(FeedFilterEvent.DismissCustomRange) },
         )
@@ -243,8 +244,3 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
 /** Whether [type] is selected, directly or through its bare sport (as the presenter's selection rules count it). */
 private fun Set<ActivityType>.covers(type: ActivityType): Boolean =
     type in this || (type.subSport != null && ActivityType(type.sport) in this)
-
-private const val MILLIS_PER_DAY = 86_400_000L
-
-/** UTC midnight of this date, as the date picker takes it. */
-private fun LocalDate.toPickerMillis(): Long = toEpochDays() * MILLIS_PER_DAY
