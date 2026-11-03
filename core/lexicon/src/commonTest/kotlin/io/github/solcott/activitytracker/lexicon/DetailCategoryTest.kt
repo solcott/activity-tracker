@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.LAP_CATEGORY_FIELDS
 import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Leg
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -19,6 +20,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 class DetailCategoryTest {
     @Test
@@ -68,6 +71,19 @@ class DetailCategoryTest {
         for (descriptor in listOf(Lap.serializer().descriptor, Leg.serializer().descriptor)) {
             val names = (0 until descriptor.elementsCount).map { descriptor.getElementName(it) }.toSet()
             assertEquals(emptySet(), names - categorized.toSet() - DetailCategory.CORE_LAP_FIELDS, "uncategorized ${descriptor.serialName}")
+        }
+    }
+
+    @Test
+    fun lapCategoryFieldsAreTheCategorizedOnesAndEachReadsAndWritesItsOwn() {
+        assertEquals(DetailCategory.LAP_FIELDS.values.flatten().toSet(), LAP_CATEGORY_FIELDS.map { it.name }.toSet())
+        for (field in LAP_CATEGORY_FIELDS) {
+            val lap = field.lapWith(Lap(start = 0, elapsed = 60), 7)
+            assertEquals(JsonPrimitive(7), AtJson.encodeToJsonElement(Lap.serializer(), lap).jsonObject[field.name], field.name)
+            assertEquals(7, field.ofLap(lap), field.name)
+            val leg = field.legWith(Leg(start = 0, elapsed = 60, sport = "run"), 7)
+            assertEquals(JsonPrimitive(7), AtJson.encodeToJsonElement(Leg.serializer(), leg).jsonObject[field.name], field.name)
+            assertEquals(7, field.ofLeg(leg), field.name)
         }
     }
 
