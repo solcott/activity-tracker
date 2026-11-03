@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
+import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
@@ -258,6 +259,27 @@ class BlocksTest {
         assertEquals(listOf(alice, bob), client.query(GetFollowers.method, carol, "?actor=$carol").followers.map { it.did.value }.sorted())
         assertEquals(listOf(alice), client.query(GetFollowers.method, alice, "?actor=$carol").followers.map { it.did.value })
         assertEquals(listOf(bob), client.query(GetFollowers.method, bob, "?actor=$carol").followers.map { it.did.value })
+    }
+
+    @Test
+    fun followCountsLeaveOutWhomTheListsDo() = testApplication {
+        start()
+        listOf(alice, bob, carol).forEach(::profile)
+        follow(alice, carol)
+        follow(bob, carol)
+        follow(carol, alice)
+        follow(carol, bob)
+        block(alice, bob)
+
+        // Carol's followers and follows are alice and bob: in a block with each other, each is neither listed nor counted for the other.
+        val forAlice = client.query(GetProfile.method, alice, "?actor=$carol")
+        assertEquals(listOf(alice), client.query(GetFollowers.method, alice, "?actor=$carol").followers.map { it.did.value })
+        assertEquals(listOf(alice), client.query(GetFollows.method, alice, "?actor=$carol").follows.map { it.did.value })
+        assertEquals(1L to 1L, forAlice.followersCount to forAlice.followsCount)
+        val forBob = client.query(GetProfile.method, bob, "?actor=$carol")
+        assertEquals(1L to 1L, forBob.followersCount to forBob.followsCount)
+        val forCarol = client.query(GetProfile.method, carol, "?actor=$carol")
+        assertEquals(2L to 2L, forCarol.followersCount to forCarol.followsCount)
     }
 
     @Test

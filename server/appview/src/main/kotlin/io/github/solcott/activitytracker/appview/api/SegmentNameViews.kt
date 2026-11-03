@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 // The naming parts of `getSegment` (segments/segment-names): a segment's name history and its open proposals as a viewer may see them.
@@ -30,7 +31,7 @@ private const val MAX_NAME_ROWS = 100
 
 /**
  * [segment]'s adopted names in effect, newest first, each with its final totals and its proposer, unless the proposal record is gone or the
- * viewer and the proposer block each other.
+ * proposer isn't an account [accountShownTo] the viewer.
  */
 internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars: AvatarUrls): List<SegmentNameAdoption> {
     val rows =
@@ -44,11 +45,15 @@ internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars:
             .limit(MAX_NAME_ROWS)
             .toList()
     val shown =
-        rows
-            .filter { !it[SegmentNameProposals.recordGone] }
+        SegmentNameProposals.select(SegmentNameProposals.proposerDid)
+            .where {
+                (SegmentNameProposals.uri inList rows.map { it[SegmentNameProposals.uri] }) and
+                    (SegmentNameProposals.recordGone eq false) and
+                    accountShownTo(viewer, SegmentNameProposals.proposerDid)
+            }
+            .withDistinct()
             .map { it[SegmentNameProposals.proposerDid] }
-            .distinct()
-            .filter { viewer == null || viewer.value == it || !isBlocked(viewer.value, it) }
+            .toSet()
     val profiles = basicProfiles(shown, avatars)
     return rows.map {
         val proposer = it[SegmentNameProposals.proposerDid]

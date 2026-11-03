@@ -1,6 +1,9 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -75,6 +78,18 @@ class HideTest : ModerationTestBase() {
 
         label(bob, "!hide", neg = true)
         assertEquals(setOf(activityUri(bob, "3kb"), activityUri(carol, "3kc")), client.timeline(alice).toSet())
+    }
+
+    @Test
+    fun aHiddenAccountLeavesFollowRequests() = testApplication {
+        start()
+        listOf(alice, bob, carol).forEach(::profile)
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"displayName":"a","followPolicy":"${FollowPolicy.APPROVE}"}""")
+        follow(bob, alice)
+        follow(carol, alice)
+        label(bob, "!hide")
+        val requests = client.query(GetFollowRequests.method, alice, "").requests.map { it.did.value }
+        assertEquals(listOf(carol), requests)
     }
 
     @Test

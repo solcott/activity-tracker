@@ -54,7 +54,7 @@ internal fun JdbcTransaction.partnersOf(
                 (mine inList activities) and
                     rule and
                     visibleTo(viewer, visibility = theirTier) and
-                    notBlocked(viewer, theirAuthor) and
+                    accountShownTo(viewer, theirAuthor) and
                     notMuted(viewer, theirAuthor)
             }
             .orderBy(ActivityGroupPairs.matchedAt to SortOrder.DESC)
@@ -70,7 +70,7 @@ internal fun JdbcTransaction.partnersOf(
                 (mine inList activities) and
                     inviteRule and
                     ((member and served(viewer, theirAuthor, theirs, Activities.cid)) or visibleTo(viewer, visibility = theirTier)) and
-                    notBlocked(viewer, theirAuthor) and
+                    accountShownTo(viewer, theirAuthor) and
                     notMuted(viewer, theirAuthor)
             }
             .map { Triple(it[mine], it[theirs] to it[theirAuthor], it[ActivityInvitePairs.pairedAt]) }

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.LabelSources
 import io.github.solcott.activitytracker.appview.api.SegmentViews
+import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
@@ -774,6 +775,18 @@ class SegmentNamesTest : SegmentTestBase() {
         assertTrue(wiggly in proposals(), "an adopted proposal keeps its row")
         assertEquals("Rooty Run", currentName())
         assertEquals(listOf(bob, null), view(carol).nameHistory.map { it.proposer?.did?.value })
+    }
+
+    @Test
+    fun historyLeavesOutAProposerInABlockWithTheViewerOrNotServed() {
+        adoptWigglyWoods()
+        block(carol, alice)
+        assertEquals(listOf(null), view(carol).nameHistory.map { it.proposer }, "the name stays, its proposer doesn't")
+        assertEquals(listOf(alice), view(dave).nameHistory.map { it.proposer?.did?.value })
+
+        runBlocking { db.tx { Actors.update({ Actors.did eq alice }) { it[status] = "deactivated" } } }
+        assertEquals(listOf(null), view(dave).nameHistory.map { it.proposer })
+        assertEquals(listOf(alice), view(alice).nameHistory.map { it.proposer?.did?.value }, "she still sees her own")
     }
 
     @Test

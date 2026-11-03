@@ -50,8 +50,7 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
      */
     suspend fun followRequests(viewer: Did, params: GetFollowRequests.Params): GetFollowRequests.Output = db.tx {
         // A follow a block makes ineffective isn't a request: the requester is blocked, not waiting.
-        val pending =
-            (Follows.subjectDid eq viewer.value) and not(effectiveFollow()) and not(blocked(Follows.authorDid, Follows.subjectDid))
+        val pending = (Follows.subjectDid eq viewer.value) and not(effectiveFollow()) and accountShownTo(viewer, Follows.authorDid)
         val (accounts, cursor) = followProfiles(pending, Follows.authorDid, params.limit, params.cursor)
         GetFollowRequests.Output(accounts, cursor)
     }
@@ -108,8 +107,7 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
         other: Column<String>,
         limit: Int?,
         cursor: String?,
-    ): Pair<List<ProfileViewBasic>, String?> =
-        followProfiles(match and effectiveFollow() and notBlocked(viewer, other) and listed(viewer, other), other, limit, cursor)
+    ): Pair<List<ProfileViewBasic>, String?> = followProfiles(match and followShownTo(viewer, other), other, limit, cursor)
 
     /**
      * Follows [where] admits, newest indexed first, as profiles of the [other] side: the page [followPage] and [followRequests] share,

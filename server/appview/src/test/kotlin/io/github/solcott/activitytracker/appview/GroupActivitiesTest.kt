@@ -1,9 +1,12 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.LabelSources
+import io.github.solcott.activitytracker.appview.api.LabelValues
 import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
@@ -345,6 +348,26 @@ class GroupActivitiesTest : SegmentTestBase() {
             """{"subject":"$bob","createdAt":"2026-10-21T09:00:00Z"}""",
         )
         assertEquals(emptyList(), client.partners("3ka", alice, carol), "muted")
+    }
+
+    @Test
+    fun aHiddenPartnerIsLeftOutForOthers() = testApplication {
+        application { appView(config, db, verifier) }
+        for (did in listOf(alice, bob)) grouping(GroupMode.ANYONE, did)
+        ride("3ka", alice)
+        ride("3kb", bob, east = 20.0)
+        match()
+        assertEquals(listOf(activityUri("3kb", bob)), client.partners("3ka", alice, carol))
+
+        val labeler = "did:plc:labeler"
+        LabelSources.trusted = listOf(labeler)
+        try {
+            runBlocking { LabelStore(db, labeler, null).apply(labeler, 1, listOf(testLabel(labeler, bob, LabelValues.HIDE))) }
+            assertEquals(emptyList(), client.partners("3ka", alice, carol), "bob's account carries !hide")
+            assertEquals(listOf(activityUri("3kb", bob)), client.partners("3ka", alice, bob), "bob still sees his own")
+        } finally {
+            LabelSources.trusted = emptyList()
+        }
     }
 
     @Test

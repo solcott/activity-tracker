@@ -5,10 +5,12 @@ import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -67,6 +69,12 @@ internal fun effectiveFollow(): Op<Boolean> =
                 (FollowApprovals.authorDid eq Follows.subjectDid) and (FollowApprovals.subjectDid eq Follows.authorDid)
             }
         )) and not(blocked(Follows.authorDid, Follows.subjectDid))
+
+/**
+ * A follow whose [other] side [viewer] may be shown: [effectiveFollow] and [accountShownTo]. Follower and follow lists and their counts
+ * both use it, so a count never hints at an account the list leaves out.
+ */
+internal fun followShownTo(viewer: Did?, other: Column<String>): Op<Boolean> = effectiveFollow() and accountShownTo(viewer, other)
 
 /**
  * [viewer]'s follow of [did], effective or not, and whether it still waits for [did]'s approval; and [did]'s follow of [viewer], only when

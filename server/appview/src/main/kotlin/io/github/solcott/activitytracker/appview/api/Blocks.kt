@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.Blocks
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
@@ -29,6 +30,12 @@ private fun blockBetween(a: Expression<String>, b: Expression<String>): Op<Boole
 /** [blocked] for a known [viewer]; a null viewer (signed out) is in no block. */
 internal fun notBlocked(viewer: Did?, other: Expression<String>): Op<Boolean> =
     if (viewer == null) Op.TRUE else not(blocked(stringParam(viewer.value), other))
+
+/**
+ * A third party's [account] that [viewer] may be shown in a list or count: in no block with them ([notBlocked]) and [listed]. Mutes apply
+ * only where a query says so.
+ */
+internal fun accountShownTo(viewer: Did?, account: Column<String>): Op<Boolean> = notBlocked(viewer, account) and listed(viewer, account)
 
 /** True while [viewer] mutes [subject]. Mutes are one-way: only the muter's own reads apply it. */
 internal fun notMuted(viewer: Did?, subject: Expression<String>): Op<Boolean> =

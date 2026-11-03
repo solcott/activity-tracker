@@ -304,14 +304,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                             not(isMember())
                     }
                     .count(),
-            followersCount =
-                Follows.selectAll()
-                    .where { (Follows.subjectDid eq did) and effectiveFollow() and listed(viewer, Follows.authorDid) }
-                    .count(),
-            followsCount =
-                Follows.selectAll()
-                    .where { (Follows.authorDid eq did) and effectiveFollow() and listed(viewer, Follows.subjectDid) }
-                    .count(),
+            followersCount = Follows.selectAll().where { (Follows.subjectDid eq did) and followShownTo(viewer, Follows.authorDid) }.count(),
+            followsCount = Follows.selectAll().where { (Follows.authorDid eq did) and followShownTo(viewer, Follows.subjectDid) }.count(),
             viewer = viewer?.let { v -> viewerState(v.value, did) },
             labels = profileLabels(did),
         )
@@ -469,8 +463,7 @@ private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subje
  * The likes over [admittedLikes] that [viewer] is shown: the giver may see the activity, and the giver is neither in a block with the
  * viewer nor hidden from them. `getLikes` and `hydrate`'s counts both use it, so a count never includes a like the list leaves out.
  */
-private fun likesShownTo(viewer: Did?): Op<Boolean> =
-    visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) and listed(viewer, Likes.authorDid)
+private fun likesShownTo(viewer: Did?): Op<Boolean> = visibleTo(Likes.authorDid) and accountShownTo(viewer, Likes.authorDid)
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
