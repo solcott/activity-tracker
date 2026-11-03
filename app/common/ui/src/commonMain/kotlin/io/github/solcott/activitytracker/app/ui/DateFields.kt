@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.toLocalDateTime
 
 private const val MILLIS_PER_DAY = 86_400_000L
 
@@ -62,8 +63,9 @@ fun PastDateField(
     )
     if (picking) {
         val clock = LocalClock.current
-        val now = remember { clock.now().toEpochMilliseconds() }
-        val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
+        val zone = LocalTimeZone.current
+        // The picker's days are UTC midnights, so the last one allowed is the athlete's own today, wherever they are, not today in UTC.
+        val pastOnly = remember(clock, zone) { DateBounds(maxDateMillis = clock.now().toLocalDateTime(zone).date.toPickerMillis()) }
         AppDatePickerDialog(
             initialSelectedDateMillis = pickedMillis,
             selectableDates = pastOnly,
