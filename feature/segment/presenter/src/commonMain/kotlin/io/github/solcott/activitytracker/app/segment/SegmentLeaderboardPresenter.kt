@@ -1,27 +1,20 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.segments.LeaderboardBrackets
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
-import io.github.solcott.uistate.hasAnswer
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.flow
+
+private val PERIODS = LeaderboardPeriod.all.toImmutableList()
 
 @CircuitInject(SegmentLeaderboardScreen::class, SessionScope::class)
 @Composable
@@ -31,48 +24,38 @@ fun SegmentLeaderboardPresenter(
     segments: SegmentRepository,
 ): SegmentLeaderboardState {
     val uri = AtUri(screen.uri)
-    var period by rememberSaveable { mutableStateOf(LeaderboardPeriod.ALL_TIME) }
-    var scope by rememberSaveable { mutableStateOf(LeaderboardScope.EVERYONE) }
-    var requested by rememberSaveable { mutableStateOf(screen.board) }
-    var ageGroup by rememberSaveable { mutableStateOf<String?>(null) }
-    var weightClass by rememberSaveable { mutableStateOf<String?>(null) }
-    var gender by rememberSaveable { mutableStateOf<String?>(null) }
+    val filters = rememberBoardFilters(PERIODS, LeaderboardPeriod.ALL_TIME, screen.board)
     // Each board is its own list, so a new filter starts from nothing in the same frame: another board's ranks under its heading would be
     // wrong, not just old. The viewer's own entry is each page's meta, so it changes with the board.
     val entries =
-        key(period, scope, requested, ageGroup, weightClass, gender) {
-            val brackets = LeaderboardBrackets(ageGroup, weightClass, gender)
+        key(filters.key) {
             rememberRetainedPaging(uri, idOf = { entry: LeaderboardEntry -> entry.athlete.did }) { cursor ->
-                flow { emit(segments.leaderboardPage(uri, period, scope, requested, cursor, brackets)) }
+                flow { emit(segments.leaderboardPage(uri, filters.period, filters.scope, filters.requested, cursor, filters.brackets)) }
             }
         }
     val board = entries.state
-    val types = rememberBoardTypes(board.meta, requested)
-    val viewer = board.meta?.viewer?.takeIf { own -> board.hasAnswer && board.items.none { it.athlete.did == own.athlete.did } }
+    val types = rememberBoardTypes(board.meta, filters.requested)
 
     return SegmentLeaderboardState(
         name = screen.name,
-        period = period,
-        scope = scope,
+        period = filters.period,
+        scope = filters.scope,
         board = types.shown,
         boards = types.listed,
-        ageGroup = ageGroup,
-        weightClass = weightClass,
-        gender = gender,
+        ageGroup = filters.ageGroup,
+        weightClass = filters.weightClass,
+        gender = filters.gender,
         entries = board,
-        viewerEntry = viewer,
+        viewerEntry = board.viewerApart { it.athlete.did },
     ) { event ->
         when (event) {
             SegmentLeaderboardEvent.Back -> navigator.pop()
-            is SegmentLeaderboardEvent.PeriodChanged -> if (event.period in LeaderboardPeriod.all) period = event.period
-            is SegmentLeaderboardEvent.ScopeChanged -> if (event.scope in LeaderboardScope.all) scope = event.scope
-            is SegmentLeaderboardEvent.BoardChanged -> if (types.admits(event.board)) requested = event.board
-            is SegmentLeaderboardEvent.AgeGroupChanged ->
-                if (event.ageGroup == null || event.ageGroup in LeaderboardAgeGroup.all) ageGroup = event.ageGroup
-            is SegmentLeaderboardEvent.WeightClassChanged ->
-                if (event.weightClass == null || event.weightClass in LeaderboardWeightClass.all) weightClass = event.weightClass
-            is SegmentLeaderboardEvent.GenderChanged ->
-                if (event.gender == null || event.gender in LeaderboardGender.all) gender = event.gender
+            is SegmentLeaderboardEvent.PeriodChanged -> filters.choosePeriod(event.period)
+            is SegmentLeaderboardEvent.ScopeChanged -> filters.chooseScope(event.scope)
+            is SegmentLeaderboardEvent.BoardChanged -> filters.chooseBoard(event.board, types)
+            is SegmentLeaderboardEvent.AgeGroupChanged -> filters.chooseAgeGroup(event.ageGroup)
+            is SegmentLeaderboardEvent.WeightClassChanged -> filters.chooseWeightClass(event.weightClass)
+            is SegmentLeaderboardEvent.GenderChanged -> filters.chooseGender(event.gender)
             SegmentLeaderboardEvent.LoadMore -> entries.loadMore()
             SegmentLeaderboardEvent.Retry -> entries.retry()
             is SegmentLeaderboardEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
