@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari)
+    implementation(libs.ipaddress)
     // Decodes labelers' subscribeLabels frames (DAG-CBOR); the server only, clients never see CBOR.
     implementation(libs.jackson.dataformat.cbor)
     implementation(libs.kermit)

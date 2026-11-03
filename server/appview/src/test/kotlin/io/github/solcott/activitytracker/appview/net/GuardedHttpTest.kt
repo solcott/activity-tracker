@@ -91,6 +91,9 @@ class GuardedHttpTest {
                 "::1",
                 "::",
                 "fe80::1",
+                // A link-local address with its scope, as an interface may report one.
+                "fe80::1%1",
+                "fec0::1",
                 "fc00::1",
                 "fd12:3456::1",
                 "ff02::1",
