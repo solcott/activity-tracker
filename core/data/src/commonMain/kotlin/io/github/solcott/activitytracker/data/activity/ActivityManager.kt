@@ -82,19 +82,16 @@ class ActivityManager(
      * upload first, so this needs a connection; media kinds this client doesn't know stay, after the photos.
      */
     suspend fun edit(activity: ActivityView, edit: ActivityEdit) {
-        val rkey = requireNotNull(activity.uri.rkey)
-        val visibility = activity.visibilityOrPublic
-        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
-        val have = current.media.orEmpty()
-        val photos =
-            edit.media.take(ActivityMedia.MAX).mapNotNull { change ->
-                when (change) {
-                    is MediaEdit.Keep -> have.firstOrNull { it.cid == change.cid }
-                    is MediaEdit.Add -> clients.upload(change.photo, feed.heldPhotos)
+        queueRewrite(activity.uri, activity.visibilityOrPublic) { current ->
+            val have = current.media.orEmpty()
+            val photos =
+                edit.media.take(ActivityMedia.MAX).mapNotNull { change ->
+                    when (change) {
+                        is MediaEdit.Keep -> have.firstOrNull { it.cid == change.cid }
+                        is MediaEdit.Add -> clients.upload(change.photo, feed.heldPhotos)
+                    }
                 }
-            }
-        val unknown = have.filterIsInstance<ActivityMedia.Unknown>()
-        val record =
+            val unknown = have.filterIsInstance<ActivityMedia.Unknown>()
             current.copy(
                 title = edit.title.trim().ifEmpty { null },
                 description = edit.description.trim().ifEmpty { null },
@@ -104,27 +101,32 @@ class ActivityManager(
                     } ?: current.dive,
                 media = (photos + unknown).take(ActivityMedia.MAX).ifEmpty { null },
             )
-        UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_EDIT, record, batchId = null, clock.now())
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
-        feed.rewrites.set(activity.uri, record)
-        feed.updateCached(activity.uri) { feed.rewrites.rewritten(it, record) }
+        }
         outbox.drain()
     }
 
     /**
      * Leaves the group on [activity], the athlete's copy of another's activity accepted from an invite (feed/activity-invites): its record
-     * is rewritten without `copyOf`, so the AppView drops the pair. Queued like any edit; it can't be undone but by a new invite.
+     * is rewritten without `copyOf`, so the AppView drops the pair. Queued and logged like any edit; only a new invite undoes it.
      */
     suspend fun leaveCopyGroup(activity: ActivityView) {
-        val rkey = requireNotNull(activity.uri.rkey)
-        val visibility = activity.visibilityOrPublic
-        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
-        if (current.copyOf == null) return
-        val record = current.copy(copyOf = null)
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
-        feed.rewrites.set(activity.uri, record)
-        feed.updateCached(activity.uri) { feed.rewrites.rewritten(it, record) }
+        queueRewrite(activity.uri, activity.visibilityOrPublic) { current -> current.takeIf { it.copyOf != null }?.copy(copyOf = null) }
         outbox.drain()
+    }
+
+    /**
+     * Queues [uri]'s record at [visibility] as [change] makes it from its last queued put (else as the PDS has it), lists it in the upload
+     * queue as an edit (data/upload-queue) and shows it at once; nothing when [change] gives null. For the athlete's own changes only:
+     * route re-trims and migrations aren't logged.
+     */
+    private suspend fun queueRewrite(uri: AtUri, visibility: String, change: suspend (ActivityRecord) -> ActivityRecord?) {
+        val rkey = requireNotNull(uri.rkey)
+        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
+        val record = change(current) ?: return
+        UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_EDIT, record, batchId = null, clock.now())
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        feed.rewrites.set(uri, record)
+        feed.updateCached(uri) { feed.rewrites.rewritten(it, record) }
     }
 
     /**
@@ -291,22 +293,14 @@ class ActivityManager(
      * it has none. Unlike [ungroup], the feed shows no change: the recording is a combined activity's member by now.
      */
     suspend fun clearRecordingOf(recording: AtUri, visibility: String) {
-        rewriteWithoutRecordingOf(recording, visibility)
-        outbox.drain()
-    }
-
-    /**
-     * Queues [recording]'s record at [visibility] without `recordingOf`, starting from its last queued put, and returns it; unless
-     * [always], nothing is queued for a record that has none.
-     */
-    private suspend fun rewriteWithoutRecordingOf(recording: AtUri, visibility: String, always: Boolean = false): ActivityRecord {
+        // A migration (LegacyGroupMigration), so not logged as an edit like [queueRewrite]'s.
         val rkey = requireNotNull(recording.rkey)
         val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
-        val record = current.copy(recordingOf = null)
-        if (always || current.recordingOf != null) {
+        if (current.recordingOf != null) {
+            val record = current.copy(recordingOf = null)
             writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
         }
-        return record
+        outbox.drain()
     }
 
     /** Publishes [drafts], one with its photos, several as a batch. */
@@ -525,10 +519,7 @@ class ActivityManager(
     }
 
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
-        val record = rewriteWithoutRecordingOf(recording, visibility, always = true)
-        UploadLog.queued(db, clients.did.value, requireNotNull(recording.rkey), UploadItemEntity.KIND_EDIT, record, null, clock.now())
-        feed.rewrites.set(recording, record)
-        feed.updateCached(recording) { it.copy(record = record) }
+        queueRewrite(recording, visibility) { it.copy(recordingOf = null) }
         feed.deletes.ungroup(recording)
         feed.updateCached(from, feed.deletes::applyTo)
     }

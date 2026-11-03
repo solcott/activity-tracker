@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
+import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.invites.Incoming
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -36,6 +37,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -245,6 +247,8 @@ class ActivityInvitesTest {
             )
         assertNull(record.copyOf)
         assertEquals("Ride", record.title, "the rest of the record stays")
+        val items = s.db.uploads().items(pds.did.value).first().filter { it.rkey == uri.rkey }
+        assertEquals(UploadItemEntity.KIND_EDIT, items.last().kind, "listed in the upload queue like any edit")
     }
 
     private suspend fun FakeAthletePds.Session.drain() = outbox.drain()
