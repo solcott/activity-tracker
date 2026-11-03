@@ -79,7 +79,7 @@ check_symlink ".claude/hooks" "../.agents/hooks"
 check_symlink ".gemini/skills" "../.agents/skills"
 check_symlink ".agents/mcp_config.json" "../.mcp.json"
 
-for skill in lexicon-change local-stack new-screen; do
+for skill in lexicon-change local-stack new-screen reuse-audit; do
   check_symlink ".claude/skills/$skill" "../../.agents/skills/$skill"
 done
 
