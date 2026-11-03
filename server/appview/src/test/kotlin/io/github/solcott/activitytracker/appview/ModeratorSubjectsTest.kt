@@ -269,6 +269,42 @@ class ModeratorSubjectsTest : ModerationTestBase() {
     }
 
     @Test
+    fun aPublicActivityWithAPartnerOnlyItsAthleteSeesNeedsAReport() = testApplication {
+        startModerated()
+        listOf(alice, bob).forEach(::profile)
+        follow(alice, bob)
+        post(bob, "3kg")
+        assertEquals(HttpStatusCode.OK, client.subject(activityUri(bob, "3kg")).status, "nothing beyond public yet")
+
+        // Alice joins through bob's invite with an Only-me copy: bob sees her as a partner, nobody else does.
+        spacePut(
+            AthleteSpace.SELF,
+            Nsid.FEED_ACTIVITY_INVITE,
+            "3kg:$alice",
+            """{"subject":"${activityUri(bob, "3kg")}","invitee":"$alice","createdAt":"2026-10-02T09:00:00Z"}""",
+        )
+        runBlocking {
+            indexer.spaceWrite(
+                SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, AthleteSpace.SELF),
+                Nsid.FEED_ACTIVITY,
+                "3kc",
+                "bafy3kc",
+                AtJson.parseToJsonElement(
+                        """{"sport":"run","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,""" +
+                            """"copyOf":"${activityUri(bob, "3kg")}","createdAt":"2026-10-02T09:31:00Z"}"""
+                    )
+                    .jsonObject,
+            )
+        }
+        assertEquals(notFound, client.subject(activityUri(bob, "3kg")).status, "its Only-me partner needs a report")
+
+        reviews[activityUri(bob, "3kg")] = 6L to "reviewOpen"
+        val output = AtJson.decodeFromString(GetSubject.method.output, client.subject(activityUri(bob, "3kg")).bodyAsText())
+        assertEquals(listOf(activityUri(alice, "3kc")), output.activity!!.group.orEmpty().map { it.uri.value })
+        assertEquals(listOf(listOf(moderator, activityUri(bob, "3kg"), "6")), audit())
+    }
+
+    @Test
     fun aReportedCommentOpensWithItsVisibility() = testApplication {
         startModerated()
         listOf(alice, bob).forEach(::profile)

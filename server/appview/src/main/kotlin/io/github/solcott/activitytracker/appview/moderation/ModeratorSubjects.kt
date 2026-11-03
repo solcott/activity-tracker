@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -56,7 +57,10 @@ class ModeratorSubjects(
         return subject.output
     }
 
-    /** [holdsPrivate]: [output] shows more than a public viewer sees (details or gear in a narrower tier), so it needs a review too. */
+    /**
+     * [holdsPrivate]: [output] shows more than a public viewer sees (details, gear or partners in a narrower tier), so it needs a review
+     * too.
+     */
     private class Loaded(val author: String, val visibility: String, val output: GetSubject.Output, val holdsPrivate: Boolean = false)
 
     /**
@@ -68,11 +72,12 @@ class ModeratorSubjects(
                 val row = Activities.selectAll().where { Activities.uri eq uri.value }.singleOrNull() ?: return@tx null
                 val author = row[Activities.authorDid]
                 val view = with(views) { hydrate(listOf(row), Did(author), mediaViewer = moderator) }.single()
+                // Anything the athlete's view shows beyond the public one (details, gear, group partners, …) is private, so the whole views
+                // are compared, less what differs only by who's looking.
                 val holdsPrivate =
                     view.visibilityOrPublic == Visibility.PUBLIC &&
-                        with(views) { hydrate(listOf(row), viewer = null) }
-                            .single()
-                            .let { it.details != view.details || it.gear != view.gear }
+                        with(views) { hydrate(listOf(row), viewer = null, mediaViewer = moderator) }.single().sansViewer() !=
+                            view.sansViewer()
                 Loaded(author, view.visibilityOrPublic, GetSubject.Output(view.visibilityOrPublic, activity = view), holdsPrivate)
             }
             Nsid.FEED_COMMENT -> {
@@ -123,3 +128,9 @@ class ModeratorSubjects(
         }
     }
 }
+
+/**
+ * This view less what depends only on who's looking without being private: their own like, and the counts, which take in likes and comments
+ * only some viewers may see without showing any of them.
+ */
+private fun ActivityView.sansViewer() = copy(viewer = null, likeCount = 0, commentCount = 0)
