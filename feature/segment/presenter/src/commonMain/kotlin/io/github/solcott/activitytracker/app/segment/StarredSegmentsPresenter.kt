@@ -22,7 +22,6 @@ import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import io.github.solcott.uistate.pageOf
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -43,7 +42,7 @@ fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments
 
     return StarredSegmentsState(
         segments = list.state,
-        removing = list.state.items.map { it.uri }.filter { flights.isRunning(it) }.toImmutableSet(),
+        removing = flights.runningAmong(list.state.items.map { it.uri }),
         actionError = actionError,
         needsSignIn = !stars.canUse,
     ) { event ->

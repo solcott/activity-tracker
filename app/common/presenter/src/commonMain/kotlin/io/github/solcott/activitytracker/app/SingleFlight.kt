@@ -5,6 +5,8 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -22,6 +24,9 @@ class SingleFlight internal constructor(private val scope: CoroutineScope) {
     private val running = mutableStateMapOf<Any, Job>()
 
     fun isRunning(key: Any): Boolean = key in running
+
+    /** Those of [keys] with work running, as a screen's pending set (the rows whose buttons are disabled). */
+    fun <K : Any> runningAmong(keys: Iterable<K>): ImmutableSet<K> = keys.filter { it in running }.toImmutableSet()
 
     /** Starts [block] unless work under [key] is already running, in which case this does nothing and returns null. */
     fun launch(key: Any, block: suspend CoroutineScope.() -> Unit): Job? = if (key in running) null else start(key, block)

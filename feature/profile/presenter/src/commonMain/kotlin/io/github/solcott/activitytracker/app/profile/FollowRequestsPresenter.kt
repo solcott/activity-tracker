@@ -48,7 +48,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
         content = loaded.mapContent { FollowRequestsContent(requests, declined, truncated = it?.truncated == true) },
         // Without the decline scope everyone shows as a request; declining needs the athlete to sign in again.
         needsSignIn = loaded.data?.needsSignIn == true,
-        answering = all.map { it.did }.filter { flights.isRunning(it) }.toImmutableSet(),
+        answering = flights.runningAmong(all.map { it.did }),
         unanswerable = all.map { it.did }.filterNot { answers.canAnswer(it) }.toImmutableSet(),
         error = error,
     ) { event ->

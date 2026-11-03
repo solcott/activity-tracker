@@ -20,7 +20,6 @@ import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import io.github.solcott.uistate.pageOf
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.flow
 
 @CircuitInject(BlockListScreen::class, SessionScope::class)
@@ -36,7 +35,7 @@ fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: Bl
     return BlockListState(
         kind = screen.kind,
         accounts = accounts.state,
-        removing = accounts.state.items.map { it.profile.did }.filter { flights.isRunning(it) }.toImmutableSet(),
+        removing = flights.runningAmong(accounts.state.items.map { it.profile.did }),
         actionError = actionError,
     ) { event ->
         when (event) {

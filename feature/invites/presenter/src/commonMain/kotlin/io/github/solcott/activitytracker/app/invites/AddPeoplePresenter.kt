@@ -23,7 +23,6 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(AddPeopleScreen::class, SessionScope::class)
 @Composable
@@ -52,7 +51,7 @@ fun AddPeoplePresenter(
     return AddPeopleState(
         content = loaded.mapContent { AddPeopleContent(invitees, followers) },
         canInvite = invites.canInvite,
-        busy = (invited + followers.map { it.did }).filter { flights.isRunning(it) }.toImmutableSet(),
+        busy = flights.runningAmong(invited + followers.map { it.did }),
         error = error,
     ) { event ->
         when (event) {

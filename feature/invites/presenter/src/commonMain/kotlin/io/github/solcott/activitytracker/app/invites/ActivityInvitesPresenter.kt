@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.invites.Incoming
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(ActivityInvitesScreen::class, SessionScope::class)
 @Composable
@@ -39,7 +38,7 @@ fun ActivityInvitesPresenter(navigator: Navigator, invites: ActivityInvitesRepos
         tab = tab,
         content = loaded.mapContent { ActivityInvitesContent(pending, declined) },
         needsSignIn = loaded.data?.needsSignIn == true,
-        answering = pending.map { it.uri }.filter { flights.isRunning(it) }.toImmutableSet(),
+        answering = flights.runningAmong(pending.map { it.uri }),
         error = error,
     ) { event ->
         when (event) {

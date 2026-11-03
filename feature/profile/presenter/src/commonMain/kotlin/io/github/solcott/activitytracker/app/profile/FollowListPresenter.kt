@@ -15,7 +15,6 @@ import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.flow
 
 @CircuitInject(FollowListScreen::class, SessionScope::class)
@@ -46,7 +45,7 @@ fun FollowListPresenter(
         kind = screen.kind,
         accounts = accounts.state,
         canRemove = canRemove,
-        removing = accounts.state.items.map { it.did }.filter { flights.isRunning(it) }.toImmutableSet(),
+        removing = flights.runningAmong(accounts.state.items.map { it.did }),
         actionError = actionError,
     ) { event ->
         when (event) {
