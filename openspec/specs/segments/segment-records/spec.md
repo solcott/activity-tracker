@@ -123,14 +123,14 @@ A development script SHALL write a `feed.segment` to a local test account's repo
 - **THEN** `alice.test`'s repo holds a `feed.segment` with that line, and the AppView indexes it
 
 ### Requirement: Every segment has a status
-The AppView SHALL give each indexed segment one status: `proposed`, `active`, `duplicate` or `archived`. It SHALL derive the status itself and never read it from the record. It SHALL serve the status in every segment view, and for a `duplicate`, the URI of the segment it duplicates.
+The AppView SHALL give each indexed segment one status: `proposed`, `active`, `duplicate` or `archived`. It SHALL derive the status itself and never read it from the record. A new segment SHALL start `proposed`, except the segment importer's (see "The segment importer's segments start active"). It SHALL serve the status in every segment view, and for a `duplicate`, the URI of the segment it duplicates.
 
 #### Scenario: New segment
-- **WHEN** the AppView indexes a new segment that duplicates nothing
+- **WHEN** the AppView indexes a new segment from an athlete's repo that duplicates nothing
 - **THEN** its view shows the status `proposed`
 
 #### Scenario: Status in the record ignored
-- **WHEN** a `feed.segment` record carries a field claiming it is `active`
+- **WHEN** a `feed.segment` record in an athlete's repo carries a field claiming it is `active`
 - **THEN** the AppView ignores it and the segment starts `proposed`
 
 ### Requirement: A proposed segment becomes active once ridden

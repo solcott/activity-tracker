@@ -37,7 +37,7 @@ The importer SHALL sign in to one account of its own on a PDS, with credentials 
 - **THEN** the importer refuses it before uploading anything
 
 ### Requirement: Only ridden candidates that duplicate nothing are published
-`publish` SHALL list the region's ridden candidates and check their lines against the live segments of their sport groups, by the duplicate test the AppView applies when indexing, in one call per page of up to 500. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, duplicates a proposed or active segment, or is no longer staged SHALL NOT be published. Only the importer SHALL be able to make the check. When the operator asks to publish every candidate (`publish --all` with a candidates file), the ridden condition SHALL NOT apply: `publish` SHALL take the file's candidates instead of the ridden list, and every other condition SHALL still apply.
+`publish` SHALL list the region's ridden candidates and check their lines against the live segments of their sport groups, by the duplicate test the AppView applies when indexing, in one call per page of up to 500. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, duplicates a proposed or active segment, or is no longer staged SHALL NOT be published. Only the importer SHALL be able to make the check.
 
 #### Scenario: Ridden trail
 - **WHEN** a staged candidate is ridden and no segment covers its line
@@ -62,6 +62,9 @@ The importer SHALL sign in to one account of its own on a PDS, with credentials 
 #### Scenario: Check by another account
 - **WHEN** an athlete's account asks the AppView to check staged candidates
 - **THEN** the AppView refuses it as not the importer
+
+### Requirement: An operator can publish every staged candidate
+When the operator asks to publish every candidate (`publish --all` with a region's candidates file), `publish` SHALL take the file's candidates instead of the ridden list and SHALL NOT require riders. Every other condition of publishing SHALL still apply. The file SHALL belong to the region named, checked before any call.
 
 #### Scenario: Publishing every candidate
 - **WHEN** an operator runs `publish --all` with a region's staged candidates file, and a candidate in it has no riders and duplicates nothing
@@ -95,11 +98,15 @@ A segment the importer publishes SHALL be a `feed.segment` in the service accoun
 - **THEN** once the matcher has run, those athletes have efforts on it and it is `active`
 
 ### Requirement: Publishing never doubles or rewrites a segment
-`publish` SHALL write a segment only where the service account has no record under that candidate's id. Running `publish` again, or running it before the AppView has indexed an earlier run's segments, SHALL leave each published segment as it is.
+`publish` SHALL write a segment only where the service account has no record under that candidate's id. Running `publish` again, or running it before the AppView has indexed an earlier run's segments, SHALL leave each published segment as it is. A candidate the duplicate check finds only its own published segment for SHALL be reported as already published, not as a duplicate.
 
 #### Scenario: Re-run
 - **WHEN** an operator runs `publish` twice for the same region
 - **THEN** each ridden candidate has one segment, written by the first run
+
+#### Scenario: Re-run after indexing
+- **WHEN** the AppView has indexed a run's segments, and the operator runs `publish` again
+- **THEN** the check lists each candidate's own segment, and `publish` reports it as already published, not as a duplicate, and writes nothing
 
 #### Scenario: Line fixed in OSM
 - **WHEN** a published candidate's line changes in a later extract while its id stays the same, and it is ridden again
