@@ -10,7 +10,7 @@ See proposal.md for motivation. The parts of the existing system this change lea
 - **Boards.** Mayors boards (`api/SegmentViews.kt` `mayors()`, `boardOf`, `rankable()`) already count efforts per athlete per window with leaderboard opt-outs.
 - **Detail categories.** `DetailCategory` has `map` and `dive` categories. Dive summary fields of a narrower tier live in a `feed.activityDetails` record of that tier.
 - **Importer.** `OsmData` keeps only ways and relations of the trail network and their node coordinates. It keeps no tagged nodes.
-- **Database.** The latest migration is V48. `alpine-segments` plans V49, so this change takes the next free number when it lands.
+- **Database.** The latest migration is V48 (V49 is a PostgreSQL-only vendor one). `alpine-segments` takes V50, so this change takes the next free number when it lands.
 
 ## Goals / Non-Goals
 

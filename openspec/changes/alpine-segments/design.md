@@ -54,7 +54,7 @@ Add `SegmentSportGroup.passTolerance(group, kind)`, returning the start/end radi
 The `alpine` cap is 120 km/h, the same as `ski`. Speed-skiing records are far above it, but resort GPS spikes and snowmobile or ski-patrol rides are not. `plausibleEffort()` already ORs over `SegmentSportGroup.all`, so adding the group covers it. `SegmentBoard.all` gains `snowboard`, so `alpine` boards split into `ski` and `snowboard` like any other board type. The lexicon board `knownValues` gain it too.
 
 ### Importer: one candidate per lift, a new format version
-In `TrailTags`, `wayGroups` adds `alpine` for `piste:type=downhill`, falling back to `piste:name`. `relationGroups` adds `route=piste` + `piste:type=downhill`. Lifts don't go through trail joining or `CandidateCutter`'s junction cuts. A small `LiftRules` pass emits one candidate per qualifying `aerialway` way, using the existing id scheme (group, direction, the way, its ends). A way is never both a piste and a lift, so no id collides and existing ids don't change. The candidate carries `kind`, the importer lexicon `candidate` gains it, and `IMPORTER_VERSION` goes up so `stage` refuses older files. `publish` writes the kind, and `refine` keeps it.
+In `TrailTags`, `wayGroups` adds `alpine` for `piste:type=downhill`, falling back to `piste:name`. `relationGroups` adds `route=piste` + `piste:type=downhill`. Lifts don't go through trail joining or `CandidateCutter`'s junction cuts. A small `LiftRules` pass emits one candidate per qualifying `aerialway` way, using the existing id scheme (direction, the way, its ends) with `alpine-lift` in place of the group, so a lift's id never meets a run's along the same way and existing ids don't change. The candidate carries `kind`, the importer lexicon `candidate` gains it, and `IMPORTER_VERSION` goes up so `stage` refuses older files. `publish` writes the kind, and `refine` keeps it.
 
 ### Client
 - `SegmentViewBasic` gains `kind`, and `SegmentKind` constants go in `core/lexicon`.
@@ -65,7 +65,7 @@ In `TrailTags`, `wayGroups` adds `alpine` for `piste:type=downhill`, falling bac
 ## Risks / Trade-offs
 
 - **Downhill speed leaderboards reward speed on shared slopes** → The user chose full public boards. Mitigations already in place: the 120 km/h cap, per-athlete and per-activity leaderboard opt-outs, and the effort tier rules. Revisit if resorts or users object.
-- **Older AppView ignores `kind`** → Every lift is `alpine`, a group an old AppView doesn't know, so it drops lifts rather than indexing them as runs. Deploy the AppView (migration V49) before any importer run that publishes alpine segments.
+- **Older AppView ignores `kind`** → Every lift is `alpine`, a group an old AppView doesn't know, so it drops lifts rather than indexing them as runs. Deploy the AppView (migration V50) before any importer run that publishes alpine segments.
 - **Older clients show a lift as an ordinary segment** → Its leaderboard and Mayors are empty and it has no naming, so the only artefact is a lift listed among efforts with a "PR" mark from an old client. Acceptable during rollout.
 - **Wrongly drawn piste or lift ways** → Their candidates get no riders, so they are never published. Nothing wrong is served.
 - **Piste centrelines drawn off to one side of a wide piste** → The 50 m corridor covers typical pistes. Very wide bowls mapped only as areas are out of scope and give no candidate.
@@ -75,7 +75,7 @@ In `TrailTags`, `wayGroups` adds `alpine` for `piste:type=downhill`, falling bac
 ## Migration Plan
 
 1. Land the lexicon and `core/lexicon` changes together (`alpine`, `kind`, `snowboard` board).
-2. Deploy the AppView with `V49__segment_kind.sql`, which adds `kind varchar not null default 'run'` to `segments` and `segment_candidates`. Then enqueue a `track` rematch for opted-in athletes' ski and snowboard tracks, as `V43__rematch_segment_tracks` did, so past resort days give candidate riders and efforts.
+2. Deploy the AppView with `V50__segment_kind.sql`, which adds `kind varchar not null default 'run'` to `segments` and `segment_candidates`. It also enqueues a `track` rematch of every segment track, as `V43__rematch_segment_tracks` did (SQL can't tell a track's sport portably), so past resort days give candidate riders and efforts.
 3. Release clients.
 4. Re-extract resort regions with the new importer version, stage them, and publish once they are ridden.
 
