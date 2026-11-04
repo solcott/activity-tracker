@@ -152,6 +152,7 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
         activeAthletes = config.segmentActiveAthletes,
         candidateRiders = config.segmentCandidateRiders,
         names = config.segmentNames,
+        segmentImporter = config.segmentImporter,
     )
 
 /**

@@ -48,6 +48,13 @@ internal const val CREATION_WINDOW_MS = 24L * 60 * 60 * 1000
 /** The statuses whose segments are matched, and that a new segment can duplicate. */
 internal val LIVE_STATUSES = listOf(SegmentStatus.PROPOSED, SegmentStatus.ACTIVE)
 
+/**
+ * The status of [author]'s segment that duplicates nothing: `active` for the segment [importer]'s, whose public trails need no riders to be
+ * listed (segments/segment-records), else `proposed` until enough athletes ride it.
+ */
+internal fun liveStatus(author: String, importer: Did?): String =
+    if (importer != null && author == importer.value) SegmentStatus.ACTIVE else SegmentStatus.PROPOSED
+
 internal const val MAX_NAME_LENGTH = 1000
 private const val MAX_NAME_GRAPHEMES = 100
 internal const val MAX_TOKEN_LENGTH = 64
@@ -58,9 +65,9 @@ private const val E7 = 1e7
 /**
  * A segment from [author]'s repo. Indexed only with a name, a known sport group and a line of at least two valid positions whose length,
  * computed here, is its group's minimum to 50 km; anything else is dropped like an undecodable record, as is a new segment past its
- * creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last day, deleted ones included) while [limited] (every creator but the
- * segment importer). A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate of the earliest
- * live segment it duplicates, else proposed) and, unless a duplicate, is queued to be matched against past tracks; the segments that
+ * creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last day, deleted ones included), unless [author] is the segment
+ * [importer]. A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate of the earliest live
+ * segment it duplicates, else [liveStatus]) and, unless a duplicate, is queued to be matched against past tracks; the segments that
  * duplicated its old version are checked again. A rename keeps its status and changes only its original name: an adopted community name in
  * effect stays its current name. A blank or over-long attribution is left out of the stored record.
  */
@@ -72,7 +79,7 @@ internal fun JdbcTransaction.upsertSegment(
     cid: String,
     jobs: SegmentJobs,
     now: Long,
-    limited: Boolean = true,
+    importer: Did? = null,
 ) {
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
     val name = validName(record.name)
@@ -86,7 +93,7 @@ internal fun JdbcTransaction.upsertSegment(
             .firstOrNull()
     val relined = old == null || old[Segments.line] != record.line
     // A re-lined segment is matched afresh like a new one, so it counts the same; deleting one frees nothing (SegmentCreations).
-    if (relined && limited) {
+    if (relined && author != importer) {
         require(segmentsCreatedSince(author, now) < DAILY_SEGMENT_LIMIT) { "over the daily limit of new segments" }
         SegmentCreations.deleteWhere { (authorDid eq author.value) and (createdAt lessEq now - CREATION_WINDOW_MS) }
         SegmentCreations.insert {
@@ -112,7 +119,8 @@ internal fun JdbcTransaction.upsertSegment(
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[indexedAt] = now
         it[firstIndexedAt] = firstIndexed
-        it[status] = if (changed) (if (original != null) SegmentStatus.DUPLICATE else SegmentStatus.PROPOSED) else old[Segments.status]
+        it[status] =
+            if (changed) (if (original != null) SegmentStatus.DUPLICATE else liveStatus(author.value, importer)) else old[Segments.status]
         it[duplicateOf] = if (changed) original else old[Segments.duplicateOf]
         // The record's name until an adopted community name in effect replaces it, just below (segments/segment-names).
         it[currentName] = name.take(MAX_NAME_LENGTH)
@@ -122,7 +130,7 @@ internal fun JdbcTransaction.upsertSegment(
     SegmentEfforts.deleteWhere { segmentUri eq uri.value }
     replaceSegmentCells(uri.value, line)
     if (original == null) jobs.enqueueSegment(uri.value, now)
-    if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now)
+    if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now, importer)
 }
 
 /** [name] trimmed, if it's a valid segment name: not empty, and at most [MAX_NAME_GRAPHEMES] graphemes. Throws otherwise. */
@@ -197,9 +205,10 @@ private fun earlier(a: Pair<Long, String>, b: Pair<Long, String>) = a.first < b.
 
 /**
  * Checks again each segment marked duplicate of one of [originals], which was deleted, archived or changed, earliest first indexed first,
- * so each in turn sees the ones before it settled. One that duplicates no other live segment becomes proposed and is queued to be matched.
+ * so each in turn sees the ones before it settled. One that duplicates no other live segment becomes live ([liveStatus]: active for the
+ * segment [importer]'s, else proposed) and is queued to be matched.
  */
-internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: SegmentJobs, now: Long) {
+internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: SegmentJobs, now: Long, importer: Did?) {
     if (originals.isEmpty()) return
     val duplicates =
         Segments.selectAll()
@@ -211,7 +220,7 @@ internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: 
         val line = SegmentGeometry.decodePolyline(row[Segments.line]) ?: continue
         val original = duplicatesOf(row[Segments.sport], line, before = row[Segments.firstIndexedAt] to uri).firstOrNull()
         Segments.update({ Segments.uri eq uri }) {
-            it[status] = if (original != null) SegmentStatus.DUPLICATE else SegmentStatus.PROPOSED
+            it[status] = if (original != null) SegmentStatus.DUPLICATE else liveStatus(row[Segments.authorDid], importer)
             it[duplicateOf] = original
         }
         if (original == null) jobs.enqueueSegment(uri, now)
@@ -222,19 +231,20 @@ internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: 
  * A deleted segment: it, its cells, every effort on it and its name proposals and their votes go, and the segments that duplicated it are
  * checked again.
  */
-internal fun JdbcTransaction.deleteSegment(uri: AtUri, jobs: SegmentJobs, now: Long) = deleteSegments(listOf(uri.value), jobs, now)
+internal fun JdbcTransaction.deleteSegment(uri: AtUri, jobs: SegmentJobs, now: Long, importer: Did?) =
+    deleteSegments(listOf(uri.value), jobs, now, importer)
 
 /** [author]'s segments, for a deleted account. */
-internal fun JdbcTransaction.deleteSegmentsBy(author: Did, jobs: SegmentJobs, now: Long) =
-    deleteSegments(Segments.select(Segments.uri).where { Segments.authorDid eq author.value }.map { it[Segments.uri] }, jobs, now)
+internal fun JdbcTransaction.deleteSegmentsBy(author: Did, jobs: SegmentJobs, now: Long, importer: Did?) =
+    deleteSegments(Segments.select(Segments.uri).where { Segments.authorDid eq author.value }.map { it[Segments.uri] }, jobs, now, importer)
 
-private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs, now: Long) {
+private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs, now: Long, importer: Did?) {
     if (uris.isEmpty()) return
     SegmentEfforts.deleteWhere { segmentUri inList uris }
     deleteSegmentNames(uris)
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     Segments.deleteWhere { Segments.uri inList uris }
-    recheckDuplicatesOf(uris, jobs, now)
+    recheckDuplicatesOf(uris, jobs, now, importer)
 }
 
 private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint>) {

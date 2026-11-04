@@ -106,6 +106,8 @@ class SegmentMatcher(
     private val activeAthletes: Int = DEFAULT_ACTIVE_ATHLETES,
     private val candidateRiders: Int = DEFAULT_ACTIVE_ATHLETES,
     names: SegmentNameRules = SegmentNameRules(),
+    /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose segments are active without riders (segments/segment-records). */
+    private val segmentImporter: Did? = null,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
     private val naming = SegmentNaming(db, clock, names)
@@ -131,13 +133,19 @@ class SegmentMatcher(
     }
 
     /**
-     * The status pass: promotes every proposed segment that already has enough athletes (those from before statuses, or after the threshold
-     * was lowered), then archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that
-     * duplicated them. Archived segments keep their efforts. Exposed for tests.
+     * The status pass: makes the segment importer's proposed segments active (those indexed before its segments started active), promotes
+     * every proposed segment that already has enough athletes (those from before statuses, or after the threshold was lowered), then
+     * archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that duplicated them.
+     * Archived segments keep their efforts. Exposed for tests.
      */
     suspend fun updateStatuses() {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
+            if (segmentImporter != null) {
+                Segments.update({ (Segments.authorDid eq segmentImporter.value) and (Segments.status eq SegmentStatus.PROPOSED) }) {
+                    it[status] = SegmentStatus.ACTIVE
+                }
+            }
             promote(Segments.select(Segments.uri).where { Segments.status eq SegmentStatus.PROPOSED }.map { it[Segments.uri] })
             val stale =
                 Segments.select(Segments.uri)
@@ -148,7 +156,7 @@ class SegmentMatcher(
                     .map { it[Segments.uri] }
             if (stale.isEmpty()) return@tx
             Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
-            recheckDuplicatesOf(stale, jobs, now)
+            recheckDuplicatesOf(stale, jobs, now, segmentImporter)
         }
     }
 

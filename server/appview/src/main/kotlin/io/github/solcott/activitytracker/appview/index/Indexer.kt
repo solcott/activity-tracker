@@ -90,7 +90,7 @@ class Indexer(
     private val db: Database,
     private val handles: HandleLookup,
     private val clock: Clock = Clock.System,
-    /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose new segments aren't limited per day. */
+    /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose new segments aren't limited per day and start active. */
     private val segmentImporter: Did? = null,
     /** Who may propose segment names (segments/segment-names). */
     private val segmentNames: SegmentNameRules = SegmentNameRules(),
@@ -316,8 +316,7 @@ class Indexer(
 
             // Public: from the repo only (spaceCollections never lists it).
             Nsid.FEED_SEGMENT -> {
-                if (placement.origin == Origins.REPO)
-                    upsertSegment(json, author, uri, cid, segmentJobs, now, limited = author != segmentImporter)
+                if (placement.origin == Origins.REPO) upsertSegment(json, author, uri, cid, segmentJobs, now, segmentImporter)
             }
 
             // Public, so from the repo only; a copy in a space is ignored.
@@ -412,7 +411,7 @@ class Indexer(
             in BLOCKS_AND_MUTES -> deleteBlockOrMute(collection, uri, placement)
 
             Nsid.FEED_SEGMENT -> {
-                if (placement.origin == Origins.REPO) deleteSegment(uri, segmentJobs, clock.now().toEpochMilliseconds())
+                if (placement.origin == Origins.REPO) deleteSegment(uri, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
             }
 
             Nsid.FEED_SEGMENT_NAME_PROPOSAL -> {
@@ -496,7 +495,7 @@ class Indexer(
         dropSegmentTracks(did)
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
-        deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
+        deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         Actors.deleteWhere { Actors.did eq did.value }
     }

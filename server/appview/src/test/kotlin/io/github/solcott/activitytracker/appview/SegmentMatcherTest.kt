@@ -7,10 +7,12 @@ import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.index.liveStatus
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
@@ -457,7 +459,11 @@ class SegmentMatcherTest : SegmentTestBase() {
     }
 
     /** A matcher whose clock runs [ahead] of now, needing [athletes] for a segment to become active. */
-    private fun matcherAt(ahead: Duration = Duration.ZERO, athletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES) =
+    private fun matcherAt(
+        ahead: Duration = Duration.ZERO,
+        athletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+        segmentImporter: Did? = null,
+    ) =
         SegmentMatcher(
             db,
             indexer.segmentJobs,
@@ -467,6 +473,7 @@ class SegmentMatcherTest : SegmentTestBase() {
                     override fun now() = Clock.System.now() + ahead
                 },
             activeAthletes = athletes,
+            segmentImporter = segmentImporter,
         )
 
     /** A Public run along the segment by [did], with matching on. */
@@ -535,5 +542,33 @@ class SegmentMatcherTest : SegmentTestBase() {
         runBlocking { matcherAt(ahead = 181.days).updateStatuses() }
         assertEquals(SegmentStatus.ARCHIVED, status(segmentUri("3kt")))
         assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks")), "active segments are never archived")
+    }
+
+    @Test
+    fun theImportersSegmentsStartActive() {
+        segment("3ks", did = importer)
+        segment("3kt", path = listOf(5000.0 to 0.0, 5000.0 to 1000.0))
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks", did = importer)), "the importer's trail needs no riders")
+        assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3kt")), "an athlete's still does")
+        assertEquals(SegmentStatus.PROPOSED, liveStatus(importer, null), "with no importer configured, nobody's starts active")
+    }
+
+    @Test
+    fun anImportedDuplicateBecomesActiveWhenItsOriginalGoes() {
+        segment("3ks")
+        segment("3kt", did = importer)
+        assertEquals(SegmentStatus.DUPLICATE, status(segmentUri("3kt", did = importer)), "the duplicate test is unchanged")
+        commit(alice, Nsid.FEED_SEGMENT, "3ks", null)
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3kt", did = importer)))
+    }
+
+    @Test
+    fun theStatusPassMakesEarlierImportsActiveAndNeverArchivesThem() {
+        segment("3ks", did = importer)
+        setStatus(segmentUri("3ks", did = importer), SegmentStatus.PROPOSED)
+        runBlocking { matcherAt(segmentImporter = null).updateStatuses() }
+        assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3ks", did = importer)), "only a configured importer's")
+        runBlocking { matcherAt(ahead = 181.days, segmentImporter = Did(importer)).updateStatuses() }
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks", did = importer)), "promoted, not archived")
     }
 }

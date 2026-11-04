@@ -281,6 +281,8 @@ class SegmentNamesTest : SegmentTestBase() {
     @Test
     fun aProposedSegmentTakesNoProposals() {
         segment("3ks", sport = "ride", did = importer, name = "Trail 214")
+        // The importer's segments start active, so this one is set back to proposed, as one indexed before they did.
+        runBlocking { db.tx { Segments.update({ Segments.uri eq seg }) { it[status] = SegmentStatus.PROPOSED } } }
         efforts(alice, 5)
         propose("3kp", "Wiggly Woods")
         assertEquals(emptyMap(), proposals())
