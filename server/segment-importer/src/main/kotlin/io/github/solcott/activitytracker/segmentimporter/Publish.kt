@@ -61,6 +61,8 @@ internal suspend fun publish(
                     val found = checks[candidate.id]
                     when {
                         found == null -> gone += candidate.id
+                        // The importer's own segment for this candidate is live, so the check lists it: already published.
+                        AtUri.of(repo, Nsid.FEED_SEGMENT, candidate.id) in found -> present += candidate.id
                         found.isNotEmpty() -> duplicates += candidate.id
                         exists(clients, repo, candidate.id) -> present += candidate.id
                         create(clients, repo, candidate, clock) -> published += candidate.id

@@ -62,6 +62,9 @@ class PublishTest {
     /** Candidates [appView]'s check reports as duplicates of [athleteSegment]; a test may change them between runs. */
     private val liveDuplicates = mutableSetOf<String>()
 
+    /** Candidates whose own published segment [appView]'s check reports, as it does once the AppView has indexed it. */
+    private val indexed = mutableSetOf<String>()
+
     /**
      * The AppView lists [ids] as ridden, [pageSize] at a time, and its check reports [duplicates] (added to [liveDuplicates]) as duplicates
      * and leaves out [unstaged], as candidates a `stage` finished away.
@@ -84,7 +87,10 @@ class PublishTest {
             val checked =
                 input.ids
                     .filter { it !in unstaged }
-                    .map { id -> SegmentCandidateCheck(id, if (id in liveDuplicates) listOf(athleteSegment.uri) else emptyList()) }
+                    .map { id ->
+                        val own = listOfNotNull(AtUri.of(Did(FakeServices.DID), Nsid.FEED_SEGMENT, id).takeIf { id in indexed })
+                        SegmentCandidateCheck(id, own + if (id in liveDuplicates) listOf(athleteSegment.uri) else emptyList())
+                    }
             json(AtJson.encodeToString(CheckSegmentCandidates.Output.serializer(), CheckSegmentCandidates.Output(checked)))
         }
         fake.on("com.atproto.repo.getRecord") { call ->
@@ -179,6 +185,16 @@ class PublishTest {
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1") to listOf("c2"), result.gone to result.published)
         assertEquals(setOf("c2"), repo.keys)
+    }
+
+    @Test
+    fun aCandidateWhoseOwnSegmentIsIndexedCountsAsPublishedNotDuplicate() = runTest {
+        appView(listOf("c1", "c2"), duplicates = setOf("c2"))
+        repo["c1"] = """{"name":"Trail c1"}"""
+        indexed += setOf("c1", "c2")
+        val result = publish(clients, "us-vermont", clock)
+        assertEquals(listOf("c1", "c2") to emptyList<String>(), result.present to result.duplicates)
+        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls("com.atproto.repo.createRecord"))
     }
 
     @Test
