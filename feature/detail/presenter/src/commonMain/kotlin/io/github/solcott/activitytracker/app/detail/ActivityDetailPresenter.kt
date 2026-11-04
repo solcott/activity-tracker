@@ -55,6 +55,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
@@ -135,7 +136,7 @@ fun ActivityDetailPresenter(
     val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
     val isOwn = shown?.author?.did == profiles.did
     val approvesFollowers = rememberApprovesFollowers(profiles, enabled = isOwn)
-    val shownCharts = chartsFor(shown, charts.charts)
+    val shownCharts = chartsFor(shown, charts.charts, segments.liftEfforts)
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
     val pageContent = rememberPage(shown, shownCharts, narrower)
@@ -394,9 +395,13 @@ private fun rememberManage(
     )
 }
 
-/** [charts] as [view] shows them: a ski day's count its runs. Null until both have loaded. */
-private fun chartsFor(view: ActivityView?, charts: ActivityCharts?): ActivityCharts? =
-    if (view == null || charts == null) null else ChartsBuilder.forSport(charts, view.record.sport)
+/**
+ * [charts] as [view] shows them: a ski day's count its runs, and its lift laps take the names of the [lifts] they rode. Null until both
+ * have loaded.
+ */
+private fun chartsFor(view: ActivityView?, charts: ActivityCharts?, lifts: List<EffortView>): ActivityCharts? =
+    if (view == null || charts == null) null
+    else ChartsBuilder.forSport(charts, view.record.sport).let { it.copy(laps = namedLiftLaps(it.laps, lifts)) }
 
 /** The activity's charts, and the owner's control over who sees them. */
 private class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {

@@ -24,3 +24,25 @@ fun liftRidesOf(efforts: List<EffortView>): ImmutableList<LiftRides> =
         .groupBy { it.segment.uri }
         .map { (uri, rides) -> LiftRides(uri, rides.first().segment.name, rides.size, rides.sumOf { it.elapsed }) }
         .toImmutableList()
+
+/**
+ * [laps] with each lift-ride lap (a rest lap, as a ski day's FIT splits record lift rides) named after the matched ride in [efforts] it
+ * overlaps most in time, so the laps table can say which lift it was; a lap no ride overlaps keeps no name.
+ */
+fun namedLiftLaps(laps: ImmutableList<LapRow>, efforts: List<EffortView>): ImmutableList<LapRow> {
+    val rides = efforts.filter(::isLiftRide)
+    if (rides.isEmpty() || laps.none { it.isRest }) return laps
+    return laps
+        .map { lap ->
+            if (!lap.isRest) return@map lap
+            val lapEnd = lap.startSeconds.toLong() + lap.elapsedSeconds
+            val ride =
+                rides
+                    .map { it to minOf(lapEnd, it.startOffset + it.elapsed) - maxOf(lap.startSeconds.toLong(), it.startOffset) }
+                    .filter { (_, overlap) -> overlap > 0 }
+                    .maxByOrNull { (_, overlap) -> overlap }
+                    ?.first
+            lap.copy(liftName = ride?.segment?.name)
+        }
+        .toImmutableList()
+}

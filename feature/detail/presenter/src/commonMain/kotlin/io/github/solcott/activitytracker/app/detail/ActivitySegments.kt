@@ -5,10 +5,12 @@ import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Whether the viewer can cut a segment from [record]'s route: it's [own], its full track and their privacy zones were read, and its sport
@@ -21,6 +23,8 @@ internal fun canCreateSegment(own: Boolean, ownRoute: OwnRoute, record: Activity
 internal data class ActivityEfforts(
     val runs: ImmutableList<SegmentEffortGroup> = persistentListOf(),
     val lifts: ImmutableList<LiftRides> = persistentListOf(),
+    /** The lift rides themselves, to name the laps they match ([namedLiftLaps]). */
+    val liftEfforts: ImmutableList<EffortView> = persistentListOf(),
 )
 
 /**
@@ -33,7 +37,11 @@ internal fun rememberSegments(activity: AtUri, loadKey: Int, segments: SegmentRe
     produceRetainedContentState(ActivityEfforts(), loadKey) {
             outcomeFlow {
                 val efforts = segments.activitySegments(activity)
-                ActivityEfforts(groupEfforts(efforts.filterNot(::isLiftRide)), liftRidesOf(efforts))
+                ActivityEfforts(
+                    groupEfforts(efforts.filterNot(::isLiftRide)),
+                    liftRidesOf(efforts),
+                    efforts.filter(::isLiftRide).toImmutableList(),
+                )
             }
         }
         .data

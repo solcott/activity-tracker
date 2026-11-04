@@ -213,6 +213,10 @@ data class LapRow(
     val intensity: String? = null,
     /** In meters or feet, like [ascent]. */
     val descent: Double? = null,
+    /** Seconds from the activity's start to the lap's. */
+    val startSeconds: Int = 0,
+    /** On a ski day, the name of the lift this rest lap rode, when one matched it (segments/segment-lifts); null otherwise. */
+    val liftName: String? = null,
 ) {
     val isRest: Boolean
         get() = intensity == "rest"

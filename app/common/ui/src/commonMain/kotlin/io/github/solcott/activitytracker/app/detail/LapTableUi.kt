@@ -77,14 +77,14 @@ internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false) {
     }
 }
 
-/** Each lap's name for its first cell: its number, or on a ski day "Run n" or "Lift". */
+/** Each lap's name for its first cell: its number, or on a ski day "Run n", or the lift's name ("Lift" when none matched). */
 @Composable
 private fun lapNames(laps: ImmutableList<LapRow>, ski: Boolean): List<String> {
     if (!ski) return laps.map { "${it.number}" }
     val lift = stringResource(Res.string.lap_lift)
     val runNumber = stringResource(Res.string.lap_run_number, "%s")
     val runs = laps.runningFold(0) { n, lap -> if (lap.isRest) n else n + 1 }.drop(1)
-    return laps.mapIndexed { i, lap -> if (lap.isRest) lift else runNumber.replace("%s", "${runs[i]}") }
+    return laps.mapIndexed { i, lap -> if (lap.isRest) lap.liftName ?: lift else runNumber.replace("%s", "${runs[i]}") }
 }
 
 /** A table row as a screen reader says it: its [name], then each header and value. */

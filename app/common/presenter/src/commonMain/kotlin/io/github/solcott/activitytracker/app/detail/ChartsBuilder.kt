@@ -159,6 +159,7 @@ object ChartsBuilder {
             ascent = lap.ascent?.let { UnitConversions.toElevationUnit(it.toDouble(), units) },
             intensity = lap.intensity,
             descent = lap.descent?.let { UnitConversions.toElevationUnit(it.toDouble(), units) },
+            startSeconds = lap.start,
         )
 
     private fun trainingLoad(load: TrainingLoad) =
