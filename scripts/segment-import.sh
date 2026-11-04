@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # One import run for a region (segments/segment-import): extract its candidate segments from an OpenStreetMap extract and any agency trail
 # datasets for it (GeoJSON text sequences, see server/segment-importer/README.md), stage them in the AppView, publish the ridden ones as
-# the importer's service account, then refine the segments already published with the candidates' finer lines and names. Each step must succeed before the next runs, and every step is safe to repeat, so a scheduler can
-# simply run this again.
+# the importer's service account, then refine the segments already published with the candidates' finer lines and names. Each step must
+# succeed before the next runs, and every step is safe to repeat, so a scheduler can simply run this again.
 #
-#   scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps=<file.geojsonl>]... [--lang <code>]
+#   scripts/segment-import.sh <region> [--all]
+#   scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all]
+#
+# With no inputs, the region's preset (scripts/segment-regions/<region>.conf) names them, and scripts/segment-fetch.sh downloads them first.
+# --all publishes every staged candidate that duplicates no live segment, ridden or not.
 #
 # The service account comes from SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD and SEGMENT_IMPORTER_PDS_URL (and APPVIEW_URL,
 # APPVIEW_DID for an AppView other than the local one), in the environment or docker/.env. The AppView's SEGMENT_IMPORTER_DID must name
@@ -12,20 +16,25 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps=<file.geojsonl>]... [--lang <code>]" >&2
-  echo "  region: lower-case letters, digits and dashes, such as us-vermont; at least one extract or agency dataset" >&2
-  echo "  lang: the region's two-letter language code, en unless given" >&2
+  echo "usage: scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all]" >&2
+  echo "  region: lower-case letters, digits and dashes, such as us-utah; with no inputs, its preset in scripts/segment-regions names them" >&2
+  echo "  lang: the region's two-letter language code, en unless given (or the preset's)" >&2
+  echo "  --all: publish every staged candidate, ridden or not" >&2
   exit 2
 }
-[[ $# -ge 2 ]] || usage
+[[ $# -ge 1 ]] || usage
 region="$1"
 shift
 cd "$(dirname "$0")/.."
 
 inputs=()
-lang=en
+lang=
+all=false
 while [[ $# -gt 0 ]]; do
-  if [[ $1 == --lang ]]; then
+  if [[ $1 == --all ]]; then
+    all=true
+    shift
+  elif [[ $1 == --lang ]]; then
     [[ $# -ge 2 ]] || usage
     lang="$2"
     shift 2
@@ -42,6 +51,20 @@ while [[ $# -gt 0 ]]; do
   fi
 done
 
+if [[ ${#inputs[@]} -eq 0 ]]; then
+  preset="scripts/segment-regions/$region.conf"
+  [[ -f "$preset" ]] || { echo "No inputs and no preset for $region: give its files, or add $preset" >&2; exit 2; }
+  scripts/segment-fetch.sh "$region"
+  AGENCIES='' REGION_LANG=''
+  # shellcheck source=/dev/null
+  source "$preset"
+  fetched="build/segment-import/$region"
+  inputs+=("$fetched/$region-trails.osm.pbf")
+  for kind in $AGENCIES; do inputs+=(--agency "$kind=$fetched/$kind.geojsonl"); done
+  [[ -n "$lang" ]] || lang="${REGION_LANG:-en}"
+fi
+[[ -n "$lang" ]] || lang=en
+
 out="build/segment-import/$region.ndjson"
 mkdir -p "$(dirname "$out")"
 importer() { ./gradlew -q :server-segment-importer:run --args="$*"; }
@@ -50,7 +73,12 @@ echo "==> extract $region"
 importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out"
 echo "==> stage $out"
 importer stage "$out"
-echo "==> publish $region"
-importer publish --region "$region"
+if $all; then
+  echo "==> publish $region (every candidate)"
+  importer publish --region "$region" --all "$out"
+else
+  echo "==> publish $region"
+  importer publish --region "$region"
+fi
 echo "==> refine $region"
 importer refine "$out"

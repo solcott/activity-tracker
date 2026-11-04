@@ -1,6 +1,18 @@
 # Segment importer
 
-Turns public trail data (OpenStreetMap and US agency datasets) into candidate segments (`openspec/specs/segments/trail-candidates`), offline. It is a command-line tool, separate from the AppView, which stays an indexer. Each candidate is a line that could become a `feed.segment`: a whole named trail or route, a whole trail OSM maps as named sections, or a stretch of one between junctions, for one sport group, in each direction the trail may be travelled. Staging candidates in the AppView and publishing the ridden ones come later (`segment-candidate-ridership`, `segment-import-publishing`).
+Turns public trail data (OpenStreetMap and US agency datasets) into candidate segments (`openspec/specs/segments/trail-candidates`), offline. It is a command-line tool, separate from the AppView, which stays an indexer. Each candidate is a line that could become a `feed.segment`: a whole named trail or route, a whole trail OSM maps as named sections, or a stretch of one between junctions, for one sport group, in each direction the trail may be travelled. `stage` uploads them to the AppView and `publish` turns them into segments (below).
+
+## Importing a region
+
+A region with a preset in `scripts/segment-regions/` imports with one command, which downloads its inputs and then extracts, stages, publishes and refines it:
+
+```bash
+scripts/segment-import.sh us-utah --all
+```
+
+A preset is a small shell file: `GEOFABRIK` (the extract's path under [Geofabrik](https://download.geofabrik.de/), without `-latest.osm.pbf`), `BBOX` (west south east north), `AGENCIES` (which of `usfs`, `nps` and `blm` cover the region) and `REGION_LANG`. Adding a region is adding one. `scripts/segment-fetch.sh <region>` does just the downloads, into `build/segment-import/<region>/`: the extract (again only when Geofabrik's is newer), cut down with osmium to `<region>-trails.osm.pbf`, and each agency's trails touching the box (the `ogr2ogr` commands below) as `<kind>.geojsonl`, re-fetched every run. Each file is moved into place only once complete, and the run prints each one's size and feature count, warning when an agency gave none: a service outage often answers with no features rather than an error. It needs `curl`, `osmium` and `ogr2ogr` (`brew install osmium-tool gdal`). The box takes in agency trails across the border whole, so a state's import holds slivers of its neighbours'.
+
+`scripts/segment-import.sh <region> <file.osm.pbf> [--agency <kind>=<file>]... [--lang <code>]` still runs on files you give it.
 
 ## Extract
 
@@ -79,6 +91,15 @@ Every feature with a key counts, named or not, including those that give no cand
 
 BLM codes are read literally, so a mis-coded trail closes OSM's candidates along it. Moab's Slickrock Trail is coded `MTC_ONLY` (motorcycles only), so OSM's Slickrock rides, runs and hikes are all left out. Check the report's counts after each run.
 
+## Publish
+
+```bash
+./gradlew :server-segment-importer:run --args="publish --region us-vermont"
+./gradlew :server-segment-importer:run --args="publish --region us-utah --all build/segment-import/us-utah.ndjson"
+```
+
+`publish` writes a `feed.segment` in the service account's repo, keyed by candidate id, for each of the region's ridden candidates (those `SEGMENT_CANDIDATE_RIDERS` athletes have ridden) that duplicates no live segment. With `--all` and the region's staged candidates file, it takes every candidate in the file instead, ridden or not, still leaving out duplicates and candidates the region's current run doesn't stage; a file of another region is refused. The AppView makes the importer's segments `active` as it indexes them, so they're searchable by everyone and never archived for lack of riders. It never rewrites a segment it published, and stops at the first failed call; running again carries on.
+
 ## Refine
 
 Publishing never rewrites a segment, so segments published from older files keep their lines. `refine` takes the candidates file of a fresh `extract` and gives each segment the importer already published under one of its candidate ids that candidate's line, when the two are the same path: within 6 m of each other all along (their Hausdorff distance on points every 2 m), which a 5 m line and a 1 m line of one unchanged trail always are. It also gives each one its candidate's name when the two differ, even when the trail moved, so shorter names and trails renamed in OSM reach published segments; each rename is reported with its old and new name. Only `line` and `name` change, in one write; every other field stays as stored, and the AppView recomputes the segment's efforts. A trail that moved further keeps its line, and is reported. Running it again with the same file writes nothing. `scripts/segment-import.sh` runs it after `publish`:
@@ -95,7 +116,7 @@ The importer reads the file three times (relations, ways, then only the nodes tr
 osmium tags-filter region-latest.osm.pbf w/highway w/piste:type r/route -o region-trails.osm.pbf
 ```
 
-Raise the heap with `JAVA_OPTS=-Xmx6g` if needed.
+The importer's JVM gets the default heap, a quarter of the machine's memory; set `SEGMENT_IMPORTER_HEAP=6g` (read by the Gradle `run` task) to give it more.
 
 ## Test fixture
 

@@ -14,6 +14,8 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
     workingDir = rootDir
     doFirst {
         with(this as JavaExec) {
+            // The JVM's default heap is a quarter of the machine's memory; a large region may need more (README, Memory).
+            System.getenv("SEGMENT_IMPORTER_HEAP")?.takeIf(String::isNotBlank)?.let { maxHeapSize = it }
             val lines = dockerEnv.takeIf { it.isFile }?.readLines()?.map(String::trim).orEmpty()
             for (key in
                 listOf(
