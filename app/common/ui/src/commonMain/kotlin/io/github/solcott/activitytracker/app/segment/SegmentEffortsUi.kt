@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_implausible
 import io.github.solcott.activitytracker.composeApp.resources.segment_pr
 import io.github.solcott.activitytracker.composeApp.resources.segment_rank_ordinals
+import io.github.solcott.activitytracker.composeApp.resources.segment_sport_alpine
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_hike
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_paddle
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ride
@@ -125,6 +126,7 @@ fun segmentSportLabel(sport: String): String =
         SegmentSportGroup.RUN -> stringResource(Res.string.segment_sport_run)
         SegmentSportGroup.HIKE -> stringResource(Res.string.segment_sport_hike)
         SegmentSportGroup.SKI -> stringResource(Res.string.segment_sport_ski)
+        SegmentSportGroup.ALPINE -> stringResource(Res.string.segment_sport_alpine)
         SegmentSportGroup.PADDLE -> stringResource(Res.string.segment_sport_paddle)
         else -> sport
     }

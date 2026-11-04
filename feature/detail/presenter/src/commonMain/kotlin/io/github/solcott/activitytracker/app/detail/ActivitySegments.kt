@@ -17,14 +17,23 @@ import kotlinx.collections.immutable.persistentListOf
 internal fun canCreateSegment(own: Boolean, ownRoute: OwnRoute, record: ActivityRecord): Boolean =
     own && ownRoute.track != null && ownRoute.zonesRead && SegmentSport.of(record.sport, record.subSport) != null
 
+/** An activity's efforts as its page shows them: runs grouped by overlapping spans, and lifts apart (segments/segment-lifts). */
+internal data class ActivityEfforts(
+    val runs: ImmutableList<SegmentEffortGroup> = persistentListOf(),
+    val lifts: ImmutableList<LiftRides> = persistentListOf(),
+)
+
 /**
- * [activity]'s segment efforts, grouped by overlapping spans ([groupEfforts]), reloaded with [loadKey] and retained with the page, in their
- * own load: they're extra, so a slow or failed load never holds up the page, and a failure keeps what was shown, quietly: none on a first
- * load, so no section.
+ * [activity]'s segment efforts, its runs grouped by overlapping spans ([groupEfforts]) and its lift rides counted per lift ([liftRidesOf]),
+ * reloaded with [loadKey] and retained with the page, in their own load: they're extra, so a slow or failed load never holds up the page,
+ * and a failure keeps what was shown, quietly: none on a first load, so no section.
  */
 @Composable
-internal fun rememberSegments(activity: AtUri, loadKey: Int, segments: SegmentRepository): ImmutableList<SegmentEffortGroup> =
-    produceRetainedContentState<ImmutableList<SegmentEffortGroup>>(persistentListOf(), loadKey) {
-            outcomeFlow { groupEfforts(segments.activitySegments(activity)) }
+internal fun rememberSegments(activity: AtUri, loadKey: Int, segments: SegmentRepository): ActivityEfforts =
+    produceRetainedContentState(ActivityEfforts(), loadKey) {
+            outcomeFlow {
+                val efforts = segments.activitySegments(activity)
+                ActivityEfforts(groupEfforts(efforts.filterNot(::isLiftRide)), liftRidesOf(efforts))
+            }
         }
         .data

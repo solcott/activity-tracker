@@ -42,7 +42,9 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_status_arc
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
+import io.github.solcott.activitytracker.composeApp.resources.segment_your_rides
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import org.jetbrains.compose.resources.stringResource
@@ -89,6 +91,8 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 @Composable
 private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues, onRetry: () -> Unit) {
     val listState = rememberLazyListState()
+    // A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names.
+    val lift = SegmentKind.of(segment.record.kind) == SegmentKind.LIFT
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
@@ -109,7 +113,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     )
                     state.credit?.let { Credit(it) }
                     Status(segment) { state.eventSink(SegmentEvent.OpenOriginal) }
-                    if (SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {
+                    if (!lift && SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {
                         AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, Modifier.padding(top = 8.dp)) {
                             Text(stringResource(Res.string.segment_leaderboard))
                         }
@@ -119,8 +123,13 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     }
                 }
             }
-            item { SegmentNames(state, segment) }
-            item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }
+            if (!lift) item { SegmentNames(state, segment) }
+            item {
+                Text(
+                    stringResource(if (lift) Res.string.segment_your_rides else Res.string.segment_your_efforts),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             if (state.efforts.isEmpty()) {
                 item {
                     Text(

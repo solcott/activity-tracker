@@ -213,6 +213,7 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
             metricCards(state, columns = if (medium) 2 else 1)
             segments(state)
+            lifts(state)
             item(key = "stats") {
                 StatsList(page.stats, columns = if (medium) 2 else 1, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) })
             }
@@ -266,6 +267,7 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
             ) {
                 metricCards(state, columns)
                 segments(state)
+                lifts(state)
             }
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }

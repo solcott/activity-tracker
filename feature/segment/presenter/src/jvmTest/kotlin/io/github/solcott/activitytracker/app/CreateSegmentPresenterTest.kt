@@ -120,6 +120,23 @@ class CreateSegmentPresenterTest : ActivityTestBase() {
     }
 
     @Test
+    fun aResortSkiDayMakesAnAlpineRun() = runTest {
+        ownRun()
+        sport = "ski"
+        val navigator = FakeNavigator(createScreen)
+        create(navigator) { r ->
+            val ready = awaitReady()
+            assertEquals("alpine", ready.sport)
+            ready.name.edit { replace(0, length, "Lynx") }
+            awaitUntil { it.canPublish }.eventSink(CreateSegmentEvent.Publish)
+            navigator.awaitPop()
+            val record = r.queuedSegments().single()
+            assertEquals("alpine", record.sport)
+            assertNull(record.kind, "an athlete's segment is always a run")
+        }
+    }
+
+    @Test
     fun aShortRideIsRefused() = runTest {
         ownRun()
         sport = "ride"

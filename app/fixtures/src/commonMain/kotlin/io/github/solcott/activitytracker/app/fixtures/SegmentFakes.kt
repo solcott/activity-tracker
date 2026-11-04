@@ -22,6 +22,7 @@ fun fakeSegmentRecord(
     source: String = SegmentSource.ATHLETE,
     license: String = "CC0-1.0",
     attribution: String? = null,
+    kind: String? = null,
 ): SegmentRecord =
     SegmentRecord(
         name = name,
@@ -31,6 +32,7 @@ fun fakeSegmentRecord(
         license = license,
         createdAt = Fixed.CREATED_AT,
         attribution = attribution,
+        kind = kind,
     )
 
 fun fakeSegment(
@@ -50,7 +52,7 @@ fun fakeSegment(
     )
 
 fun fakeSegmentBasic(segment: SegmentView = fakeSegment()): SegmentViewBasic =
-    SegmentViewBasic(segment.uri, segment.record.name, segment.record.sport, segment.distanceMeters, segment.status)
+    SegmentViewBasic(segment.uri, segment.record.name, segment.record.sport, segment.distanceMeters, segment.status, segment.record.kind)
 
 fun fakeEffort(
     segment: SegmentViewBasic = fakeSegmentBasic(),

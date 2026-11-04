@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
@@ -66,8 +67,10 @@ fun SegmentPresenter(
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
     LaunchedEffect(loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
-    val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE } == true
-    // The Mayor is extra too: only an active segment has one, and a failed read leaves the last one shown, or none.
+    // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
+    val active =
+        segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.of(it.record.kind) == SegmentKind.RUN } == true
+    // The Mayor is extra too: only an active run has one, and a failed read leaves the last one shown, or none.
     var mayor by rememberRetained { mutableStateOf<MayorSummary?>(null) }
     LaunchedEffect(active, loadKey) {
         if (!active) {

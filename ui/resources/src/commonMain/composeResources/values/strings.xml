@@ -1582,9 +1582,15 @@
     <string name="import_saved_suggestion_row">%1$s → %2$s</string>
     <string name="import_saved_suggestions_done">Done</string>
     <string name="detail_section_segments">Segments</string>
+    <string name="detail_section_lifts">Lifts</string>
+    <plurals name="detail_lift_rides">
+        <item quantity="one">%1$d ride</item>
+        <item quantity="other">%1$d rides</item>
+    </plurals>
     <string name="segment_pr">PR</string>
     <string name="segment_ebike">E-bike</string>
     <string name="segment_your_efforts">Your efforts</string>
+    <string name="segment_your_rides">Your rides</string>
     <string name="segment_no_efforts">You have no efforts on this segment yet</string>
     <string name="segment_created_by">By %1$s</string>
     <string name="segment_credit_osm">© OpenStreetMap contributors</string>
@@ -1595,6 +1601,7 @@
     <string name="segment_sport_run">Run</string>
     <string name="segment_sport_hike">Hike</string>
     <string name="segment_sport_ski">Ski</string>
+    <string name="segment_sport_alpine">Alpine</string>
     <string name="segment_sport_paddle">Paddle</string>
     <string name="segment_status_proposed">Proposed</string>
     <string name="segment_status_duplicate">Duplicate</string>

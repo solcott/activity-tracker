@@ -12,15 +12,20 @@ import io.github.solcott.activitytracker.app.fixtures.fakeMayorEntry
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.uistate.ContentState
@@ -118,7 +123,39 @@ object SegmentSamples {
                 SampleKind.REFRESH_FAILED to refreshFailed,
                 RENAMED to renamed,
                 VOTING_UNAVAILABLE to votingUnavailable,
+                LIFT to lift,
             )
+
+    const val LIFT = "lift"
+
+    /** An active ski lift (segments/segment-lifts): the viewer's rides on it, and no leaderboard, Mayor or names. */
+    val lift: SegmentState
+        get() {
+            val lift =
+                fakeSegment(
+                    "summit-quad",
+                    record =
+                        fakeSegmentRecord(
+                            name = "Summit Quad",
+                            sport = SegmentSportGroup.ALPINE,
+                            source = SegmentSource.OSM,
+                            license = "ODbL-1.0",
+                            kind = SegmentKind.LIFT,
+                        ),
+                    distanceMeters = 1_420,
+                    status = SegmentStatus.ACTIVE,
+                )
+            return SegmentState(
+                content = ContentStates.loaded(lift),
+                polyline = lift.record.line,
+                efforts =
+                    persistentListOf(
+                        fakeEffort(fakeSegmentBasic(lift), elapsed = 412, startOffset = 600),
+                        fakeEffort(fakeSegmentBasic(lift), elapsed = 430, startOffset = 1500),
+                    ),
+                starred = false,
+            )
+        }
 
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"

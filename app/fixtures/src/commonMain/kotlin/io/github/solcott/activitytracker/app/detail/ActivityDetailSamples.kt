@@ -16,6 +16,8 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -83,6 +85,25 @@ object ActivityDetailSamples {
                     effort("3ksrushcanyon", "Rush › Exit Stage Left → Canyon Hollow", 2400, 492),
                     effort("3ksrushshore", "Rush › Exit Stage Left → Bonneville Shoreline", 2400, 574),
                     effort("3ksesl", "Rush - Exit Stage Left", 2420, 89, rank = null),
+                )
+            )
+        }
+
+    /** A resort day's lifts (segments/segment-lifts): three rides on the quad, one on the gondola, in the order first ridden. */
+    val liftRides: ImmutableList<LiftRides>
+        get() {
+            fun lift(rkey: String, name: String) =
+                fakeSegmentBasic(
+                    fakeSegment(rkey, record = fakeSegmentRecord(name = name, sport = SegmentSportGroup.ALPINE, kind = SegmentKind.LIFT))
+                )
+            val gondola = lift("base-gondola", "Base Gondola")
+            val quad = lift("summit-quad", "Summit Quad")
+            return liftRidesOf(
+                listOf(
+                    fakeEffort(gondola, activity.uri, elapsed = 540, startOffset = 0),
+                    fakeEffort(quad, activity.uri, elapsed = 412, startOffset = 900),
+                    fakeEffort(quad, activity.uri, elapsed = 430, startOffset = 1800),
+                    fakeEffort(quad, activity.uri, elapsed = 405, startOffset = 2700),
                 )
             )
         }

@@ -1,8 +1,11 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -12,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -22,15 +26,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.segment.EffortRow
+import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.detail_lift_rides
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_lifts
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_segments
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import kotlinx.collections.immutable.ImmutableList
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The activity's segment efforts in a card after the laps, each opening its segment; nothing when it has none the viewer may see. */
@@ -41,6 +51,39 @@ internal fun LazyListScope.segments(state: ActivityDetailPage) {
             state.segments,
             onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment.uri, it.eBike == true)) },
         )
+    }
+}
+
+/** The ski lifts the activity rode, in a card after its segments, each opening its lift; nothing when it rode none the viewer may see. */
+internal fun LazyListScope.lifts(state: ActivityDetailPage) {
+    if (state.lifts.isEmpty()) return
+    item(key = "lifts") { LiftRidesCard(state.lifts, onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment)) }) }
+}
+
+/** [lifts] in a card (segments/segment-lifts): each lift's name, how many times it was ridden and the time on it, with no PR or rank. */
+@Composable
+fun LiftRidesCard(lifts: ImmutableList<LiftRides>, onOpen: (LiftRides) -> Unit, modifier: Modifier = Modifier) {
+    AppCard(modifier) {
+        Column(Modifier.padding(CARD_PADDING)) {
+            Text(stringResource(Res.string.detail_section_lifts), style = MaterialTheme.typography.titleMedium)
+            lifts.forEach { lift ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpen(lift) }.handCursor().padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(lift.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            pluralStringResource(Res.plurals.detail_lift_rides, lift.rides, lift.rides),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(Format.duration(lift.elapsedSeconds), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
     }
 }
 
