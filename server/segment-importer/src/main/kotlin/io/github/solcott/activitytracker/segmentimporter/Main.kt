@@ -29,7 +29,8 @@ Commands:
       of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
 
 stage, publish and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
-and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one."""
+and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one (Gradle's run task gives the local
+one its DID, device mode included)."""
 
 private val REGION_ID = Regex("[a-z0-9-]{1,64}")
 

@@ -11,8 +11,8 @@
 # --all publishes every staged candidate that duplicates no live segment, ridden or not.
 #
 # The service account comes from SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD and SEGMENT_IMPORTER_PDS_URL (and APPVIEW_URL,
-# APPVIEW_DID for an AppView other than the local one), in the environment or docker/.env. The AppView's SEGMENT_IMPORTER_DID must name
-# the same account.
+# APPVIEW_DID for an AppView other than the local one, whose DID the importer derives, device mode included), in the environment or
+# docker/.env. The AppView's SEGMENT_IMPORTER_DID must name the same account.
 set -euo pipefail
 
 usage() {

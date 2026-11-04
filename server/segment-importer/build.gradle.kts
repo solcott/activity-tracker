@@ -2,15 +2,19 @@ plugins {
     id("activitytracker.kotlin.jvm")
     alias(libs.plugins.kotlin.serialization)
     application
+    id("activitytracker.native.oauth")
 }
 
 // Turns public trail data into candidate segments (segments/trail-candidates), outside the AppView, which stays an indexer.
 application { mainClass.set("io.github.solcott.activitytracker.segmentimporter.MainKt") }
 
 // Relative paths in --args resolve from the repo root, where an operator runs ./gradlew. The service account's settings come from the
-// environment, filled from docker/.env when unset there, as the AppView's are; read at execution, not during configuration.
+// environment, filled from docker/.env when unset there, as the AppView's are; read at execution, not during configuration. Calling the
+// local AppView with no APPVIEW_DID set, the importer takes the DID that AppView's own run task gives it: its public URL's host (the device
+// host's AppView sibling in device mode), so service-auth tokens carry the audience it checks.
 tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
     val dockerEnv = rootDir.resolve("docker/.env")
+    val appViewPublicUrl = nativeOAuth.effectiveAppviewPublicUrl
     workingDir = rootDir
     doFirst {
         with(this as JavaExec) {
@@ -27,6 +31,11 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
                 )) {
                 if (key in environment) continue
                 lines.firstOrNull { it.startsWith("$key=") }?.substringAfter('=')?.takeIf(String::isNotBlank)?.let { environment(key, it) }
+            }
+            if ("APPVIEW_URL" !in environment && "APPVIEW_DID" !in environment) {
+                appViewPublicUrl.orNull?.let { url ->
+                    environment("APPVIEW_DID", "did:web:" + url.substringAfter("://").substringBefore('/').replace(":", "%3A"))
+                }
             }
         }
     }
