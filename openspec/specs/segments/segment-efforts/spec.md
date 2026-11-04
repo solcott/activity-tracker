@@ -37,7 +37,7 @@ A segment track SHALL NOT be usable when its data can't be read, a piece's array
 - **THEN** the activity's earlier efforts are removed
 
 ### Requirement: An effort is a pass from start to end
-An activity SHALL get an effort on a segment of its sport group each time one piece of its segment track passes within 25 m of the segment's start, then follows the segment's line in order to within 25 m of its end, staying within 30 m of every point of the line. Following the line in reverse SHALL NOT count, and a pass SHALL NOT span two pieces.
+An activity SHALL get an effort on a segment of its sport group each time one piece of its segment track passes within 25 m of the segment's start, then follows the segment's line in order to within 25 m of its end, staying within 30 m of every point of the line. For an `alpine` run the distances SHALL be 40 m at the start and end and 50 m along the line, since skiers cross a piste's width. Following the line in reverse SHALL NOT count, and a pass SHALL NOT span two pieces.
 
 #### Scenario: Full pass
 - **WHEN** a run's segment track follows a segment from its start to its end
@@ -58,6 +58,14 @@ An activity SHALL get an effort on a segment of its sport group each time one pi
 #### Scenario: Across a privacy zone
 - **WHEN** a segment passes through one of the athlete's privacy zones, so their segment track has a gap there
 - **THEN** the activity gets no effort on it
+
+#### Scenario: Carving across a wide piste
+- **WHEN** a skier's track swings up to 45 m either side of an `alpine` run's line while following it from top to bottom
+- **THEN** the ski day gets an effort on the run
+
+#### Scenario: Lift keeps the usual corridor
+- **WHEN** a track passes 40 m to the side of a lift's line all the way up
+- **THEN** it gets no effort on the lift
 
 ### Requirement: An effort's time is measured from the track
 An effort SHALL start the last time the track crosses the segment's start line going forward before it follows the segment. It SHALL end the first time the track then crosses the end line. Each line SHALL run across the segment, at right angles to its first or last stretch. Each crossing SHALL be interpolated between the samples either side of it. Elapsed time SHALL be in whole seconds.
@@ -164,7 +172,7 @@ An effort SHALL be visible at the narrowest of three visibilities: the activity'
 - **THEN** they see those two only
 
 ### Requirement: The app shows efforts on the activity page
-The activity page SHALL list the activity's efforts the viewer is given, each with its segment's name and the effort's time, and mark the athlete's fastest with "PR". An effort on a segment that isn't `active` SHALL also show the segment's status. Tapping one SHALL open the segment screen. An activity with no efforts SHALL show no segments section.
+The activity page SHALL list the activity's efforts on run segments that the viewer is given, each with its segment's name and the effort's time, and mark the athlete's fastest with "PR". An effort on a segment that isn't `active` SHALL also show the segment's status. Tapping one SHALL open the segment screen. An activity with no efforts on run segments SHALL show no segments section. Efforts on lifts SHALL be shown only in the Lifts section (`segments/segment-lifts`).
 
 #### Scenario: Activity with efforts
 - **WHEN** an athlete opens their own ride with two efforts
@@ -177,6 +185,10 @@ The activity page SHALL list the activity's efforts the viewer is given, each wi
 #### Scenario: Activity without efforts
 - **WHEN** a viewer opens an activity with no efforts they may see
 - **THEN** the page shows no segments section
+
+#### Scenario: Ski day with runs and lifts
+- **WHEN** a viewer opens a ski day with efforts on two runs and on one lift
+- **THEN** the segments section lists the two runs, and the lift appears only in the Lifts section
 
 ### Requirement: The segment screen shows the segment and the viewer's efforts
 The segment screen SHALL show the segment's line on a map, its name, length, sport group and status, a link to the original for a `duplicate`, and the viewer's own efforts on it, fastest first.

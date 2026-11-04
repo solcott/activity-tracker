@@ -22,7 +22,7 @@ The AppView SHALL accept the candidate calls only from the account its configura
 - **THEN** the AppView refuses it
 
 ### Requirement: Candidates are staged by region in batches
-`importer.putSegmentCandidates` SHALL take a region id, an import revision and up to 500 candidates, each with an id, sport group, name, line, source and licence, and optionally an attribution, and store or replace each by its id. It SHALL validate each candidate as segments are validated, and an attribution as blank or at most 100 graphemes, and return the ids it rejected, with why, while storing the rest.
+`importer.putSegmentCandidates` SHALL take a region id, an import revision and up to 500 candidates, each with an id, sport group, kind, name, line, source and licence, and optionally an attribution, and store or replace each by its id. A candidate naming no kind SHALL be a `run`. It SHALL validate each candidate as segments are validated, a lift included, and an attribution as blank or at most 100 graphemes, and return the ids it rejected, with why, while storing the rest.
 
 #### Scenario: Batch with one bad line
 - **WHEN** the importer stages 500 candidates for `us-vermont`, one of whose lines is 120 m long
@@ -39,6 +39,14 @@ The AppView SHALL accept the candidate calls only from the account its configura
 #### Scenario: Attribution too long
 - **WHEN** the importer stages a candidate whose attribution is 150 graphemes long
 - **THEN** the AppView returns its id as rejected and stores the rest of the batch
+
+#### Scenario: Lift candidate staged
+- **WHEN** the importer stages an `alpine` candidate of kind `lift`
+- **THEN** the AppView stores it as a lift
+
+#### Scenario: Lift outside alpine
+- **WHEN** the importer stages a `ride` candidate of kind `lift`
+- **THEN** the AppView returns its id as rejected
 
 ### Requirement: An import run replaces a region's candidates
 `importer.finishSegmentCandidates` SHALL take a region id and an import revision, and remove every candidate of that region that wasn't staged in that revision, with its riders. Candidates of other regions SHALL be untouched.
@@ -74,7 +82,7 @@ The AppView SHALL count a candidate's riders as the distinct athletes with a usa
 - **THEN** they don't count as a rider of it
 
 ### Requirement: A candidate becomes ridden at the configured threshold
-A candidate SHALL become ridden once it has at least the configured number of distinct riders, 3 by default, and SHALL stay ridden when riders are later dropped. Changing a candidate's line or sport group SHALL make it unridden and count it again.
+A candidate SHALL become ridden once it has at least the configured number of distinct riders, 3 by default, and SHALL stay ridden when riders are later dropped. Changing a candidate's line, sport group or kind SHALL make it unridden and count it again.
 
 #### Scenario: Third rider
 - **WHEN** a candidate with two riders gets a third athlete's pass
@@ -84,8 +92,12 @@ A candidate SHALL become ridden once it has at least the configured number of di
 - **WHEN** a ridden candidate's riders turn matching off
 - **THEN** their rider records are dropped, and the candidate stays ridden
 
+#### Scenario: Lift ridden
+- **WHEN** three athletes' ski days each pass a lift candidate from bottom to top
+- **THEN** the lift candidate becomes ridden
+
 ### Requirement: The importer learns only which candidates are ridden
-`importer.getRiddenSegmentCandidates` SHALL list a region's ridden candidates, by id with a cursor, each with its id, sport group, name, line, source, licence and attribution, if it has one. It SHALL leave out a candidate once the AppView has indexed a segment from the importer account keyed by that candidate's id. The AppView SHALL NOT reveal to anyone how many riders a candidate has, who they are, or when they rode.
+`importer.getRiddenSegmentCandidates` SHALL list a region's ridden candidates, by id with a cursor, each with its id, sport group, kind, name, line, source, licence and attribution, if it has one. It SHALL leave out a candidate once the AppView has indexed a segment from the importer account keyed by that candidate's id. The AppView SHALL NOT reveal to anyone how many riders a candidate has, who they are, or when they rode.
 
 #### Scenario: Listing ridden candidates
 - **WHEN** the importer lists `us-vermont`'s ridden candidates
@@ -102,3 +114,7 @@ A candidate SHALL become ridden once it has at least the configured number of di
 #### Scenario: Same key from another account
 - **WHEN** an athlete's segment happens to be keyed by a ridden candidate's id
 - **THEN** the listing still includes that candidate
+
+#### Scenario: Ridden lift
+- **WHEN** a lift candidate is ridden
+- **THEN** the listing gives it with kind `lift`

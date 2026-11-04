@@ -22,7 +22,7 @@ A name proposal SHALL be a `feed.segmentNameProposal` record in its proposer's r
 - **THEN** the AppView ignores it
 
 ### Requirement: Only regulars may propose
-The AppView SHALL accept a proposal only if, when it's indexed, the segment is `active` and the proposer has efforts on it on at least a configured number of distinct local dates, 5 by default. Efforts of every visibility SHALL count, but only efforts within the sport group's speed cap. It SHALL ignore any other proposal, and SHALL NOT drop an accepted proposal when the proposer later loses efforts.
+The AppView SHALL accept a proposal only if, when it's indexed, the segment is `active` and of kind `run`, and the proposer has efforts on it on at least a configured number of distinct local dates, 5 by default. Efforts of every visibility SHALL count, but only efforts within the sport group's speed cap. It SHALL ignore any other proposal, and SHALL NOT drop an accepted proposal when the proposer later loses efforts.
 
 #### Scenario: Five days of efforts
 - **WHEN** alice has efforts on a segment on 5 different dates, two of them from Only me activities, and proposes a name
@@ -35,6 +35,10 @@ The AppView SHALL accept a proposal only if, when it's indexed, the segment is `
 #### Scenario: Proposed segment
 - **WHEN** an eligible athlete proposes a name for a segment whose status is `proposed`
 - **THEN** the AppView ignores the proposal
+
+#### Scenario: Lift
+- **WHEN** an athlete who has ridden an active lift on 20 different dates proposes a name for it
+- **THEN** the AppView ignores the proposal, and `feed.getSegment` tells them they may not propose
 
 ### Requirement: A proposal must offer a new name
 The AppView SHALL ignore a proposal whose name, trimmed and compared case-insensitively, equals the segment's current name or the name of another open proposal on the segment. It SHALL accept one that equals an earlier name, the original included.

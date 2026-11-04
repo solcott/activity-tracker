@@ -7,7 +7,7 @@ Defines segment leaderboards: which boards a segment has, which efforts are rank
 ## Requirements
 
 ### Requirement: Only active segments have leaderboards
-`feed.getSegmentLeaderboard` SHALL return a segment's board only while the segment is `active`. For a segment of any other status it SHALL return no entries. A segment that isn't indexed or isn't served to the viewer SHALL be `NotFound`.
+`feed.getSegmentLeaderboard` SHALL return a segment's board only while the segment is `active` and of kind `run`. For a segment of any other status, and for a lift, it SHALL return no entries. A segment that isn't indexed or isn't served to the viewer SHALL be `NotFound`.
 
 #### Scenario: Proposed segment
 - **WHEN** a viewer asks for the leaderboard of a proposed segment that three efforts are on
@@ -16,6 +16,14 @@ Defines segment leaderboards: which boards a segment has, which efforts are rank
 #### Scenario: Unknown segment
 - **WHEN** a viewer asks for the leaderboard of a segment URI the AppView hasn't indexed
 - **THEN** the AppView answers `NotFound`
+
+#### Scenario: Active lift
+- **WHEN** a viewer asks for the leaderboard of an active lift that many athletes have ridden
+- **THEN** the AppView returns no entries
+
+#### Scenario: Active alpine run
+- **WHEN** a viewer asks for the leaderboard of an active `alpine` run
+- **THEN** the AppView returns its board like any other segment's, with `ski` and `snowboard` as separate board types
 
 ### Requirement: A board ranks each athlete's best effort
 A leaderboard SHALL hold one entry per athlete: their fastest ranked effort on the segment that the viewer may see, fastest first. Each entry SHALL give its rank, the athlete, the effort's elapsed time, its activity and the activity's date, and SHALL NOT give a time of day. Athletes with equal times SHALL share a rank, the next rank SHALL skip accordingly, and the earlier effort SHALL be listed first. An athlete with two equally fast efforts SHALL be shown with the earlier one.
@@ -162,7 +170,7 @@ An athlete SHALL be able to mark one of their activities as excluded from leader
 - **THEN** boards rank the athlete by their next fastest effort that isn't excluded
 
 ### Requirement: Implausibly fast efforts are not ranked
-An effort SHALL NOT be ranked when its average speed over the segment's computed length is above its sport group's cap: 100 km/h for `ride`, 40 km/h for `run`, 30 km/h for `hike`, 120 km/h for `ski` and 25 km/h for `paddle`. It SHALL stay on its activity. The caps SHALL apply as they stand when a board is read, without rematching.
+An effort SHALL NOT be ranked when its average speed over the segment's computed length is above its sport group's cap: 100 km/h for `ride`, 40 km/h for `run`, 30 km/h for `hike`, 120 km/h for `ski`, 120 km/h for `alpine` and 25 km/h for `paddle`. It SHALL stay on its activity. The caps SHALL apply as they stand when a board is read, without rematching.
 
 #### Scenario: Run in a car
 - **WHEN** a run's effort covers a 2 km segment in 60 s
@@ -171,6 +179,10 @@ An effort SHALL NOT be ranked when its average speed over the segment's computed
 #### Scenario: Fast descent
 - **WHEN** a ride covers a 3 km descent at an average of 85 km/h
 - **THEN** the effort is ranked
+
+#### Scenario: Ski run on a snowmobile
+- **WHEN** an `alpine` effort covers a 1 km run in 25 s, an average of 144 km/h
+- **THEN** it is on no board, and the ski day still lists it
 
 ### Requirement: The leaderboard screen
 The segment screen of an `active` segment SHALL open its leaderboard, which SHALL list the entries with rank, athlete, time and date, let the viewer choose the period and scope, and show the board's type, a menu when several types are listed; a new type SHALL show from the first page. It SHALL load more pages as the viewer scrolls and show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open its activity. A failed load SHALL show an error with a retry.

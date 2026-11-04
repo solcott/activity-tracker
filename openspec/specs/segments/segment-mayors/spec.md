@@ -7,7 +7,7 @@ Defines segment Mayors: a board per segment that ranks athletes by how many effo
 ## Requirements
 
 ### Requirement: Only active segments have Mayors
-`feed.getSegmentMayors` SHALL return a segment's board only while the segment is `active`. For a segment of any other status it SHALL return no entries. A segment that isn't indexed or isn't served to the viewer SHALL be `NotFound`.
+`feed.getSegmentMayors` SHALL return a segment's board only while the segment is `active` and of kind `run`. For a segment of any other status, and for a lift, it SHALL return no entries. A segment that isn't indexed or isn't served to the viewer SHALL be `NotFound`.
 
 #### Scenario: Proposed segment
 - **WHEN** a viewer asks for the Mayors of a proposed segment that three efforts are on
@@ -16,6 +16,10 @@ Defines segment Mayors: a board per segment that ranks athletes by how many effo
 #### Scenario: Unknown segment
 - **WHEN** a viewer asks for the Mayors of a segment URI the AppView hasn't indexed
 - **THEN** the AppView answers `NotFound`
+
+#### Scenario: Active lift
+- **WHEN** a viewer asks for the Mayors of an active chairlift
+- **THEN** the AppView returns no entries
 
 ### Requirement: Mayors count the efforts leaderboards rank
 A Mayors board SHALL count, per athlete, every effort on the segment in the window that the same viewer's time leaderboard could rank (`segments/segment-leaderboards`): one the viewer may see, not from an excluded activity, not by an athlete who hides from leaderboards, and within its sport group's speed cap. Each such effort SHALL count once, including several in one activity.
