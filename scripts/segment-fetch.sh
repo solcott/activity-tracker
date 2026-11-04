@@ -53,7 +53,7 @@ echo "    $extract ($(size "$extract"))"
 
 trails="$dir/$region-trails.osm.pbf"
 if [[ ! -f "$trails" || "$extract" -nt "$trails" ]]; then
-  osmium tags-filter "$extract" w/highway w/piste:type r/route -O -o "$trails.part.osm.pbf"
+  osmium tags-filter "$extract" w/highway w/piste:type w/aerialway r/route -O -o "$trails.part.osm.pbf"
   mv "$trails.part.osm.pbf" "$trails"
 fi
 echo "    $trails ($(size "$trails"))"

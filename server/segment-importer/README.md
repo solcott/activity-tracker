@@ -113,7 +113,7 @@ Publishing never rewrites a segment, so segments published from older files keep
 The importer reads the file three times (relations, ways, then only the nodes trails use) and holds ids and coordinates in primitive arrays, so one region the size of a US state fits in a couple of GB of heap. For a large extract, shrink it first with [osmium](https://osmcode.org/osmium-tool/) (`brew install osmium-tool`) to the features the importer reads:
 
 ```bash
-osmium tags-filter region-latest.osm.pbf w/highway w/piste:type r/route -o region-trails.osm.pbf
+osmium tags-filter region-latest.osm.pbf w/highway w/piste:type w/aerialway r/route -o region-trails.osm.pbf
 ```
 
 The importer's JVM gets the default heap, a quarter of the machine's memory; set `SEGMENT_IMPORTER_HEAP=6g` (read by the Gradle `run` task) to give it more.
