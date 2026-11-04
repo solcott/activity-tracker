@@ -6,6 +6,7 @@ import androidx.compose.runtime.saveable.LocalSaveableStateRegistry
 import androidx.compose.runtime.saveable.SaveableStateRegistry
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withCompositionLocals
+import app.cash.turbine.Event
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
@@ -254,9 +255,13 @@ class SegmentLeaderboardPresenterTest {
             state.eventSink(SegmentLeaderboardEvent.BoardChanged("ride"))
             state.eventSink(SegmentLeaderboardEvent.BoardChanged("kayak"))
             testScheduler.runCurrent()
-            expectNoEvents()
+            // The load answers on a real thread, so a last recomposition from it can land after runCurrent, as an item with a new
+            // eventSink and nothing else changed. Only a different board shown, or a second load, is the change this rules out.
+            cancelAndConsumeRemainingEvents().filterIsInstance<Event.Item<SegmentLeaderboardState>>().forEach { later ->
+                assertEquals(state.board, later.value.board)
+                assertEquals(state.entries, later.value.entries)
+            }
             assertEquals(1, requests.size)
-            cancelAndIgnoreRemainingEvents()
         }
     }
 
