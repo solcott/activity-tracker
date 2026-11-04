@@ -58,7 +58,7 @@ internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false) {
     val headers = lapHeaders(columns)
     val names = lapNames(laps, ski)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        TableCells(headers.toImmutableList(), header = true, firstWidth = columns.firstWidth)
+        TableCells(headers.toImmutableList(), header = true, firstWidth = columns.firstWidth, wideColumn = columns.wideColumn)
         laps.forEachIndexed { i, lap ->
             val cells = listOf(names[i]) + lapCells(lap, columns)
             val spoken =
@@ -72,6 +72,7 @@ internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false) {
                 header = false,
                 Modifier.clearAndSetSemantics { contentDescription = spoken },
                 firstWidth = columns.firstWidth,
+                wideColumn = columns.wideColumn,
             )
         }
     }
@@ -101,6 +102,8 @@ private class LapColumns(laps: List<LapRow>, val ski: Boolean) {
     val descent = ski && laps.any { it.descent != null }
     val cadence = !power && laps.any { it.avgCadence != null }
     val firstWidth = if (ski) RUN_NAME_WIDTH else LAP_NUMBER_WIDTH
+    /** A ski day whose lift laps carry their lifts' names gives the name column a wide share, so a name wraps only at its spaces. */
+    val wideColumn = if (ski && laps.any { it.liftName != null }) 0 else -1
 }
 
 @Composable
@@ -153,7 +156,7 @@ internal fun <T : Any> cell(value: T?, shown: Boolean = true, text: @Composable 
 
 /**
  * A row of a table: its first cell [firstWidth] wide (a number or short name), the rest sharing the width, the [wideColumn] (a name) twice
- * as much, each wrapping to a second line.
+ * as much, each wrapping to a second line. A [wideColumn] of 0 makes the first cell that wide share instead of [firstWidth].
  */
 @Composable
 internal fun TableCells(
@@ -167,7 +170,7 @@ internal fun TableCells(
         cells.forEachIndexed { i, cell ->
             Text(
                 cell,
-                if (i == 0) Modifier.width(firstWidth) else Modifier.weight(if (i == wideColumn) 2f else 1f),
+                if (i == 0 && wideColumn != 0) Modifier.width(firstWidth) else Modifier.weight(if (i == wideColumn) 2f else 1f),
                 style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
                 color = if (header) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
