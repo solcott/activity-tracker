@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import java.io.File
 import java.io.Writer
 import kotlin.time.Instant
@@ -7,7 +8,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The candidates file's format; bump it when what a line holds changes, so a reader can refuse a file it doesn't know. */
-internal const val IMPORTER_VERSION = 3
+internal const val IMPORTER_VERSION = 4
 
 /** The licence of OSM-derived lines, on every candidate and on the segments published from them. */
 internal const val LICENSE_OSM = "ODbL-1.0"
@@ -42,6 +43,8 @@ internal data class CandidateEntry(
     val osmWays: List<Long>? = null,
     /** The agency features an agency candidate follows, as `<kind>:<feature key>`. */
     val agencyFeatures: List<String>? = null,
+    /** A `feed.segment` kind; null for a run. */
+    val kind: String? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -74,7 +77,8 @@ internal fun extract(
 /** Every candidate [data] gives, named without [words], those [closures] leave out and then duplicates dropped, sorted by id. */
 internal fun candidatesOf(data: OsmData, closures: ClosureFilter, words: GenericWords = GenericWords.ENGLISH): List<Candidate> {
     val cutter = CandidateCutter(data, words)
-    return CandidateDedup.dedup(TrailBuilder.build(data, words).flatMap(cutter::cut).filter(closures::keep)).sortedBy { it.id }
+    val trails = TrailBuilder.build(data, words).flatMap(cutter::cut)
+    return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
 }
 
 /** The candidates file: a header line, then one line per candidate, in the order given. */
@@ -94,6 +98,7 @@ internal fun write(out: Writer, region: String, timestamp: Instant?, candidates:
                 c.attribution,
                 c.osmWays.ifEmpty { null },
                 c.agencyFeatures.ifEmpty { null },
+                c.segmentKind.takeIf { it != SegmentKind.RUN },
             )
         out.appendLine(json.encodeToString(CandidateEntry.serializer(), entry))
     }

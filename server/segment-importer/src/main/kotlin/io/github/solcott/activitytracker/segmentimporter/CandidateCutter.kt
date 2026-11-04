@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.atproto.crypto.base32
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -34,6 +35,8 @@ internal class Candidate(
     val attribution: String? = null,
     /** The agency features it follows, as `<kind>:<feature key>`, in its direction of travel; empty for an OSM one. */
     val agencyFeatures: List<String> = emptyList(),
+    /** A [SegmentKind] value: a trail's candidates are runs, a ski lift's a [SegmentKind.LIFT]. */
+    val segmentKind: String = SegmentKind.RUN,
 )
 
 /**

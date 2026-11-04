@@ -73,15 +73,15 @@ internal object OsmReader {
         }
     }
 
-    /** Keeps trail ways, relation [members] and named highways; collects the nodes whose coordinates the first two need. */
+    /** Keeps trail ways, relation [members], ski lifts and named highways; collects the nodes whose coordinates all but the last need. */
     private class WayPass(private val members: LongArray) : Pass() {
         val kept = mutableListOf<OsmWay>()
         val nodes = LongSetBuilder()
 
         override fun parseWays(ways: List<Osmformat.Way>) {
             for (way in ways) {
-                val tags = tags(way.keysList, way.valsList)
-                val trail = TrailTags.wayGroups(tags).isNotEmpty() || members.binarySearch(way.id) >= 0
+                val tags = TrailTags.normalized(tags(way.keysList, way.valsList))
+                val trail = TrailTags.wayGroups(tags).isNotEmpty() || members.binarySearch(way.id) >= 0 || TrailTags.isLift(tags)
                 if (!trail && !TrailTags.marksJunctions(tags)) continue
                 var ref = 0L
                 val refs = LongArray(way.refsCount) { i -> (ref + way.getRefs(i)).also { ref = it } }

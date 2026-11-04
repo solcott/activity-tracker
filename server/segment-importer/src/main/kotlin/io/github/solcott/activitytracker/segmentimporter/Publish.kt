@@ -131,6 +131,7 @@ private suspend fun create(clients: Clients, repo: Did, candidate: SegmentCandid
             license = candidate.license,
             createdAt = clock.now(),
             attribution = candidate.attribution,
+            kind = candidate.kind,
         )
     return try {
         clients.pds.procedure(

@@ -52,7 +52,9 @@ class PublishTest {
         )
 
     private fun candidate(id: String) =
-        if (id.startsWith("usfs-")) {
+        if (id.startsWith("lift-")) {
+            """{"id":"$id","sport":"alpine","kind":"lift","name":"Summit Quad","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
+        } else if (id.startsWith("usfs-")) {
             """{"id":"$id","sport":"hike","name":"Trail $id","line":"line-$id","source":"agency","license":"CC0-1.0",""" +
                 """"attribution":"USDA Forest Service"}"""
         } else {
@@ -127,6 +129,15 @@ class PublishTest {
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES}",
             fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().auth,
         )
+    }
+
+    @Test
+    fun aLiftIsPublishedWithItsKind() = runTest {
+        appView(listOf("lift-1"))
+        assertEquals(listOf("lift-1"), publish(clients, "us-vermont", clock).published)
+        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
+        val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), create.getValue("record").jsonObject)
+        assertEquals(Triple("alpine", "lift", "Summit Quad"), Triple(record.sport, record.kind, record.name))
     }
 
     @Test

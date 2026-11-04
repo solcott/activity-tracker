@@ -47,6 +47,7 @@ internal object TrailTags : TrailRules {
             "foot" to FOOT_GROUPS,
             "running" to FOOT_GROUPS,
             "ski" to setOf(SegmentSportGroup.SKI),
+            "piste" to emptySet(), // By its piste:type: relationGroups.
             "canoe" to setOf(SegmentSportGroup.PADDLE),
         )
 
@@ -72,12 +73,34 @@ internal object TrailTags : TrailRules {
             if (bikes) add(SegmentSportGroup.RIDE)
             if ((highway in FOOT_WAYS && tags["foot"] != "no") || "sac_scale" in tags) addAll(FOOT_GROUPS)
             if (tags["piste:type"] == "nordic") add(SegmentSportGroup.SKI)
+            if (tags["piste:type"] == DOWNHILL) add(SegmentSportGroup.ALPINE)
         }
+    }
+
+    private const val DOWNHILL = "downhill"
+
+    /** The `aerialway` values that are ski lifts (segments/trail-candidates); zip lines, goods lifts and magic carpets aren't. */
+    private val LIFTS = setOf("cable_car", "gondola", "mixed_lift", "chair_lift", "drag_lift", "t-bar", "j-bar", "platter", "rope_tow")
+
+    /** Whether a way is a named ski lift, a candidate of its own ([LiftCandidates]), never part of a trail. */
+    fun isLift(tags: Map<String, String>): Boolean = tags["aerialway"] in LIFTS && !tags["name"].isNullOrBlank() && !excluded(tags)
+
+    /**
+     * [tags] as trails read them: a downhill piste with no `name` takes its `piste:name`, the name OSM pistes often carry instead, so it
+     * qualifies and is named by it.
+     */
+    fun normalized(tags: Map<String, String>): Map<String, String> {
+        val pisteName = tags["piste:name"]?.takeIf { it.isNotBlank() && tags["piste:type"] == DOWNHILL && tags["name"].isNullOrBlank() }
+        return if (pisteName == null) tags else tags + ("name" to pisteName)
     }
 
     /** The groups a route relation is a trail for: none without a name. */
     fun relationGroups(tags: Map<String, String>): Set<String> =
-        if (tags["type"] != "route" || tags["name"].isNullOrBlank()) emptySet() else ROUTES[tags["route"]].orEmpty()
+        when {
+            tags["type"] != "route" || tags["name"].isNullOrBlank() -> emptySet()
+            tags["route"] == "piste" -> if (tags["piste:type"] == DOWNHILL) setOf(SegmentSportGroup.ALPINE) else emptySet()
+            else -> ROUTES[tags["route"]].orEmpty()
+        }
 
     /** Whether a named way marks junctions: any named highway, or a named way that's a trail itself. */
     override fun marksJunctions(tags: Map<String, String>): Boolean =
@@ -85,9 +108,11 @@ internal object TrailTags : TrailRules {
 
     /**
      * Which ways a way may be travelled for [group], along its own node order: forward and backward. `oneway=yes|true|1` allows forward
-     * only, `-1` backward only; for rides `oneway:bicycle` overrides `oneway`.
+     * only, `-1` backward only; for rides `oneway:bicycle` overrides `oneway`. An alpine trail goes only the way its ways are drawn, top to
+     * bottom by OSM's convention, whatever its tags.
      */
     override fun directions(tags: Map<String, String>, group: String): Pair<Boolean, Boolean> {
+        if (group == SegmentSportGroup.ALPINE) return true to false
         val oneway = (if (group == SegmentSportGroup.RIDE) tags["oneway:bicycle"] else null) ?: tags["oneway"]
         return when (oneway) {
             "yes",
