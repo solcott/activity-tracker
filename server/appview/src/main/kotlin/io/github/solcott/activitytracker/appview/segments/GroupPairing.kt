@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -134,6 +135,8 @@ internal class GroupPairing(private val db: Database, private val blobs: SpaceBl
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull() ?: return null
         if (combinedIntoOf(listOf(activity)).isNotEmpty()) return null
         val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport])?.group ?: return null
+        // Lift-served skiing matches alpine segments but is never paired (feed/group-activities): a resort day crosses strangers' all day.
+        if (group == SegmentSportGroup.ALPINE) return null
         val exact = exactRecord(row)
         return Side(
             trackUri = trackUri,

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.db
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import org.jetbrains.exposed.v1.core.Table
 
@@ -210,6 +211,8 @@ object Segments : Table("segments") {
     val name = varchar("segment_name", 1000)
     /** A [io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup] value. */
     val sport = varchar("sport", 64)
+    /** A known [io.github.solcott.activitytracker.lexicon.app.SegmentKind] value: a record with none is a run. */
+    val kind = varchar("kind", 16).default(SegmentKind.RUN)
     /** The record's precision-6 encoded polyline. */
     val line = text("line")
     /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
@@ -320,6 +323,8 @@ object SegmentCandidateRows : Table("segment_candidates") {
     val revision = varchar("revision", 64)
     /** A [io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup] value. */
     val sport = varchar("sport", 64)
+    /** A known [io.github.solcott.activitytracker.lexicon.app.SegmentKind] value, as [Segments.kind]. */
+    val kind = varchar("kind", 16).default(SegmentKind.RUN)
     val name = varchar("candidate_name", 1000)
     /** A precision-6 encoded polyline. */
     val line = text("line")

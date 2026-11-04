@@ -118,6 +118,16 @@ class GroupActivitiesTest : SegmentTestBase() {
     }
 
     @Test
+    fun resortSkiDaysDontPairThoughTheyMatchAlpineSegments() {
+        for (did in listOf(alice, bob)) grouping(GroupMode.ANYONE, did)
+        ride("3ka", alice, sport = "ski")
+        ride("3kb", bob, sport = "snowboard")
+        ride("3kc", bob, sport = "ski", startedAt = "2026-10-05T23:30:00Z")
+        match()
+        assertEquals(emptySet(), pairs())
+    }
+
+    @Test
     fun theOptInDecides() {
         ride("3ka", alice)
         ride("3kb", bob, east = 20.0)

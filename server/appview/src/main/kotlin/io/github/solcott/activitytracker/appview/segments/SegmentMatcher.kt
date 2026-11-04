@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -360,23 +361,23 @@ class SegmentMatcher(
             if (cells.isEmpty()) emptyList()
             else
                 Segments.join(SegmentCellIndex, JoinType.INNER, Segments.uri, SegmentCellIndex.segmentUri)
-                    .select(Segments.uri, Segments.line)
+                    .select(Segments.uri, Segments.line, Segments.kind)
                     .where {
                         (SegmentCellIndex.cell inList cells) and
                             (Segments.sport eq track.group.group) and
                             (Segments.status inList LIVE_STATUSES)
                     }
                     .withDistinct()
-                    .map { it[Segments.uri] to it[Segments.line] }
+                    .map { Triple(it[Segments.uri], it[Segments.line], it[Segments.kind]) }
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
         val visibility = effortVisibility(activity)
         val startedOn = startedOn(activity)
         // Passes starting in the same second on one segment are one effort, and that second is part of its id.
         val efforts =
             segments
-                .flatMap { (uri, line) ->
+                .flatMap { (uri, line, kind) ->
                     val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-                    pieces.flatMap { SegmentGeometry.passes(it, ref) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
+                    pieces.flatMap { passes(it, ref, track.group.group, kind) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
                 }
                 .distinctBy { it.segment to it.offset }
         SegmentEfforts.deleteWhere { activityUri eq track.activity }
@@ -410,21 +411,21 @@ class SegmentMatcher(
             if (cells.isEmpty()) emptyList()
             else
                 SegmentCandidateRows.join(SegmentCandidateCells, JoinType.INNER, SegmentCandidateRows.id, SegmentCandidateCells.candidateId)
-                    .select(SegmentCandidateRows.id, SegmentCandidateRows.line)
+                    .select(SegmentCandidateRows.id, SegmentCandidateRows.line, SegmentCandidateRows.kind)
                     .where { (SegmentCandidateCells.cell inList cells) and (SegmentCandidateRows.sport eq track.group.group) }
                     .withDistinct()
-                    .map { it[SegmentCandidateRows.id] to it[SegmentCandidateRows.line] }
-        val passed = candidates.filter { (_, line) ->
+                    .map { Triple(it[SegmentCandidateRows.id], it[SegmentCandidateRows.line], it[SegmentCandidateRows.kind]) }
+        val passed = candidates.filter { (_, line, kind) ->
             val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-            pieces.any { SegmentGeometry.passes(it, ref).isNotEmpty() }
+            pieces.any { passes(it, ref, track.group.group, kind).isNotEmpty() }
         }
         SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
-        SegmentCandidateRiders.batchInsert(passed) { (id, _) ->
+        SegmentCandidateRiders.batchInsert(passed) { (id, _, _) ->
             this[SegmentCandidateRiders.candidateId] = id
             this[SegmentCandidateRiders.trackUri] = trackUri
             this[SegmentCandidateRiders.authorDid] = track.author.value
         }
-        for ((id, _) in passed) {
+        for ((id, _, _) in passed) {
             val riders =
                 SegmentCandidateRiders.select(SegmentCandidateRiders.authorDid)
                     .where { SegmentCandidateRiders.candidateId eq id }
@@ -432,6 +433,21 @@ class SegmentMatcher(
                     .count()
             if (riders >= candidateRiders) SegmentCandidateRows.update({ SegmentCandidateRows.id eq id }) { it[ridden] = true }
         }
+    }
+
+    /**
+     * [piece]'s passes over [ref], a segment or candidate of [group] and [kind], within that segment's tolerance
+     * (segments/segment-efforts).
+     */
+    private fun passes(piece: List<TimedPoint>, ref: List<GeoPoint>, group: String, kind: String): List<SegmentPass> {
+        val tolerance = SegmentSportGroup.passTolerance(group, kind)
+        return SegmentGeometry.passes(
+            piece,
+            ref,
+            startRadius = tolerance.startM.toDouble(),
+            endRadius = tolerance.endM.toDouble(),
+            corridor = tolerance.corridorM.toDouble(),
+        )
     }
 
     /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */

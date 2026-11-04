@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import org.jetbrains.exposed.v1.core.JoinType
@@ -172,12 +173,14 @@ internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: St
 }
 
 /**
- * Whether [did] may propose a name for [segment] at [now]: it's active and outside a cooldown, they have no open proposal on it, and they
- * have efforts on it on [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s flag both ask this.
+ * Whether [did] may propose a name for [segment] at [now]: it's an active run (never a lift, segments/segment-lifts) outside a cooldown,
+ * they have no open proposal on it, and they have efforts on it on [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s
+ * flag both ask this.
  */
 internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean {
-    val status = Segments.select(Segments.status).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.status)
-    return status == SegmentStatus.ACTIVE &&
+    val row = Segments.select(Segments.status, Segments.kind).where { Segments.uri eq segment }.firstOrNull()
+    return row?.get(Segments.status) == SegmentStatus.ACTIVE &&
+        row[Segments.kind] == SegmentKind.RUN &&
         !inCooldown(segment, now, rules) &&
         openProposalOf(segment, did) == null &&
         proposerDays(segment, did) >= rules.proposerDays

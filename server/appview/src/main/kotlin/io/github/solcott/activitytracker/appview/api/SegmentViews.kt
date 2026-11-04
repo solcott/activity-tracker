@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -200,11 +201,13 @@ class SegmentViews(
         val sport = Activities.select(Activities.sport).where { Activities.uri eq params.activity.value }.first()[Activities.sport]
         val own = viewer != null && params.activity.authority == viewer.value
         val reasons = if (own) notRankedReasons(params.activity.value) else emptyMap()
-        // Only an active segment has boards, and only the fastest of this activity's efforts on a board can be the athlete's entry on it,
-        // so the rest skip the board queries.
+        // Only an active run has boards, and only the fastest of this activity's efforts on a board can be the athlete's entry on it, so
+        // the rest skip the board queries.
+        fun ranked(effort: EffortView) =
+            SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE && SegmentKind.of(effort.segment.kind) == SegmentKind.RUN
         val candidates =
             efforts
-                .filter { SegmentStatus.of(it.segment.status) == SegmentStatus.ACTIVE }
+                .filter(::ranked)
                 .groupBy { it.segment.uri to it.eBike }
                 .values
                 .mapNotNull { onBoard -> onBoard.minByOrNull { it.elapsed } }
@@ -213,7 +216,7 @@ class SegmentViews(
             efforts.map { effort ->
                 effort.copy(
                     rank = if (effortId(effort) in candidates) topRank(viewer, params.activity.authority, effort, sport) else null,
-                    notRanked = reasons[effortId(effort)].takeIf { SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE },
+                    notRanked = reasons[effortId(effort)].takeIf { ranked(effort) },
                 )
             }
         )
@@ -317,7 +320,8 @@ class SegmentViews(
         val line = runCatching { validLine(input.sport, input.line) }.getOrElse { invalidRequest(it.message ?: "Invalid line") }
         val now = clock.now().toEpochMilliseconds()
         return db.tx {
-            val uris = duplicatesOf(input.sport, line)
+            // An athlete's check is always for a run: lifts come only from the importer (segments/segment-lifts).
+            val uris = duplicatesOf(input.sport, SegmentKind.RUN, line)
             val rows = Segments.selectAll().where { (Segments.uri inList uris) and segmentServed(viewer) }.associateBy { it[Segments.uri] }
             val created = if (viewer == segmentImporter) 0 else segmentsCreatedSince(viewer, now)
             val remaining = (DAILY_SEGMENT_LIMIT - created).coerceAtLeast(0).toInt()
@@ -357,7 +361,8 @@ class SegmentViews(
         val rows =
             visibleEfforts()
                 .select(
-                    SegmentEfforts.columns + listOf(Segments.uri, Segments.currentName, Segments.sport, Segments.distanceM, Segments.status)
+                    SegmentEfforts.columns +
+                        listOf(Segments.uri, Segments.currentName, Segments.sport, Segments.kind, Segments.distanceM, Segments.status)
                 )
                 .where { where and effortsVisibleTo(viewer) }
                 .apply { order.forEach { (expression, direction) -> orderBy(expression, direction) } }
@@ -382,13 +387,18 @@ class SegmentViews(
                         it[Segments.sport],
                         it[Segments.distanceM],
                         status = it[Segments.status],
+                        kind = it[Segments.kind].takeIf { k -> k != SegmentKind.RUN },
                     ),
                 activity = AtUri(it[SegmentEfforts.activityUri]),
                 startOffset = it[SegmentEfforts.startOffsetS],
                 elapsed = elapsed,
                 startedOn = it[SegmentEfforts.startedOn],
                 eBike = it[SegmentEfforts.eBike].takeIf { e -> e },
-                best = (bests[it[SegmentEfforts.authorDid] to it[SegmentEfforts.segmentUri]] == elapsed).takeIf { b -> b },
+                // A lift ride is never anyone's fastest (segments/segment-lifts).
+                best =
+                    (it[Segments.kind] == SegmentKind.RUN &&
+                            bests[it[SegmentEfforts.authorDid] to it[SegmentEfforts.segmentUri]] == elapsed)
+                        .takeIf { b -> b },
             )
         }
     }
@@ -402,10 +412,14 @@ class SegmentViews(
     private fun rankedEfforts() = visibleEfforts().join(SegmentTracks, JoinType.INNER, SegmentEfforts.trackUri, SegmentTracks.uri)
 
     /**
-     * Efforts a leaderboard ranks, over [rankedEfforts]: on an active segment, from an activity that isn't excluded, by an athlete who
-     * doesn't hide from leaderboards, and no faster than the segment's sport group allows. All read now, so none needs a rematch.
+     * Efforts a leaderboard ranks, over [rankedEfforts]: on an active segment that isn't a lift, from an activity that isn't excluded, by
+     * an athlete who doesn't hide from leaderboards, and no faster than the segment's sport group allows. All read now, so none needs a
+     * rematch.
      */
-    private fun rankable(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and rankableEffort()
+    private fun rankable(): Op<Boolean> = rankedSegment() and rankableEffort()
+
+    /** A segment whose efforts leaderboards and Mayors rank: active, and a run (segments/segment-lifts). */
+    private fun rankedSegment(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and (Segments.kind eq SegmentKind.RUN)
 
     /** [rankable] less the segment's status: what [notRankedReasons] gives a reason for failing, from the same Ops. */
     private fun rankableEffort(): Op<Boolean> = not(hidesFromLeaderboards()) and not(excludedFromLeaderboards()) and plausibleEffort()

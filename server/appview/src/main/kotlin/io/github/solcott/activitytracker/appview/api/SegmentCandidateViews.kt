@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.setBox
 import io.github.solcott.activitytracker.appview.index.validAttribution
+import io.github.solcott.activitytracker.appview.index.validKind
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -133,6 +135,7 @@ class SegmentCandidateViews(
                         source = it[SegmentCandidateRows.dataSource],
                         license = it[SegmentCandidateRows.license],
                         attribution = it[SegmentCandidateRows.attribution],
+                        kind = it[SegmentCandidateRows.kind].takeIf { k -> k != SegmentKind.RUN },
                     )
                 }
         }
@@ -150,11 +153,16 @@ class SegmentCandidateViews(
         if (input.ids.size > SegmentCandidates.MAX_BATCH)
             invalid("At most ${SegmentCandidates.MAX_BATCH} ids per call, not ${input.ids.size}")
         val checked = db.tx {
-            SegmentCandidateRows.select(SegmentCandidateRows.id, SegmentCandidateRows.sport, SegmentCandidateRows.line)
+            SegmentCandidateRows.select(
+                    SegmentCandidateRows.id,
+                    SegmentCandidateRows.sport,
+                    SegmentCandidateRows.kind,
+                    SegmentCandidateRows.line,
+                )
                 .where { (SegmentCandidateRows.region eq input.region) and (SegmentCandidateRows.id inList input.ids.distinct()) }
                 .mapNotNull { row ->
                     val line = SegmentGeometry.decodePolyline(row[SegmentCandidateRows.line]) ?: return@mapNotNull null
-                    val uris = duplicatesOf(row[SegmentCandidateRows.sport], line)
+                    val uris = duplicatesOf(row[SegmentCandidateRows.sport], row[SegmentCandidateRows.kind], line)
                     val served =
                         if (uris.isEmpty()) {
                             emptySet()
@@ -171,7 +179,13 @@ class SegmentCandidateViews(
     }
 
     /** A candidate that passed validation, with its decoded line. */
-    private class Staged(val candidate: SegmentCandidate, val name: String, val line: List<GeoPoint>, val attribution: String?)
+    private class Staged(
+        val candidate: SegmentCandidate,
+        val name: String,
+        val kind: String,
+        val line: List<GeoPoint>,
+        val attribution: String?,
+    )
 
     /** Validates [candidate] as a segment is validated, and its attribution; throws [IllegalArgumentException] naming what's wrong. */
     private fun validated(candidate: SegmentCandidate): Staged {
@@ -182,7 +196,8 @@ class SegmentCandidateViews(
         }
         val name = validName(candidate.name)
         val line = validLine(candidate.sport, candidate.line)
-        return Staged(candidate, name, line, validAttribution(candidate.attribution))
+        val kind = validKind(candidate.sport, candidate.kind, fromImporter = true)
+        return Staged(candidate, name, kind, line, validAttribution(candidate.attribution))
     }
 
     /** Stores [batch], clearing the riders and replacing the cells of the new and changed candidates, and queues those to be counted. */
@@ -192,6 +207,7 @@ class SegmentCandidateViews(
                     SegmentCandidateRows.id,
                     SegmentCandidateRows.line,
                     SegmentCandidateRows.sport,
+                    SegmentCandidateRows.kind,
                     SegmentCandidateRows.ridden,
                 )
                 .where { SegmentCandidateRows.id inList batch.map { it.candidate.id } }
@@ -200,7 +216,8 @@ class SegmentCandidateViews(
             val row = old[staged.candidate.id]
             row == null ||
                 row[SegmentCandidateRows.line] != staged.candidate.line ||
-                row[SegmentCandidateRows.sport] != staged.candidate.sport
+                row[SegmentCandidateRows.sport] != staged.candidate.sport ||
+                row[SegmentCandidateRows.kind] != staged.kind
         }
         val changedIds = changed.mapTo(mutableSetOf()) { it.candidate.id }
         SegmentCandidateRows.batchUpsert(batch, shouldReturnGeneratedValues = false) { staged ->
@@ -210,6 +227,7 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.region] = region
             this[SegmentCandidateRows.revision] = revision
             this[SegmentCandidateRows.sport] = candidate.sport
+            this[SegmentCandidateRows.kind] = staged.kind
             this[SegmentCandidateRows.name] = staged.name.take(MAX_NAME_LENGTH)
             this[SegmentCandidateRows.line] = candidate.line
             this[SegmentCandidateRows.distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()

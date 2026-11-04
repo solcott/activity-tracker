@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -79,8 +80,12 @@ class SegmentNaming(
         if (adopted != null) recomputeCurrentName(segment)
     }
 
+    /** Whether [segment] can adopt a name: active, and a run, since lifts are never renamed (segments/segment-lifts). */
     private fun JdbcTransaction.isActive(segment: String) =
-        Segments.select(Segments.status).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.status) == SegmentStatus.ACTIVE
+        Segments.select(Segments.status, Segments.kind)
+            .where { Segments.uri eq segment }
+            .firstOrNull()
+            ?.let { it[Segments.status] == SegmentStatus.ACTIVE && it[Segments.kind] == SegmentKind.RUN } == true
 
     /** The proposal to adopt among [open] (each with when it opened), if any qualifies by [tallies]. */
     private fun JdbcTransaction.adoptable(

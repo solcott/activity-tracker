@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -63,13 +64,14 @@ private const val MAX_LNG = 180.0
 private const val E7 = 1e7
 
 /**
- * A segment from [author]'s repo. Indexed only with a name, a known sport group and a line of at least two valid positions whose length,
- * computed here, is its group's minimum to 50 km; anything else is dropped like an undecodable record, as is a new segment past its
- * creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last day, deleted ones included), unless [author] is the segment
- * [importer]. A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate of the earliest live
- * segment it duplicates, else [liveStatus]) and, unless a duplicate, is queued to be matched against past tracks; the segments that
- * duplicated its old version are checked again. A rename keeps its status and changes only its original name: an adopted community name in
- * effect stays its current name. A blank or over-long attribution is left out of the stored record.
+ * A segment from [author]'s repo. Indexed only with a name, a known sport group and kind ([validKind]: a lift only alpine and only from the
+ * segment importer) and a line of at least two valid positions whose length, computed here, is its group's minimum to 50 km; anything else
+ * is dropped like an undecodable record, as is a new segment past its creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last
+ * day, deleted ones included), unless [author] is the segment [importer]. A new segment, or one whose line, sport or kind changed, loses
+ * its efforts, gets its status again (duplicate of the earliest live segment it duplicates, else [liveStatus]) and, unless a duplicate, is
+ * queued to be matched against past tracks; the segments that duplicated its old version are checked again. A rename keeps its status and
+ * changes only its original name: an adopted community name in effect stays its current name. A blank or over-long attribution is left out
+ * of the stored record.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(
@@ -84,11 +86,12 @@ internal fun JdbcTransaction.upsertSegment(
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
     val name = validName(record.name)
     val line = validLine(record.sport, record.line)
+    val kind = validKind(record.sport, record.kind, fromImporter = author == importer)
     // Only a credit: an out-of-bounds one is dropped, not the segment.
     val attribution = runCatching { validAttribution(record.attribution) }.getOrNull()
 
     val old =
-        Segments.select(Segments.line, Segments.sport, Segments.status, Segments.duplicateOf, Segments.firstIndexedAt)
+        Segments.select(Segments.line, Segments.sport, Segments.kind, Segments.status, Segments.duplicateOf, Segments.firstIndexedAt)
             .where { Segments.uri eq uri.value }
             .firstOrNull()
     val relined = old == null || old[Segments.line] != record.line
@@ -102,15 +105,16 @@ internal fun JdbcTransaction.upsertSegment(
             it[createdAt] = now
         }
     }
-    val changed = relined || old[Segments.sport] != record.sport
+    val changed = relined || old[Segments.sport] != record.sport || old[Segments.kind] != kind
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
-    val original = if (changed) duplicatesOf(record.sport, line, before = firstIndexed to uri.value).firstOrNull() else null
+    val original = if (changed) duplicatesOf(record.sport, kind, line, before = firstIndexed to uri.value).firstOrNull() else null
     Segments.upsert {
         it[Segments.uri] = uri.value
         it[Segments.cid] = cid
         it[authorDid] = author.value
         it[Segments.name] = name.take(MAX_NAME_LENGTH)
         it[sport] = record.sport
+        it[Segments.kind] = kind
         it[Segments.line] = record.line
         it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
@@ -152,6 +156,21 @@ internal fun validAttribution(attribution: String?): String? {
     return trimmed
 }
 
+/**
+ * [kind] as indexed ([SegmentKind.of]), if it's a valid kind for a segment of [sport]: a known one, and a lift only in
+ * [SegmentSportGroup.ALPINE] and only [fromImporter], the segment importer's account (segments/segment-lifts). Throws
+ * [IllegalArgumentException] naming what's wrong otherwise.
+ */
+internal fun validKind(sport: String, kind: String?, fromImporter: Boolean): String {
+    require(SegmentKind.isKnown(kind)) { "unknown kind $kind" }
+    val known = SegmentKind.of(kind)
+    if (known == SegmentKind.LIFT) {
+        require(sport == SegmentSportGroup.ALPINE) { "a lift outside the alpine group" }
+        require(fromImporter) { "a lift not from the segment importer" }
+    }
+    return known
+}
+
 /** The longest encoded line any segment or candidate may have: far past 50 km of a densely mapped trail. */
 internal const val MAX_LINE_CHARS = 100_000
 
@@ -181,11 +200,16 @@ internal fun JdbcTransaction.segmentsCreatedSince(author: Did, now: Long): Long 
         .count()
 
 /**
- * The live ([LIVE_STATUSES]) segments of [sport] that [line] duplicates ([SegmentGeometry.duplicates]), earliest first indexed first. With
- * [before], a segment's own first-indexed time and URI, only those that came before it, so a segment never duplicates itself or a later
- * one. Candidates must have cells at both of the line's ends, since a duplicate's ends lie within its distance of them.
+ * The live ([LIVE_STATUSES]) segments of [sport] and [kind] that [line] duplicates ([SegmentGeometry.duplicates]), earliest first indexed
+ * first. With [before], a segment's own first-indexed time and URI, only those that came before it, so a segment never duplicates itself or
+ * a later one. Candidates must have cells at both of the line's ends, since a duplicate's ends lie within its distance of them.
  */
-internal fun JdbcTransaction.duplicatesOf(sport: String, line: List<GeoPoint>, before: Pair<Long, String>? = null): List<String> {
+internal fun JdbcTransaction.duplicatesOf(
+    sport: String,
+    kind: String,
+    line: List<GeoPoint>,
+    before: Pair<Long, String>? = null,
+): List<String> {
     fun near(point: GeoPoint) =
         SegmentCellIndex.select(SegmentCellIndex.segmentUri)
             .where { SegmentCellIndex.cell eq SegmentCells.cellOf(point.lat, point.lng) }
@@ -194,7 +218,12 @@ internal fun JdbcTransaction.duplicatesOf(sport: String, line: List<GeoPoint>, b
     val nearBoth = near(line.first()) intersect near(line.last())
     if (nearBoth.isEmpty()) return emptyList()
     return Segments.select(Segments.uri, Segments.line, Segments.firstIndexedAt)
-        .where { (Segments.uri inList nearBoth) and (Segments.sport eq sport) and (Segments.status inList LIVE_STATUSES) }
+        .where {
+            (Segments.uri inList nearBoth) and
+                (Segments.sport eq sport) and
+                (Segments.kind eq kind) and
+                (Segments.status inList LIVE_STATUSES)
+        }
         .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
         .filter { row -> before == null || (row[Segments.firstIndexedAt] to row[Segments.uri]).let { earlier(it, before) } }
         .filter { row -> SegmentGeometry.decodePolyline(row[Segments.line])?.let { SegmentGeometry.duplicates(line, it) } == true }
@@ -218,7 +247,8 @@ internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: 
     for (row in duplicates) {
         val uri = row[Segments.uri]
         val line = SegmentGeometry.decodePolyline(row[Segments.line]) ?: continue
-        val original = duplicatesOf(row[Segments.sport], line, before = row[Segments.firstIndexedAt] to uri).firstOrNull()
+        val original =
+            duplicatesOf(row[Segments.sport], row[Segments.kind], line, before = row[Segments.firstIndexedAt] to uri).firstOrNull()
         Segments.update({ Segments.uri eq uri }) {
             it[status] = if (original != null) SegmentStatus.DUPLICATE else liveStatus(row[Segments.authorDid], importer)
             it[duplicateOf] = original
