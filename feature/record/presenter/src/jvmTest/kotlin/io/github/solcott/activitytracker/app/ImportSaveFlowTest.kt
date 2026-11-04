@@ -186,9 +186,12 @@ class ImportSaveFlowTest {
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             gated.armed = true
             read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
-            val failed = awaitUntil { it.batch?.saveFailure != null && it.batch?.selectedCount == 2 }
-            val failure = assertNotNull(failed.batch?.saveFailure)
-            assertEquals(3 to 5, failure.saved to failure.total, "says how many were saved, by Save")
+            // The count saved and what's left to select come from separate flows, so wait for both rather than the first
+            // failure state: one may land before the other.
+            val failed = awaitUntil { state ->
+                val failure = state.batch?.saveFailure
+                failure != null && failure.saved to failure.total == 3 to 5 && state.batch?.selectedCount == 2
+            }
             assertEquals(false, failed.saving)
 
             gate.complete(Unit)
