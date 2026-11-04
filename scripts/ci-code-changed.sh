@@ -2,8 +2,9 @@
 # Prints "true" when the Gradle build must run for the change from <base> to <head>, else "false". CI skips the build when
 # every changed file is documentation or agent configuration, which nothing in the build reads:
 #   *.md anywhere, openspec/, .agents/, .claude/
-# Anything else (lexicons, scripts, gradle/, config/, workflows) counts as code. When <base> is missing, all zeros (a new
-# branch) or can't be fetched (a force push), it prints "true": building when unsure is always safe.
+# Anything else (lexicons, scripts, gradle/, config/, workflows) counts as code. For a push, <base> is the last commit whose
+# build passed (ci-last-built.sh). When <base> is missing, all zeros or can't be fetched, it prints "true": building when
+# unsure is always safe.
 # Usage: scripts/ci-code-changed.sh <base> <head>
 set -euo pipefail
 

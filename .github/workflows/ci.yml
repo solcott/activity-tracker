@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # ci-last-built.sh reads earlier runs
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,11 +26,21 @@ jobs:
       - name: Public-safety check
         run: scripts/check-public-safety.sh
 
+      # A push compares against the last commit on its branch whose build passed, not the previous push, which may have
+      # failed, been cancelled or skipped its own build. With no such commit the base is empty, and the build runs.
       - name: Detect code changes
         id: changes
         env:
-          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: echo "code=$(scripts/ci-code-changed.sh "$BASE" "$GITHUB_SHA")" | tee -a "$GITHUB_OUTPUT"
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            base="$PR_BASE"
+          else
+            base=$(scripts/ci-last-built.sh "$GITHUB_REF_NAME")
+          fi
+          echo "base=$base"
+          echo "code=$(scripts/ci-code-changed.sh "$base" "$GITHUB_SHA")" | tee -a "$GITHUB_OUTPUT"
 
   # Skipped when only docs, openspec/ or agent configuration changed. A job skipped by `if` reports success.
   check:
