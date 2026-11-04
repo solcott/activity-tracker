@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.segment.EffortRow
+import io.github.solcott.activitytracker.app.segment.SegmentKindIcon
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
@@ -39,6 +40,8 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_lift_rides
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_lifts
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_segments
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -72,6 +75,7 @@ fun LiftRidesCard(lifts: ImmutableList<LiftRides>, onOpen: (LiftRides) -> Unit, 
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    SegmentKindIcon(SegmentSportGroup.ALPINE, SegmentKind.LIFT)
                     Column(Modifier.weight(1f)) {
                         Text(lift.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
@@ -125,6 +129,7 @@ private fun SegmentEffortRowItem(row: SegmentEffortRow, barIndent: Dp, onOpen: (
             onClick = { onOpen(row.effort) },
             modifier = Modifier.padding(start = INDENT * row.depth),
             showStatus = true,
+            showKind = true,
         )
         val start = row.spanStart
         val end = row.spanEnd

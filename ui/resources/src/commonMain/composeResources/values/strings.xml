@@ -1602,6 +1602,8 @@
     <string name="segment_sport_hike">Hike</string>
     <string name="segment_sport_ski">Ski</string>
     <string name="segment_sport_alpine">Alpine</string>
+    <string name="segment_kind_ski_run">Ski run</string>
+    <string name="segment_kind_ski_lift">Ski lift</string>
     <string name="segment_sport_paddle">Paddle</string>
     <string name="segment_status_proposed">Proposed</string>
     <string name="segment_status_duplicate">Duplicate</string>

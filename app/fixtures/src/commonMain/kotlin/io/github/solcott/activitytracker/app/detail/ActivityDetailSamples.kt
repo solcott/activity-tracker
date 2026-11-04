@@ -108,6 +108,18 @@ object ActivityDetailSamples {
             )
         }
 
+    /** A resort day's runs (segments/segment-lifts): two descents of an alpine run, the faster one the PR. */
+    val skiRuns: ImmutableList<SegmentEffortGroup>
+        get() {
+            val run = fakeSegmentBasic(fakeSegment("lynx", record = fakeSegmentRecord(name = "Lynx", sport = SegmentSportGroup.ALPINE)))
+            return groupEfforts(
+                listOf(
+                    fakeEffort(run, activity.uri, elapsed = 212, startOffset = 600, best = true),
+                    fakeEffort(run, activity.uri, elapsed = 230, startOffset = 1500),
+                )
+            )
+        }
+
     val all: Map<String, ActivityDetailState>
         get() = contentSamples<ActivityDetailPage?, ActivityDetailState>(null, page) { ActivityDetailState(it, eventSink = {}) }
 

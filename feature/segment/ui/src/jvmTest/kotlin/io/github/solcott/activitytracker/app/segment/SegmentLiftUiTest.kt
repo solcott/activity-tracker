@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
@@ -13,6 +14,8 @@ class SegmentLiftUiTest {
     fun aLiftHasNoLeaderboardOrNames() = runComposeUiTest {
         setContent { AppPreview { SegmentUi(SegmentSamples.lift) } }
         onNodeWithText("Your rides").assertExists()
+        onNodeWithContentDescription("Ski lift").assertExists()
+        onNodeWithText("Ski lift", substring = true).assertExists()
         onNodeWithText("Leaderboard").assertDoesNotExist()
         onNodeWithText("Your efforts").assertDoesNotExist()
     }
@@ -21,5 +24,6 @@ class SegmentLiftUiTest {
     fun anActiveRunStillOffersItsLeaderboard() = runComposeUiTest {
         setContent { AppPreview { SegmentUi(SegmentSamples.loaded) } }
         onNodeWithText("Your efforts").assertExists()
+        onNodeWithContentDescription("Ski lift").assertDoesNotExist()
     }
 }

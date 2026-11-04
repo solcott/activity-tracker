@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.app.segment
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -102,10 +105,15 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
                     state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }
-                    Text(
-                        "${Format.distance(segment.distanceMeters.toDouble())} · ${segmentSportLabel(segment.record.sport)}",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    // Says whether it's a ski run or a ski lift, with the icon the activity page shows beside it.
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SegmentKindIcon(segment.record.sport, segment.record.kind)
+                        Text(
+                            "${Format.distance(segment.distanceMeters.toDouble())} · " +
+                                segmentTypeLabel(segment.record.sport, segment.record.kind),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
                     Text(
                         stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
                         style = MaterialTheme.typography.bodyMedium,

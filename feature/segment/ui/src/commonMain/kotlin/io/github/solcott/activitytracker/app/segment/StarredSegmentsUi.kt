@@ -105,7 +105,8 @@ private fun StarredRow(starred: StarredSegment, removing: Boolean, onOpen: () ->
             if (segment != null) {
                 Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${Format.distance(segment.distanceMeters.toDouble())} · ${segmentSportLabel(segment.record.sport)}",
+                    "${Format.distance(segment.distanceMeters.toDouble())} · " +
+                        segmentTypeLabel(segment.record.sport, segment.record.kind),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

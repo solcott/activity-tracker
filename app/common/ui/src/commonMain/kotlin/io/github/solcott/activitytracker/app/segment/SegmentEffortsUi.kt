@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +20,10 @@ import io.github.solcott.activitytracker.app.settings.longDate
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.downhill_skiing
 import io.github.solcott.activitytracker.composeApp.resources.segment_ebike
+import io.github.solcott.activitytracker.composeApp.resources.segment_kind_ski_lift
+import io.github.solcott.activitytracker.composeApp.resources.segment_kind_ski_run
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_excluded
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_hidden
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_implausible
@@ -33,25 +38,39 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ski
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_duplicate
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed
+import io.github.solcott.activitytracker.composeApp.resources.ski_lift
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * One effort as a row: [label] (the segment's name on an activity page, the date on a segment page), with its time, marked "PR" when it's
  * the athlete's fastest the viewer may see and with its rank when it's in the top 10 of the viewer's leaderboard, and with [showStatus] its
- * segment's status when it isn't active. The athlete's own effort that leaderboards don't rank says why. Tapping it calls [onClick].
+ * segment's status when it isn't active, and with [showKind] its [SegmentKindIcon]. The athlete's own effort that leaderboards don't rank
+ * says why. Tapping it calls [onClick].
  */
 @Composable
-fun EffortRow(effort: EffortView, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, showStatus: Boolean = false) {
+@Suppress("LongParameterList") // The effort, its label and click, then what the row shows beside it.
+fun EffortRow(
+    effort: EffortView,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showStatus: Boolean = false,
+    showKind: Boolean = false,
+) {
     Row(
         modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (showKind) SegmentKindIcon(effort.segment.sport, effort.segment.kind)
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
             if (showStatus)
@@ -117,6 +136,38 @@ fun segmentStatusLabel(status: String?): String? =
         SegmentStatus.ARCHIVED -> stringResource(Res.string.segment_status_archived)
         else -> null
     }
+
+/**
+ * What a segment of [sport] and [kind] is, as a label: a ski lift or a ski run for `alpine` ones (segments/segment-lifts), else its sport
+ * group ([segmentSportLabel]).
+ */
+@Composable
+fun segmentTypeLabel(sport: String, kind: String?): String =
+    when {
+        SegmentKind.of(kind) == SegmentKind.LIFT -> stringResource(Res.string.segment_kind_ski_lift)
+        sport == SegmentSportGroup.ALPINE -> stringResource(Res.string.segment_kind_ski_run)
+        else -> segmentSportLabel(sport)
+    }
+
+/** The icon that tells a ski lift from a ski run; null for every other segment, which needs none. */
+fun segmentKindIcon(sport: String, kind: String?): DrawableResource? =
+    when {
+        SegmentKind.of(kind) == SegmentKind.LIFT -> Res.drawable.ski_lift
+        sport == SegmentSportGroup.ALPINE -> Res.drawable.downhill_skiing
+        else -> null
+    }
+
+/** [segmentKindIcon] for a segment of [sport] and [kind], read out as its [segmentTypeLabel]; nothing for a segment with none. */
+@Composable
+fun SegmentKindIcon(sport: String, kind: String?, modifier: Modifier = Modifier) {
+    val icon = segmentKindIcon(sport, kind) ?: return
+    Icon(
+        painterResource(icon),
+        contentDescription = segmentTypeLabel(sport, kind),
+        modifier = modifier.size(20.dp),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 
 /** A segment's sport group as a label; the token itself for one this app doesn't know. */
 @Composable
