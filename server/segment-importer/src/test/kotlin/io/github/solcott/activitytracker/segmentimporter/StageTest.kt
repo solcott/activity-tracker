@@ -135,6 +135,13 @@ class StageTest {
     fun stageAndPublishParse() {
         assertEquals(Command.Stage(File("build/us-vermont.ndjson")), parse(listOf("stage", "build/us-vermont.ndjson")))
         assertEquals(Command.Publish("us-vermont"), parse(listOf("publish", "--region", "us-vermont")))
+        assertEquals(
+            Command.Publish("us-utah", File("build/us-utah.ndjson")),
+            parse(listOf("publish", "--region", "us-utah", "--all", "build/us-utah.ndjson")),
+        )
+        assertEquals(null, parse(listOf("publish", "--region", "us-utah", "--all")))
+        assertEquals(null, parse(listOf("publish", "--region", "us-utah", "--every", "x")))
+        assertEquals(null, parse(listOf("publish", "--region", "us-utah", "--region", "us-vermont")))
         assertEquals(null, parse(listOf("stage")))
         assertEquals(null, parse(listOf("publish", "--region", "US Vermont")))
         assertEquals(null, parse(listOf("publish")))

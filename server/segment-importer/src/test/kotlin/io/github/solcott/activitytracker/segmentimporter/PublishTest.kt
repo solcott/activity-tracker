@@ -9,13 +9,16 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.ktor.http.HttpStatusCode
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.time.Clock
@@ -230,5 +233,39 @@ class PublishTest {
         assertEquals(listOf("c1"), result.published)
         assertEquals(429, assertIs<XrpcException>(result.stoppedBy).status)
         assertEquals(setOf("c1"), repo.keys)
+    }
+
+    @Test
+    fun publishingEveryCandidateTakesUnriddenOnesStillSkippingDuplicatesAndTheUnstaged() = runTest {
+        appView(emptyList(), duplicates = setOf("c1"), unstaged = setOf("c3"))
+        val every = listOf("c1", "c2", "c3").map { SegmentCandidate(it, "ride", "Trail $it", "line-$it", "osm", "ODbL-1.0") }
+        val result = publish(clients, "us-vermont", clock, every)
+        assertEquals(Triple(listOf("c2"), listOf("c1"), listOf("c3")), Triple(result.published, result.duplicates, result.gone))
+        assertEquals(setOf("c2"), repo.keys)
+        assertEquals(emptyList(), fake.calls(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES), "the file, not the ridden list")
+    }
+
+    @Test
+    fun everyCandidateIsCheckedAPageAtATime() = runTest {
+        val ids = (1000 until 1600).map { "c$it" }
+        appView(emptyList(), duplicates = ids.toSet())
+        val every = ids.map { SegmentCandidate(it, "ride", "Trail $it", "line-$it", "osm", "ODbL-1.0") }
+        assertEquals(ids, publish(clients, "us-vermont", clock, every).duplicates)
+        assertEquals(listOf(500, 100), fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).map { it.body!!.getValue("ids").jsonArray.size })
+    }
+
+    @Test
+    fun aFileOfAnotherRegionIsRefusedBeforeAnythingIsCalled() = runTest {
+        val file = File.createTempFile("us-vermont", ".ndjson").apply { deleteOnExit() }
+        file.writeText(
+            """{"region":"us-vermont","importerVersion":$IMPORTER_VERSION}""" +
+                "\n" +
+                """{"id":"c1","region":"us-vermont","sport":"ride","name":"Trail","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
+                """"source":"osm","license":"ODbL-1.0","osmWays":[1]}""" +
+                "\n"
+        )
+        val refused = assertFailsWith<IllegalArgumentException> { publishRegion(clients, "us-utah", file) }
+        assertEquals(true, "us-vermont" in refused.message.orEmpty())
+        assertEquals(emptyList(), fake.calls)
     }
 }

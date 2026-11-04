@@ -21,8 +21,9 @@ Commands:
       such as Trail; a language with no list keeps names as their source has them.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
-  publish --region <id>
-      Publishes the region's ridden candidates that duplicate no live segment as feed.segment records.
+  publish --region <id> [--all <candidates.ndjson>]
+      Publishes the region's ridden candidates that duplicate no live segment as feed.segment records. With --all and the region's staged
+      candidates file, publishes every candidate in it that is still staged and duplicates no live segment, ridden or not.
   refine <candidates.ndjson>
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
       of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
@@ -43,7 +44,7 @@ fun main(args: Array<String>) {
     when (command) {
         is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language))
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
-        is Command.Publish -> asServiceAccount { publishRegion(it, command.region) }
+        is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
     }
 }
@@ -87,7 +88,8 @@ internal sealed interface Command {
 
     data class Stage(val file: File) : Command
 
-    data class Publish(val region: String) : Command
+    /** [all]: a candidates file of [region] whose every candidate is published, ridden or not. */
+    data class Publish(val region: String, val all: File? = null) : Command
 
     data class Refine(val file: File) : Command
 }
@@ -133,7 +135,10 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language)
 }
 
+/** `--region <id>`, then optionally `--all <candidates.ndjson>`, each once and in any order. */
 private fun parsePublish(args: List<String>): Command.Publish? {
-    if (args.size != 2 || args[0] != "--region") return null
-    return args[1].takeIf { REGION_ID.matches(it) }?.let(Command::Publish)
+    val options = args.chunked(2).filter { it.size == 2 }.associate { (name, value) -> name to value }
+    val wellFormed = args.size % 2 == 0 && options.size == args.size / 2 && options.keys.all { it in setOf("--region", "--all") }
+    val region = options["--region"]?.takeIf { wellFormed && REGION_ID.matches(it) }
+    return region?.let { Command.Publish(it, options["--all"]?.let(::File)) }
 }
