@@ -13,7 +13,7 @@
           "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
           "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
           "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
-          "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"], "description": "Only segments of this sport group." },
+          "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"], "description": "Only segments of this sport group." },
           "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
           "cursor": { "type": "string" }
         }

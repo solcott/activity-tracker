@@ -300,7 +300,8 @@
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The segment's current name, as segmentView's name." },
-        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
+        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
+        "kind": { "type": "string", "maxLength": 16, "knownValues": ["run", "lift"], "description": "As feed.segment#kind. Absent means run." },
         "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." },
         "status": {
           "type": "string",
@@ -321,7 +322,7 @@
         "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds from the segment's start to its end." },
         "startedOn": { "type": "string", "description": "The activity's local date, as YYYY-MM-DD." },
         "eBike": { "type": "boolean", "description": "The activity is an e-bike ride. Absent means false." },
-        "best": { "type": "boolean", "description": "The athlete's fastest effort on the segment among those the viewer may see. Absent means false." },
+        "best": { "type": "boolean", "description": "The athlete's fastest effort on the segment among those the viewer may see. Never set on a lift. Absent means false." },
         "rank": {
           "type": "integer",
           "minimum": 1,
@@ -332,7 +333,7 @@
           "type": "string",
           "maxLength": 32,
           "knownValues": ["hidden", "excluded", "implausible"],
-          "description": "Why leaderboards don't rank this effort, served only to its own athlete and only on an active segment: they hide from leaderboards, the activity is excluded, or it is faster than its sport group's cap. Never served to anyone else."
+          "description": "Why leaderboards don't rank this effort, served only to its own athlete and only on an active segment that isn't a lift: they hide from leaderboards, the activity is excluded, or it is faster than its sport group's cap. Never served to anyone else."
         }
       }
     },

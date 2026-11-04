@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "A region's ridden candidates, by id: those that enough distinct athletes have passed from start to end. A candidate stays ridden once it is, until its line or sport group changes. Never says how many athletes rode a candidate, who or when. Only the AppView's configured segment importer may call it, with service auth.",
+      "description": "A region's ridden candidates, by id: those that enough distinct athletes have passed from start to end. A candidate stays ridden once it is, until its line, sport group or kind changes. Never says how many athletes rode a candidate, who or when. Only the AppView's configured segment importer may call it, with service auth.",
       "parameters": {
         "type": "params",
         "required": ["region"],

@@ -14,8 +14,14 @@
           "sport": {
             "type": "string",
             "maxLength": 64,
-            "knownValues": ["ride", "run", "hike", "ski", "paddle"],
+            "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"],
             "description": "The sport group whose activities can match it. A segment whose group the AppView doesn't know isn't indexed."
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["run", "lift"],
+            "description": "Run (the default when absent): a stretch athletes travel under their own power or by gravity. Lift: a ski lift, its line from the bottom station to the top, only in the alpine group and only from the segment importer; it is matched like a run but never ranked, named or counted for Mayors. A segment whose kind the AppView doesn't know isn't indexed."
           },
           "line": {
             "type": "string",

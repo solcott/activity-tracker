@@ -1,8 +1,9 @@
 package io.github.solcott.activitytracker.lexicon.app
 
 /**
- * Which [SegmentSportGroup] an activity type can match segments in. An activity type maps to at most one group; indoor and virtual types,
- * lift-served skiing and whitewater map to none, so they never match a segment.
+ * Which [SegmentSportGroup] an activity type can match segments in. An activity type maps to at most one group; indoor and virtual types
+ * and whitewater map to none, so they never match a segment. Lift-served skiing and snowboarding are [SegmentSportGroup.ALPINE];
+ * backcountry and cross-country skiing are [SegmentSportGroup.SKI].
  */
 object SegmentSport {
     /** An activity type's [group], and whether it's an e-bike ride (marked on its efforts). */
@@ -21,6 +22,7 @@ object SegmentSport {
             Sport.RUCKING to SegmentSportGroup.HIKE,
             Sport.SNOWSHOE to SegmentSportGroup.HIKE,
             Sport.XC_SKI to SegmentSportGroup.SKI,
+            Sport.SNOWBOARD to SegmentSportGroup.ALPINE,
             Sport.KAYAK to SegmentSportGroup.PADDLE,
             Sport.CANOE to SegmentSportGroup.PADDLE,
             Sport.SUP to SegmentSportGroup.PADDLE,
@@ -32,7 +34,7 @@ object SegmentSport {
         val group =
             when {
                 subSport in INDOOR -> null
-                sport == Sport.SKI -> SegmentSportGroup.SKI.takeIf { subSport == SubSport.BACKCOUNTRY }
+                sport == Sport.SKI -> if (subSport == SubSport.BACKCOUNTRY) SegmentSportGroup.SKI else SegmentSportGroup.ALPINE
                 else -> GROUPS[sport]
             }
         return group?.let { Grouped(it, eBike = it == SegmentSportGroup.RIDE && subSport in E_BIKE) }
@@ -59,6 +61,7 @@ object SegmentBoard {
             Sport.SNOWSHOE,
             Sport.XC_SKI,
             Sport.SKI,
+            Sport.SNOWBOARD,
             Sport.KAYAK,
             Sport.CANOE,
             Sport.SUP,

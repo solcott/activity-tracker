@@ -14,6 +14,8 @@ class SegmentBoardTest {
         assertEquals(Sport.RIDE, SegmentBoard.of(Sport.RIDE, SubSport.ROAD))
         assertEquals(Sport.HANDCYCLE, SegmentBoard.of(Sport.HANDCYCLE, null))
         assertEquals(Sport.SKI, SegmentBoard.of(Sport.SKI, SubSport.BACKCOUNTRY))
+        assertEquals(Sport.SKI, SegmentBoard.of(Sport.SKI, null))
+        assertEquals(Sport.SNOWBOARD, SegmentBoard.of(Sport.SNOWBOARD, null))
         assertEquals(Sport.WALK, SegmentBoard.of(Sport.WALK, null))
     }
 
@@ -26,7 +28,7 @@ class SegmentBoardTest {
     @Test
     fun activitiesThatCantMatchHaveNoBoard() {
         assertEquals(null, SegmentBoard.of(Sport.RIDE, SubSport.INDOOR))
-        assertEquals(null, SegmentBoard.of(Sport.SKI, null))
+        assertEquals(null, SegmentBoard.of(Sport.SKI, SubSport.INDOOR))
     }
 
     @Test

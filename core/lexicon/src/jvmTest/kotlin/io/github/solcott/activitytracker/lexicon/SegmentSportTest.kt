@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport.Grouped
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
@@ -21,6 +22,8 @@ class SegmentSportTest {
             Sport.RUCKING to SegmentSportGroup.HIKE,
             Sport.SNOWSHOE to SegmentSportGroup.HIKE,
             Sport.XC_SKI to SegmentSportGroup.SKI,
+            Sport.SKI to SegmentSportGroup.ALPINE,
+            Sport.SNOWBOARD to SegmentSportGroup.ALPINE,
             Sport.KAYAK to SegmentSportGroup.PADDLE,
             Sport.CANOE to SegmentSportGroup.PADDLE,
             Sport.SUP to SegmentSportGroup.PADDLE,
@@ -64,11 +67,31 @@ class SegmentSportTest {
     }
 
     @Test
-    fun onlyBackcountrySkiingHasAGroup() {
+    fun resortSkiingIsAlpineAndBackcountryIsSki() {
         assertEquals(Grouped(SegmentSportGroup.SKI), SegmentSport.of(Sport.SKI, SubSport.BACKCOUNTRY))
-        assertEquals(null, SegmentSport.of(Sport.SKI, null))
-        assertEquals(null, SegmentSport.of(Sport.SKI, SubSport.RACE))
+        assertEquals(Grouped(SegmentSportGroup.ALPINE), SegmentSport.of(Sport.SKI, null))
+        assertEquals(Grouped(SegmentSportGroup.ALPINE), SegmentSport.of(Sport.SKI, SubSport.RACE))
+        assertEquals(Grouped(SegmentSportGroup.ALPINE), SegmentSport.of(Sport.SNOWBOARD, null))
+        assertEquals(null, SegmentSport.of(Sport.SKI, SubSport.INDOOR))
         assertEquals(null, SegmentSport.of(Sport.WHITEWATER, null))
+    }
+
+    @Test
+    fun alpineRunsHaveAWiderPassTolerance() {
+        val wide = SegmentSportGroup.PassTolerance(startM = 40, endM = 40, corridorM = 50)
+        val usual = SegmentSportGroup.PassTolerance(startM = 25, endM = 25, corridorM = 30)
+        assertEquals(wide, SegmentSportGroup.passTolerance(SegmentSportGroup.ALPINE, null))
+        assertEquals(wide, SegmentSportGroup.passTolerance(SegmentSportGroup.ALPINE, SegmentKind.RUN))
+        assertEquals(usual, SegmentSportGroup.passTolerance(SegmentSportGroup.ALPINE, SegmentKind.LIFT))
+        assertEquals(usual, SegmentSportGroup.passTolerance(SegmentSportGroup.SKI, null))
+    }
+
+    @Test
+    fun kindsDefaultToRun() {
+        assertEquals(SegmentKind.RUN, SegmentKind.of(null))
+        assertEquals(true, SegmentKind.isKnown(null))
+        assertEquals(true, SegmentKind.isKnown(SegmentKind.LIFT))
+        assertEquals(false, SegmentKind.isKnown("tunnel"))
     }
 
     @Test
@@ -80,6 +103,7 @@ class SegmentSportTest {
                 SegmentSportGroup.RUN to 200,
                 SegmentSportGroup.HIKE to 200,
                 SegmentSportGroup.SKI to 200,
+                SegmentSportGroup.ALPINE to 200,
                 SegmentSportGroup.PADDLE to 200,
             ),
             minimums,
@@ -95,6 +119,7 @@ class SegmentSportTest {
                 SegmentSportGroup.RUN to 11_111,
                 SegmentSportGroup.HIKE to 8_333,
                 SegmentSportGroup.SKI to 33_333,
+                SegmentSportGroup.ALPINE to 33_333,
                 SegmentSportGroup.PADDLE to 6_944,
             ),
             caps,

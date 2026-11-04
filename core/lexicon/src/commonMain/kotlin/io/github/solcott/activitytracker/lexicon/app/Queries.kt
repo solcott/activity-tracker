@@ -644,6 +644,8 @@ data class SegmentCandidate(
     val license: String,
     /** Who to credit for the line's data, as [SegmentRecord.attribution]. */
     val attribution: String? = null,
+    /** A [SegmentKind] value, as [SegmentRecord.kind]; null means [SegmentKind.RUN]. A lift must be [SegmentSportGroup.ALPINE]. */
+    val kind: String? = null,
 )
 
 /** `app.activitytracker.importer.defs#rejection`: a staged candidate the AppView refused, and why. */

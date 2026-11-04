@@ -11,7 +11,7 @@
           "type": "object",
           "required": ["sport", "line"],
           "properties": {
-            "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
+            "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
             "line": { "type": "string", "maxLength": 100000, "description": "The line from start to end as an encoded polyline at precision 6, as feed.segment#line." }
           }
         }

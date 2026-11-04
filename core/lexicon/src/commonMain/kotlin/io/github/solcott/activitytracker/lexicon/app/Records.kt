@@ -516,10 +516,13 @@ object SegmentSportGroup {
     const val RIDE = "ride"
     const val RUN = "run"
     const val HIKE = "hike"
+    /** Cross-country and backcountry skiing. */
     const val SKI = "ski"
+    /** Lift-served skiing and snowboarding: downhill runs and the lifts between them ([SegmentKind]). */
+    const val ALPINE = "alpine"
     const val PADDLE = "paddle"
 
-    val all = listOf(RIDE, RUN, HIKE, SKI, PADDLE)
+    val all = listOf(RIDE, RUN, HIKE, SKI, ALPINE, PADDLE)
 
     /** The longest a segment of any group may be along its line, in meters. */
     const val MAX_METERS = 50_000
@@ -532,14 +535,16 @@ object SegmentSportGroup {
 
     /**
      * The fastest average speed over a segment of [group] that leaderboards rank, in mm/s (segments/segment-leaderboards): 100 km/h for
-     * rides, 40 for runs, 30 for hikes, 120 for skiing and 25 for paddling. A faster effort stays on its activity but off every board.
+     * rides, 40 for runs, 30 for hikes, 120 for skiing, alpine included, and 25 for paddling. A faster effort stays on its activity but off
+     * every board.
      */
     fun maxSpeedMmPerS(group: String): Int =
         when (group) {
             RIDE -> MAX_RIDE_MM_PER_S
             RUN -> MAX_RUN_MM_PER_S
             HIKE -> MAX_HIKE_MM_PER_S
-            SKI -> MAX_SKI_MM_PER_S
+            SKI,
+            ALPINE -> MAX_SKI_MM_PER_S
             else -> MAX_PADDLE_MM_PER_S
         }
 
@@ -548,6 +553,41 @@ object SegmentSportGroup {
     private const val MAX_HIKE_MM_PER_S = 8_333
     private const val MAX_SKI_MM_PER_S = 33_333
     private const val MAX_PADDLE_MM_PER_S = 6_944
+
+    /**
+     * How close a track must stay to a segment of [group] and [kind] to pass it (segments/segment-efforts): within [PassTolerance.startM]
+     * of its start and [PassTolerance.endM] of its end, and [PassTolerance.corridorM] of its line. An alpine run's are wider, since skiers
+     * cross a piste's width; every other segment's, lifts included, are 25, 25 and 30 m.
+     */
+    fun passTolerance(group: String, kind: String?): PassTolerance =
+        if (group == ALPINE && SegmentKind.of(kind) == SegmentKind.RUN) ALPINE_RUN_TOLERANCE else DEFAULT_TOLERANCE
+
+    /** Distances in meters a pass must keep to a segment's start, end and line ([passTolerance]). */
+    data class PassTolerance(val startM: Int, val endM: Int, val corridorM: Int)
+
+    private val DEFAULT_TOLERANCE = PassTolerance(startM = 25, endM = 25, corridorM = 30)
+    private val ALPINE_RUN_TOLERANCE = PassTolerance(startM = 40, endM = 40, corridorM = 50)
+}
+
+/**
+ * Known values of [SegmentRecord.kind] (segments/segment-lifts); an open string, where null means [RUN]. The AppView doesn't index a
+ * segment of any other kind.
+ */
+object SegmentKind {
+    /** A stretch athletes travel under their own power or by gravity: every segment written before kinds existed. */
+    const val RUN = "run"
+    /**
+     * A ski lift, from its bottom station to its top: only [SegmentSportGroup.ALPINE], and only from the segment importer. Never ranked.
+     */
+    const val LIFT = "lift"
+
+    val all = listOf(RUN, LIFT)
+
+    /** [kind] as the AppView reads it: null as [RUN], any other value unchanged. */
+    fun of(kind: String?): String = kind ?: RUN
+
+    /** Whether [kind] is one the AppView indexes: null or one of [all]. */
+    fun isKnown(kind: String?): Boolean = of(kind) in all
 }
 
 /**
@@ -598,6 +638,8 @@ data class SegmentRecord(
     val derivedFrom: StrongRef? = null,
     /** Who to credit for the line's data, such as "USDA Forest Service": at most 100 graphemes, shown only for [SegmentSource.AGENCY]. */
     val attribution: String? = null,
+    /** A [SegmentKind] value; null means [SegmentKind.RUN]. */
+    val kind: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 

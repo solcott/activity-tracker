@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
@@ -106,6 +107,23 @@ class SegmentRecordsTest {
     }
 
     @Test
+    fun aLiftRoundTripsWithItsKind() {
+        val lift =
+            SegmentRecord(
+                name = "Summit Quad",
+                sport = SegmentSportGroup.ALPINE,
+                line = "_p~iF~ps|U_ulLnnqC",
+                source = SegmentSource.OSM,
+                license = "ODbL-1.0",
+                createdAt = Instant.parse("2026-10-15T12:00:00Z"),
+                kind = SegmentKind.LIFT,
+            )
+        val json = AtJson.encodeToJsonElement(SegmentRecord.serializer(), lift).jsonObject
+        assertEquals("lift", json["kind"]?.jsonPrimitive?.content)
+        assertEquals(lift, AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json))
+    }
+
+    @Test
     fun segmentRoundTrip() {
         val alice = Did("did:plc:alice")
         val activity = AtUri.of(alice, Nsid.FEED_ACTIVITY, "3l2abcdefgh22")
@@ -131,6 +149,8 @@ class SegmentRecordsTest {
             )
         assertNull(bare.derivedFrom)
         assertNull(bare.attribution)
+        assertNull(bare.kind)
+        assertFalse("kind" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), bare).jsonObject)
         assertFalse("derivedFrom" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), bare).jsonObject)
         assertFalse("attribution" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), bare).jsonObject)
 

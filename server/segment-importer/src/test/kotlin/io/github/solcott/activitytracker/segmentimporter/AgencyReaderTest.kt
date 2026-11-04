@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.PADDLE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RUN
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.SKI
@@ -123,7 +123,7 @@ class AgencyReaderTest {
         fun at(lng: Double) = blm.lines.single { it.points.first().lng == lng }
         assertEquals(setOf(RIDE), at(-72.54).closed, "Mill Creek Rim, hiking and horses only")
         assertEquals(setOf(RIDE, RUN, HIKE), at(-72.52).closed, "Wipeout Hill, motorcycles only")
-        assertEquals(setOf(RIDE, RUN, HIKE, SKI, PADDLE), at(-72.49).closed, "Permit Canyon")
+        assertEquals(SegmentSportGroup.all.toSet(), at(-72.49).closed, "Permit Canyon")
         assertEquals(setOf(RIDE, RUN, HIKE), at(-72.48).open, "unnamed, still open")
         assertEquals(emptySet(), at(-72.5).closed, "a snow code")
     }

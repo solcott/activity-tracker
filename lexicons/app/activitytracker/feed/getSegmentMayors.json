@@ -24,7 +24,7 @@
           },
           "board": {
             "type": "string",
-            "knownValues": ["ride", "handcycle", "run", "hike", "walk", "rucking", "snowshoe", "xcSki", "ski", "kayak", "canoe", "sup", "row", "eBike"],
+            "knownValues": ["ride", "handcycle", "run", "hike", "walk", "rucking", "snowshoe", "xcSki", "ski", "snowboard", "kayak", "canoe", "sup", "row", "eBike"],
             "description": "The board type: the activity's sport, or eBike for e-bike and e-mountain-bike rides. Absent means the listed type with the most efforts."
           },
           "ageGroup": {

@@ -314,6 +314,8 @@ data class SegmentViewBasic(
     val distanceMeters: Long,
     /** A [SegmentStatus] value; null or unknown means [SegmentStatus.ACTIVE]. */
     val status: String? = null,
+    /** A [SegmentKind] value; null means [SegmentKind.RUN]. */
+    val kind: String? = null,
 )
 
 /**

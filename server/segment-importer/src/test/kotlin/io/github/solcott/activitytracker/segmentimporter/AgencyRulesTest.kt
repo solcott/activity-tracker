@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.PADDLE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
@@ -214,7 +215,7 @@ class AgencyRulesTest {
 
     @Test
     fun restrictedBlmAccessClosesEveryGroup() {
-        val all = setOf(RIDE, RUN, HIKE, SKI, PADDLE)
+        val all = SegmentSportGroup.all.toSet()
         assertEquals(all, blmClosed("NON_MOTO_SHARED", "plan_access_rstrct" to "Authorized/Permitted User Only"))
         assertEquals(all, blmClosed("UNK", "plan_access_rstrct" to "admin only "))
         assertEquals(all, blmClosed(null, "plan_access_rstrct" to "All"))
