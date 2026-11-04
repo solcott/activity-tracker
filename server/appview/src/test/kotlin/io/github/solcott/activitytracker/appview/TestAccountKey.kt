@@ -8,6 +8,7 @@ import java.security.SecureRandom
 import java.util.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.bouncycastle.crypto.digests.SHA256Digest
@@ -29,7 +30,7 @@ class TestAccountKey {
             (pair.public as ECPublicKeyParameters).q.getEncoded(true),
         )
 
-    fun serviceJwt(iss: String, aud: String, lxm: String?, expSeconds: Long = 60): String {
+    fun serviceJwt(iss: String, aud: String, lxm: String?, expSeconds: Long = 60, now: Instant = Clock.System.now()): String {
         val enc = Base64.getUrlEncoder().withoutPadding()
         val header = buildJsonObject {
             put("typ", "JWT")
@@ -38,7 +39,7 @@ class TestAccountKey {
         val payload = buildJsonObject {
             put("iss", iss)
             put("aud", aud)
-            put("exp", (Clock.System.now() + expSeconds.seconds).epochSeconds)
+            put("exp", (now + expSeconds.seconds).epochSeconds)
             lxm?.let { put("lxm", it) }
         }
         val input = enc.encodeToString(header.toString().toByteArray()) + "." + enc.encodeToString(payload.toString().toByteArray())

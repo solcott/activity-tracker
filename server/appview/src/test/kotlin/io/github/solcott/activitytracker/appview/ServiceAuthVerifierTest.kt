@@ -54,12 +54,14 @@ class ServiceAuthVerifierTest {
                 },
                 clock = clock,
             )
-        cached.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
-        cached.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        // Tokens come from the verifier's clock: one from the real clock could outlive its hour by the second it ticked meanwhile.
+        fun token() = key.serviceJwt(alice, service, "app.x.y", now = clock.now)
+        cached.verify(token(), "app.x.y")
+        cached.verify(token(), "app.x.y")
         assertEquals(1, lookups)
 
         clock.now += 11.minutes
-        cached.verify(key.serviceJwt(alice, service, "app.x.y", expSeconds = 60 + 11 * 60), "app.x.y")
+        cached.verify(token(), "app.x.y")
         assertEquals(2, lookups, "a rotated key stops verifying within the TTL")
     }
 
@@ -114,7 +116,8 @@ class ServiceAuthVerifierTest {
                 },
                 clock = clock,
             )
-        fun token() = key.serviceJwt(alice, service, "app.x.y", expSeconds = 3600)
+        // From the verifier's clock, so an hour-long token is never a second too long for it.
+        fun token() = key.serviceJwt(alice, service, "app.x.y", expSeconds = 3600, now = clock.now)
 
         repeat(5) { assertFailsWith<AuthException> { flaky.verify(token(), "app.x.y") } }
         assertEquals(1, lookups, "one lookup within the window")
