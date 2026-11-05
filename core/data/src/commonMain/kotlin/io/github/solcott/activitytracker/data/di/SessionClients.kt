@@ -14,6 +14,8 @@ import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.data.activity.AccountPacing
 import io.github.solcott.activitytracker.data.activity.OutboxPacing
+import io.github.solcott.activitytracker.data.auth.GrantStatus
+import io.github.solcott.activitytracker.data.auth.grantStatusOf
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
@@ -120,6 +122,19 @@ class SessionClients(
                 val collections = scopeParams(scope, "collection")
                 collections.isEmpty() || "*" in collections || collection in collections
             }
+
+    /**
+     * Whether this session's sign-in grants everything the app asks for now: the athlete-space scope covering every collection the space
+     * type declares (`AthleteSpaceDeclaration`), on a PDS not known to lack Spaces (auth/account-page). Follows [spacesSupport], so read it
+     * again when that changes.
+     */
+    val grantStatus: GrantStatus
+        get() =
+            grantStatusOf(
+                hasSpacesScope = hasSpacesScope,
+                unsupported = spacesSupport.value == SpacesSupport.Unsupported,
+                canWrite = ::canWriteToSpaces,
+            )
 
     /**
      * Asks the athlete's PDS once whether it serves Spaces, at session start. The Spaces alpha's `describeServer` says so with a temporary
