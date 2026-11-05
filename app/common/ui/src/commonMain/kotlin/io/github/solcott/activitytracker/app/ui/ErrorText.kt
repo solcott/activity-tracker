@@ -82,8 +82,8 @@ import io.github.solcott.activitytracker.composeApp.resources.error_propose_segm
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
-import io.github.solcott.activitytracker.composeApp.resources.error_reason_offline
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_server
+import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreachable
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreadable
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_retry_change
@@ -149,7 +149,7 @@ fun failureText(what: String, reason: DataError?): String =
 /** Why something failed, for the failures the athlete can act on or wait out; null for the rest, which say only what failed. */
 internal fun errorReason(error: DataError): StringResource? =
     when (error) {
-        DataError.Network -> Res.string.error_reason_offline
+        DataError.Network -> Res.string.error_reason_unreachable
         is DataError.Http if error.code >= SERVER_ERROR -> Res.string.error_reason_server
         is DataError.Api if error.code == INTERNAL_SERVER_ERROR -> Res.string.error_reason_server
         DataError.Serialization -> Res.string.error_reason_unreadable

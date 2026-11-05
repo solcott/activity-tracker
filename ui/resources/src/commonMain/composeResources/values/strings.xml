@@ -14,9 +14,9 @@
     <string name="error_load_activity">Couldn't load activity</string>
     <string name="error_load_segment">Couldn't load segment</string>
     <string name="error_load_route">Couldn't load the route</string>
-    <!-- A failed load followed by why: "Couldn't load your feed. You're offline." -->
+    <!-- A failed load followed by why: "Couldn't load your feed. Couldn't reach the server." -->
     <string name="error_with_reason">%1$s. %2$s</string>
-    <string name="error_reason_offline">You're offline.</string>
+    <string name="error_reason_unreachable">Couldn't reach the server.</string>
     <string name="error_reason_server">The server had a problem.</string>
     <string name="error_reason_unreadable">The app couldn't read the server's reply.</string>
     <string name="error_check_segment">Couldn't check the segment against existing ones, so it wasn't published</string>
