@@ -115,11 +115,12 @@ class SegmentMatcher(
     private val pairing = GroupPairing(db, blobs, clock)
 
     /**
-     * Runs until [scope] is cancelled: the one-off backfill, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
+     * Runs until [scope] is cancelled: the one-off backfills, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
      * status pass, then the naming pass, on start and every [STATUS_INTERVAL].
      */
     fun start(scope: CoroutineScope): Job = scope.launch {
         guarded("Backfilling segment tracks") { backfill() }
+        guarded("Activating the importer's segments") { activateImporterSegments() }
         var statusesAt: Long? = null
         while (true) {
             val now = clock.now().toEpochMilliseconds()
@@ -134,19 +135,27 @@ class SegmentMatcher(
     }
 
     /**
-     * The status pass: makes the segment importer's proposed segments active (those indexed before its segments started active), promotes
-     * every proposed segment that already has enough athletes (those from before statuses, or after the threshold was lowered), then
-     * archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that duplicated them.
-     * Archived segments keep their efforts. Exposed for tests.
+     * The one-off backfill of segment statuses, run on start before the first status pass can archive any: makes the segment importer's
+     * proposed segments active, those indexed before its segments started active. Indexing makes its new ones active ([liveStatus]), so
+     * later passes find none. Exposed for tests.
+     */
+    suspend fun activateImporterSegments() {
+        val importer = segmentImporter ?: return
+        db.tx {
+            Segments.update({ (Segments.authorDid eq importer.value) and (Segments.status eq SegmentStatus.PROPOSED) }) {
+                it[status] = SegmentStatus.ACTIVE
+            }
+        }
+    }
+
+    /**
+     * The status pass: promotes every proposed segment that already has enough athletes (those from before statuses, or after the threshold
+     * was lowered), then archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that
+     * duplicated them. Archived segments keep their efforts. Exposed for tests.
      */
     suspend fun updateStatuses() {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
-            if (segmentImporter != null) {
-                Segments.update({ (Segments.authorDid eq segmentImporter.value) and (Segments.status eq SegmentStatus.PROPOSED) }) {
-                    it[status] = SegmentStatus.ACTIVE
-                }
-            }
             promote(Segments.select(Segments.uri).where { Segments.status eq SegmentStatus.PROPOSED }.map { it[Segments.uri] })
             val stale =
                 Segments.select(Segments.uri)

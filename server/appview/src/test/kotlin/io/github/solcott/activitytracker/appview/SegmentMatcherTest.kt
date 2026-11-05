@@ -563,12 +563,16 @@ class SegmentMatcherTest : SegmentTestBase() {
     }
 
     @Test
-    fun theStatusPassMakesEarlierImportsActiveAndNeverArchivesThem() {
+    fun theStartupBackfillMakesEarlierImportsActiveBeforeAnyArchiving() {
         segment("3ks", did = importer)
         setStatus(segmentUri("3ks", did = importer), SegmentStatus.PROPOSED)
-        runBlocking { matcherAt(segmentImporter = null).updateStatuses() }
+        runBlocking { matcherAt(segmentImporter = null).activateImporterSegments() }
         assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3ks", did = importer)), "only a configured importer's")
-        runBlocking { matcherAt(ahead = 181.days, segmentImporter = Did(importer)).updateStatuses() }
+        runBlocking {
+            val matcher = matcherAt(ahead = 181.days, segmentImporter = Did(importer))
+            matcher.activateImporterSegments()
+            matcher.updateStatuses()
+        }
         assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks", did = importer)), "promoted, not archived")
     }
 }
