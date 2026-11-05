@@ -10,8 +10,8 @@ import kotlin.math.sqrt
 /** A position in degrees. */
 data class GeoPoint(val lat: Double, val lng: Double)
 
-/** A track sample: a position in degrees and [t], seconds on the track's clock. */
-data class TimedPoint(val lat: Double, val lng: Double, val t: Double)
+/** A track sample: a position in degrees, [t], seconds on the track's clock, and [altM], its altitude in meters when known. */
+data class TimedPoint(val lat: Double, val lng: Double, val t: Double, val altM: Double? = null)
 
 /** One pass over a segment, as the track times in seconds it crosses the segment's start line and then its end line. */
 data class SegmentPass(val start: Double, val end: Double)
