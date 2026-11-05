@@ -51,10 +51,14 @@ else
 fi
 echo "    $extract ($(size "$extract"))"
 
+# The trimmed extract, made again when the extract is newer or the filter changed: a stamp beside it records the filter it was made with.
 trails="$dir/$region-trails.osm.pbf"
-if [[ ! -f "$trails" || "$extract" -nt "$trails" ]]; then
-  osmium tags-filter "$extract" w/highway w/piste:type w/aerialway r/route -O -o "$trails.part.osm.pbf"
+filter=(w/highway w/piste:type w/aerialway r/route)
+stamp="$trails.filter"
+if [[ ! -f "$trails" || "$extract" -nt "$trails" || "$(cat "$stamp" 2>/dev/null)" != "${filter[*]}" ]]; then
+  osmium tags-filter "$extract" "${filter[@]}" -O -o "$trails.part.osm.pbf"
   mv "$trails.part.osm.pbf" "$trails"
+  echo "${filter[*]}" >"$stamp"
 fi
 echo "    $trails ($(size "$trails"))"
 
