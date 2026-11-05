@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -46,6 +48,8 @@ import kotlinx.collections.immutable.toImmutableList
  * line, like a gas switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every
  * line, its fill and the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The
  * backdrop, and the fill of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself.
+ * [lineBrush] and [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted
+ * by grade ([GradeBands]); a line with gaps keeps its plain fill.
  */
 @Composable
 fun TimeSeriesChart(
@@ -67,6 +71,8 @@ fun TimeSeriesChart(
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
     events: ImmutableList<SeriesLabel> = persistentListOf(),
     warnings: ImmutableList<SeriesLabel> = persistentListOf(),
+    lineBrush: Brush? = null,
+    areaBrush: Brush? = null,
     height: Dp = 140.dp,
 ) {
     if (points.size < 2) return
@@ -89,12 +95,12 @@ fun TimeSeriesChart(
     val maxY = yAxis.max
     val connector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp
     val areaFill =
-        remember(colors, minY, maxY, fillAbove) {
-            LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (fillAbove) maxY else minY })
+        remember(colors, minY, maxY, fillAbove, areaBrush) {
+            LineCartesianLayer.AreaFill.single(fillOf(areaBrush, colors.area), splitY = { if (fillAbove) maxY else minY })
         }
     val line =
         LineCartesianLayer.rememberLine(
-            fill = remember(colors) { LineCartesianLayer.LineFill.single(Fill(colors.line)) },
+            fill = remember(colors, lineBrush) { LineCartesianLayer.LineFill.single(fillOf(lineBrush, colors.line)) },
             stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
             areaFill = areaFill.takeIf { !separateFill },
             pointConnector = remember(connector, gaps) { if (gaps.isEmpty()) connector else GapConnector(connector, gaps) },
@@ -213,6 +219,9 @@ private fun yAxisOf(values: List<SeriesPoint>, labelled: Boolean, inverted: Bool
         else YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
     return if (inverted) YAxis(-axis.max, -axis.min, axis.step) else axis
 }
+
+/** [brush] as a fill when there is one, else [color]. */
+private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(brush) else Fill(color)
 
 private const val FILL_ALPHA = 0.18f
 private const val BACKDROP_ALPHA = 0.12f
