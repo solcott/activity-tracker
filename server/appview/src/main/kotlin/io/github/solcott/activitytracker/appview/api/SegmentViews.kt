@@ -39,6 +39,7 @@ import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
@@ -55,12 +56,18 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Expression
+import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.LikePattern
+import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.QueryBuilder
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -71,10 +78,14 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
+import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringLiteral
@@ -90,7 +101,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * Whether an effort is the athlete's best is judged among the efforts the same viewer may see. Search lists active segments, and proposed
  * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
-@Suppress("TooManyFunctions", "LongParameterList") // The seven segment routes, and the filters and views they share; its config.
+// The eight segment routes, and the filters and views they share (name search uses them too); its config.
+@Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
 class SegmentViews(
     private val db: Database,
     private val avatars: AvatarUrls,
@@ -187,6 +199,63 @@ class SegmentViews(
                     else -> cursor
                 }
             SearchSegments.Output(views(shown), next)
+        }
+    }
+
+    /**
+     * Segments whose current name contains the query (segments/segment-records): the ones [search] would list to [viewer], never lifts.
+     * Best match first (the whole name, a prefix, a word's prefix, anywhere), then nearest the given centre, measured to each segment's
+     * box, or by name without one. With a box, only segments whose line has a point in it, so a page may be short with a cursor to carry on
+     * from.
+     */
+    suspend fun searchNames(viewer: Did?, params: SearchSegmentNames.Params): SearchSegmentNames.Output {
+        val box = nameSearchBox(params)
+        val near = nameSearchCentre(params)
+        val q = params.q.trim().take(SearchSegmentNames.MAX_QUERY_LENGTH).lowercase()
+        if (q.isEmpty()) return SearchSegmentNames.Output(emptyList())
+        val limit = Paging.clamp(params.limit)
+        val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
+        return db.tx {
+            val name = Segments.currentName.lowerCase()
+            val prefix = LikePattern.ofLiteral(q, LIKE_ESCAPE) + "%"
+            val rank =
+                Case()
+                    .When(name eq q, intLiteral(NAME_WHOLE))
+                    .When(name like prefix, intLiteral(NAME_PREFIX))
+                    .When(name like LikePattern("% ", LIKE_ESCAPE) + prefix, intLiteral(NAME_WORD))
+                    .Else(intLiteral(NAME_ANYWHERE))
+            val inBox =
+                box?.let { b ->
+                    val cells = SegmentCells.cellsIn(b.minLat / E7, b.minLng / E7, b.maxLat / E7, b.maxLng / E7)
+                    (Segments.minLatE7 lessEq b.maxLat) and
+                        (Segments.maxLatE7 greaterEq b.minLat) and
+                        (Segments.minLngE7 lessEq b.maxLng) and
+                        (Segments.maxLngE7 greaterEq b.minLng) and
+                        exists(
+                            SegmentCellIndex.select(SegmentCellIndex.cell).where {
+                                (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
+                            }
+                        )
+                } ?: Op.TRUE
+            // Within a match, nearest the centre first, or by name without one.
+            val within: Expression<*> = near?.let { (lat, lng) -> BoxDistance(lat, lng) } ?: name
+            val rows =
+                Segments.selectAll()
+                    .where {
+                        segmentServed(viewer) and
+                            unhidden(viewer, Segments.authorDid, Segments.uri) and
+                            listedTo(viewer) and
+                            (Segments.kind neq SegmentKind.LIFT) and
+                            (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
+                            (name like LikePattern("%", LIKE_ESCAPE) + prefix) and
+                            inBox
+                    }
+                    .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, Segments.uri to SortOrder.ASC)
+                    .limit(limit)
+                    .offset(offset)
+                    .toList()
+            val shown = box?.let { b -> rows.filter { crosses(it[Segments.line], b.minLat, b.minLng, b.maxLat, b.maxLng) } } ?: rows
+            SearchSegmentNames.Output(views(shown), (offset + limit).toString().takeIf { rows.size == limit })
         }
     }
 
@@ -711,6 +780,26 @@ class SegmentViews(
             invalidRequest("The box is wider than one degree")
     }
 
+    /** A name search's box, checked like [search]'s: all four sides or none, else `InvalidRequest`. */
+    private fun nameSearchBox(params: SearchSegmentNames.Params): SearchBox? {
+        val given = listOfNotNull(params.minLat, params.minLng, params.maxLat, params.maxLng)
+        if (given.isEmpty()) return null
+        if (given.size != BOX_SIDES) invalidRequest("Give all four sides of the box, or none")
+        val box = SearchBox(given[0], given[1], given[2], given[3])
+        requireSearchBox(box.minLat, box.minLng, box.maxLat, box.maxLng)
+        return box
+    }
+
+    /** A name search's centre, both coordinates or none, on the globe, else `InvalidRequest`. */
+    private fun nameSearchCentre(params: SearchSegmentNames.Params): Pair<Int, Int>? {
+        val lat = params.nearLat
+        val lng = params.nearLng
+        if (lat == null && lng == null) return null
+        if (lat == null || lng == null) invalidRequest("Give both nearLat and nearLng, or neither")
+        if (abs(lat) > MAX_LAT_E7 || abs(lng) > MAX_LNG_E7) invalidRequest("The centre is outside the globe")
+        return lat to lng
+    }
+
     /** Whether the precision-6 [line] has a point (every [SegmentGeometry.REFERENCE_SPACING_M]) in the box, in 1e-7 degrees. */
     private fun crosses(line: String, minLat: Int, minLng: Int, maxLat: Int, maxLng: Int): Boolean =
         SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty()).any {
@@ -724,6 +813,14 @@ class SegmentViews(
 
         /** The batches of candidates one search reads at most: 300 rows at the default batch size. */
         private const val SEARCH_BATCHES = 3
+
+        /** How well a name matches a name search: the whole name, its start, a word's start, anywhere. Lower is better. */
+        private const val NAME_WHOLE = 0
+        private const val NAME_PREFIX = 1
+        private const val NAME_WORD = 2
+        private const val NAME_ANYWHERE = 3
+        private const val LIKE_ESCAPE = '\\'
+        private const val BOX_SIDES = 4
 
         /** The ranks an activity's efforts show (segments/segment-efforts). */
         private const val TOP_RANKS = 10
@@ -778,3 +875,37 @@ internal fun mayorWindow(period: String, today: LocalDate): Pair<String?, String
 
 /** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
 private const val LAST_DAYS = 90L
+
+/** A search box, 1e-7 degrees. */
+private data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)
+
+/**
+ * How far a segment's bounding box lies from a point ([lat], [lng], 1e-7 degrees), for ordering only: the gap to the box along each axis
+ * (zero inside it), longitude scaled by the cosine at [lat] in thousandths. Plain `GREATEST` and `BIGINT` arithmetic, so H2 runs it too.
+ */
+private class BoxDistance(private val lat: Int, private val lng: Int) : ExpressionWithColumnType<Long>() {
+    override val columnType = LongColumnType()
+
+    private val lngScale = (cos(Math.toRadians(lat / 1e7)) * PER_MILLE).roundToLong()
+
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+        queryBuilder {
+            gap(Segments.minLatE7, Segments.maxLatE7, lat)
+            append(" * $PER_MILLE + ")
+            gap(Segments.minLngE7, Segments.maxLngE7, lng)
+            append(" * $lngScale")
+        }
+    }
+
+    private fun QueryBuilder.gap(min: Expression<Int>, max: Expression<Int>, at: Int) {
+        append("GREATEST(CAST(")
+        append(min)
+        append(" AS BIGINT) - $at, $at - CAST(")
+        append(max)
+        append(" AS BIGINT), 0)")
+    }
+
+    private companion object {
+        const val PER_MILLE = 1000
+    }
+}

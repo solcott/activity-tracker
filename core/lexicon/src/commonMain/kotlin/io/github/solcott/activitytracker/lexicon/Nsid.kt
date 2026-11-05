@@ -99,6 +99,7 @@ object Nsid {
     const val FEED_SEGMENT_NAME_VOTE = "$NAMESPACE.feed.segmentNameVote"
     const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
+    const val FEED_SEARCH_SEGMENT_NAMES = "$NAMESPACE.feed.searchSegmentNames"
     const val FEED_GET_ACTIVITY_SEGMENTS = "$NAMESPACE.feed.getActivitySegments"
     const val FEED_GET_SEGMENT_EFFORTS = "$NAMESPACE.feed.getSegmentEfforts"
     const val FEED_GET_SEGMENT_LEADERBOARD = "$NAMESPACE.feed.getSegmentLeaderboard"

@@ -56,6 +56,7 @@ import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
+import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
@@ -122,6 +123,7 @@ fun Route.xrpcRoutes(
 fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetSegment.method, verifier) { params, viewer -> segments.segment(viewer, params) }
     xrpcQuery(SearchSegments.method, verifier) { params, viewer -> segments.search(viewer, params) }
+    xrpcQuery(SearchSegmentNames.method, verifier) { params, viewer -> segments.searchNames(viewer, params) }
     xrpcQuery(GetActivitySegments.method, verifier) { params, viewer -> segments.activitySegments(viewer, params) }
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }

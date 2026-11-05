@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
@@ -324,6 +325,33 @@ class SegmentRecordsTest {
             params,
             XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
         )
+    }
+
+    @Test
+    fun nameSearchParamsRoundTrip() {
+        val everywhere = SearchSegmentNames.Params(q = "hogback")
+        val bare = XrpcParams.encode(SearchSegmentNames.Params.serializer(), everywhere)
+        assertEquals(listOf("q" to "hogback"), bare)
+        val inArea =
+            SearchSegmentNames.Params(
+                q = "hog",
+                minLat = 443_000_000,
+                minLng = -728_000_000,
+                maxLat = 444_000_000,
+                maxLng = -727_000_000,
+                nearLat = 443_500_000,
+                nearLng = -727_500_000,
+                sport = SegmentSportGroup.RIDE,
+                limit = 30,
+            )
+        val encoded = XrpcParams.encode(SearchSegmentNames.Params.serializer(), inArea)
+        assertTrue("nearLat" to "443500000" in encoded)
+        assertEquals(
+            inArea,
+            XrpcParams.decode(SearchSegmentNames.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
+        )
+        val output = AtJson.decodeFromString(SearchSegmentNames.Output.serializer(), """{"segments":[]}""")
+        assertEquals(SearchSegmentNames.Output(emptyList()), output)
     }
 
     @Test

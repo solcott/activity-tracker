@@ -405,6 +405,35 @@ object SearchSegments {
     val method = XrpcQuery(Nsid.FEED_SEARCH_SEGMENTS, Params.serializer(), Output.serializer())
 }
 
+/**
+ * Segments whose current name contains `q`, best match first and then nearest `near` (segments/segment-records), never lifts. The box (1e-7
+ * degrees) and the centre are each optional but whole, else `InvalidRequest`; with a box, a page may hold fewer than `limit`, or none, with
+ * a cursor: keep paging while there is one.
+ */
+object SearchSegmentNames {
+    @Serializable
+    data class Params(
+        val q: String,
+        val minLat: Int? = null,
+        val minLng: Int? = null,
+        val maxLat: Int? = null,
+        val maxLng: Int? = null,
+        val nearLat: Int? = null,
+        val nearLng: Int? = null,
+        /** Only this [SegmentSportGroup]. */
+        val sport: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val segments: List<SegmentView>, val cursor: String? = null)
+
+    /** The lexicon's `maxLength` for [Params.q]. */
+    const val MAX_QUERY_LENGTH = 100
+
+    val method = XrpcQuery(Nsid.FEED_SEARCH_SEGMENT_NAMES, Params.serializer(), Output.serializer())
+}
+
 /** The efforts on an activity the viewer may see, in the order they began; unpaged. `NotFound` when the viewer may not see the activity. */
 object GetActivitySegments {
     @Serializable data class Params(val activity: AtUri)
