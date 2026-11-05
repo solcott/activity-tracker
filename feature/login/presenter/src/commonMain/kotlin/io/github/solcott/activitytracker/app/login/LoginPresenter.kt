@@ -12,6 +12,7 @@ import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.auth.EndedSession
 import io.github.solcott.activitytracker.location.ActivityRecorder
 
 @CircuitInject(LoginScreen::class, AppScope::class)
@@ -23,14 +24,17 @@ class LoginPresenter(
 ) : Presenter<LoginState> {
     @Composable
     override fun present(): LoginState {
-        val lastExpiry by auth.lastExpiry.collectAsState()
-        // After an expiry the athlete signs back in to the same account, so its handle is filled in (auth/oauth-session).
-        val handle = key(lastExpiry) { rememberTextFieldState(lastExpiry?.handle?.value.orEmpty()) }
+        val lastEnd by auth.lastEnd.collectAsState()
+        // After an expiry or a chosen Sign in again the athlete signs back in to the same account, so its handle is filled in
+        // (auth/oauth-session).
+        val handle = key(lastEnd) { rememberTextFieldState(lastEnd?.handle?.value.orEmpty()) }
         val recording by recorder.state.collectAsState()
-        val expired = lastExpiry?.let { Expiry(recording = recording.inProgressFor(it.did.value)) }
+        val expired =
+            lastEnd?.takeIf { it.reason == EndedSession.Reason.Expired }?.let { Expiry(recording = recording.inProgressFor(it.did.value)) }
+        val signingInAgain = lastEnd?.reason == EndedSession.Reason.SignInAgain
         val status by coordinator.status.collectAsState()
         val flights = rememberSingleFlight()
-        return LoginState(handle, status, expired) { event ->
+        return LoginState(handle, status, expired, signingInAgain) { event ->
             when (event) {
                 LoginEvent.Submit -> {
                     val typed = handle.text.trim()

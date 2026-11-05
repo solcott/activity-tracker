@@ -20,8 +20,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.withContext
 
-/** The account whose session last expired, so the login screen can say so and fill in its handle. */
-@Immutable data class ExpiredSession(val did: Did, val handle: Handle)
+/**
+ * The account whose session last ended without the athlete leaving it, so the login screen can fill in its handle and say why
+ * (auth/oauth-session).
+ */
+@Immutable
+data class EndedSession(val did: Did, val handle: Handle, val reason: Reason) {
+    enum class Reason {
+        /** Its refresh was refused. */
+        Expired,
+
+        /** The athlete chose Sign in again, to renew the session's grant (auth/account-page). */
+        SignInAgain,
+    }
+}
 
 @SingleIn(AppScope::class)
 @Inject
@@ -35,9 +47,12 @@ class AuthRepository(
     val session: StateFlow<OAuthSession?>
         get() = sessionManager.session
 
-    /** Set when a session ends because it expired; cleared by the next completed sign-in or chosen sign-out. */
-    val lastExpiry: StateFlow<ExpiredSession?>
-        field = MutableStateFlow<ExpiredSession?>(null)
+    /**
+     * Set when a session ends because it expired or the athlete chose Sign in again; cleared by the next completed sign-in or chosen
+     * sign-out, so a sign-in cancelled in the browser keeps it.
+     */
+    val lastEnd: StateFlow<EndedSession?>
+        field = MutableStateFlow<EndedSession?>(null)
 
     suspend fun restore(): OAuthSession? = sessionManager.restore()
 
@@ -46,9 +61,18 @@ class AuthRepository(
 
     /** [callback] are the query parameters of the OAuth redirect. */
     suspend fun completeSignIn(callback: Map<String, String>): OAuthSession =
-        sessionManager.completeSignIn(callback).also { lastExpiry.value = null }
+        sessionManager.completeSignIn(callback).also { lastEnd.value = null }
 
     suspend fun signOut() = endSession(expired = null)
+
+    /**
+     * Ends the session as a chosen sign-out does, then keeps its account for the login screen, which fills in the handle and says signing
+     * in again renews the app's permissions (auth/account-page).
+     */
+    suspend fun signInAgain() {
+        val ending = sessionManager.session.value ?: return
+        endSession(expired = null, signingInAgain = ending)
+    }
 
     /** Ends each session the session manager finds expired, the way a sign-out does. Runs for as long as the app does. */
     suspend fun endExpiredSessions() {
@@ -60,20 +84,20 @@ class AuthRepository(
      * even if its caller is cancelled: dropping the session drops the session's screens, and with them the scope that called this, while
      * the caches it clears still hold other athletes' non-public data.
      */
-    private suspend fun endSession(expired: OAuthSession?) {
-        withContext(NonCancellable) { endSessionNow(expired) }
+    private suspend fun endSession(expired: OAuthSession?, signingInAgain: OAuthSession? = null) {
+        withContext(NonCancellable) { endSessionNow(expired, signingInAgain) }
     }
 
-    private suspend fun endSessionNow(expired: OAuthSession?) {
+    private suspend fun endSessionNow(expired: OAuthSession?, signingInAgain: OAuthSession?) {
         if (expired == null) {
             // A recording in progress stops, kept on the device for this account's next sign-in. An expiry leaves it running, for the
             // athlete to sign back in to (record/gps-recording).
             recorder.suspendForSignOut()
             // A batch save stops and its unsaved activities go (feed/batch-import); an expiry leaves it to resume after signing back in.
             sessionManager.session.value?.did?.let { saves.signedOut(it) }
-            lastExpiry.value = null
+            lastEnd.value = signingInAgain?.let { EndedSession(it.did, it.handle, EndedSession.Reason.SignInAgain) }
         } else {
-            lastExpiry.value = ExpiredSession(expired.did, expired.handle)
+            lastEnd.value = EndedSession(expired.did, expired.handle, EndedSession.Reason.Expired)
         }
         // An expired session's refresh token is already dead, so there's nothing to revoke.
         sessionManager.signOut(revoke = expired == null)

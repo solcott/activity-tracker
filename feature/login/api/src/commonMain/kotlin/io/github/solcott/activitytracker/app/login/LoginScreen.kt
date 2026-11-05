@@ -16,6 +16,8 @@ data class LoginState(
     val status: Status,
     /** Set when the last session ended because it expired, rather than the athlete signing out. */
     val expired: Expiry? = null,
+    /** Set when the athlete chose Sign in again on the Account page: the handle is filled in and the screen says why. */
+    val signingInAgain: Boolean = false,
     val eventSink: (LoginEvent) -> Unit,
 ) : CircuitUiState {
     val busy: Boolean

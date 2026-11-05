@@ -94,7 +94,7 @@ fun AcceptInvitePresenter(
             }
 
             AcceptInviteEvent.SignInAgain -> {
-                flights.launch(AcceptInviteEvent.SignInAgain) { auth.signOut() }
+                flights.launch(AcceptInviteEvent.SignInAgain) { auth.signInAgain() }
             }
         }
     }

@@ -66,7 +66,7 @@ fun ActivityInvitesPresenter(navigator: Navigator, invites: ActivityInvitesRepos
             }
 
             ActivityInvitesEvent.SignInAgain -> {
-                flights.launch(ActivityInvitesEvent.SignInAgain) { auth.signOut() }
+                flights.launch(ActivityInvitesEvent.SignInAgain) { auth.signInAgain() }
             }
         }
     }

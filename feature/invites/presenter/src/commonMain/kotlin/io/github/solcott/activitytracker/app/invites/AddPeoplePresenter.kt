@@ -91,7 +91,7 @@ fun AddPeoplePresenter(
             }
 
             AddPeopleEvent.SignInAgain -> {
-                flights.launch(AddPeopleEvent.SignInAgain) { auth.signOut() }
+                flights.launch(AddPeopleEvent.SignInAgain) { auth.signInAgain() }
             }
         }
     }

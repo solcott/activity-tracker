@@ -36,6 +36,7 @@ import io.github.solcott.activitytracker.composeApp.resources.login_intro
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired_recording
 import io.github.solcott.activitytracker.composeApp.resources.login_sign_in
+import io.github.solcott.activitytracker.composeApp.resources.login_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.login_waiting_for_browser
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 import org.jetbrains.compose.resources.stringResource
@@ -62,6 +63,9 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
             if (expired.recording) {
                 Text(stringResource(Res.string.login_session_expired_recording), style = MaterialTheme.typography.bodyMedium)
             }
+        }
+        if (state.signingInAgain) {
+            Text(stringResource(Res.string.login_sign_in_again), style = MaterialTheme.typography.bodyMedium)
         }
         AppTextField(
             state = state.handle,

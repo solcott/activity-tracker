@@ -6,8 +6,8 @@ import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 import io.github.solcott.dataresult.DataError
 
 object LoginSamples {
-    private fun state(status: Status, handle: String = "alice.test", expired: Expiry? = null) =
-        LoginState(TextFieldState(handle), status, expired, eventSink = {})
+    private fun state(status: Status, handle: String = "alice.test", expired: Expiry? = null, signingInAgain: Boolean = false) =
+        LoginState(TextFieldState(handle), status, expired, signingInAgain, eventSink = {})
 
     val all: Map<String, LoginState>
         get() =
@@ -17,5 +17,6 @@ object LoginSamples {
                 "failed" to state(Status.Failed(Status.Stage.Start, DataError.Network)),
                 "expired" to state(Status.Idle, expired = Expiry(recording = false)),
                 "expiredRecording" to state(Status.Idle, expired = Expiry(recording = true)),
+                "signInAgain" to state(Status.Idle, signingInAgain = true),
             )
 }

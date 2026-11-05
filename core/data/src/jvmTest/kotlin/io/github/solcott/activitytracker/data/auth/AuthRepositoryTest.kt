@@ -129,7 +129,7 @@ class AuthRepositoryTest {
         db.feed().observe("timeline").first { it.isEmpty() }
 
         assertNull(store.loadSession())
-        assertEquals(ExpiredSession(Did(did), Handle("alice.test")), auth.lastExpiry.value)
+        assertEquals(EndedSession(Did(did), Handle("alice.test"), EndedSession.Reason.Expired), auth.lastEnd.value)
         assertEquals(0, revocations)
         assertNull(manager.expired.value)
         advanceUntilIdle()
@@ -148,9 +148,39 @@ class AuthRepositoryTest {
 
         assertNull(auth.session.value)
         assertEquals(1, revocations)
-        assertNull(auth.lastExpiry.value)
+        assertNull(auth.lastEnd.value)
         assertEquals(RecordingState.Status.Idle, recorder.state.value.status)
         assertEquals(emptyList(), db.feed().byUri("at://did:plc:bob/app.activitytracker.feed.activity/1"))
+    }
+
+    @Test
+    fun signingInAgainEndsTheSessionAsASignOutDoesButKeepsTheAccount() = runTest {
+        signedIn()
+        val recorder = recorder()
+        val auth = AuthRepository(manager, db, http, recorder, testImportSaves(db))
+        recorder.start(did)
+        advanceUntilIdle()
+
+        auth.signInAgain()
+
+        assertNull(auth.session.value)
+        assertNull(store.loadSession())
+        assertEquals(1, revocations)
+        assertEquals(EndedSession(Did(did), Handle("alice.test"), EndedSession.Reason.SignInAgain), auth.lastEnd.value)
+        assertEquals(RecordingState.Status.Idle, recorder.state.value.status)
+        assertEquals(emptyList(), db.feed().byUri("at://did:plc:bob/app.activitytracker.feed.activity/1"))
+    }
+
+    @Test
+    fun aChosenSignOutForgetsAnEarlierSignInAgain() = runTest {
+        signedIn()
+        val auth = AuthRepository(manager, db, http, recorder(), testImportSaves(db))
+        auth.signInAgain()
+        signedIn()
+
+        auth.signOut()
+
+        assertNull(auth.lastEnd.value)
     }
 
     @Test
@@ -159,7 +189,7 @@ class AuthRepositoryTest {
         val auth = AuthRepository(manager, db, http, recorder(), testImportSaves(db))
         backgroundScope.launch { auth.endExpiredSessions() }
         assertFailsWith<SessionExpiredException> { manager.freshSession(forceRefresh = true) }
-        auth.lastExpiry.first { it != null }
+        auth.lastEnd.first { it != null }
         auth.session.first { it == null }
 
         val key = DpopKey.generate()
@@ -178,7 +208,7 @@ class AuthRepositoryTest {
                 """{"access_token":"at2","token_type":"DPoP","refresh_token":"rt2","expires_in":3600,"scope":"atproto","sub":"$did"}"""
         auth.completeSignIn(mapOf("code" to "c", "state" to "s1", "iss" to "http://pds.test"))
 
-        assertNull(auth.lastExpiry.value)
+        assertNull(auth.lastEnd.value)
         assertEquals("at2", auth.session.value?.accessToken)
     }
 }

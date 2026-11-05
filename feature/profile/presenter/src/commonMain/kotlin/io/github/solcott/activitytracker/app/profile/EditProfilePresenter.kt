@@ -128,7 +128,7 @@ fun EditProfilePresenter(
             }
 
             EditProfileEvent.SignInAgain -> {
-                flights.launch(EditProfileEvent.SignInAgain) { auth.signOut() }
+                flights.launch(EditProfileEvent.SignInAgain) { auth.signInAgain() }
             }
 
             is EditProfileEvent.ApproveFollowersChanged -> {

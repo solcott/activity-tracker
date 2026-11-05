@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.auth.AuthBrowser
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.auth.EndedSession
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
@@ -101,7 +102,7 @@ class LoginPresenterTest {
         manager.restore()
         backgroundScope.launch { auth.endExpiredSessions() }
         runSuspendCatching { manager.freshSession(forceRefresh = true) }
-        auth.lastExpiry.first { it != null }
+        auth.lastEnd.first { it != null }
     }
 
     @Test
@@ -141,6 +142,54 @@ class LoginPresenterTest {
             val state = awaitItem()
             assertNull(state.expired)
             assertEquals("", state.handle.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** Alice was signed in, and chose Sign in again on the Account page. */
+    private suspend fun aliceSignsInAgain() {
+        store.saveSession(
+            OAuthSession(
+                did = Did(ALICE),
+                handle = Handle("alice.test"),
+                pdsUrl = "http://localhost:2583",
+                issuer = "http://localhost:2583",
+                tokenEndpoint = "http://localhost:2583/oauth/token",
+                accessToken = "at1",
+                refreshToken = "rt1",
+                expiresAt = null,
+                scope = "atproto",
+                dpopKey = DpopKey.generate().serialize(),
+            )
+        )
+        manager.restore()
+        auth.signInAgain()
+    }
+
+    @Test
+    fun signingInAgainFillsInTheHandleAndSaysWhy() = runTest {
+        val presenter = presenter()
+        aliceSignsInAgain()
+        presenter.test {
+            val state = awaitItem()
+            assertTrue(state.signingInAgain)
+            assertNull(state.expired)
+            assertEquals("alice.test", state.handle.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aCancelledSignInKeepsTheHandleAfterSigningInAgain() = runTest {
+        val presenter = presenter()
+        aliceSignsInAgain()
+        presenter.test {
+            val state = awaitItem()
+            state.eventSink(LoginEvent.Cancel)
+            testScheduler.runCurrent()
+            // Cancelling leaves the account the login screen fills in, so the field keeps its handle.
+            assertEquals(EndedSession.Reason.SignInAgain, auth.lastEnd.value?.reason)
+            assertEquals("alice.test", state.handle.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }

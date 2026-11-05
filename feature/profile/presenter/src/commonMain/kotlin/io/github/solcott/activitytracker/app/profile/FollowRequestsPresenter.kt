@@ -96,7 +96,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
             }
 
             FollowRequestsEvent.SignInAgain -> {
-                flights.launch(FollowRequestsEvent.SignInAgain) { auth.signOut() }
+                flights.launch(FollowRequestsEvent.SignInAgain) { auth.signInAgain() }
             }
         }
     }
