@@ -8,9 +8,12 @@ internal class OsmBuilder {
     private val nodes = mutableMapOf<Long, Pair<Double, Double>>()
     private val ways = mutableListOf<OsmWay>()
     private val relations = mutableListOf<OsmRelation>()
+    private val tagged = mutableListOf<OsmNode>()
 
-    fun node(id: Long, lat: Double, lng: Double) {
+    /** A node; one with [tags] is also a tagged node, as the dive-site read keeps. */
+    fun node(id: Long, lat: Double, lng: Double, tags: Map<String, String> = emptyMap()) {
         nodes[id] = lat to lng
+        if (tags.isNotEmpty()) tagged += OsmNode(id, tags, lat, lng)
     }
 
     fun way(id: Long, vararg nodes: Long, tags: Map<String, String>) {
@@ -24,7 +27,7 @@ internal class OsmBuilder {
     fun build(): OsmData {
         val coords = NodeCoords(nodes.keys.sorted().toLongArray())
         nodes.forEach { (id, at) -> coords.set(id, at.first, at.second) }
-        return OsmData(ways.toList(), relations.toList(), coords)
+        return OsmData(ways.toList(), relations.toList(), coords, nodes = tagged.toList())
     }
 }
 
