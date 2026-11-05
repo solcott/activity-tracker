@@ -105,7 +105,8 @@ class SegmentPresenterTest {
                                 """{"segment":{"uri":"$uri","cid":"bafyseg","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
                                     """"record":{"name":"Hill","sport":"run","line":"$line","source":"$source","license":"$license",""" +
                                     attribution?.let { """"attribution":"$it",""" }.orEmpty() +
-                                    """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,"status":"$status"$duplicateOf$naming}}""",
+                                    """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,""" +
+                                    """"status":"$status"$duplicateOf$naming}$profileField}""",
                                 headers = json,
                             )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
@@ -134,6 +135,8 @@ class SegmentPresenterTest {
     private lateinit var names: SegmentNames
     /** Extra fields of the served segment view, after `status`: its names, proposals and viewer flags. */
     private var naming = ""
+    /** The output's `elevationProfile` field, with its leading comma; empty for none. */
+    private var profileField = ""
 
     private suspend fun session(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Pair<SegmentRepository, SegmentStars> {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
@@ -153,6 +156,32 @@ class SegmentPresenterTest {
             assertEquals(2, TrackMath.decodePolyline(assertNotNull<String>(state.polyline)).size)
             assertEquals(listOf(200L, 250L, 300L), state.efforts.map { it.elapsed })
             assertEquals<List<String?>>(listOf(alice.value), effortsRequested, "the viewer's own")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theTerrainProfileComesWithTheSegmentTintedByGrade() = runTest {
+        // Flat for 500 m, then 12% to the end, 100 m apart.
+        val heights = List(6) { 10_000 } + listOf(10_120, 10_240, 10_360, 10_480, 10_600)
+        profileField = ""","elevationProfile":{"heights":${heights.joinToString(",", "[", "]")}}"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val profile = assertNotNull(awaitUntil { it.profile != null }.profile)
+            assertEquals(heights.map { it / 10.0 }, profile.heightsM)
+            assertEquals(100.0, profile.spacingMeters)
+            // Each point's grade between its neighbours: 6% where the climb starts, 12% after.
+            assertEquals(listOf(0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3), profile.gradeBands)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSegmentWithoutAProfileHasNone() = runTest {
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.segment != null }
+            assertNull(state.profile)
             cancelAndIgnoreRemainingEvents()
         }
     }

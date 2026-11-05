@@ -22,15 +22,16 @@ import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
-import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.dataresult.combineOutcomes
 import io.github.solcott.dataresult.dataOrNull
 import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentStates
 import io.github.solcott.uistate.contentStatesOf
 import kotlinx.collections.immutable.ImmutableList
@@ -55,16 +56,21 @@ fun SegmentPresenter(
     val flights = rememberSingleFlight()
 
     // Retained, so coming back from an effort's activity shows the segment at once; a retry restarts both reads under it.
-    val (content, ownEfforts) =
-        produceRetainedContentStates(contentStatesOf<SegmentView?, ImmutableList<EffortView>>(null, persistentListOf()), loadKey) {
+    val (detail, ownEfforts) =
+        produceRetainedContentStates(contentStatesOf<GetSegment.Output?, ImmutableList<EffortView>>(null, persistentListOf()), loadKey) {
             combineOutcomes(
                 // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
-                combine(segments.segmentOutcome(uri), names.changes) { outcome, _ -> outcome.mapData(names::applyTo) },
+                combine(segments.segmentDetailOutcome(uri), names.changes) { outcome, _ ->
+                    outcome.mapData { it.copy(segment = names.applyTo(it.segment)) }
+                },
                 segments.ownEffortsOutcome(uri).map { outcome ->
                     outcome.mapData { efforts -> efforts.sortedBy { it.elapsed }.toImmutableList() }
                 },
             )
         }
+    // The segment and its profile come from one read; the screen's content is the segment.
+    val content = ContentState(detail.data?.segment, detail.origin, detail.status)
+    val profile = remember(detail.data) { detail.data?.let(::segmentProfileOf) }
     val segment = content.data
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
@@ -102,6 +108,7 @@ fun SegmentPresenter(
         confirmDelete = confirmDelete,
         nameError = nameError,
         self = names.self.value,
+        profile = profile,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()

@@ -123,6 +123,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                         )
                     }
                     Elevation(segment)
+                    state.profile?.let { SegmentProfileChart(it, Modifier.padding(top = 8.dp)) }
                     Text(
                         stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
                         style = MaterialTheme.typography.bodyMedium,

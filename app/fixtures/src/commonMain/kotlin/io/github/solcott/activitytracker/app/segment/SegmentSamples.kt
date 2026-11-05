@@ -33,6 +33,7 @@ import io.github.solcott.uistate.ContentState
 import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 object SegmentSamples {
     val segment: SegmentView = fakeSegment()
@@ -126,13 +127,33 @@ object SegmentSamples {
                 VOTING_UNAVAILABLE to votingUnavailable,
                 LIFT to lift,
                 ELEVATION to elevation,
+                ELEVATION_FROM_EFFORTS to elevationFromEfforts,
             )
 
     const val LIFT = "lift"
     const val ELEVATION = "elevation"
+    const val ELEVATION_FROM_EFFORTS = "elevationFromEfforts"
 
-    /** A 1.6 km segment the AppView gave terrain elevation (segments/segment-elevation): 84 m up, 12 m down, a 4.5% average grade. */
+    /**
+     * A 1.6 km segment the AppView gave terrain elevation and a profile (segments/segment-elevation): 84 m up, 12 m down, a 4.5% average
+     * grade, gentle, then a steep middle, then a short descent.
+     */
     val elevation: SegmentState
+        get() =
+            state(
+                    ContentStates.loaded(
+                        segment.copy(
+                            distanceMeters = 1_600,
+                            elevationGain = 84,
+                            elevationLoss = 12,
+                            elevationSource = SegmentElevationSource.TERRAIN,
+                        )
+                    )
+                )
+                .copy(profile = fakeProfile(1_600) { at -> CLIMB_START_M + climbProfile(at) })
+
+    /** A segment whose elevation comes from athletes' efforts: the numbers, and no profile. */
+    val elevationFromEfforts: SegmentState
         get() =
             state(
                 ContentStates.loaded(
@@ -140,28 +161,59 @@ object SegmentSamples {
                         distanceMeters = 1_600,
                         elevationGain = 84,
                         elevationLoss = 12,
-                        elevationSource = SegmentElevationSource.TERRAIN,
+                        elevationSource = SegmentElevationSource.EFFORTS,
                     )
                 )
             )
+
+    private const val CLIMB_START_M = 1_420.0
+
+    /** Meters above the start [at] a fraction of the way along: 3% for 40%, 12% for 30%, 3% for 15%, then down 12 m. */
+    @Suppress("MagicNumber") // The shape of one made-up climb.
+    private fun climbProfile(at: Double): Double {
+        val m = at * 1_600
+        return when {
+            m <= 640 -> m * 0.03
+            m <= 1_120 -> 19.2 + (m - 640) * 0.12
+            m <= 1_360 -> 76.8 + (m - 1_120) * 0.03
+            else -> 84.0 - (m - 1_360) * 0.05
+        }
+    }
+
+    /** A [distanceMeters] profile of [PROFILE_POINTS] heights, [heightAt] each fraction along, with each point's grade. */
+    private fun fakeProfile(distanceMeters: Long, heightAt: (Double) -> Double): SegmentProfile {
+        val count = PROFILE_POINTS
+        val heights = List(count) { heightAt(it.toDouble() / (count - 1)) }
+        val spacing = distanceMeters.toDouble() / (count - 1)
+        val grades =
+            heights.indices.map { i ->
+                val behind = (i - 2).coerceAtLeast(0)
+                val ahead = (i + 2).coerceAtMost(heights.lastIndex)
+                (heights[ahead] - heights[behind]) / ((ahead - behind) * spacing) * 100
+            }
+        return SegmentProfile(heights.toImmutableList(), distanceMeters, grades.toImmutableList())
+    }
+
+    private const val PROFILE_POINTS = 128
 
     /** An active ski lift (segments/segment-lifts): the viewer's rides on it, and no leaderboard, Mayor or names. */
     val lift: SegmentState
         get() {
             val lift =
                 fakeSegment(
-                    "summit-quad",
-                    record =
-                        fakeSegmentRecord(
-                            name = "Summit Quad",
-                            sport = SegmentSportGroup.ALPINE,
-                            source = SegmentSource.OSM,
-                            license = "ODbL-1.0",
-                            kind = SegmentKind.LIFT,
-                        ),
-                    distanceMeters = 1_420,
-                    status = SegmentStatus.ACTIVE,
-                )
+                        "summit-quad",
+                        record =
+                            fakeSegmentRecord(
+                                name = "Summit Quad",
+                                sport = SegmentSportGroup.ALPINE,
+                                source = SegmentSource.OSM,
+                                license = "ODbL-1.0",
+                                kind = SegmentKind.LIFT,
+                            ),
+                        distanceMeters = 1_420,
+                        status = SegmentStatus.ACTIVE,
+                    )
+                    .copy(elevationGain = 310, elevationLoss = 0, elevationSource = SegmentElevationSource.TERRAIN)
             return SegmentState(
                 content = ContentStates.loaded(lift),
                 polyline = lift.record.line,
@@ -171,6 +223,7 @@ object SegmentSamples {
                         fakeEffort(fakeSegmentBasic(lift), elapsed = 430, startOffset = 1500),
                     ),
                 starred = false,
+                profile = fakeProfile(1_420) { at -> 1_850.0 + 310 * at },
             )
         }
 

@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.uistate.ContentState
+import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -56,6 +57,8 @@ data class SegmentState(
     val nameError: UiError? = null,
     /** The signed-in viewer's DID: the proposals they made are offered Edit and Delete, not votes. */
     val self: String? = null,
+    /** The segment's terrain profile (segments/segment-elevation); null when the AppView sent none, or until loaded. */
+    val profile: SegmentProfile? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */
@@ -73,6 +76,33 @@ data class SegmentState(
     /** The viewer may vote ([SegmentView.viewer]'s flag); [canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = segment?.viewer?.canVoteOnNames == true
+}
+
+/**
+ * A segment's terrain profile as the screen draws it (segments/segment-elevation): [heightsM] in meters, evenly spaced along its
+ * [distanceMeters] from start to end, and each point's grade in percent over about 50 m, [gradesPercent], positive uphill.
+ */
+@Immutable
+data class SegmentProfile(val heightsM: ImmutableList<Double>, val distanceMeters: Long, val gradesPercent: ImmutableList<Double>) {
+    /** How far apart the heights are, in meters. */
+    val spacingMeters: Double
+        get() = if (heightsM.size > 1) distanceMeters.toDouble() / (heightsM.size - 1) else 0.0
+
+    /** Each point's [GradeBand]. */
+    val gradeBands: List<Int>
+        get() = gradesPercent.map(GradeBand::of)
+}
+
+/** The five bands a profile is tinted by, from a point's absolute grade in percent: under 3, 3 to 6, 6 to 10, 10 to 15, and 15 or more. */
+object GradeBand {
+    /** Each band's lowest grade in percent, after the first. */
+    val THRESHOLDS: ImmutableList<Double> = persistentListOf(3.0, 6.0, 10.0, 15.0)
+
+    /** How many bands there are. */
+    const val COUNT = 5
+
+    /** The band of [gradePercent], whichever way the slope goes. */
+    fun of(gradePercent: Double): Int = THRESHOLDS.count { abs(gradePercent) >= it }
 }
 
 /** An active segment's Mayors board in brief: its [leader], null when it has no Mayor yet, and the [viewer]'s own entry when on it. */
