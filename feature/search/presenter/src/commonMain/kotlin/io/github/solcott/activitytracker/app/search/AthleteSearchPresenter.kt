@@ -3,10 +3,10 @@ package io.github.solcott.activitytracker.app.search
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
-import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -38,7 +38,9 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
             }
         }
 
-    var mode by rememberRetained { mutableStateOf(SearchMode.Athletes) }
+    // Saveable like both search boxes, so a restored Segments search isn't hidden under Athletes.
+    var modeIndex by rememberSaveable { mutableIntStateOf(SearchMode.Athletes.ordinal) }
+    val mode = SearchMode.entries[modeIndex]
 
     return AthleteSearchState(query = query, results = results.state, mode = mode) { event ->
         when (event) {
@@ -59,7 +61,7 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
             }
 
             is AthleteSearchEvent.ModeChanged -> {
-                mode = event.mode
+                modeIndex = event.mode.ordinal
             }
 
             is AthleteSearchEvent.GoTo -> {
