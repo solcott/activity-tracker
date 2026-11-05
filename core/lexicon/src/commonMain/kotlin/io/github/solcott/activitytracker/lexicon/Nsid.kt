@@ -88,8 +88,8 @@ object Nsid {
     /** Query: the invitees of one of the caller's activities. */
     const val FEED_GET_ACTIVITY_INVITEES = "$NAMESPACE.feed.getActivityInvitees"
     /**
-     * A proposed new name for a segment (segments/segment-names), kept only in the proposer's repo and indexed from the firehose; a copy in
-     * a space is ignored.
+     * A proposed new name for a segment (segments/segment-names) or a [FEED_DIVE_SITE] (dive-sites/site-names), kept only in the proposer's
+     * repo and indexed from the firehose; a copy in a space is ignored.
      */
     const val FEED_SEGMENT_NAME_PROPOSAL = "$NAMESPACE.feed.segmentNameProposal"
     /**
@@ -104,6 +104,17 @@ object Nsid {
     const val FEED_GET_SEGMENT_LEADERBOARD = "$NAMESPACE.feed.getSegmentLeaderboard"
     const val FEED_GET_SEGMENT_MAYORS = "$NAMESPACE.feed.getSegmentMayors"
     const val FEED_CHECK_SEGMENT = "$NAMESPACE.feed.checkSegment"
+    /**
+     * A public dive site (dive-sites/site-records), kept only in its creator's repo and indexed from the firehose; a copy in a space is
+     * ignored. Renamed through [FEED_SEGMENT_NAME_PROPOSAL] and [FEED_SEGMENT_NAME_VOTE], whose subject may be a site.
+     */
+    const val FEED_DIVE_SITE = "$NAMESPACE.feed.diveSite"
+    const val FEED_GET_DIVE_SITE = "$NAMESPACE.feed.getDiveSite"
+    const val FEED_SEARCH_DIVE_SITES = "$NAMESPACE.feed.searchDiveSites"
+    const val FEED_CHECK_DIVE_SITE = "$NAMESPACE.feed.checkDiveSite"
+    const val FEED_GET_DIVE_SITE_DIVES = "$NAMESPACE.feed.getDiveSiteDives"
+    const val FEED_GET_DIVE_SITE_CONDITIONS = "$NAMESPACE.feed.getDiveSiteConditions"
+    const val FEED_GET_DIVE_SITE_REGULARS = "$NAMESPACE.feed.getDiveSiteRegulars"
     /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_SOURCE = "$NAMESPACE.feed.activitySource"
     /**
@@ -125,6 +136,8 @@ object Nsid {
     const val IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES = "$NAMESPACE.importer.getRiddenSegmentCandidates"
     /** Procedure: the segment importer checks staged candidates for duplicates of live segments, writing nothing. */
     const val IMPORTER_CHECK_SEGMENT_CANDIDATES = "$NAMESPACE.importer.checkSegmentCandidates"
+    /** Procedure: checks extracted dive sites for duplicates of live ones before the segment importer publishes them. */
+    const val IMPORTER_CHECK_DIVE_SITES = "$NAMESPACE.importer.checkDiveSites"
 
     /** One piece of an athlete's gear: in their repo when Public, else in their tier space for its visibility ([SPACE_ATHLETE]). */
     const val GEAR_ITEM = "$NAMESPACE.gear.item"
@@ -181,6 +194,7 @@ object Nsid {
             FEED_COMMENT_HIDE,
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
+            FEED_DIVE_SITE,
             GEAR_ITEM,
             GRAPH_FOLLOW,
             GRAPH_FOLLOW_APPROVAL,

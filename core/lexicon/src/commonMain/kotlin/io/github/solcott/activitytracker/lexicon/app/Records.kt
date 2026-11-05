@@ -653,6 +653,43 @@ data class SegmentRecord(
 )
 
 /**
+ * `app.activitytracker.feed.diveSite`: a named, public dive site, a centre and a [radius] that consenting athletes' dives are matched to by
+ * their entry (dive-sites/site-records). Stored only in its creator's repo. Keyed by TID, except the segment importer's, keyed by the id of
+ * the extracted site they were published from. Its status is a [SegmentStatus] value derived by the AppView.
+ */
+@Serializable
+data class DiveSiteRecord(
+    /** At most [MAX_NAME_GRAPHEMES] graphemes, not empty once trimmed. */
+    val name: String,
+    /** The centre's latitude in 1e-7 degrees. */
+    val lat: Int,
+    /** The centre's longitude in 1e-7 degrees. */
+    val lng: Int,
+    /** Meters, [MIN_RADIUS] to [MAX_RADIUS]. */
+    val radius: Int,
+    /** A [SegmentSource] value. */
+    val source: String,
+    /** The data's licence, as an SPDX identifier such as `CC0-1.0`. */
+    val license: String,
+    val createdAt: Instant,
+    /** The dive the site was placed from, named only when that dive and its Map category are public. */
+    val derivedFrom: StrongRef? = null,
+    /** Who to credit for the site's data: at most [MAX_NAME_GRAPHEMES] graphemes. */
+    val attribution: String? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_DIVE_SITE,
+) {
+    companion object {
+        const val MAX_NAME_GRAPHEMES = 100
+        const val MIN_RADIUS = 25
+        const val MAX_RADIUS = 500
+        /** The radius an athlete's new site starts with. */
+        const val DEFAULT_RADIUS = 100
+        /** The radius of a site extracted from OpenStreetMap. */
+        const val OSM_RADIUS = 150
+    }
+}
+
+/**
  * `app.activitytracker.actor.segmentPrefs`: whether the athlete's segment matching is on, and whether they hide from leaderboards. It lives
  * only in their [AthleteSpace.SELF] space; no record means they were never asked, and matching is off.
  */
@@ -766,11 +803,13 @@ data class SegmentStarRecord(
 )
 
 /**
- * `app.activitytracker.feed.segmentNameProposal`: a proposed new name for [segment] (segments/segment-names). Public, so it lives only in
- * the proposer's repo and names them. Rewriting it with a different name while it's open clears its votes.
+ * `app.activitytracker.feed.segmentNameProposal`: a proposed new name for [segment] (segments/segment-names), or for a dive site
+ * (dive-sites/site-names) when [segment] names a [Nsid.FEED_DIVE_SITE]. Public, so it lives only in the proposer's repo and names them.
+ * Rewriting it with a different name while it's open clears its votes.
  */
 @Serializable
 data class SegmentNameProposalRecord(
+    /** The `feed.segment` or `feed.diveSite` the name is for, told apart by its collection. */
     val segment: AtUri,
     /** At most 100 graphemes, not empty once trimmed. */
     val name: String,
@@ -789,8 +828,8 @@ object SegmentNameVoteDirection {
 }
 
 /**
- * `app.activitytracker.feed.segmentNameVote`: a vote on a [SegmentNameProposalRecord] at the version [subject] names. Private, so it lives
- * only in the voter's [AthleteSpace.INTERACTIONS] space; the AppView serves only totals.
+ * `app.activitytracker.feed.segmentNameVote`: a vote on a [SegmentNameProposalRecord], for a segment or a dive site, at the version
+ * [subject] names. Private, so it lives only in the voter's [AthleteSpace.INTERACTIONS] space; the AppView serves only totals.
  */
 @Serializable
 data class SegmentNameVoteRecord(

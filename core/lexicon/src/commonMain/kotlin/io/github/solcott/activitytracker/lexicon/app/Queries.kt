@@ -716,3 +716,121 @@ object CheckSegmentCandidates {
 
     val method = XrpcProcedure(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES, Input.serializer(), Output.serializer())
 }
+
+/** A dive site, whatever its status (dive-sites/site-records). `NotFound` when it isn't indexed or served. */
+object GetDiveSite {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable data class Output(val site: DiveSiteView)
+
+    val method = XrpcQuery(Nsid.FEED_GET_DIVE_SITE, Params.serializer(), Output.serializer())
+}
+
+/**
+ * Dive sites whose centre lies in a box (1e-7 degrees), at most [SearchSegments.MAX_SPAN_E7] on either side, else `InvalidRequest`: active
+ * ones to everyone, proposed ones only to their creator and divers. Keep paging while there is a cursor.
+ */
+object SearchDiveSites {
+    @Serializable
+    data class Params(
+        val minLat: Int,
+        val minLng: Int,
+        val maxLat: Int,
+        val maxLng: Int,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val sites: List<DiveSiteView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_SEARCH_DIVE_SITES, Params.serializer(), Output.serializer())
+}
+
+/**
+ * Checks a centre before the caller publishes it as a dive site: the proposed or active sites it would duplicate, earliest indexed first,
+ * and how many more new sites the caller may create today. Needs a signed-in caller.
+ */
+object CheckDiveSite {
+    /** 1e-7 degrees. */
+    @Serializable data class Input(val lat: Int, val lng: Int)
+
+    @Serializable data class Output(val duplicates: List<DiveSiteView>, val remaining: Int)
+
+    /** A centre within this many meters of a live site's duplicates it. */
+    const val DUPLICATE_METERS = 50
+
+    val method = XrpcProcedure(Nsid.FEED_CHECK_DIVE_SITE, Input.serializer(), Output.serializer())
+}
+
+/** A site's visits the viewer may see, newest first, as their dives. `NotFound` when the site isn't served. */
+object GetDiveSiteDives {
+    @Serializable data class Params(val site: AtUri, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val dives: List<ActivityView>, val cursor: String? = null)
+
+    /** At most this many dives a page. */
+    const val MAX_LIMIT = 50
+
+    /** [limit] within 1 to [MAX_LIMIT], [Paging.DEFAULT_LIMIT] when absent. */
+    fun clamp(limit: Int?): Int = Paging.clamp(limit).coerceAtMost(MAX_LIMIT)
+
+    val method = XrpcQuery(Nsid.FEED_GET_DIVE_SITE_DIVES, Params.serializer(), Output.serializer())
+}
+
+/** A site's conditions over the dives the viewer may see, with their Dive category; null when there are none. */
+object GetDiveSiteConditions {
+    @Serializable data class Params(val site: AtUri)
+
+    @Serializable data class Output(val conditions: DiveSiteConditions? = null)
+
+    /** At most this many of the newest visible visits are aggregated. */
+    const val MAX_DIVES = 2_000
+
+    val method = XrpcQuery(Nsid.FEED_GET_DIVE_SITE_CONDITIONS, Params.serializer(), Output.serializer())
+}
+
+/**
+ * A site's Regulars board (dive-sites/site-regulars). Only an active site has entries. `NotFound` when the site isn't served;
+ * `InvalidRequest` for an unknown [Params.period] or [Params.scope], or [LeaderboardScope.FOLLOWING] without a viewer.
+ */
+object GetDiveSiteRegulars {
+    @Serializable
+    data class Params(
+        val site: AtUri,
+        /** A [RegularsPeriod] value; null means [RegularsPeriod.ALL_TIME]. */
+        val period: String? = null,
+        /** A [LeaderboardScope] value; null means [LeaderboardScope.EVERYONE]. */
+        val scope: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable
+    data class Output(val entries: List<DiveSiteRegularEntry>, val viewer: DiveSiteRegularEntry? = null, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_DIVE_SITE_REGULARS, Params.serializer(), Output.serializer())
+}
+
+/** Known values of [GetDiveSiteRegulars.Params.period]: by the dive's local date, against the AppView's UTC date. */
+object RegularsPeriod {
+    const val ALL_TIME = MayorPeriod.ALL_TIME
+    const val THIS_YEAR = MayorPeriod.THIS_YEAR
+    const val LAST_YEAR = MayorPeriod.LAST_YEAR
+
+    val all = listOf(ALL_TIME, THIS_YEAR, LAST_YEAR)
+}
+
+/** `app.activitytracker.importer.defs#sitePosition`: an extracted dive site's id (its rkey) and centre, in 1e-7 degrees. */
+@Serializable data class DiveSitePosition(val id: String, val lat: Int, val lng: Int)
+
+/**
+ * `app.activitytracker.importer.checkDiveSites`: checks up to [SegmentCandidates.MAX_BATCH] extracted sites for duplicates of live ones,
+ * writing nothing, in the order given. Only the segment importer may call it.
+ */
+object CheckDiveSites {
+    @Serializable data class Input(val sites: List<DiveSitePosition>)
+
+    @Serializable data class Output(val sites: List<SegmentCandidateCheck>)
+
+    val method = XrpcProcedure(Nsid.IMPORTER_CHECK_DIVE_SITES, Input.serializer(), Output.serializer())
+}

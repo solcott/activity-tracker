@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getDiveSite",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A dive site, whatever its status, with its names and what the viewer may do with them.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["site"],
+          "properties": {
+            "site": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteView" }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The site isn't indexed, or isn't served: its account is suspended or taken down, or the record is." }]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getDiveSiteConditions",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A dive site's usual conditions, aggregated over at most the 2,000 newest of its visits the viewer may see whose Dive category the viewer may also see. Each value comes only from the dives that record it. Absent conditions mean there were no such dives.",
+      "parameters": {
+        "type": "params",
+        "required": ["site"],
+        "properties": {
+          "site": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "conditions": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteConditions" }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The site isn't indexed, or isn't served (as for getDiveSite)." }]
+    }
+  }
+}

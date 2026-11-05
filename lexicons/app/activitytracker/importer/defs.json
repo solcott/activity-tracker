@@ -28,12 +28,22 @@
     },
     "duplicateCheck": {
       "type": "object",
-      "description": "A staged candidate checked against the live segments of its sport group, and those it duplicates, by the duplicate test the AppView applies when indexing. Empty when it duplicates none.",
+      "description": "A staged candidate checked against the live segments of its sport group, or an extracted dive site against the live dive sites (app.activitytracker.importer.checkDiveSites), and those it duplicates, by the duplicate test the AppView applies when indexing. Empty when it duplicates none.",
       "required": ["id", "duplicates"],
       "properties": {
         "id": { "type": "string", "maxLength": 64 },
         "duplicates": { "type": "array", "items": { "type": "string", "format": "at-uri" } },
         "candidate": { "type": "ref", "ref": "#candidate", "description": "The candidate as staged, which the importer publishes rather than any copy of its own." }
+      }
+    },
+    "sitePosition": {
+      "type": "object",
+      "description": "An extracted dive site's id and centre, checked for duplicates before the importer publishes it.",
+      "required": ["id", "lat", "lng"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The importer's stable id for the site, of lowercase letters, digits and hyphens: the rkey it is published under." },
+        "lat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+        "lng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." }
       }
     }
   }

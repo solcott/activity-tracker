@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.checkDiveSite",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Checks a centre before the caller publishes it as a feed.diveSite: the proposed or active sites it would duplicate (centre within 50 m), by the same test the AppView applies when indexing, earliest indexed first, and how many more new sites the caller may create in the current 24 hours. Requires service auth. Writes nothing.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["lat", "lng"],
+          "properties": {
+            "lat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+            "lng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["duplicates", "remaining"],
+          "properties": {
+            "duplicates": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteView" } },
+            "remaining": { "type": "integer", "minimum": 0, "description": "How many more new sites the caller may create in the current 24 hours." }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "The position is out of range." }]
+    }
+  }
+}

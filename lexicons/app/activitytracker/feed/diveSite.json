@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.diveSite",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A named, public dive site: a centre and a radius that consenting athletes' dives are matched to by their entry position (dive-sites/site-visits). Public: stored only in its creator's repo, never in a space; the AppView ignores a copy found in any space. The AppView indexes it only when its name is valid, its centre is a valid position and its radius is 25 to 500 m. Athletes' sites are keyed by TID; the segment importer's are keyed by the id of the extracted site they were published from.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["name", "lat", "lng", "radius", "source", "license", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+          "lat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "The centre's latitude in 1e-7 degrees." },
+          "lng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "The centre's longitude in 1e-7 degrees." },
+          "radius": { "type": "integer", "minimum": 25, "maximum": 500, "description": "Meters: a dive whose entry lies within it may visit the site." },
+          "source": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["athlete", "osm", "agency"],
+            "description": "Where the site came from: an athlete's dive, OpenStreetMap or a public agency's dataset. A site whose source the AppView doesn't know isn't indexed."
+          },
+          "license": { "type": "string", "maxLength": 64, "description": "The licence of the site's data, as an SPDX identifier such as CC0-1.0 or ODbL-1.0." },
+          "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the site's data. The AppView drops a blank or over-long one." },
+          "derivedFrom": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The dive the site was placed from, named only when that dive and its Map category are public." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -58,6 +58,11 @@
           "maxLength": 20,
           "description": "Other athletes' activities this one was done together with (feed/group-activities) that the viewer may see: each partner's activity at the narrowest of its visibility and its Start time and Map categories, no block either way, and no mute by the viewer. Most recently paired first. Absent when there are none."
         },
+        "diveSite": {
+          "type": "ref",
+          "ref": "#diveSiteViewBasic",
+          "description": "The dive site this dive visited (dive-sites/site-visits), when the viewer may see the visit: at the narrowest of the activity's visibility and its Map category's. Absent otherwise; show the record's own dive.site text then."
+        },
         "labels": {
           "type": "array",
           "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
@@ -356,6 +361,104 @@
         "athlete": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
         "efforts": { "type": "integer", "minimum": 1, "description": "How many of the athlete's efforts the board counts." },
         "reachedOn": { "type": "string", "description": "The local date of their latest counted effort, which reached the count, as YYYY-MM-DD." }
+      }
+    },
+    "diveSiteView": {
+      "type": "object",
+      "required": ["uri", "cid", "creator", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "creator": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "record": { "type": "ref", "ref": "app.activitytracker.feed.diveSite" },
+        "status": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["proposed", "active", "duplicate", "archived"],
+          "description": "Derived by the AppView, never read from the record. Absent or unknown means active."
+        },
+        "duplicateOf": { "type": "string", "format": "at-uri", "description": "The earlier site this one duplicates, when status is duplicate." },
+        "name": {
+          "type": "string",
+          "maxLength": 1000,
+          "maxGraphemes": 100,
+          "description": "The site's current name: its latest adopted community name still in effect (dive-sites/site-names), or record.name (its original name) when it has none."
+        },
+        "nameHistory": {
+          "type": "array",
+          "maxLength": 100,
+          "items": { "type": "ref", "ref": "#segmentNameAdoption" },
+          "description": "Adopted names still in effect, newest first. Served by app.activitytracker.feed.getDiveSite only."
+        },
+        "nameProposals": {
+          "type": "array",
+          "maxLength": 100,
+          "items": { "type": "ref", "ref": "#segmentNameProposalView" },
+          "description": "Open name proposals the viewer may see. Served by app.activitytracker.feed.getDiveSite only."
+        },
+        "viewer": { "type": "ref", "ref": "#diveSiteViewerState" }
+      }
+    },
+    "diveSiteViewerState": {
+      "type": "object",
+      "properties": {
+        "canProposeName": { "type": "boolean", "description": "The viewer may propose a name now (dive-sites/site-names). Served by getDiveSite only; absent means false." },
+        "canVoteOnNames": { "type": "boolean", "description": "The viewer may vote on name proposals: they have a visit to the site. Served by getDiveSite only; absent means false." }
+      }
+    },
+    "diveSiteViewBasic": {
+      "type": "object",
+      "required": ["uri", "name"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The site's current name, as diveSiteView's name." },
+        "status": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["proposed", "active", "duplicate", "archived"],
+          "description": "As diveSiteView's status. Absent or unknown means active."
+        }
+      }
+    },
+    "diveSiteConditions": {
+      "type": "object",
+      "description": "A dive site's conditions over the dives used (app.activitytracker.feed.getDiveSiteConditions). Each value comes only from the dives that record it, and is absent when none does.",
+      "required": ["dives"],
+      "properties": {
+        "dives": { "type": "integer", "minimum": 1, "description": "How many dives the conditions come from." },
+        "minTemperature": { "type": "integer", "description": "The lowest of the dives' coldest water temperatures, in tenths of a degree Celsius." },
+        "medianTemperature": { "type": "integer", "description": "The median of the dives' coldest water temperatures, in tenths of a degree Celsius." },
+        "maxTemperature": { "type": "integer", "description": "The highest of the dives' coldest water temperatures, in tenths of a degree Celsius." },
+        "medianVisibility": { "type": "integer", "minimum": 0, "description": "Centimeters." },
+        "medianMaxDepth": { "type": "integer", "minimum": 0, "description": "The median of the dives' maximum depths, in centimeters." },
+        "maxDepth": { "type": "integer", "minimum": 0, "description": "The greatest of the dives' maximum depths, in centimeters." },
+        "months": {
+          "type": "array",
+          "maxLength": 12,
+          "items": { "type": "ref", "ref": "#diveSiteMonth" },
+          "description": "One per calendar month with dives, by the dive's local date, January first."
+        }
+      }
+    },
+    "diveSiteMonth": {
+      "type": "object",
+      "required": ["month", "dives"],
+      "properties": {
+        "month": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "dives": { "type": "integer", "minimum": 1 },
+        "medianTemperature": { "type": "integer", "description": "Tenths of a degree Celsius." },
+        "medianVisibility": { "type": "integer", "minimum": 0, "description": "Centimeters." }
+      }
+    },
+    "diveSiteRegularEntry": {
+      "type": "object",
+      "description": "One athlete's place on a dive site's Regulars board (app.activitytracker.feed.getDiveSiteRegulars): how many of their visits the board counts.",
+      "required": ["rank", "athlete", "visits", "reachedOn"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1, "description": "1 for the most visits; equal counts reached on the same date share a rank, and the next rank skips." },
+        "athlete": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "visits": { "type": "integer", "minimum": 1, "description": "How many of the athlete's visits the board counts." },
+        "reachedOn": { "type": "string", "description": "The local date of their latest counted visit, which reached the count, as YYYY-MM-DD." }
       }
     },
     "importCardView": {

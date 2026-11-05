@@ -105,6 +105,11 @@ data class ActivityView(
      * first; null when there are none.
      */
     val group: List<GroupPartner>? = null,
+    /**
+     * The dive site this dive visited (dive-sites/site-visits), when the viewer may see the visit; null otherwise, when the record's own
+     * [ActivityDive.site] text is all there is.
+     */
+    val diveSite: DiveSiteViewBasic? = null,
 ) {
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String
@@ -373,5 +378,98 @@ data class MayorEntry(
     /** How many of the athlete's efforts the board counts. */
     val efforts: Int,
     /** The local date of their latest counted effort, which reached the count, `YYYY-MM-DD`. */
+    val reachedOn: String,
+)
+
+/** `app.activitytracker.feed.defs#diveSiteView` */
+@Immutable
+@Serializable
+data class DiveSiteView(
+    val uri: AtUri,
+    val cid: Cid,
+    val creator: ProfileViewBasic,
+    val record: DiveSiteRecord,
+    /** A [SegmentStatus] value, derived by the AppView; null or unknown means [SegmentStatus.ACTIVE]. */
+    val status: String? = null,
+    /** The earlier site this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
+    val duplicateOf: AtUri? = null,
+    /** The current name: the latest adopted community name in effect, or [record]'s name (the original); use [currentName]. */
+    val name: String? = null,
+    /** Adopted names still in effect, newest first; only from `getDiveSite`. */
+    val nameHistory: List<SegmentNameAdoption> = emptyList(),
+    /** Open name proposals the viewer may see; only from `getDiveSite`. */
+    val nameProposals: List<SegmentNameProposalView> = emptyList(),
+    val viewer: DiveSiteViewerState? = null,
+) {
+    /** [name], or the original name when the AppView didn't send one. */
+    val currentName: String
+        get() = name ?: record.name
+}
+
+/** `app.activitytracker.feed.defs#diveSiteViewerState` */
+@Immutable
+@Serializable
+data class DiveSiteViewerState(
+    /** The viewer may propose a name now; only from `getDiveSite`. */
+    val canProposeName: Boolean = false,
+    /** The viewer has a visit to the site, so may vote on its name proposals; only from `getDiveSite`. */
+    val canVoteOnNames: Boolean = false,
+)
+
+/** `app.activitytracker.feed.defs#diveSiteViewBasic` */
+@Immutable
+@Serializable
+data class DiveSiteViewBasic(
+    val uri: AtUri,
+    /** The site's current name, as [DiveSiteView.name]. */
+    val name: String,
+    /** A [SegmentStatus] value; null or unknown means [SegmentStatus.ACTIVE]. */
+    val status: String? = null,
+)
+
+/**
+ * `app.activitytracker.feed.defs#diveSiteConditions`: a site's conditions over the [dives] used. Each value comes only from the dives that
+ * record it, and is null when none does.
+ */
+@Immutable
+@Serializable
+data class DiveSiteConditions(
+    val dives: Int,
+    /** Tenths of a degree Celsius: the lowest, median and highest of the dives' coldest water temperatures. */
+    val minTemperature: Long? = null,
+    val medianTemperature: Long? = null,
+    val maxTemperature: Long? = null,
+    /** Centimeters. */
+    val medianVisibility: Long? = null,
+    /** Centimeters: the median and greatest of the dives' maximum depths. */
+    val medianMaxDepth: Long? = null,
+    val maxDepth: Long? = null,
+    /** One per calendar month with dives, January first. */
+    val months: List<DiveSiteMonth> = emptyList(),
+)
+
+/** `app.activitytracker.feed.defs#diveSiteMonth`: one calendar month's dives at a site. */
+@Immutable
+@Serializable
+data class DiveSiteMonth(
+    /** 1 to 12. */
+    val month: Int,
+    val dives: Int,
+    /** Tenths of a degree Celsius. */
+    val medianTemperature: Long? = null,
+    /** Centimeters. */
+    val medianVisibility: Long? = null,
+)
+
+/** `app.activitytracker.feed.defs#diveSiteRegularEntry`: one athlete's place on a site's Regulars board. */
+@Immutable
+@Serializable
+data class DiveSiteRegularEntry(
+    /** 1 for the most visits; equal counts reached on the same date share a rank, and the next rank skips. */
+    val rank: Int,
+    val athlete: ProfileViewBasic,
+    /** How many of the athlete's visits the board counts. */
+    val visits: Int,
+    /** The local date of their latest counted visit, which reached the count, `YYYY-MM-DD`. */
     val reachedOn: String,
 )

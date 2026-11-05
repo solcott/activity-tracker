@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getDiveSiteRegulars",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A dive site's Regulars board: athletes by how many of their visits to it in a window the viewer may see, most first, leaving out athletes who hide from leaderboards and activities excluded on their segment track. Equal counts are ordered by the date each was reached, earliest first. Only active sites have one; any other status has no entries.",
+      "parameters": {
+        "type": "params",
+        "required": ["site"],
+        "properties": {
+          "site": { "type": "string", "format": "at-uri" },
+          "period": {
+            "type": "string",
+            "knownValues": ["allTime", "thisYear", "lastYear"],
+            "default": "allTime",
+            "description": "By the dive's local date, against the AppView's current date in UTC."
+          },
+          "scope": {
+            "type": "string",
+            "knownValues": ["everyone", "following"],
+            "default": "everyone",
+            "description": "following: only the viewer and the athletes they effectively follow. Needs a signed-in viewer."
+          },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["entries"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "entries": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteRegularEntry" } },
+            "viewer": {
+              "type": "ref",
+              "ref": "app.activitytracker.feed.defs#diveSiteRegularEntry",
+              "description": "The signed-in viewer's own entry, whichever page this is; absent when they aren't on the board."
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotFound", "description": "The site isn't indexed, or isn't served (as for getDiveSite)." },
+        { "name": "InvalidRequest", "description": "An unknown period or scope, or the following scope without a signed-in viewer." }
+      ]
+    }
+  }
+}

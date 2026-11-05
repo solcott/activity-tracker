@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.searchDiveSites",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Dive sites whose centre lies in a bounding box, oldest indexed first: active ones to everyone, proposed ones only to their creator and athletes with a visit to them, never duplicate or archived ones. Keep paging while there is a cursor.",
+      "parameters": {
+        "type": "params",
+        "required": ["minLat", "minLng", "maxLat", "maxLng"],
+        "properties": {
+          "minLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["sites"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "sites": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "A box with min above max, or wider than 1 degree on either side." }]
+    }
+  }
+}
