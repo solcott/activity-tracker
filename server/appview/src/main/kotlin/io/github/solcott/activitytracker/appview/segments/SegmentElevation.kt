@@ -22,16 +22,18 @@ import org.jetbrains.exposed.v1.jdbc.update
 data class SegmentElevation(val gain: Long, val loss: Long, val source: String)
 
 /**
- * The elevation [row] of [Segments] serves: its efforts' once they come from at least [activeAthletes] distinct athletes, else its
- * terrain's, else none. Never an effort's own.
+ * The elevation [row] of [Segments] serves: its terrain's wherever terrain covers its whole line, else its efforts' once they come from at
+ * least [activeAthletes] distinct athletes, else none. Never an effort's own.
  */
-internal fun servedElevation(row: ResultRow, activeAthletes: Int): SegmentElevation? {
-    val efforts =
-        elevationOf(row[Segments.effortGainM], row[Segments.effortLossM], SegmentElevationSource.EFFORTS).takeIf {
+internal fun servedElevation(row: ResultRow, activeAthletes: Int): SegmentElevation? =
+    elevationOf(row[Segments.terrainGainM], row[Segments.terrainLossM], SegmentElevationSource.TERRAIN)
+        ?: elevationOf(row[Segments.effortGainM], row[Segments.effortLossM], SegmentElevationSource.EFFORTS).takeIf {
             row[Segments.effortAthletes] >= activeAthletes
         }
-    return efforts ?: elevationOf(row[Segments.terrainGainM], row[Segments.terrainLossM], SegmentElevationSource.TERRAIN)
-}
+
+/** The heights [row] of [Segments] stores in [Segments.terrainProfile], in decimeters; null when it has none. */
+internal fun terrainProfile(row: ResultRow): List<Int>? =
+    row[Segments.terrainProfile]?.split(',')?.mapNotNull(String::toIntOrNull)?.takeIf { it.size >= 2 }
 
 private fun elevationOf(gain: Long?, loss: Long?, source: String): SegmentElevation? =
     if (gain != null && loss != null) SegmentElevation(gain, loss, source) else null

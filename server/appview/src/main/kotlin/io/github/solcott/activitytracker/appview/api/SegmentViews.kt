@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.plausibleEffort
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.appview.segments.servedElevation
+import io.github.solcott.activitytracker.appview.segments.terrainProfile
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
@@ -44,6 +46,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -116,7 +119,10 @@ class SegmentViews(
     private val searchBatches: Int = SEARCH_BATCHES,
     /** Who may propose segment names (segments/segment-names), for the viewer's flag. */
     private val names: SegmentNameRules = SegmentNameRules(),
-    /** How many distinct athletes' efforts with elevation replace a segment's terrain elevation (`SEGMENT_ACTIVE_ATHLETES`). */
+    /**
+     * How many distinct athletes' efforts with elevation a segment without terrain elevation needs to serve them
+     * (`SEGMENT_ACTIVE_ATHLETES`).
+     */
     private val activeAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
@@ -141,11 +147,13 @@ class SegmentViews(
                 canVoteOnNames = ridersAmong(uri, listOf(it.value)).isNotEmpty(),
             )
         }
-        GetSegment.Output(
+        val view =
             views(listOf(row))
                 .single()
                 .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state)
-        )
+        // The profile is the terrain's, so it's served only beside terrain elevation (segments/segment-elevation).
+        val profile = terrainProfile(row)?.takeIf { view.elevationSource == SegmentElevationSource.TERRAIN }?.let(::ElevationProfile)
+        GetSegment.Output(view, elevationProfile = profile)
     }
 
     /**

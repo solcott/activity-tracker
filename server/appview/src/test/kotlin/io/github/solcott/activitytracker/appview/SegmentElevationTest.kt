@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.location.ElevationProfile
 import io.ktor.client.HttpClient
 import io.ktor.client.statement.bodyAsText
 import io.ktor.server.testing.testApplication
@@ -144,16 +145,47 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         assertNear(TERRAIN_GRADE_GAIN, client.segmentView("3ks").elevationGain)
     }
 
+    /**
+     * Clears [rkey]'s terrain elevation and profile, as for a segment the tiles don't cover; no job samples it again until its line
+     * changes.
+     */
+    private fun uncover(rkey: String, did: String = carol) = runBlocking {
+        db.tx {
+            Segments.update({ Segments.uri eq segmentUri(rkey, did) }) {
+                it[terrainGainM] = null
+                it[terrainLossM] = null
+                it[terrainProfile] = null
+            }
+        }
+    }
+
     @Test
-    fun enoughAthletesEffortsReplaceTheTerrain() = testApplication {
+    fun terrainWinsOverEfforts() = testApplication {
         application { appView(config, db, verifier) }
         segment("3ks", did = carol)
         for (did in listOf(alice, bob, carol)) matching(true, did)
         climb("3ka", alice, EFFORT_GRADE)
         climb("3kb", bob, EFFORT_GRADE)
+        climb("3kc", carol, EFFORT_GRADE)
         match()
 
-        assertEquals(SegmentElevationSource.TERRAIN, client.segmentView("3ks").elevationSource, "two athletes aren't enough")
+        val view = client.segmentView("3ks")
+        assertEquals(SegmentElevationSource.TERRAIN, view.elevationSource, "three athletes' efforts don't replace the terrain")
+        assertNear(TERRAIN_GRADE_GAIN, view.elevationGain)
+    }
+
+    @Test
+    fun effortsFillInWhereTerrainDoesntCover() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+        uncover("3ks")
+        for (did in listOf(alice, bob, carol)) matching(true, did)
+        climb("3ka", alice, EFFORT_GRADE)
+        climb("3kb", bob, EFFORT_GRADE)
+        match()
+
+        assertNull(client.segmentView("3ks").elevationSource, "two athletes aren't enough")
 
         climb("3kc", carol, EFFORT_GRADE)
         match()
@@ -162,16 +194,20 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         assertNear(EFFORT_GRADE_GAIN, view.elevationGain)
         assertEquals(0, view.elevationLoss)
 
-        // Carol turns matching off: two athletes again, so the terrain's.
+        // Carol turns matching off: two athletes again, and no terrain to fall back to.
         matching(false, carol)
         match()
-        assertEquals(SegmentElevationSource.TERRAIN, client.segmentView("3ks").elevationSource)
+        val after = client.segmentView("3ks")
+        assertNull(after.elevationSource)
+        assertNull(after.elevationGain)
     }
 
     @Test
     fun anAthleteWhoRidesOftenCountsOnce() = testApplication {
         application { appView(config, db, verifier) }
         segment("3ks", did = carol)
+        match()
+        uncover("3ks")
         for (did in listOf(alice, bob, carol)) matching(true, did)
         for (rkey in listOf("3ka", "3kb", "3kc")) climb(rkey, alice, EFFORT_GRADE * 1.5)
         climb("3kd", bob, EFFORT_GRADE)
@@ -182,6 +218,67 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         val view = client.segmentView("3ks")
         assertEquals(SegmentElevationSource.EFFORTS, view.elevationSource)
         assertNear(EFFORT_GRADE_GAIN, view.elevationGain)
+    }
+
+    @Test
+    fun getSegmentServesTheTerrainProfile() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+
+        val profile = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile
+        assertEquals(ElevationProfile.PROFILE_POINTS, profile?.heights?.size)
+        // Decimeters, from the start's height to the end's, rising all the way.
+        assertTrue(abs(profile!!.heights.first() - TERRAIN_BASE_M * 10) <= 30, "starts at ${profile.heights.first()}")
+        assertTrue(abs(profile.heights.last() - (TERRAIN_BASE_M + TERRAIN_GRADE_GAIN) * 10) <= 30, "ends at ${profile.heights.last()}")
+        assertTrue(profile.heights.zipWithNext().all { (a, b) -> b >= a })
+
+        // Search carries no profile.
+        val box = mapOf("minLat" to "469900000", "minLng" to "79900000", "maxLat" to "470200000", "maxLng" to "80100000")
+        val body = client.xrpc(SearchSegments.method, box + ("sport" to "run"), carol).bodyAsText()
+        assertTrue("elevationGain" in body, body)
+        assertFalse("elevationProfile" in body, body)
+    }
+
+    @Test
+    fun noProfileWithoutTerrain() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+        uncover("3ks")
+        for (did in listOf(alice, bob, carol)) matching(true, did)
+        climb("3ka", alice, EFFORT_GRADE)
+        climb("3kb", bob, EFFORT_GRADE)
+        climb("3kc", carol, EFFORT_GRADE)
+        match()
+
+        val output = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol)))
+        assertEquals(SegmentElevationSource.EFFORTS, output.segment.elevationSource)
+        assertNull(output.elevationProfile)
+    }
+
+    @Test
+    fun aNewLineGetsANewProfile() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+        segment("3ks", path = listOf(0.0 to 0.0, 0.0 to 500.0), did = carol)
+        match()
+
+        val profile = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile!!
+        assertTrue(
+            abs(profile.heights.last() - (TERRAIN_BASE_M + TERRAIN_GRADE_GAIN / 2) * 10) <= 30,
+            "the 500 m line ends at ${profile.heights.last()}",
+        )
+    }
+
+    @Test
+    fun aSegmentPastTheTilesHasNoProfile() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", path = listOf(0.0 to 0.0, 0.0 to 15_000.0), did = carol)
+        match()
+
+        assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile)
     }
 
     @Test

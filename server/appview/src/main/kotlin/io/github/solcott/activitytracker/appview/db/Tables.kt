@@ -237,9 +237,17 @@ object Segments : Table("segments") {
      * record's, the original). Recomputed by `recomputeCurrentName`.
      */
     val currentName = varchar("current_name", 1000)
-    /** Meters climbed along [line] by terrain tiles (segments/segment-elevation); null when they don't cover it or it isn't sampled yet. */
+    /**
+     * Meters climbed along [line] by smoothed terrain heights (segments/segment-elevation); null when the tiles don't cover it or it isn't
+     * sampled yet.
+     */
     val terrainGainM = long("terrain_gain_m").nullable()
     val terrainLossM = long("terrain_loss_m").nullable()
+    /**
+     * The smoothed terrain heights behind [terrainGainM], evenly spaced from the line's start to its end, in decimeters and
+     * comma-separated; null exactly when [terrainGainM] is.
+     */
+    val terrainProfile = text("terrain_profile").nullable()
     /**
      * The median across [effortAthletes] athletes of each one's median effort gain; null when no effort has elevation. Never per effort.
      */

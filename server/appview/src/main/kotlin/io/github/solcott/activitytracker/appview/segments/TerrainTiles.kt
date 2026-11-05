@@ -1,7 +1,8 @@
 package io.github.solcott.activitytracker.appview.segments
 
+import io.github.solcott.activitytracker.appview.boundedCache
 import io.github.solcott.activitytracker.location.ElevationGain
-import io.github.solcott.activitytracker.location.GainLoss
+import io.github.solcott.activitytracker.location.ElevationProfile
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.io.File
@@ -16,14 +17,12 @@ import kotlin.math.tan
 /**
  * Terrain heights from Terrarium elevation tiles (segments/segment-elevation): 256-pixel Web Mercator PNGs at `[dir]/{z}/{x}/{y}.png`, all
  * at one [zoom], each pixel's height `R * 256 + G + B / 256 - 32768` meters. A tile that isn't there leaves its area uncovered. Recently
- * read tiles are kept decoded, [CACHED_TILES] at most.
+ * read tiles are kept decoded, [CACHED_TILES] at most, and a missing one is remembered as missing.
  */
 class TerrainTiles(private val dir: File, private val zoom: Int) {
     private val tiles = (1 shl zoom)
-    private val cache =
-        object : LinkedHashMap<Long, FloatArray?>(CACHED_TILES, LOAD_FACTOR, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, FloatArray?>) = size > CACHED_TILES
-        }
+    /** Decoded tiles by [key]; [MISSING] for one that isn't there or doesn't decode, as Caffeine holds no nulls. */
+    private val cache = boundedCache<Long, FloatArray>(CACHED_TILES.toLong())
 
     /** The height at [point] in meters, interpolated between the four nearest pixels; null when a tile it needs isn't there. */
     fun heightAt(point: GeoPoint): Double? {
@@ -42,12 +41,16 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
     }
 
     /**
-     * [line]'s gain and loss sampled every [SAMPLE_SPACING_M] meters, both ends included; null when any sample isn't covered, so a segment
-     * is given terrain elevation only when the tiles cover all of it.
+     * [line]'s terrain (segments/segment-elevation): heights sampled every [SAMPLE_SPACING_M] meters, both ends included, smoothed over 50
+     * m ([ElevationProfile.smooth]), then counted into gain and loss and resampled into an evenly spaced profile. Null when any sample
+     * isn't covered, so a segment is given terrain elevation only when the tiles cover all of it.
      */
-    fun elevationOf(line: List<GeoPoint>): GainLoss? {
-        val heights = SegmentGeometry.resample(line, SAMPLE_SPACING_M).map { heightAt(it) ?: return null }
-        return ElevationGain.of(heights)
+    fun terrainOf(line: List<GeoPoint>): TerrainElevation? {
+        val samples = SegmentGeometry.resample(line, SAMPLE_SPACING_M)
+        val raw = samples.map { heightAt(it) ?: return null }
+        val heights = ElevationProfile.smooth(raw, SAMPLE_SPACING_M)
+        val atM = samples.zipWithNext(SegmentGeometry::distanceMeters).runningFold(0.0, Double::plus)
+        return ElevationGain.of(heights)?.let { TerrainElevation(it.gain, it.loss, ElevationProfile.even(heights, atM)) }
     }
 
     /** [f] of the way from [a] to [b]; null when either is. */
@@ -62,13 +65,9 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         return heights[(gy % TILE_SIZE).toInt() * TILE_SIZE + (gx % TILE_SIZE).toInt()].toDouble()
     }
 
-    @Synchronized
     private fun tile(tx: Int, ty: Int): FloatArray? {
         val key = tx.toLong() shl Int.SIZE_BITS or ty.toLong()
-        if (cache.containsKey(key)) return cache[key]
-        val heights = read(File(dir, "$zoom/$tx/$ty.png"))
-        cache[key] = heights
-        return heights
+        return cache.get(key) { read(File(dir, "$zoom/$tx/$ty.png")) ?: MISSING }.takeIf { it !== MISSING }
     }
 
     /** [file]'s heights, row by row; null when it isn't there, doesn't decode or isn't a whole tile. */
@@ -97,7 +96,7 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         const val CACHED_TILES = 64
 
         const val TILE_SIZE = 256
-        private const val LOAD_FACTOR = 0.75f
+        private val MISSING = FloatArray(0)
         private const val HALF = 0.5
         private const val HALF_TURN_DEGREES = 180.0
         private const val FULL_TURN_DEGREES = 360.0
@@ -109,3 +108,8 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val TERRARIUM_OFFSET = 32768f
     }
 }
+
+/**
+ * A segment's terrain: gain and loss in whole meters, and [profileDm], its smoothed heights evenly spaced from start to end, in decimeters.
+ */
+data class TerrainElevation(val gain: Long, val loss: Long, val profileDm: List<Int>)

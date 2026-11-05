@@ -244,16 +244,20 @@ class SegmentMatcher(
         }
     }
 
-    /** Samples the terrain along the segment at [segmentUri]'s line and stores its gain and loss, null when the tiles don't cover it. */
+    /**
+     * Samples the terrain along the segment at [segmentUri]'s line and stores its gain, loss and profile, all null when the tiles don't
+     * cover it.
+     */
     private suspend fun sampleTerrain(segmentUri: String) {
         val tiles = terrain ?: return
         val line = db.tx { Segments.select(Segments.line).where { Segments.uri eq segmentUri }.firstOrNull()?.get(Segments.line) } ?: return
-        val elevation = SegmentGeometry.decodePolyline(line)?.let(tiles::elevationOf)
+        val elevation = SegmentGeometry.decodePolyline(line)?.let(tiles::terrainOf)
         db.tx {
             // Only if the line is still the one sampled: a re-line queues another job.
             Segments.update({ (Segments.uri eq segmentUri) and (Segments.line eq line) }) {
                 it[terrainGainM] = elevation?.gain
                 it[terrainLossM] = elevation?.loss
+                it[terrainProfile] = elevation?.profileDm?.joinToString(",")
             }
         }
     }
