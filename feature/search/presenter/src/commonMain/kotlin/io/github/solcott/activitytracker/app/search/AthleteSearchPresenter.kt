@@ -2,7 +2,11 @@ package io.github.solcott.activitytracker.app.search
 
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -34,7 +38,9 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
             }
         }
 
-    return AthleteSearchState(query = query, results = results.state) { event ->
+    var mode by rememberRetained { mutableStateOf(SearchMode.Athletes) }
+
+    return AthleteSearchState(query = query, results = results.state, mode = mode) { event ->
         when (event) {
             AthleteSearchEvent.Back -> {
                 navigator.pop()
@@ -50,6 +56,14 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
 
             is AthleteSearchEvent.Open -> {
                 navigator.goTo(ProfileScreen(event.did.value))
+            }
+
+            is AthleteSearchEvent.ModeChanged -> {
+                mode = event.mode
+            }
+
+            is AthleteSearchEvent.GoTo -> {
+                navigator.goTo(event.screen)
             }
         }
     }

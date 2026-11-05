@@ -28,12 +28,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.foundation.CircuitContent
+import com.slack.circuit.runtime.Navigator
+import com.slack.circuit.runtime.screen.PopResult
+import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
@@ -44,10 +50,14 @@ import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.search_label
+import io.github.solcott.activitytracker.composeApp.resources.search_mode_athletes
+import io.github.solcott.activitytracker.composeApp.resources.search_mode_segments
 import io.github.solcott.activitytracker.composeApp.resources.search_no_results
 import io.github.solcott.activitytracker.composeApp.resources.search_prompt
+import io.github.solcott.activitytracker.composeApp.resources.search_tab_title
 import io.github.solcott.activitytracker.composeApp.resources.search_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(AthleteSearchScreen::class, SessionScope::class)
@@ -61,13 +71,23 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(Res.string.search_title),
+                title = stringResource(if (state.mode == SearchMode.Segments) Res.string.search_tab_title else Res.string.search_title),
                 onBack = { state.eventSink(AthleteSearchEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            AppSegmentedControl(
+                persistentListOf(stringResource(Res.string.search_mode_athletes), stringResource(Res.string.search_mode_segments)),
+                selected = state.mode.ordinal,
+                onSelect = { state.eventSink(AthleteSearchEvent.ModeChanged(SearchMode.entries[it])) },
+                modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            if (state.mode == SearchMode.Segments) {
+                SegmentsMode(state, Modifier.fillMaxSize())
+                return@AppScaffold
+            }
             SearchField(state.query, Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp))
             ReadableList(listState, Modifier.fillMaxSize(), minSidePadding = 0.dp) { listPadding ->
                 LazyColumn(
@@ -89,6 +109,30 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/**
+ * The segment browse screen, in place of athlete search. What it opens goes on this tab's back stack, through this screen's presenter, as
+ * if it were the tab's own screen.
+ */
+@Composable
+private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifier) {
+    val sink = state.eventSink
+    val navigator =
+        remember(sink) {
+            object : Navigator by Navigator.NoOp {
+                override fun goTo(screen: Screen): Boolean {
+                    sink(AthleteSearchEvent.GoTo(screen))
+                    return true
+                }
+
+                override fun pop(result: PopResult?): Screen? {
+                    sink(AthleteSearchEvent.Back)
+                    return null
+                }
+            }
+        }
+    CircuitContent(SegmentBrowseScreen, modifier = modifier, navigator = navigator)
 }
 
 @Composable

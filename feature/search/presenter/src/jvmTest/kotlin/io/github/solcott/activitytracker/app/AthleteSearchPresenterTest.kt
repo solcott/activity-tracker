@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.search.AthleteSearchEvent
 import io.github.solcott.activitytracker.app.search.AthleteSearchPresenter
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchState
+import io.github.solcott.activitytracker.app.search.SearchMode
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.profile.AthleteSearchRepository
 import io.github.solcott.activitytracker.lexicon.Did
@@ -230,6 +231,22 @@ class AthleteSearchPresenterTest {
             assertEquals(listOf("carol.test", "dave.test"), awaitUntil { it.handles.size == 2 }.handles)
             assertEquals(listOf("c", "c@1", "c@1"), queries, "only the failed page is asked for again")
             cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun segmentsModeOpensWhatSegmentBrowseOpensOnTheTab() = runTest {
+        val navigator = FakeNavigator(AthleteSearchScreen)
+        val repo = athletes()
+        presenterTestOf({ AthleteSearchPresenter(navigator, repo) }) {
+            val athletes = awaitUntil { it.results.refresh is LoadStatus.Idle }
+            assertEquals(SearchMode.Athletes, athletes.mode, "athletes first")
+
+            athletes.eventSink(AthleteSearchEvent.ModeChanged(SearchMode.Segments))
+            val segments = awaitUntil { it.mode == SearchMode.Segments }
+            segments.eventSink(AthleteSearchEvent.GoTo(ProfileScreen("did:plc:carol")))
+            assertEquals(ProfileScreen("did:plc:carol"), navigator.awaitNextScreen())
+            assertEquals(emptyList(), queries, "no athlete search was made")
         }
     }
 }

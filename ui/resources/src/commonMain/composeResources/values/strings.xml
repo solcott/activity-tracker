@@ -823,6 +823,9 @@
     <string name="search_clear">Clear search</string>
     <string name="search_prompt">Find athletes who use this app by name, @handle or DID.</string>
     <string name="search_no_results">No athletes match “%1$s”.</string>
+    <string name="search_mode_athletes">Athletes</string>
+    <string name="search_mode_segments">Segments</string>
+    <string name="search_tab_title">Search</string>
     <string name="segment_browse_search_label">Segment name</string>
     <string name="segment_browse_all_sports">All</string>
     <string name="segment_browse_scope_area">This area</string>

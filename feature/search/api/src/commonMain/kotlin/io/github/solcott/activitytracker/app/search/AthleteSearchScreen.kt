@@ -10,8 +10,17 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.PagedState
 
-/** Find other athletes of this app by display name, handle or DID. */
+/**
+ * The Search tab: find other athletes of this app by display name, handle or DID, or, in [SearchMode.Segments], browse and search segments
+ * (segments/segment-browse).
+ */
 @CircuitSerializable(SessionScope::class) data object AthleteSearchScreen : Screen
+
+/** What the Search tab finds. */
+enum class SearchMode {
+    Athletes,
+    Segments,
+}
 
 @Immutable
 data class AthleteSearchState(
@@ -22,6 +31,8 @@ data class AthleteSearchState(
      * answers (ui/content-loading). Nothing loaded and nothing loading while the query is blank.
      */
     val results: PagedState<ProfileViewBasic, Unit>,
+    /** Athletes, or segments, which the tab shows as the segment browse screen. Kept while the athlete visits other tabs. */
+    val mode: SearchMode = SearchMode.Athletes,
     val eventSink: (AthleteSearchEvent) -> Unit,
 ) : CircuitUiState
 
@@ -35,4 +46,9 @@ sealed interface AthleteSearchEvent {
     data object Retry : AthleteSearchEvent
 
     data class Open(val did: Did) : AthleteSearchEvent
+
+    data class ModeChanged(val mode: SearchMode) : AthleteSearchEvent
+
+    /** The segment browse screen shown in Segments mode opens [screen] in the tab, as it would on its own. */
+    data class GoTo(val screen: Screen) : AthleteSearchEvent
 }
