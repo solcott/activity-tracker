@@ -95,7 +95,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues, onRetry: () -> Unit) {
     val listState = rememberLazyListState()
     // A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names.
-    val lift = SegmentKind.of(segment.record.kind) == SegmentKind.LIFT
+    val lift = !SegmentKind.isRanked(segment.record.kind)
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }

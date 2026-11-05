@@ -180,7 +180,7 @@ internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: St
 internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean {
     val row = Segments.select(Segments.status, Segments.kind).where { Segments.uri eq segment }.firstOrNull()
     return row?.get(Segments.status) == SegmentStatus.ACTIVE &&
-        row[Segments.kind] == SegmentKind.RUN &&
+        SegmentKind.isRanked(row[Segments.kind]) &&
         !inCooldown(segment, now, rules) &&
         openProposalOf(segment, did) == null &&
         proposerDays(segment, did) >= rules.proposerDays

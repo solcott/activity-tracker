@@ -588,6 +588,15 @@ object SegmentKind {
 
     /** Whether [kind] is one the AppView indexes: null or one of [all]. */
     fun isKnown(kind: String?): Boolean = of(kind) in all
+
+    /**
+     * Whether segments of [kind] are ranked: on leaderboards and Mayors boards, marked as PRs and renamed by locals. Runs are; lifts never
+     * are (segments/segment-lifts). The one rule every board, name and screen asks.
+     */
+    fun isRanked(kind: String?): Boolean = of(kind) == RUN
+
+    /** The known kinds that are [isRanked], for queries. */
+    val ranked: List<String> = all.filter(::isRanked)
 }
 
 /**

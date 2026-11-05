@@ -85,7 +85,7 @@ class SegmentNaming(
         Segments.select(Segments.status, Segments.kind)
             .where { Segments.uri eq segment }
             .firstOrNull()
-            ?.let { it[Segments.status] == SegmentStatus.ACTIVE && it[Segments.kind] == SegmentKind.RUN } == true
+            ?.let { it[Segments.status] == SegmentStatus.ACTIVE && SegmentKind.isRanked(it[Segments.kind]) } == true
 
     /** The proposal to adopt among [open] (each with when it opened), if any qualifies by [tallies]. */
     private fun JdbcTransaction.adoptable(

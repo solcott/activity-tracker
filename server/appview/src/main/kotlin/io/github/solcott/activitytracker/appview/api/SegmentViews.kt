@@ -204,7 +204,7 @@ class SegmentViews(
         // Only an active run has boards, and only the fastest of this activity's efforts on a board can be the athlete's entry on it, so
         // the rest skip the board queries.
         fun ranked(effort: EffortView) =
-            SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE && SegmentKind.of(effort.segment.kind) == SegmentKind.RUN
+            SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE && SegmentKind.isRanked(effort.segment.kind)
         val candidates =
             efforts
                 .filter(::ranked)
@@ -396,7 +396,7 @@ class SegmentViews(
                 eBike = it[SegmentEfforts.eBike].takeIf { e -> e },
                 // A lift ride is never anyone's fastest (segments/segment-lifts).
                 best =
-                    (it[Segments.kind] == SegmentKind.RUN &&
+                    (SegmentKind.isRanked(it[Segments.kind]) &&
                             bests[it[SegmentEfforts.authorDid] to it[SegmentEfforts.segmentUri]] == elapsed)
                         .takeIf { b -> b },
             )
@@ -419,7 +419,7 @@ class SegmentViews(
     private fun rankable(): Op<Boolean> = rankedSegment() and rankableEffort()
 
     /** A segment whose efforts leaderboards and Mayors rank: active, and a run (segments/segment-lifts). */
-    private fun rankedSegment(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and (Segments.kind eq SegmentKind.RUN)
+    private fun rankedSegment(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and (Segments.kind inList SegmentKind.ranked)
 
     /** [rankable] less the segment's status: what [notRankedReasons] gives a reason for failing, from the same Ops. */
     private fun rankableEffort(): Op<Boolean> = not(hidesFromLeaderboards()) and not(excludedFromLeaderboards()) and plausibleEffort()

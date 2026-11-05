@@ -68,8 +68,7 @@ fun SegmentPresenter(
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
     LaunchedEffect(loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
     // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
-    val active =
-        segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.of(it.record.kind) == SegmentKind.RUN } == true
+    val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.isRanked(it.record.kind) } == true
     // The Mayor is extra too: only an active run has one, and a failed read leaves the last one shown, or none.
     var mayor by rememberRetained { mutableStateOf<MayorSummary?>(null) }
     LaunchedEffect(active, loadKey) {
