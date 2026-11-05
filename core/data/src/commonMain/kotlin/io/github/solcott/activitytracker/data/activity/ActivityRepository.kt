@@ -216,7 +216,10 @@ class ActivityRepository(
             val published = privacy.published(uri, draft.visibility, mapTier, draft.route, trim)
             draft.gpx?.let {
                 tracks.put(uri, it)
-                segmentTracks.put(uri, draft.route, published)
+                // A trackless dive's segment track is its surface fixes, its entry first: one is enough to visit a dive site.
+                if (draft.route.isEmpty() && draft.surfaceFixes.isNotEmpty())
+                    segmentTracks.putSurfaceFixes(uri, draft.surfaceFixes, published)
+                else segmentTracks.put(uri, draft.route, published)
             }
             draft.streams?.let {
                 streams.put(

@@ -51,6 +51,11 @@ data class ActivityDraft(
      */
     val route: List<LocationSample> = emptyList(),
     val gpx: ByteArray? = null,
+    /**
+     * A trackless dive's surface fixes (its entry, then its exit), kept in [gpx] and matched to dive sites through its segment track
+     * (dive-sites/site-visits); empty for anything with a [route].
+     */
+    val surfaceFixes: List<LocationSample> = emptyList(),
     /** Per-sample data for charts, published as the activity's streams record. */
     val streams: ActivityStreamData? = null,
     /** Who may see the activity: a [Visibility] value, which decides where it's stored. */
@@ -326,6 +331,7 @@ data class ActivityDraft(
                 devices = imported.devices,
                 route = imported.samples,
                 gpx = gpxOf(imported.samples.ifEmpty { diveFixes }, title, type.sport),
+                surfaceFixes = diveFixes,
                 streams = imported.streams,
                 dive = imported.dive?.let(DiveSummary::of),
                 elevationLossMeters = imported.elevationLossMeters,

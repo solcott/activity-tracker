@@ -1,6 +1,11 @@
 package io.github.solcott.activitytracker.data
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.activityfile.DecodedDive
+import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.DivePosition
+import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
@@ -472,5 +477,80 @@ class SegmentTrackTest {
 
         assertNull(store.excluded(uri))
         assertTrue(runCatching { store.setExcluded(uri, true) }.isFailure)
+    }
+
+    // Trackless dives (dive-sites/site-visits)
+
+    private fun tracklessDive(entry: DivePosition?, exit: DivePosition?): ActivityDraft {
+        val dive =
+            ImportedDive(
+                header =
+                    DecodedDive(
+                        maxDepthMeters = 18.0,
+                        avgDepthMeters = null,
+                        diveNumber = null,
+                        surfaceIntervalMinutes = null,
+                        gradientFactorLow = null,
+                        gradientFactorHigh = null,
+                        startCns = null,
+                        endCns = null,
+                        gases = listOf(DiveGas(21, 0)),
+                        closedCircuit = false,
+                        entry = entry,
+                        exit = exit,
+                    ),
+                minWaterTempCelsius = null,
+                profile = emptyList(),
+            )
+        val imported =
+            ImportedActivity(
+                type = ActivityType(Sport.DIVE),
+                startedAt = start,
+                elapsed = 45.minutes,
+                movingSeconds = null,
+                distanceMeters = null,
+                elevationGainMeters = null,
+                maxSpeedMps = null,
+                avgHeartRate = null,
+                maxHeartRate = null,
+                avgTemperatureCelsius = null,
+                device = null,
+                samples = emptyList(),
+                dive = dive,
+            )
+        return ActivityDraft.fromImport(imported, imported.type, "Dive")
+    }
+
+    @Test
+    fun aTracklessDivesSurfaceFixesAreItsSegmentTrackEntryFirst() = runTest {
+        val s = pds.session()
+        s.matching(true)
+        val uri = s.activities.publish(tracklessDive(DivePosition(13.86622, -61.07885), DivePosition(13.86701, -61.07912)))
+
+        val pieces = dataOf(uri.rkey!!).pieces
+        assertEquals(138_662_200, pieces.first().lat.first(), "the entry is the first position")
+        assertEquals(-610_788_500, pieces.first().lng.first())
+        assertEquals(-610_791_200, pieces.last().lng.last(), "the exit is the last")
+    }
+
+    @Test
+    fun aLogbookDivesOneSitePositionIsASegmentTrackOfOnePoint() = runTest {
+        val s = pds.session()
+        s.matching(true)
+        val uri = s.activities.publish(tracklessDive(DivePosition(13.86622, -61.07885), exit = null))
+
+        val pieces = dataOf(uri.rkey!!).pieces
+        assertEquals(1, pieces.size)
+        assertEquals(listOf(138_662_200), pieces.single().lat)
+    }
+
+    @Test
+    fun aTracklessDiveEnteringInsideAZoneHasNoSegmentTrack() = runTest {
+        val s = pds.session()
+        s.privacy.save(PrivacySettings(listOf(PrivacyZone(latitudeE7 = 138_662_200, longitudeE7 = -610_788_500, radiusMeters = 200))))
+        s.matching(true)
+        val uri = s.activities.publish(tracklessDive(DivePosition(13.86622, -61.07885), exit = null))
+
+        assertNull(segmentTrack(uri.rkey!!))
     }
 }

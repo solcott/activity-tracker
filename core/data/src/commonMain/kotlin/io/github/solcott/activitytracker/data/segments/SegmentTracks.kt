@@ -33,12 +33,37 @@ class SegmentTracks(private val consent: TrackConsent, private val store: Segmen
         trim: PublishTrim,
         combined: Boolean = false,
         replacing: Boolean = false,
-    ) {
+    ) = write(activity, route, trim, replacing, piecesOf(route, trim, combined, minPoints = 2))
+
+    /**
+     * Queues a trackless dive's segment track from its surface [fixes], its entry first, trimmed by [trim]: one is enough to visit a site.
+     */
+    suspend fun putSurfaceFixes(activity: AtUri, fixes: List<LocationSample>, trim: PublishTrim) =
+        write(activity, fixes, trim, replacing = false, piecesOf(fixes, trim, combined = false, minPoints = 1))
+
+    /**
+     * [route] cut by [trim]'s settings when it has [minPoints] positions (at least one) and the athlete wants segment tracks, else null.
+     */
+    private suspend fun piecesOf(
+        route: List<LocationSample>,
+        trim: PublishTrim,
+        combined: Boolean,
+        minPoints: Int,
+    ): List<List<LocationSample>>? {
         val known = trim.trim as? RouteTrim.Known
-        val pieces = if (known != null && route.size >= 2 && wanted()) known.settings.pieces(route, combined) else null
+        return if (known != null && route.size >= maxOf(minPoints, 1) && wanted()) known.settings.pieces(route, combined) else null
+    }
+
+    private suspend fun write(
+        activity: AtUri,
+        route: List<LocationSample>,
+        trim: PublishTrim,
+        replacing: Boolean,
+        pieces: List<List<LocationSample>>?,
+    ) {
         when {
             !pieces.isNullOrEmpty() -> {
-                store.put(activity, segmentTrackData(pieces, route.first().time), known?.revision)
+                store.put(activity, segmentTrackData(pieces, route.first().time), (trim.trim as? RouteTrim.Known)?.revision)
                 if (!trim.fresh) stale = true
             }
             pieces != null -> store.delete(activity)
