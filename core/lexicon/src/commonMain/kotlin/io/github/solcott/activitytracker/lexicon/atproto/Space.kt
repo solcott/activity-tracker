@@ -107,6 +107,15 @@ object SpaceErrors {
 
     /** From `getSpaceCredential`: the space was deleted, and a syncer should drop it. */
     const val SPACE_DELETED = "SpaceDeleted"
+
+    /**
+     * From `getSpaceCredential` (HTTP 400): the authority is taken down. The space is suspended, not deleted, and resumes if the authority
+     * is reinstated, so a syncer keeps it and retries.
+     */
+    const val REPO_TAKENDOWN = "RepoTakendown"
+
+    /** From `getSpaceCredential` (HTTP 400): the authority is deactivated. Suspended like [REPO_TAKENDOWN]. */
+    const val REPO_DEACTIVATED = "RepoDeactivated"
     const val RECORD_NOT_FOUND = "RecordNotFound"
     const val BLOB_NOT_FOUND = "BlobNotFound"
 

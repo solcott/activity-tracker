@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
@@ -169,6 +170,33 @@ class SpaceSyncSetHashTest : SpaceSyncFixture() {
         runDue()
         assertEquals(emptyMap(), activities())
         assertEquals(null, syncState(aliceFollowers))
+    }
+
+    @Test
+    fun aSuspendedAuthorityKeepsTheSpace() {
+        for (error in listOf(SpaceErrors.REPO_TAKENDOWN, SpaceErrors.REPO_DEACTIVATED)) {
+            testApplication {
+                start()
+                synced("3kf1")
+
+                // Taken down or deactivated: the space is suspended, not deleted, however long it lasts.
+                pds.credentialErrors[aliceFollowers] = error
+                repeat(30) {
+                    clock.now += 1.hours
+                    credentials.invalidate(aliceFollowers)
+                    runDue()
+                }
+                assertEquals(setOf("3kf1"), activities().keys, "$error: still served")
+                assertEquals(null, syncState(aliceFollowers)!![SpaceSync.notFoundSince], error)
+                assertTrue(syncState(aliceFollowers)!![SpaceSync.failures] > 0, error)
+
+                // Reinstated: it syncs again.
+                pds.credentialErrors.clear()
+                clock.now += 1.hours
+                runDue()
+                assertEquals(0, syncState(aliceFollowers)!![SpaceSync.failures], error)
+            }
+        }
     }
 
     @Test

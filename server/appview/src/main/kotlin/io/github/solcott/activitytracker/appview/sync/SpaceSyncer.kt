@@ -51,7 +51,8 @@ import org.slf4j.LoggerFactory
  *   renewed within [renewalMargin] of expiring;
  * - a deleted space is dropped when the authority's PDS says so ([deleted]), or else when a sync is answered `SpaceDeleted`. A sync
  *   answered `SpaceNotFound`, which is also how the authority refuses a user (such as when it can't reach the managing app), keeps the
- *   space and backs off, and drops it only once every sync for [notFoundGrace] has been answered so.
+ *   space and backs off, and drops it only once every sync for [notFoundGrace] has been answered so. `RepoTakendown` and `RepoDeactivated`
+ *   (a suspended authority) are ordinary failures: the space is kept, backing off, until it resumes.
  *
  * Only the authority writes to an athlete's space, so the authority's repo is the only one synced. Ops go through the [Indexer], which
  * keeps only what [Indexer.spaceCollections] allows for the space's key. A space whose sync fails is retried with backoff; it never holds

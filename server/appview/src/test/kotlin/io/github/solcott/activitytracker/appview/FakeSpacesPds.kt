@@ -70,6 +70,9 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
     /** Spaces whose `getSpaceCredential` answers `SpaceNotFound`: missing, or refusing the AppView (the managing app unreachable). */
     val notFound = mutableSetOf<SpaceUri>()
 
+    /** Spaces whose `getSpaceCredential` answers with the given error, such as `RepoTakendown` for a suspended authority. */
+    val credentialErrors = mutableMapOf<SpaceUri, String>()
+
     /** Spaces whose commits carry a `data` their records don't fold to, as a host that lost track would. */
     val wrongData = mutableSetOf<SpaceUri>()
 
@@ -180,6 +183,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                     request.headers[HttpHeaders.Authorization] != null || !kid.startsWith(P256_DID_KEY) -> error("InvalidRequest")
                     space in deleted -> error("SpaceDeleted")
                     space in notFound -> error("SpaceNotFound")
+                    space in credentialErrors -> error(credentialErrors.getValue(space))
                     else -> json("""{"credential":"${credential()}"}""")
                 }
             }
