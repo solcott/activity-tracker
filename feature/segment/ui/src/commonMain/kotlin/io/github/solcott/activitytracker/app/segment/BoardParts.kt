@@ -1,34 +1,17 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.ChoiceChip
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.MenuChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_all
@@ -47,13 +30,11 @@ import io.github.solcott.activitytracker.composeApp.resources.leaderboard_weight
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_weight_range_lb
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_weight_under_kg
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_weight_under_lb
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
@@ -62,31 +43,6 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import org.jetbrains.compose.resources.stringResource
-
-/** A filter chip labelled [label] that opens a menu of [items]. */
-@Composable
-internal fun MenuChip(label: String, selected: Boolean, items: ImmutableList<AppMenuItem>) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        AppFilterChip(
-            selected = selected,
-            onClick = { open = true },
-            label = { Text(label) },
-            trailingIcon = { PlatformIcon(AppIcon.ChevronDown, null, size = 16.dp) },
-        )
-        AppMenu(expanded = open, onDismiss = { open = false }, items = items)
-    }
-}
-
-/** A [MenuChip] choosing one of [labels]' keys, always selected since one always applies; [selected]'s label, or itself when unlisted. */
-@Composable
-internal fun ChoiceChip(selected: String, labels: ImmutableMap<String, String>, onSelect: (String) -> Unit) {
-    MenuChip(
-        label = labels[selected] ?: selected,
-        selected = true,
-        items = labels.map { (value, label) -> AppMenuItem(label, checked = value == selected) { onSelect(value) } }.toImmutableList(),
-    )
-}
 
 /**
  * The board's type (segments/segment-leaderboards): a chip with a menu of [boards] when there are two or more, else [board] as a plain
@@ -196,39 +152,3 @@ internal fun weightLabel(weightClass: String): String {
 /** A bracket token's bounds: `55-64` is 55 to 64, `75+` is 75 with no upper bound. */
 private fun boundsOf(token: String): Pair<Int, Int?> =
     if (token.endsWith("+")) token.dropLast(1).toInt() to null else token.split('-').let { (from, to) -> from.toInt() to to.toInt() }
-
-/** One athlete's place on a board: [rank] (in the accent colour when [accented]), avatar and name, [detail] under it, and [value]. */
-@Composable
-internal fun RankRow(rank: Int, accented: Boolean, athlete: ProfileViewBasic, detail: String, value: String, onClick: () -> Unit) {
-    val name = athlete.shownName
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            rank.toString(),
-            Modifier.width(36.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (accented) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
-        )
-        Avatar(athlete.avatar, name, 36.dp)
-        Column(Modifier.weight(1f)) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-    }
-}
-
-/** The viewer's own place ([own]'s [row]) under a heading, below a board's entries; nothing when they're among them or not on it. */
-internal fun <E : Any> LazyListScope.ownPlace(own: E?, row: @Composable (E) -> Unit) {
-    own ?: return
-    item(key = "own-place") {
-        Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            Text(stringResource(Res.string.leaderboard_your_place), style = MaterialTheme.typography.titleSmall)
-            row(own)
-        }
-    }
-}
