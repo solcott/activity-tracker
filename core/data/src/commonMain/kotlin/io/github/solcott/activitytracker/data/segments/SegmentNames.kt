@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
@@ -132,6 +133,13 @@ class SegmentNames(
     /** [view] with this session's [changes] to its names laid over it. */
     fun applyTo(view: SegmentView): SegmentView = changes.value[view.uri.value]?.let { applyChanges(view, it, clients.did.value) } ?: view
 
+    /** A dive site [view] with this session's [changes] to its names laid over it, as for a segment (dive-sites/site-names). */
+    fun applyTo(view: DiveSiteView): DiveSiteView =
+        changes.value[view.uri.value]?.let { changed ->
+            val (proposals, canPropose) = applyNameChanges(view.nameProposals, view.viewer?.canProposeName, changed, clients.did.value)
+            view.copy(nameProposals = proposals, viewer = view.viewer?.let { it.copy(canProposeName = canPropose ?: it.canProposeName) })
+        } ?: view
+
     private suspend fun write(segment: AtUri, change: (SegmentNameChanges) -> SegmentNameChanges, queue: suspend () -> Unit) {
         mutex.withLock {
             val previous = changes.value
@@ -176,29 +184,41 @@ data class VoteChange(val uri: AtUri, val direction: String?)
  * AppView lists it. Deleting one's own open proposal, or sending one, sets whether Propose is offered.
  */
 internal fun applyChanges(view: SegmentView, changes: SegmentNameChanges, self: String): SegmentView {
-    val listed =
-        view.nameProposals.mapNotNull { proposal ->
-            val change = changes.proposals[proposal.uri.value] ?: return@mapNotNull proposal
-            if (change.deleted) return@mapNotNull null
-            val edited =
-                if (change.name != null && change.name != proposal.name) {
-                    proposal.copy(name = change.name, openedAt = change.editedAt ?: proposal.openedAt, up = 0, down = 0, viewerVote = null)
-                } else {
-                    proposal
-                }
-            change.vote?.let { edited.withVote(it) } ?: edited
-        }
-    val sent = changes.sent?.takeIf { s -> view.nameProposals.none { it.uri == s.uri } }
-    val ownDeleted = view.nameProposals.any { it.proposer.did.value == self && changes.proposals[it.uri.value]?.deleted == true }
-    val viewer =
-        view.viewer?.let {
-            when {
-                sent != null -> it.copy(canProposeName = false)
-                ownDeleted -> it.copy(canProposeName = true)
-                else -> it
+    val (proposals, canPropose) = applyNameChanges(view.nameProposals, view.viewer?.canProposeName, changes, self)
+    return view.copy(nameProposals = proposals, viewer = view.viewer?.let { it.copy(canProposeName = canPropose ?: it.canProposeName) })
+}
+
+/**
+ * A named place's [listed] proposals and its [canPropose] flag (null without viewer state) with [changes] by [self] laid over them, as
+ * [applyChanges] describes.
+ */
+internal fun applyNameChanges(
+    listed: List<SegmentNameProposalView>,
+    canPropose: Boolean?,
+    changes: SegmentNameChanges,
+    self: String,
+): Pair<List<SegmentNameProposalView>, Boolean?> {
+    val shown = listed.mapNotNull { proposal ->
+        val change = changes.proposals[proposal.uri.value] ?: return@mapNotNull proposal
+        if (change.deleted) return@mapNotNull null
+        val edited =
+            if (change.name != null && change.name != proposal.name) {
+                proposal.copy(name = change.name, openedAt = change.editedAt ?: proposal.openedAt, up = 0, down = 0, viewerVote = null)
+            } else {
+                proposal
             }
+        change.vote?.let { edited.withVote(it) } ?: edited
+    }
+    val sent = changes.sent?.takeIf { s -> listed.none { it.uri == s.uri } }
+    val ownDeleted = listed.any { it.proposer.did.value == self && changes.proposals[it.uri.value]?.deleted == true }
+    val flag = canPropose?.let {
+        when {
+            sent != null -> false
+            ownDeleted -> true
+            else -> it
         }
-    return view.copy(nameProposals = listed + listOfNotNull(sent), viewer = viewer)
+    }
+    return (shown + listOfNotNull(sent)) to flag
 }
 
 private fun SegmentNameProposalView.withVote(change: VoteChange): SegmentNameProposalView {
