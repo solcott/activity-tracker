@@ -61,6 +61,17 @@ Gain and loss SHALL count only height changes that reverse direction by at least
 - **WHEN** a segment's heights rise steadily by 120 m from start to end
 - **THEN** its gain is 120 and its loss is 0
 
+### Requirement: Terrain is smoothed before it is counted
+Before gain and loss are counted, terrain heights SHALL be smoothed along the line: each sample replaced by the mean of the samples within 25 m either side of it, narrowed evenly near each end so the start and end keep their own heights. Terrain detail finer than about 50 m SHALL NOT count as climbing. Effort altitude SHALL NOT be smoothed this way.
+
+#### Scenario: Short terrain ripples
+- **WHEN** a segment's terrain heights climb steadily by 100 m but also rise and fall by 4 m every 20 m along the way
+- **THEN** its terrain gain is 100 and its terrain loss is 0
+
+#### Scenario: Effort altitude isn't smoothed
+- **WHEN** an effort's altitude rises 5 m and falls back 5 m within 20 m along a flat segment
+- **THEN** the effort records a gain of 5 and a loss of 5
+
 ### Requirement: An effort records elevation only from its track's altitude
 When the AppView records an effort, it SHALL compute that effort's gain and loss from the altitude samples its segment track holds between the effort's start and end. When the track has no altitude, or none within that span, the effort SHALL have no elevation. Missing samples SHALL be skipped.
 
@@ -72,11 +83,18 @@ When the AppView records an effort, it SHALL compute that effort's gain and loss
 - **WHEN** a segment track with no altitude passes over a segment
 - **THEN** the effort is recorded as before, with no elevation
 
-### Requirement: Enough athletes' efforts replace the terrain elevation
-Once efforts with elevation on a segment come from at least as many distinct athletes as make a proposed segment active, the segment SHALL serve, as source `efforts`, the median across those athletes of each athlete's median effort gain and loss. Below that number it SHALL serve its terrain elevation, if any.
+### Requirement: Terrain elevation wins where it covers a segment
+A segment with terrain elevation SHALL serve it, with source `terrain`, however many athletes have efforts with elevation on it.
+
+#### Scenario: Covered segment with many riders
+- **WHEN** a segment has terrain elevation, and five distinct athletes have efforts with elevation on it with the threshold at three
+- **THEN** the view serves the terrain gain and loss with source `terrain`
+
+### Requirement: Efforts fill in where terrain doesn't cover a segment
+A segment with no terrain elevation SHALL serve, as source `efforts`, the median across athletes of each athlete's median effort gain and loss. It SHALL do so only once efforts with elevation come from at least as many distinct athletes as make a proposed segment active. Below that it SHALL serve no elevation.
 
 #### Scenario: Enough athletes
-- **WHEN** three distinct athletes, with the activation threshold at three, have efforts with elevation on a segment
+- **WHEN** three distinct athletes, with the activation threshold at three, have efforts with elevation on a segment without terrain elevation
 - **THEN** the view's elevation is the median of the three athletes' medians, with source `efforts`
 
 #### Scenario: One athlete rides often
@@ -84,8 +102,8 @@ Once efforts with elevation on a segment come from at least as many distinct ath
 - **THEN** that athlete counts once, through their own median
 
 #### Scenario: Too few athletes
-- **WHEN** two distinct athletes have efforts with elevation on a segment and the threshold is three
-- **THEN** the view serves the terrain elevation, or none
+- **WHEN** two distinct athletes have efforts with elevation on a segment without terrain elevation and the threshold is three
+- **THEN** the view has no elevation
 
 ### Requirement: No single athlete's elevation is revealed
 The AppView SHALL never serve an individual effort's elevation, in any view or to any viewer, including the effort's own athlete. Effort elevation SHALL be used only for the segment's aggregate.
@@ -95,11 +113,11 @@ The AppView SHALL never serve an individual effort's elevation, in any view or t
 - **THEN** no effort in them carries an elevation
 
 ### Requirement: Effort elevation follows its efforts
-When efforts are dropped (their track, activity, setting or segment goes away), the segment's effort elevation SHALL be recomputed without them. If too few athletes remain, the segment SHALL fall back to its terrain elevation, or to none.
+When efforts are dropped (their track, activity, setting or segment goes away), the segment's effort elevation SHALL be recomputed without them. If too few athletes remain, a segment without terrain elevation SHALL serve no elevation.
 
 #### Scenario: Athlete turns matching off
-- **WHEN** one of exactly three athletes with efforts with elevation turns segment matching off
-- **THEN** the segment serves its terrain elevation, or none, instead of the effort median
+- **WHEN** one of exactly three athletes with efforts with elevation on a segment without terrain coverage turns segment matching off, and the threshold is three
+- **THEN** the segment serves no elevation instead of the effort median
 
 ### Requirement: Existing segments get elevation
 After this change is deployed, the AppView SHALL derive terrain elevation for segments already indexed, and effort elevation from efforts already recorded, without needing their records or tracks to be republished.
@@ -112,6 +130,43 @@ After this change is deployed, the AppView SHALL derive terrain elevation for se
 - **WHEN** the AppView first runs with effort elevation
 - **THEN** segments whose stored efforts' tracks have altitude get effort elevation once enough athletes' efforts are recomputed
 
+### Requirement: Existing segments are recomputed with smoothing
+After this change is deployed, the AppView SHALL recompute the terrain elevation of every indexed segment, smoothed, and give each covered segment a profile, without needing any record to be republished.
+
+#### Scenario: Upgrade
+- **WHEN** the AppView first starts after this change, with terrain data configured
+- **THEN** segments indexed earlier inside its coverage serve smoothed terrain elevation and get a profile
+
+### Requirement: A segment's terrain profile
+For each segment with terrain elevation, the AppView SHALL keep a profile of its smoothed terrain heights: 128 heights in whole decimeters, evenly spaced along the line, the first at its start and the last at its end. A segment without terrain elevation SHALL have no profile. When the line changes, the profile SHALL be recomputed with the terrain elevation.
+
+#### Scenario: Covered segment
+- **WHEN** a segment is indexed inside the terrain coverage
+- **THEN** it gets a profile of 128 heights from its start to its end
+
+#### Scenario: Partly covered segment
+- **WHEN** a segment's line runs past the edge of the terrain data
+- **THEN** it has no profile
+
+#### Scenario: Line edited
+- **WHEN** a creator republishes a segment with a different line
+- **THEN** its profile follows the new line
+
+### Requirement: The segment query serves the profile
+`feed.getSegment` SHALL return the segment's profile beside the segment view whenever the view's elevation source is `terrain`, and SHALL leave it out otherwise. No other query SHALL carry the profile, and the profile SHALL be optional so older clients keep working.
+
+#### Scenario: Terrain segment
+- **WHEN** a viewer asks `feed.getSegment` for a segment whose elevation comes from terrain
+- **THEN** the output has the segment view and an `elevationProfile` with 128 heights
+
+#### Scenario: Segment without terrain
+- **WHEN** a viewer asks `feed.getSegment` for a segment whose elevation comes from efforts, or that has none
+- **THEN** the output has no `elevationProfile`
+
+#### Scenario: Other segment queries
+- **WHEN** a segment with a profile appears in area search, name search or a duplicate check's results
+- **THEN** none of those results carries a profile
+
 ### Requirement: The segment screen shows elevation
 When a segment's view has elevation, the segment screen SHALL show its gain, its loss and its average grade (net height change over its length, as a percentage), in the viewer's units, next to its length. When the view has none, the screen SHALL show neither the values nor a placeholder.
 
@@ -122,3 +177,29 @@ When a segment's view has elevation, the segment screen SHALL show its gain, its
 #### Scenario: Segment without elevation
 - **WHEN** a viewer opens a segment whose view has no elevation
 - **THEN** the screen shows its length and type as before, with no elevation line
+
+### Requirement: The segment screen shows the elevation profile
+When the segment query returns a profile, the segment screen SHALL draw it under the gain, loss and grade line. The chart's horizontal axis is distance along the segment and its vertical axis is elevation, both in the viewer's units. The area under the line is tinted by local grade. Pressing or dragging across it SHALL show the distance, elevation and grade at that point. Without a profile, the screen SHALL draw no chart and no placeholder.
+
+#### Scenario: Segment with a profile
+- **WHEN** a viewer using imperial units opens a segment whose query returned a profile
+- **THEN** the screen shows the profile with distance in miles and elevation in feet
+
+#### Scenario: Scrubbing
+- **WHEN** the viewer drags across the profile
+- **THEN** a readout shows the distance, elevation and grade at the point under their finger
+
+#### Scenario: Segment without a profile
+- **WHEN** a viewer opens a segment whose elevation comes from efforts
+- **THEN** the screen shows the gain, loss and grade line and no chart
+
+#### Scenario: Ski lift
+- **WHEN** a viewer opens a ski lift segment with a profile
+- **THEN** the screen shows its profile like any other segment's
+
+### Requirement: Grade is tinted in five bands
+The profile's tint SHALL show the absolute grade over about 50 m around each point, in five bands: under 3%, 3 to under 6%, 6 to under 10%, 10 to under 15%, and 15% or more. Each band SHALL have its own colour, and the colours SHALL remain distinguishable in light and dark themes. A descent SHALL be tinted by how steep it is, the same as a climb.
+
+#### Scenario: Steep descent
+- **WHEN** part of a profile falls 12 m over 100 m
+- **THEN** that part is tinted with the 10 to 15% band's colour
