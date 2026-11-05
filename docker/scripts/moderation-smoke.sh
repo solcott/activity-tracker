@@ -131,7 +131,7 @@ xrpc "$appview" app.activitytracker.space.notifySpace POST -H "Authorization: Be
 ok "bob posted a Public and a Followers activity, each with a photo; alice follows bob"
 
 lookup_status() { query "$1" app.activitytracker.feed.getActivity "uri=$(jq -rn --arg u "$2" '$u|@uri')"; echo "$last_status"; }
-in_timeline() { q alice app.activitytracker.feed.getTimeline "limit=100" | jq -e --arg u "$1" '[.activities[].uri] | index($u) != null' >/dev/null; }
+in_timeline() { q alice app.activitytracker.feed.getTimeline "limit=100" | jq -e --arg u "$1" '[.feed[].uri] | index($u) != null' >/dev/null; }
 indexed() { [[ $(lookup_status alice "$1") == 200 ]]; }
 wait_for "the Public activity" indexed "$public_uri"
 wait_for "the Followers activity (synced from bob's space)" indexed "$followers_uri"
