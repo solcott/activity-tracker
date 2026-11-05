@@ -80,7 +80,8 @@ fun SegmentBrowsePresenter(
         }
 
     // Name results: a new query keeps the last results until it answers; a new scope or sport group drops them. The area and centre are
-    // read when a page loads, so moving the map doesn't restart a search.
+    // read when the first page loads, so moving the map doesn't restart a search, and kept for the later pages, whose cursor is an offset
+    // into that first page's query.
     val currentViewport by rememberUpdatedState(browse.viewport)
     val scope = browse.scope
     val sport = browse.sport
@@ -95,8 +96,11 @@ fun SegmentBrowsePresenter(
                 enabled = trimmed.isNotEmpty(),
             ) { cursor ->
                 flow {
-                    if (cursor == null) delay(NAME_SEARCH_DEBOUNCE)
-                    emit(segments.namesPage(nameParams(trimmed, scope, sport, currentViewport, cursor)))
+                    if (cursor == null) {
+                        delay(NAME_SEARCH_DEBOUNCE)
+                        browse.nameViewport = currentViewport
+                    }
+                    emit(segments.namesPage(nameParams(trimmed, scope, sport, browse.nameViewport, cursor)))
                 }
             }
         }
@@ -152,6 +156,9 @@ internal class BrowseControls(permission: Boolean?) {
     var start by mutableStateOf(BrowseStart.Locating)
     var permission by mutableStateOf(permission)
     var areaRetry by mutableIntStateOf(0)
+
+    /** The map's area when the current name search's first page loaded, which its later pages search too. */
+    var nameViewport: MapViewport? = null
 
     fun onEvent(event: SegmentBrowseEvent) {
         when (event) {
