@@ -64,7 +64,6 @@ import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
 import org.jetbrains.exposed.v1.core.JoinType
-import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.QueryBuilder
@@ -217,12 +216,12 @@ class SegmentViews(
         val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
         return db.tx {
             val name = Segments.currentName.lowerCase()
-            val prefix = LikePattern.ofLiteral(q, LIKE_ESCAPE) + "%"
+            val match = NameMatch(q)
             val rank =
                 Case()
                     .When(name eq q, intLiteral(NAME_WHOLE))
-                    .When(name like prefix, intLiteral(NAME_PREFIX))
-                    .When(name like LikePattern("% ", LIKE_ESCAPE) + prefix, intLiteral(NAME_WORD))
+                    .When(name like match.prefix, intLiteral(NAME_PREFIX))
+                    .When(name like match.wordPrefix, intLiteral(NAME_WORD))
                     .Else(intLiteral(NAME_ANYWHERE))
             val inBox =
                 box?.let { b ->
@@ -247,7 +246,7 @@ class SegmentViews(
                             listedTo(viewer) and
                             (Segments.kind neq SegmentKind.LIFT) and
                             (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
-                            (name like LikePattern("%", LIKE_ESCAPE) + prefix) and
+                            (name like match.anywhere) and
                             inBox
                     }
                     .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, Segments.uri to SortOrder.ASC)
@@ -819,7 +818,6 @@ class SegmentViews(
         private const val NAME_PREFIX = 1
         private const val NAME_WORD = 2
         private const val NAME_ANYWHERE = 3
-        private const val LIKE_ESCAPE = '\\'
         private const val BOX_SIDES = 4
 
         /** The ranks an activity's efforts show (segments/segment-efforts). */

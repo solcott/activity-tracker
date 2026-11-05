@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import org.jetbrains.exposed.v1.core.Case
-import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -33,18 +32,17 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
             // An unresolvable account's handle is the placeholder handle.invalid, which isn't the athlete's to be found by.
             val hasHandle = Actors.handle neq IdentityResolver.INVALID_HANDLE.value
             val name = Actors.displayName.lowerCase()
-            val prefix = LikePattern.ofLiteral(q, ESCAPE) + "%"
-            val anywhere = LikePattern("%", ESCAPE) + prefix
+            val match = NameMatch(q)
             val rank =
                 Case()
                     .When((Actors.did eq q) or (hasHandle and (Actors.handle eq q)), intLiteral(RANK_EXACT))
-                    .When(hasHandle and (Actors.handle like prefix), intLiteral(RANK_HANDLE_PREFIX))
-                    .When((name like prefix) or (name like LikePattern("% ", ESCAPE) + prefix), intLiteral(RANK_NAME_WORD))
+                    .When(hasHandle and (Actors.handle like match.prefix), intLiteral(RANK_HANDLE_PREFIX))
+                    .When((name like match.prefix) or (name like match.wordPrefix), intLiteral(RANK_NAME_WORD))
                     .Else(intLiteral(RANK_ANYWHERE))
             val rows =
                 Actors.select(Actors.did)
                     .where {
-                        ((Actors.did eq q) or (hasHandle and (Actors.handle like anywhere)) or (name like anywhere)) and
+                        ((Actors.did eq q) or (hasHandle and (Actors.handle like match.anywhere)) or (name like match.anywhere)) and
                             accountShownTo(viewer, Actors.did)
                     }
                     .orderBy(rank to SortOrder.ASC, Actors.handle to SortOrder.ASC, Actors.did to SortOrder.ASC)
@@ -61,7 +59,6 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
         const val RANK_HANDLE_PREFIX = 1
         const val RANK_NAME_WORD = 2
         const val RANK_ANYWHERE = 3
-        const val ESCAPE = '\\'
 
         /** Lower case (handles are stored lower case), without the `@` people type before a handle, and within the lexicon's maxLength. */
         fun normalize(q: String): String = q.trim().removePrefix("@").trim().take(SearchActors.MAX_QUERY_LENGTH).lowercase()
