@@ -14,6 +14,8 @@ dependencies {
     // The graph is generated here, so every module that contributes bindings must be on the classpath.
     // GearChoices, which the record, import and edit presenters inject.
     implementation(projects.appCommonPresenter)
+    // The place-name sheet's UI factory.
+    implementation(projects.appCommonUi)
     implementation(projects.composeApp)
     implementation(projects.coreData)
     implementation(projects.featureDetailPresenter)
