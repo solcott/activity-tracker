@@ -7,7 +7,7 @@ Defines community names for segments: who may propose a new name and vote on it,
 ## Requirements
 
 ### Requirement: A name proposal is a public record
-A name proposal SHALL be a `feed.segmentNameProposal` record in its proposer's repo, naming the segment by URI and holding a name that's non-empty after trimming and at most 100 graphemes. The AppView SHALL ignore one in any space, one with an invalid name, and one naming a segment it hasn't indexed.
+A name proposal SHALL be a `feed.segmentNameProposal` record in its proposer's repo, naming the segment or dive site by URI and holding a name that's non-empty after trimming and at most 100 graphemes. The AppView SHALL ignore one in any space, one with an invalid name, and one naming a segment or dive site it hasn't indexed. A proposal naming a dive site SHALL follow `dive-sites/site-names`.
 
 #### Scenario: Proposal written
 - **WHEN** alice proposes "Wiggly Woods" for a segment
@@ -20,6 +20,10 @@ A name proposal SHALL be a `feed.segmentNameProposal` record in its proposer's r
 #### Scenario: Proposal in a space
 - **WHEN** a `feed.segmentNameProposal` appears in an athlete's `interactions` space
 - **THEN** the AppView ignores it
+
+#### Scenario: Proposal for a dive site
+- **WHEN** alice proposes "Shark Alley" for a dive site
+- **THEN** her repo gains a `feed.segmentNameProposal` naming the site's URI, which the AppView treats under the site naming rules
 
 ### Requirement: Only regulars may propose
 The AppView SHALL accept a proposal only if, when it's indexed, the segment is `active` and of kind `run`, and the proposer has efforts on it on at least a configured number of distinct local dates, 5 by default. Efforts of every visibility SHALL count, but only efforts within the sport group's speed cap. It SHALL ignore any other proposal, and SHALL NOT drop an accepted proposal when the proposer later loses efforts.
