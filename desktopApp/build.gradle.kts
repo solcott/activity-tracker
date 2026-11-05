@@ -20,6 +20,8 @@ dependencies {
     implementation(projects.coreData)
     implementation(projects.featureDetailPresenter)
     implementation(projects.featureDetailUi)
+    implementation(projects.featureDivesitePresenter)
+    implementation(projects.featureDivesiteUi)
     implementation(projects.featureEditPresenter)
     implementation(projects.featureEditUi)
     implementation(projects.featureFeedPresenter)

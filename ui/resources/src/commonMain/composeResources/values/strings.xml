@@ -23,6 +23,12 @@
     <string name="error_publish_segment">Couldn't publish the segment</string>
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
     <string name="error_load_leaderboard">Couldn't load the leaderboard</string>
+    <string name="error_load_dive_site">Couldn't load the dive site</string>
+    <string name="error_load_dive_site_dives">Couldn't load the dives at this site</string>
+    <string name="error_load_regulars">Couldn't load the Regulars board</string>
+    <string name="error_load_dive_position">Couldn't load the dive's position</string>
+    <string name="error_check_dive_site">Couldn't check the site against existing ones, so it wasn't published</string>
+    <string name="error_publish_dive_site">Couldn't publish the dive site</string>
     <string name="error_load_mayors">Couldn't load the Mayors board</string>
     <string name="error_update_star">Couldn't update your star</string>
     <string name="error_load_likes">Couldn't load likes</string>
@@ -1647,6 +1653,47 @@
         <item quantity="one">%1$d effort</item>
         <item quantity="other">%1$d efforts</item>
     </plurals>
+    <string name="dive_site_radius">Within %1$s of its centre</string>
+    <string name="dive_site_status_proposed_help">Proposed sites become active once enough divers have dived them.</string>
+    <string name="dive_site_status_archived_help">Archived: too few divers came here, so it no longer gets new dives.</string>
+    <string name="dive_site_duplicate_help">This site duplicates an earlier one nearby, so dives count there instead.</string>
+    <string name="dive_site_regulars_card">Top regular · all time</string>
+    <string name="dive_site_regulars_none">No regulars yet. Whoever dives here most leads the board.</string>
+    <plurals name="dive_site_visits">
+        <item quantity="one">%1$d dive</item>
+        <item quantity="other">%1$d dives</item>
+    </plurals>
+    <plurals name="dive_site_regulars_yours">
+        <item quantity="one">You've dived here once</item>
+        <item quantity="other">You've dived here %1$d times</item>
+    </plurals>
+    <string name="dive_site_regulars_title">Regulars of %1$s</string>
+    <string name="dive_site_regulars_empty">No one has dived here in this period</string>
+    <string name="dive_site_conditions">Conditions</string>
+    <plurals name="dive_site_conditions_from">
+        <item quantity="one">From %1$d dive</item>
+        <item quantity="other">From %1$d dives</item>
+    </plurals>
+    <string name="dive_site_conditions_temperature">Water %1$s (%2$s to %3$s)</string>
+    <string name="dive_site_conditions_visibility">Visibility %1$s</string>
+    <string name="dive_site_conditions_depth">Max depth %1$s, deepest %2$s</string>
+    <string name="dive_site_conditions_month">%1$s · %2$s · %3$s</string>
+    <string name="dive_site_dives">Dives here</string>
+    <string name="dive_site_no_dives">No dives here that you can see yet</string>
+    <string name="create_dive_site_title">New dive site</string>
+    <string name="create_dive_site_name">Site name</string>
+    <string name="create_dive_site_radius">Radius: %1$s</string>
+    <string name="create_dive_site_public">The site's position, radius and name will be public, for anyone to see and reuse.</string>
+    <string name="create_dive_site_names_dive">The site will name this dive as where it came from.</string>
+    <string name="create_dive_site_publish">Publish site</string>
+    <string name="create_dive_site_duplicates">A site is already here:</string>
+    <string name="create_dive_site_limit">You've created as many sites as you can today. Try again tomorrow.</string>
+    <string name="create_dive_site_no_position">This dive has no position to place a site at.</string>
+    <string name="create_dive_site_inside_zone">This dive's entry is inside one of your privacy zones, so it can't be a public site.</string>
+    <string name="create_dive_site_hidden_start">You hide the start of your activities, and a site's centre is this dive's entry, so it can't be a public site.</string>
+    <string name="create_dive_site_at_site">This dive is already at a dive site.</string>
+    <string name="detail_create_dive_site">Create dive site</string>
+    <string name="detail_dive_site_created">Dive site published. It appears here once it's processed.</string>
     <string name="mayors_title">Mayors of %1$s</string>
     <string name="mayors_reached">Reached %1$s</string>
     <string name="mayors_empty">No one has an effort here in this period</string>

@@ -18,6 +18,8 @@ import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.divesites.DiveSitePublisher
+import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
@@ -152,6 +154,13 @@ open class ActivityTestBase {
     protected var checkRequests = 0
     protected var checkGate: CompletableDeferred<Unit>? = null
 
+    /** The AppView's `checkDiveSite` answer; null fails it. */
+    protected var checkDiveSite: String? = """{"duplicates":[],"remaining":10}"""
+
+    /** How many `checkDiveSite` calls were made; each waits on [checkDiveSiteGate] when set. */
+    protected var checkDiveSiteRequests = 0
+    protected var checkDiveSiteGate: CompletableDeferred<Unit>? = null
+
     /** Reading Alice's privacy zones fails. */
     protected var failZones = false
 
@@ -252,6 +261,13 @@ open class ActivityTestBase {
                         checkRequests++
                         checkGate?.await()
                         checkSegment?.let { respond(it, headers = json) }
+                            ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_CHECK_DIVE_SITE}" -> {
+                        checkDiveSiteRequests++
+                        checkDiveSiteGate?.await()
+                        checkDiveSite?.let { respond(it, headers = json) }
                             ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                     }
 
@@ -393,6 +409,8 @@ open class ActivityTestBase {
         val publisher: SegmentPublisher,
         val privacy: PrivacyZones,
         val groups: OwnGroups,
+        val diveSites: DiveSiteRepository,
+        val sitePublisher: DiveSitePublisher,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -430,6 +448,7 @@ open class ActivityTestBase {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones)
         val segments = SegmentRepository(clients)
+        val diveSites = DiveSiteRepository(clients)
         return Repos(
             db,
             feed,
@@ -461,6 +480,8 @@ open class ActivityTestBase {
             SegmentPublisher(clients, writer, outbox, segments, Clock.System),
             privacy,
             segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
+            diveSites,
+            DiveSitePublisher(clients, writer, outbox, diveSites, Clock.System),
         )
     }
 }

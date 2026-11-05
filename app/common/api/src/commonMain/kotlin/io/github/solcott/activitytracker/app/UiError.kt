@@ -28,6 +28,18 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** A new segment couldn't be queued to be published. */
         PublishSegment,
+        LoadDiveSite,
+        LoadDiveSiteDives,
+        LoadRegulars,
+
+        /** A dive's own track couldn't be read, so its entry position, a new dive site's centre, isn't known. */
+        LoadDivePosition,
+
+        /** A new dive site's position couldn't be checked for duplicates, so it wasn't published. */
+        CheckDiveSite,
+
+        /** A new dive site couldn't be queued to be published. */
+        PublishDiveSite,
         LoadLikes,
         LoadComments,
         LoadReplies,

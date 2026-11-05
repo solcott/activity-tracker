@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_answer_follo
 import io.github.solcott.activitytracker.composeApp.resources.error_apply_gear_to_past
 import io.github.solcott.activitytracker.composeApp.resources.error_cancel_upload
 import io.github.solcott.activitytracker.composeApp.resources.error_change_group
+import io.github.solcott.activitytracker.composeApp.resources.error_check_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.error_check_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_clear_uploads
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
@@ -42,6 +43,9 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_blocks
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_data_sources
+import io.github.solcott.activitytracker.composeApp.resources.error_load_dive_position
+import io.github.solcott.activitytracker.composeApp.resources.error_load_dive_site
+import io.github.solcott.activitytracker.composeApp.resources.error_load_dive_site_dives
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -59,6 +63,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mutes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
+import io.github.solcott.activitytracker.composeApp.resources.error_load_regulars
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
@@ -73,6 +78,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_pause_imports
 import io.github.solcott.activitytracker.composeApp.resources.error_propose_segment_name
+import io.github.solcott.activitytracker.composeApp.resources.error_publish_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_offline
@@ -170,6 +176,12 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.UpdateStar -> Res.string.error_update_star
             UiError.Kind.CheckSegment -> Res.string.error_check_segment
             UiError.Kind.PublishSegment -> Res.string.error_publish_segment
+            UiError.Kind.LoadDiveSite -> Res.string.error_load_dive_site
+            UiError.Kind.LoadDiveSiteDives -> Res.string.error_load_dive_site_dives
+            UiError.Kind.LoadRegulars -> Res.string.error_load_regulars
+            UiError.Kind.LoadDivePosition -> Res.string.error_load_dive_position
+            UiError.Kind.CheckDiveSite -> Res.string.error_check_dive_site
+            UiError.Kind.PublishDiveSite -> Res.string.error_publish_dive_site
             UiError.Kind.LoadLikes -> Res.string.error_load_likes
             UiError.Kind.LoadComments -> Res.string.error_load_comments
             UiError.Kind.LoadReplies -> Res.string.error_load_replies

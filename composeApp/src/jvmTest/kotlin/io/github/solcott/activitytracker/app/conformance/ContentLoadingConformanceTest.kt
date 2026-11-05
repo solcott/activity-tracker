@@ -13,6 +13,12 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
 import io.github.solcott.activitytracker.app.detail.ActivityDetailUi
 import io.github.solcott.activitytracker.app.detail.CombinePickerSamples
 import io.github.solcott.activitytracker.app.detail.CombinePickerUi
+import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteSamples
+import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteUi
+import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsSamples
+import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsUi
+import io.github.solcott.activitytracker.app.divesite.DiveSiteSamples
+import io.github.solcott.activitytracker.app.divesite.DiveSiteUi
 import io.github.solcott.activitytracker.app.edit.EditActivitySamples
 import io.github.solcott.activitytracker.app.edit.EditActivityUi
 import io.github.solcott.activitytracker.app.feed.FeedSamples
@@ -123,6 +129,9 @@ class ContentLoadingConformanceTest {
             entry({ SegmentMayorsSamples.all }, "Bob") { SegmentMayorsUi(it) },
             entry({ StarredSegmentsSamples.all }, "Flagstaff Climb") { StarredSegmentsUi(it) },
             entry({ CreateSegmentSamples.all }, null) { CreateSegmentUi(it) },
+            entry({ DiveSiteSamples.all }, "Within 100 m of its centre") { DiveSiteUi(it) },
+            entry({ DiveSiteRegularsSamples.all }, "Bob") { DiveSiteRegularsUi(it) },
+            entry({ CreateDiveSiteSamples.all }, null) { CreateDiveSiteUi(it) },
             entry({ ActivityDetailSamples.all }, "Morning Ride") { ActivityDetailUi(it) },
             entry({ CombinePickerSamples.all }, "Ride (watch)") { CombinePickerUi(it) },
             entry({ RouteMapSamples.all }, null) { RouteMapUi(it) },

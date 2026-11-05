@@ -12,6 +12,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.coreLexicon)
             api(projects.featureDetailApi)
+            api(projects.featureDivesiteApi)
             api(projects.featureEditApi)
             api(projects.featureFeedApi)
             api(projects.featureFeedfilterApi)
