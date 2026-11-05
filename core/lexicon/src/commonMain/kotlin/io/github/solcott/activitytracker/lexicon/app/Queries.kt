@@ -374,7 +374,12 @@ object SearchActors {
 object GetSegment {
     @Serializable data class Params(val uri: AtUri)
 
-    @Serializable data class Output(val segment: SegmentView)
+    @Serializable
+    data class Output(
+        val segment: SegmentView,
+        /** The segment's terrain profile, only when [SegmentView.elevationSource] is [SegmentElevationSource.TERRAIN]. */
+        val elevationProfile: ElevationProfile? = null,
+    )
 
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT, Params.serializer(), Output.serializer())
 }

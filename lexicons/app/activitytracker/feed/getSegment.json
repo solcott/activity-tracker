@@ -18,7 +18,12 @@
           "type": "object",
           "required": ["segment"],
           "properties": {
-            "segment": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" }
+            "segment": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" },
+            "elevationProfile": {
+              "type": "ref",
+              "ref": "app.activitytracker.feed.defs#elevationProfile",
+              "description": "The segment's terrain profile, only when segment.elevationSource is terrain. No other query carries it."
+            }
           }
         }
       },

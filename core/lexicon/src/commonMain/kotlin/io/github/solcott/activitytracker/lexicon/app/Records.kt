@@ -620,10 +620,10 @@ object SegmentStatus {
 
 /** Known values of [SegmentView.elevationSource]; an open string. */
 object SegmentElevationSource {
-    /** Sampled from terrain data along the segment's line. */
+    /** Sampled from terrain data along the segment's line; wins wherever terrain covers the whole line. */
     const val TERRAIN = "terrain"
 
-    /** The median of enough distinct athletes' efforts' track altitude. */
+    /** The median of enough distinct athletes' efforts' track altitude, only for segments terrain doesn't cover. */
     const val EFFORTS = "efforts"
 }
 

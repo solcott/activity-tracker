@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
@@ -187,6 +188,23 @@ class SegmentRecordsTest {
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), outputJson))
         assertFalse("status" in outputJson["segment"]!!.jsonObject)
         assertFalse("duplicateOf" in outputJson["segment"]!!.jsonObject)
+        assertFalse("elevationProfile" in outputJson)
+    }
+
+    @Test
+    fun getSegmentProfileRoundTrips() {
+        val view =
+            SegmentView(
+                uri = AtUri("at://did:plc:alice/${Nsid.FEED_SEGMENT}/3ks"),
+                cid = Cid("bafysegment"),
+                creator = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
+                record = SegmentRecord("Hill", "run", "_p~iF~ps|U", "athlete", "CC0-1.0", Instant.parse("2026-10-01T00:00:00Z")),
+                distanceMeters = 1_200,
+            )
+        val output = GetSegment.Output(view, ElevationProfile(listOf(14_240, 14_310, 15_670)))
+        val json = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), output).jsonObject
+        assertEquals(3, json["elevationProfile"]!!.jsonObject["heights"]!!.jsonArray.size)
+        assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), json))
     }
 
     @Test

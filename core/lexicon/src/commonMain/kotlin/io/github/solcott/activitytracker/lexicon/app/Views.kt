@@ -225,6 +225,12 @@ data class ThreadView(
     val repliesCursor: String? = null,
 )
 
+/**
+ * `app.activitytracker.feed.defs#elevationProfile`: a segment's smoothed terrain heights in decimeters, evenly spaced along its line from
+ * its start to its end, so each is [SegmentView.distanceMeters] / ([heights] size - 1) apart.
+ */
+@Immutable @Serializable data class ElevationProfile(val heights: List<Int>)
+
 /** `app.activitytracker.feed.defs#segmentView` */
 @Immutable
 @Serializable
@@ -239,7 +245,10 @@ data class SegmentView(
     val status: String? = null,
     /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
     val duplicateOf: AtUri? = null,
-    /** Meters climbed from start to end, derived by the AppView; null when it has none. */
+    /**
+     * Meters climbed from start to end, derived by the AppView: from smoothed terrain wherever it covers the whole line, else from enough
+     * distinct athletes' efforts; null when it has none.
+     */
     val elevationGain: Long? = null,
     /** Meters descended from start to end, derived by the AppView; null when it has none. */
     val elevationLoss: Long? = null,
