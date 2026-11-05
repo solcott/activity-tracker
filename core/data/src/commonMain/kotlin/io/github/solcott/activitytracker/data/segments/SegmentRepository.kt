@@ -164,7 +164,7 @@ class SegmentRepository(private val clients: SessionClients) {
             page.segments.forEach { found.getOrPut(it.uri) { it } }
             cursor = page.cursor
         } while (cursor != null && found.size < cap && requests < maxRequests)
-        AreaSegments(found.values.take(cap), capped = cursor != null)
+        AreaSegments(found.values.take(cap), capped = cursor != null || found.size > cap)
     }
 
     /** One page of segments whose current name contains [params]' query, best match first (segments/segment-records). */
