@@ -9,20 +9,79 @@ import java.io.File
 import java.io.IOException
 import javax.imageio.ImageIO
 import kotlin.math.PI
+import kotlin.math.atan
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.ln
+import kotlin.math.sinh
 import kotlin.math.tan
 
 /**
  * Terrain heights from Terrarium elevation tiles (segments/segment-elevation): 256-pixel Web Mercator PNGs at `[dir]/{z}/{x}/{y}.png`, all
  * at one [zoom], each pixel's height `R * 256 + G + B / 256 - 32768` meters. A tile that isn't there leaves its area uncovered. Recently
- * read tiles are kept decoded, [CACHED_TILES] at most, and a missing one is remembered as missing.
+ * read tiles are kept decoded, [CACHED_TILES] at most, and a missing one is remembered as missing. Which tiles are there is listed once,
+ * the first time [coverage] is read, so tiles added later count from the next start.
  */
 class TerrainTiles(private val dir: File, private val zoom: Int) {
     private val tiles = (1 shl zoom)
     /** Decoded tiles by [key]; [MISSING] for one that isn't there or doesn't decode, as Caffeine holds no nulls. */
     private val cache = boundedCache<Long, FloatArray>(CACHED_TILES.toLong())
+
+    /**
+     * The areas the tiles at [zoom] cover, from the `{x}/{y}.png` files present: each column's runs of consecutive tiles, merged with the
+     * next column's when it has the same run. A box that touches none of them has no terrain, so it needn't be sampled.
+     */
+    val coverage: List<TerrainArea> by lazy { areasOf(columns()) }
+
+    /** Whether [coverage] touches the box from ([minLatE7], [minLngE7]) to ([maxLatE7], [maxLngE7]), in degrees times 10^7. */
+    fun touches(minLatE7: Int, maxLatE7: Int, minLngE7: Int, maxLngE7: Int): Boolean = coverage.any {
+        maxLatE7 >= it.minLatE7 && minLatE7 <= it.maxLatE7 && maxLngE7 >= it.minLngE7 && minLngE7 <= it.maxLngE7
+    }
+
+    /** Each column of tiles present, by x, as its sorted runs of consecutive y. */
+    private fun columns(): Map<Int, List<IntRange>> =
+        File(dir, "$zoom")
+            .listFiles()
+            .orEmpty()
+            .mapNotNull { column ->
+                val x = column.name.toIntOrNull()?.takeIf { column.isDirectory } ?: return@mapNotNull null
+                val ys = column.list().orEmpty().mapNotNull { it.removeSuffix(".png").takeIf { y -> y != it }?.toIntOrNull() }.sorted()
+                x to runsOf(ys)
+            }
+            .filter { it.second.isNotEmpty() }
+            .toMap()
+
+    /** [columns] merged into rectangles of tiles and turned into degrees, rounded outwards. */
+    private fun areasOf(columns: Map<Int, List<IntRange>>): List<TerrainArea> {
+        // Rectangles still growing eastwards, by their run of y, as the first x they span.
+        var open = mapOf<IntRange, Int>()
+        val areas = mutableListOf<TerrainArea>()
+        fun close(ys: IntRange, firstX: Int, lastX: Int) {
+            areas +=
+                TerrainArea(
+                    minLatE7 = floor(latOf(ys.last + 1) * E7).toInt(),
+                    maxLatE7 = ceil(latOf(ys.first) * E7).toInt(),
+                    minLngE7 = floor(lngOf(firstX) * E7).toInt(),
+                    maxLngE7 = ceil(lngOf(lastX + 1) * E7).toInt(),
+                )
+        }
+        // Tile x is never negative, so the first column is never adjacent; open is empty until it's set.
+        var previousX = Int.MIN_VALUE
+        for ((x, runs) in columns.toSortedMap()) {
+            val adjacent = previousX == x - 1
+            val next = runs.associateWith { ys -> open[ys]?.takeIf { adjacent } ?: x }
+            for ((ys, firstX) in open) if (next[ys] != firstX) close(ys, firstX, previousX)
+            open = next
+            previousX = x
+        }
+        for ((ys, firstX) in open) close(ys, firstX, previousX)
+        return areas
+    }
+
+    private fun lngOf(tileX: Int): Double = tileX.toDouble() / tiles * FULL_TURN_DEGREES - HALF_TURN_DEGREES
+
+    private fun latOf(tileY: Int): Double = atan(sinh(PI * (1 - 2.0 * tileY / tiles))) * HALF_TURN_DEGREES / PI
 
     /** The height at [point] in meters, interpolated between the four nearest pixels; null when a tile it needs isn't there. */
     fun heightAt(point: GeoPoint): Double? {
@@ -89,6 +148,16 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
     }
 
     companion object {
+        /** The runs of consecutive values in [sorted]. */
+        private fun runsOf(sorted: List<Int>): List<IntRange> {
+            val runs = mutableListOf<IntRange>()
+            for (y in sorted) {
+                val last = runs.lastOrNull()
+                if (last != null && y == last.last + 1) runs[runs.lastIndex] = last.first..y else if (last?.last != y) runs += y..y
+            }
+            return runs
+        }
+
         /** Spacing of terrain samples along a segment's line, in meters. */
         const val SAMPLE_SPACING_M = 10.0
 
@@ -106,6 +175,7 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val BYTE = 0xFF
         private const val BYTE_VALUES = 256
         private const val TERRARIUM_OFFSET = 32768f
+        private const val E7 = 1e7
     }
 }
 
@@ -113,3 +183,6 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
  * A segment's terrain: gain and loss in whole meters, and [profileDm], its smoothed heights evenly spaced from start to end, in decimeters.
  */
 data class TerrainElevation(val gain: Long, val loss: Long, val profileDm: List<Int>)
+
+/** An area terrain tiles cover, in degrees times 10^7, edges included. */
+data class TerrainArea(val minLatE7: Int, val maxLatE7: Int, val minLngE7: Int, val maxLngE7: Int)

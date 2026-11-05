@@ -34,6 +34,42 @@ class TerrainTilesTest {
     }
 
     @Test
+    fun coverageMergesAdjacentColumnsAndKeepsApartTheRest() {
+        val dir = createTempDirectory("terrain").toFile().apply { deleteOnExit() }
+        // Zoom 2: the north-western quarter, two columns of two tiles each, and one tile in the south-east.
+        for ((x, y) in listOf(0 to 0, 0 to 1, 1 to 0, 1 to 1, 3 to 2)) {
+            File(dir, "2/$x").mkdirs()
+            File(dir, "2/$x/$y.png").writeBytes(ByteArray(0))
+        }
+        File(dir, "2/3/notes.txt").writeText("ignored")
+        val tiles = TerrainTiles(dir, 2)
+
+        val areas = tiles.coverage.sortedBy { it.minLngE7 }
+        assertEquals(2, areas.size, "$areas")
+        val (west, east) = areas
+        assertEquals(-1_800_000_000, west.minLngE7)
+        assertEquals(0, west.maxLngE7)
+        assertEquals(0, west.minLatE7)
+        assertTrue(abs(west.maxLatE7 - 850_511_288) <= 1, "$west")
+        assertEquals(900_000_000, east.minLngE7)
+        assertEquals(1_800_000_000, east.maxLngE7)
+        assertTrue(abs(east.minLatE7 + 665_132_604) <= 1, "$east")
+        assertEquals(0, east.maxLatE7)
+
+        assertTrue(tiles.touches(400_000_000, 410_000_000, -1_000_000_000, -990_000_000))
+        assertTrue(tiles.touches(-300_000_000, -290_000_000, 1_000_000_000, 1_010_000_000))
+        // The south-west and north-east have no tiles.
+        assertTrue(!tiles.touches(-300_000_000, -290_000_000, -1_000_000_000, -990_000_000))
+        assertTrue(!tiles.touches(400_000_000, 410_000_000, 1_000_000_000, 1_010_000_000))
+    }
+
+    @Test
+    fun noTilesCoverNothing() {
+        val dir = createTempDirectory("terrain").toFile().apply { deleteOnExit() }
+        assertTrue(TerrainTiles(dir, 12).coverage.isEmpty())
+    }
+
+    @Test
     fun decodesTerrariumHeights() {
         assertEquals(1234.5, tiles(1234.5).heightAt(GeoPoint(45.0, -90.0)))
         assertEquals(-50.25, tiles(-50.25).heightAt(GeoPoint(45.0, -90.0)))
