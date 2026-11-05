@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -131,7 +132,8 @@ internal fun JdbcTransaction.upsertSegment(
     }
     recomputeCurrentName(uri.value)
     if (!changed) return
-    SegmentEfforts.deleteWhere { segmentUri eq uri.value }
+    deleteEfforts { segmentUri eq uri.value }
+    resampleTerrain(uri.value, jobs, now)
     replaceSegmentCells(uri.value, line)
     if (original == null) jobs.enqueueSegment(uri.value, now)
     if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now, importer)
@@ -275,6 +277,18 @@ private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     Segments.deleteWhere { Segments.uri inList uris }
     recheckDuplicatesOf(uris, jobs, now, importer)
+}
+
+/**
+ * Forgets a new or changed segment's terrain elevation and queues it to be sampled again (segments/segment-elevation): its line may have
+ * changed, and sampling an unchanged one again gives the same values.
+ */
+private fun JdbcTransaction.resampleTerrain(uri: String, jobs: SegmentJobs, now: Long) {
+    Segments.update({ Segments.uri eq uri }) {
+        it[terrainGainM] = null
+        it[terrainLossM] = null
+    }
+    jobs.enqueueElevation(uri, now)
 }
 
 private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint>) {

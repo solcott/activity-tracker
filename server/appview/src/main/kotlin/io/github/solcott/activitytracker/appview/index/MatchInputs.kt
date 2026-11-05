@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.exactRecord
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -54,7 +55,7 @@ internal fun JdbcTransaction.matchInputs(activity: String): MatchInputs? {
 internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInputs?, jobs: SegmentJobs, now: Long) {
     val after = matchInputs(activity)
     if (after == null) {
-        SegmentEfforts.deleteWhere { activityUri eq activity }
+        deleteEfforts { activityUri eq activity }
         DiveSiteVisits.deleteWhere { activityUri eq activity }
         SegmentCandidateRiders.deleteWhere { trackUri eq trackOf(activity) }
         dropPairsOfActivities(listOf(activity))

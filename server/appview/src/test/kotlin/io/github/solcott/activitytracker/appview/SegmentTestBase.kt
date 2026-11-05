@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.appview.segments.TerrainTiles
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -35,6 +36,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
+import java.io.File
 import java.util.UUID
 import kotlin.math.PI
 import kotlin.math.cos
@@ -51,9 +53,10 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /**
  * Shared setup for the segment tests (segments/segment-records, segments/segment-efforts): an H2 index, a matcher over fake `self`-space
- * blobs, and helpers that lay out segments and tracks in meters east and north of a point.
+ * blobs, and helpers that lay out segments and tracks in meters east and north of a point. With [terrainDir], segments are given terrain
+ * elevation from the tiles there (segments/segment-elevation).
  */
-open class SegmentTestBase {
+open class SegmentTestBase(terrainDir: File? = null) {
     protected val service = "did:web:localhost%3A8081"
     protected val alice = "did:plc:alice"
     protected val bob = "did:plc:bob"
@@ -68,7 +71,8 @@ open class SegmentTestBase {
             DatabaseFactory.migrate(this)
         }
     protected val db: Database = Database.connect(dataSource)
-    protected val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" }, segmentImporter = Did(importer))
+    protected val indexer =
+        Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" }, segmentImporter = Did(importer), terrain = terrainDir != null)
     protected val config = AppViewConfig.fromEnv(emptyMap())
     protected val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
 
@@ -87,10 +91,11 @@ open class SegmentTestBase {
                 check(!blobsDown) { "the PDS is down" }
                 blobs[cid]?.let { XrpcBytes(it, "application/json") }
             },
+            terrain = terrainDir?.let { TerrainTiles(it, TERRAIN_ZOOM) },
         )
 
-    private val origin = GeoPoint(47.0, 8.0)
-    private val metersPerDegreeLat = 6_371_000.0 * PI / 180
+    protected val origin = GeoPoint(47.0, 8.0)
+    protected val metersPerDegreeLat = 6_371_000.0 * PI / 180
     private val metersPerDegreeLng = metersPerDegreeLat * cos(origin.lat * PI / 180)
 
     /** A point [east] and [north] meters from the origin. */
@@ -342,5 +347,10 @@ open class SegmentTestBase {
         val body = response.bodyAsText()
         assertEquals(HttpStatusCode.BadRequest, response.status, body)
         return AtJson.parseToJsonElement(body).jsonObject["error"].toString().trim('"')
+    }
+
+    companion object {
+        /** The zoom terrain test tiles are written at. */
+        const val TERRAIN_ZOOM = 12
     }
 }

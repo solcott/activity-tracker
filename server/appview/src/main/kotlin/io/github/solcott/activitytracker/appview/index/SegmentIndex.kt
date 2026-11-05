@@ -4,12 +4,12 @@ import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
 import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
-import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.matchingOn
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -145,7 +145,7 @@ internal fun JdbcTransaction.segmentMatchingOn(author: Did): Boolean =
  * ridden stays ridden), and the tracks with their cells too unless grouping still reads them.
  */
 private fun JdbcTransaction.dropSegmentMatching(author: Did) {
-    SegmentEfforts.deleteWhere { authorDid eq author.value }
+    deleteEfforts { authorDid eq author.value }
     DiveSiteVisits.deleteWhere { authorDid eq author.value }
     SegmentCandidateRiders.deleteWhere { authorDid eq author.value }
     if (!groupingOn(author)) dropTracks(trackUrisOf(author))
@@ -156,7 +156,7 @@ private fun JdbcTransaction.dropSegmentMatching(author: Did) {
  * matched from them, their riders of staged candidates and every pair of their activities.
  */
 internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
-    SegmentEfforts.deleteWhere { authorDid eq author.value }
+    deleteEfforts { authorDid eq author.value }
     DiveSiteVisits.deleteWhere { authorDid eq author.value }
     SegmentCandidateRiders.deleteWhere { authorDid eq author.value }
     dropPairsOf(author)
@@ -177,7 +177,7 @@ internal fun JdbcTransaction.dropTracks(uris: List<String>) {
         .map { it[SegmentTracks.activityUri] }
         .takeIf { it.isNotEmpty() }
         ?.let { left -> ActivityInvitePairs.deleteWhere { originalUri inList left } }
-    SegmentEfforts.deleteWhere { trackUri inList uris }
+    deleteEfforts { trackUri inList uris }
     DiveSiteVisits.deleteWhere { trackUri inList uris }
     SegmentCandidateRiders.deleteWhere { trackUri inList uris }
     SegmentTrackCells.deleteWhere { trackUri inList uris }

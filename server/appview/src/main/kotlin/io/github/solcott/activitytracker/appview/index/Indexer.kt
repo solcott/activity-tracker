@@ -95,6 +95,8 @@ class Indexer(
     private val segmentImporter: Did? = null,
     /** Who may propose segment names (segments/segment-names). */
     private val segmentNames: SegmentNameRules = SegmentNameRules(),
+    /** Whether terrain tiles are configured (segments/segment-elevation): new and re-lined segments are then queued to be sampled. */
+    terrain: Boolean = false,
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -102,7 +104,7 @@ class Indexer(
     val bskyBlocks = BskyBlockIndex(db, clock)
 
     /** The segment matcher's queue, which indexing fills in the transaction of each change that calls for a match. */
-    val segmentJobs = SegmentJobs()
+    val segmentJobs = SegmentJobs(terrain)
 
     /** DIDs known to have an `actors` row, whose handle was checked at first sight; later checks come from [recheckHandle]. */
     private val knownActors = ConcurrentHashMap.newKeySet<String>()

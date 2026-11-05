@@ -10,7 +10,10 @@ import org.jetbrains.exposed.v1.jdbc.upsert
  * (each call must run in one), and each enqueue wakes the matcher. A job is keyed by its kind and subject, so enqueueing one already
  * waiting just makes it due now.
  */
-class SegmentJobs {
+class SegmentJobs(
+    /** Whether terrain tiles are configured, so new and re-lined segments are given terrain elevation (segments/segment-elevation). */
+    private val terrain: Boolean = false
+) {
     /** Signals the matcher that a job was enqueued. */
     internal val wakeups = Channel<Unit>(Channel.CONFLATED)
 
@@ -19,6 +22,11 @@ class SegmentJobs {
 
     /** Match a new or changed segment against the usable segment tracks that pass near it. */
     fun enqueueSegment(segmentUri: String, now: Long) = enqueue(SEGMENT, segmentUri, now)
+
+    /** Sample terrain elevation along a new or re-lined segment's line; nothing without terrain tiles. */
+    fun enqueueElevation(segmentUri: String, now: Long) {
+        if (terrain) enqueue(ELEVATION, segmentUri, now)
+    }
 
     /** Count each new or changed staged candidate's riders among the usable segment tracks that pass near it, in one batched statement. */
     fun enqueueCandidates(candidateIds: Collection<String>, now: Long) {
@@ -58,5 +66,6 @@ class SegmentJobs {
         const val TIERS = "tiers"
         const val GROUP = "group"
         const val SITE = "site"
+        const val ELEVATION = "elevation"
     }
 }

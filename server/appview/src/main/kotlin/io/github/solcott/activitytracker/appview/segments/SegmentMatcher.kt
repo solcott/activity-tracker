@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.location.GainLoss
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -70,6 +71,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
@@ -118,6 +120,8 @@ class SegmentMatcher(
     names: SegmentNameRules = SegmentNameRules(),
     /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose segments are active without riders (segments/segment-records). */
     private val segmentImporter: Did? = null,
+    /** Terrain tiles (`TERRAIN_TILES_DIR`), which give segments terrain elevation (segments/segment-elevation); null for none. */
+    private val terrain: TerrainTiles? = null,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
     private val naming = SegmentNaming(db, clock, names)
@@ -130,6 +134,7 @@ class SegmentMatcher(
     fun start(scope: CoroutineScope): Job = scope.launch {
         guarded("Backfilling segment tracks") { backfill() }
         guarded("Activating the importer's segments") { activateImporterSegments() }
+        guarded("Backfilling terrain elevation") { backfillTerrain() }
         var statusesAt: Long? = null
         while (true) {
             val now = clock.now().toEpochMilliseconds()
@@ -224,6 +229,35 @@ class SegmentMatcher(
         }
     }
 
+    /**
+     * Queues an `elevation` job for every segment with no terrain elevation, when terrain tiles are configured: those indexed before them,
+     * and those they didn't cover, in case tiles were added since. Exposed for tests.
+     */
+    suspend fun backfillTerrain() {
+        if (terrain == null) return
+        val now = clock.now().toEpochMilliseconds()
+        db.tx {
+            Segments.select(Segments.uri)
+                .where { Segments.terrainGainM.isNull() }
+                .map { it[Segments.uri] }
+                .forEach { jobs.enqueueElevation(it, now) }
+        }
+    }
+
+    /** Samples the terrain along the segment at [segmentUri]'s line and stores its gain and loss, null when the tiles don't cover it. */
+    private suspend fun sampleTerrain(segmentUri: String) {
+        val tiles = terrain ?: return
+        val line = db.tx { Segments.select(Segments.line).where { Segments.uri eq segmentUri }.firstOrNull()?.get(Segments.line) } ?: return
+        val elevation = SegmentGeometry.decodePolyline(line)?.let(tiles::elevationOf)
+        db.tx {
+            // Only if the line is still the one sampled: a re-line queues another job.
+            Segments.update({ (Segments.uri eq segmentUri) and (Segments.line eq line) }) {
+                it[terrainGainM] = elevation?.gain
+                it[terrainLossM] = elevation?.loss
+            }
+        }
+    }
+
     /** Runs every due job, [BATCH] at a time, oldest first, and returns how many ran. Exposed for tests. */
     suspend fun runDue(): Int {
         var ran = 0
@@ -263,6 +297,7 @@ class SegmentMatcher(
                 SegmentJobs.TIERS -> db.tx { retier(job.subject) }
                 SegmentJobs.GROUP -> pairing.match(job.subject)
                 SegmentJobs.SITE -> matchSite(job.subject)
+                SegmentJobs.ELEVATION -> sampleTerrain(job.subject)
             }
             done(job)
         } catch (e: CancellationException) {
@@ -314,8 +349,8 @@ class SegmentMatcher(
         val grouping: Boolean,
     )
 
-    /** A pass over [segment], starting [offset] whole seconds into the activity. */
-    private data class Pass(val segment: String, val offset: Long, val pass: SegmentPass)
+    /** A pass over [segment], starting [offset] whole seconds into the activity, and its [elevation] by the track's altitude. */
+    private data class Pass(val segment: String, val offset: Long, val pass: SegmentPass, val elevation: GainLoss?)
 
     private suspend fun matchTrack(trackUri: String) {
         val track = db.tx { trackToMatch(trackUri) } ?: return
@@ -329,7 +364,7 @@ class SegmentMatcher(
                 log.info("Segment track {} isn't a valid track, so it gives no efforts or pairs: {}", trackUri, e.message)
                 db.tx {
                     if (trackToMatch(trackUri) != track) return@tx
-                    SegmentEfforts.deleteWhere { activityUri eq track.activity }
+                    deleteEfforts { activityUri eq track.activity }
                     DiveSiteVisits.deleteWhere { activityUri eq track.activity }
                     SegmentTrackCells.deleteWhere { SegmentTrackCells.trackUri eq trackUri }
                     SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
@@ -364,10 +399,10 @@ class SegmentMatcher(
 
     /** What segments derived from the track at [trackUri] of [activity]: its efforts and candidate riders. */
     private fun JdbcTransaction.dropSegmentUse(trackUri: String, activity: String) {
-        SegmentEfforts.deleteWhere { activityUri eq activity }
+        deleteEfforts { activityUri eq activity }
         DiveSiteVisits.deleteWhere { activityUri eq activity }
         DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
-        SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
+        deleteEfforts { SegmentEfforts.trackUri eq trackUri }
         SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
     }
 
@@ -378,7 +413,7 @@ class SegmentMatcher(
     @Suppress("ReturnCount") // Each reason a track gives nothing.
     private fun JdbcTransaction.trackToMatch(trackUri: String): TrackToMatch? {
         fun none(activity: String? = null): TrackToMatch? {
-            SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
+            deleteEfforts { SegmentEfforts.trackUri eq trackUri }
             DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
             SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
             val pairsOf =
@@ -437,11 +472,21 @@ class SegmentMatcher(
             segments
                 .flatMap { (uri, line, kind) ->
                     val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-                    pieces.flatMap { passes(it, ref, grouped.group, kind) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
+                    pieces.flatMap { piece ->
+                        passes(piece, ref, grouped.group, kind).map { pass ->
+                            Pass(uri, pass.start.roundToLong(), pass, passElevation(piece, pass))
+                        }
+                    }
                 }
                 .distinctBy { it.segment to it.offset }
+        val before =
+            SegmentEfforts.select(SegmentEfforts.segmentUri)
+                .where { SegmentEfforts.activityUri eq track.activity }
+                .withDistinct()
+                .map { it[SegmentEfforts.segmentUri] }
         SegmentEfforts.deleteWhere { activityUri eq track.activity }
-        SegmentEfforts.batchInsert(efforts) { (uri, offset, pass) ->
+        SegmentEfforts.batchInsert(efforts) { effort ->
+            val (uri, offset, pass) = effort
             this[SegmentEfforts.id] = "${track.activity} $uri $offset"
             this[SegmentEfforts.segmentUri] = uri
             this[SegmentEfforts.activityUri] = track.activity
@@ -453,7 +498,10 @@ class SegmentMatcher(
             this[SegmentEfforts.elapsedS] = (pass.end - pass.start).roundToLong()
             this[SegmentEfforts.visibility] = visibility
             this[SegmentEfforts.startedOn] = startedOn
+            this[SegmentEfforts.elevationGainM] = effort.elevation?.gain
+            this[SegmentEfforts.elevationLossM] = effort.elevation?.loss
         }
+        recomputeEffortElevation(before + efforts.map { it.segment })
         promote(efforts.map { it.segment }.toSet())
     }
 
@@ -638,7 +686,7 @@ class SegmentMatcher(
     private fun JdbcTransaction.retier(activity: String) {
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()
         if (row == null || combinedIntoOf(listOf(activity)).isNotEmpty()) {
-            SegmentEfforts.deleteWhere { activityUri eq activity }
+            deleteEfforts { activityUri eq activity }
             DiveSiteVisits.deleteWhere { activityUri eq activity }
             SegmentCandidateRiders.deleteWhere {
                 trackUri inSubQuery SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.activityUri eq activity }
@@ -732,18 +780,24 @@ internal fun JdbcTransaction.narrowestOf(activity: ResultRow, vararg categories:
 }
 
 /**
- * A segment track blob's pieces, or [IllegalArgumentException] when it isn't a valid track: it doesn't decode, a piece's arrays don't line
- * up, or a piece's times are negative or go backwards. Times may repeat, since they're whole seconds.
+ * A segment track blob's pieces, or [IllegalArgumentException] when it isn't a valid track: it doesn't decode, a piece's arrays (its
+ * altitudes included, when it has them) don't line up, or a piece's times are negative or go backwards. Times may repeat, since they're
+ * whole seconds. A missing altitude sample stays null.
  */
 internal fun segmentTrackPieces(bytes: ByteArray): List<List<TimedPoint>> =
     AtJson.decodeFromString(SegmentTrackData.serializer(), bytes.decodeToString()).pieces.map { piece ->
         require(piece.lat.size == piece.t.size && piece.lng.size == piece.t.size) { "a piece's arrays don't line up" }
         require(piece.t.all { it >= 0 }) { "a piece's times are negative" }
         require(piece.t.zipWithNext().all { (a, b) -> b >= a }) { "a piece's times go backwards" }
-        piece.t.indices.map { TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble()) }
+        val alt = piece.alt
+        require(alt == null || alt.size == piece.t.size) { "a piece's altitudes don't line up" }
+        piece.t.indices.map {
+            TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble(), alt?.get(it)?.let { cm -> cm / CM_PER_M })
+        }
     }
 
 private const val E7 = 1e7
+private const val CM_PER_M = 100.0
 
 /** Whether an activity of [sport] and [subSport] visits dive sites: a dive that isn't a pool session (dive-sites/site-visits). */
 internal fun visitsSites(sport: String, subSport: String?): Boolean =

@@ -48,6 +48,7 @@ import io.github.solcott.activitytracker.appview.moderation.OzoneClient
 import io.github.solcott.activitytracker.appview.net.GuardedHttp
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.appview.segments.TerrainTiles
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
@@ -70,6 +71,7 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.routing.routing
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,7 +104,7 @@ fun main() {
     val configuredIdentity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
-    val indexer = Indexer(db, HandleVerifier(identity), segmentImporter = config.segmentImporter, segmentNames = config.segmentNames)
+    val indexer = indexerOf(config, db, identity)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val member = signingKey?.let { key ->
         val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
@@ -155,6 +157,17 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
         candidateRiders = config.segmentCandidateRiders,
         names = config.segmentNames,
         segmentImporter = config.segmentImporter,
+        terrain = config.terrainTiles?.let { TerrainTiles(File(it.dir), it.zoom) },
+    )
+
+/** The indexer for [config]: the segment importer, the naming rules, and whether terrain tiles are configured. */
+private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityResolver): Indexer =
+    Indexer(
+        db,
+        HandleVerifier(identity),
+        segmentImporter = config.segmentImporter,
+        segmentNames = config.segmentNames,
+        terrain = config.terrainTiles != null,
     )
 
 /**
@@ -233,7 +246,16 @@ fun Application.appView(
             verifier,
             verifier.forAudiences(setOf(config.managingAppService)),
         )
-        segmentRoutes(SegmentViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
+        segmentRoutes(
+            SegmentViews(
+                db,
+                avatars,
+                segmentImporter = config.segmentImporter,
+                names = config.segmentNames,
+                activeAthletes = config.segmentActiveAthletes,
+            ),
+            verifier,
+        )
         segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
         diveSiteRoutes(DiveSiteViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)

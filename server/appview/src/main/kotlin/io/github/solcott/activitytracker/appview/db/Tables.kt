@@ -237,6 +237,18 @@ object Segments : Table("segments") {
      * record's, the original). Recomputed by `recomputeCurrentName`.
      */
     val currentName = varchar("current_name", 1000)
+    /** Meters climbed along [line] by terrain tiles (segments/segment-elevation); null when they don't cover it or it isn't sampled yet. */
+    val terrainGainM = long("terrain_gain_m").nullable()
+    val terrainLossM = long("terrain_loss_m").nullable()
+    /**
+     * The median across [effortAthletes] athletes of each one's median effort gain; null when no effort has elevation. Never per effort.
+     */
+    val effortGainM = long("effort_gain_m").nullable()
+    val effortLossM = long("effort_loss_m").nullable()
+    /**
+     * How many distinct athletes have efforts with elevation here; the view serves the effort values only once it reaches the threshold.
+     */
+    val effortAthletes = integer("effort_athletes").default(0)
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -372,6 +384,9 @@ object SegmentEfforts : Table("segment_efforts") {
     val visibility = varchar("visibility", 16)
     /** The activity's local date, `YYYY-MM-DD`; served only with the effort. */
     val startedOn = varchar("started_on", 10)
+    /** Meters climbed and descended over the pass by its track's altitude; null without altitude. Only ever aggregated, never served. */
+    val elevationGainM = long("elevation_gain_m").nullable()
+    val elevationLossM = long("elevation_loss_m").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 

@@ -12,10 +12,12 @@ import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
+import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.plausibleEffort
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
+import io.github.solcott.activitytracker.appview.segments.servedElevation
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -114,6 +116,8 @@ class SegmentViews(
     private val searchBatches: Int = SEARCH_BATCHES,
     /** Who may propose segment names (segments/segment-names), for the viewer's flag. */
     private val names: SegmentNameRules = SegmentNameRules(),
+    /** How many distinct athletes' efforts with elevation replace a segment's terrain elevation (`SEGMENT_ACTIVE_ATHLETES`). */
+    private val activeAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
@@ -757,6 +761,8 @@ class SegmentViews(
         val creators = basicProfiles(rows.map { it[Segments.authorDid] }, avatars)
         return rows.map {
             val author = it[Segments.authorDid]
+            // Effort elevation only as the segment's aggregate, never an effort's own (segments/segment-elevation).
+            val elevation = servedElevation(it, activeAthletes)
             SegmentView(
                 uri = AtUri(it[Segments.uri]),
                 cid = Cid(it[Segments.cid]),
@@ -766,6 +772,9 @@ class SegmentViews(
                 status = it[Segments.status],
                 duplicateOf = it[Segments.duplicateOf]?.let(::AtUri),
                 name = it[Segments.currentName],
+                elevationGain = elevation?.gain,
+                elevationLoss = elevation?.loss,
+                elevationSource = elevation?.source,
             )
         }
     }
