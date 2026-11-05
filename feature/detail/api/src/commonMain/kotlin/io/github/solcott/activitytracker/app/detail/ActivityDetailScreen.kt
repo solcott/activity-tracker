@@ -129,6 +129,13 @@ data class ActivityDetailPage(
     /** A segment was just published from this activity; it shows once the AppView has processed it. */
     val segmentCreated: Boolean = false,
     /**
+     * The owner can create a dive site from the dive (dive-sites/site-creation): its track has a position, their privacy zones were read,
+     * and it visits no live site.
+     */
+    val canCreateDiveSite: Boolean = false,
+    /** A dive site was just published from this dive; it shows once the AppView has processed it. */
+    val diveSiteCreated: Boolean = false,
+    /**
      * Other athletes' activities done together with this one that the viewer may see (feed/group-activities), most recently paired first;
      * empty when there are none, or the owner just left the group here.
      */
@@ -424,6 +431,12 @@ sealed interface ActivityDetailEvent {
 
     /** The owner creates a segment from the activity's route ([ActivityDetailPage.canCreateSegment]). */
     data object CreateSegment : ActivityDetailEvent
+
+    /** The owner creates a dive site from the dive's entry ([ActivityDetailPage.canCreateDiveSite]). */
+    data object CreateDiveSite : ActivityDetailEvent
+
+    /** Opens the dive site the dive visits (`activityView.diveSite`). */
+    data object OpenDiveSite : ActivityDetailEvent
 
     /** The owner exports the activity as [format]: see [ActivityExportState]. */
     data class Export(val format: ExportFormat) : ActivityDetailEvent

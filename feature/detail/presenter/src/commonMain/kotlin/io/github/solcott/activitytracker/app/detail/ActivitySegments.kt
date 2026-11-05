@@ -5,8 +5,12 @@ import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewBasic
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -18,6 +22,20 @@ import kotlinx.collections.immutable.toImmutableList
  */
 internal fun canCreateSegment(own: Boolean, ownRoute: OwnRoute, record: ActivityRecord): Boolean =
     own && ownRoute.track != null && ownRoute.zonesRead && SegmentSport.of(record.sport, record.subSport) != null
+
+/**
+ * Whether the viewer can create a dive site from [record] (dive-sites/site-creation): it's [own], a dive outside a pool, its track has a
+ * position and their privacy zones were read, and it visits no live site ([site], as `activityView.diveSite`). Whether its entry may be
+ * public the create screen says.
+ */
+internal fun canCreateDiveSite(own: Boolean, ownRoute: OwnRoute, record: ActivityRecord, site: DiveSiteViewBasic?): Boolean =
+    own &&
+        record.sport == Sport.DIVE &&
+        record.subSport != SubSport.POOL &&
+        record.subSport != SubSport.POOL_APNEA &&
+        !ownRoute.track.isNullOrEmpty() &&
+        ownRoute.zonesRead &&
+        site?.let { SegmentStatus.of(it.status) == SegmentStatus.PROPOSED || SegmentStatus.of(it.status) == SegmentStatus.ACTIVE } != true
 
 /** An activity's efforts as its page shows them: runs grouped by overlapping spans, and lifts apart (segments/segment-lifts). */
 internal data class ActivityEfforts(

@@ -47,7 +47,6 @@ import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
-import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.MediaRow
@@ -72,6 +71,7 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.detail_dive_site_created
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
@@ -108,7 +108,14 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 actions = {
                     val loaded = state.content.data
                     loaded?.manage?.let {
-                        ManageMenu(it, loaded.canHideRouteEnds, loaded.export, loaded.eventSink, canCreateSegment = loaded.canCreateSegment)
+                        ManageMenu(
+                            it,
+                            loaded.canHideRouteEnds,
+                            loaded.export,
+                            loaded.eventSink,
+                            canCreateSegment = loaded.canCreateSegment,
+                            canCreateDiveSite = loaded.canCreateDiveSite,
+                        )
                     }
                     if (loaded != null && !loaded.isOwn && loaded.reporting.available) OthersActivityMenu(loaded)
                 },
@@ -340,7 +347,7 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
                 )
             }
         }
-        record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
+        DiveSiteLine(state, Modifier.padding(top = 2.dp))
         record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
         Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
         // The owner edits the combination in a sheet, which closes once a split leaves nothing combined.
@@ -359,6 +366,7 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
         state.routeError?.let { ErrorText(it) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
         if (state.segmentCreated) Text(stringResource(Res.string.detail_segment_created), style = MaterialTheme.typography.bodySmall)
+        if (state.diveSiteCreated) Text(stringResource(Res.string.detail_dive_site_created), style = MaterialTheme.typography.bodySmall)
     }
 }
 

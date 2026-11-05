@@ -19,6 +19,8 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
+import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
@@ -41,6 +43,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -89,6 +92,7 @@ fun ActivityDetailPresenter(
     blocks: BlockRepository,
     reports: ReportRepository,
     segmentEfforts: SegmentRepository,
+    diveSites: DiveSiteRepository,
     groups: OwnGroups,
 ): ActivityDetailState {
     val uri = AtUri(screen.uri)
@@ -127,6 +131,8 @@ fun ActivityDetailPresenter(
     // Said on this page until the athlete leaves it.
     val segmentsCreated by segmentEfforts.createdFrom.collectAsState()
     DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(uri) } }
+    val sitesCreated by diveSites.createdFrom.collectAsState()
+    DisposableEffect(screen.uri) { onDispose { diveSites.dismissCreated(uri) } }
     val comments = rememberComments(uri, profiles.did, extrasKey, feed)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = activity?.let {
@@ -187,6 +193,8 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.AddRecording,
             ActivityDetailEvent.OpenMap,
             ActivityDetailEvent.CreateSegment,
+            ActivityDetailEvent.CreateDiveSite,
+            ActivityDetailEvent.OpenDiveSite,
             ActivityDetailEvent.AddPeople,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
@@ -280,6 +288,8 @@ fun ActivityDetailPresenter(
             lifts = segments.lifts,
             canCreateSegment = canCreateSegment(isOwn, ownRoute, it.record),
             segmentCreated = uri in segmentsCreated,
+            canCreateDiveSite = canCreateDiveSite(isOwn, ownRoute, it.record, it.diveSite),
+            diveSiteCreated = uri in sitesCreated,
             partners = ownGroup.shown(it.group),
             ownGroup = ownGroup.state,
             canAddPeople = isOwn,
@@ -494,6 +504,8 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
         ActivityDetailEvent.CreateSegment -> goTo(CreateSegmentScreen(uri))
+        ActivityDetailEvent.CreateDiveSite -> goTo(CreateDiveSiteScreen(uri))
+        ActivityDetailEvent.OpenDiveSite -> current?.diveSite?.let { goTo(DiveSiteScreen(it.uri.value)) }
         ActivityDetailEvent.AddPeople -> goTo(AddPeopleScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))

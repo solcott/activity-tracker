@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -221,6 +222,7 @@ class ActivityDetailManageTest {
                 BlockRepository(clients, writer, outbox, feed, Clock.System),
                 ReportRepository(clients),
                 SegmentRepository(clients),
+                DiveSiteRepository(clients),
                 segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
             )
         }

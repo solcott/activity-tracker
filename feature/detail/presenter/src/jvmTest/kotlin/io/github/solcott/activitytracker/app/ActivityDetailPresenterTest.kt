@@ -51,6 +51,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -90,6 +91,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -122,6 +124,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -154,6 +157,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -188,6 +192,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -220,6 +225,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -254,6 +260,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -285,6 +292,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {

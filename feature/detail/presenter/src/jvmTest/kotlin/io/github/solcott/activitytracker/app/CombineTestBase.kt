@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -255,9 +256,11 @@ open class CombineTestBase {
         val reports: ReportRepository,
         val segments: SegmentRepository,
         val groups: OwnGroups,
+        val diveSites: DiveSiteRepository,
     )
 
     /** A session that can write to the repo only, so the PDS here is just Alice's repo. */
+    @Suppress("LongMethod") // Wires every store a test reaches for.
     protected suspend fun graph(): Graph {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = "atproto transition:generic")
         val feed = FeedRepository(db, clients, localLikes, Logger)
@@ -316,6 +319,7 @@ open class CombineTestBase {
             ReportRepository(clients),
             SegmentRepository(clients),
             segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
+            DiveSiteRepository(clients),
         )
     }
 
@@ -347,6 +351,7 @@ open class CombineTestBase {
                 g.blocks,
                 g.reports,
                 g.segments,
+                g.diveSites,
                 g.groups,
             )
         }

@@ -4,6 +4,8 @@ import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
+import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
+import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -52,6 +54,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.diveSites,
                 r.groups,
             )
         }) {
@@ -216,5 +219,41 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(emptySet(), r.segments.createdFrom.value, "said once, then forgotten when the page goes")
+    }
+
+    @Test
+    fun theOwnerCanCreateADiveSiteFromADiveWithAPositionAndNoSite() = runTest {
+        author = staleAlice
+        sport = "dive"
+        track = route.take(2)
+        val navigator = FakeNavigator(screen)
+        val r = repos()
+        withDetail(navigator, ready = { it.canCreateDiveSite }) { send, _ ->
+            send(ActivityDetailEvent.CreateDiveSite)
+            assertEquals(CreateDiveSiteScreen(activityUri), navigator.awaitNextScreen())
+        }
+        r.diveSites.markCreated(AtUri(activityUri))
+        detail(r) {
+            assertTrue(awaitUntil { it.loaded()?.diveSiteCreated == true }.loaded()!!.diveSiteCreated)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(emptySet(), r.diveSites.createdFrom.value, "said once, then forgotten when the page goes")
+    }
+
+    @Test
+    fun aDiveAtALiveSiteOpensItAndOffersNoNewOne() = runTest {
+        author = staleAlice
+        sport = "dive"
+        track = route.take(2)
+        val site = "at://did:plc:carol/${Nsid.FEED_DIVE_SITE}/3kshark"
+        viewExtra = """"diveSite":{"uri":"$site","name":"Shark Reef","status":"active"},"""
+        val navigator = FakeNavigator(screen)
+        var offered: Boolean? = null
+        val settled = { page: ActivityDetailPage -> page.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } }
+        withDetail(navigator, ready = { page -> settled(page).also { if (it) offered = page.canCreateDiveSite } }) { send, _ ->
+            send(ActivityDetailEvent.OpenDiveSite)
+            assertEquals(DiveSiteScreen(site), navigator.awaitNextScreen())
+        }
+        assertEquals(false, offered)
     }
 }
