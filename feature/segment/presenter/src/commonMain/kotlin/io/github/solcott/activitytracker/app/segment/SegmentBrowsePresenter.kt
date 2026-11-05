@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -105,11 +106,15 @@ fun SegmentBrowsePresenter(
             }
         }
 
+    val searching = trimmed.isNotEmpty()
     val mapLines =
-        if (trimmed.isNotEmpty()) {
-            results.state.items.mapNotNull { it.mapSegmentLine() }
-        } else {
-            area.data.runs.mapNotNull { it.segment.mapSegmentLine() } + area.data.lifts
+        remember(searching, results.state.items, area.data) {
+            if (searching) {
+                    results.state.items.mapNotNull { it.mapSegmentLine() }
+                } else {
+                    area.data.runs.mapNotNull { it.segment.mapSegmentLine() } + area.data.lifts
+                }
+                .toImmutableList()
         }
 
     return SegmentBrowseState(
@@ -121,7 +126,7 @@ fun SegmentBrowsePresenter(
         start = browse.start,
         area = area,
         results = results.state,
-        mapLines = mapLines.toImmutableList(),
+        mapLines = mapLines,
         selected = browse.selected,
         camera = browse.camera,
         askLocation = browse.permission == null,
