@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.ktor.http.HttpStatusCode
 import kotlin.math.roundToLong
 import kotlin.time.Clock
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.concat
@@ -126,26 +127,15 @@ class SegmentCandidateViews(
                 .apply { params.cursor?.let { cursor -> andWhere { SegmentCandidateRows.id greater cursor } } }
                 .orderBy(SegmentCandidateRows.id to SortOrder.ASC)
                 .limit(limit)
-                .map {
-                    SegmentCandidate(
-                        id = it[SegmentCandidateRows.id],
-                        sport = it[SegmentCandidateRows.sport],
-                        name = it[SegmentCandidateRows.name],
-                        line = it[SegmentCandidateRows.line],
-                        source = it[SegmentCandidateRows.dataSource],
-                        license = it[SegmentCandidateRows.license],
-                        attribution = it[SegmentCandidateRows.attribution],
-                        kind = it[SegmentCandidateRows.kind].takeIf { k -> k != SegmentKind.RUN },
-                    )
-                }
+                .map(::stagedCandidate)
         }
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
     }
 
     /**
      * The duplicate test `checkSegment` and indexing apply (segments/segment-import), run on each of the region's staged candidates named
-     * in [input] against the live segments the importer is served, in one transaction; writes nothing. An id not staged in the region is
-     * left out, and so is a staged line that no longer decodes.
+     * in [input] against the live segments the importer is served, in one transaction; writes nothing. Each comes with the candidate as
+     * staged, which the importer publishes. An id not staged in the region is left out, and so is a staged line that no longer decodes.
      */
     suspend fun check(caller: Did, input: CheckSegmentCandidates.Input): CheckSegmentCandidates.Output {
         requireImporter(caller)
@@ -153,12 +143,7 @@ class SegmentCandidateViews(
         if (input.ids.size > SegmentCandidates.MAX_BATCH)
             invalid("At most ${SegmentCandidates.MAX_BATCH} ids per call, not ${input.ids.size}")
         val checked = db.tx {
-            SegmentCandidateRows.select(
-                    SegmentCandidateRows.id,
-                    SegmentCandidateRows.sport,
-                    SegmentCandidateRows.kind,
-                    SegmentCandidateRows.line,
-                )
+            SegmentCandidateRows.selectAll()
                 .where { (SegmentCandidateRows.region eq input.region) and (SegmentCandidateRows.id inList input.ids.distinct()) }
                 .mapNotNull { row ->
                     val line = SegmentGeometry.decodePolyline(row[SegmentCandidateRows.line]) ?: return@mapNotNull null
@@ -171,12 +156,26 @@ class SegmentCandidateViews(
                                 .where { (Segments.uri inList uris) and served(importer, Segments.authorDid, Segments.uri, Segments.cid) }
                                 .mapTo(mutableSetOf()) { it[Segments.uri] }
                         }
-                    row[SegmentCandidateRows.id] to uris.filter { it in served }.map(::AtUri)
+                    val id = row[SegmentCandidateRows.id]
+                    id to SegmentCandidateCheck(id, uris.filter { it in served }.map(::AtUri), stagedCandidate(row))
                 }
                 .toMap()
         }
-        return CheckSegmentCandidates.Output(input.ids.distinct().mapNotNull { id -> checked[id]?.let { SegmentCandidateCheck(id, it) } })
+        return CheckSegmentCandidates.Output(input.ids.distinct().mapNotNull(checked::get))
     }
+
+    /** A staged candidate's row as the importer sent it: no counts, athletes or dates. */
+    private fun stagedCandidate(row: ResultRow) =
+        SegmentCandidate(
+            id = row[SegmentCandidateRows.id],
+            sport = row[SegmentCandidateRows.sport],
+            name = row[SegmentCandidateRows.name],
+            line = row[SegmentCandidateRows.line],
+            source = row[SegmentCandidateRows.dataSource],
+            license = row[SegmentCandidateRows.license],
+            attribution = row[SegmentCandidateRows.attribution],
+            kind = row[SegmentCandidateRows.kind].takeIf { it != SegmentKind.RUN },
+        )
 
     /** A candidate that passed validation, with its decoded line. */
     private class Staged(

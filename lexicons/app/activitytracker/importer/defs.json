@@ -32,7 +32,8 @@
       "required": ["id", "duplicates"],
       "properties": {
         "id": { "type": "string", "maxLength": 64 },
-        "duplicates": { "type": "array", "items": { "type": "string", "format": "at-uri" } }
+        "duplicates": { "type": "array", "items": { "type": "string", "format": "at-uri" } },
+        "candidate": { "type": "ref", "ref": "#candidate", "description": "The candidate as staged, which the importer publishes rather than any copy of its own." }
       }
     }
   }

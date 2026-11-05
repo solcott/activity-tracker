@@ -68,8 +68,8 @@ class PublishTest {
     private val indexed = mutableSetOf<String>()
 
     /**
-     * The AppView lists [ids] as ridden, [pageSize] at a time, and its check reports [duplicates] (added to [liveDuplicates]) as duplicates
-     * and leaves out [unstaged], as candidates a `stage` finished away.
+     * The AppView lists [ids] as ridden, [pageSize] at a time, and its check reports [duplicates] (added to [liveDuplicates]) as
+     * duplicates, leaves out [unstaged], as candidates a `stage` finished away, and gives each other one as staged ([candidate]).
      */
     private fun appView(
         ids: List<String>,
@@ -91,7 +91,11 @@ class PublishTest {
                     .filter { it !in unstaged }
                     .map { id ->
                         val own = listOfNotNull(AtUri.of(Did(FakeServices.DID), Nsid.FEED_SEGMENT, id).takeIf { id in indexed })
-                        SegmentCandidateCheck(id, own + if (id in liveDuplicates) listOf(athleteSegment.uri) else emptyList())
+                        SegmentCandidateCheck(
+                            id,
+                            own + if (id in liveDuplicates) listOf(athleteSegment.uri) else emptyList(),
+                            AtJson.decodeFromString(SegmentCandidate.serializer(), candidate(id)),
+                        )
                     }
             json(AtJson.encodeToString(CheckSegmentCandidates.Output.serializer(), CheckSegmentCandidates.Output(checked)))
         }
@@ -270,6 +274,15 @@ class PublishTest {
         assertEquals(Triple(listOf("c2"), listOf("c1"), listOf("c3")), Triple(result.published, result.duplicates, result.gone))
         assertEquals(setOf("c2"), repo.keys)
         assertEquals(emptyList(), fake.calls(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES), "the file, not the ridden list")
+    }
+
+    @Test
+    fun publishingEveryCandidateWritesTheStagedCandidateNotTheFilesCopy() = runTest {
+        appView(emptyList())
+        val stale = SegmentCandidate("c1", "ride", "Old name", "old-line", "osm", "ODbL-1.0")
+        assertEquals(listOf("c1"), publish(clients, "us-vermont", clock, listOf(stale)).published)
+        val record = AtJson.decodeFromString(SegmentRecord.serializer(), repo.getValue("c1"))
+        assertEquals("Trail c1" to "line-c1", record.name to record.line)
     }
 
     @Test

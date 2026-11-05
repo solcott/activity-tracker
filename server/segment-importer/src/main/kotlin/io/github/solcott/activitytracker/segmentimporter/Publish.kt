@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.atproto.CreateRecord
@@ -38,8 +39,9 @@ internal data class PublishResult(
  * operator's `publish --all`, with the region's staged candidates file): each one `importer.checkSegmentCandidates` finds no live duplicate
  * of becomes a `feed.segment` in the service account's repo, keyed by its id, with its own source, licence and attribution. Each page is
  * checked in one call, so a run's AppView calls grow with its pages, not with the duplicates it lists again every run; the check also
- * leaves out a candidate no longer staged, which is reported [PublishResult.gone]. A key the repo already holds is never written again, so
- * a published segment is never doubled or rewritten. Stops at the first failed call, keeping what it did; running again carries on.
+ * leaves out a candidate no longer staged, which is reported [PublishResult.gone], and gives each one as staged, which is what's published
+ * (a stale [every] file's copy never is). A key the repo already holds is never written again, so a published segment is never doubled or
+ * rewritten. Stops at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun publish(
     clients: Clients,
@@ -57,16 +59,18 @@ internal suspend fun publish(
             val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
             pages.collect { page ->
                 val checks = check(clients, region, page)
-                for (candidate in page) {
-                    val found = checks[candidate.id]
+                for (listed in page) {
+                    val check = checks[listed.id]
+                    // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
+                    val candidate = check?.candidate ?: listed
                     when {
-                        found == null -> gone += candidate.id
+                        check == null -> gone += listed.id
                         // The importer's own segment for this candidate is live, so the check lists it: already published.
-                        AtUri.of(repo, Nsid.FEED_SEGMENT, candidate.id) in found -> present += candidate.id
-                        found.isNotEmpty() -> duplicates += candidate.id
-                        exists(clients, repo, candidate.id) -> present += candidate.id
-                        create(clients, repo, candidate, clock) -> published += candidate.id
-                        else -> present += candidate.id
+                        AtUri.of(repo, Nsid.FEED_SEGMENT, listed.id) in check.duplicates -> present += listed.id
+                        check.duplicates.isNotEmpty() -> duplicates += listed.id
+                        exists(clients, repo, listed.id) -> present += listed.id
+                        create(clients, repo, candidate, clock) -> published += listed.id
+                        else -> present += listed.id
                     }
                 }
             }
@@ -94,8 +98,8 @@ private fun riddenPages(clients: Clients, region: String): Flow<List<SegmentCand
     } while (cursor != null)
 }
 
-/** Each of [page]'s candidates still staged in [region], with the live segments it duplicates; one call for the whole page. */
-private suspend fun check(clients: Clients, region: String, page: List<SegmentCandidate>): Map<String, List<AtUri>> =
+/** Each of [page]'s candidates still staged in [region], as staged, with the live segments it duplicates; one call for the whole page. */
+private suspend fun check(clients: Clients, region: String, page: List<SegmentCandidate>): Map<String, SegmentCandidateCheck> =
     if (page.isEmpty()) {
         emptyMap()
     } else {
@@ -104,7 +108,7 @@ private suspend fun check(clients: Clients, region: String, page: List<SegmentCa
                 clients.appView.procedure(CheckSegmentCandidates.method, CheckSegmentCandidates.Input(region, page.map { it.id }))
             }
             .candidates
-            .associate { it.id to it.duplicates }
+            .associateBy { it.id }
     }
 
 /** Whether [repo] already holds a segment under [rkey]. */

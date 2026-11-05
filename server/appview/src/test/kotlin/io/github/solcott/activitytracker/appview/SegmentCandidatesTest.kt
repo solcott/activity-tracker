@@ -287,6 +287,17 @@ class SegmentCandidatesTest : SegmentTestBase() {
     }
 
     @Test
+    fun checkingGivesEachCandidateAsStaged() = testApplication {
+        start()
+        val staged = candidate("c-1", name = "Hogback Trail")
+        stage(staged)
+        val response = client.check(listOf("c-1"))
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val checked = AtJson.decodeFromString(CheckSegmentCandidates.Output.serializer(), response.bodyAsText()).candidates.single()
+        assertEquals(staged, checked.candidate, "what the importer publishes, rather than its own copy")
+    }
+
+    @Test
     fun checkingIsTheImportersAndBounded() = testApplication {
         start()
         stage(candidate("c-1"))
