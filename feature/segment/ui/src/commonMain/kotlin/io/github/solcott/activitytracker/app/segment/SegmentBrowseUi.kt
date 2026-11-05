@@ -185,7 +185,8 @@ private fun BrowseList(state: SegmentBrowseState, listState: LazyListState, modi
 @Composable
 private fun NameResults(state: SegmentBrowseState, listState: LazyListState, modifier: Modifier = Modifier) {
     val query = state.query.text.trim().toString()
-    val inArea = state.hasArea && state.scope == NameScope.ThisArea
+    // Zoomed out too far, This area already searched everywhere (nameParams), so there's nowhere wider to offer.
+    val inArea = state.hasArea && state.scope == NameScope.ThisArea && !state.tooWide
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
         pagedRows(
             state.results,
