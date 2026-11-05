@@ -19,6 +19,9 @@ Commands:
       Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
       and dashes, such as us-vermont. The language, a two-letter ISO 639-1 code (en unless given), picks the generic words names drop,
       such as Trail; a language with no list keeps names as their source has them.
+  extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
+      Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
+      clubs or buildings), one JSON object per line, each with a 150 m radius and an id from its OSM element.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id> [--all <candidates.ndjson>]
@@ -44,6 +47,7 @@ fun main(args: Array<String>) {
     }
     when (command) {
         is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language))
+        is Command.ExtractSites -> extractSites(command.pbf, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
@@ -87,6 +91,8 @@ internal sealed interface Command {
         val language: String = "en",
     ) : Command
 
+    data class ExtractSites(val pbf: File, val region: String, val out: File) : Command
+
     data class Stage(val file: File) : Command
 
     /** [all]: a candidates file of [region] whose every candidate is published, ridden or not. */
@@ -99,6 +105,7 @@ internal sealed interface Command {
 internal fun parse(args: List<String>): Command? =
     when (args.firstOrNull()) {
         "extract" -> parseExtract(args.drop(1))
+        "extract-sites" -> parseExtractSites(args.drop(1))
         "stage" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Stage(File(it)) }
         "publish" -> parsePublish(args.drop(1))
         "refine" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Refine(File(it)) }
@@ -134,6 +141,16 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     if (!LANGUAGE.matches(language)) return null
     if (options.keys.any { it !in setOf("--region", "--out", "--lang") }) return null
     return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language)
+}
+
+/** An extract, then `--region <id>` and `--out <sites.ndjson>`, each once and in any order. */
+private fun parseExtractSites(args: List<String>): Command.ExtractSites? {
+    val pbf = args.firstOrNull()?.takeUnless { it.startsWith("--") }
+    val rest = args.drop(1)
+    val options = rest.chunked(2).filter { it.size == 2 }.associate { (name, value) -> name to value }
+    val wellFormed = rest.size % 2 == 0 && options.size == rest.size / 2 && options.keys == setOf("--region", "--out")
+    val region = options["--region"]?.takeIf { pbf != null && wellFormed && REGION_ID.matches(it) }
+    return region?.let { Command.ExtractSites(File(requireNotNull(pbf)), it, File(options.getValue("--out"))) }
 }
 
 /** `--region <id>`, then optionally `--all <candidates.ndjson>`, each once and in any order. */

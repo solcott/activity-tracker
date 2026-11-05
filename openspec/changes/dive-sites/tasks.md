@@ -24,7 +24,7 @@
 
 ## 4. Segment importer
 
-- [ ] 4.1 Add an `OsmData` pass that keeps named nodes, and way or relation centroids, tagged `sport=scuba_diving` / `sport=free_diving`, excluding shops, amenities, clubs and buildings. Add an `extract-sites` command that writes a versioned sites file with stable ids from the element type and id. Verify with importer tests: a wreck node is kept, a dive shop is excluded, and a re-extract keeps the ids.
+- [x] 4.1 Add an `OsmData` pass that keeps named nodes, and way or relation centroids, tagged `sport=scuba_diving` / `sport=free_diving`, excluding shops, amenities, clubs and buildings. Add an `extract-sites` command that writes a versioned sites file with stable ids from the element type and id. Verify with importer tests: a wreck node is kept, a dive shop is excluded, and a re-extract keeps the ids.
 - [ ] 4.2 Add `publish-sites`: page through `importer.checkDiveSites`, write `feed.diveSite` under each id only when it duplicates nothing and isn't already written, and never edit or delete a published site. Add `--sites` to `scripts/segment-import.sh` and document it in `README.md` and `CLAUDE.md`'s command list. Verify with importer tests (a duplicate is skipped, a second run writes nothing) and `scripts/check-agent-sync.sh`.
 
 ## 5. Clients

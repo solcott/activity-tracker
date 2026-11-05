@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Test extract for the dive-site pass (dive-sites/site-import). Rebuild the PBF: see ExtractSitesTest. -->
+<osm version="0.6" generator="hand">
+  <node id="1" version="1" lat="27.8136000" lon="33.9214000">
+    <tag k="historic" v="wreck"/>
+    <tag k="name" v="SS Thistlegorm"/>
+    <tag k="sport" v="scuba_diving"/>
+  </node>
+  <node id="2" version="1" lat="27.9000000" lon="33.9000000"/>
+  <node id="3" version="1" lat="27.9100000" lon="33.9100000">
+    <tag k="name" v="Red Sea Divers"/>
+    <tag k="shop" v="scuba_diving"/>
+    <tag k="sport" v="scuba_diving"/>
+  </node>
+  <node id="4" version="1" lat="27.9200000" lon="33.9200000">
+    <tag k="natural" v="reef"/>
+  </node>
+  <node id="5" version="1" lat="27.9300000" lon="33.9300000">
+    <tag k="sport" v="free_diving"/>
+  </node>
+  <node id="10" version="1" lat="28.5700000" lon="34.5300000"/>
+  <node id="11" version="1" lat="28.5700000" lon="34.5320000"/>
+  <node id="12" version="1" lat="28.5720000" lon="34.5320000"/>
+  <node id="13" version="1" lat="28.5720000" lon="34.5300000"/>
+  <node id="20" version="1" lat="23.6000000" lon="-75.9000000"/>
+  <node id="21" version="1" lat="23.6000000" lon="-75.8980000"/>
+  <node id="22" version="1" lat="23.6020000" lon="-75.8990000"/>
+  <way id="100" version="1">
+    <nd ref="10"/>
+    <nd ref="11"/>
+    <nd ref="12"/>
+    <nd ref="13"/>
+    <nd ref="10"/>
+    <tag k="name" v="Blue Hole"/>
+    <tag k="sport" v="scuba_diving;free_diving"/>
+  </way>
+  <way id="101" version="1">
+    <nd ref="10"/>
+    <nd ref="11"/>
+    <nd ref="12"/>
+    <nd ref="10"/>
+    <tag k="building" v="yes"/>
+    <tag k="name" v="Dive Club House"/>
+    <tag k="sport" v="scuba_diving"/>
+  </way>
+  <way id="200" version="1">
+    <nd ref="20"/>
+    <nd ref="21"/>
+    <nd ref="22"/>
+    <nd ref="20"/>
+  </way>
+  <relation id="300" version="1">
+    <member type="way" ref="200" role="outer"/>
+    <tag k="name" v="Dean's Blue Hole"/>
+    <tag k="sport" v="free_diving"/>
+    <tag k="type" v="multipolygon"/>
+  </relation>
+</osm>
