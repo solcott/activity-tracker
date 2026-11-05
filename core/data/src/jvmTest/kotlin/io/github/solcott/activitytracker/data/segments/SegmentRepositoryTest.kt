@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
@@ -75,6 +76,8 @@ class SegmentRepositoryTest {
             viewer = SegmentViewerState(effort),
         )
 
+    private val profile = ElevationProfile(listOf(14_240, 14_500, 15_670))
+
     private val entry = LeaderboardEntry(1, ProfileViewBasic(did, Handle("alice.test")), effort)
     private val mayor = MayorEntry(1, ProfileViewBasic(did, Handle("alice.test")), efforts = 14, reachedOn = "2026-10-18")
     private val goneUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3kgone")
@@ -100,7 +103,7 @@ class SegmentRepositoryTest {
                                         json,
                                     )
                                 brokenUri.value -> return@MockEngine respondError(HttpStatusCode.InternalServerError)
-                                else -> AtJson.encodeToString(GetSegment.Output.serializer(), GetSegment.Output(view))
+                                else -> AtJson.encodeToString(GetSegment.Output.serializer(), GetSegment.Output(view, profile))
                             }
                         Nsid.FEED_GET_ACTIVITY_SEGMENTS ->
                             AtJson.encodeToString(GetActivitySegments.Output.serializer(), GetActivitySegments.Output(listOf(effort)))
@@ -148,12 +151,14 @@ class SegmentRepositoryTest {
         val segments = SegmentRepository(clients)
 
         assertEquals(view, segments.segment(segmentUri))
+        assertEquals(profile, segments.segmentDetail(segmentUri).elevationProfile)
         assertEquals(listOf(effort), segments.activitySegments(activityUri))
         assertEquals("next", segments.efforts(segmentUri).cursor)
         segments.efforts(segmentUri, actor = "bob.test", cursor = "c1")
 
         assertEquals(
             listOf(
+                Nsid.FEED_GET_SEGMENT to mapOf("uri" to listOf(segmentUri.value)),
                 Nsid.FEED_GET_SEGMENT to mapOf("uri" to listOf(segmentUri.value)),
                 Nsid.FEED_GET_ACTIVITY_SEGMENTS to mapOf("activity" to listOf(activityUri.value)),
                 Nsid.FEED_GET_SEGMENT_EFFORTS to mapOf("segment" to listOf(segmentUri.value), "actor" to listOf(did.value)),

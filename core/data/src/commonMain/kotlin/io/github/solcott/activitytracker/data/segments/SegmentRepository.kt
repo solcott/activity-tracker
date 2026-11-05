@@ -44,7 +44,13 @@ class SegmentRepository(private val clients: SessionClients) {
     fun dismissCreated(activity: AtUri) = createdFrom.update { it - activity }
 
     /** The segment at [uri], with the signed-in athlete's best effort on it. */
-    suspend fun segment(uri: AtUri): SegmentView = clients.appView.query(GetSegment.method, GetSegment.Params(uri)).segment
+    suspend fun segment(uri: AtUri): SegmentView = segmentDetail(uri).segment
+
+    /**
+     * The segment at [uri] as [segment] reads it, with its terrain profile when its elevation comes from terrain
+     * (segments/segment-elevation).
+     */
+    suspend fun segmentDetail(uri: AtUri): GetSegment.Output = clients.appView.query(GetSegment.method, GetSegment.Params(uri))
 
     /**
      * The segment at [uri], or null when the AppView no longer serves it (`NotFound`: deleted, never indexed or taken down), as a starred
@@ -60,6 +66,9 @@ class SegmentRepository(private val clients: SessionClients) {
 
     /** [segment] as a stream: loading, then the segment or why it couldn't be read. Each collection reads it again. */
     fun segmentOutcome(uri: AtUri): Flow<Outcome<SegmentView>> = outcomeFlow { segment(uri) }
+
+    /** [segmentDetail] as a stream like [segmentOutcome]: the segment and its profile from one read. */
+    fun segmentDetailOutcome(uri: AtUri): Flow<Outcome<GetSegment.Output>> = outcomeFlow { segmentDetail(uri) }
 
     /** The first page of the signed-in athlete's own efforts on [segment], fastest first, as a stream like [segmentOutcome]. */
     fun ownEffortsOutcome(segment: AtUri): Flow<Outcome<List<EffortView>>> = outcomeFlow { efforts(segment).efforts }
