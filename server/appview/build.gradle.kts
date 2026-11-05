@@ -7,6 +7,9 @@ plugins {
 
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
 
+// Every test class starts its own H2 database and Flyway run, and the suite outgrew Gradle's default 512 MB test heap.
+tasks.test { maxHeapSize = "1g" }
+
 // Local-stack defaults; real env vars win. APPVIEW_PUBLIC_URL defaults to the URL the native apps were built with (the device host's
 // AppView
 // sibling in device mode, else the quick tunnel's), so the AppView serves matching OAuth client metadata and that host is its DID. In
