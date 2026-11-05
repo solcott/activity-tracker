@@ -161,23 +161,6 @@ object SegmentSamples {
     const val VOTING_UNAVAILABLE = "votingUnavailable"
 }
 
-object ProposeSegmentNameSamples {
-    private fun state(name: String, editing: Boolean = false, unchanged: String = "Trail 214") =
-        ProposeSegmentNameState(TextFieldState(name), editing, unchanged, sending = false, error = null, eventSink = {})
-
-    val propose: ProposeSegmentNameState
-        get() = state("Wiggly Woods")
-
-    val edit: ProposeSegmentNameState
-        get() = state("Rooty Ridge Loop", editing = true, unchanged = "Rooty Ridge")
-
-    val invalid: ProposeSegmentNameState
-        get() = state("trail 214")
-
-    val all: Map<String, ProposeSegmentNameState>
-        get() = mapOf(SampleKind.LOADED to propose, "edit" to edit, SampleKind.INVALID to invalid)
-}
-
 object SegmentMapSamples {
     private val content = SegmentMapContent(SegmentSamples.segment.record.line, SegmentSamples.segment.record.name, credit = null)
 

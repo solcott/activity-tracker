@@ -15,7 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** A segment's community names on its screen and the name sheet (segments/segment-names). */
+/** A segment's community names on its screen (segments/segment-names); the name sheet's own tests are `ProposePlaceNameUiTest`. */
 @OptIn(ExperimentalTestApi::class)
 class SegmentNamesUiTest {
     private val events = mutableListOf<SegmentEvent>()
@@ -64,24 +64,4 @@ class SegmentNamesUiTest {
             onNodeWithText("Voting needs a server that supports private data.").assertExists()
             onNodeWithContentDescription("Vote for Rooty Run").assertIsNotEnabled()
         }
-
-    @Test
-    fun theProposeSheetTellsWhatProposingShows() = runComposeUiTest {
-        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.propose) } }
-        onNodeWithText("Proposing shows others, under your name,", substring = true).assertExists()
-        onNodeWithText("Send").assertExists()
-    }
-
-    @Test
-    fun theEditSheetWarnsThatVotesAreCleared() = runComposeUiTest {
-        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.edit) } }
-        onNodeWithText("Editing the name clears every vote it has.").assertExists()
-        onNodeWithText("Save").assertExists()
-    }
-
-    @Test
-    fun anUnchangedNameIsRefused() = runComposeUiTest {
-        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.invalid) } }
-        onNodeWithText("Enter a new name of at most 100 characters.").assertExists()
-    }
 }

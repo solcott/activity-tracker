@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.segment
+package io.github.solcott.activitytracker.app.names
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitContent
+import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.segment.effortDateLabel
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
@@ -44,19 +46,21 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_voting_unavailable
 import io.github.solcott.activitytracker.composeApp.resources.segment_originally
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
-import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlin.time.Instant
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
-// A segment's community names (segments/segment-names) on its screen: its original name, its name history, the open proposals with their
-// votes, Propose, and the viewer's own proposal's Edit and Delete.
+// A place's community names (segments/segment-names) on its screen, for any place named by proposal and vote (a segment): its original
+// name, its name history, the open proposals with their votes, Propose, and the viewer's own proposal's Edit and Delete. The host's
+// presenter owns what they do; these only lay them out and call back.
 
-/** "originally …" under a segment's title, when a community name replaced its original. */
+/** "originally …" under a place's title, when a community name replaced its original. */
 @Composable
 fun OriginalName(original: String, modifier: Modifier = Modifier) {
     Text(
@@ -67,36 +71,69 @@ fun OriginalName(original: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** The segment's names: Propose when allowed, the open proposals with votes, and the name history, collapsed until opened. */
+/**
+ * The place's names: Propose when [canPropose], the open [proposals] with votes, and the name [history], collapsed until opened. [canVote]
+ * says the viewer may vote, [canVoteHere] whether this session can send it (the controls are disabled with why when not), [self] is the
+ * viewer's DID, whose own proposals offer Edit and Delete instead of votes, and [error] why the last vote or deletion failed.
+ */
 @Composable
-fun SegmentNames(state: SegmentState, segment: SegmentView, modifier: Modifier = Modifier) {
+fun PlaceNames(
+    proposals: ImmutableList<SegmentNameProposalView>,
+    history: ImmutableList<SegmentNameAdoption>,
+    canPropose: Boolean,
+    canVote: Boolean,
+    canVoteHere: Boolean,
+    error: UiError?,
+    self: String?,
+    onPropose: () -> Unit,
+    onEdit: (proposal: AtUri) -> Unit,
+    onDelete: (proposal: AtUri) -> Unit,
+    onVote: (proposal: AtUri, direction: String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // Nothing to show takes no space.
-    val nothingListed = segment.nameProposals.isEmpty() && segment.nameHistory.isEmpty()
-    if (nothingListed && !state.canPropose && state.nameError == null) return
+    val nothingListed = proposals.isEmpty() && history.isEmpty()
+    if (nothingListed && !canPropose && error == null) return
     Column(modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (state.canPropose) {
-            AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.ProposeName) }) {
-                Text(stringResource(Res.string.segment_name_propose))
-            }
+        if (canPropose) {
+            AppSecondaryButton(onClick = onPropose) { Text(stringResource(Res.string.segment_name_propose)) }
         }
-        if (segment.nameProposals.isNotEmpty()) {
+        if (proposals.isNotEmpty()) {
             Text(stringResource(Res.string.segment_name_proposals), style = MaterialTheme.typography.titleMedium)
-            if (state.canVote && !state.canVoteHere) {
+            if (canVote && !canVoteHere) {
                 Text(
                     stringResource(Res.string.segment_name_voting_unavailable),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            segment.nameProposals.forEach { proposal -> Proposal(state, proposal, own = proposal.proposer.did.value == state.self) }
+            proposals.forEach { proposal ->
+                Proposal(
+                    proposal,
+                    own = proposal.proposer.did.value == self,
+                    canVote = canVote,
+                    canVoteHere = canVoteHere,
+                    onEdit = onEdit,
+                    onDelete = onDelete,
+                    onVote = onVote,
+                )
+            }
         }
-        state.nameError?.let { ErrorText(it, style = MaterialTheme.typography.bodySmall) }
-        if (segment.nameHistory.isNotEmpty()) History(segment)
+        error?.let { ErrorText(it, style = MaterialTheme.typography.bodySmall) }
+        if (history.isNotEmpty()) History(history)
     }
 }
 
 @Composable
-private fun Proposal(state: SegmentState, proposal: SegmentNameProposalView, own: Boolean) {
+private fun Proposal(
+    proposal: SegmentNameProposalView,
+    own: Boolean,
+    canVote: Boolean,
+    canVoteHere: Boolean,
+    onEdit: (AtUri) -> Unit,
+    onDelete: (AtUri) -> Unit,
+    onVote: (AtUri, String?) -> Unit,
+) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(proposal.name, style = MaterialTheme.typography.bodyLarge)
@@ -109,24 +146,16 @@ private fun Proposal(state: SegmentState, proposal: SegmentNameProposalView, own
             )
         }
         if (own) {
-            AppIconButton(
-                AppIcon.ManualEntry,
-                stringResource(Res.string.segment_name_edit),
-                onClick = { state.eventSink(SegmentEvent.EditProposal(proposal.uri)) },
-            )
-            AppIconButton(
-                AppIcon.Delete,
-                stringResource(Res.string.segment_name_delete),
-                onClick = { state.eventSink(SegmentEvent.DeleteProposal(proposal.uri)) },
-            )
-        } else if (state.canVote) {
+            AppIconButton(AppIcon.ManualEntry, stringResource(Res.string.segment_name_edit), onClick = { onEdit(proposal.uri) })
+            AppIconButton(AppIcon.Delete, stringResource(Res.string.segment_name_delete), onClick = { onDelete(proposal.uri) })
+        } else if (canVote) {
             val vote = proposal.viewerVote?.direction
-            fun toggle(direction: String) = state.eventSink(SegmentEvent.Vote(proposal.uri, direction.takeIf { it != vote }))
+            fun toggle(direction: String) = onVote(proposal.uri, direction.takeIf { it != vote })
             AppIconButton(
                 AppIcon.ChevronUp,
                 stringResource(Res.string.segment_name_vote_up, proposal.name),
                 onClick = { toggle(SegmentNameVoteDirection.UP) },
-                enabled = state.canVoteHere,
+                enabled = canVoteHere,
                 tint =
                     if (vote == SegmentNameVoteDirection.UP) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -135,7 +164,7 @@ private fun Proposal(state: SegmentState, proposal: SegmentNameProposalView, own
                 AppIcon.ChevronDown,
                 stringResource(Res.string.segment_name_vote_down, proposal.name),
                 onClick = { toggle(SegmentNameVoteDirection.DOWN) },
-                enabled = state.canVoteHere,
+                enabled = canVoteHere,
                 tint =
                     if (vote == SegmentNameVoteDirection.DOWN) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -145,10 +174,10 @@ private fun Proposal(state: SegmentState, proposal: SegmentNameProposalView, own
 }
 
 @Composable
-private fun History(segment: SegmentView) {
+private fun History(history: ImmutableList<SegmentNameAdoption>) {
     var open by rememberSaveable { mutableStateOf(false) }
     AppTextButton(onClick = { open = !open }) { Text(stringResource(Res.string.segment_name_history)) }
-    if (open) segment.nameHistory.forEach { HistoryEntry(it) }
+    if (open) history.forEach { HistoryEntry(it) }
 }
 
 @Composable
@@ -170,25 +199,30 @@ private fun HistoryEntry(adoption: SegmentNameAdoption) {
 
 @Composable private fun dateOf(instant: Instant): String = effortDateLabel(instant.toLocalDateTime(LocalTimeZone.current).date.toString())
 
-/** The name sheet while it's open, and the confirmation before the viewer's own proposal is deleted. */
+/**
+ * The name [sheet] while it's open, its outer events going to [onSheetEvent], and, while [confirmingDelete], the confirmation before the
+ * viewer's own proposal is deleted, answered through [onConfirmDelete].
+ */
 @Composable
-fun SegmentNameDialogs(state: SegmentState) {
-    state.nameSheet?.let { sheet ->
-        AppBottomSheet(
-            onDismiss = { state.eventSink(SegmentEvent.NameSheet(ProposeSegmentNameOuterEvent.Closed)) },
-            sheetState = rememberAppSheetState(),
-        ) {
-            SubCircuitContent(sheet, outerEventSink = { state.eventSink(SegmentEvent.NameSheet(it)) })
+fun PlaceNameDialogs(
+    sheet: ProposePlaceNameScreen?,
+    confirmingDelete: Boolean,
+    onSheetEvent: (ProposePlaceNameOuterEvent) -> Unit,
+    onConfirmDelete: (confirmed: Boolean) -> Unit,
+) {
+    sheet?.let {
+        AppBottomSheet(onDismiss = { onSheetEvent(ProposePlaceNameOuterEvent.Closed) }, sheetState = rememberAppSheetState()) {
+            SubCircuitContent(it, outerEventSink = onSheetEvent)
         }
     }
-    if (state.confirmDelete != null) {
+    if (confirmingDelete) {
         val delete = stringResource(Res.string.segment_name_delete)
         AppAlertDialog(
             title = stringResource(Res.string.segment_name_delete_confirm_title),
             message = stringResource(Res.string.segment_name_delete_confirm_message),
-            actions = persistentListOf(AppDialogAction(delete, destructive = true) { state.eventSink(SegmentEvent.ConfirmDelete(true)) }),
+            actions = persistentListOf(AppDialogAction(delete, destructive = true) { onConfirmDelete(true) }),
             cancelLabel = stringResource(Res.string.action_cancel),
-            onDismiss = { state.eventSink(SegmentEvent.ConfirmDelete(false)) },
+            onDismiss = { onConfirmDelete(false) },
         )
     }
 }

@@ -3,23 +3,23 @@ package io.github.solcott.activitytracker.android.screenshots
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import com.android.tools.screenshot.PreviewTest
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameSamples
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameState
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameUi
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameSamples
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameState
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameUi
 
 @PreviewTest
 @PreviewScreenSizes
 @PreviewScreenVariants
 @Composable
-private fun ProposeSegmentNameLoaded() {
-    ScreenPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.all.loaded()) }
+private fun ProposePlaceNameLoaded() {
+    ScreenPreview { ProposePlaceNameUi(ProposePlaceNameSamples.all.loaded()) }
 }
 
 @PreviewTest
 @PreviewPhoneSize
 @Composable
-private fun ProposeSegmentNameStates(@PreviewParameter(ProposeSegmentNameStates::class) state: ProposeSegmentNameState) {
-    ScreenPreview { ProposeSegmentNameUi(state) }
+private fun ProposePlaceNameStates(@PreviewParameter(ProposePlaceNameStates::class) state: ProposePlaceNameState) {
+    ScreenPreview { ProposePlaceNameUi(state) }
 }
 
-class ProposeSegmentNameStates : OtherSamples<ProposeSegmentNameState>(ProposeSegmentNameSamples.all)
+class ProposePlaceNameStates : OtherSamples<ProposePlaceNameState>(ProposePlaceNameSamples.all)
