@@ -25,6 +25,7 @@ Copy a sibling: `feed/like.json` (a small record), `feed/activity.json` (a rich 
 ## 2. Kotlin mirror: `core/lexicon/src/commonMain/kotlin/io/github/solcott/activitytracker/lexicon/`
 
 - `Nsid.kt`: add the constant. For a record the AppView should index, also add it to `indexedCollections`. Missing it means Jetstream never delivers the record.
+- A record stored in the athlete's spaces: add it to `space/athlete.json`'s `collections` and to `AthleteSpaceDeclaration.collections` (same order; `AthleteSpaceDeclarationTest` compares them), and give it a `GrantFeature` in `core/data`'s `GrantFeature.byCollection` (`GrantStatusTest` checks every one has one). Athletes then see on the Account page that signing in again picks it up.
 - `app/Records.kt`: a `@Serializable data class XRecord(...)` with `@SerialName("\$type") val type: String = Nsid.X` last. Optional fields are `T? = null`. Add unit KDocs.
 - `app/Views.kt`: view and def classes for query outputs.
 - `app/Queries.kt`: `object GetX { Params; Output; val method = XrpcQuery(Nsid.X, Params.serializer(), Output.serializer()) }`. Paginate with `limit`/`cursor` and `Paging.clamp`.
