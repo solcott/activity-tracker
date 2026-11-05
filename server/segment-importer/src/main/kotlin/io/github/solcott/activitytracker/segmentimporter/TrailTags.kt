@@ -47,7 +47,6 @@ internal object TrailTags : TrailRules {
             "foot" to FOOT_GROUPS,
             "running" to FOOT_GROUPS,
             "ski" to setOf(SegmentSportGroup.SKI),
-            "piste" to emptySet(), // By its piste:type: relationGroups.
             "canoe" to setOf(SegmentSportGroup.PADDLE),
         )
 
