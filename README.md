@@ -110,6 +110,20 @@ docker/scripts/create-account.sh alice          # creates alice.test (password i
 ./gradlew :desktopApp:hotRun --auto                  # desktop app with Compose Hot Reload
 ```
 
+Segments get their elevation gain and loss from terrain tiles along their line until enough athletes have
+ridden them. To have terrain locally, fetch the tiles for the area you test in (a region preset or a
+`west,south,east,north` box); `./gradlew :server-appview:run` picks up `build/terrain`:
+
+```bash
+scripts/terrain-fetch.sh us-vermont             # Terrarium tiles at zoom 12 into build/terrain
+```
+
+Elsewhere, set `TERRAIN_TILES_DIR` (and `TERRAIN_TILES_ZOOM` for another zoom). The tiles are the
+[Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) on AWS Open Data, built by Mapzen/Tilezen from
+3DEP, SRTM, GMTED2010, ETOPO1 and other open sources; their
+[attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) must be shown wherever
+derived elevation is credited.
+
 The first `up` builds PLC, the relay and Jetstream from source, which takes a few minutes. The PDS is
 Bluesky's atproto Spaces alpha, pinned by digest. It is amd64-only, so Apple Silicon runs it under Rosetta.
 Its schemas change without migrations, so bumping it means wiping the volumes
