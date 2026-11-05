@@ -122,8 +122,11 @@ internal object DeviceNames {
             }
             .ifBlank { null }
 
-    /** camelCase humps, and where letters meet a model number: "hrmPro", "edge840", "FR965". */
-    private val WORD_BREAK = Regex("(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=[0-9])")
+    /**
+     * camelCase humps, where a word meets a model number, and a word after one: "hrmPro", "edge840", "FR965", "edgeExplore3Plus". A lone
+     * letter stays with its number ("descentX10").
+     */
+    private val WORD_BREAK = Regex("(?<=[a-z])(?=[A-Z])|(?<=[a-z]{2}|[A-Z]{2})(?=[0-9])|(?<=[0-9])(?=[A-Z][a-z])")
 
     /** The SDKs' RALLY_200 covers the single-sided Rally 100 pedals too, which report the same product. */
     private val RENAMES = mapOf("rally200" to "Rally 100/200")
@@ -131,5 +134,5 @@ internal object DeviceNames {
     private val UNKNOWN = setOf("unknown", "invalid", "development")
 
     /** Words the makers write in capitals. */
-    private val ACRONYMS = setOf("hrm", "gps", "sram", "srm", "fsa", "fr", "xc", "se", "hr")
+    private val ACRONYMS = setOf("hrm", "gps", "sram", "srm", "fsa", "fr", "xc", "se", "hr", "marq")
 }
