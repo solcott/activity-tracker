@@ -66,7 +66,7 @@ When the athlete's PDS rejects an access token as invalid, the app SHALL refresh
 - **THEN** the request retries with the refreshed token, not the rejected one, and no further refresh is made
 
 ### Requirement: The login screen says the session expired
-After a session ends because its refresh was refused, the login screen SHALL say that the session expired and that signing in again continues, and SHALL fill in that account's handle. While a recording is running, it SHALL also say the recording is still going. After a sign-out the athlete chose, the login screen SHALL show neither message nor the handle.
+After a session ends because its refresh was refused, the login screen SHALL say that the session expired and that signing in again continues, and SHALL fill in that account's handle. While a recording is running, it SHALL also say the recording is still going. After the athlete chose Sign in again on the Account page, the login screen SHALL fill in that account's handle and say that signing in again updates the app's permissions, with no expiry message. After a sign-out the athlete chose, the login screen SHALL show neither message nor the handle.
 
 #### Scenario: Expired without a recording
 - **WHEN** alice's session expires
@@ -77,8 +77,16 @@ After a session ends because its refresh was refused, the login screen SHALL say
 - **THEN** the login screen also says her recording is still running
 
 #### Scenario: Chosen sign-out
-- **WHEN** alice signs out from settings
+- **WHEN** alice signs out from the Account page
 - **THEN** the login screen shows no expiry message and an empty handle field
+
+#### Scenario: Chosen sign in again
+- **WHEN** bob chooses Sign in again on the Account page
+- **THEN** the login screen shows `bob.test` filled in and says signing in again updates the app's permissions, with no expiry message
+
+#### Scenario: Sign in again then cancelled
+- **WHEN** bob chooses Sign in again, starts signing in and cancels in the browser
+- **THEN** the login screen still shows `bob.test` filled in
 
 ### Requirement: The authorization response's issuer is checked
 When an OAuth redirect returns, the client SHALL refuse it if it carries an `iss` other than the issuer sign-in started with. It SHALL also refuse a redirect with no `iss` when that authorization server's metadata advertised `authorization_response_iss_parameter_supported: true`. A server that didn't advertise it MAY omit `iss`.
