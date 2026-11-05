@@ -46,6 +46,11 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             for (key in listOf("SEGMENT_IMPORTER_DID", "SEGMENT_CANDIDATE_RIDERS")) {
                 if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }
             }
+            // Terrain tiles scripts/terrain-fetch.sh writes into build/terrain, so segments get terrain elevation
+            // (segments/segment-elevation).
+            if ("TERRAIN_TILES_DIR" !in environment) {
+                rootDir.resolve("build/terrain").takeIf { it.isDirectory }?.let { environment("TERRAIN_TILES_DIR", it.path) }
+            }
             // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
             for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) {
                 if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }

@@ -58,11 +58,19 @@ data class AppViewConfig(
     /** Who may propose segment names and when a proposal is adopted (`SEGMENT_NAME_*`; segments/segment-names). */
     val segmentNames: SegmentNameRules = SegmentNameRules(),
     /**
+     * Terrain elevation tiles (`TERRAIN_TILES_DIR`, Terrarium PNGs at `{z}/{x}/{y}.png`, fetched by `scripts/terrain-fetch.sh`) and their
+     * zoom (`TERRAIN_TILES_ZOOM`, default 12; segments/segment-elevation). Null: segments get no terrain elevation, only their efforts'.
+     */
+    val terrainTiles: TerrainTilesConfig? = null,
+    /**
      * Whether hosts learned from DID documents and handles may be private, loopback or link-local addresses
      * (`APPVIEW_ALLOW_PRIVATE_ADDRESSES=true`; identity/outbound-requests). Local dev only, where every PDS and `did:web` is `localhost`.
      */
     val allowPrivateAddresses: Boolean = false,
 ) {
+    /** Where terrain tiles live and at which zoom they were fetched. */
+    data class TerrainTilesConfig(val dir: String, val zoom: Int)
+
     /** An account the AppView signs in to with an app password. */
     data class Triage(val did: String, val appPassword: String) {
         override fun toString() = "Triage($did)"
@@ -88,6 +96,12 @@ data class AppViewConfig(
 
         /** Fragment of the space-syncer entry in the DID document. */
         const val SYNCER_FRAGMENT = "activitytracker_space_syncer"
+
+        /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
+        const val DEFAULT_TERRAIN_ZOOM = 12
+
+        /** Terrarium tiles' deepest zoom. */
+        const val MAX_TERRAIN_ZOOM = 15
 
         fun fromEnv(env: Map<String, String> = System.getenv()): AppViewConfig {
             val port = env["APPVIEW_PORT"]?.toInt() ?: 8081
@@ -118,8 +132,18 @@ data class AppViewConfig(
                 segmentImporter = env["SEGMENT_IMPORTER_DID"]?.trim()?.takeIf { it.startsWith("did:") }?.let(::Did),
                 segmentCandidateRiders = athletes(env, "SEGMENT_CANDIDATE_RIDERS"),
                 segmentNames = SegmentNameRules.fromEnv(env),
+                terrainTiles = terrainTiles(env),
                 allowPrivateAddresses = env["APPVIEW_ALLOW_PRIVATE_ADDRESSES"]?.trim().equals("true", ignoreCase = true),
             )
+        }
+
+        /**
+         * `TERRAIN_TILES_DIR` and `TERRAIN_TILES_ZOOM` (1 to [MAX_TERRAIN_ZOOM], default [DEFAULT_TERRAIN_ZOOM]); null without a folder.
+         */
+        private fun terrainTiles(env: Map<String, String>): TerrainTilesConfig? {
+            val dir = env["TERRAIN_TILES_DIR"]?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val zoom = env["TERRAIN_TILES_ZOOM"]?.trim()?.toIntOrNull()?.coerceIn(1, MAX_TERRAIN_ZOOM) ?: DEFAULT_TERRAIN_ZOOM
+            return TerrainTilesConfig(dir, zoom)
         }
 
         /** `<prefix>_DID` and the optional `<prefix>_URL`; null without a DID. */

@@ -141,4 +141,18 @@ class AppViewConfigTest {
         assertEquals(true, AppViewConfig.fromEnv(mapOf("APPVIEW_ALLOW_PRIVATE_ADDRESSES" to "true")).allowPrivateAddresses)
         assertEquals(false, AppViewConfig.fromEnv(mapOf("APPVIEW_ALLOW_PRIVATE_ADDRESSES" to "false")).allowPrivateAddresses)
     }
+
+    @Test
+    fun terrainTilesAreOptional() {
+        assertEquals(null, AppViewConfig.fromEnv(emptyMap()).terrainTiles)
+        assertEquals(null, AppViewConfig.fromEnv(mapOf("TERRAIN_TILES_DIR" to " ")).terrainTiles)
+        assertEquals(
+            AppViewConfig.TerrainTilesConfig("build/terrain", 12),
+            AppViewConfig.fromEnv(mapOf("TERRAIN_TILES_DIR" to "build/terrain")).terrainTiles,
+        )
+        assertEquals(
+            AppViewConfig.TerrainTilesConfig("/tiles", 13),
+            AppViewConfig.fromEnv(mapOf("TERRAIN_TILES_DIR" to "/tiles", "TERRAIN_TILES_ZOOM" to "13")).terrainTiles,
+        )
+    }
 }
