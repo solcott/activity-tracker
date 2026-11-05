@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.lexicon.XrpcErrorBody
 import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
+import io.github.solcott.activitytracker.lexicon.app.CheckDiveSite
+import io.github.solcott.activitytracker.lexicon.app.CheckDiveSites
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
@@ -29,6 +31,10 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
+import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
+import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteDives
+import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
@@ -49,6 +55,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
@@ -98,6 +105,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetGear.method, verifier) { params, viewer -> views.gear(viewer, params) }
     xrpcQuery(GetActorGear.method, verifier) { params, viewer -> views.actorGear(viewer, params) }
     xrpcQuery(GetGearActivities.method, verifier) { params, viewer -> views.gearActivities(viewer, params) }
+    xrpcQuery(GetDiveSiteDives.method, verifier) { params, viewer -> views.diveSiteDives(viewer, params) }
     xrpcQuery(SearchActors.method, verifier) { params, viewer -> search.search(requireViewer(viewer), params) }
     xrpcQuery(GetFollowers.method, verifier) { params, viewer -> graph.followers(viewer, params) }
     xrpcQuery(GetFollows.method, verifier) { params, viewer -> graph.follows(viewer, params) }
@@ -119,6 +127,19 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }
     xrpcQuery(GetSegmentMayors.method, verifier) { params, viewer -> segments.mayors(viewer, params) }
     xrpcProcedure(CheckSegment.method, verifier) { input, caller -> segments.check(requireViewer(caller), input) }
+}
+
+/**
+ * Dive sites and what's derived from their visits ([DiveSiteViews]; the dive-sites capabilities). `checkDiveSite` and the importer's
+ * `checkDiveSites` write nothing.
+ */
+fun Route.diveSiteRoutes(sites: DiveSiteViews, verifier: ServiceAuthVerifier) {
+    xrpcQuery(GetDiveSite.method, verifier) { params, viewer -> sites.site(viewer, params) }
+    xrpcQuery(SearchDiveSites.method, verifier) { params, viewer -> sites.search(viewer, params) }
+    xrpcQuery(GetDiveSiteConditions.method, verifier) { params, viewer -> sites.conditions(viewer, params) }
+    xrpcQuery(GetDiveSiteRegulars.method, verifier) { params, viewer -> sites.regulars(viewer, params) }
+    xrpcProcedure(CheckDiveSite.method, verifier) { input, caller -> sites.check(requireViewer(caller), input) }
+    xrpcProcedure(CheckDiveSites.method, verifier) { input, caller -> sites.checkImported(requireViewer(caller), input) }
 }
 
 /**

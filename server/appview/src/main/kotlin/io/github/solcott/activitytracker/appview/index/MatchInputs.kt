@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
+import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
@@ -54,6 +55,7 @@ internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInpu
     val after = matchInputs(activity)
     if (after == null) {
         SegmentEfforts.deleteWhere { activityUri eq activity }
+        DiveSiteVisits.deleteWhere { activityUri eq activity }
         SegmentCandidateRiders.deleteWhere { trackUri eq trackOf(activity) }
         dropPairsOfActivities(listOf(activity))
         dropInvitePairsOf(activity)

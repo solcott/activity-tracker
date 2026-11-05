@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
+import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -145,6 +146,7 @@ internal fun JdbcTransaction.segmentMatchingOn(author: Did): Boolean =
  */
 private fun JdbcTransaction.dropSegmentMatching(author: Did) {
     SegmentEfforts.deleteWhere { authorDid eq author.value }
+    DiveSiteVisits.deleteWhere { authorDid eq author.value }
     SegmentCandidateRiders.deleteWhere { authorDid eq author.value }
     if (!groupingOn(author)) dropTracks(trackUrisOf(author))
 }
@@ -155,6 +157,7 @@ private fun JdbcTransaction.dropSegmentMatching(author: Did) {
  */
 internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
     SegmentEfforts.deleteWhere { authorDid eq author.value }
+    DiveSiteVisits.deleteWhere { authorDid eq author.value }
     SegmentCandidateRiders.deleteWhere { authorDid eq author.value }
     dropPairsOf(author)
     dropTracks(trackUrisOf(author))
@@ -175,6 +178,7 @@ internal fun JdbcTransaction.dropTracks(uris: List<String>) {
         .takeIf { it.isNotEmpty() }
         ?.let { left -> ActivityInvitePairs.deleteWhere { originalUri inList left } }
     SegmentEfforts.deleteWhere { trackUri inList uris }
+    DiveSiteVisits.deleteWhere { trackUri inList uris }
     SegmentCandidateRiders.deleteWhere { trackUri inList uris }
     SegmentTrackCells.deleteWhere { trackUri inList uris }
     SegmentTracks.deleteWhere { SegmentTracks.uri inList uris }

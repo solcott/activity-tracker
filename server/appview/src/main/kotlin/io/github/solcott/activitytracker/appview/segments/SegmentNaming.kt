@@ -1,18 +1,13 @@
 package io.github.solcott.activitytracker.appview.segments
 
-import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
-import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
-import io.github.solcott.activitytracker.lexicon.app.SegmentKind
-import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -59,7 +54,7 @@ class SegmentNaming(
                 .map { it[SegmentNameProposals.uri] }
                 .toSet()
         val tallies = tallies(segment, counted)
-        val adopted = if (isActive(segment)) adoptable(segment, open, tallies, now, since) else null
+        val adopted = if (nameable(NamedPlace.of(segment))) adoptable(segment, open, tallies, now, since) else null
         for ((uri, openedAt) in open) {
             val tally = tallies[uri] ?: Tally.NONE
             val state =
@@ -80,13 +75,6 @@ class SegmentNaming(
         if (adopted != null) recomputeCurrentName(segment)
     }
 
-    /** Whether [segment] can adopt a name: active, and a run, since lifts are never renamed (segments/segment-lifts). */
-    private fun JdbcTransaction.isActive(segment: String) =
-        Segments.select(Segments.status, Segments.kind)
-            .where { Segments.uri eq segment }
-            .firstOrNull()
-            ?.let { it[Segments.status] == SegmentStatus.ACTIVE && SegmentKind.isRanked(it[Segments.kind]) } == true
-
     /** The proposal to adopt among [open] (each with when it opened), if any qualifies by [tallies]. */
     private fun JdbcTransaction.adoptable(
         segment: String,
@@ -95,11 +83,7 @@ class SegmentNaming(
         now: Long,
         since: String,
     ): String? {
-        val riders =
-            SegmentEfforts.select(SegmentEfforts.authorDid)
-                .where { (SegmentEfforts.segmentUri eq segment) and (SegmentEfforts.startedOn greaterEq since) }
-                .withDistinct()
-                .count()
+        val riders = recentLocals(NamedPlace.of(segment), since)
         val needed = rules.upNeeded(riders)
         return tallies
             .filter { (uri, tally) ->

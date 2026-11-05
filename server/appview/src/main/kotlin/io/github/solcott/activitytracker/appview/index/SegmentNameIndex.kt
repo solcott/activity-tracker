@@ -58,7 +58,10 @@ internal fun JdbcTransaction.upsertNameProposal(
         }
         return
     }
-    require(record.segment.collection == Nsid.FEED_SEGMENT) { "a proposal for ${record.segment}" }
+    // A segment or a dive site (dive-sites/site-names); mayPropose finds neither unless it's indexed.
+    require(record.segment.collection == Nsid.FEED_SEGMENT || record.segment.collection == Nsid.FEED_DIVE_SITE) {
+        "a proposal for ${record.segment}"
+    }
     require(mayPropose(segment, author.value, now, rules)) { "a proposer who may not propose for $segment" }
     require(!nameTaken(segment, name)) { "a name $segment already has or is offered" }
     SegmentNameProposals.insert {

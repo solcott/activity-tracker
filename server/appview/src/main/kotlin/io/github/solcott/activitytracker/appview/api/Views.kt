@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteDives
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
@@ -206,6 +207,15 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         GetGearActivities.Output(hydrate(rows, viewer), next)
     }
 
+    /** A dive site's visits [viewer] may see, newest first, as their dives (dive-sites/site-visits). `NotFound` for a site not served. */
+    suspend fun diveSiteDives(viewer: Did?, params: GetDiveSiteDives.Params): GetDiveSiteDives.Output = db.tx {
+        requireDiveSite(viewer, params.site.value)
+        val pageSize = GetDiveSiteDives.clamp(params.limit)
+        val rows = diveSiteDiveRows(viewer, params.site.value, pageSize, params.cursor)
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
+        GetDiveSiteDives.Output(hydrate(rows, viewer), next)
+    }
+
     /** The activity alone; its comments come from [comments]. `comments` is still written, empty, for clients from before that. */
     suspend fun activity(viewer: Did?, params: GetActivity.Params): GetActivity.Output = db.tx {
         // An activity the viewer may not see answers as if it didn't exist.
@@ -367,6 +377,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val gear = gearOf(uris, viewer, mediaUrls, mediaViewer)
         val labels = labelViews(rows.associate { it[Activities.uri] to it[Activities.cid] })
         val partners = partnersOf(uris, viewer, avatars)
+        val diveSites = diveSitesOf(uris, viewer)
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
@@ -389,6 +400,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                     details = details[uri],
                     labels = labels[uri],
                     group = partners[uri],
+                    diveSite = diveSites[uri],
                 )
                 .withGearOnly(gear[uri])
         }

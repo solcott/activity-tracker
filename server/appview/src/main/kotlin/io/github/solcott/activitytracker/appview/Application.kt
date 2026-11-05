@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
+import io.github.solcott.activitytracker.appview.api.DiveSiteViews
 import io.github.solcott.activitytracker.appview.api.GraphViews
 import io.github.solcott.activitytracker.appview.api.InviteViews
 import io.github.solcott.activitytracker.appview.api.LabelSources
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.avatarRoutes
+import io.github.solcott.activitytracker.appview.api.diveSiteRoutes
 import io.github.solcott.activitytracker.appview.api.mediaRoutes
 import io.github.solcott.activitytracker.appview.api.moderationRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
@@ -233,6 +235,7 @@ fun Application.appView(
         )
         segmentRoutes(SegmentViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
         segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
+        diveSiteRoutes(DiveSiteViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
         spaceSyncRoutes(syncer, verifier, verifier.forAudiences(setOf(config.syncerService)))
         avatarRoutes(db, pds)

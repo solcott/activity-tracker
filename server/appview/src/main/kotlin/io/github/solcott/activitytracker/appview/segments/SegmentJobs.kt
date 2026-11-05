@@ -35,6 +35,9 @@ class SegmentJobs {
     /** Recompute the visibility of an activity's efforts from its indexed record, details and streams. */
     fun enqueueTiers(activityUri: String, now: Long) = enqueue(TIERS, activityUri, now)
 
+    /** Match a new or moved dive site against the usable dive tracks that pass near it (dive-sites/site-visits). */
+    fun enqueueSite(siteUri: String, now: Long) = enqueue(SITE, siteUri, now)
+
     /** Pair a groupable segment track's activity with other athletes' done together with it (feed/group-activities). */
     fun enqueueGroup(trackUri: String, now: Long) = enqueue(GROUP, trackUri, now)
 
@@ -54,5 +57,6 @@ class SegmentJobs {
         const val CANDIDATE = "candidate"
         const val TIERS = "tiers"
         const val GROUP = "group"
+        const val SITE = "site"
     }
 }

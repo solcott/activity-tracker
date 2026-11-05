@@ -281,6 +281,70 @@ object SegmentCellIndex : Table("segment_cells") {
     override val primaryKey = PrimaryKey(cell, segmentUri)
 }
 
+/**
+ * A dive site (`feed.diveSite`, dive-sites/site-records), indexed from its creator's repo only. [status] is derived here and never read
+ * from the record; [currentName] is what every view serves (dive-sites/site-names), [name] the record's, the original.
+ */
+object DiveSites : Table("dive_sites") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val name = varchar("site_name", 1000)
+    val currentName = varchar("current_name", 1000)
+    /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
+    val record = text("record")
+    val latE7 = integer("lat_e7")
+    val lngE7 = integer("lng_e7")
+    val radiusM = integer("radius_m")
+    val dataSource = varchar("data_source", 64)
+    val license = varchar("license", 64)
+    /** A [io.github.solcott.activitytracker.lexicon.app.SegmentStatus] value. */
+    val status = varchar("status", 16)
+    /** The earlier site this one duplicates, when [status] is duplicate. */
+    val duplicateOf = varchar("duplicate_of", 512).nullable()
+    /** When the site was first indexed, never changed by an edit: which of two sites came first. */
+    val firstIndexedAt = long("first_indexed_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** The cells (`SegmentCells`) a dive site's radius touches. */
+object DiveSiteCells : Table("dive_site_cells") {
+    val cell = long("cell")
+    val siteUri = varchar("site_uri", 512)
+    override val primaryKey = PrimaryKey(cell, siteUri)
+}
+
+/** A creator's new dive sites, for the daily limit; a delete doesn't touch it. */
+object DiveSiteCreations : Table("dive_site_creations") {
+    val authorDid = varchar("author_did", 255)
+    val siteUri = varchar("site_uri", 512)
+    val createdAt = long("created_at")
+}
+
+/**
+ * A dive's visit to a dive site (dive-sites/site-visits), matched from its usable segment track: derived private data, served only to
+ * viewers admitted to [visibility], the narrowest of the activity's and its Map category's. The dive's conditions are copied with
+ * [diveTier], its Dive category's tier, and served only to viewers admitted to that too. At most one per dive.
+ */
+object DiveSiteVisits : Table("dive_site_visits") {
+    val activityUri = varchar("activity_uri", 512)
+    val siteUri = varchar("site_uri", 512)
+    val trackUri = varchar("track_uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val visibility = varchar("visibility", 16)
+    /** The dive's local date, `YYYY-MM-DD`. */
+    val startedOn = varchar("started_on", 10)
+    /** Tenths of a degree Celsius. */
+    val minTemperature = long("min_temperature").nullable()
+    /** Centimeters. */
+    val visibilityCm = long("visibility_cm").nullable()
+    /** Centimeters. */
+    val maxDepthCm = long("max_depth_cm").nullable()
+    val diveTier = varchar("dive_tier", 16)
+    override val primaryKey = PrimaryKey(activityUri)
+}
+
 /** The cells each usable segment track's pieces pass through, written when it's matched. Dropped with the track. */
 object SegmentTrackCells : Table("segment_track_cells") {
     val cell = long("cell")

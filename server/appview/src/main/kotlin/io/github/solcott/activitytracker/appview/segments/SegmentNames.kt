@@ -4,10 +4,14 @@ package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.api.LabelValues
 import io.github.solcott.activitytracker.appview.api.labelled
+import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
+import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -117,18 +121,77 @@ internal fun unlabelledProposal(): Op<Boolean> =
         }
         .reduce { a, b -> a and b }
 
-/** How many distinct local dates [did] has efforts on [segment] within its sport group's speed cap, of every visibility. */
-internal fun JdbcTransaction.proposerDays(segment: String, did: String): Long =
-    SegmentEfforts.join(Segments, JoinType.INNER, SegmentEfforts.segmentUri, Segments.uri)
-        .select(SegmentEfforts.startedOn)
-        .where { (SegmentEfforts.segmentUri eq segment) and (SegmentEfforts.authorDid eq did) and plausibleEffort() }
-        .withDistinct()
-        .count()
+/**
+ * What a name proposal names (dive-sites/site-names): a segment, whose locals are the athletes with efforts on it, or a dive site, whose
+ * locals are the athletes with visits to it. Every naming rule reads its locals through here, so both follow `segments/segment-names`.
+ */
+internal sealed interface NamedPlace {
+    val uri: String
 
-/** Which of [dids] have at least one effort on [segment], of any visibility: the athletes whose votes count. */
+    data class Segment(override val uri: String) : NamedPlace
+
+    data class DiveSite(override val uri: String) : NamedPlace
+
+    companion object {
+        fun of(uri: String): NamedPlace = if (isDiveSiteUri(uri)) DiveSite(uri) else Segment(uri)
+    }
+}
+
+/** Whether [place] may adopt and take names: an active run segment (never a lift, segments/segment-lifts), or an active dive site. */
+internal fun JdbcTransaction.nameable(place: NamedPlace): Boolean =
+    when (place) {
+        is NamedPlace.Segment ->
+            Segments.select(Segments.status, Segments.kind)
+                .where { Segments.uri eq place.uri }
+                .firstOrNull()
+                ?.let { it[Segments.status] == SegmentStatus.ACTIVE && SegmentKind.isRanked(it[Segments.kind]) } == true
+        is NamedPlace.DiveSite ->
+            DiveSites.select(DiveSites.status).where { DiveSites.uri eq place.uri }.firstOrNull()?.get(DiveSites.status) ==
+                SegmentStatus.ACTIVE
+    }
+
+/** How many distinct athletes have efforts on (visits to) [place] dated [since] or later, of every visibility: adoption's denominator. */
+internal fun JdbcTransaction.recentLocals(place: NamedPlace, since: String): Long =
+    when (place) {
+        is NamedPlace.Segment ->
+            SegmentEfforts.select(SegmentEfforts.authorDid)
+                .where { (SegmentEfforts.segmentUri eq place.uri) and (SegmentEfforts.startedOn greaterEq since) }
+                .withDistinct()
+                .count()
+        is NamedPlace.DiveSite ->
+            DiveSiteVisits.select(DiveSiteVisits.authorDid)
+                .where { (DiveSiteVisits.siteUri eq place.uri) and (DiveSiteVisits.startedOn greaterEq since) }
+                .withDistinct()
+                .count()
+    }
+
+/**
+ * How many distinct local dates [did] has efforts on [segment] within its sport group's speed cap, or visits to it for a dive site, of
+ * every visibility.
+ */
+internal fun JdbcTransaction.proposerDays(segment: String, did: String): Long =
+    if (isDiveSiteUri(segment))
+        DiveSiteVisits.select(DiveSiteVisits.startedOn)
+            .where { (DiveSiteVisits.siteUri eq segment) and (DiveSiteVisits.authorDid eq did) }
+            .withDistinct()
+            .count()
+    else
+        SegmentEfforts.join(Segments, JoinType.INNER, SegmentEfforts.segmentUri, Segments.uri)
+            .select(SegmentEfforts.startedOn)
+            .where { (SegmentEfforts.segmentUri eq segment) and (SegmentEfforts.authorDid eq did) and plausibleEffort() }
+            .withDistinct()
+            .count()
+
+/** Which of [dids] have at least one effort on [segment] (a visit, for a dive site), of any visibility: the athletes whose votes count. */
 internal fun JdbcTransaction.ridersAmong(segment: String, dids: Collection<String>): Set<String> =
     if (dids.isEmpty()) {
         emptySet()
+    } else if (isDiveSiteUri(segment)) {
+        DiveSiteVisits.select(DiveSiteVisits.authorDid)
+            .where { (DiveSiteVisits.siteUri eq segment) and (DiveSiteVisits.authorDid inList dids) }
+            .withDistinct()
+            .map { it[DiveSiteVisits.authorDid] }
+            .toSet()
     } else {
         SegmentEfforts.select(SegmentEfforts.authorDid)
             .where { (SegmentEfforts.segmentUri eq segment) and (SegmentEfforts.authorDid inList dids) }
@@ -165,7 +228,10 @@ internal fun JdbcTransaction.openProposalOf(segment: String, did: String): Strin
  */
 internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: String? = null): Boolean {
     val key = name.trim().lowercase()
-    val current = Segments.select(Segments.currentName).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.currentName)
+    val current =
+        if (isDiveSiteUri(segment))
+            DiveSites.select(DiveSites.currentName).where { DiveSites.uri eq segment }.firstOrNull()?.get(DiveSites.currentName)
+        else Segments.select(Segments.currentName).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.currentName)
     if (current?.trim()?.lowercase() == key) return true
     return SegmentNameProposals.select(SegmentNameProposals.uri, SegmentNameProposals.name)
         .where { (SegmentNameProposals.segmentUri eq segment) and (SegmentNameProposals.state eq ProposalState.OPEN) }
@@ -177,14 +243,11 @@ internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: St
  * they have no open proposal on it, and they have efforts on it on [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s
  * flag both ask this.
  */
-internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean {
-    val row = Segments.select(Segments.status, Segments.kind).where { Segments.uri eq segment }.firstOrNull()
-    return row?.get(Segments.status) == SegmentStatus.ACTIVE &&
-        SegmentKind.isRanked(row[Segments.kind]) &&
+internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean =
+    nameable(NamedPlace.of(segment)) &&
         !inCooldown(segment, now, rules) &&
         openProposalOf(segment, did) == null &&
         proposerDays(segment, did) >= rules.proposerDays
-}
 
 /**
  * The counted votes on each of [proposals] (all on [segment]): per voter, their latest vote by first indexing, counted only while it names
@@ -234,9 +297,17 @@ internal fun JdbcTransaction.recomputeCurrentName(segment: String) {
             .orderBy(SegmentNameProposals.closedAt to SortOrder.DESC, SegmentNameProposals.uri to SortOrder.DESC)
             .firstOrNull()
             ?.get(SegmentNameProposals.name)
-    val name = adopted ?: Segments.select(Segments.name).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.name) ?: return
-    Segments.update({ (Segments.uri eq segment) and not(Segments.currentName eq name) }) { it[currentName] = name }
+    if (isDiveSiteUri(segment)) {
+        val name = adopted ?: DiveSites.select(DiveSites.name).where { DiveSites.uri eq segment }.firstOrNull()?.get(DiveSites.name)
+        if (name != null) DiveSites.update({ (DiveSites.uri eq segment) and not(DiveSites.currentName eq name) }) { it[currentName] = name }
+    } else {
+        val name = adopted ?: Segments.select(Segments.name).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.name)
+        if (name != null) Segments.update({ (Segments.uri eq segment) and not(Segments.currentName eq name) }) { it[currentName] = name }
+    }
 }
+
+/** Whether [uri] names a `feed.diveSite`, which name proposals may name as well as a segment (dive-sites/site-names). */
+internal fun isDiveSiteUri(uri: String): Boolean = runCatching { AtUri(uri).collection == Nsid.FEED_DIVE_SITE }.getOrDefault(false)
 
 /**
  * After labels changed on [subjects] (record URIs and account DIDs): recomputes the current name of every segment with an adopted proposal

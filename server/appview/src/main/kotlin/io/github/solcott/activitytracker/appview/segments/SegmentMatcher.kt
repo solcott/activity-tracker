@@ -5,6 +5,9 @@ import io.github.solcott.activitytracker.appview.api.combinedIntoOf
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.DiveSiteCells
+import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
+import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
@@ -20,11 +23,14 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
+import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
+import io.github.solcott.activitytracker.appview.index.siteCentre
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
@@ -33,6 +39,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -70,6 +78,7 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -164,10 +173,30 @@ class SegmentMatcher(
                             (Segments.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds)
                     }
                     .map { it[Segments.uri] }
-            if (stale.isEmpty()) return@tx
-            Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
-            recheckDuplicatesOf(stale, jobs, now, segmentImporter)
+            if (stale.isNotEmpty()) {
+                Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
+                recheckDuplicatesOf(stale, jobs, now, segmentImporter)
+            }
+            updateSiteStatuses(now)
         }
+    }
+
+    /**
+     * The status pass's dive-site step (dive-sites/site-records): promotes every proposed site already visited by enough athletes, then
+     * archives those still proposed [ARCHIVE_AFTER] after they were first indexed, which keep their visits but get no new ones, and checks
+     * again the sites that duplicated them.
+     */
+    private fun JdbcTransaction.updateSiteStatuses(now: Long) {
+        promoteSites(DiveSites.select(DiveSites.uri).where { DiveSites.status eq SegmentStatus.PROPOSED }.map { it[DiveSites.uri] })
+        val stale =
+            DiveSites.select(DiveSites.uri)
+                .where {
+                    (DiveSites.status eq SegmentStatus.PROPOSED) and (DiveSites.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds)
+                }
+                .map { it[DiveSites.uri] }
+        if (stale.isEmpty()) return
+        DiveSites.update({ DiveSites.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
+        recheckDiveSiteDuplicatesOf(stale, jobs, now)
     }
 
     /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */
@@ -233,6 +262,7 @@ class SegmentMatcher(
                 SegmentJobs.CANDIDATE -> matchCandidate(job.subject)
                 SegmentJobs.TIERS -> db.tx { retier(job.subject) }
                 SegmentJobs.GROUP -> pairing.match(job.subject)
+                SegmentJobs.SITE -> matchSite(job.subject)
             }
             done(job)
         } catch (e: CancellationException) {
@@ -276,7 +306,10 @@ class SegmentMatcher(
         val author: Did,
         val activity: String,
         val dataCid: String,
-        val group: SegmentSport.Grouped,
+        /** The sport group its activity can match segments of; null for a dive, which matches only dive sites. */
+        val group: SegmentSport.Grouped?,
+        /** Its activity is a dive that can visit dive sites (dive-sites/site-visits). */
+        val dive: Boolean,
         val segments: Boolean,
         val grouping: Boolean,
     )
@@ -297,6 +330,7 @@ class SegmentMatcher(
                 db.tx {
                     if (trackToMatch(trackUri) != track) return@tx
                     SegmentEfforts.deleteWhere { activityUri eq track.activity }
+                    DiveSiteVisits.deleteWhere { activityUri eq track.activity }
                     SegmentTrackCells.deleteWhere { SegmentTrackCells.trackUri eq trackUri }
                     SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
                     dropPairsOfActivities(listOf(track.activity))
@@ -313,8 +347,12 @@ class SegmentMatcher(
                 this[SegmentTrackCells.trackUri] = trackUri
             }
             if (track.segments) {
-                replaceEfforts(trackUri, track, pieces, cells)
-                replaceCandidateRiders(trackUri, track, pieces, cells)
+                val group = track.group
+                if (group != null) {
+                    replaceEfforts(trackUri, track, group, pieces, cells)
+                    replaceCandidateRiders(trackUri, track, group, pieces, cells)
+                }
+                replaceVisit(trackUri, track, pieces)
             } else {
                 dropSegmentUse(trackUri, track.activity)
             }
@@ -327,6 +365,8 @@ class SegmentMatcher(
     /** What segments derived from the track at [trackUri] of [activity]: its efforts and candidate riders. */
     private fun JdbcTransaction.dropSegmentUse(trackUri: String, activity: String) {
         SegmentEfforts.deleteWhere { activityUri eq activity }
+        DiveSiteVisits.deleteWhere { activityUri eq activity }
+        DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
         SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
         SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
     }
@@ -339,6 +379,7 @@ class SegmentMatcher(
     private fun JdbcTransaction.trackToMatch(trackUri: String): TrackToMatch? {
         fun none(activity: String? = null): TrackToMatch? {
             SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
+            DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
             SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
             val pairsOf =
                 activity
@@ -355,17 +396,27 @@ class SegmentMatcher(
             Activities.select(Activities.sport, Activities.subSport).where { Activities.uri eq activity }.firstOrNull()
                 ?: return none(activity)
         if (combinedIntoOf(listOf(activity)).isNotEmpty()) return none(activity)
-        val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport]) ?: return none(activity)
+        val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport])
+        val dive = visitsSites(row[Activities.sport], row[Activities.subSport])
+        if (group == null && !dive) return none(activity)
         val segments = !usableSegmentTracks().andWhere { SegmentTracks.uri eq trackUri }.empty()
-        val grouping = !groupableTracks().andWhere { SegmentTracks.uri eq trackUri }.empty()
-        return TrackToMatch(Did(track[SegmentTracks.authorDid]), activity, track[SegmentTracks.dataCid], group, segments, grouping)
+        // A dive has no sport group, so nothing to pair; it's read only for dive sites, under segment matching.
+        val grouping = group != null && !groupableTracks().andWhere { SegmentTracks.uri eq trackUri }.empty()
+        if (group == null && !segments) return none(activity)
+        return TrackToMatch(Did(track[SegmentTracks.authorDid]), activity, track[SegmentTracks.dataCid], group, dive, segments, grouping)
     }
 
     /**
      * Replaces [track]'s activity's efforts with its passes over the live segments of its group in [cells], so its efforts on a segment
      * archived since go, and promotes the segments it now has efforts on.
      */
-    private fun JdbcTransaction.replaceEfforts(trackUri: String, track: TrackToMatch, pieces: List<List<TimedPoint>>, cells: Set<Long>) {
+    private fun JdbcTransaction.replaceEfforts(
+        trackUri: String,
+        track: TrackToMatch,
+        grouped: SegmentSport.Grouped,
+        pieces: List<List<TimedPoint>>,
+        cells: Set<Long>,
+    ) {
         val segments =
             if (cells.isEmpty()) emptyList()
             else
@@ -373,7 +424,7 @@ class SegmentMatcher(
                     .select(Segments.uri, Segments.line, Segments.kind)
                     .where {
                         (SegmentCellIndex.cell inList cells) and
-                            (Segments.sport eq track.group.group) and
+                            (Segments.sport eq grouped.group) and
                             (Segments.status inList LIVE_STATUSES)
                     }
                     .withDistinct()
@@ -386,7 +437,7 @@ class SegmentMatcher(
             segments
                 .flatMap { (uri, line, kind) ->
                     val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-                    pieces.flatMap { passes(it, ref, track.group.group, kind) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
+                    pieces.flatMap { passes(it, ref, grouped.group, kind) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
                 }
                 .distinctBy { it.segment to it.offset }
         SegmentEfforts.deleteWhere { activityUri eq track.activity }
@@ -396,8 +447,8 @@ class SegmentMatcher(
             this[SegmentEfforts.activityUri] = track.activity
             this[SegmentEfforts.trackUri] = trackUri
             this[SegmentEfforts.authorDid] = track.author.value
-            this[SegmentEfforts.sport] = track.group.group
-            this[SegmentEfforts.eBike] = track.group.eBike
+            this[SegmentEfforts.sport] = grouped.group
+            this[SegmentEfforts.eBike] = grouped.eBike
             this[SegmentEfforts.startOffsetS] = offset
             this[SegmentEfforts.elapsedS] = (pass.end - pass.start).roundToLong()
             this[SegmentEfforts.visibility] = visibility
@@ -413,6 +464,7 @@ class SegmentMatcher(
     private fun JdbcTransaction.replaceCandidateRiders(
         trackUri: String,
         track: TrackToMatch,
+        grouped: SegmentSport.Grouped,
         pieces: List<List<TimedPoint>>,
         cells: Set<Long>,
     ) {
@@ -421,12 +473,12 @@ class SegmentMatcher(
             else
                 SegmentCandidateRows.join(SegmentCandidateCells, JoinType.INNER, SegmentCandidateRows.id, SegmentCandidateCells.candidateId)
                     .select(SegmentCandidateRows.id, SegmentCandidateRows.line, SegmentCandidateRows.kind)
-                    .where { (SegmentCandidateCells.cell inList cells) and (SegmentCandidateRows.sport eq track.group.group) }
+                    .where { (SegmentCandidateCells.cell inList cells) and (SegmentCandidateRows.sport eq grouped.group) }
                     .withDistinct()
                     .map { Triple(it[SegmentCandidateRows.id], it[SegmentCandidateRows.line], it[SegmentCandidateRows.kind]) }
         val passed = candidates.filter { (_, line, kind) ->
             val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-            pieces.any { passes(it, ref, track.group.group, kind).isNotEmpty() }
+            pieces.any { passes(it, ref, grouped.group, kind).isNotEmpty() }
         }
         SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
         SegmentCandidateRiders.batchInsert(passed) { (id, _, _) ->
@@ -457,6 +509,86 @@ class SegmentMatcher(
             endRadius = tolerance.endM.toDouble(),
             corridor = tolerance.corridorM.toDouble(),
         )
+    }
+
+    /**
+     * Replaces [track]'s activity's visit (dive-sites/site-visits) with one to the live site whose centre is nearest its entry, the first
+     * position of its first piece, among those whose radius contains it; none when no site does, or [track] isn't a dive. The visit keeps
+     * the dive's local date, its tier (the narrowest of the activity's and its Map category's) and its conditions with its Dive category's
+     * tier. Promotes the site it now visits.
+     */
+    private fun JdbcTransaction.replaceVisit(trackUri: String, track: TrackToMatch, pieces: List<List<TimedPoint>>) {
+        DiveSiteVisits.deleteWhere { activityUri eq track.activity }
+        val entry = pieces.firstOrNull { it.isNotEmpty() }?.first()?.point
+        if (!track.dive || entry == null) return
+        val site =
+            DiveSites.join(DiveSiteCells, JoinType.INNER, DiveSites.uri, DiveSiteCells.siteUri)
+                .select(DiveSites.uri, DiveSites.latE7, DiveSites.lngE7, DiveSites.radiusM, DiveSites.firstIndexedAt)
+                .where { (DiveSiteCells.cell eq SegmentCells.cellOf(entry.lat, entry.lng)) and (DiveSites.status inList LIVE_STATUSES) }
+                .map { it to SegmentGeometry.distanceMeters(it.siteCentre(), entry) }
+                .filter { (row, distance) -> distance <= row[DiveSites.radiusM] }
+                .minWithOrNull(compareBy({ it.second }, { it.first[DiveSites.firstIndexedAt] }, { it.first[DiveSites.uri] }))
+                ?.first
+                ?.get(DiveSites.uri) ?: return
+        val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
+        val conditions = visitConditions(activity)
+        DiveSiteVisits.insert {
+            it[activityUri] = track.activity
+            it[siteUri] = site
+            it[DiveSiteVisits.trackUri] = trackUri
+            it[authorDid] = track.author.value
+            it[visibility] = visitVisibility(activity)
+            it[startedOn] = startedOn(activity)
+            it[minTemperature] = conditions.minTemperature
+            it[visibilityCm] = conditions.visibility
+            it[maxDepthCm] = conditions.maxDepth
+            it[diveTier] = narrowestOf(activity, DetailCategory.DIVE)
+        }
+        promoteSites(listOf(site))
+    }
+
+    /** The dive's summary from every held tier, whose fields a visit copies; read only for the conditions served at its Dive tier. */
+    private fun JdbcTransaction.visitConditions(activity: ResultRow): ActivityDive = exactRecord(activity).dive ?: ActivityDive()
+
+    /** A visit's tier: the narrowest of the activity's and its Map category's. */
+    private fun JdbcTransaction.visitVisibility(activity: ResultRow): String = narrowestOf(activity, DetailCategory.MAP)
+
+    /** Queues a `track` job for each usable dive track sharing a cell with the dive site at [siteUri], unless it's no longer live. */
+    private suspend fun matchSite(siteUri: String) {
+        val now = clock.now().toEpochMilliseconds()
+        db.tx {
+            val live =
+                DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq siteUri) and (DiveSites.status inList LIVE_STATUSES) }.any()
+            if (!live) return@tx
+            val cells = DiveSiteCells.select(DiveSiteCells.cell).where { DiveSiteCells.siteUri eq siteUri }.map { it[DiveSiteCells.cell] }
+            if (cells.isEmpty()) return@tx
+            usableSegmentTracks()
+                .andWhere {
+                    exists(
+                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
+                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
+                        }
+                    ) and
+                        exists(
+                            Activities.select(Activities.uri).where {
+                                (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
+                            }
+                        )
+                }
+                .map { it[SegmentTracks.uri] }
+                .forEach { jobs.enqueueTrack(it, now) }
+        }
+    }
+
+    /** Makes each of [uris] that is a proposed dive site active once visits to it come from [activeAthletes] distinct athletes. */
+    private fun JdbcTransaction.promoteSites(uris: Collection<String>) {
+        for (uri in uris) {
+            val athletes = DiveSiteVisits.select(DiveSiteVisits.authorDid).where { DiveSiteVisits.siteUri eq uri }.withDistinct().count()
+            if (athletes < activeAthletes) continue
+            DiveSites.update({ (DiveSites.uri eq uri) and (DiveSites.status eq SegmentStatus.PROPOSED) }) {
+                it[status] = SegmentStatus.ACTIVE
+            }
+        }
     }
 
     /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */
@@ -507,6 +639,7 @@ class SegmentMatcher(
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()
         if (row == null || combinedIntoOf(listOf(activity)).isNotEmpty()) {
             SegmentEfforts.deleteWhere { activityUri eq activity }
+            DiveSiteVisits.deleteWhere { activityUri eq activity }
             SegmentCandidateRiders.deleteWhere {
                 trackUri inSubQuery SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.activityUri eq activity }
             }
@@ -515,6 +648,18 @@ class SegmentMatcher(
         }
         val visibility = effortVisibility(row)
         SegmentEfforts.update({ SegmentEfforts.activityUri eq activity }) { it[SegmentEfforts.visibility] = visibility }
+        if (!DiveSiteVisits.select(DiveSiteVisits.activityUri).where { DiveSiteVisits.activityUri eq activity }.empty()) {
+            val conditions = visitConditions(row)
+            val visitTier = visitVisibility(row)
+            val diveTier = narrowestOf(row, DetailCategory.DIVE)
+            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) {
+                it[DiveSiteVisits.visibility] = visitTier
+                it[minTemperature] = conditions.minTemperature
+                it[visibilityCm] = conditions.visibility
+                it[maxDepthCm] = conditions.maxDepth
+                it[DiveSiteVisits.diveTier] = diveTier
+            }
+        }
         retierPairs(row)
     }
 
@@ -599,3 +744,7 @@ internal fun segmentTrackPieces(bytes: ByteArray): List<List<TimedPoint>> =
     }
 
 private const val E7 = 1e7
+
+/** Whether an activity of [sport] and [subSport] visits dive sites: a dive that isn't a pool session (dive-sites/site-visits). */
+internal fun visitsSites(sport: String, subSport: String?): Boolean =
+    sport == Sport.DIVE && subSport != SubSport.POOL_APNEA && subSport != SubSport.POOL

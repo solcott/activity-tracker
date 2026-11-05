@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Blocks
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
+import io.github.solcott.activitytracker.appview.db.DiveSiteCreations
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
@@ -319,6 +320,11 @@ class Indexer(
                 if (placement.origin == Origins.REPO) upsertSegment(json, author, uri, cid, segmentJobs, now, segmentImporter)
             }
 
+            // Public: from the repo only (spaceCollections never lists it).
+            Nsid.FEED_DIVE_SITE -> {
+                if (placement.origin == Origins.REPO) upsertDiveSite(json, author, uri, cid, segmentJobs, now, segmentImporter)
+            }
+
             // Public, so from the repo only; a copy in a space is ignored.
             Nsid.FEED_SEGMENT_NAME_PROPOSAL -> {
                 if (placement.origin == Origins.REPO) upsertNameProposal(json, author, uri, cid, segmentNames, now)
@@ -418,6 +424,10 @@ class Indexer(
                 if (placement.origin == Origins.REPO) deleteNameProposals(listOf(uri.value))
             }
 
+            Nsid.FEED_DIVE_SITE -> {
+                if (placement.origin == Origins.REPO) deleteDiveSite(uri, segmentJobs, clock.now().toEpochMilliseconds())
+            }
+
             Nsid.FEED_SEGMENT_NAME_VOTE -> {
                 if (placement.origin != Origins.REPO) deleteNameVote(uri)
             }
@@ -492,10 +502,12 @@ class Indexer(
         GroupPrefs.deleteWhere { GroupPrefs.did eq did.value }
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
         SegmentCreations.deleteWhere { authorDid eq did.value }
+        DiveSiteCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
+        deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         Actors.deleteWhere { Actors.did eq did.value }
     }
