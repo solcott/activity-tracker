@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
@@ -124,9 +125,25 @@ object SegmentSamples {
                 RENAMED to renamed,
                 VOTING_UNAVAILABLE to votingUnavailable,
                 LIFT to lift,
+                ELEVATION to elevation,
             )
 
     const val LIFT = "lift"
+    const val ELEVATION = "elevation"
+
+    /** A 1.6 km segment the AppView gave terrain elevation (segments/segment-elevation): 84 m up, 12 m down, a 4.5% average grade. */
+    val elevation: SegmentState
+        get() =
+            state(
+                ContentStates.loaded(
+                    segment.copy(
+                        distanceMeters = 1_600,
+                        elevationGain = 84,
+                        elevationLoss = 12,
+                        elevationSource = SegmentElevationSource.TERRAIN,
+                    )
+                )
+            )
 
     /** An active ski lift (segments/segment-lifts): the viewer's rides on it, and no leaderboard, Mayor or names. */
     val lift: SegmentState

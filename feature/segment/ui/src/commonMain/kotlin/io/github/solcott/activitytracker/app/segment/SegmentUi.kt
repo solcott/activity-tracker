@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
+import io.github.solcott.activitytracker.composeApp.resources.segment_elevation
 import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
@@ -50,7 +51,9 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_status_pro
 import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_rides
+import io.github.solcott.activitytracker.composeApp.resources.unit_percent
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -119,6 +122,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                             style = MaterialTheme.typography.titleMedium,
                         )
                     }
+                    Elevation(segment)
                     Text(
                         stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
                         style = MaterialTheme.typography.bodyMedium,
@@ -216,3 +220,25 @@ private fun SegmentNameDialogs(state: SegmentState) {
         onConfirmDelete = { state.eventSink(SegmentEvent.ConfirmDelete(it)) },
     )
 }
+
+/**
+ * The segment's gain, loss and average grade (net change over its length), when the AppView has derived them (segments/segment-elevation);
+ * nothing otherwise.
+ */
+@Composable
+private fun Elevation(segment: SegmentView) {
+    val gain = segment.elevationGain ?: return
+    val loss = segment.elevationLoss ?: 0
+    val grade = if (segment.distanceMeters > 0) (gain - loss) * PERCENT / segment.distanceMeters else 0.0
+    Text(
+        stringResource(
+            Res.string.segment_elevation,
+            Format.elevation(gain.toDouble()),
+            Format.elevation(loss.toDouble()),
+            stringResource(Res.string.unit_percent, formatDecimal(grade, 1)),
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+private const val PERCENT = 100.0

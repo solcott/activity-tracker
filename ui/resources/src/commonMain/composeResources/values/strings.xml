@@ -1618,6 +1618,7 @@
     <string name="segment_your_rides">Your rides</string>
     <string name="segment_no_efforts">You have no efforts on this segment yet</string>
     <string name="segment_created_by">By %1$s</string>
+    <string name="segment_elevation">%1$s gain · %2$s loss · %3$s avg grade</string>
     <string name="segment_credit_osm">© OpenStreetMap contributors</string>
     <string name="segment_credit_agency">From public agency trail data</string>
     <string name="segment_credit_agency_named">From %1$s trail data</string>
