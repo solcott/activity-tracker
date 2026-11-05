@@ -4,6 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import io.github.solcott.activitytracker.app.nav.SettingsListDetailPreview
+import io.github.solcott.activitytracker.app.settings.AccountSamples
+import io.github.solcott.activitytracker.app.settings.AccountScreen
+import io.github.solcott.activitytracker.app.settings.AccountUi
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsSamples
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsUi
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesSamples
@@ -34,6 +37,19 @@ private fun SettingsListDetailFirstPage() {
             list = { SettingsUi(SettingsSamples.default) },
             page = { ActivityDefaultsUi(ActivityDefaultsSamples.default) },
             pageOpen = false,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "desktop", widthDp = 1200, heightDp = 800)
+@Composable
+private fun SettingsListDetailAccount() {
+    ScreenPreview {
+        SettingsListDetailPreview(
+            list = { SettingsUi(SettingsSamples.default) },
+            page = { AccountUi(AccountSamples.default) },
+            shownPage = AccountScreen,
         )
     }
 }

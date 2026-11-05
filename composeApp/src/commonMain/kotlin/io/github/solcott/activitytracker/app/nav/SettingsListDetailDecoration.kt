@@ -192,7 +192,8 @@ private val LIST_PANE_WIDTH = 360.dp
 /**
  * Settings laid out by [SettingsListDetailDecoration] as on a wide window, for previews and screenshots: [list] beside [page]. With
  * [pageOpen] false, [page] stands in for the page shown until a row is chosen, which the decoration draws as plain content rather than a
- * record. Fill a wide enough space (840dp or more), or it lays out as a phone: [list] alone.
+ * record. [shownPage] is the page [page] draws, whose row the list marks. Fill a wide enough space (840dp or more), or it lays out as a
+ * phone: [list] alone.
  */
 @Composable
 fun SettingsListDetailPreview(
@@ -200,14 +201,15 @@ fun SettingsListDetailPreview(
     page: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     pageOpen: Boolean = true,
+    shownPage: SettingsPage = PrivacyZonesScreen,
 ) {
-    val args = checkNotNull(navStackListOf(listOfNotNull(PreviewArg(PrivacyZonesScreen).takeIf { pageOpen }, PreviewArg(SettingsScreen))))
+    val args = checkNotNull(navStackListOf(listOfNotNull(PreviewArg(shownPage).takeIf { pageOpen }, PreviewArg(SettingsScreen))))
     // One page content, drawn by whichever of the two the layout uses: the record's slot, or the stand-in for the page shown first.
-    val shownPage = remember { movableContentOf(page) }
-    val circuit = remember { Circuit.Builder().setOnUnavailableContent { _, _ -> shownPage() }.build() }
+    val pageContent = remember { movableContentOf(page) }
+    val circuit = remember { Circuit.Builder().setOnUnavailableContent { _, _ -> pageContent() }.build() }
     val decoration = remember { SettingsListDetailDecoration(TopOnlyDecoration) }
     CircuitCompositionLocals(circuit) {
-        decoration.DecoratedContent(args, Navigator.NoOp, modifier) { arg -> if (arg.screen == SettingsScreen) list() else shownPage() }
+        decoration.DecoratedContent(args, Navigator.NoOp, modifier) { arg -> if (arg.screen == SettingsScreen) list() else pageContent() }
     }
 }
 

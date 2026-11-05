@@ -17,7 +17,8 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
-import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.auth.GrantStatus
+import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
@@ -25,11 +26,11 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
 @Composable
-@Suppress("LongParameterList") // A summary's repository per row, plus units, moderation and sign-out.
+@Suppress("LongParameterList") // A summary's repository per row, plus the account, units and moderation.
 fun SettingsPresenter(
     navigator: Navigator,
+    clients: SessionClients,
     unitsRepository: UnitsRepository,
-    auth: AuthRepository,
     defaults: ActivityDefaults,
     privacy: PrivacyZones,
     moderation: ModerationRepository,
@@ -51,7 +52,13 @@ fun SettingsPresenter(
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
 
+    // The PDS's answer about Spaces can land after Settings opens, and changes whether signing in again would help.
+    val support by clients.spacesSupport.collectAsState()
+    val needsSignIn = remember(support) { clients.grantStatus is GrantStatus.Outdated }
+
     return SettingsState(
+        clients.handle.value,
+        needsSignIn,
         units,
         saving,
         error,
@@ -84,11 +91,6 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenModeration -> {
                 if (canModerate) navigator.openFromSettings(ModerationScreen)
-            }
-
-            // Dropping the session tears down the SessionGraph and returns to LoginScreen.
-            SettingsEvent.SignOut -> {
-                flights.launch(SettingsEvent.SignOut) { auth.signOut() }
             }
         }
     }

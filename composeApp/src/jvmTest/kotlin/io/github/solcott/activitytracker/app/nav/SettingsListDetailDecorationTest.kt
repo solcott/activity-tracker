@@ -25,6 +25,7 @@ import com.slack.circuit.runtime.navigation.navStackListOf
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.LocalSettingsPane
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
@@ -113,6 +114,14 @@ class SettingsListDetailDecorationTest {
             shows("record $SettingsScreen")
             shows("record $PrivacyZonesScreen (pane root)")
             shows("marks $PrivacyZonesScreen")
+        }
+
+    @Test
+    fun wideWithTheAccountPageShowsItBesideTheListWithoutBack() =
+        layOut(wide, stack(AccountScreen, SettingsScreen, FeedScreen)) {
+            assertEquals(listOf(SettingsScreen, FeedScreen), seen)
+            shows("record $AccountScreen (pane root)")
+            shows("marks $AccountScreen")
         }
 
     @Test

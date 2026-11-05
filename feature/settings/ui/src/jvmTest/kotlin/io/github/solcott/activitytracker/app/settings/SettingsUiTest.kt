@@ -22,11 +22,27 @@ class SettingsUiTest {
         setContent { AppPreview(platform = UiPlatform.Desktop) { SettingsUi(SettingsSamples.default) } }
         // The column lays out every section, so each has a place even below the fold.
         val tops =
-            listOf("General", "Privacy & sharing", "Training", "Safety", "Sign out").map { text ->
+            listOf("Account", "General", "Privacy & sharing", "Training", "Safety").map { text ->
                 onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().positionInRoot.y
             }
         assertEquals(tops.sorted(), tops)
         onNodeWithText("Moderation").assertDoesNotExist()
+        onNodeWithText("Sign out").assertDoesNotExist()
+    }
+
+    @Test
+    fun theAccountRowShowsTheHandleAndOpensTheAccountPage() = runComposeUiTest {
+        val events = mutableListOf<SettingsEvent>()
+        setContent { AppPreview { SettingsUi(SettingsSamples.default.copy(eventSink = { events += it })) } }
+        onNodeWithText("Sign in again to use everything").assertDoesNotExist()
+        onNodeWithText("alice.test").performClick()
+        assertEquals(SettingsEvent.Open(AccountScreen), events.last())
+    }
+
+    @Test
+    fun theAccountRowSaysWhenTheSignInNeedsRenewing() = runComposeUiTest {
+        setContent { AppPreview { SettingsUi(SettingsSamples.all.getValue("needsSignIn")) } }
+        onNodeWithText("Sign in again to use everything").assertExists()
     }
 
     @Test

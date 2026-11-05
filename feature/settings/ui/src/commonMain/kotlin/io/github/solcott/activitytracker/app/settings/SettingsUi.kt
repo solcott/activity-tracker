@@ -25,7 +25,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
+import io.github.solcott.activitytracker.composeApp.resources.settings_account_needs_sign_in
 import io.github.solcott.activitytracker.composeApp.resources.settings_activity_defaults
 import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_gear
@@ -36,6 +36,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_z
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_ends
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_none
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
+import io.github.solcott.activitytracker.composeApp.resources.settings_section_account
 import io.github.solcott.activitytracker.composeApp.resources.settings_section_general
 import io.github.solcott.activitytracker.composeApp.resources.settings_section_privacy
 import io.github.solcott.activitytracker.composeApp.resources.settings_section_safety
@@ -76,6 +77,14 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
         },
     ) { padding ->
         ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppListSection(stringResource(Res.string.settings_section_account)) {
+                AppListRow(
+                    state.handle,
+                    summary = if (state.needsSignIn) stringResource(Res.string.settings_account_needs_sign_in) else null,
+                    onClick = { open(AccountScreen) },
+                    selected = row(AccountScreen),
+                )
+            }
             AppListSection(stringResource(Res.string.settings_section_general)) { Units(state) }
             AppListSection(stringResource(Res.string.settings_section_privacy)) {
                 AppListRow(
@@ -119,9 +128,6 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
                 AppListSection(null) {
                     AppListRow(stringResource(Res.string.settings_moderation), onClick = { state.eventSink(SettingsEvent.OpenModeration) })
                 }
-            }
-            AppListSection(null) {
-                AppListRow(stringResource(Res.string.profile_sign_out), onClick = { state.eventSink(SettingsEvent.SignOut) })
             }
         }
     }

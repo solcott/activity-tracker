@@ -43,7 +43,7 @@ class SettingsPresenterTest {
         val repos = repos()
         val forModeration = moderation ?: moderation()
         presenterTestOf({
-            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, forModeration, repos.segmentPrefs)
+            SettingsPresenter(navigator, repos.clients, repos.units, repos.defaults, repos.privacy, forModeration, repos.segmentPrefs)
         }) {
             block()
         }
@@ -181,5 +181,20 @@ class SettingsPresenterTest {
                 expectSuccess = false
             }
         return ModerationRepository(signedInTestSession(http, labelerDid = Did("did:plc:labeler")).clients)
+    }
+
+    @Test
+    fun theAccountRowShowsTheHandleAndWhetherToSignInAgain() = runTest {
+        fixture.settings {
+            val current = awaitItem()
+            assertEquals("alice.test", current.handle)
+            assertEquals(false, current.needsSignIn)
+            cancelAndIgnoreRemainingEvents()
+        }
+        fixture.scope = "atproto transition:generic"
+        fixture.settings {
+            assertEquals(true, awaitItem().needsSignIn)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

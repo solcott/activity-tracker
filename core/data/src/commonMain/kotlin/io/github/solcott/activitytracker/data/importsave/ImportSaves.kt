@@ -145,6 +145,9 @@ class ImportSaves(private val db: AppDatabase, private val keeper: SourceKeeper)
         }
 
     /** [did] signed out: their saves stop, and are dropped with what keeps their files (feed/batch-import). */
+    /** Whether [did] has a save not yet finished, running or waiting to resume: [signedOut] would drop its unsaved activities. */
+    suspend fun hasSaves(did: Did): Boolean = db.importSaves().idsOf(did.value).isNotEmpty()
+
     suspend fun signedOut(did: Did) =
         withContext(NonCancellable) {
             cancel(did)

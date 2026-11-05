@@ -9,13 +9,17 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 
 /**
- * The signed-in athlete's preferences, and sign-out: a grouped list whose rows open Settings' pages (ui/settings-layout). On a wide window
+ * The signed-in athlete's account and preferences: a grouped list whose rows open Settings' pages (ui/settings-layout). On a wide window
  * the navigation shell lays it out beside the page it opened.
  */
 @CircuitSerializable(SessionScope::class) data object SettingsScreen : Screen
 
 @Immutable
 data class SettingsState(
+    /** The signed-in handle, the Account row's title. */
+    val handle: String,
+    /** The Account page would offer Sign in again: the row says so. */
+    val needsSignIn: Boolean,
     val units: UnitSystem,
     val saving: Boolean,
     val error: UiError?,
@@ -41,6 +45,4 @@ sealed interface SettingsEvent {
     data class Open(val page: SettingsPage) : SettingsEvent
 
     data object OpenModeration : SettingsEvent
-
-    data object SignOut : SettingsEvent
 }

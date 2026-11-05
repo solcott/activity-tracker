@@ -38,6 +38,8 @@ object SettingsSamples {
     val default: SettingsState
         get() =
             SettingsState(
+                handle = "alice.test",
+                needsSignIn = false,
                 units = UnitSystem.Metric,
                 saving = false,
                 error = null,
@@ -54,6 +56,7 @@ object SettingsSamples {
                 SampleKind.LOADED to default,
                 SampleKind.LOADING to default.copy(defaultActivityVisibility = null, privacyZoneCount = null, segmentMatching = null),
                 "moderator" to default.copy(canModerate = true),
+                "needsSignIn" to default.copy(needsSignIn = true),
             )
 }
 
