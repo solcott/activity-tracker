@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -111,21 +113,22 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifier) {
-    val sink = state.eventSink
-    val navigator =
-        remember(sink) {
-            object : Navigator by Navigator.NoOp {
-                override fun goTo(screen: Screen): Boolean {
-                    sink(AthleteSearchEvent.GoTo(screen))
-                    return true
-                }
+    // The sink is a new lambda on each of the tab presenter's recompositions; reading the latest keeps the navigator, and with it the
+    // browse presenter CircuitContent keys on it, the same.
+    val sink by rememberUpdatedState(state.eventSink)
+    val navigator = remember {
+        object : Navigator by Navigator.NoOp {
+            override fun goTo(screen: Screen): Boolean {
+                sink(AthleteSearchEvent.GoTo(screen))
+                return true
+            }
 
-                override fun pop(result: PopResult?): Screen? {
-                    sink(AthleteSearchEvent.Back)
-                    return null
-                }
+            override fun pop(result: PopResult?): Screen? {
+                sink(AthleteSearchEvent.Back)
+                return null
             }
         }
+    }
     CircuitContent(SegmentBrowseScreen, modifier = modifier, navigator = navigator)
 }
 
