@@ -67,8 +67,10 @@ import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.compoundOr
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
@@ -230,28 +232,43 @@ class SegmentMatcher(
     }
 
     /**
-     * Queues an `elevation` job for every segment with no terrain elevation, when terrain tiles are configured: those indexed before them,
-     * and those they didn't cover, in case tiles were added since. Exposed for tests.
+     * Queues an `elevation` job for every segment with no terrain elevation whose box touches the tiles' [TerrainTiles.coverage], when
+     * terrain tiles are configured: those indexed before them, and those they didn't cover, in case tiles were added since. Segments the
+     * tiles don't reach aren't queued, so a large table outside them costs one statement. Exposed for tests.
      */
     suspend fun backfillTerrain() {
-        if (terrain == null) return
+        val tiles = terrain ?: return
+        val areas = tiles.coverage
+        if (areas.isEmpty()) return
         val now = clock.now().toEpochMilliseconds()
-        db.tx {
-            Segments.select(Segments.uri)
-                .where { Segments.terrainGainM.isNull() }
-                .map { it[Segments.uri] }
-                .forEach { jobs.enqueueElevation(it, now) }
-        }
+        val touchesTiles =
+            areas
+                .map { area ->
+                    (Segments.maxLatE7 greaterEq area.minLatE7) and
+                        (Segments.minLatE7 lessEq area.maxLatE7) and
+                        (Segments.maxLngE7 greaterEq area.minLngE7) and
+                        (Segments.minLngE7 lessEq area.maxLngE7)
+                }
+                .compoundOr()
+        val queued = db.tx { jobs.enqueueElevations(Segments.terrainGainM.isNull() and touchesTiles, now) }
+        log.info("Queued {} segments for terrain elevation across {} tiled areas", queued, areas.size)
     }
 
     /**
      * Samples the terrain along the segment at [segmentUri]'s line and stores its gain, loss and profile, all null when the tiles don't
-     * cover it.
+     * cover it. A segment whose box doesn't touch the tiles at all is cleared without decoding its line.
      */
     private suspend fun sampleTerrain(segmentUri: String) {
         val tiles = terrain ?: return
-        val line = db.tx { Segments.select(Segments.line).where { Segments.uri eq segmentUri }.firstOrNull()?.get(Segments.line) } ?: return
-        val elevation = SegmentGeometry.decodePolyline(line)?.let(tiles::terrainOf)
+        val row =
+            db.tx {
+                Segments.select(Segments.line, Segments.minLatE7, Segments.maxLatE7, Segments.minLngE7, Segments.maxLngE7)
+                    .where { Segments.uri eq segmentUri }
+                    .firstOrNull()
+            } ?: return
+        val line = row[Segments.line]
+        val touches = tiles.touches(row[Segments.minLatE7], row[Segments.maxLatE7], row[Segments.minLngE7], row[Segments.maxLngE7])
+        val elevation = if (touches) SegmentGeometry.decodePolyline(line)?.let(tiles::terrainOf) else null
         db.tx {
             // Only if the line is still the one sampled: a re-line queues another job.
             Segments.update({ (Segments.uri eq segmentUri) and (Segments.line eq line) }) {

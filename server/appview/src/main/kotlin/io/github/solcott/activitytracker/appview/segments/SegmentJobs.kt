@@ -1,8 +1,18 @@
 package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
+import io.github.solcott.activitytracker.appview.db.Segments
 import kotlinx.coroutines.channels.Channel
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.intLiteral
+import org.jetbrains.exposed.v1.core.longLiteral
+import org.jetbrains.exposed.v1.core.notExists
+import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.batchUpsert
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 /**
@@ -26,6 +36,27 @@ class SegmentJobs(
     /** Sample terrain elevation along a new or re-lined segment's line; nothing without terrain tiles. */
     fun enqueueElevation(segmentUri: String, now: Long) {
         if (terrain) enqueue(ELEVATION, segmentUri, now)
+    }
+
+    /**
+     * Sample terrain elevation along every segment matching [where], in one statement; nothing without terrain tiles. Segments already
+     * queued for it keep their place, so a restart doesn't push them back. Returns how many were queued.
+     */
+    fun enqueueElevations(where: Op<Boolean>, now: Long): Int {
+        if (!terrain) return 0
+        val queued =
+            SegmentMatchJobs.select(SegmentMatchJobs.kind).where {
+                (SegmentMatchJobs.kind eq ELEVATION) and (SegmentMatchJobs.subjectUri eq Segments.uri)
+            }
+        val segments =
+            Segments.select(stringLiteral(ELEVATION), Segments.uri, longLiteral(now), intLiteral(0)).where { where and notExists(queued) }
+        val count =
+            SegmentMatchJobs.insert(
+                segments,
+                listOf(SegmentMatchJobs.kind, SegmentMatchJobs.subjectUri, SegmentMatchJobs.enqueuedAt, SegmentMatchJobs.attempts),
+            ) ?: 0
+        if (count > 0) wakeups.trySend(Unit)
+        return count
     }
 
     /** Count each new or changed staged candidate's riders among the usable segment tracks that pass near it, in one batched statement. */

@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
+import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
@@ -39,6 +40,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
 /** Where segment elevation comes from and who sees it (segments/segment-elevation), with terrain tiles around the test origin. */
@@ -143,6 +145,36 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         runBlocking { matcher.backfillTerrain() }
         match()
         assertNear(TERRAIN_GRADE_GAIN, client.segmentView("3ks").elevationGain)
+    }
+
+    @Test
+    fun theStartBackfillQueuesOnlySegmentsTheTilesReach() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        // 100 km east of the 3 by 3 tiles round the origin.
+        segment("3kt", path = listOf(100_000.0 to 0.0, 100_000.0 to 1000.0), did = carol)
+        match()
+        uncover("3ks")
+        assertTrue(jobs().isEmpty())
+
+        runBlocking { matcher.backfillTerrain() }
+        // Neither has terrain now, but only the one the tiles reach is queued.
+        assertEquals(listOf(SegmentJobs.ELEVATION to segmentUri("3ks", carol)), jobs())
+        match()
+        assertNear(TERRAIN_GRADE_GAIN, client.segmentView("3ks").elevationGain)
+        assertNull(client.segmentView("3kt").elevationGain)
+    }
+
+    @Test
+    fun theStartBackfillKeepsQueuedJobsInPlace() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        // Queued long ago, as before a restart.
+        val elevation = SegmentMatchJobs.kind eq SegmentJobs.ELEVATION
+        runBlocking { db.tx { SegmentMatchJobs.update({ elevation }) { it[enqueuedAt] = 42 } } }
+
+        runBlocking { matcher.backfillTerrain() }
+        assertEquals(42, runBlocking { db.tx { SegmentMatchJobs.selectAll().where { elevation }.single()[SegmentMatchJobs.enqueuedAt] } })
     }
 
     /**
