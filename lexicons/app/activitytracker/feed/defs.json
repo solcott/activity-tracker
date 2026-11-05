@@ -230,6 +230,14 @@
           "description": "Derived by the AppView, never read from the record. Absent or unknown means active."
         },
         "duplicateOf": { "type": "string", "format": "at-uri", "description": "The earlier segment this one duplicates, when status is duplicate." },
+        "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters climbed from start to end, derived by the AppView (segments/segment-elevation), never read from the record. Absent when it has none." },
+        "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
+        "elevationSource": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["terrain", "efforts"],
+          "description": "Where elevationGain and elevationLoss came from: terrain data along the line, or the median of enough distinct athletes' efforts. Absent when they are."
+        },
         "name": {
           "type": "string",
           "maxLength": 1000,

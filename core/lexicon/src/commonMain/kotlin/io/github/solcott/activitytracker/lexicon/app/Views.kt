@@ -239,6 +239,12 @@ data class SegmentView(
     val status: String? = null,
     /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
     val duplicateOf: AtUri? = null,
+    /** Meters climbed from start to end, derived by the AppView; null when it has none. */
+    val elevationGain: Long? = null,
+    /** Meters descended from start to end, derived by the AppView; null when it has none. */
+    val elevationLoss: Long? = null,
+    /** A [SegmentElevationSource] value: where [elevationGain] and [elevationLoss] came from; null when they're null. */
+    val elevationSource: String? = null,
     /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].

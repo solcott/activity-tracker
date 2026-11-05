@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -186,6 +187,39 @@ class SegmentRecordsTest {
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), outputJson))
         assertFalse("status" in outputJson["segment"]!!.jsonObject)
         assertFalse("duplicateOf" in outputJson["segment"]!!.jsonObject)
+    }
+
+    @Test
+    fun segmentViewElevationRoundTrips() {
+        val alice = Did("did:plc:alice")
+        val record =
+            SegmentRecord(
+                "Hill climb",
+                SegmentSportGroup.RIDE,
+                "_p~iF~ps|U_ulLnnqC",
+                SegmentSource.ATHLETE,
+                "CC0-1.0",
+                Instant.parse("2026-10-15T12:00:00Z"),
+            )
+        val view =
+            SegmentView(
+                AtUri.of(alice, Nsid.FEED_SEGMENT, "3l2abcdefgh44"),
+                Cid("bafysegment"),
+                ProfileViewBasic(alice, Handle("alice.test")),
+                record,
+                1_200,
+            )
+        val bareJson = AtJson.encodeToJsonElement(SegmentView.serializer(), view).jsonObject
+        assertFalse("elevationGain" in bareJson)
+        assertFalse("elevationLoss" in bareJson)
+        assertFalse("elevationSource" in bareJson)
+
+        val climbing = view.copy(elevationGain = 84, elevationLoss = 12, elevationSource = SegmentElevationSource.TERRAIN)
+        val climbingJson = AtJson.encodeToJsonElement(SegmentView.serializer(), climbing).jsonObject
+        assertEquals(84, climbingJson["elevationGain"]?.jsonPrimitive?.content?.toInt())
+        assertEquals(12, climbingJson["elevationLoss"]?.jsonPrimitive?.content?.toInt())
+        assertEquals("terrain", climbingJson["elevationSource"]?.jsonPrimitive?.content)
+        assertEquals(climbing, AtJson.decodeFromJsonElement(SegmentView.serializer(), climbingJson))
     }
 
     @Test

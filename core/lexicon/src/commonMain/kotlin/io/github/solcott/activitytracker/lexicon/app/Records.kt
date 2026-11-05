@@ -618,6 +618,15 @@ object SegmentStatus {
     fun of(status: String?): String = status?.takeIf { it in NOT_ACTIVE } ?: ACTIVE
 }
 
+/** Known values of [SegmentView.elevationSource]; an open string. */
+object SegmentElevationSource {
+    /** Sampled from terrain data along the segment's line. */
+    const val TERRAIN = "terrain"
+
+    /** The median of enough distinct athletes' efforts' track altitude. */
+    const val EFFORTS = "efforts"
+}
+
 /** Known values of [SegmentRecord.source]; an open string. */
 object SegmentSource {
     const val ATHLETE = "athlete"
