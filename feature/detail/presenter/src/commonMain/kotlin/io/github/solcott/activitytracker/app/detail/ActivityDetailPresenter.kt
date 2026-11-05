@@ -136,7 +136,8 @@ fun ActivityDetailPresenter(
     val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
     val isOwn = shown?.author?.did == profiles.did
     val approvesFollowers = rememberApprovesFollowers(profiles, enabled = isOwn)
-    val shownCharts = chartsFor(shown, charts.charts, segments.liftEfforts)
+    val sport = shown?.record?.sport
+    val shownCharts = remember(sport, charts.charts, segments.liftEfforts) { chartsFor(sport, charts.charts, segments.liftEfforts) }
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
     val pageContent = rememberPage(shown, shownCharts, narrower)
@@ -396,12 +397,12 @@ private fun rememberManage(
 }
 
 /**
- * [charts] as [view] shows them: a ski day's count its runs, and its lift laps take the names of the [lifts] they rode. Null until both
- * have loaded.
+ * [charts] as an activity of [sport] shows them: a ski day's count its runs, and its lift laps take the names of the [lifts] they rode.
+ * Null until both have loaded.
  */
-private fun chartsFor(view: ActivityView?, charts: ActivityCharts?, lifts: List<EffortView>): ActivityCharts? =
-    if (view == null || charts == null) null
-    else ChartsBuilder.forSport(charts, view.record.sport).let { it.copy(laps = namedLiftLaps(it.laps, lifts)) }
+private fun chartsFor(sport: String?, charts: ActivityCharts?, lifts: List<EffortView>): ActivityCharts? =
+    if (sport == null || charts == null) null
+    else ChartsBuilder.forSport(charts, sport).let { it.copy(laps = namedLiftLaps(it.laps, lifts)) }
 
 /** The activity's charts, and the owner's control over who sees them. */
 private class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {
