@@ -36,12 +36,8 @@ internal data class ActivityEfforts(
 internal fun rememberSegments(activity: AtUri, loadKey: Int, segments: SegmentRepository): ActivityEfforts =
     produceRetainedContentState(ActivityEfforts(), loadKey) {
             outcomeFlow {
-                val efforts = segments.activitySegments(activity)
-                ActivityEfforts(
-                    groupEfforts(efforts.filterNot(::isLiftRide)),
-                    liftRidesOf(efforts),
-                    efforts.filter(::isLiftRide).toImmutableList(),
-                )
+                val (lifts, runs) = segments.activitySegments(activity).partition(::isLiftRide)
+                ActivityEfforts(groupEfforts(runs), liftRidesOf(lifts), lifts.toImmutableList())
             }
         }
         .data
