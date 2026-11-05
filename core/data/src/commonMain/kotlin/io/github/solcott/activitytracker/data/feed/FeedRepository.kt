@@ -39,6 +39,8 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
+import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.pageOf
@@ -335,6 +337,34 @@ class FeedRepository(
         return mergeOwn(pending, cached, logged).filter { (_, _, record) ->
             record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
         }
+    }
+
+    /**
+     * Where the signed-in athlete's latest activity with a map started, as the AppView serves its line (privacy zones already cut out), in
+     * degrees: from the cached feeds, else the first page of their activities from the AppView. Null when none has a line or neither can be
+     * read. Segment browse opens there when it has no location (segments/segment-browse).
+     */
+    suspend fun latestOwnStart(): Pair<Double, Double>? {
+        val did = clients.did
+        fun startOf(views: List<ActivityView>): Pair<Double, Double>? =
+            views
+                .filter { it.author.did == did && it.uri !in deletes }
+                .map { it.effectiveRecord() }
+                .sortedByDescending { it.startedAt }
+                .firstNotNullOfOrNull { record ->
+                    record.polyline?.let { line -> runCatching { TrackMath.decodePolyline(line) }.getOrNull() }?.firstOrNull()
+                }
+        val cached = runSuspendCatching {
+            db.feed().byUriPrefix("at://${did.value}/${Nsid.FEED_ACTIVITY}/").mapNotNull { item ->
+                runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }.getOrNull()
+            }
+        }
+            .getOrDefault(emptyList())
+        return startOf(cached)
+            ?: runSuspendCatching { clients.appView.query(GetAuthorActivities.method, GetAuthorActivities.Params(did.value)).activities }
+                .onFailure { e -> log.w(e) { "Couldn't read the latest activities for a start" } }
+                .getOrNull()
+                ?.let(::startOf)
     }
 
     private suspend fun localRead(source: String, read: suspend () -> List<OwnActivity>): List<OwnActivity> = runSuspendCatching {

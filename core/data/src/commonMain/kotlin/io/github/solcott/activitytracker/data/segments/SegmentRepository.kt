@@ -17,6 +17,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.dataresult.Outcome
@@ -143,6 +145,44 @@ class SegmentRepository(private val clients: SessionClients) {
 
     /** One page of segments whose line passes through [params]' box. */
     suspend fun search(params: SearchSegments.Params): SearchSegments.Output = clients.appView.query(SearchSegments.method, params)
+
+    /**
+     * Every segment whose line passes through [box]' box (its limit and cursor are ignored), following the cursors until there are none, or
+     * until [cap] segments or [maxRequests] requests, which marks the result [AreaSegments.capped] (segments/segment-browse).
+     */
+    suspend fun areaSegments(
+        box: SearchSegments.Params,
+        cap: Int = AREA_CAP,
+        maxRequests: Int = AREA_MAX_REQUESTS,
+    ): Outcome<AreaSegments> = outcomeOf {
+        val found = LinkedHashMap<AtUri, SegmentView>()
+        var cursor: String? = null
+        var requests = 0
+        do {
+            val page = search(box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
+            requests++
+            page.segments.forEach { found.getOrPut(it.uri) { it } }
+            cursor = page.cursor
+        } while (cursor != null && found.size < cap && requests < maxRequests)
+        AreaSegments(found.values.take(cap), capped = cursor != null)
+    }
+
+    /** One page of segments whose current name contains [params]' query, best match first (segments/segment-records). */
+    suspend fun namesPage(params: SearchSegmentNames.Params): Outcome<Page<SegmentView, Unit>> = outcomeOf {
+        val output = clients.appView.query(SearchSegmentNames.method, params)
+        Page(output.segments, Unit, output.cursor)
+    }
+
+    private companion object {
+        /** The most segments one area holds for browsing, runs and lifts together (`segments/segment-browse`). */
+        const val AREA_CAP = 300
+
+        /** The most `searchSegments` requests one area makes, since a page may hold none with a cursor. */
+        const val AREA_MAX_REQUESTS = 10
+    }
 }
+
+/** The segments crossing an area, and whether there were more than [SegmentRepository.areaSegments] read. */
+data class AreaSegments(val segments: List<SegmentView>, val capped: Boolean)
 
 private const val NOT_FOUND = "NotFound"
