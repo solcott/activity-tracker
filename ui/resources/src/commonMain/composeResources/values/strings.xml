@@ -22,6 +22,8 @@
     <string name="error_check_segment">Couldn't check the segment against existing ones, so it wasn't published</string>
     <string name="error_publish_segment">Couldn't publish the segment</string>
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
+    <string name="error_load_area_segments">Couldn't load the segments here</string>
+    <string name="error_search_segments">Couldn't search segments</string>
     <string name="error_load_leaderboard">Couldn't load the leaderboard</string>
     <string name="error_load_dive_site">Couldn't load the dive site</string>
     <string name="error_load_dive_site_dives">Couldn't load the dives at this site</string>
@@ -821,6 +823,20 @@
     <string name="search_clear">Clear search</string>
     <string name="search_prompt">Find athletes who use this app by name, @handle or DID.</string>
     <string name="search_no_results">No athletes match “%1$s”.</string>
+    <string name="segment_browse_search_label">Segment name</string>
+    <string name="segment_browse_all_sports">All</string>
+    <string name="segment_browse_scope_area">This area</string>
+    <string name="segment_browse_scope_everywhere">Everywhere</string>
+    <string name="segment_browse_locating">Finding where you are…</string>
+    <string name="segment_browse_nowhere">Move the map to a place, or search segments by name.</string>
+    <string name="segment_browse_web_prompt">Search segments by name.</string>
+    <string name="segment_browse_zoom_in">Zoom in to see segments</string>
+    <string name="segment_browse_none_here">No segments here yet</string>
+    <string name="segment_browse_capped">More segments here than shown. Zoom in to see them all.</string>
+    <string name="segment_browse_no_results">No segments match “%1$s”.</string>
+    <string name="segment_browse_no_results_here">No segments here match “%1$s”.</string>
+    <string name="segment_browse_search_everywhere">Search everywhere</string>
+    <string name="segment_browse_away">%1$s away</string>
 
     <!-- Record / manual entry -->
     <string name="record_title">Record</string>

@@ -63,6 +63,8 @@ import io.github.solcott.activitytracker.app.search.AthleteSearchSamples
 import io.github.solcott.activitytracker.app.search.AthleteSearchUi
 import io.github.solcott.activitytracker.app.segment.CreateSegmentSamples
 import io.github.solcott.activitytracker.app.segment.CreateSegmentUi
+import io.github.solcott.activitytracker.app.segment.SegmentBrowseSamples
+import io.github.solcott.activitytracker.app.segment.SegmentBrowseUi
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardSamples
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardUi
 import io.github.solcott.activitytracker.app.segment.SegmentMapSamples
@@ -128,6 +130,7 @@ class ContentLoadingConformanceTest {
             entry({ SegmentLeaderboardSamples.all }, "Carol") { SegmentLeaderboardUi(it) },
             entry({ SegmentMayorsSamples.all }, "Bob") { SegmentMayorsUi(it) },
             entry({ StarredSegmentsSamples.all }, "Flagstaff Climb") { StarredSegmentsUi(it) },
+            entry({ SegmentBrowseSamples.all }, "Ridge Trail") { SegmentBrowseUi(it) },
             entry({ CreateSegmentSamples.all }, null) { CreateSegmentUi(it) },
             entry({ DiveSiteSamples.all }, "Within 100 m of its centre") { DiveSiteUi(it) },
             entry({ DiveSiteRegularsSamples.all }, "Bob") { DiveSiteRegularsUi(it) },

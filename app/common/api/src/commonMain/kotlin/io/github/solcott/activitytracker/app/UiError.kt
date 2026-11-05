@@ -19,6 +19,10 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** The owner's full track couldn't be read, so a segment can't be cut from it. */
         LoadRoute,
         LoadStarredSegments,
+
+        /** The segments in the browse map's area (segments/segment-browse). */
+        LoadAreaSegments,
+        SearchSegments,
         LoadLeaderboard,
         LoadMayors,
         UpdateStar,

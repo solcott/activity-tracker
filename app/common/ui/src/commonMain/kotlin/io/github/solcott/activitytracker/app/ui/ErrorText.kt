@@ -39,6 +39,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity_invite
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity_invites
+import io.github.solcott.activitytracker.composeApp.resources.error_load_area_segments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_blocks
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
@@ -98,6 +99,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
+import io.github.solcott.activitytracker.composeApp.resources.error_search_segments
 import io.github.solcott.activitytracker.composeApp.resources.error_send_report
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_spaces_unsupported
@@ -171,6 +173,8 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadSegment -> Res.string.error_load_segment
             UiError.Kind.LoadRoute -> Res.string.error_load_route
             UiError.Kind.LoadStarredSegments -> Res.string.error_load_starred_segments
+            UiError.Kind.LoadAreaSegments -> Res.string.error_load_area_segments
+            UiError.Kind.SearchSegments -> Res.string.error_search_segments
             UiError.Kind.LoadLeaderboard -> Res.string.error_load_leaderboard
             UiError.Kind.LoadMayors -> Res.string.error_load_mayors
             UiError.Kind.UpdateStar -> Res.string.error_update_star
