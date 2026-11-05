@@ -69,6 +69,8 @@ Wasm tests are disabled. Client modules also have a `jvm()` target so tests (Roo
 
 **Hard rule:** no Ozone or other atproto SDK in client code. Ozone has no wasmJs target. The XRPC layer is hand-written on Ktor in `core/atproto`. A hook enforces this.
 
+**Prefer libraries.** Before writing general-purpose code (geo and math, parsing and file formats, encodings, compression, date and time, retry and backoff, caching, collections, UI components a Compose library already ships), search for an established library and use it instead. For client code, look it up with the `kotlin-multiplatform-libraries-expert` skill (klibs.io) and confirm it covers every target of the source set it goes in (`commonMain` needs wasmJs). For server or JVM-only code, check Maven Central. A good fit is maintained, permissively licensed and not much heavier than the code it replaces. Add it through `gradle/libs.versions.toml` (and `kotlinWasmUpgradeYarnLock` for an npm package). Write it ourselves only when nothing fits, and say why in the commit. Ask the user when unsure: a library that misses a target, looks unmaintained, pulls in a large dependency tree, covers only part of the need, or would replace code that already exists. Two exceptions stay ours: the hard rule above (no atproto SDK, `core/atproto` stays hand-written), and privacy and visibility logic (`visibleTo`, tiers, `SpaceAccess`). The `reuse-audit` skill finds existing hand-rolled code a library could replace.
+
 ## Where the details live
 
 Area rules in `.agents/rules/` (mirrored in `.claude/rules/`) load when you work on matching paths:
