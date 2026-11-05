@@ -29,7 +29,7 @@
 
 ## 5. Clients
 
-- [ ] 5.1 Move the naming UI and screen (`SegmentNamesUi`, `ProposeSegmentNameScreen` and its presenter state) into `:app-common-api` / `:app-common-ui` / `:app-common-presenter`, keyed by a place URI, and keep segments using it. Verify that the existing segment naming tests and screenshots pass unchanged, and that `checkModuleBoundaries` passes.
+- [x] 5.1 Move the naming UI and screen (`SegmentNamesUi`, `ProposeSegmentNameScreen` and its presenter state) into `:app-common-api` / `:app-common-ui` / `:app-common-presenter`, keyed by a place URI, and keep segments using it. Verify that the existing segment naming tests and screenshots pass unchanged, and that `checkModuleBoundaries` passes.
 - [ ] 5.2 Scaffold `feature/divesite` with the `new-screen` skill: `DiveSiteScreen` (map and radius, names, conditions in the viewer's units, top regular, a paged dives list) and `DiveSiteRegularsScreen`, with repositories over the new queries. Verify with presenter tests and UI tests from `:app-fixtures` samples, and add them to `ContentLoadingConformanceTest`.
 - [ ] 5.3 Add `CreateDiveSiteScreen`: offered on one's own dive with an entry and no live site, refused inside privacy zones or the hidden start, with a name prefilled from `dive.site`, a 25 to 500 m radius (100 m default), the public warning, `checkDiveSite`, and an outbox write naming the source dive only when it and Map are Public. Verify with presenter tests for every `site-creation` scenario, including a double tap writing once.
 - [ ] 5.4 On the dive's page (`feature/detail`), show the visited site's current name and status, opening the site, or the dive's own site text when no visit is visible. Add the create-site action. Verify with UI tests for both cases.

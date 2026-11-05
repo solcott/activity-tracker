@@ -5,13 +5,13 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Every screen and sub-screen UI, in this module or a feature's UI module, has a screenshot file in `:androidApp`'s screenshot suite
- * (dev/screenshot-tests, dev/module-boundaries).
+ * Every screen and sub-screen UI, in this module, `:app-common-ui` or a feature's UI module, has a screenshot file in `:androidApp`'s
+ * screenshot suite (dev/screenshot-tests, dev/module-boundaries).
  */
 class ScreenshotCoverageTest {
     @Test
     fun everyUiHasScreenshots() {
-        val roots = listOf(File("src/commonMain/kotlin")) + featureUiSources()
+        val roots = listOf(File("src/commonMain/kotlin"), File(APP_COMMON_UI)) + featureUiSources()
         val uis =
             roots
                 .asSequence()
@@ -31,5 +31,6 @@ class ScreenshotCoverageTest {
     private companion object {
         const val SCREENSHOTS = "../androidApp/src/screenshotTest/kotlin"
         const val FEATURES = "../feature"
+        const val APP_COMMON_UI = "../app/common/ui/src/commonMain/kotlin"
     }
 }

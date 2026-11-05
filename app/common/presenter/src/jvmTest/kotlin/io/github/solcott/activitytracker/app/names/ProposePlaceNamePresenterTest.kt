@@ -1,12 +1,8 @@
-package io.github.solcott.activitytracker.app
+package io.github.solcott.activitytracker.app.names
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import co.touchlab.kermit.Logger
 import com.slack.circuit.subcircuit.test.test
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameEvent
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameOuterEvent
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNamePresenter
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameScreen
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.di.signedInTestSession
@@ -28,7 +24,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 
 /** The name sheet (segments/segment-names): proposing, editing one's own proposal, and the names it won't send. */
-class ProposeSegmentNamePresenterTest {
+class ProposePlaceNamePresenterTest {
     private val alice = Did("did:plc:alice")
     private val segment = "at://did:plc:importer/${Nsid.FEED_SEGMENT}/osm-1"
     private val proposal = "at://$alice/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kali"
@@ -53,27 +49,27 @@ class ProposeSegmentNamePresenterTest {
             expectSuccess = false
         }
 
-    private suspend fun presenter(screen: ProposeSegmentNameScreen): ProposeSegmentNamePresenter {
+    private suspend fun presenter(screen: ProposePlaceNameScreen): ProposePlaceNamePresenter {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val names = SegmentNames(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System)
-        return ProposeSegmentNamePresenter(screen, names)
+        return ProposePlaceNamePresenter(screen, names)
     }
 
     @Test
     fun proposingSendsTheTrimmedNameOnceAndCloses() = runTest {
         gate = CompletableDeferred()
-        presenter(ProposeSegmentNameScreen(segment, "Trail 214")).test {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214")).test {
             var state = awaitItem()
             assertFalse(state.editing)
             assertFalse(state.canSend, "no name yet")
             state.name.setTextAndPlaceCursorAtEnd("  Wiggly Woods ")
             assertTrue(state.canSend)
-            state.eventSink(ProposeSegmentNameEvent.Send)
-            state.eventSink(ProposeSegmentNameEvent.Send)
+            state.eventSink(ProposePlaceNameEvent.Send)
+            state.eventSink(ProposePlaceNameEvent.Send)
             state = awaitItem()
             assertTrue(state.sending)
             gate.complete(Unit)
-            assertEquals(ProposeSegmentNameOuterEvent.Closed, outerEvents.awaitEvent())
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
             assertEquals(1, puts.size)
             assertTrue(puts.single().contains(Nsid.FEED_SEGMENT_NAME_PROPOSAL))
             assertTrue(puts.single().contains("\"name\":\"Wiggly Woods\""))
@@ -83,14 +79,14 @@ class ProposeSegmentNamePresenterTest {
 
     @Test
     fun editingStartsFromTheProposalsNameAndRewritesItsRkey() = runTest {
-        presenter(ProposeSegmentNameScreen(segment, "Trail 214", proposal, "Rooty Ridge")).test {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214", proposal, "Rooty Ridge")).test {
             val state = awaitItem()
             assertTrue(state.editing)
             assertEquals("Rooty Ridge", state.name.text.toString())
             assertFalse(state.canSend, "an unchanged name isn't sent")
             state.name.setTextAndPlaceCursorAtEnd("Rooty Ridge Loop")
-            state.eventSink(ProposeSegmentNameEvent.Send)
-            assertEquals(ProposeSegmentNameOuterEvent.Closed, outerEvents.awaitEvent())
+            state.eventSink(ProposePlaceNameEvent.Send)
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
             assertTrue(puts.single().contains("\"rkey\":\"3kali\""))
             assertTrue(puts.single().contains("Rooty Ridge Loop"))
             cancelAndIgnoreRemainingEvents()
@@ -99,15 +95,15 @@ class ProposeSegmentNamePresenterTest {
 
     @Test
     fun blankOverLongAndCurrentNamesArentSent() = runTest {
-        presenter(ProposeSegmentNameScreen(segment, "Trail 214")).test {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214")).test {
             val state = awaitItem()
             for (name in listOf("   ", "x".repeat(101), " trail 214")) {
                 state.name.setTextAndPlaceCursorAtEnd(name)
                 assertFalse(state.valid, name)
-                state.eventSink(ProposeSegmentNameEvent.Send)
+                state.eventSink(ProposePlaceNameEvent.Send)
             }
-            state.eventSink(ProposeSegmentNameEvent.Cancel)
-            assertEquals(ProposeSegmentNameOuterEvent.Closed, outerEvents.awaitEvent())
+            state.eventSink(ProposePlaceNameEvent.Cancel)
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
             assertEquals(emptyList(), puts)
             cancelAndIgnoreRemainingEvents()
         }

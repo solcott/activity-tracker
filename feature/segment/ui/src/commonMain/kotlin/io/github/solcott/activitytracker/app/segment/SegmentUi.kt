@@ -15,12 +15,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.names.OriginalName
+import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
+import io.github.solcott.activitytracker.app.names.PlaceNames
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
@@ -50,6 +54,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -179,4 +184,35 @@ private fun Status(segment: SegmentView, onOpenOriginal: () -> Unit) {
             AppTextButton(onClick = onOpenOriginal) { Text(stringResource(Res.string.segment_open_original)) }
         }
     }
+}
+
+/** The segment's community names (segments/segment-names), through the shared names list: Propose, the open proposals and the history. */
+@Composable
+private fun SegmentNames(state: SegmentState, segment: SegmentView) {
+    val proposals = remember(segment.nameProposals) { segment.nameProposals.toImmutableList() }
+    val history = remember(segment.nameHistory) { segment.nameHistory.toImmutableList() }
+    PlaceNames(
+        proposals = proposals,
+        history = history,
+        canPropose = state.canPropose,
+        canVote = state.canVote,
+        canVoteHere = state.canVoteHere,
+        error = state.nameError,
+        self = state.self,
+        onPropose = { state.eventSink(SegmentEvent.ProposeName) },
+        onEdit = { state.eventSink(SegmentEvent.EditProposal(it)) },
+        onDelete = { state.eventSink(SegmentEvent.DeleteProposal(it)) },
+        onVote = { proposal, direction -> state.eventSink(SegmentEvent.Vote(proposal, direction)) },
+    )
+}
+
+/** The name sheet while it's open, and the confirmation before the viewer's own proposal is deleted. */
+@Composable
+private fun SegmentNameDialogs(state: SegmentState) {
+    PlaceNameDialogs(
+        sheet = state.nameSheet,
+        confirmingDelete = state.confirmDelete != null,
+        onSheetEvent = { state.eventSink(SegmentEvent.NameSheet(it)) },
+        onConfirmDelete = { state.eventSink(SegmentEvent.ConfirmDelete(it)) },
+    )
 }

@@ -5,6 +5,8 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
@@ -47,7 +49,7 @@ data class SegmentState(
      */
     val canVoteHere: Boolean = true,
     /** The sheet proposing a name, or editing the viewer's own open proposal, while it's open. */
-    val nameSheet: ProposeSegmentNameScreen? = null,
+    val nameSheet: ProposePlaceNameScreen? = null,
     /** The viewer's own open proposal whose deletion is being confirmed. */
     val confirmDelete: AtUri? = null,
     /** Why the last vote or deletion failed. */
@@ -132,5 +134,5 @@ sealed interface SegmentEvent {
     data class Vote(val proposal: AtUri, val direction: String?) : SegmentEvent
 
     /** The name sheet's outer event. */
-    data class NameSheet(val event: ProposeSegmentNameOuterEvent) : SegmentEvent
+    data class NameSheet(val event: ProposePlaceNameOuterEvent) : SegmentEvent
 }

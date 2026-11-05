@@ -1,10 +1,16 @@
-plugins { id("activitytracker.kmp.compose") }
+plugins {
+    id("activitytracker.kmp.compose")
+    // The place-name sheet's UI is a @SubCircuitInject factory the app graphs aggregate.
+    alias(libs.plugins.metro)
+}
 
 // Domain widgets several features' UIs show: the activity card, map and route preview, stats and formatting, visibility pickers, avatars,
-// media rows, the details form and AppPreview, the harness every UI test and screenshot renders through.
+// media rows, the details form, the place names and their sheet, and AppPreview, the harness every UI test and screenshot renders through.
 composeUiTests { jvm = true }
 
 kotlin {
+    // SubCircuit is experimental, opted in module-wide as in the feature conventions.
+    compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     sourceSets {
         commonMain.dependencies {
             api(projects.appCommonApi)
@@ -13,6 +19,7 @@ kotlin {
             api(projects.uiDesignsystem)
             api(libs.coil.compose)
 
+            implementation(libs.circuit.codegen.annotations)
             implementation(libs.circuit.runtime)
             implementation(libs.circuitx.subcircuit)
             implementation(libs.coil.network.ktor3)

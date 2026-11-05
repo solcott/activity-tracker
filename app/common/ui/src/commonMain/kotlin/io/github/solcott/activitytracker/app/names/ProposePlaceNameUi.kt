@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.segment
+package io.github.solcott.activitytracker.app.names
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,9 +31,9 @@ import org.jetbrains.compose.resources.stringResource
  * The name sheet's content: the name, and before it's sent what proposing shows others (a new proposal) or that saving clears the votes (an
  * edit).
  */
-@SubCircuitInject(ProposeSegmentNameScreen::class, SessionScope::class)
+@SubCircuitInject(ProposePlaceNameScreen::class, SessionScope::class)
 @Composable
-fun ProposeSegmentNameUi(state: ProposeSegmentNameState, modifier: Modifier = Modifier) {
+fun ProposePlaceNameUi(state: ProposePlaceNameState, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         AppSheetHeader(
             title =
@@ -41,9 +41,9 @@ fun ProposeSegmentNameUi(state: ProposeSegmentNameState, modifier: Modifier = Mo
                     if (state.editing) Res.string.segment_name_sheet_edit_title else Res.string.segment_name_sheet_propose_title
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
-            onCancel = { state.eventSink(ProposeSegmentNameEvent.Cancel) },
+            onCancel = { state.eventSink(ProposePlaceNameEvent.Cancel) },
             confirmLabel = stringResource(if (state.editing) Res.string.segment_name_sheet_save else Res.string.segment_name_sheet_send),
-            onConfirm = { if (state.canSend) state.eventSink(ProposeSegmentNameEvent.Send) },
+            onConfirm = { if (state.canSend) state.eventSink(ProposePlaceNameEvent.Send) },
         )
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(

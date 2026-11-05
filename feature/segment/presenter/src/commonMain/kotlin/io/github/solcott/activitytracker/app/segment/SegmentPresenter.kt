@@ -12,6 +12,8 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -81,7 +83,7 @@ fun SegmentPresenter(
         }
     }
 
-    var nameSheet by rememberRetained { mutableStateOf<ProposeSegmentNameScreen?>(null) }
+    var nameSheet by rememberRetained { mutableStateOf<ProposePlaceNameScreen?>(null) }
     var confirmDelete by rememberRetained { mutableStateOf<AtUri?>(null) }
     var nameError by rememberRetained { mutableStateOf<UiError?>(null) }
     /** The viewer's own open proposal [proposal], as listed. */
@@ -128,10 +130,10 @@ fun SegmentPresenter(
             SegmentEvent.ProposeName ->
                 segment
                     ?.takeIf { it.viewer?.canProposeName == true }
-                    ?.let { nameSheet = ProposeSegmentNameScreen(it.uri.value, it.currentName) }
+                    ?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName) }
             is SegmentEvent.EditProposal ->
                 own(event.proposal)?.let {
-                    nameSheet = ProposeSegmentNameScreen(screen.uri, segment?.currentName.orEmpty(), it.uri.value, it.name)
+                    nameSheet = ProposePlaceNameScreen(screen.uri, segment?.currentName.orEmpty(), it.uri.value, it.name)
                 }
             is SegmentEvent.DeleteProposal -> if (own(event.proposal) != null) confirmDelete = event.proposal
             is SegmentEvent.ConfirmDelete -> {
@@ -157,7 +159,7 @@ fun SegmentPresenter(
             }
             is SegmentEvent.NameSheet ->
                 when (event.event) {
-                    ProposeSegmentNameOuterEvent.Closed -> nameSheet = null
+                    ProposePlaceNameOuterEvent.Closed -> nameSheet = null
                 }
         }
     }

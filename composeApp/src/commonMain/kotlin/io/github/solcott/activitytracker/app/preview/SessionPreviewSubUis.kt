@@ -7,12 +7,12 @@ import com.slack.circuit.subcircuit.SubUi
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterState
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterUi
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameState
+import io.github.solcott.activitytracker.app.names.ProposePlaceNameUi
 import io.github.solcott.activitytracker.app.report.ReportScreen
 import io.github.solcott.activitytracker.app.report.ReportState
 import io.github.solcott.activitytracker.app.report.ReportUi
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameScreen
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameState
-import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameUi
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.preview.PreviewSubUis
 
@@ -25,7 +25,7 @@ object SessionPreviewSubUis : PreviewSubUis {
         when (screen) {
             is FeedFilterScreen -> SubUi<FeedFilterState> { state, modifier -> FeedFilterUi(state, modifier) }
             is ReportScreen -> SubUi<ReportState> { state, modifier -> ReportUi(state, modifier) }
-            is ProposeSegmentNameScreen -> SubUi<ProposeSegmentNameState> { state, modifier -> ProposeSegmentNameUi(state, modifier) }
+            is ProposePlaceNameScreen -> SubUi<ProposePlaceNameState> { state, modifier -> ProposePlaceNameUi(state, modifier) }
             else -> null
         }
 
