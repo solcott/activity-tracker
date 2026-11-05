@@ -43,3 +43,20 @@ kotlin {
 dependencies { listOf("kspAndroid", "kspJvm", "kspIosArm64", "kspIosSimulatorArm64", "kspWasmJs").forEach { add(it, libs.room.compiler) } }
 
 room3 { schemaDirectory(layout.projectDirectory.dir("schemas")) }
+
+// Each platform target's Room run must generate AppDatabaseConstructor, the actual for the commonMain expect. A run that generated
+// nothing once succeeded and was stored in the build cache, so every later compileAndroidMain restored it and failed with
+// NO_ACTUAL_FOR_EXPECT. Failing such a run keeps it out of the cache, and the next build runs KSP again.
+val roomKspTasks = setOf("kspAndroidMain", "kspKotlinJvm", "kspKotlinIosArm64", "kspKotlinIosSimulatorArm64", "kspKotlinWasmJs")
+
+tasks
+    .named { it in roomKspTasks }
+    .configureEach {
+        val generated = outputs.files
+        val taskName = name
+        doLast {
+            check(generated.asFileTree.any { it.name == "AppDatabaseConstructor.kt" }) {
+                "$taskName generated no AppDatabaseConstructor; rerun with --rerun --no-build-cache"
+            }
+        }
+    }
