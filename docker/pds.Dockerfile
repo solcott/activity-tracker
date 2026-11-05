@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The atproto Spaces alpha PDS, patched for the local stack.
 #
-# Image: ghcr.io/bluesky-social/atproto:pds-spaces-alpha, built 2026-10-29 (atproto 11c5d98, the 0.0.0-spaces-alpha-20261029171913
+# Image: ghcr.io/bluesky-social/atproto:pds-spaces-alpha, built 2026-11-05 (atproto 704b9e2, the 0.0.0-spaces-alpha-20261105160032
 # release). Pinned by digest because the alpha ships breaking changes under the same tag; bump deliberately and re-run
 # docker/scripts/spaces-smoke.sh. It is amd64-only, so compose runs it with `platform: linux/amd64` (Rosetta on Apple Silicon).
 # Unlike the pds distribution image this is the atproto monorepo, so packages live under /app/packages rather than
@@ -14,7 +14,7 @@
 # cookies were never Secure. Upstream notes the CSRF cookie is redundant with SameSite sessions.
 # The find must match exactly one file, and the grep fails the build if the line has drifted.
 
-FROM ghcr.io/bluesky-social/atproto:pds-spaces-alpha@sha256:f003adf7ca7cbb8ff60a4d99323fd009dfc1259b208f468f71accf0366ecab1e
+FROM ghcr.io/bluesky-social/atproto:pds-spaces-alpha@sha256:0a17cb6af8941dc3982df7e87dcdb08e9a765276490085ef6ace2011099a01ac
 # The image runs as `node`, which can't write under /app; patch as root, then drop back.
 USER root
 RUN set -e; \
