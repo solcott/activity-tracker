@@ -38,6 +38,9 @@ scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when 
 ./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"     # give published segments their candidates' names, and finer lines (same path only)
 scripts/segment-import.sh us-vermont vermont-latest.osm.pbf [--agency usfs=<file>]... [--lang en]   # extract, stage, publish and refine in one run
 scripts/segment-import.sh us-utah --all           # a region with a preset (scripts/segment-regions/): fetch its OSM and agency data, then import and publish all
+./gradlew :server-segment-importer:run --args="extract-sites region.osm.pbf --region eg-red-sea --out build/eg-red-sea-sites.ndjson"   # OSM dive sites -> sites file
+./gradlew :server-segment-importer:run --args="publish-sites build/eg-red-sea-sites.ndjson"   # publish sites no live site is within 50 m of as feed.diveSite records
+scripts/segment-import.sh us-florida --sites      # also extract and publish the region's OSM dive sites (from the whole extract)
 scripts/segment-fetch.sh us-utah                  # just download a preset region's inputs into build/segment-import/<region>/
 scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)
 scripts/dev.sh status | down

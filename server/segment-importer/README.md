@@ -108,6 +108,17 @@ Publishing never rewrites a segment, so segments published from older files keep
 ./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"
 ```
 
+## Dive sites
+
+```bash
+./gradlew :server-segment-importer:run --args="extract-sites path/to/region-latest.osm.pbf --region eg-red-sea --out build/eg-red-sea-sites.ndjson"
+./gradlew :server-segment-importer:run --args="publish-sites build/eg-red-sea-sites.ndjson"
+```
+
+`extract-sites` writes a region's named OpenStreetMap dive sites (nodes, and way or relation centroids, tagged `sport=scuba_diving` or `sport=free_diving`, but no shops, amenities, clubs or buildings; `openspec/specs/dive-sites/site-import`) to a sites file: a header line with `region`, `extractTimestamp` and `sitesVersion`, then one line per site with its `id` (`osm-node-<id>`, `osm-way-<id>` or `osm-relation-<id>`, so a re-extract keeps it), `name`, centre (`lat`, `lon` in degrees times 1e7), a 150 m `radius`, `source` `osm` and `license` `ODbL-1.0`. It needs the whole extract: the trails-only cut `segment-fetch.sh` makes drops the sites.
+
+`publish-sites` checks the file's sites with `importer.checkDiveSites`, 500 to a call, and writes a `feed.diveSite` in the service account's repo, keyed by site id, for each one no live (proposed or active) site lies within 50 m of. A site divers already placed wins, and is reported as a duplicate. It never rewrites, moves or deletes a site it published, so running it again, or on a newer file, writes only sites that are new; it stops at the first failed call, and running again carries on. `scripts/segment-import.sh <region> --sites` runs both after the segment steps, on a preset's whole download or the extract you give it, writing `build/segment-import/<region>-sites.ndjson`.
+
 ## Memory
 
 The importer reads the file three times (relations, ways, then only the nodes trails use) and holds ids and coordinates in primitive arrays, so one region the size of a US state fits in a couple of GB of heap. For a large extract, shrink it first with [osmium](https://osmcode.org/osmium-tool/) (`brew install osmium-tool`) to the features the importer reads:

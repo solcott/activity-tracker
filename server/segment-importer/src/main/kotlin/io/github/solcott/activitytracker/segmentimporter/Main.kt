@@ -22,6 +22,9 @@ Commands:
   extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
       Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
       clubs or buildings), one JSON object per line, each with a 150 m radius and an id from its OSM element.
+  publish-sites <sites.ndjson>
+      Publishes a sites file's dive sites that have no live site within 50 m as feed.diveSite records, keyed by their ids. A site
+      already published is never written again.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id> [--all <candidates.ndjson>]
@@ -31,7 +34,7 @@ Commands:
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
       of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
 
-stage, publish and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
+stage, publish, publish-sites and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one (Gradle's run task gives the local
 one its DID, device mode included)."""
 
@@ -51,6 +54,7 @@ fun main(args: Array<String>) {
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
+        is Command.PublishSites -> asServiceAccount { publishSitesFile(it, command.file) }
     }
 }
 
@@ -70,7 +74,7 @@ private fun asServiceAccount(block: suspend (Clients) -> Unit) {
         } catch (e: XrpcException) {
             e.message
         } catch (e: IllegalArgumentException) {
-            "Can't use this candidates file: ${e.message}"
+            "Can't use this file: ${e.message}"
         } catch (e: IOException) {
             e.message
         }
@@ -99,6 +103,8 @@ internal sealed interface Command {
     data class Publish(val region: String, val all: File? = null) : Command
 
     data class Refine(val file: File) : Command
+
+    data class PublishSites(val file: File) : Command
 }
 
 /** [args] as a [Command], or null when they don't make one. */
@@ -109,6 +115,7 @@ internal fun parse(args: List<String>): Command? =
         "stage" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Stage(File(it)) }
         "publish" -> parsePublish(args.drop(1))
         "refine" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Refine(File(it)) }
+        "publish-sites" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.PublishSites(File(it)) }
         else -> null
     }
 

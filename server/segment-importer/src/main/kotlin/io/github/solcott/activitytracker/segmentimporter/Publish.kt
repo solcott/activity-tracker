@@ -111,10 +111,10 @@ private suspend fun check(clients: Clients, region: String, page: List<SegmentCa
             .associateBy { it.id }
     }
 
-/** Whether [repo] already holds a segment under [rkey]. */
-private suspend fun exists(clients: Clients, repo: Did, rkey: String): Boolean =
+/** Whether [repo] already holds a record of [collection] (a segment unless given) under [rkey]. */
+internal suspend fun exists(clients: Clients, repo: Did, rkey: String, collection: String = Nsid.FEED_SEGMENT): Boolean =
     try {
-        clients.pds.query(GetRecord.method, GetRecord.Params(repo.value, Nsid.FEED_SEGMENT, rkey))
+        clients.pds.query(GetRecord.method, GetRecord.Params(repo.value, collection, rkey))
         true
     } catch (e: XrpcException) {
         if (e.error != RECORD_NOT_FOUND) throw e
@@ -174,5 +174,5 @@ internal suspend fun publishRegion(clients: Clients, region: String, every: File
     result.stoppedBy?.let { throw it }
 }
 
-private const val RECORD_NOT_FOUND = "RecordNotFound"
-private const val CLIENT_ERROR = 400
+internal const val RECORD_NOT_FOUND = "RecordNotFound"
+internal const val CLIENT_ERROR = 400

@@ -218,7 +218,7 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, spaces syncer, XRPC queries, segment matcher, did:web |
-| `server/segment-importer` | CLI that turns OSM and agency trails, downhill pistes and ski lifts into candidate segments and publishes ridden ones |
+| `server/segment-importer` | CLI that turns OSM and agency trails, downhill pistes and ski lifts into candidate segments and publishes ridden ones, and publishes OSM dive sites |
 | `docker/` | Local ATProto network |
 | `build-logic`, `config/` | Gradle convention plugins and the detekt config |
 | `detekt-rules` | The repo's own detekt rules, run by every module's detekt |

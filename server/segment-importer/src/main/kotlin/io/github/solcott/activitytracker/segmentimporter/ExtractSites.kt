@@ -70,3 +70,19 @@ internal fun siteIdOf(type: OsmMember.Type, id: Long): String = "osm-${type.name
 private const val SOURCE_OSM = "osm"
 
 private const val E7 = 1e7
+
+/** A sites file: its [region] and its sites, in file order. */
+internal data class SitesFile(val region: String, val sites: List<SiteEntry>)
+
+/** Reads a sites file's [lines]; throws [IllegalArgumentException] for an empty file or one of another format version. */
+internal fun readSites(lines: Sequence<String>): SitesFile {
+    val iterator = lines.filter { it.isNotBlank() }.iterator()
+    require(iterator.hasNext()) { "an empty sites file" }
+    val header = json.decodeFromString(SitesHeader.serializer(), iterator.next())
+    require(header.sitesVersion == SITES_VERSION) {
+        "a sites file of format version ${header.sitesVersion}; this importer reads version $SITES_VERSION"
+    }
+    val sites = mutableListOf<SiteEntry>()
+    for (line in iterator) sites += json.decodeFromString(SiteEntry.serializer(), line)
+    return SitesFile(header.region, sites)
+}
