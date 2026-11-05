@@ -9,22 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -36,19 +27,16 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.OpenNewResultsAtTop
+import io.github.solcott.activitytracker.app.ui.SearchField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.search_label
 import io.github.solcott.activitytracker.composeApp.resources.search_mode_athletes
 import io.github.solcott.activitytracker.composeApp.resources.search_mode_segments
@@ -65,6 +53,7 @@ import org.jetbrains.compose.resources.stringResource
 fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LoadMoreAtEnd(listState, state.results.canLoadMore) { state.eventSink(AthleteSearchEvent.LoadMore) }
+    OpenNewResultsAtTop(listState, state.results.items.firstOrNull()?.did?.value)
 
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
@@ -88,7 +77,12 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
                 SegmentsMode(state, Modifier.fillMaxSize())
                 return@AppScaffold
             }
-            SearchField(state.query, Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+            SearchField(
+                state.query,
+                stringResource(Res.string.search_label),
+                Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                autoFocus = true,
+            )
             ReadableList(listState, Modifier.fillMaxSize(), minSidePadding = 0.dp) { listPadding ->
                 LazyColumn(
                     Modifier.fillMaxSize(),
@@ -133,33 +127,6 @@ private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifie
             }
         }
     CircuitContent(SegmentBrowseScreen, modifier = modifier, navigator = navigator)
-}
-
-@Composable
-private fun SearchField(query: TextFieldState, modifier: Modifier = Modifier) {
-    val focus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    // Open ready to type, unless coming back to a search already made.
-    SideEffect(Unit) { if (query.text.isEmpty()) focus.requestFocus() }
-    AppTextField(
-        query,
-        modifier = modifier.focusRequester(focus),
-        placeholder = stringResource(Res.string.search_label),
-        leadingIcon = { PlatformIcon(AppIcon.Search, null) },
-        trailingIcon = {
-            if (query.text.isNotEmpty()) {
-                AppIconButton(
-                    AppIcon.Clear,
-                    stringResource(Res.string.search_clear),
-                    onClick = { query.clearText() },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        lineLimits = TextFieldLineLimits.SingleLine,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        onKeyboardAction = { keyboard?.hide() },
-    )
 }
 
 /** What the results say when empty: that nothing matched; none before a query, which shows the prompt instead. */

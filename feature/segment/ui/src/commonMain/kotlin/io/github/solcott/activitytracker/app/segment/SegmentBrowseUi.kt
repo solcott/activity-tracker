@@ -18,24 +18,14 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -44,22 +34,19 @@ import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.OpenNewResultsAtTop
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
+import io.github.solcott.activitytracker.app.ui.SearchField
 import io.github.solcott.activitytracker.app.ui.SegmentsMap
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.segment_browse_all_sports
 import io.github.solcott.activitytracker.composeApp.resources.segment_browse_away
 import io.github.solcott.activitytracker.composeApp.resources.segment_browse_capped
@@ -136,7 +123,7 @@ private fun BrowseMap(state: SegmentBrowseState, modifier: Modifier = Modifier) 
 @Composable
 private fun BrowseHeader(state: SegmentBrowseState) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SearchField(state.query)
+        SearchField(state.query, stringResource(Res.string.segment_browse_search_label), Modifier.fillMaxWidth())
         if (state.hasArea && state.searchingNames) {
             AppSegmentedControl(
                 persistentListOf(
@@ -163,30 +150,6 @@ private fun BrowseHeader(state: SegmentBrowseState) {
             }
         }
     }
-}
-
-@Composable
-private fun SearchField(query: TextFieldState) {
-    val keyboard = LocalSoftwareKeyboardController.current
-    AppTextField(
-        query,
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = stringResource(Res.string.segment_browse_search_label),
-        leadingIcon = { PlatformIcon(AppIcon.Search, null) },
-        trailingIcon = {
-            if (query.text.isNotEmpty()) {
-                AppIconButton(
-                    AppIcon.Clear,
-                    stringResource(Res.string.search_clear),
-                    onClick = { query.clearText() },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        lineLimits = TextFieldLineLimits.SingleLine,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        onKeyboardAction = { keyboard?.hide() },
-    )
 }
 
 /** Name results while a name is searched, else the area's runs, or why there are none to show yet. */
@@ -270,11 +233,7 @@ private fun SegmentRow(segment: SegmentView, metersAway: Int?, selected: Boolean
     }
 }
 
-/**
- * Where the list is scrolled. The segment tapped on the map is brought into view. A new search's results open at their best match: kept
- * under a refresh row while they load, the old results anchor the list on the row that was first, so the new list would keep that row's
- * offset and hide its first match above the fold. Coming back to the same results keeps where the list was.
- */
+/** Where the list is scrolled: the segment tapped on the map is brought into view, and a new search's results open at their best match. */
 @Composable
 private fun ListPosition(state: SegmentBrowseState, listState: LazyListState) {
     LaunchedEffect(state.selected) {
@@ -286,12 +245,7 @@ private fun ListPosition(state: SegmentBrowseState, listState: LazyListState) {
                     ?: -1
         if (index >= 0) listState.animateScrollToItem(index)
     }
-    val first = if (state.searchingNames) state.results.items.firstOrNull()?.uri?.value else null
-    var shown by rememberSaveable { mutableStateOf(first) }
-    LaunchedEffect(first) {
-        if (first != null && first != shown) listState.scrollToItem(0)
-        shown = first
-    }
+    OpenNewResultsAtTop(listState, if (state.searchingNames) state.results.items.firstOrNull()?.uri?.value else null)
 }
 
 /** The rows above the first run in the area's list: its refresh status, and the cap notice when shown. */

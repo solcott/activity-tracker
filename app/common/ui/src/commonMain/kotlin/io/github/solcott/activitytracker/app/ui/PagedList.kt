@@ -12,10 +12,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -40,6 +44,20 @@ fun LoadMoreAtEnd(listState: LazyListState, canLoadMore: Boolean, onLoadMore: ()
         }
     }
     SideEffect(atEnd, canLoadMore) { if (atEnd && canLoadMore) onLoadMore() }
+}
+
+/**
+ * Opens a new search's results at their best match. While a new query loads, the last results stay under a refresh row; the list anchors on
+ * the row that was first, so when the new results replace it the list keeps that row's offset and hides the first match above the fold.
+ * [first] is the first result's id, null while nothing is searched. Coming back to the same results keeps where the list was.
+ */
+@Composable
+fun OpenNewResultsAtTop(listState: LazyListState, first: String?) {
+    var shown by rememberSaveable { mutableStateOf(first) }
+    LaunchedEffect(first) {
+        if (first != null && first != shown) listState.scrollToItem(0)
+        shown = first
+    }
 }
 
 /** [pagedRefreshStatus] of [state]. */
