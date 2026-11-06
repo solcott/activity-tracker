@@ -6,6 +6,8 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -20,9 +22,9 @@ class LocalLikes {
     val overrides: StateFlow<Map<String, AtUri?>>
         field = MutableStateFlow(emptyMap())
 
-    /** The viewer's like on [activity], preferring what was toggled locally over the (possibly stale) view. */
-    fun current(activity: ActivityView): AtUri? =
-        overrides.value.let { if (activity.uri.value in it) it[activity.uri.value] else activity.viewer?.like }
+    /** The viewer's like on [subject], preferring what was toggled locally over the (possibly stale) view it came from. */
+    fun current(subject: InteractionSubject): AtUri? =
+        overrides.value.let { if (subject.uri.value in it) it[subject.uri.value] else subject.like }
 
     fun set(subject: AtUri, like: AtUri?) = overrides.update { it + (subject.value to like) }
 
@@ -30,19 +32,31 @@ class LocalLikes {
     fun forget(like: AtUri) = overrides.update { held -> held.filterValues { it != like } }
 
     fun applyTo(view: ActivityView): ActivityView = view.withLikeOverrides(overrides.value)
+
+    fun applyTo(post: PostView): PostView = post.withLikeOverrides(overrides.value)
 }
+
+/** [ActivityView.withLikeOverrides] for a post (feed/posts). */
+fun PostView.withLikeOverrides(overrides: Map<String, AtUri?>): PostView {
+    if (uri.value !in overrides) return this
+    val mine = overrides[uri.value]
+    val delta = likeDelta(mine, reported = viewer?.like != null)
+    return copy(likeCount = (likeCount + delta).coerceAtLeast(0), viewer = (viewer ?: PostViewerState()).copy(like = mine))
+}
+
+/** How far a local like ([mine]) moves a count that [reported] the viewer's like or not. */
+private fun likeDelta(mine: AtUri?, reported: Boolean): Int =
+    when {
+        mine != null && !reported -> 1
+        mine == null && reported -> -1
+        else -> 0
+    }
 
 /** Replaces the viewer's like with any local override, adjusting the count by the difference from what the view reported. */
 fun ActivityView.withLikeOverrides(overrides: Map<String, AtUri?>): ActivityView {
     if (uri.value !in overrides) return this
     val mine = overrides[uri.value]
-    val reported = viewer?.like != null
-    val delta =
-        when {
-            mine != null && !reported -> 1
-            mine == null && reported -> -1
-            else -> 0
-        }
+    val delta = likeDelta(mine, reported = viewer?.like != null)
     return copy(
         likeCount = (likeCount + delta).coerceAtLeast(0),
         viewer = (viewer ?: ActivityViewerState()).copy(like = mine),

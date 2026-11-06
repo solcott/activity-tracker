@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
+import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
@@ -86,6 +87,14 @@ class TimelinePostsTest {
                             else GetTimeline.Output(listOf(TimelineItem.Post(post(bob, "3kp")), TimelineItem.Activity(activity("3kb"))))
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), output), headers = json)
                     }
+                    "/xrpc/${Nsid.FEED_GET_POST}" -> {
+                        if (request.url.parameters["uri"] == post(bob, "3kgone").uri.value) {
+                            respond("""{"error":"NotFound","message":"Post not found"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            val output = GetPost.Output(post(bob, "3kp").copy(likeCount = 2, commentCount = 3))
+                            respond(AtJson.encodeToString(GetPost.Output.serializer(), output), headers = json)
+                        }
+                    }
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_POSTS}" -> {
                         val output = GetAuthorPosts.Output(listOf(post(did, "3kq")), cursor = "next")
                         respond(AtJson.encodeToString(GetAuthorPosts.Output.serializer(), output), headers = json)
@@ -96,10 +105,11 @@ class TimelinePostsTest {
         )
 
     private val posts = LocalPosts()
+    private val likes = LocalLikes()
 
     private suspend fun feed(): FeedRepository {
         val (db, _, clients) = signedInTestSession(http, did = did)
-        return FeedRepository(db, clients, LocalLikes(), Logger, posts)
+        return FeedRepository(db, clients, likes, Logger, posts)
     }
 
     private fun List<TimelineItem>.keys() = map {
@@ -153,5 +163,41 @@ class TimelinePostsTest {
         assertEquals(listOf("3kn", "3kq"), keys(feed.authorPostsPage(did, cursor = null)))
         assertEquals(listOf("3kq"), keys(feed.authorPostsPage(did, cursor = "next")))
         assertEquals(listOf("3kq"), keys(feed.authorPostsPage(bob, cursor = null)), "another athlete's profile doesn't show them")
+    }
+
+    // ---------------------------------------------------------------- Likes and the post page (feed/post-page)
+
+    @Test
+    fun aLikeTogglesOverTheTimelineAndProfilePostsUntilTheAppViewCatchesUp() = runTest {
+        val feed = feed()
+        feed.refreshTimeline()
+        val liked = AtUri.of(did, Nsid.FEED_LIKE, "3klike")
+        likes.set(post(bob, "3kp").uri, liked)
+        feed.refreshTimeline()
+        val shown = (feed.timelineItems().first().first() as TimelineItem.Post).post
+        assertEquals(1, shown.likeCount)
+        assertEquals(liked, shown.viewer?.like)
+
+        likes.set(post(did, "3kq").uri, liked)
+        val page = assertIs<Outcome.Data<Page<PostView, Unit>>>(feed.authorPostsPage(did, null))
+        assertEquals(1, page.data.items.single().likeCount)
+    }
+
+    @Test
+    fun thePostIsReadWithTheViewersLikeLaidOver() = runTest {
+        val feed = feed()
+        assertEquals(2, feed.post(post(bob, "3kp").uri).likeCount)
+        likes.set(post(bob, "3kp").uri, null)
+        val read = feed.post(post(bob, "3kp").uri)
+        assertEquals(2, read.likeCount, "the AppView didn't report a like of the viewer's, so unliking takes none away")
+        assertEquals(3, read.commentCount)
+        likes.set(post(bob, "3kp").uri, AtUri.of(did, Nsid.FEED_LIKE, "3klike"))
+        assertEquals(3, feed.post(post(bob, "3kp").uri).likeCount)
+    }
+
+    @Test
+    fun aPostThatIsntServedIsNotFound() = runTest {
+        val outcome = feed().postOutcome(post(bob, "3kgone").uri).first { it !is Outcome.Loading }
+        assertIs<Outcome.Error>(outcome)
     }
 }

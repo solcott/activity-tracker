@@ -32,11 +32,13 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
+import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
@@ -50,6 +52,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -87,6 +90,10 @@ class FeedRepository(
     /** Accounts the viewer blocked, muted or let back this session, laid over every read until the AppView catches up. */
     val localBlocks = LocalBlocks()
 
+    /** The viewer's like toggles this session ([LocalLikes]), for a screen that lays them over posts it has already loaded. */
+    val likeOverrides: StateFlow<Map<String, AtUri?>>
+        get() = localLikes.overrides
+
     /** The cached timeline's activities, without its import cards ([timelineItems]). */
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
         timelineItems(filter).map { items -> items.mapNotNull { (it as? TimelineItem.Activity)?.view } }
@@ -96,13 +103,18 @@ class FeedRepository(
      * with the athlete's own new posts first until it lists them.
      */
     fun timelineItems(filter: ActivityFilter = ActivityFilter.None): Flow<List<TimelineItem>> =
-        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries, localPosts.changes) { items, blocks, posts ->
+        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries, localPosts.changes, localLikes.overrides) {
+            items,
+            blocks,
+            posts,
+            likes ->
             val decoded = items.mapNotNull { item ->
                 runCatching {
                     when {
                         item.uri.startsWith(CARD_KEY) ->
                             TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
-                        item.uri.startsWith(POST_KEY) -> TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json))
+                        item.uri.startsWith(POST_KEY) ->
+                            TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json).withLikeOverrides(likes))
                         else -> TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
                     }
                 }
@@ -127,9 +139,10 @@ class FeedRepository(
         val output = clients.appView.query(GetAuthorPosts.method, GetAuthorPosts.Params(actor.value, cursor = cursor))
         val own = actor == clients.did
         val shown =
-            localPosts.applyTo(output.posts, includeNew = own && cursor == null).filterNot {
-                localBlocks.entries.value.blocks[it.author.did]?.on == true
-            }
+            localPosts
+                .applyTo(output.posts, includeNew = own && cursor == null)
+                .filterNot { localBlocks.entries.value.blocks[it.author.did]?.on == true }
+                .map(localLikes::applyTo)
         pageOf(shown, output.cursor)
     }
 
@@ -255,6 +268,32 @@ class FeedRepository(
     /** A page of [activity]'s comment threads after [cursor] ([comments]), for a paged list. */
     suspend fun commentsPage(activity: AtUri, cursor: String?): Outcome<Page<ThreadView, Unit>> = outcomeOf {
         comments(activity, cursor).let { pageOf(it.threads.orEmpty(), it.cursor) }
+    }
+
+    /** [post] as a stream ([outcomeFlow]): loading, then the post or why it couldn't be read. Each collection reads it again. */
+    fun postOutcome(uri: AtUri): Flow<Outcome<PostView>> = outcomeFlow { post(uri) }
+
+    /**
+     * The post [uri] (feed/post-page) as the viewer left it: their like toggles and post changes, and their comment changes moved into its
+     * count as [activity] does, asking the AppView alongside which of those it lists.
+     */
+    suspend fun post(uri: AtUri): PostView = coroutineScope {
+        val pending = localComments.pending(uri)
+        val lookup =
+            if (pending.isEmpty()) null
+            else async { runSuspendCatching { clients.appView.query(GetComments.method, GetComments.Params(uri, uris = pending)) } }
+        val settling = localBlocks.unsettled().map { did -> async { settleBlock(did) } }
+        val view = clients.appView.query(GetPost.method, GetPost.Params(uri)).post
+        settling.forEach { it.await() }
+        val answer =
+            lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
+        val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
+        val post = localLikes.applyTo(localPosts.applyTo(listOf(view), includeNew = false).firstOrNull() ?: view)
+        val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
+        val counted = post.copy(commentCount = (post.commentCount + delta).coerceAtLeast(0))
+        updateCachedPost(uri) { counted }
+        lookedUp?.report()
+        counted
     }
 
     /** A page of thread [root]'s replies on [activity] after [cursor] ([comments]), for a paged list. */
@@ -427,6 +466,43 @@ class FeedRepository(
         if (served == null) db.feed().deleteByUri(uri.value) else updateCached(uri) { served }
     }
 
+    /**
+     * Optimistically moves every cached copy of [subject]'s like count by [likes] and comment count by [comments], and sets the viewer's
+     * [like] when given: an activity's ([updateCached]) or a post's ([updateCachedPost]), by [subject]'s collection.
+     */
+    suspend fun updateCachedCounts(subject: AtUri, likes: Long = 0, comments: Long = 0, like: CachedLike = CachedLike.Keep) {
+        if (subject.collection == Nsid.FEED_POST) {
+            updateCachedPost(subject) {
+                it.copy(
+                    likeCount = (it.likeCount + likes).coerceAtLeast(0),
+                    commentCount = (it.commentCount + comments).coerceAtLeast(0),
+                    viewer = if (like is CachedLike.Set) (it.viewer ?: PostViewerState()).copy(like = like.uri) else it.viewer,
+                )
+            }
+        } else {
+            updateCached(subject) {
+                it.copy(
+                    likeCount = (it.likeCount + likes).coerceAtLeast(0),
+                    commentCount = (it.commentCount + comments).coerceAtLeast(0),
+                    viewer = if (like is CachedLike.Set) it.viewer?.copy(like = like.uri) else it.viewer,
+                )
+            }
+        }
+    }
+
+    /** Optimistically rewrites every cached copy of the post [uri] (feed/posts), in the timeline and wherever else it's cached. */
+    suspend fun updateCachedPost(uri: AtUri, transform: (PostView) -> PostView) {
+        val items = db.feed().byUri("$POST_KEY${uri.value}")
+        if (items.isEmpty()) return
+        db.feed()
+            .upsert(
+                items.map { item ->
+                    val view = transform(AtJson.decodeFromString(PostView.serializer(), item.json))
+                    item.copy(json = AtJson.encodeToString(PostView.serializer(), view))
+                }
+            )
+    }
+
     /** Optimistically rewrites every cached copy of [uri]. */
     suspend fun updateCached(uri: AtUri, transform: (ActivityView) -> ActivityView) {
         val items = db.feed().byUri(uri.value)
@@ -522,3 +598,10 @@ private fun List<ActivityView>.toFeedItems(key: String, shown: (ActivityView) ->
 
 /** 5,000 activities: far more than one search window holds, and a bound on a misbehaving cursor. */
 internal const val MAX_RANGE_PAGES = 50
+
+/** What [FeedRepository.updateCachedCounts] does with the viewer's like on a cached copy: keep it, or [Set] it (null removes it). */
+sealed interface CachedLike {
+    data object Keep : CachedLike
+
+    data class Set(val uri: AtUri?) : CachedLike
+}

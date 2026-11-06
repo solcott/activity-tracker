@@ -8,10 +8,13 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.CachedLike
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.InteractionSubject
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.segments.SegmentTrackSweeper
 import io.github.solcott.activitytracker.data.segments.SegmentTracks
@@ -242,36 +245,37 @@ class ActivityRepository(
      * refused up front). Unliking can't tell where the like went (its URI is the same either way, and the activity may have changed
      * visibility since), so it deletes the rkey from both; a delete of what isn't there counts as done.
      */
-    suspend fun toggleLike(activity: ActivityView) {
-        if (activity.author.did == clients.did) return
-        val place = clients.interactionPlaceOf(activity.visibilityOrPublic)
+    suspend fun toggleLike(activity: ActivityView) = toggleLike(activity.asSubject())
+
+    /** [toggleLike] on any [subject], an activity's or a post's (feed/posts), placed and shown the same way. */
+    suspend fun toggleLike(subject: InteractionSubject) {
+        if (subject.author == clients.did) return
+        val place = clients.interactionPlaceOf(subject.visibility)
         likeMutex.withLock {
-            val current = localLikes.current(activity)
+            val current = localLikes.current(subject)
             if (current == null) {
                 val rkey = Tid.next(clock)
                 val like = AtUri.of(clients.did, Nsid.FEED_LIKE, rkey)
                 // Refused before anything changes, so a like is never shown that can't be written.
-                clients.requireSpacesFor(activity.visibilityOrPublic, Nsid.FEED_LIKE)
-                feed.updateCached(activity.uri) { it.copy(likeCount = it.likeCount + 1, viewer = it.viewer?.copy(like = like)) }
+                clients.requireSpacesFor(subject.visibility, Nsid.FEED_LIKE)
+                feed.updateCachedCounts(subject.uri, likes = 1, like = CachedLike.Set(like))
                 writer.put(
                     Nsid.FEED_LIKE,
                     rkey,
                     LikeRecord.serializer(),
-                    LikeRecord(StrongRef(activity.uri, activity.cid), clock.now()),
+                    LikeRecord(StrongRef(subject.uri, subject.cid), clock.now()),
                     space = place,
                 )
-                localLikes.set(activity.uri, like)
+                localLikes.set(subject.uri, like)
             } else {
-                feed.updateCached(activity.uri) {
-                    it.copy(likeCount = (it.likeCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(like = null))
-                }
+                feed.updateCachedCounts(subject.uri, likes = -1, like = CachedLike.Set(null))
                 val rkey = requireNotNull(current.rkey)
                 writer.delete(Nsid.FEED_LIKE, rkey)
                 // Without the scope this session can't reach the space, and the PDS would refuse the delete and hold up the outbox; another
                 // session's like there stays until one with it unlikes.
                 if (clients.canWriteToSpaces(Nsid.FEED_LIKE))
                     writer.delete(Nsid.FEED_LIKE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
-                localLikes.set(activity.uri, null)
+                localLikes.set(subject.uri, null)
             }
         }
         outbox.drain()
@@ -285,8 +289,12 @@ class ActivityRepository(
      * [replyTo] as its parent and [replyTo]'s thread's top-level comment as its root. Returns the comment's URI. It's listed after the
      * loaded comments, or at the end of its thread, and counted at once ([LocalComments.sent]) until the AppView lists it.
      */
-    suspend fun comment(activity: ActivityView, text: String, replyTo: CommentView? = null): AtUri {
-        val audience = commentAudience(activity.visibilityOrPublic, replyTo)
+    suspend fun comment(activity: ActivityView, text: String, replyTo: CommentView? = null): AtUri =
+        comment(activity.asSubject(), text, replyTo)
+
+    /** [comment] on any [subject], an activity's or a post's (feed/posts), its audience from the visibility its view showed. */
+    suspend fun comment(subject: InteractionSubject, text: String, replyTo: CommentView? = null): AtUri {
+        val audience = commentAudience(subject.visibility, replyTo)
         // Refused before anything changes, so a comment is never counted that can't be written.
         clients.requireSpacesFor(audience, Nsid.FEED_COMMENT)
         val rkey = Tid.next(clock)
@@ -295,18 +303,18 @@ class ActivityRepository(
         val reply = replyTo?.let { ReplyRef(root = it.root ?: it.ref, parent = it.ref) }
         val record =
             CommentRecord(
-                StrongRef(activity.uri, activity.cid),
+                StrongRef(subject.uri, subject.cid),
                 text.trim(),
                 createdAt,
                 audience = audience.takeIf { it != Visibility.PUBLIC },
                 reply = reply,
             )
         val sent = SentComment(uri, ProfileViewBasic(clients.did, clients.handle), record.text, createdAt, root = reply?.root?.uri)
-        feed.localComments.send(activity.uri, sent)
+        feed.localComments.send(subject.uri, sent)
         undoingOnFailure({ feed.localComments.restore(uri, null) }) {
             writer.put(Nsid.FEED_COMMENT, rkey, CommentRecord.serializer(), record, space = clients.interactionPlaceOf(audience))
         }
-        feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
+        feed.updateCachedCounts(subject.uri, comments = 1)
         outbox.drain()
         return uri
     }
@@ -317,17 +325,21 @@ class ActivityRepository(
      * the interactions space, the space only when the session can write `feed.comment` there; a delete of what isn't there counts as done.
      * It leaves the list and the count at once ([LocalComments]), the count only while the AppView counts it, until the AppView drops it.
      */
-    suspend fun deleteComment(activity: ActivityView, uri: AtUri, hidden: Boolean = false) {
+    suspend fun deleteComment(activity: ActivityView, uri: AtUri, hidden: Boolean = false) =
+        deleteComment(activity.asSubject(), uri, hidden)
+
+    /** [deleteComment] on any [subject], an activity's or a post's (feed/posts). */
+    suspend fun deleteComment(subject: InteractionSubject, uri: AtUri, hidden: Boolean = false) {
         if (uri.authority != clients.did.value) return
         val rkey = requireNotNull(uri.rkey)
-        val previous = feed.localComments.change(activity.uri, uri, LocalComments.Want.Gone, listedHidden = hidden)
+        val previous = feed.localComments.change(subject.uri, uri, LocalComments.Want.Gone, listedHidden = hidden)
         undoingOnFailure({ feed.localComments.restore(uri, previous) }) {
             writer.delete(Nsid.FEED_COMMENT, rkey)
             if (clients.canWriteToSpaces(Nsid.FEED_COMMENT))
                 writer.delete(Nsid.FEED_COMMENT, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
         }
         // A hidden comment was never counted.
-        if (!hidden) feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
+        if (!hidden) feed.updateCachedCounts(subject.uri, comments = -1)
         outbox.drain()
     }
 
@@ -340,17 +352,22 @@ class ActivityRepository(
      * as done. Either shows at once ([FeedRepository.localComments]), with the count, until the AppView catches up, and is taken back if it
      * can't be queued. Returns whether anything changed.
      */
-    suspend fun setCommentHidden(activity: ActivityView, comment: CommentView, hidden: Boolean): Boolean {
-        if (activity.author.did != clients.did || comment.author.did == clients.did) return false
-        val visibility = activity.visibilityOrPublic
+    suspend fun setCommentHidden(activity: ActivityView, comment: CommentView, hidden: Boolean): Boolean =
+        setCommentHidden(activity.asSubject(), comment, hidden)
+
+    /**
+     * [setCommentHidden] on any [subject] of the viewer's own, an activity or a post (feed/posts): the hide goes where their like would.
+     */
+    suspend fun setCommentHidden(subject: InteractionSubject, comment: CommentView, hidden: Boolean): Boolean {
+        if (subject.author != clients.did || comment.author.did == clients.did) return false
+        val visibility = subject.visibility
         val rkey = commentHideRkey(comment.uri)
         val local = feed.localComments
         val changed = hideMutex.withLock {
             if (local.isHidden(comment.uri, comment.hidden == true) == hidden) return@withLock false
             // Refused before anything changes, so a comment is never shown hidden that can't be.
             if (hidden) clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT_HIDE)
-            val previous =
-                local.change(activity.uri, comment.uri, LocalComments.Want.Present(hidden), listedHidden = comment.hidden == true)
+            val previous = local.change(subject.uri, comment.uri, LocalComments.Want.Present(hidden), listedHidden = comment.hidden == true)
             undoingOnFailure({ local.restore(comment.uri, previous) }) {
                 if (hidden) {
                     val record = CommentHideRecord(comment.uri, clock.now())
@@ -368,7 +385,7 @@ class ActivityRepository(
                         writer.delete(Nsid.FEED_COMMENT_HIDE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
                 }
             }
-            feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount + if (hidden) -1 else 1).coerceAtLeast(0)) }
+            feed.updateCachedCounts(subject.uri, comments = if (hidden) -1 else 1)
             true
         }
         if (changed) outbox.drain()
