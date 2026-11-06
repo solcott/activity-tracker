@@ -251,6 +251,9 @@ class SessionTestFixture {
                 if (scopeMissing && "/xrpc/com.atproto.space" in request.url.encodedPath) {
                     return@MockEngine respond("""{"error":"ScopeMissingError"}""", HttpStatusCode.Forbidden, json)
                 }
+                sharedTestRoute(request.url.encodedPath)?.let {
+                    return@MockEngine it
+                }
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.getRecord" -> {
                         val record = if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) activityRecord else profileRecord
@@ -336,21 +339,9 @@ class SessionTestFixture {
                         }
                     }
 
-                    "/xrpc/com.atproto.server.getServiceAuth" -> {
-                        respond("""{"token":"service-jwt"}""", headers = json)
-                    }
-
                     "/xrpc/com.atproto.server.describeServer" -> {
                         val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
                         respond("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""", headers = json)
-                    }
-
-                    "/.well-known/did.json" -> {
-                        respond(
-                            """{"id":"did:web:appview.test","service":[
-                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
-                            headers = json,
-                        )
                     }
 
                     "/xrpc/com.atproto.space.createSpace" -> {

@@ -211,11 +211,10 @@ open class ActivityTestBase {
                 val json = headersOf("Content-Type", "application/json")
                 if (unreachable) throw IOException("Connection refused")
                 if (offline) return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                sharedTestRoute(request.url.encodedPath)?.let {
+                    return@MockEngine it
+                }
                 when (request.url.encodedPath) {
-                    "/xrpc/com.atproto.server.getServiceAuth" -> {
-                        respond("""{"token":"service-jwt"}""", headers = json)
-                    }
-
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
                         activityRequests++
                         activityGate?.await()
@@ -341,14 +340,6 @@ open class ActivityTestBase {
                         }
                         track?.let { respond(Gpx.write("Run", "run", it), headers = headersOf("Content-Type", "application/gpx+xml")) }
                             ?: respond("""{"error":"BlobNotFound"}""", HttpStatusCode.BadRequest, json)
-                    }
-
-                    "/.well-known/did.json" -> {
-                        respond(
-                            """{"id":"did:web:appview.test","service":[
-                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
-                            headers = json,
-                        )
                     }
 
                     "/xrpc/com.atproto.space.createSpace" -> {
