@@ -21,7 +21,12 @@ kotlin {
 
             implementation(libs.compose.runtime.annotation)
             implementation(libs.kermit)
+            // Data export (auth/data-export): streamed ZIP64 archives on every target, records staged as JSON.
+            implementation(libs.kmp.zip)
+            implementation(libs.kmp.zip.kotlinx)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.kotlinx.serialization.json.io)
         }
         nonWebMain {
             dependencies {
