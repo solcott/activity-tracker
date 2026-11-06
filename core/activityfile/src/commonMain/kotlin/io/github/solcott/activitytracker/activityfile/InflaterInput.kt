@@ -8,10 +8,10 @@ import no.synth.kmpzlib.ZlibFormat
  * Raw deflate (RFC 1951) decompressed as it's read, in common code with kmp-zlib: a zip member inside another zip arrives as a stream,
  * which the platforms' inflaters can't all take a piece at a time (the browser's `DecompressionStream` needs the whole input to say where
  * output ends). Takes from [input]'s buffer only the bytes the deflate data uses, so a zip read as a stream finds the next header after it.
- * Fails with [ActivityFileException] on corrupt or truncated data.
+ * Fails with [ActivityFileException] on corrupt or truncated data. iOS also gunzips through it, with [format] gzip.
  */
-internal class InflaterInput(private val input: BufferedInput) : ByteInput {
-    private val inflater = Inflater(ZlibFormat.RAW)
+internal class InflaterInput(private val input: BufferedInput, format: ZlibFormat = ZlibFormat.RAW) : ByteInput {
+    private val inflater = Inflater(format)
 
     override suspend fun read(into: ByteArray, offset: Int, length: Int): Int {
         var produced = 0

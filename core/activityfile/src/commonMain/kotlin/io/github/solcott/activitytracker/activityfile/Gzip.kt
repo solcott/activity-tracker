@@ -4,15 +4,12 @@ package io.github.solcott.activitytracker.activityfile
 internal fun ByteArray.isGzip(): Boolean = size >= 2 && this[0] == 0x1f.toByte() && this[1] == 0x8b.toByte()
 
 /**
- * Decompresses gzip with the platform's own inflater: `java.util.zip` on the JVM, zlib on iOS, the browser's `DecompressionStream` on web.
+ * Decompresses gzip: `java.util.zip` on Android and the JVM, the browser's `DecompressionStream` on web, kmp-zlib on iOS ([InflaterInput]).
  * Fails with [ActivityFileException] for corrupt or truncated data, or once the output passes [maxBytes] (a gzip bomb).
  */
 internal expect suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray
 
-/**
- * Compresses [bytes] as gzip with the platform's own deflater: `java.util.zip` on the JVM, zlib on iOS, the browser's `CompressionStream`
- * on web.
- */
+/** Compresses [bytes] as gzip: `java.util.zip` on Android and the JVM, the browser's `CompressionStream` on web, kmp-zlib on iOS. */
 internal expect suspend fun gzip(bytes: ByteArray): ByteArray
 
 internal fun tooLargeError(maxBytes: Int): Nothing = throw FileTooLargeException(maxBytes)
