@@ -3,13 +3,10 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
-import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
-import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
-import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.exactRecord
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -18,7 +15,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -55,9 +51,7 @@ internal fun JdbcTransaction.matchInputs(activity: String): MatchInputs? {
 internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInputs?, jobs: SegmentJobs, now: Long) {
     val after = matchInputs(activity)
     if (after == null) {
-        deleteEfforts { activityUri eq activity }
-        DiveSiteVisits.deleteWhere { activityUri eq activity }
-        SegmentCandidateRiders.deleteWhere { trackUri eq trackOf(activity) }
+        dropSegmentUseOfActivity(activity)
         dropPairsOfActivities(listOf(activity))
         dropInvitePairsOf(activity)
         return
@@ -82,7 +76,8 @@ private fun JdbcTransaction.matchable(activity: String): Boolean =
         !heldSegmentTracks().andWhere { SegmentTracks.activityUri eq activity }.limit(1).empty()
 
 /** The segment track of [activity], under the same rkey in the athlete's `self` space. */
-private fun trackOf(activity: String): String {
+/** The URI of [activity]'s segment track, which shares its rkey. */
+internal fun trackOf(activity: String): String {
     val uri = AtUri(activity)
     return AtUri.of(Did(uri.authority), Nsid.FEED_SEGMENT_TRACK, requireNotNull(uri.rkey) { "an activity URI without an rkey" }).value
 }

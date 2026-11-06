@@ -23,6 +23,8 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
+import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfActivity
+import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfTracks
 import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.siteCentre
@@ -72,7 +74,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
@@ -389,10 +390,8 @@ class SegmentMatcher(
                 log.info("Segment track {} isn't a valid track, so it gives no efforts or pairs: {}", trackUri, e.message)
                 db.tx {
                     if (trackToMatch(trackUri) != track) return@tx
-                    deleteEfforts { activityUri eq track.activity }
-                    DiveSiteVisits.deleteWhere { activityUri eq track.activity }
+                    dropSegmentUseOfActivity(track.activity)
                     SegmentTrackCells.deleteWhere { SegmentTrackCells.trackUri eq trackUri }
-                    SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
                     dropPairsOfActivities(listOf(track.activity))
                 }
                 return
@@ -414,21 +413,12 @@ class SegmentMatcher(
                 }
                 replaceVisit(trackUri, track, pieces)
             } else {
-                dropSegmentUse(trackUri, track.activity)
+                dropSegmentUseOfActivity(track.activity)
             }
             // Pairing fetches other athletes' tracks too, so it's a job of its own.
             if (track.grouping) jobs.enqueueGroup(trackUri, clock.now().toEpochMilliseconds())
             else dropPairsOfActivities(listOf(track.activity))
         }
-    }
-
-    /** What segments derived from the track at [trackUri] of [activity]: its efforts and candidate riders. */
-    private fun JdbcTransaction.dropSegmentUse(trackUri: String, activity: String) {
-        deleteEfforts { activityUri eq activity }
-        DiveSiteVisits.deleteWhere { activityUri eq activity }
-        DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
-        deleteEfforts { SegmentEfforts.trackUri eq trackUri }
-        SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
     }
 
     /**
@@ -438,9 +428,7 @@ class SegmentMatcher(
     @Suppress("ReturnCount") // Each reason a track gives nothing.
     private fun JdbcTransaction.trackToMatch(trackUri: String): TrackToMatch? {
         fun none(activity: String? = null): TrackToMatch? {
-            deleteEfforts { SegmentEfforts.trackUri eq trackUri }
-            DiveSiteVisits.deleteWhere { DiveSiteVisits.trackUri eq trackUri }
-            SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+            dropSegmentUseOfTracks(listOf(trackUri))
             val pairsOf =
                 activity
                     ?: SegmentTracks.select(SegmentTracks.activityUri)
@@ -718,11 +706,7 @@ class SegmentMatcher(
     private fun JdbcTransaction.retier(activity: String) {
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()
         if (row == null || combinedIntoOf(listOf(activity)).isNotEmpty()) {
-            deleteEfforts { activityUri eq activity }
-            DiveSiteVisits.deleteWhere { activityUri eq activity }
-            SegmentCandidateRiders.deleteWhere {
-                trackUri inSubQuery SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.activityUri eq activity }
-            }
+            dropSegmentUseOfActivity(activity)
             dropPairsOfActivities(listOf(activity))
             return
         }
