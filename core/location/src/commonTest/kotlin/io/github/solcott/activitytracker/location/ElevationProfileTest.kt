@@ -60,6 +60,33 @@ class ElevationProfileTest {
     }
 
     @Test
+    fun maxGradeOfASteadyClimb() {
+        val atM = List(101) { it * 10.0 }
+        assertEquals(8.0, ElevationProfile.maxGrade(atM.map { it * 0.08 }, atM)!!, 1e-9)
+    }
+
+    @Test
+    fun maxGradeCountsASteepDescent() {
+        // A 2% climb that falls 15 m over 100 m from 400 m to 500 m along.
+        val atM = List(101) { it * 10.0 }
+        val heights = atM.map { at -> at * 0.02 - 0.17 * (at.coerceIn(400.0, 500.0) - 400.0) }
+        assertEquals(15.0, ElevationProfile.maxGrade(heights, atM)!!, 1e-9)
+    }
+
+    @Test
+    fun maxGradeMeasuresAShortLastStretchByItsLength() {
+        // A 5 m last stretch, as resampling leaves it: 4.5 m over 25 m, not over three 10 m steps.
+        assertEquals(18.0, ElevationProfile.maxGrade(listOf(0.0, 1.0, 2.0, 4.5), listOf(0.0, 10.0, 20.0, 25.0))!!, 1e-9)
+    }
+
+    @Test
+    fun maxGradeFromTwoHeights() {
+        // Farther apart than the window, so measured against each other.
+        assertEquals(5.0, ElevationProfile.maxGrade(listOf(0.0, 10.0), listOf(0.0, 200.0))!!, 1e-9)
+        assertEquals(null, ElevationProfile.maxGrade(listOf(5.0), listOf(0.0)))
+    }
+
+    @Test
     fun evenFromTwoHeights() {
         assertEquals(listOf(0, 50, 100), ElevationProfile.even(listOf(0.0, 10.0), listOf(0.0, 200.0), count = 3))
         assertEquals(emptyList(), ElevationProfile.even(listOf(5.0), listOf(0.0)))
