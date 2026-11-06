@@ -26,15 +26,16 @@ class LoginPresenter(
     override fun present(): LoginState {
         val lastEnd by auth.lastEnd.collectAsState()
         // After an expiry or a chosen Sign in again the athlete signs back in to the same account, so its handle is filled in
-        // (auth/oauth-session).
-        val handle = key(lastEnd) { rememberTextFieldState(lastEnd?.handle?.value.orEmpty()) }
+        // (auth/oauth-session). After leaving, signing in again starts the account afresh, so nothing is filled in (auth/leaving).
+        val left = lastEnd?.takeIf { it.reason == EndedSession.Reason.Left }
+        val handle = key(lastEnd) { rememberTextFieldState(if (left != null) "" else lastEnd?.handle?.value.orEmpty()) }
         val recording by recorder.state.collectAsState()
         val expired =
             lastEnd?.takeIf { it.reason == EndedSession.Reason.Expired }?.let { Expiry(recording = recording.inProgressFor(it.did.value)) }
         val signingInAgain = lastEnd?.reason == EndedSession.Reason.SignInAgain
         val status by coordinator.status.collectAsState()
         val flights = rememberSingleFlight()
-        return LoginState(handle, status, expired, signingInAgain) { event ->
+        return LoginState(handle, status, expired, signingInAgain, left?.handle?.value) { event ->
             when (event) {
                 LoginEvent.Submit -> {
                     val typed = handle.text.trim()

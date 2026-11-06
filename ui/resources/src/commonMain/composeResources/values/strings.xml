@@ -118,6 +118,11 @@
     <string name="error_cancel_upload">Couldn't cancel: it has started uploading</string>
     <string name="error_pause_imports">Couldn't change whether imports upload</string>
     <string name="error_clear_uploads">Couldn't clear finished uploads</string>
+    <string name="error_load_shared_places">Couldn't count your segments and dive sites</string>
+    <string name="error_start_leave">Couldn't start leaving Activity Tracker. Nothing was deleted</string>
+    <string name="error_leave">Leaving stopped</string>
+    <string name="error_rejoin">Couldn't rejoin Activity Tracker</string>
+    <string name="error_discard_left">Couldn't discard this device's changes</string>
     <string name="error_spaces_unsupported">Your server doesn't support private activities and details yet, so only Public is available</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, to decline follow requests or invites, to add people to activities, or to block or mute accounts</string>
     <string name="action_sign_in_again">Sign in again</string>
@@ -388,6 +393,7 @@
     <string name="login_session_expired">Your session expired. Sign in again to carry on.</string>
     <string name="login_session_expired_recording">Your recording is still running.</string>
     <string name="login_sign_in_again">Sign in again to give Activity Tracker the permissions it now needs.</string>
+    <string name="login_left">You've left Activity Tracker. Your atproto account %1$s and its other apps are unchanged.</string>
 
     <!-- Top-level navigation (tabs, rail, sidebar) -->
     <string name="nav_feed">Feed</string>
@@ -603,6 +609,82 @@
     <string name="export_data_shared_message">If you saved the zip somewhere, the app can delete its copy. Otherwise keep it to save later.</string>
     <string name="export_data_shared_delete">Delete the app's copy</string>
     <string name="export_data_shared_keep">Keep it</string>
+    <!-- Leaving Activity Tracker (auth/leaving). -->
+    <string name="account_section_leave">Leave</string>
+    <string name="account_leave_summary">Deletes everything Activity Tracker keeps in your account. Your %1$s account itself stays.</string>
+    <string name="leave_title">Leave Activity Tracker</string>
+    <string name="leave_intro">Leaving deletes everything Activity Tracker keeps in your atproto account and signs you out. Your %1$s account itself stays, with its other apps. To delete the account, go to the server hosting it.</string>
+    <string name="leave_section_deleted">What's deleted</string>
+    <string name="leave_deleted_activities">Every activity, of every visibility, with its details, streams and photos</string>
+    <string name="leave_deleted_profile">Your profile and its private details, and your privacy zones</string>
+    <string name="leave_deleted_gear">Your gear</string>
+    <string name="leave_deleted_follows">Your follows and follow approvals</string>
+    <string name="leave_deleted_interactions">Likes, comments, blocks and mutes you made in Activity Tracker</string>
+    <string name="leave_deleted_segments">Segment name proposals and votes, stars and segment tracks</string>
+    <string name="leave_deleted_settings">Your Activity Tracker settings</string>
+    <string name="leave_section_stays">What stays</string>
+    <string name="leave_stays_account">Your atproto account and its handle, %1$s</string>
+    <string name="leave_stays_other_apps">Your data from other apps, such as Bluesky posts and Bluesky blocks</string>
+    <string name="leave_section_places">Segments and dive sites</string>
+    <string name="leave_places_loading">Counting your segments and dive sites…</string>
+    <string name="leave_places_none">You haven't created any segments or dive sites.</string>
+    <plurals name="leave_places_active_segments">
+        <item quantity="one">%1$d segment others use stays, without your name, keeping its name.</item>
+        <item quantity="other">%1$d segments others use stay, without your name, keeping their names.</item>
+    </plurals>
+    <plurals name="leave_places_active_sites">
+        <item quantity="one">%1$d dive site others use stays, without your name, keeping its name.</item>
+        <item quantity="other">%1$d dive sites others use stay, without your name, keeping their names.</item>
+    </plurals>
+    <plurals name="leave_places_other_segments">
+        <item quantity="one">Your other %1$d segment is deleted.</item>
+        <item quantity="other">Your other %1$d segments are deleted.</item>
+    </plurals>
+    <plurals name="leave_places_other_sites">
+        <item quantity="one">Your other %1$d dive site is deleted.</item>
+        <item quantity="other">Your other %1$d dive sites are deleted.</item>
+    </plurals>
+    <string name="leave_places_unknown">Segments and dive sites others use stay, without your name; your others are deleted.</string>
+    <string name="leave_section_device">On this device</string>
+    <plurals name="leave_device_changes">
+        <item quantity="one">%1$d change that hasn't uploaded is discarded and never uploaded.</item>
+        <item quantity="other">%1$d changes that haven't uploaded are discarded and never uploaded.</item>
+    </plurals>
+    <string name="leave_device_import">The import still saving stops, and the activities it hasn't saved are discarded.</string>
+    <string name="leave_device_recording">The recording in progress is discarded.</string>
+    <string name="leave_section_export">Your data export</string>
+    <string name="leave_export_none">Export your data first to keep a copy. You can leave without one.</string>
+    <string name="leave_export_running">Your data export is still running. Wait for it to finish, or cancel it, before leaving.</string>
+    <string name="leave_export_ready">Your data export hasn't been saved. Leaving deletes it, so save it first.</string>
+    <string name="leave_export_save">Save it on the Account page</string>
+    <string name="leave_sign_in_again">You signed in before Activity Tracker could delete its data from your account. Sign in again before leaving.</string>
+    <string name="leave_section_confirm">Confirm</string>
+    <string name="leave_confirm_label">Type %1$s to confirm</string>
+    <string name="leave_confirm">Leave Activity Tracker</string>
+    <string name="leave_step_starting">Leaving Activity Tracker…</string>
+    <string name="leave_step_discard">Discarding what's on this device…</string>
+    <string name="leave_step_spaces">Deleting your private data…</string>
+    <string name="leave_step_repo">Deleting your public records…</string>
+    <string name="leave_step_local">Clearing this device…</string>
+    <plurals name="leave_records_deleted">
+        <item quantity="one">%1$d record deleted</item>
+        <item quantity="other">%1$d records deleted</item>
+    </plurals>
+    <string name="leave_paused">Your server asked to slow down. Carrying on at %1$s.</string>
+    <string name="leave_keep_open">Keep Activity Tracker open until it's done. If it closes, leaving carries on next time.</string>
+    <string name="leave_stopped">Nothing is sent for your account until leaving finishes. Retry to carry on from where it stopped.</string>
+    <string name="left_elsewhere_title">You left Activity Tracker</string>
+    <string name="left_elsewhere_intro">You left Activity Tracker on another device, but this one still holds work for %1$s.</string>
+    <plurals name="left_elsewhere_changes">
+        <item quantity="one">%1$d change is pending.</item>
+        <item quantity="other">%1$d changes are pending.</item>
+    </plurals>
+    <string name="left_elsewhere_import">An import is still saving.</string>
+    <string name="left_elsewhere_export">A data export hasn't been saved.</string>
+    <string name="left_elsewhere_recording">A recording is in progress.</string>
+    <string name="left_elsewhere_choice">Discard it and sign out, or rejoin Activity Tracker to upload it.</string>
+    <string name="left_elsewhere_discard">Discard and sign out</string>
+    <string name="left_elsewhere_rejoin">Rejoin</string>
     <string name="settings_activity_defaults">Activity defaults</string>
     <string name="settings_segments_and_groups">Segments &amp; groups</string>
     <string name="settings_segments_on">Matching on</string>

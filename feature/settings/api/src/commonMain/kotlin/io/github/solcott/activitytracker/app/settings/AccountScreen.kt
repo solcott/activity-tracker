@@ -111,4 +111,7 @@ sealed interface AccountEvent {
 
     /** Answers [AccountState.askingKeptShared]: [kept] deletes the app's copy, else it stays to save later. */
     data class KeptShared(val kept: Boolean) : AccountEvent
+
+    /** Opens Leave Activity Tracker (auth/leaving). */
+    data object Leave : AccountEvent
 }

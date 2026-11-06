@@ -15,7 +15,9 @@ import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.activity.UploadQueue
+import io.github.solcott.activitytracker.data.auth.AccountMarks
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.auth.LeaveJob
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.export.DataExporter
@@ -100,6 +102,18 @@ class SessionTestFixture {
 
     /** Alice's followers as the AppView lists them. */
     var followers = listOf<String>()
+
+    /** The athlete's own segments in their repo, by record key, with the status the AppView serves for each (auth/leaving). */
+    val ownSegments = mutableMapOf<String, String>()
+
+    /** The athlete's own dive sites in their repo, by record key, with the status the AppView serves for each. */
+    val ownSites = mutableMapOf<String, String>()
+
+    /** The athlete's spaces deleted with `deleteSpace`, by key, in order. */
+    val deletedSpaces = mutableListOf<String>()
+
+    /** Refuse every `deleteSpace` with an error that isn't a rate limit, so a leave stops. */
+    var refuseSpaceDeletes = false
 
     /** The `writes` of each `applyWrites`, in order. */
     val appliedWrites = mutableListOf<JsonObject>()
@@ -492,11 +506,62 @@ class SessionTestFixture {
                         respond("""{"subject":{"did":"$did","handle":"alice.test"},"followers":[$accounts]}""", headers = json)
                     }
 
+                    "/xrpc/com.atproto.space.deleteSpace" -> {
+                        if (refuseSpaceDeletes) {
+                            respond("""{"error":"InvalidRequest","message":"refused"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            deletedSpaces +=
+                                AtJson.parseToJsonElement(body(request))
+                                    .jsonObject
+                                    .getValue("space")
+                                    .jsonPrimitive
+                                    .content
+                                    .substringAfterLast('/')
+                            respond("{}", headers = json)
+                        }
+                    }
+
+                    "/xrpc/com.atproto.repo.describeRepo" -> {
+                        respond("""{"handle":"alice.test","did":"$did","collections":[]}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_SEGMENT}",
+                    "/xrpc/${Nsid.FEED_GET_DIVE_SITE}" -> {
+                        val uri = request.url.parameters["uri"].orEmpty()
+                        val rkey = uri.substringAfterLast('/')
+                        val segment = request.url.encodedPath.endsWith("getSegment")
+                        val status = (if (segment) ownSegments[rkey] else ownSites[rkey])
+                        val creator = """{"did":"$did","handle":"alice.test"}"""
+                        val created = "\"createdAt\":\"2026-10-01T00:00:00Z\""
+                        when {
+                            status == null -> respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                            segment ->
+                                respond(
+                                    """{"segment":{"uri":"$uri","cid":"bafyseg","creator":$creator,"distanceMeters":1000,""" +
+                                        """"status":"$status","record":{"name":"Hill","sport":"run","line":"_p~iF~ps|U_ulLnnqC",""" +
+                                        """"source":"athlete","license":"CC0-1.0",$created}}}""",
+                                    headers = json,
+                                )
+                            else ->
+                                respond(
+                                    """{"site":{"uri":"$uri","cid":"bafysite","creator":$creator,"status":"$status",""" +
+                                        """"record":{"name":"Blue Hole","lat":0,"lng":0,"radius":100,"source":"athlete",""" +
+                                        """"license":"CC0-1.0",$created}}}""",
+                                    headers = json,
+                                )
+                        }
+                    }
+
                     "/xrpc/com.atproto.repo.listRecords",
                     "/xrpc/com.atproto.space.listRecords" -> {
                         val place = request.url.parameters["space"]?.substringAfterLast('/') ?: "repo"
+                        val collection = request.url.parameters["collection"]
+                        val owned = if (collection == Nsid.FEED_SEGMENT) ownSegments else ownSites
                         val records =
-                            if (request.url.parameters["collection"] == Nsid.GEAR_COLLECTION && place == "self")
+                            if ((collection == Nsid.FEED_SEGMENT || collection == Nsid.FEED_DIVE_SITE) && place == "repo")
+                                // One page: a cursor-less answer ends the listing.
+                                owned.keys.map { """{"uri":"at://$did/$collection/$it","cid":"bafyrec","value":{}}""" }
+                            else if (request.url.parameters["collection"] == Nsid.GEAR_COLLECTION && place == "self")
                                 gearCollections.map { (rkey, value) ->
                                     """{"collection":"${Nsid.GEAR_COLLECTION}","rkey":"$rkey","cid":"bafyrec","value":$value}"""
                                 }
@@ -593,6 +658,12 @@ class SessionTestFixture {
         val exports: DataExports,
         /** The session's export runner, over [exports], straight from the fake PDS. */
         val dataExporter: DataExporter,
+        /** What the device remembers of the account across sessions: its spaces, and a leave under way (auth/leaving). */
+        val marks: AccountMarks,
+        /** Leaving Activity Tracker, against the fake PDS (auth/leaving). */
+        val leaveJob: LeaveJob,
+        /** The device's recorder, which [auth] and [leaveJob] stop. */
+        val recorder: ActivityRecorder,
     ) {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
@@ -658,11 +729,14 @@ class SessionTestFixture {
                 activities,
                 testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
             )
+        val recorder = ActivityRecorder(FakeLocationTracker(), Clock.System)
+        val auth = AuthRepository(manager, db, http, recorder, saves, exports)
+        val marks = AccountMarks(db)
         return Repos(
             activities,
             profiles,
             units,
-            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), saves, exports),
+            auth,
             recentTypes,
             feed,
             ActivityDefaults(clients),
@@ -694,6 +768,9 @@ class SessionTestFixture {
                 Clock.System,
                 Logger,
             ),
+            marks,
+            LeaveJob(db, clients, marks, auth, recorder, saves, exports, Logger),
+            recorder,
         )
     }
 }

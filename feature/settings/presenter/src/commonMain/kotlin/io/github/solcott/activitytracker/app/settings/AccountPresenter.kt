@@ -29,7 +29,7 @@ private object EndSession
 /** The one flight for starting, cancelling and finishing with the export, so a double tap does each once. */
 private object ExportAction
 
-@Suppress("LongParameterList") // Circuit's navigator, then what Metro injects.
+@Suppress("LongParameterList", "CyclomaticComplexMethod") // Circuit's navigator, then what Metro injects; one branch per event.
 @CircuitInject(AccountScreen::class, SessionScope::class)
 @Composable
 fun AccountPresenter(
@@ -105,6 +105,7 @@ fun AccountPresenter(
                 askingKeptShared = false
                 if (event.kept) readyId?.let { id -> exportAction(UiError.Kind.SaveDataExport) { exports.saved(id) } }
             }
+            AccountEvent.Leave -> navigator.goTo(LeaveScreen())
         }
     }
 }

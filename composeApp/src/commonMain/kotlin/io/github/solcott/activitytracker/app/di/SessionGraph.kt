@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.di
 
+import androidx.compose.runtime.Stable
 import com.slack.circuit.subcircuit.SubCircuit
 import dev.zacsweers.metro.GraphExtension
 import dev.zacsweers.metro.Provides
@@ -8,6 +9,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.LegacyGroupMigration
 import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.UploadQueue
+import io.github.solcott.activitytracker.data.auth.AccountMarks
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.export.DataExporter
@@ -18,7 +20,11 @@ import io.github.solcott.activitytracker.data.profile.ProfileSetup
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
-/** Everything that requires a signed-in account. Created per sign-in, dropped on sign-out. */
+/**
+ * Everything that requires a signed-in account. Created per sign-in, dropped on sign-out. `@Stable` because `App`'s pieces take it as a
+ * param: one instance per session, and its bindings never change.
+ */
+@Stable
 @GraphExtension(SessionScope::class)
 interface SessionGraph {
     val sessionCircuit: SessionCircuit
@@ -35,6 +41,8 @@ interface SessionGraph {
     val importSaveStore: ImportSaveStore
     val importSaveRunner: ImportSaveRunner
     val dataExporter: DataExporter
+    /** Whether a leave of this account is recorded on the device (auth/leaving), which turns the app over to the leave screen. */
+    val accountMarks: AccountMarks
 
     @GraphExtension.Factory
     interface Factory {

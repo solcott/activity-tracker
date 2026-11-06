@@ -49,6 +49,15 @@ class AccountUiTest {
     }
 
     @Test
+    fun leaveIsApartAndSaysTheAccountStays() = runComposeUiTest {
+        val events = mutableListOf<AccountEvent>()
+        setContent { AppPreview { AccountUi(AccountSamples.default.copy(eventSink = { events += it })) } }
+        onNodeWithText("Your alice.test account itself stays.", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Leave Activity Tracker").performScrollTo().performClick()
+        assertEquals(AccountEvent.Leave, events.last())
+    }
+
+    @Test
     fun signOutSendsItsEvent() = runComposeUiTest {
         val events = mutableListOf<AccountEvent>()
         setContent { AppPreview { AccountUi(AccountSamples.default.copy(eventSink = { events += it })) } }

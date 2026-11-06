@@ -190,6 +190,21 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** Finished uploads couldn't be cleared (data/upload-queue). */
         ClearUploads,
+
+        /** The athlete's segments and dive sites couldn't be counted for the leave screen (auth/leaving). */
+        LoadSharedPlaces,
+
+        /** Leaving couldn't start, the PDS couldn't be reached say, so nothing was discarded (auth/leaving). */
+        StartLeave,
+
+        /** A leave under way stopped on a refusal; Retry carries on (auth/leaving). */
+        Leave,
+
+        /** Rejoining after leaving on another device failed (auth/leaving). */
+        Rejoin,
+
+        /** This device's work couldn't be discarded after leaving on another device (auth/leaving). */
+        DiscardLeftElsewhere,
     }
 
     companion object {

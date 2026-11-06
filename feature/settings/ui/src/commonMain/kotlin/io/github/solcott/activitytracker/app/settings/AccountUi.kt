@@ -54,9 +54,11 @@ import io.github.solcott.activitytracker.composeApp.resources.account_feature_pr
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_private_profile
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_segments_and_groups
 import io.github.solcott.activitytracker.composeApp.resources.account_handle
+import io.github.solcott.activitytracker.composeApp.resources.account_leave_summary
 import io.github.solcott.activitytracker.composeApp.resources.account_managed_by_server
 import io.github.solcott.activitytracker.composeApp.resources.account_section_export
 import io.github.solcott.activitytracker.composeApp.resources.account_section_identity
+import io.github.solcott.activitytracker.composeApp.resources.account_section_leave
 import io.github.solcott.activitytracker.composeApp.resources.account_section_managed
 import io.github.solcott.activitytracker.composeApp.resources.account_section_sign_in
 import io.github.solcott.activitytracker.composeApp.resources.account_server
@@ -89,6 +91,7 @@ import io.github.solcott.activitytracker.composeApp.resources.export_data_shared
 import io.github.solcott.activitytracker.composeApp.resources.export_data_try_again
 import io.github.solcott.activitytracker.composeApp.resources.export_data_unsent
 import io.github.solcott.activitytracker.composeApp.resources.import_megabytes
+import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
@@ -132,6 +135,15 @@ fun AccountUi(state: AccountState, modifier: Modifier = Modifier) {
                 AppListRow(
                     stringResource(Res.string.profile_sign_out),
                     onClick = { state.eventSink(AccountEvent.SignOut) },
+                    enabled = !state.ending,
+                )
+            }
+            // Apart from Sign out and from the server's page, where the account itself is deleted (auth/leaving).
+            AppListSection(stringResource(Res.string.account_section_leave)) {
+                AppListRow(
+                    stringResource(Res.string.leave_title),
+                    summary = stringResource(Res.string.account_leave_summary, state.handle),
+                    onClick = { state.eventSink(AccountEvent.Leave) },
                     enabled = !state.ending,
                 )
             }

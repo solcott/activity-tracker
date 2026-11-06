@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_find
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_start
 import io.github.solcott.activitytracker.composeApp.resources.login_handle_label
 import io.github.solcott.activitytracker.composeApp.resources.login_intro
+import io.github.solcott.activitytracker.composeApp.resources.login_left
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired_recording
 import io.github.solcott.activitytracker.composeApp.resources.login_sign_in
@@ -64,6 +65,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
                 Text(stringResource(Res.string.login_session_expired_recording), style = MaterialTheme.typography.bodyMedium)
             }
         }
+        state.leftHandle?.let { left -> Text(stringResource(Res.string.login_left, left), style = MaterialTheme.typography.bodyMedium) }
         if (state.signingInAgain) {
             Text(stringResource(Res.string.login_sign_in_again), style = MaterialTheme.typography.bodyMedium)
         }

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.AccountState
 import io.github.solcott.activitytracker.app.settings.DataExportStatus
 import io.github.solcott.activitytracker.app.settings.EndingSession
+import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.hostOf
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.UploadSource
@@ -31,6 +32,7 @@ class AccountPresenterTest {
     private val fixture = SessionTestFixture()
 
     private suspend fun account(
+        navigator: FakeNavigator = FakeNavigator(AccountScreen),
         before: suspend (SessionTestFixture.Repos) -> Unit = {},
         block: suspend app.cash.turbine.ReceiveTurbine<AccountState>.(SessionTestFixture.Repos) -> Unit,
     ) {
@@ -38,7 +40,7 @@ class AccountPresenterTest {
         before(repos)
         presenterTestOf({
             AccountPresenter(
-                FakeNavigator(AccountScreen),
+                navigator,
                 repos.clients,
                 repos.auth,
                 SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
@@ -220,6 +222,16 @@ class AccountPresenterTest {
             asking.eventSink(AccountEvent.Confirm(signInAgain = false))
             repos.auth.session.first { it == null }
             assertNull(repos.exports.current(repos.clients.did))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun leaveOpensTheLeaveScreen() = runTest {
+        val navigator = FakeNavigator(AccountScreen)
+        account(navigator = navigator) {
+            awaitItem().eventSink(AccountEvent.Leave)
+            assertEquals(LeaveScreen(), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

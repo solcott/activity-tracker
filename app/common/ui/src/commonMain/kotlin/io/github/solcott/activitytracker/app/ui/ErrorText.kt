@@ -29,12 +29,14 @@ import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_discard_change
+import io.github.solcott.activitytracker.composeApp.resources.error_discard_left
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_gear_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_invalid_subject_uri
+import io.github.solcott.activitytracker.composeApp.resources.error_leave
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activities
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity_invite
@@ -68,6 +70,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_regular
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
+import io.github.solcott.activitytracker.composeApp.resources.error_load_shared_places
 import io.github.solcott.activitytracker.composeApp.resources.error_load_starred_segments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_uploads
 import io.github.solcott.activitytracker.composeApp.resources.error_mount_ends_before_start
@@ -85,6 +88,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_read_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_server
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreachable
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreadable
+import io.github.solcott.activitytracker.composeApp.resources.error_rejoin
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_retry_change
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
@@ -106,6 +110,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_agai
 import io.github.solcott.activitytracker.composeApp.resources.error_spaces_unsupported
 import io.github.solcott.activitytracker.composeApp.resources.error_split_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_start_data_export
+import io.github.solcott.activitytracker.composeApp.resources.error_start_leave
 import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
@@ -269,5 +274,10 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.CancelUpload -> Res.string.error_cancel_upload
             UiError.Kind.PauseImports -> Res.string.error_pause_imports
             UiError.Kind.ClearUploads -> Res.string.error_clear_uploads
+            UiError.Kind.LoadSharedPlaces -> Res.string.error_load_shared_places
+            UiError.Kind.StartLeave -> Res.string.error_start_leave
+            UiError.Kind.Leave -> Res.string.error_leave
+            UiError.Kind.Rejoin -> Res.string.error_rejoin
+            UiError.Kind.DiscardLeftElsewhere -> Res.string.error_discard_left
         }
     )

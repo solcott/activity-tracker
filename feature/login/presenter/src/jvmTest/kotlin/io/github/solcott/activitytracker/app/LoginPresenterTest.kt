@@ -195,6 +195,50 @@ class LoginPresenterTest {
         }
     }
 
+    /** Alice was signed in, and left Activity Tracker (auth/leaving). */
+    private suspend fun aliceLeaves() {
+        store.saveSession(
+            OAuthSession(
+                did = Did(ALICE),
+                handle = Handle("alice.test"),
+                pdsUrl = "http://localhost:2583",
+                issuer = "http://localhost:2583",
+                tokenEndpoint = "http://localhost:2583/oauth/token",
+                accessToken = "at1",
+                refreshToken = "rt1",
+                expiresAt = null,
+                scope = "atproto",
+                dpopKey = DpopKey.generate().serialize(),
+            )
+        )
+        manager.restore()
+        auth.left()
+    }
+
+    @Test
+    fun afterLeavingTheLoginScreenSaysSoAndFillsNothingIn() = runTest {
+        val presenter = presenter()
+        aliceLeaves()
+        presenter.test {
+            val state = awaitItem()
+            assertEquals("alice.test", state.leftHandle)
+            assertNull(state.expired)
+            assertEquals(false, state.signingInAgain)
+            assertEquals("", state.handle.text.toString(), "signing in again starts the account afresh")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun signingInAgainShowsNoLeftNote() = runTest {
+        val presenter = presenter()
+        aliceSignsInAgain()
+        presenter.test {
+            assertNull(awaitItem().leftHandle)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun unresolvableHandleSurfacesError() = runTest {
         presenter().test {

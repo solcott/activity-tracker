@@ -18,6 +18,10 @@ data class LoginState(
     val expired: Expiry? = null,
     /** Set when the athlete chose Sign in again on the Account page: the handle is filled in and the screen says why. */
     val signingInAgain: Boolean = false,
+    /**
+     * The handle of the account that just left Activity Tracker (auth/leaving): the screen says so, and its atproto account is unchanged.
+     */
+    val leftHandle: String? = null,
     val eventSink: (LoginEvent) -> Unit,
 ) : CircuitUiState {
     val busy: Boolean
