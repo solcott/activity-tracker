@@ -108,6 +108,9 @@ internal fun JdbcTransaction.upsertSegment(
     val changed = relined || old[Segments.sport] != record.sport || old[Segments.kind] != kind
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
     val original = if (changed) duplicatesOf(record.sport, kind, line, before = firstIndexed to uri.value).firstOrNull() else null
+    val newStatus =
+        if (changed) (if (original != null) SegmentStatus.DUPLICATE else liveStatus(author.value, importer)) else old[Segments.status]
+    val newDuplicateOf = if (changed) original else old[Segments.duplicateOf]
     Segments.upsert {
         it[Segments.uri] = uri.value
         it[Segments.cid] = cid
@@ -123,13 +126,13 @@ internal fun JdbcTransaction.upsertSegment(
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[indexedAt] = now
         it[firstIndexedAt] = firstIndexed
-        it[status] =
-            if (changed) (if (original != null) SegmentStatus.DUPLICATE else liveStatus(author.value, importer)) else old[Segments.status]
-        it[duplicateOf] = if (changed) original else old[Segments.duplicateOf]
+        it[status] = newStatus
+        it[duplicateOf] = newDuplicateOf
         // The record's name until an adopted community name in effect replaces it, just below (segments/segment-names).
         it[currentName] = name.take(MAX_NAME_LENGTH)
     }
     recomputeCurrentName(uri.value)
+    handoffOnIndex(uri, author, importer, newDuplicateOf.takeIf { newStatus == SegmentStatus.DUPLICATE })
     if (!changed) return
     deleteEfforts { segmentUri eq uri.value }
     resampleTerrain(uri.value, jobs, now)
@@ -236,10 +239,17 @@ private fun earlier(a: Pair<Long, String>, b: Pair<Long, String>) = a.first < b.
 /**
  * Checks again each segment marked duplicate of one of [originals], which was deleted, archived or changed, earliest first indexed first,
  * so each in turn sees the ones before it settled. One that duplicates no other live segment becomes live ([liveStatus]: active for the
- * segment [importer]'s, else proposed) and is queued to be matched.
+ * segment [importer]'s, else proposed) and is queued to be matched. Returns, for each of [originals] one of its duplicates became live in
+ * place of, the earliest such duplicate.
  */
-internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: SegmentJobs, now: Long, importer: Did?) {
-    if (originals.isEmpty()) return
+internal fun JdbcTransaction.recheckDuplicatesOf(
+    originals: List<String>,
+    jobs: SegmentJobs,
+    now: Long,
+    importer: Did?,
+): Map<String, String> {
+    if (originals.isEmpty()) return emptyMap()
+    val promoted = mutableMapOf<String, String>()
     val duplicates =
         Segments.selectAll()
             .where { (Segments.status eq SegmentStatus.DUPLICATE) and (Segments.duplicateOf inList originals) }
@@ -254,13 +264,17 @@ internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: 
             it[status] = if (original != null) SegmentStatus.DUPLICATE else liveStatus(row[Segments.authorDid], importer)
             it[duplicateOf] = original
         }
-        if (original == null) jobs.enqueueSegment(uri, now)
+        if (original == null) {
+            jobs.enqueueSegment(uri, now)
+            row[Segments.duplicateOf]?.let { promoted.putIfAbsent(it, uri) }
+        }
     }
+    return promoted
 }
 
 /**
  * A deleted segment: it, its cells, every effort on it and its name proposals and their votes go, and the segments that duplicated it are
- * checked again.
+ * checked again. An active one the [importer] didn't create is handed off first (segments/segment-handoffs), keeping its adopted names.
  */
 internal fun JdbcTransaction.deleteSegment(uri: AtUri, jobs: SegmentJobs, now: Long, importer: Did?) =
     deleteSegments(listOf(uri.value), jobs, now, importer)
@@ -271,11 +285,15 @@ internal fun JdbcTransaction.deleteSegmentsBy(author: Did, jobs: SegmentJobs, no
 
 private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs, now: Long, importer: Did?) {
     if (uris.isEmpty()) return
+    val staged = stageSegmentHandoffs(uris, importer, now)
+    releaseHandoffsOf(uris, staged)
     deleteEfforts { segmentUri inList uris }
-    deleteSegmentNames(uris)
+    val keep = staged + handedOff(uris)
+    deleteSegmentNames(uris.filterNot { it in keep })
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     Segments.deleteWhere { Segments.uri inList uris }
-    recheckDuplicatesOf(uris, jobs, now, importer)
+    val promoted = recheckDuplicatesOf(uris, jobs, now, importer)
+    linkPromoted(promoted)
 }
 
 /**

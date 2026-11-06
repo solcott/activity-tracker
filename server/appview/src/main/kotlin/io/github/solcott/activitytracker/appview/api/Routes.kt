@@ -40,6 +40,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.GetHandoffs
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
@@ -153,6 +154,7 @@ fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: Se
     xrpcProcedure(FinishSegmentCandidates.method, verifier) { input, caller -> candidates.finish(requireViewer(caller), input) }
     xrpcQuery(GetRiddenSegmentCandidates.method, verifier) { params, viewer -> candidates.ridden(requireViewer(viewer), params) }
     xrpcProcedure(CheckSegmentCandidates.method, verifier) { input, caller -> candidates.check(requireViewer(caller), input) }
+    xrpcQuery(GetHandoffs.method, verifier) { params, viewer -> candidates.handoffs(requireViewer(viewer), params) }
 }
 
 /**

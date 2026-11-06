@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.index.DAILY_DIVE_SITE_LIMIT
 import io.github.solcott.activitytracker.appview.index.diveSiteDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.diveSitesCreatedSince
 import io.github.solcott.activitytracker.appview.index.pointE7
+import io.github.solcott.activitytracker.appview.index.resolveHandoff
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.mayPropose
@@ -86,7 +87,8 @@ class DiveSiteViews(
 ) {
     /** A site whatever its status, with its names and the viewer's naming flags. `NotFound` when it isn't served. */
     suspend fun site(viewer: Did?, params: GetDiveSite.Params): GetDiveSite.Output = db.tx {
-        val uri = params.uri.value
+        // A handed-off site's old URI serves its successor (dive-sites/site-handoffs).
+        val uri = params.uri.value.takeIf(::siteIndexed) ?: resolveHandoff(params.uri.value, ::siteIndexed) ?: params.uri.value
         val row = DiveSites.selectAll().where { (DiveSites.uri eq uri) and diveSiteServed(viewer) }.firstOrNull() ?: throw notFound()
         val state = viewer?.let {
             DiveSiteViewerState(
@@ -420,3 +422,6 @@ internal fun JdbcTransaction.diveSiteViews(rows: List<ResultRow>, avatars: Avata
 private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Dive site not found")
 
 private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
+
+/** Whether a dive site is indexed at [uri], whatever its status or labels. */
+private fun JdbcTransaction.siteIndexed(uri: String): Boolean = DiveSites.select(DiveSites.uri).where { DiveSites.uri eq uri }.any()

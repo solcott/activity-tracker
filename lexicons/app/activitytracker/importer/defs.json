@@ -45,6 +45,22 @@
         "lat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
         "lng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." }
       }
+    },
+    "handoff": {
+      "type": "object",
+      "description": "A removed active segment or dive site, kept so the segment importer can republish it under id (segments/segment-handoffs, dive-sites/site-handoffs). Holds only what its record held, never who rode or dived it, or its old creator. A segment carries sport, segmentKind and line; a site carries lat, lng and radius.",
+      "required": ["id", "kind", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The record key the importer republishes it under." },
+        "kind": { "type": "string", "maxLength": 16, "knownValues": ["segment", "site"], "description": "A feed.segment or a feed.diveSite." },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The record's name, its original name. Adopted names carry over in the AppView, not in the record." },
+        "sport": { "type": "string", "maxLength": 64, "description": "A segment's sport group, as feed.segment#sport." },
+        "segmentKind": { "type": "string", "maxLength": 16, "knownValues": ["run", "lift"], "description": "A segment's kind, as feed.segment#kind." },
+        "line": { "type": "string", "maxLength": 100000, "description": "A segment's line, as feed.segment#line." },
+        "lat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "A site's centre latitude, in 1e-7 degrees." },
+        "lng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "A site's centre longitude, in 1e-7 degrees." },
+        "radius": { "type": "integer", "minimum": 25, "maximum": 500, "description": "A site's radius in whole metres, as feed.diveSite#radius." }
+      }
     }
   }
 }

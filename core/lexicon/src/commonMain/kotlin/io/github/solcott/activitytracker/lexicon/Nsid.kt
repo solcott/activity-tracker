@@ -139,6 +139,8 @@ object Nsid {
     const val IMPORTER_CHECK_SEGMENT_CANDIDATES = "$NAMESPACE.importer.checkSegmentCandidates"
     /** Procedure: checks extracted dive sites for duplicates of live ones before the segment importer publishes them. */
     const val IMPORTER_CHECK_DIVE_SITES = "$NAMESPACE.importer.checkDiveSites"
+    /** Query: the segment importer lists removed active segments and dive sites to republish (segments/segment-handoffs). */
+    const val IMPORTER_GET_HANDOFFS = "$NAMESPACE.importer.getHandoffs"
 
     /** One piece of an athlete's gear: in their repo when Public, else in their tier space for its visibility ([SPACE_ATHLETE]). */
     const val GEAR_ITEM = "$NAMESPACE.gear.item"

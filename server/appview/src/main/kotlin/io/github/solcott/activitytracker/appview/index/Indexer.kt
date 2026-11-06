@@ -427,7 +427,7 @@ class Indexer(
             }
 
             Nsid.FEED_DIVE_SITE -> {
-                if (placement.origin == Origins.REPO) deleteDiveSite(uri, segmentJobs, clock.now().toEpochMilliseconds())
+                if (placement.origin == Origins.REPO) deleteDiveSite(uri, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
             }
 
             Nsid.FEED_SEGMENT_NAME_VOTE -> {
@@ -509,7 +509,7 @@ class Indexer(
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
-        deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds())
+        deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         Actors.deleteWhere { Actors.did eq did.value }
     }

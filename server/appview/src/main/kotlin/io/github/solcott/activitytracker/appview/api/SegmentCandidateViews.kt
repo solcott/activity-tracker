@@ -4,11 +4,13 @@ import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.db.SubjectHandoffs
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.MAX_LINE_CHARS
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
+import io.github.solcott.activitytracker.appview.index.linkCoveredHandoffs
 import io.github.solcott.activitytracker.appview.index.setBox
 import io.github.solcott.activitytracker.appview.index.validAttribution
 import io.github.solcott.activitytracker.appview.index.validKind
@@ -20,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.GetHandoffs
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
@@ -27,6 +30,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -40,6 +44,7 @@ import org.jetbrains.exposed.v1.core.concat
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.stringLiteral
@@ -57,6 +62,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * it's null. Candidates are public lines staged here before they're published; their riders, counted by the matcher from usable segment
  * tracks, are private, and only whether a candidate is ridden is ever revealed.
  */
+@Suppress("TooManyFunctions") // One handler per importer call.
 class SegmentCandidateViews(
     private val db: Database,
     private val importer: Did?,
@@ -130,6 +136,37 @@ class SegmentCandidateViews(
                 .map(::stagedCandidate)
         }
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
+    }
+
+    /**
+     * Pending handoffs by id (segments/segment-handoffs): first links each one a live segment or site now duplicates to it, so only those
+     * the importer should republish are listed. Holds only what the removed record held: no riders, divers or creator.
+     */
+    suspend fun handoffs(caller: Did, params: GetHandoffs.Params): GetHandoffs.Output {
+        requireImporter(caller)
+        val limit = (params.limit ?: SegmentCandidates.MAX_BATCH).coerceIn(1, SegmentCandidates.MAX_BATCH)
+        val page = db.tx {
+            linkCoveredHandoffs()
+            SubjectHandoffs.selectAll()
+                .where { SubjectHandoffs.successorUri.isNull() }
+                .apply { params.cursor?.let { cursor -> andWhere { SubjectHandoffs.id greater cursor } } }
+                .orderBy(SubjectHandoffs.id to SortOrder.ASC)
+                .limit(limit)
+                .map { row ->
+                    SubjectHandoff(
+                        id = row[SubjectHandoffs.id],
+                        kind = row[SubjectHandoffs.kind],
+                        name = row[SubjectHandoffs.originalName],
+                        sport = row[SubjectHandoffs.sport],
+                        segmentKind = row[SubjectHandoffs.segmentKind],
+                        line = row[SubjectHandoffs.line],
+                        lat = row[SubjectHandoffs.latE7],
+                        lng = row[SubjectHandoffs.lngE7],
+                        radius = row[SubjectHandoffs.radiusM],
+                    )
+                }
+        }
+        return GetHandoffs.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
     }
 
     /**

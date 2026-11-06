@@ -751,6 +751,39 @@ object CheckSegmentCandidates {
     val method = XrpcProcedure(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES, Input.serializer(), Output.serializer())
 }
 
+/**
+ * `app.activitytracker.importer.defs#handoff`: a removed active segment or dive site to republish under [id] (segments/segment-handoffs): a
+ * segment's [sport], [segmentKind] and [line], or a site's centre ([lat], [lng], in 1e-7 degrees) and [radius] (metres), and its original
+ * [name].
+ */
+@Serializable
+data class SubjectHandoff(
+    val id: String,
+    /** [SEGMENT] or [SITE]. */
+    val kind: String,
+    val name: String,
+    val sport: String? = null,
+    val segmentKind: String? = null,
+    val line: String? = null,
+    val lat: Int? = null,
+    val lng: Int? = null,
+    val radius: Int? = null,
+) {
+    companion object {
+        const val SEGMENT = "segment"
+        const val SITE = "site"
+    }
+}
+
+/** `app.activitytracker.importer.getHandoffs`: pending handoffs by id, with nothing about riders, divers or the old creator. */
+object GetHandoffs {
+    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val handoffs: List<SubjectHandoff>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.IMPORTER_GET_HANDOFFS, Params.serializer(), Output.serializer())
+}
+
 /** A dive site, whatever its status (dive-sites/site-records). `NotFound` when it isn't indexed or served. */
 object GetDiveSite {
     @Serializable data class Params(val uri: AtUri)

@@ -435,6 +435,37 @@ object SegmentCandidateRows : Table("segment_candidates") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/**
+ * A removed active segment or dive site the segment importer didn't create (segments/segment-handoffs, dive-sites/site-handoffs), kept so
+ * the importer can republish it under [id]. Holds only what its record held: a segment's [sport], [segmentKind] and [line], or a site's
+ * centre and [radiusM], and its [originalName]. Its adopted names stay in [SegmentNameProposals] under [oldUri] until [successorUri] takes
+ * them. Nothing about who rode or dived it.
+ */
+object SubjectHandoffs : Table("subject_handoffs") {
+    /** Derived from [oldUri] alone (`handoffId`), so staging the same removal again finds the same row. */
+    val id = varchar("id", 64)
+    /** [HandoffKind.SEGMENT] or [HandoffKind.SITE]. */
+    val kind = varchar("subject_kind", 16)
+    val oldUri = varchar("old_uri", 512)
+    val sport = varchar("sport", 64).nullable()
+    val segmentKind = varchar("segment_kind", 16).nullable()
+    val line = text("line").nullable()
+    val latE7 = integer("lat_e7").nullable()
+    val lngE7 = integer("lng_e7").nullable()
+    val radiusM = integer("radius_m").nullable()
+    val originalName = varchar("original_name", 1000)
+    /** The live subject that took over: the importer's copy, or a live duplicate. Null while the handoff is pending. */
+    val successorUri = varchar("successor_uri", 512).nullable()
+    val stagedAt = long("staged_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** What a [SubjectHandoffs] row hands off. */
+object HandoffKind {
+    const val SEGMENT = "segment"
+    const val SITE = "site"
+}
+
 /** The [io.github.solcott.activitytracker.location.SegmentCells] each candidate's line passes through. */
 object SegmentCandidateCells : Table("segment_candidate_cells") {
     val cell = long("cell")

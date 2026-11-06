@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
+import io.github.solcott.activitytracker.appview.index.resolveHandoff
 import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -125,20 +126,21 @@ class SegmentViews(
     private val activeAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
+        // A handed-off segment's old URI serves its successor (segments/segment-handoffs).
+        val uri = params.uri.value.takeIf(::segmentIndexed) ?: resolveHandoff(params.uri.value, ::segmentIndexed) ?: params.uri.value
         val row =
-            Segments.selectAll().where { (Segments.uri eq params.uri.value) and segmentServed(viewer) }.firstOrNull()
+            Segments.selectAll().where { (Segments.uri eq uri) and segmentServed(viewer) }.firstOrNull()
                 ?: throw notFound("Segment not found")
         // Only the fastest the viewer may see is read, however often they've ridden it.
         val best = viewer?.let { own ->
             effortViews(
                     viewer,
-                    (SegmentEfforts.segmentUri eq params.uri.value) and (SegmentEfforts.authorDid eq own.value),
+                    (SegmentEfforts.segmentUri eq uri) and (SegmentEfforts.authorDid eq own.value),
                     order = listOf(SegmentEfforts.elapsedS to SortOrder.ASC, SegmentEfforts.id to SortOrder.ASC),
                     limit = 1,
                 )
                 .singleOrNull()
         }
-        val uri = params.uri.value
         val state = viewer?.let {
             SegmentViewerState(
                 best = best,
@@ -901,3 +903,6 @@ private class BoxDistance(private val lat: Int, private val lng: Int) : Expressi
         const val PER_MILLE = 1000
     }
 }
+
+/** Whether a segment is indexed at [uri], whatever its status or labels. */
+private fun JdbcTransaction.segmentIndexed(uri: String): Boolean = Segments.select(Segments.uri).where { Segments.uri eq uri }.any()
