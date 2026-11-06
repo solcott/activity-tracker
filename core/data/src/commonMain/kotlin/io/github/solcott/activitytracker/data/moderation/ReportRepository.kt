@@ -29,6 +29,9 @@ sealed interface ReportTarget {
 
     data class Comment(val uri: AtUri, val cid: Cid, override val author: Did) : ReportTarget
 
+    /** A post (feed/posts), by the URI and CID its view carries: the post itself, not the proposal it shares. */
+    data class Post(val uri: AtUri, val cid: Cid, override val author: Did) : ReportTarget
+
     data class Account(val did: Did) : ReportTarget {
         override val author: Did
             get() = did
@@ -85,6 +88,7 @@ class ReportRepository(private val clients: SessionClients) {
                 is ReportTarget.Activity -> ReportSubject.Record(target.uri, target.cid)
                 is ReportTarget.Photo -> subjectOf(target.activity)
                 is ReportTarget.Comment -> ReportSubject.Record(target.uri, target.cid)
+                is ReportTarget.Post -> ReportSubject.Record(target.uri, target.cid)
                 is ReportTarget.Account -> ReportSubject.Repo(target.did)
             }
 

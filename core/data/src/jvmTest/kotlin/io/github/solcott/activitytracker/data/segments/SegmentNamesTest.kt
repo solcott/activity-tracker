@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.data.FakeAthletePds
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.feed.LocalPosts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -15,13 +16,18 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
+import io.github.solcott.activitytracker.lexicon.app.PostEmbed
+import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
+import io.github.solcott.activitytracker.lexicon.app.PostRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -81,9 +87,11 @@ class SegmentNamesTest {
             viewer = SegmentViewerState(canProposeName = true, canVoteOnNames = true),
         )
 
+    private val posts = LocalPosts()
+
     private suspend fun names(scope: String? = null): SegmentNames {
         val s = pds.session(scope)
-        return SegmentNames(s.clients, OutboxWriter(s.db, s.clients, clock), OutboxProcessor(s.db, s.clients, Logger), clock)
+        return SegmentNames(s.clients, OutboxWriter(s.db, s.clients, clock), OutboxProcessor(s.db, s.clients, Logger), clock, posts)
     }
 
     private fun stored(place: String, collection: String): Map<String, JsonObject> =
@@ -153,7 +161,9 @@ class SegmentNamesTest {
         val mine =
             view.copy(nameProposals = listOf(alices, bobs), viewer = SegmentViewerState(canProposeName = false, canVoteOnNames = true))
         names.delete(segment, alices.uri)
-        assertEquals(listOf("delete ${pds.repo} ${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kali"), pds.writes)
+        assertEquals("delete ${pds.repo} ${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kali", pds.writes.last())
+        // Its post goes from wherever it may be: spaces that don't exist hold none, so their deletes are done already.
+        assertEquals(listOf("delete ${pds.repo} ${Nsid.FEED_POST}/3kali"), pds.writes.dropLast(1))
         val shown = names.applyTo(mine)
         assertEquals(listOf(bobs), shown.nameProposals)
         assertTrue(shown.viewer!!.canProposeName)
@@ -216,5 +226,69 @@ class SegmentNamesTest {
         assertFailsWith<XrpcException> { names.vote(segment, bobs, SegmentNameVoteDirection.UP, current = null) }
         assertEquals(view, names.applyTo(view))
         assertEquals(emptyList(), pds.writes)
+    }
+
+    // ---------------------------------------------------------------- Sharing to the feed (feed/posts)
+
+    private val place = SharedPlace(segment = SegmentViewBasic(segment, "Trail 214", "ride", 1200))
+
+    @Test
+    fun sharingWritesAPostAtTheProposalsRkeyAfterIt() = runTest {
+        val names = names()
+        val uri = names.propose(segment, "Rooty Ridge", PostShare(Visibility.FOLLOWERS, "  Everyone calls it that "), place)
+        assertEquals(
+            listOf(
+                "put ${pds.repo} ${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/${uri.rkey}",
+                "put ${AthleteSpace.FOLLOWERS} ${Nsid.FEED_POST}/${uri.rkey}",
+            ),
+            pds.writes,
+        )
+        val record = AtJson.decodeFromJsonElement(PostRecord.serializer(), stored(AthleteSpace.FOLLOWERS, Nsid.FEED_POST).values.single())
+        assertEquals(PostEmbed.Proposal(uri), record.embed)
+        assertEquals("Everyone calls it that", record.text)
+        val shown = posts.applyTo(emptyList()).single()
+        assertEquals(Visibility.FOLLOWERS, shown.visibility)
+        assertEquals("Rooty Ridge", (shown.embed as PostEmbedView.Proposal).name)
+        assertEquals(PostShare(Visibility.FOLLOWERS, "Everyone calls it that", now), names.share(uri))
+    }
+
+    @Test
+    fun notSharingWritesNoPost() = runTest {
+        names().propose(segment, "Rooty Ridge")
+        assertTrue(pds.writes.none { Nsid.FEED_POST in it })
+        assertTrue(posts.applyTo(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun anAudienceChangeMovesThePostAndKeepsItsTime() = runTest {
+        val names = names()
+        val before = PostShare(Visibility.PUBLIC, "why", Instant.parse("2026-10-01T00:00:00Z"))
+        names.setShare(segment, alices, before, PostShare(Visibility.MUTUALS, "why"), place)
+        assertEquals("put ${AthleteSpace.MUTUALS} ${Nsid.FEED_POST}/3kali", pds.writes.first())
+        // The followers space doesn't exist, so it holds no copy to delete.
+        assertEquals(listOf("delete ${pds.repo} ${Nsid.FEED_POST}/3kali"), pds.writes.drop(1))
+        assertTrue(pds.writes.none { Nsid.FEED_SEGMENT_NAME_PROPOSAL in it }, "the proposal isn't rewritten, so it keeps its votes")
+        val record = AtJson.decodeFromJsonElement(PostRecord.serializer(), stored(AthleteSpace.MUTUALS, Nsid.FEED_POST).values.single())
+        assertEquals(before.createdAt, record.createdAt)
+    }
+
+    @Test
+    fun unsharingDeletesThePostAndHidesItAtOnce() = runTest {
+        val names = names()
+        val listed = posts.applyTo(emptyList())
+        names.setShare(segment, alices, PostShare(Visibility.PUBLIC), after = null)
+        assertEquals(listOf("delete ${pds.repo} ${Nsid.FEED_POST}/3kali"), pds.writes)
+        assertEquals(listed, posts.applyTo(emptyList()))
+        assertEquals(null, posts.changes.value[AtUri.of(alice, Nsid.FEED_POST, "3kali").value])
+    }
+
+    @Test
+    fun withoutTheGrantOnlyPublicIsShared() = runTest {
+        val names = names(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
+        assertFalse(names.canShareBeyondPublic)
+        assertFailsWith<XrpcException> { names.propose(segment, "Rooty Ridge", PostShare(Visibility.FOLLOWERS), place) }
+        assertEquals(emptyList(), pds.writes)
+        names.propose(segment, "Rooty Ridge", PostShare(Visibility.PUBLIC), place)
+        assertTrue(pds.writes.any { it.startsWith("put ${pds.repo} ${Nsid.FEED_POST}/") })
     }
 }

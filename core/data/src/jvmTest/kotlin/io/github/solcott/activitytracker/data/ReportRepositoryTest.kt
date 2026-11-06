@@ -84,6 +84,13 @@ class ReportRepositoryTest {
     }
 
     @Test
+    fun aPostIsNamedByItsOwnStrongRefNotItsProposals() = runTest {
+        val post = ReportTarget.Post(AtUri.of(bob, Nsid.FEED_POST, "3p"), Cid("bafypost"), bob)
+        reports().report(post, ReportReason.SPAM)
+        assertEquals(ReportSubject.Record(post.uri, post.cid), sent.subject)
+    }
+
+    @Test
     fun aPhotoNamesItsActivityAndThePositionInTheNote() = runTest {
         reports().report(ReportTarget.Photo(activity, 3), ReportReason.SEXUAL, "  not ok ")
         assertEquals(ReportSubject.Record(activity.uri, activity.cid), sent.subject)

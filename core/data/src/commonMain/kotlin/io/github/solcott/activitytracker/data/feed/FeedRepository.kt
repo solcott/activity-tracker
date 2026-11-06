@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
@@ -35,6 +36,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
@@ -62,6 +64,8 @@ class FeedRepository(
     private val clients: SessionClients,
     private val localLikes: LocalLikes,
     logger: Logger,
+    /** Posts the athlete shared, changed or took back this session (feed/posts), laid over the timeline and their profile. */
+    val localPosts: LocalPosts = LocalPosts(),
 ) {
     private val log = logger.withTag("FeedRepository")
 
@@ -87,26 +91,47 @@ class FeedRepository(
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
         timelineItems(filter).map { items -> items.mapNotNull { (it as? TimelineItem.Activity)?.view } }
 
-    /** The cached timeline: activities and, unfiltered, import cards (feed/import-cards), in the AppView's order. */
+    /**
+     * The cached timeline: activities and, unfiltered, import cards (feed/import-cards) and posts (feed/posts), in the AppView's order,
+     * with the athlete's own new posts first until it lists them.
+     */
     fun timelineItems(filter: ActivityFilter = ActivityFilter.None): Flow<List<TimelineItem>> =
-        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries) { items, blocks ->
+        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries, localPosts.changes) { items, blocks, posts ->
             val decoded = items.mapNotNull { item ->
                 runCatching {
-                    if (item.uri.startsWith(CARD_KEY))
-                        TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
-                    else TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
+                    when {
+                        item.uri.startsWith(CARD_KEY) ->
+                            TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
+                        item.uri.startsWith(POST_KEY) -> TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json))
+                        else -> TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
+                    }
                 }
                     .onFailure { log.w(it) { "Skipping undecodable cached timeline item ${item.uri}" } }
                     .getOrNull()
             }
-            decoded.filter { item ->
+            localPosts.applyToTimeline(decoded, includeNew = filter == ActivityFilter.None, at = posts).filter { item ->
                 when (item) {
                     is TimelineItem.Activity -> localBlocks.filter(listOf(item.view), timeline = true, blocks).isNotEmpty()
                     is TimelineItem.ImportCard -> !localBlocks.hidesOnTimeline(item.card.author.did, blocks)
+                    is TimelineItem.Post -> !localBlocks.hidesOnTimeline(item.post.author.did, blocks)
                     is TimelineItem.Unknown -> false
                 }
             }
         }
+
+    /**
+     * A page of [actor]'s posts the viewer may see after [cursor] (feed/posts), for their profile, with this session's post changes laid
+     * over it: on the athlete's own first page, their new posts first until listed. Blocks made this session hide them; mutes don't.
+     */
+    suspend fun authorPostsPage(actor: Did, cursor: String?): Outcome<Page<PostView, Unit>> = outcomeOf {
+        val output = clients.appView.query(GetAuthorPosts.method, GetAuthorPosts.Params(actor.value, cursor = cursor))
+        val own = actor == clients.did
+        val shown =
+            localPosts.applyTo(output.posts, includeNew = own && cursor == null).filterNot {
+                localBlocks.entries.value.blocks[it.author.did]?.on == true
+            }
+        pageOf(shown, output.cursor)
+    }
 
     fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
         observe(filter.cacheKey(authorKey(did)), timeline = false)
@@ -165,6 +190,7 @@ class FeedRepository(
                 when (item) {
                     is TimelineItem.Activity -> kept[item.view.uri]?.let { TimelineItem.Activity(shownInFeed(it)) }
                     is TimelineItem.ImportCard -> item
+                    is TimelineItem.Post -> item
                     is TimelineItem.Unknown -> null
                 }
             }
@@ -470,6 +496,9 @@ private suspend fun AppDatabase.trackFilteredFeed(key: String) {
 /** Where a cached import card is kept in its feed: never an activity URI, so activity updates and deletes never touch it. */
 private const val CARD_KEY = "importCard:"
 
+/** Where a cached post is kept in its feed (feed/posts): its URI behind a prefix, so activity updates and deletes never touch it. */
+private const val POST_KEY = "post:"
+
 /** [this] as the cached items of timeline [key], in order. */
 private fun List<TimelineItem>.toTimelineFeedItems(key: String) = mapIndexedNotNull { index, item ->
     when (item) {
@@ -482,6 +511,8 @@ private fun List<TimelineItem>.toTimelineFeedItems(key: String) = mapIndexedNotN
                 index,
                 AtJson.encodeToString(ImportCardView.serializer(), item.card),
             )
+        is TimelineItem.Post ->
+            FeedItemEntity(key, "$POST_KEY${item.post.uri.value}", index, AtJson.encodeToString(PostView.serializer(), item.post))
         is TimelineItem.Unknown -> null
     }
 }
