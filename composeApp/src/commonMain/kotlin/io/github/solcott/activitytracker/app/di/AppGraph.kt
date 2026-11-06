@@ -2,8 +2,10 @@ package io.github.solcott.activitytracker.app.di
 
 import androidx.compose.runtime.Stable
 import io.github.solcott.activitytracker.app.record.RecordScreenRequests
+import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.export.DataExports
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.location.ActivityRecorder
 
@@ -21,5 +23,7 @@ interface AppGraph : SessionGraph.Factory {
     val authCoordinator: AuthCoordinator
     val activityRecorder: ActivityRecorder
     val importSaves: ImportSaves
+    val dataExports: DataExports
     val recordScreenRequests: RecordScreenRequests
+    val accountScreenRequests: AccountScreenRequests
 }

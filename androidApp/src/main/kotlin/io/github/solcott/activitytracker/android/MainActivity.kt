@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleOAuthRedirect(intent)
         handleOpenRecording(intent)
+        handleOpenAccount(intent)
         setContent { App(graph, onRootPop = ::finish) }
     }
 
@@ -26,6 +27,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         handleOAuthRedirect(intent)
         handleOpenRecording(intent)
+        handleOpenAccount(intent)
+    }
+
+    /** The "export ready" notification was tapped: show the Account page, where it's saved (auth/data-export). */
+    private fun handleOpenAccount(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_ACCOUNT) return
+        intent.action = null
+        graph.accountScreenRequests.request()
     }
 
     /** The recording notification was tapped: show the recording screen. */
@@ -37,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_OPEN_RECORDING = "io.github.solcott.activitytracker.OPEN_RECORDING"
+        const val ACTION_OPEN_ACCOUNT = "io.github.solcott.activitytracker.OPEN_ACCOUNT"
     }
 
     private fun handleOAuthRedirect(intent: Intent?) {

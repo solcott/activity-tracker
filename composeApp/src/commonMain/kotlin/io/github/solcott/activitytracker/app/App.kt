@@ -29,6 +29,8 @@ import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
 import io.github.solcott.activitytracker.app.nav.appNavDecoration
 import io.github.solcott.activitytracker.app.record.RecordScreen
+import io.github.solcott.activitytracker.app.settings.AccountScreen
+import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
@@ -92,6 +94,10 @@ fun App(
                         graph.importSaves.resume(current.did, sessionGraph.importSaveStore, sessionGraph.importSaveRunner)
                     }
                 }
+                // A data export left running (the app was killed, or quit) goes on; one a week past ready is deleted (auth/data-export).
+                LaunchedEffect(Unit) {
+                    runSuspendCatching { graph.dataExports.resume(current.did) { sessionGraph.dataExporter.runCurrent() } }
+                }
                 val importsActive by rememberUpdatedState(onImportsActive)
                 LaunchedEffect(Unit) { sessionGraph.uploadQueue.importsActive.collect { importsActive(it) } }
                 DisposableEffect(Unit) { onDispose { importsActive(false) } }
@@ -120,6 +126,16 @@ fun App(
                             graph.recordScreenRequests.requests.collect {
                                 graph.recordScreenRequests.handled()
                                 if (backStack.topRecord?.screen != RecordScreen) navigator.goTo(RecordScreen)
+                            }
+                        }
+                        // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page.
+                        LaunchedEffect(Unit) {
+                            graph.accountScreenRequests.requests.collect {
+                                graph.accountScreenRequests.handled()
+                                if (backStack.topRecord?.screen != AccountScreen) {
+                                    navigator.goTo(SettingsScreen)
+                                    navigator.goTo(AccountScreen)
+                                }
                             }
                         }
                         AppShell(backStack, navigator, viewerDid = current.did.value) { contentModifier ->

@@ -6,8 +6,10 @@ import io.github.solcott.activitytracker.data.activity.ImportProgress
 import io.github.solcott.activitytracker.data.activity.PacerOutcome
 import io.github.solcott.activitytracker.data.db.ImportSaveCounts
 import io.github.solcott.activitytracker.data.db.ImportSaveEntity
+import io.github.solcott.activitytracker.data.export.DataExportProgress
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,6 +50,27 @@ suspend fun AppGraph.runImportSaves(onProgress: (suspend (ImportSaveCounts?) -> 
         try {
             graph.importSaveRunner.runAll()
             graph.importSaveStore.runnable().isNotEmpty()
+        } finally {
+            watching?.cancel()
+        }
+    }
+}
+
+/**
+ * One background run of the signed-in account's data export (auth/data-export), as a phone's background job runs it, including after the
+ * app was killed: restores the session and runs the export in the background session graph. [onProgress] hears its progress as it goes.
+ * Returns whether it's still to run (the job asks to run again), or null when no one is signed in.
+ */
+suspend fun AppGraph.runDataExport(onProgress: (suspend (DataExportProgress?) -> Unit)? = null): Boolean? {
+    val session = authRepository.restore() ?: return null
+    val graph = backgroundGraph(session.did) { createSessionGraph(session) }
+    return coroutineScope {
+        val watching = onProgress?.let { listen -> launch { dataExports.progress(session.did).collect { listen(it) } } }
+        try {
+            graph.dataExporter.runCurrent().also {
+                // The run ends as it marks the export ready, before the watch above has seen that: say the final state outright.
+                onProgress?.invoke(dataExports.progress(session.did).first())
+            }
         } finally {
             watching?.cancel()
         }

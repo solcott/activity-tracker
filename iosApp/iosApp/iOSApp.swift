@@ -10,6 +10,8 @@ struct iOSApp: App {
         IosBackgroundUploads.shared.register(fitDecoder: SwiftFitDecoder())
         // Batch saves go on in the background and resume after the app is stopped (feed/batch-import).
         IosImportSaves.shared.register(fitDecoder: SwiftFitDecoder())
+        // Data exports too (auth/data-export).
+        IosDataExports.shared.register(fitDecoder: SwiftFitDecoder())
     }
 
     var body: some Scene {
@@ -20,6 +22,7 @@ struct iOSApp: App {
             if phase == .background {
                 IosBackgroundUploads.shared.schedule(after: nil)
                 IosImportSaves.shared.schedule()
+                IosDataExports.shared.schedule()
             }
         }
     }

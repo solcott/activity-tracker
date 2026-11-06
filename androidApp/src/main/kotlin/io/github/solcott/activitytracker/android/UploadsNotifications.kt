@@ -5,7 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 
-/** The Uploads channel, shared by [OutboxWorker]'s progress and [ImportSaveWorker]'s foreground notification. */
+/** The Uploads channel, shared by [OutboxWorker]'s progress and [ImportSaveWorker]'s and [DataExportWorker]'s foreground notifications. */
 private const val UPLOADS_CHANNEL_ID = "uploads"
 
 /**

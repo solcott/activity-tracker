@@ -18,6 +18,8 @@
 		<string>io.github.solcott.activitytracker.outbox</string>
 		<!-- Batch saves resume in the background (IosImportSaves, feed/batch-import). -->
 		<string>io.github.solcott.activitytracker.importsave</string>
+		<!-- Data exports resume in the background (IosDataExports, auth/data-export). -->
+		<string>io.github.solcott.activitytracker.dataexport</string>
 	</array>
 	<!-- Local docker stack is plain HTTP on localhost. -->
 	<key>NSAppTransportSecurity</key>

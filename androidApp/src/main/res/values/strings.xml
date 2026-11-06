@@ -19,6 +19,13 @@
     <string name="saving_title">Saving imported activities</string>
     <!-- Activities saved, then all selected, e.g. "120 of 400 saved". -->
     <string name="saving_text">%1$d of %2$d saved</string>
+    <!-- The foreground notification while a data export runs with the app in the background, and when it's ready (auth/data-export). -->
+    <string name="export_channel">Data exports</string>
+    <string name="export_title">Exporting your data</string>
+    <!-- Activities done, then all of them, e.g. "120 of 400 activities". -->
+    <string name="export_text">%1$d of %2$d activities</string>
+    <string name="export_ready_title">Your data export is ready</string>
+    <string name="export_ready_text">Open Activity Tracker to save it</string>
     <string name="unit_km">km</string>
     <string name="unit_mi">mi</string>
 </resources>

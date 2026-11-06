@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.export.DataExporter
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
 import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
@@ -33,6 +34,7 @@ interface SessionGraph {
     val leaderboardBrackets: LeaderboardBracketsRepository
     val importSaveStore: ImportSaveStore
     val importSaveRunner: ImportSaveRunner
+    val dataExporter: DataExporter
 
     @GraphExtension.Factory
     interface Factory {

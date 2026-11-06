@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ProcessLifecycleOwner
 import io.github.solcott.activitytracker.app.AndroidAppGraph
 import io.github.solcott.activitytracker.app.createAndroidAppGraph
+import io.github.solcott.activitytracker.data.export.DataExportLauncher
 import io.github.solcott.activitytracker.data.importsave.ImportSaveLauncher
 
 class ActivityTrackerApplication : Application() {
@@ -15,5 +16,7 @@ class ActivityTrackerApplication : Application() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(ScheduleUploadsOnStop(this))
         // Batch saves run as a foreground job that outlives the app (feed/batch-import).
         graph.importSaves.launcher = ImportSaveLauncher { _, _ -> ImportSaveWorker.schedule(this) }
+        // Data exports too (auth/data-export).
+        graph.dataExports.launcher = DataExportLauncher { _, _ -> DataExportWorker.schedule(this) }
     }
 }
