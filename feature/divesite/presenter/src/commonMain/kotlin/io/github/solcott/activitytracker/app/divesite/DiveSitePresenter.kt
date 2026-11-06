@@ -11,12 +11,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
-import io.github.solcott.activitytracker.app.names.sharedPlaceOf
-import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.app.names.rememberPlaceNames
+import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.segments.SegmentNames
