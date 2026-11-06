@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.location.escapeXml
+import io.github.solcott.activitytracker.location.toXmlDecimal
+
 /**
  * Writes an [ExportActivity] as GPX 1.1: one track of the points that have a position. Channels go in Garmin's `TrackPointExtension` v2
  * (`atemp` or, for a dive, `wtemp`, then `depth`, `hr`, `cad`, `speed`, in its schema's order) and power in a bare `<power>`, as Strava

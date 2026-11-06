@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.LapIntensity
 import io.github.solcott.activitytracker.lexicon.app.LapTrigger
+import io.github.solcott.activitytracker.location.toXmlDecimal
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 

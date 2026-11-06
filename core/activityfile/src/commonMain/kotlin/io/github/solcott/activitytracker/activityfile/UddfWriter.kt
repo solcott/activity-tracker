@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.location.escapeXml
+import io.github.solcott.activitytracker.location.toXmlDecimal
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant

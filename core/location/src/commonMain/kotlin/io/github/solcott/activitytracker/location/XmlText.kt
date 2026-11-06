@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.activityfile
+package io.github.solcott.activitytracker.location
 
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -8,7 +8,7 @@ import kotlin.math.roundToLong
  * tab, LF and CR, U+FFFE, U+FFFF and unpaired surrogates. Dropped rather than replaced with U+FFFD, since a stray control in a title
  * carries nothing worth showing.
  */
-internal fun String.escapeXml(): String =
+fun String.escapeXml(): String =
     buildString(length) {
         val text = this@escapeXml
         var i = 0
@@ -43,7 +43,7 @@ private fun Char.isXmlChar(): Boolean =
  * At most [decimals] places, trailing zeros dropped, never in exponent form: `Double.toString` writes `1.0E-5` on the JVM, which isn't an
  * `xsd:decimal`.
  */
-internal fun Double.toXmlDecimal(decimals: Int): String {
+fun Double.toXmlDecimal(decimals: Int): String {
     var scale = 1L
     repeat(decimals) { scale *= DECIMAL_BASE }
     val scaled = (abs(this) * scale).roundToLong()

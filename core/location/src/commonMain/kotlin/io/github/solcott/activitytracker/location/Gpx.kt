@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.location
 
+import kotlin.math.abs
+
 /** Minimal GPX 1.1 writer for the full-resolution track blob. */
 object Gpx {
     const val MIME_TYPE = "application/gpx+xml"
@@ -16,8 +18,8 @@ object Gpx {
         for (segment in segments) {
             appendLine("    <trkseg>")
             for (s in segment) {
-                append("""      <trkpt lat="${s.latitude}" lon="${s.longitude}">""")
-                s.altitude?.let { append("<ele>$it</ele>") }
+                append("""      <trkpt lat="${s.latitude.toGpxDecimal()}" lon="${s.longitude.toGpxDecimal()}">""")
+                s.altitude?.let { append("<ele>${it.toGpxDecimal()}</ele>") }
                 append("<time>${s.time}</time>")
                 appendLine("</trkpt>")
             }
@@ -27,5 +29,16 @@ object Gpx {
         appendLine("</gpx>")
     }
 
-    private fun String.escapeXml() = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    /**
+     * [Double.toString], which keeps every digit of the full-resolution blob, unless that's in exponent form (`-5.0E-4` on the JVM near the
+     * equator or the prime meridian), which isn't an `xsd:decimal`: then [toXmlDecimal] at [SMALL_DECIMALS] places.
+     */
+    private fun Double.toGpxDecimal(): String {
+        val plain = toString()
+        if ('E' !in plain && 'e' !in plain) return plain
+        return toXmlDecimal(if (abs(this) < 1) SMALL_DECIMALS else 0)
+    }
+
+    /** About 0.1 µm of latitude: more than any receiver resolves. */
+    private const val SMALL_DECIMALS = 12
 }
