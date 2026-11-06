@@ -4,7 +4,6 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
-import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.deleteEfforts
@@ -272,7 +271,7 @@ internal fun JdbcTransaction.deleteSegmentsBy(author: Did, jobs: SegmentJobs, no
 
 private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs, now: Long, importer: Did?) {
     if (uris.isEmpty()) return
-    SegmentEfforts.deleteWhere { segmentUri inList uris }
+    deleteEfforts { segmentUri inList uris }
     deleteSegmentNames(uris)
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     Segments.deleteWhere { Segments.uri inList uris }

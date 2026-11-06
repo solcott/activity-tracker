@@ -66,16 +66,22 @@ private fun altitudeAt(piece: List<TimedPoint>, t: Double): Double? {
 
 /**
  * Deletes the efforts [where] selects and recomputes the effort elevation of every segment they were on, so a segment's aggregate never
- * outlives the efforts it came from (segments/segment-elevation). Every effort delete goes through here.
+ * outlives the efforts it came from (segments/segment-elevation). Every effort delete goes through here or [rewriteEfforts].
  */
-internal fun JdbcTransaction.deleteEfforts(where: SegmentEfforts.() -> Op<Boolean>) {
+internal fun JdbcTransaction.deleteEfforts(where: SegmentEfforts.() -> Op<Boolean>) = rewriteEfforts(where) { emptyList() }
+
+/**
+ * Replaces the efforts [where] selects with those [insert] writes, which returns the segments they're on, and recomputes the effort
+ * elevation of every segment either set was on once, after both ([deleteEfforts]).
+ */
+internal fun JdbcTransaction.rewriteEfforts(where: SegmentEfforts.() -> Op<Boolean>, insert: () -> Collection<String>) {
     val segments =
         SegmentEfforts.select(SegmentEfforts.segmentUri)
             .where { SegmentEfforts.where() }
             .withDistinct()
             .map { it[SegmentEfforts.segmentUri] }
     SegmentEfforts.deleteWhere { SegmentEfforts.where() }
-    recomputeEffortElevation(segments)
+    recomputeEffortElevation(segments + insert())
 }
 
 /**

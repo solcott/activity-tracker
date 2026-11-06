@@ -504,12 +504,20 @@ class SegmentMatcher(
                     }
                 }
                 .distinctBy { it.segment to it.offset }
-        val before =
-            SegmentEfforts.select(SegmentEfforts.segmentUri)
-                .where { SegmentEfforts.activityUri eq track.activity }
-                .withDistinct()
-                .map { it[SegmentEfforts.segmentUri] }
-        SegmentEfforts.deleteWhere { activityUri eq track.activity }
+        rewriteEfforts({ activityUri eq track.activity }) { insertEfforts(efforts, trackUri, track, grouped, visibility, startedOn) }
+        promote(efforts.map { it.segment }.toSet())
+    }
+
+    /** Writes [efforts] of [track]'s activity, returning the segments they're on. */
+    @Suppress("LongParameterList") // The efforts and what each row repeats.
+    private fun insertEfforts(
+        efforts: List<Pass>,
+        trackUri: String,
+        track: TrackToMatch,
+        grouped: SegmentSport.Grouped,
+        visibility: String,
+        startedOn: String,
+    ): List<String> {
         SegmentEfforts.batchInsert(efforts) { effort ->
             val (uri, offset, pass) = effort
             this[SegmentEfforts.id] = "${track.activity} $uri $offset"
@@ -526,8 +534,7 @@ class SegmentMatcher(
             this[SegmentEfforts.elevationGainM] = effort.elevation?.gain
             this[SegmentEfforts.elevationLossM] = effort.elevation?.loss
         }
-        recomputeEffortElevation(before + efforts.map { it.segment })
-        promote(efforts.map { it.segment }.toSet())
+        return efforts.map { it.segment }
     }
 
     /**
