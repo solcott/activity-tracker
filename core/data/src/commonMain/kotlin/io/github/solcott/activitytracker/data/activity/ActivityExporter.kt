@@ -90,7 +90,20 @@ class ActivityExporter(
         val track = readTrack(view)
         val streams = readStreams(view)
         if (format !in formats(track, streams != null, view.record.sport == Sport.DIVE)) throw ExportUnreadableException()
-        return build(view, format, track, streams?.data, streams?.trainingLoad)
+        // Every category, whatever its visibility: the owner's own view has every tier's details.
+        return build(view.effectiveRecord(), zoneOf(view.record), format, track, streams?.data, streams?.trainingLoad)
+    }
+
+    /**
+     * [stored] (the athlete's activity as their PDS holds it, every tier's details and streams merged) rebuilt as FIT with its full
+     * [track], for a data export (auth/data-export); null when there's nothing to write (no track, no streams) or no record. Reads nothing:
+     * the training load, which only the AppView serves, is left out.
+     */
+    internal suspend fun rebuiltFit(stored: StoredActivity, track: List<LocationSample>?): ExportedFile? {
+        val record = stored.full ?: return null
+        val data = stored.data
+        val fits = ExportFormat.FIT in formats(track, data != null, record.sport == Sport.DIVE)
+        return if (fits) build(record, zoneOf(record), ExportFormat.FIT, track, data, trainingLoad = null) else null
     }
 
     /**
@@ -137,20 +150,19 @@ class ActivityExporter(
         return null
     }
 
-    @Suppress("InjectDispatcher") // CPU-bound, as charts are; files of tens of thousands of points.
+    @Suppress("InjectDispatcher", "LongParameterList") // CPU-bound, as charts are; and the activity, then what's written of it.
     private suspend fun build(
-        view: ActivityView,
+        record: ActivityRecord,
+        zone: TimeZone,
         format: ExportFormat,
         track: List<LocationSample>?,
         streams: ActivityStreamData?,
         trainingLoad: TrainingLoad?,
     ): ExportedFile =
         withContext(Dispatchers.Default) {
-            // Every category, whatever its visibility: the owner's own view has every tier's details.
-            val record = view.effectiveRecord()
             val activity =
                 ExportActivity(
-                    name = displayName(view),
+                    name = displayName(record),
                     sport = record.sport,
                     tcxSport = tcxSport(record.sport),
                     startedAt = record.startedAt,
@@ -179,7 +191,6 @@ class ActivityExporter(
                     legs = streams?.legs.orEmpty(),
                     poolLengthCentimeters = record.poolLength,
                 )
-            val zone = zoneOf(view.record)
             val bytes =
                 when (format) {
                     ExportFormat.GPX -> GpxWriter.write(activity).encodeToByteArray()
@@ -187,7 +198,7 @@ class ActivityExporter(
                     ExportFormat.FIT -> FitWriter.write(activity, zone)
                     ExportFormat.UDDF -> UddfWriter.write(activity, zone).encodeToByteArray()
                 }
-            ExportedFile(fileName(view, format, zone), format.mimeType, bytes)
+            ExportedFile(fileName(record, format, zone), format.mimeType, bytes)
         }
 
     companion object {
@@ -244,16 +255,20 @@ class ActivityExporter(
         fun zoneOf(record: ActivityRecord): TimeZone =
             record.utcOffset?.let { FixedOffsetTimeZone(UtcOffset(seconds = it * SECONDS_PER_MINUTE)) } ?: TimeZone.currentSystemDefault()
 
-        fun fileName(view: ActivityView, format: ExportFormat, zone: TimeZone): String {
-            val date = view.record.startedAt.toLocalDateTime(zone).date
-            val name = displayName(view).replace(INVALID_FILE_NAME_CHARS, "_").trim().trimEnd('.').take(MAX_NAME_LENGTH).trim()
-            return "${name.ifEmpty { format.name }} $date.${format.extension}"
+        fun fileName(view: ActivityView, format: ExportFormat, zone: TimeZone): String = fileName(view.record, format, zone)
+
+        fun fileName(record: ActivityRecord, format: ExportFormat, zone: TimeZone): String {
+            val date = record.startedAt.toLocalDateTime(zone).date
+            return "${safeName(displayName(record)).ifEmpty { format.name }} $date.${format.extension}"
         }
 
+        /** [name] without characters any platform refuses in a file name, trimmed and capped in length. */
+        fun safeName(name: String): String = name.replace(INVALID_FILE_NAME_CHARS, "_").trim().trimEnd('.').take(MAX_NAME_LENGTH).trim()
+
         /** The activity's title, else its sport's token spelt as words ("xcSki" → "Xc ski"); the data layer has no localized names. */
-        private fun displayName(view: ActivityView): String =
-            view.record.title?.takeIf { it.isNotBlank() }
-                ?: view.record.sport
+        fun displayName(record: ActivityRecord): String =
+            record.title?.takeIf { it.isNotBlank() }
+                ?: record.sport
                     .replace(Regex("([a-z])([A-Z])")) { "${it.groupValues[1]} ${it.groupValues[2].lowercase()}" }
                     .replaceFirstChar { it.uppercase() }
     }

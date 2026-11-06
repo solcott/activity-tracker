@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
+import io.github.solcott.activitytracker.data.export.testDataExports
 import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.FakeLocationTracker
@@ -42,7 +43,14 @@ class AuthCoordinatorTest {
                 RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), Logger),
             )
         return AuthCoordinator(
-            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), testImportSaves(db)),
+            AuthRepository(
+                manager,
+                db,
+                http,
+                ActivityRecorder(FakeLocationTracker(), Clock.System),
+                testImportSaves(db),
+                testDataExports(db),
+            ),
             AuthBrowser {},
             Logger,
         )

@@ -335,17 +335,24 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                 path == "/xrpc/com.atproto.repo.listRecords" || path == "/xrpc/com.atproto.space.listRecords" -> {
                                     val params = request.url.parameters
                                     val place = params["space"]?.substringAfterLast('/') ?: repo
-                                    val collection = params["collection"]!!
+                                    // A space's listing without a collection lists every collection, as the PDS's does.
+                                    val collection = params["collection"]
                                     val records =
                                         stored[place]
                                             .orEmpty()
-                                            .filterKeys { it.startsWith("$collection/") }
+                                            .filterKeys { collection == null || it.startsWith("$collection/") }
                                             .map { (key, value) ->
                                                 val rkey = key.substringAfter('/')
+                                                val of = key.substringBefore('/')
                                                 if (place == repo) """{"uri":"at://$did/$key","cid":"bafyrec","value":$value}"""
-                                                else """{"collection":"$collection","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                                else """{"collection":"$of","rkey":"$rkey","cid":"bafyrec","value":$value}"""
                                             }
-                                    json("""{"records":[${records.joinToString(",")}]}""")
+                                    // Pages by position when asked for a limit, the cursor the next record's index.
+                                    val from = params["cursor"]?.toInt() ?: 0
+                                    val limit = params["limit"]?.toInt() ?: records.size
+                                    val page = records.drop(from).take(limit)
+                                    val next = (from + page.size).takeIf { it < records.size }?.let { ""","cursor":"$it"""" }.orEmpty()
+                                    json("""{"records":[${page.joinToString(",")}]$next}""")
                                 }
                                 path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" ->
                                     authorActivities?.let {

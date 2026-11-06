@@ -7,6 +7,7 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.export.DataExports
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
@@ -43,6 +44,7 @@ class AuthRepository(
     private val http: HttpClient,
     private val recorder: ActivityRecorder,
     private val saves: ImportSaves,
+    private val exports: DataExports,
 ) {
     val session: StateFlow<OAuthSession?>
         get() = sessionManager.session
@@ -95,6 +97,8 @@ class AuthRepository(
             recorder.suspendForSignOut()
             // A batch save stops and its unsaved activities go (feed/batch-import); an expiry leaves it to resume after signing back in.
             sessionManager.session.value?.did?.let { saves.signedOut(it) }
+            // A data export stops and is deleted, staged files and all (auth/data-export).
+            sessionManager.session.value?.did?.let { exports.signedOut(it) }
             lastEnd.value = signingInAgain?.let { EndedSession(it.did, it.handle, EndedSession.Reason.SignInAgain) }
         } else {
             lastEnd.value = EndedSession(expired.did, expired.handle, EndedSession.Reason.Expired)

@@ -35,6 +35,7 @@ fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
+        MIGRATION_10_11,
     )
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
@@ -143,6 +144,29 @@ private val MIGRATION_9_10 =
         it.runSql("ALTER TABLE upload_item ADD COLUMN recordJson TEXT")
     }
 
+/** 10 → 11: persisted whole-account data exports (auth/data-export), their listings and items. */
+private val MIGRATION_10_11 =
+    Migration(10, 11) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `data_export` (`id` TEXT NOT NULL, `did` TEXT NOT NULL, `handle` TEXT NOT NULL, " +
+                "`pdsHost` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `finishedAt` INTEGER, `state` TEXT NOT NULL, `reason` TEXT, " +
+                "`unsentChanges` INTEGER NOT NULL, `spacesIncluded` INTEGER NOT NULL, `neededBytes` INTEGER, PRIMARY KEY(`id`))"
+        )
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_data_export_did` ON `data_export` (`did`)")
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `data_export_list` (`exportId` TEXT NOT NULL, `place` TEXT NOT NULL, `collection` TEXT NOT NULL, " +
+                "`cursor` TEXT, `done` INTEGER NOT NULL, `records` INTEGER NOT NULL, PRIMARY KEY(`exportId`, `place`, `collection`))"
+        )
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `data_export_item` (`exportId` TEXT NOT NULL, `kind` TEXT NOT NULL, `place` TEXT NOT NULL, " +
+                "`key` TEXT NOT NULL, `size` INTEGER, `state` TEXT NOT NULL, `path` TEXT, `reason` TEXT, " +
+                "PRIMARY KEY(`exportId`, `kind`, `place`, `key`))"
+        )
+        it.runSql(
+            "CREATE INDEX IF NOT EXISTS `index_data_export_item_exportId_kind_state` ON `data_export_item` (`exportId`, `kind`, `state`)"
+        )
+    }
+
 @Database(
     entities =
         [
@@ -159,8 +183,11 @@ private val MIGRATION_9_10 =
             ImportSaveEntity::class,
             ImportSaveSourceEntity::class,
             ImportSaveItemEntity::class,
+            DataExportEntity::class,
+            DataExportListEntity::class,
+            DataExportItemEntity::class,
         ],
-    version = 10,
+    version = 11,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -179,6 +206,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun uploads(): UploadDao
 
     abstract fun importSaves(): ImportSaveDao
+
+    abstract fun dataExports(): DataExportDao
 }
 
 @Suppress("KotlinNoActualForExpect")

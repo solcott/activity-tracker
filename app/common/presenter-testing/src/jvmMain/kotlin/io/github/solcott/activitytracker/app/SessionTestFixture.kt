@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.record.GearChoices
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDevicesStore
+import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -17,6 +18,10 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.export.DataExporter
+import io.github.solcott.activitytracker.data.export.DataExports
+import io.github.solcott.activitytracker.data.export.InMemoryExportFiles
+import io.github.solcott.activitytracker.data.export.testDataExports
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.gear.GearCollections
@@ -584,6 +589,10 @@ class SessionTestFixture {
         /** The session's persisted batch saves, keeping no picked files: a save runs from them in this process. */
         val saveStore: ImportSaveStore,
         val clients: SessionClients,
+        /** Data exports app-wide, staging in memory (auth/data-export). */
+        val exports: DataExports,
+        /** The session's export runner, over [exports], straight from the fake PDS. */
+        val dataExporter: DataExporter,
     ) {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
@@ -599,6 +608,8 @@ class SessionTestFixture {
         val (db, manager, clients) = signedInTestSession(http, did = did, scope = scope)
         clients.resolveSpacesSupport()
         val saves = testImportSaves(db)
+        val exportFiles = InMemoryExportFiles()
+        val exports = testDataExports(db, exportFiles)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)
@@ -651,7 +662,7 @@ class SessionTestFixture {
             activities,
             profiles,
             units,
-            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), saves),
+            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), saves, exports),
             recentTypes,
             feed,
             ActivityDefaults(clients),
@@ -673,6 +684,16 @@ class SessionTestFixture {
             saves,
             ImportSaveStore(db, clients, KeepNothing, saves, Clock.System),
             clients,
+            exports,
+            DataExporter(
+                db,
+                clients,
+                exportFiles,
+                ActivityExporter(db, clients, zones.tracks, zones.sources, feed),
+                exports,
+                Clock.System,
+                Logger,
+            ),
         )
     }
 }

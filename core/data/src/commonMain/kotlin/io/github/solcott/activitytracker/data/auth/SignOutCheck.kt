@@ -4,23 +4,31 @@ import androidx.compose.runtime.Immutable
 import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.data.export.DataExports
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import kotlinx.coroutines.flow.first
 
 /**
  * What ending the session would leave behind on this device: [changes] not uploaded (waiting, uploading or refused), which stay and upload
- * when the account signs in here again, and whether an import is still [importSaving], whose unsaved activities signing out drops.
+ * when the account signs in here again, whether an import is still [importSaving], whose unsaved activities signing out drops, and whether
+ * a data export is running or waiting to be saved ([exportPending]), which signing out cancels and deletes.
  */
-@Immutable data class PendingWork(val changes: Int, val importSaving: Boolean)
+@Immutable data class PendingWork(val changes: Int, val importSaving: Boolean, val exportPending: Boolean = false)
 
 /** Asks, at the moment the athlete chooses to end the session, what would be left behind (auth/account-page). */
 @Inject
-class SignOutCheck(private val queue: UploadQueue, private val saves: ImportSaves, private val clients: SessionClients) {
+class SignOutCheck(
+    private val queue: UploadQueue,
+    private val saves: ImportSaves,
+    private val exports: DataExports,
+    private val clients: SessionClients,
+) {
     /** What's pending for this account now, or null with nothing to ask about. */
     suspend fun pending(): PendingWork? {
         val summary = queue.summary.first()
         val changes = summary.own + summary.imported + summary.other + summary.refused
         val importSaving = saves.hasSaves(clients.did)
-        return if (changes == 0 && !importSaving) null else PendingWork(changes, importSaving)
+        val exportPending = exports.hasExport(clients.did)
+        return if (changes == 0 && !importSaving && !exportPending) null else PendingWork(changes, importSaving, exportPending)
     }
 }

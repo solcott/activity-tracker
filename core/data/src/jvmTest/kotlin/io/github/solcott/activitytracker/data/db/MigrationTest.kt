@@ -127,6 +127,19 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version10GainsEmptyDataExports() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 10)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        assertEquals(listOf("3kold"), db.outbox().pending("did:plc:alice").map { it.rkey })
+        assertEquals(null, db.dataExports().exportOf("did:plc:alice"))
+        db.dataExports().insert(DataExportEntity("3kexport", "did:plc:alice", "alice.test", "pds.test", createdAt = 0))
+        assertEquals(DataExportEntity.STATE_RUNNING, db.dataExports().exportOf("did:plc:alice")?.state)
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */
