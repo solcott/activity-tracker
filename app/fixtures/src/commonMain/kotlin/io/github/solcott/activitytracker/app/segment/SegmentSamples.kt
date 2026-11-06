@@ -136,7 +136,7 @@ object SegmentSamples {
 
     /**
      * A 1.6 km segment the AppView gave terrain elevation and a profile (segments/segment-elevation): 84 m up, 12 m down, a 4.5% average
-     * grade, gentle, then a steep middle, then a short descent.
+     * grade, gentle, then a steep middle, then a short descent; the AppView measured its steepest stretch at 12.4%.
      */
     val elevation: SegmentState
         get() =
@@ -150,7 +150,7 @@ object SegmentSamples {
                         )
                     )
                 )
-                .copy(profile = fakeProfile(1_600) { at -> CLIMB_START_M + climbProfile(at) })
+                .copy(profile = fakeProfile(1_600, maxGradePercent = 12.4) { at -> CLIMB_START_M + climbProfile(at) })
 
     /** A segment whose elevation comes from athletes' efforts: the numbers, and no profile. */
     val elevationFromEfforts: SegmentState
@@ -180,8 +180,11 @@ object SegmentSamples {
         }
     }
 
-    /** A [distanceMeters] profile of [PROFILE_POINTS] heights, [heightAt] each fraction along, with each point's grade. */
-    private fun fakeProfile(distanceMeters: Long, heightAt: (Double) -> Double): SegmentProfile {
+    /**
+     * A [distanceMeters] profile of [PROFILE_POINTS] heights, [heightAt] each fraction along, with each point's grade, and the AppView's
+     * [maxGradePercent] when it sent one.
+     */
+    private fun fakeProfile(distanceMeters: Long, maxGradePercent: Double? = null, heightAt: (Double) -> Double): SegmentProfile {
         val count = PROFILE_POINTS
         val heights = List(count) { heightAt(it.toDouble() / (count - 1)) }
         val spacing = distanceMeters.toDouble() / (count - 1)
@@ -191,7 +194,7 @@ object SegmentSamples {
                 val ahead = (i + 2).coerceAtMost(heights.lastIndex)
                 (heights[ahead] - heights[behind]) / ((ahead - behind) * spacing) * 100
             }
-        return SegmentProfile(heights.toImmutableList(), distanceMeters, grades.toImmutableList())
+        return SegmentProfile(heights.toImmutableList(), distanceMeters, grades.toImmutableList(), maxGradePercent)
     }
 
     private const val PROFILE_POINTS = 128

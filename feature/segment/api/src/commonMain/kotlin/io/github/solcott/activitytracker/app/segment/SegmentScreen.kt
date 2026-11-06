@@ -83,10 +83,24 @@ data class SegmentState(
  * [distanceMeters] from start to end, and each point's grade in percent over about 50 m, [gradesPercent], positive uphill.
  */
 @Immutable
-data class SegmentProfile(val heightsM: ImmutableList<Double>, val distanceMeters: Long, val gradesPercent: ImmutableList<Double>) {
+data class SegmentProfile(
+    val heightsM: ImmutableList<Double>,
+    val distanceMeters: Long,
+    val gradesPercent: ImmutableList<Double>,
+    /** The steepest absolute grade along the line, in percent, as the AppView measured it; null when it sent none. */
+    val maxGradePercent: Double? = null,
+) {
     /** How far apart the heights are, in meters. */
     val spacingMeters: Double
         get() = if (heightsM.size > 1) distanceMeters.toDouble() / (heightsM.size - 1) else 0.0
+
+    /** The highest of [heightsM], in meters. */
+    val highM: Double
+        get() = heightsM.maxOrNull() ?: 0.0
+
+    /** The lowest of [heightsM], in meters. */
+    val lowM: Double
+        get() = heightsM.minOrNull() ?: 0.0
 
     /** Each point's [GradeBand]. */
     val gradeBands: List<Int>

@@ -42,6 +42,8 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation
+import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_extremes
+import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_range
 import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
@@ -123,7 +125,10 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                         )
                     }
                     Elevation(segment)
-                    state.profile?.let { SegmentProfileChart(it, Modifier.padding(top = 8.dp)) }
+                    state.profile?.let {
+                        Extremes(it)
+                        SegmentProfileChart(it, Modifier.padding(top = 8.dp))
+                    }
                     Text(
                         stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
                         style = MaterialTheme.typography.bodyMedium,
@@ -238,6 +243,29 @@ private fun Elevation(segment: SegmentView) {
             Format.elevation(loss.toDouble()),
             stringResource(Res.string.unit_percent, formatDecimal(grade, 1)),
         ),
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+/**
+ * The [profile]'s high and low points, and its maximum grade as a whole percent when the AppView measured one (segments/segment-elevation).
+ */
+@Composable
+private fun Extremes(profile: SegmentProfile) {
+    val high = Format.elevation(profile.highM)
+    val low = Format.elevation(profile.lowM)
+    val maxGrade = profile.maxGradePercent
+    Text(
+        if (maxGrade != null) {
+            stringResource(
+                Res.string.segment_elevation_extremes,
+                high,
+                low,
+                stringResource(Res.string.unit_percent, formatDecimal(maxGrade, 0)),
+            )
+        } else {
+            stringResource(Res.string.segment_elevation_range, high, low)
+        },
         style = MaterialTheme.typography.bodyMedium,
     )
 }

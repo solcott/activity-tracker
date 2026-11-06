@@ -11,7 +11,10 @@ import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** A segment's elevation on its screen (segments/segment-elevation): gain, loss and average grade when known, nothing otherwise. */
+/**
+ * A segment's elevation on its screen (segments/segment-elevation): gain, loss and average grade when known, and high, low and maximum
+ * grade with a profile; nothing otherwise.
+ */
 @OptIn(ExperimentalTestApi::class)
 class SegmentElevationUiTest {
     @Test
@@ -47,10 +50,30 @@ class SegmentElevationUiTest {
     }
 
     @Test
+    fun showsHighLowAndMaxGrade() = runComposeUiTest {
+        setContent { AppPreview { SegmentUi(SegmentSamples.elevation) } }
+        onNodeWithText("1,504 m high · 1,420 m low · 12% max grade").assertExists()
+    }
+
+    @Test
+    fun highLowAndMaxGradeInImperialUnits() = runComposeUiTest {
+        setContent { AppPreview(units = UnitSystem.Imperial) { SegmentUi(SegmentSamples.elevation) } }
+        onNodeWithText("4,934 ft high · 4,659 ft low · 12% max grade").assertExists()
+    }
+
+    @Test
+    fun aProfileWithoutAMaxGradeShowsHighAndLow() = runComposeUiTest {
+        setContent { AppPreview { SegmentUi(SegmentSamples.lift) } }
+        onNodeWithText("2,160 m high · 1,850 m low").assertExists()
+        onNodeWithText("max grade", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun elevationFromEffortsHasNoProfile() = runComposeUiTest {
         setContent { AppPreview { SegmentUi(SegmentSamples.elevationFromEfforts) } }
         onNodeWithText("84 m gain · 12 m loss · 4.5% avg grade").assertExists()
         onNodeWithTag(SEGMENT_PROFILE_TAG).assertDoesNotExist()
+        onNodeWithText("high ·", substring = true).assertDoesNotExist()
     }
 
     @Test
