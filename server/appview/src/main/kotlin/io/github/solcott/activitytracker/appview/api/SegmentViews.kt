@@ -359,7 +359,7 @@ class SegmentViews(
     /**
      * A segment's Mayors board (segments/segment-mayors): athletes by how many of their efforts a leaderboard of the same filters could
      * rank in [GetSegmentMayors.Params.period]'s window, most first, then by the date each count was reached ([REACHED], their latest
-     * counted effort), earliest first. Pages and ranks as [leaderboard] does, by a `HAVING` keyset on (count, date, athlete).
+     * counted effort), earliest first. Pages and ranks as every [CountBoard] does.
      */
     suspend fun mayors(viewer: Did?, params: GetSegmentMayors.Params): GetSegmentMayors.Output {
         val period = params.period ?: MayorPeriod.LAST_90_DAYS
@@ -374,22 +374,9 @@ class SegmentViews(
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentMayors.Output(emptyList())
             val board = boardOf(viewer, params.segment.value, served, since, following, until) and brackets
-            val limit = Paging.clamp(params.limit)
-            val after =
-                params.cursor?.let(::parseMayorCursor)?.let { (efforts, reached, did) ->
-                    (EFFORTS less efforts) or
-                        ((EFFORTS eq efforts) and (REACHED greater reached)) or
-                        ((EFFORTS eq efforts) and (REACHED eq reached) and (SegmentEfforts.authorDid greater did))
-                } ?: Op.TRUE
-            val page =
-                counts(board, after)
-                    .orderBy(EFFORTS to SortOrder.DESC, REACHED to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC)
-                    .limit(limit)
-                    .mapNotNull(::mayorRow)
-            val entries = mayorEntries(board, page)
-            val next = page.takeIf { it.size == limit }?.last()?.let { (did, efforts, reached) -> cursorOf(efforts, reached, did) }
-            val own = viewer?.let { me -> counts(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.let(::mayorRow) }
-            GetSegmentMayors.Output(entries, own?.let { mayorEntries(board, listOf(it)).singleOrNull() }, next, served, boards)
+            val page = mayorBoard.page(board, params.cursor, Paging.clamp(params.limit))
+            val own = viewer?.let { mayorBoard.entryOf(board, it.value) }
+            GetSegmentMayors.Output(mayorEntries(page.entries), own?.let { mayorEntries(listOf(it)).single() }, page.next, served, boards)
         }
     }
 
@@ -632,61 +619,13 @@ class SegmentViews(
             .associate { it[SegmentEfforts.id] to it[reason] }
     }
 
-    /**
-     * Competition ranks for [page], in board order: the first entry's is one more than the athletes [ahead] of it, and each later one
-     * shares the rank of the entry before when [tied] with it, else takes its place on the board, counted from the athletes listed [before]
-     * the first (ties with the first entry may sit on earlier pages).
-     */
-    private fun <T> ranksOf(page: List<T>, ahead: (T) -> Long, before: (T) -> Long, tied: (T, T) -> Boolean): IntArray {
-        val ranks = IntArray(page.size)
-        if (page.isEmpty()) return ranks
-        val position = before(page.first())
-        page.forEachIndexed { i, entry ->
-            ranks[i] =
-                when {
-                    i == 0 -> ahead(entry).toInt() + 1
-                    tied(entry, page[i - 1]) -> ranks[i - 1]
-                    else -> position.toInt() + i + 1
-                }
-        }
-        return ranks
-    }
+    /** The Mayors board over [rankedEfforts]: each athlete's [EFFORTS], reached on their [REACHED] date. */
+    private val mayorBoard = CountBoard(::rankedEfforts, SegmentEfforts.authorDid, EFFORTS, REACHED)
 
-    /** Each athlete's count of efforts on [board], as `author_did`, [EFFORTS] and [REACHED], filtered by [having]. */
-    private fun counts(board: Op<Boolean>, having: Op<Boolean>) =
-        rankedEfforts()
-            .select(SegmentEfforts.authorDid, EFFORTS, REACHED)
-            .where { board }
-            .groupBy(SegmentEfforts.authorDid)
-            .having { having }
-
-    /** A [counts] row as athlete, count and the date it was reached; null for an empty group. */
-    private fun mayorRow(row: ResultRow): Triple<String, Long, String>? =
-        row[REACHED]?.let { Triple(row[SegmentEfforts.authorDid], row[EFFORTS], it) }
-
-    /** Entries for [page] (athlete, count and date reached, in board order), ranked over the whole Mayors board. */
-    private fun JdbcTransaction.mayorEntries(board: Op<Boolean>, page: List<Triple<String, Long, String>>): List<MayorEntry> {
-        val ranks =
-            ranksOf(
-                page,
-                ahead = { (_, efforts, reached) ->
-                    counts(board, (EFFORTS greater efforts) or ((EFFORTS eq efforts) and (REACHED less reached))).count()
-                },
-                before = { (did, efforts, reached) ->
-                    counts(
-                            board,
-                            (EFFORTS greater efforts) or
-                                ((EFFORTS eq efforts) and (REACHED less reached)) or
-                                ((EFFORTS eq efforts) and (REACHED eq reached) and (SegmentEfforts.authorDid less did)),
-                        )
-                        .count()
-                },
-                tied = { a, b -> a.second == b.second && a.third == b.third },
-            )
-        val athletes = basicProfiles(page.map { it.first }, avatars)
-        return page.mapIndexed { i, (did, efforts, reached) ->
-            MayorEntry(ranks[i], athletes[did] ?: unknownProfile(did), efforts.toInt(), reached)
-        }
+    /** [MayorEntry]s for [entries], with their athletes' profiles. */
+    private fun JdbcTransaction.mayorEntries(entries: List<CountEntry>): List<MayorEntry> {
+        val athletes = basicProfiles(entries.map { it.athlete }, avatars)
+        return entries.map { MayorEntry(it.rank, athletes[it.athlete] ?: unknownProfile(it.athlete), it.count.toInt(), it.reached) }
     }
 
     /**
@@ -812,15 +751,6 @@ class SegmentViews(
 
         /** The local date an athlete's Mayors count was reached: their latest counted effort's. */
         private val REACHED = SegmentEfforts.startedOn.max()
-
-        /** The parts of a Mayors cursor: count, date and athlete. */
-        private const val MAYOR_CURSOR_PARTS = 3
-
-        /** Splits a `"<count>::<date>::<did>"` Mayors cursor; null when it is malformed. */
-        private fun parseMayorCursor(cursor: String): Triple<Long, String, String>? {
-            val (efforts, reached, did) = cursorParts(cursor, MAYOR_CURSOR_PARTS) ?: return null
-            return efforts.toLongOrNull()?.let { Triple(it, reached, did) }
-        }
 
         /** An effort's ID, rebuilt from its view as the matcher writes it, for the keyset cursor. */
         private fun effortId(effort: EffortView) = "${effort.activity.value} ${effort.segment.uri.value} ${effort.startOffset}"

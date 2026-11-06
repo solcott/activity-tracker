@@ -53,7 +53,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
-import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
@@ -63,7 +62,6 @@ import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
-import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -198,36 +196,17 @@ class DiveSiteViews(
     /**
      * A site's Regulars board: athletes by how many of their visits to it [viewer] may see in the window, most first, then by the date each
      * count was reached, earliest first; leaving out athletes who hide from leaderboards and activities excluded on their segment track.
-     * Only an active site has entries. Pages by a `HAVING` keyset on (count, date, athlete) and ranks over the whole board.
+     * Only an active site has entries. Pages and ranks as every [CountBoard] does.
      */
     suspend fun regulars(viewer: Did?, params: GetDiveSiteRegulars.Params): GetDiveSiteRegulars.Output {
         val (since, until) = regularsWindow(params.period)
         val following = followingScope(viewer, params.scope)
         return db.tx {
             if (requireServedSite(viewer, params.site.value) != SegmentStatus.ACTIVE) return@tx GetDiveSiteRegulars.Output(emptyList())
-            val board = regularsBoard(viewer, params.site.value, since, until, following)
-            val limit = Paging.clamp(params.limit)
-            val after =
-                params.cursor
-                    ?.let { cursorParts(it, REGULAR_CURSOR_PARTS) }
-                    ?.let { (count, reached, did) ->
-                        count.toLongOrNull()?.let { visits ->
-                            (VISITS less visits) or
-                                ((VISITS eq visits) and (REACHED greater reached)) or
-                                ((VISITS eq visits) and (REACHED eq reached) and (DiveSiteVisits.authorDid greater did))
-                        }
-                    } ?: Op.TRUE
-            val page =
-                counts(board, after)
-                    .orderBy(VISITS to SortOrder.DESC, REACHED to SortOrder.ASC, DiveSiteVisits.authorDid to SortOrder.ASC)
-                    .limit(limit)
-                    .mapNotNull(::regularRow)
-            val entries = regularEntries(board, page)
-            val next = page.takeIf { it.size == limit }?.last()?.let { (did, visits, reached) -> cursorOf(visits, reached, did) }
-            val own = viewer?.let { me ->
-                counts(board and (DiveSiteVisits.authorDid eq me.value), Op.TRUE).firstOrNull()?.let(::regularRow)
-            }
-            GetDiveSiteRegulars.Output(entries, own?.let { regularEntries(board, listOf(it)).singleOrNull() }, next)
+            val board = regularVisits(viewer, params.site.value, since, until, following)
+            val page = regularsBoard.page(board, params.cursor, Paging.clamp(params.limit))
+            val own = viewer?.let { regularsBoard.entryOf(board, it.value) }
+            GetDiveSiteRegulars.Output(regularEntries(page.entries), own?.let { regularEntries(listOf(it)).single() }, page.next)
         }
     }
 
@@ -239,7 +218,7 @@ class DiveSiteViews(
     }
 
     /** The visits a Regulars board counts. */
-    private fun regularsBoard(viewer: Did?, site: String, since: String?, until: String?, following: Boolean): Op<Boolean> {
+    private fun regularVisits(viewer: Did?, site: String, since: String?, until: String?, following: Boolean): Op<Boolean> {
         return (DiveSiteVisits.siteUri eq site) and
             visitsVisibleTo(viewer) and
             not(hidesFromLeaderboards(DiveSiteVisits.authorDid)) and
@@ -249,27 +228,24 @@ class DiveSiteViews(
             followedOrOwn(DiveSiteVisits.authorDid, viewer, following)
     }
 
-    private fun counts(board: Op<Boolean>, having: Op<Boolean>): Query =
-        visitsWithActivities()
-            .join(SegmentTracks, JoinType.INNER, DiveSiteVisits.trackUri, SegmentTracks.uri)
-            .select(DiveSiteVisits.authorDid, VISITS, REACHED)
-            .where { board }
-            .groupBy(DiveSiteVisits.authorDid)
-            .having { having }
+    /** The Regulars board: each athlete's [VISITS] on a segment track, reached on their [REACHED] date. */
+    private val regularsBoard =
+        CountBoard(
+            { visitsWithActivities().join(SegmentTracks, JoinType.INNER, DiveSiteVisits.trackUri, SegmentTracks.uri) },
+            DiveSiteVisits.authorDid,
+            VISITS,
+            REACHED,
+        )
 
-    private fun regularRow(row: ResultRow): Triple<String, Long, String>? =
-        row[REACHED]?.let { Triple(row[DiveSiteVisits.authorDid], row[VISITS], it) }
-
-    /** Entries for [page], ranked over the whole board: equal counts reached on one date share a rank, and the next skips. */
-    private fun JdbcTransaction.regularEntries(board: Op<Boolean>, page: List<Triple<String, Long, String>>): List<DiveSiteRegularEntry> {
-        val athletes = basicProfiles(page.map { it.first }, avatars)
-        return page.map { (did, visits, reached) ->
-            val ahead = counts(board, (VISITS greater visits) or ((VISITS eq visits) and (REACHED less reached))).count()
+    /** [DiveSiteRegularEntry]s for [entries], with their athletes' profiles. */
+    private fun JdbcTransaction.regularEntries(entries: List<CountEntry>): List<DiveSiteRegularEntry> {
+        val athletes = basicProfiles(entries.map { it.athlete }, avatars)
+        return entries.map {
             DiveSiteRegularEntry(
-                rank = ahead.toInt() + 1,
-                athlete = athletes[did] ?: unknownProfile(did),
-                visits = visits.toInt(),
-                reachedOn = reached,
+                rank = it.rank,
+                athlete = athletes[it.athlete] ?: unknownProfile(it.athlete),
+                visits = it.count.toInt(),
+                reachedOn = it.reached,
             )
         }
     }
@@ -300,7 +276,6 @@ class DiveSiteViews(
     private companion object {
         val VISITS = DiveSiteVisits.activityUri.count()
         val REACHED = DiveSiteVisits.startedOn.max()
-        const val REGULAR_CURSOR_PARTS = 3
     }
 }
 
