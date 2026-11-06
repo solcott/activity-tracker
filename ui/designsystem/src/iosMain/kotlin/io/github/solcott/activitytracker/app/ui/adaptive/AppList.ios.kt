@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -92,9 +93,24 @@ actual fun AppListRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, Modifier.weight(1f), color = content, style = MaterialTheme.typography.bodyLarge)
+        // The title keeps its natural width (Row measures unweighted children first) and the summary takes what's left, ellipsized,
+        // so a long value (a DID) can't squeeze the title to one letter per line. With no summary the title fills, pushing trailing aside.
+        Text(
+            title,
+            if (summary == null) Modifier.weight(1f) else Modifier,
+            color = content,
+            style = MaterialTheme.typography.bodyLarge,
+        )
         summary?.let {
-            Text(it, color = secondary, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                it,
+                Modifier.weight(1f),
+                color = secondary,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         when {
             trailing != null -> trailing()
