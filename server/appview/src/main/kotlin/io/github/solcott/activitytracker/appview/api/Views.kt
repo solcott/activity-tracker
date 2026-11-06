@@ -36,7 +36,6 @@ import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
@@ -495,8 +494,9 @@ private fun mediaViews(
         ?.filterIsInstance<ActivityMedia.Image>()
         ?.mapNotNull {
             val cid = it.image.ref.link
-            val url = if (visibility == Visibility.PUBLIC) urls.url(author, cid) else viewer?.let { v -> urls.privateUrl(author, cid, v) }
-            url?.let { u -> ActivityMediaView.Image(fullsize = u, alt = it.alt, aspectRatio = it.aspectRatio) }
+            urls.forTier(author, cid, visibility, viewer)?.let { u ->
+                ActivityMediaView.Image(fullsize = u, alt = it.alt, aspectRatio = it.aspectRatio)
+            }
         }
         ?.ifEmpty { null }
 

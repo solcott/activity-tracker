@@ -89,8 +89,8 @@ internal fun JdbcTransaction.gearOf(
         .where {
             (ActivityGear.activityUri inList activities) and
                 (GearItems.authorDid eq ActivityGear.authorDid) and
-                visibleTo(viewer, ActivityGear.visibility, ActivityGear.authorDid, ActivityGear.activityUri, null) and
-                visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid)
+                refVisibleTo(viewer) and
+                gearVisibleTo(viewer)
         }
         .toList()
         .groupBy { it[ActivityGear.activityUri] }
@@ -109,11 +109,7 @@ internal fun JdbcTransaction.gearOf(
 /** The [GearItems] row's `gearView`, its photo link signed for [mediaViewer] when the item isn't public. */
 internal fun ResultRow.gearView(urls: MediaUrls, mediaViewer: Did?): GearView {
     val author = this[GearItems.authorDid]
-    val photo =
-        this[GearItems.photoCid]?.let { cid ->
-            if (this[GearItems.visibility] == Visibility.PUBLIC) urls.url(author, cid)
-            else mediaViewer?.let { urls.privateUrl(author, cid, it) }
-        }
+    val photo = this[GearItems.photoCid]?.let { urls.forTier(author, it, this[GearItems.visibility], mediaViewer) }
     return GearView(
         uri = AtUri(this[GearItems.uri]),
         name = this[GearItems.name],
@@ -144,7 +140,8 @@ internal fun JdbcTransaction.requireVisibleGear(uri: String, viewer: Did?): Resu
     GearItems.selectAll().where { (GearItems.uri eq uri) and gearVisibleTo(viewer) }.singleOrNull()
         ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Gear not found")
 
-private fun gearVisibleTo(viewer: Did?) = visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid)
+/** The [GearItems] rows [viewer] may see ([visibleTo]). */
+internal fun gearVisibleTo(viewer: Did?) = visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid)
 
 /**
  * The gear references [viewer] may see, each paired with an item it counts for, among the items [items] picks (given that item's column):
@@ -192,7 +189,8 @@ private fun mountedRefs(viewer: Did?, items: (Column<String>) -> Op<Boolean>, de
     return join.select(ActivityGear.activityUri, counted).where { items(counted) and where }
 }
 
-private fun refVisibleTo(viewer: Did?) = visibleTo(viewer, ActivityGear.visibility, ActivityGear.authorDid, ActivityGear.activityUri, null)
+/** The [ActivityGear] references [viewer] may see: their record's tier, per [visibleTo]. */
+internal fun refVisibleTo(viewer: Did?) = visibleTo(viewer, ActivityGear.visibility, ActivityGear.authorDid, ActivityGear.activityUri, null)
 
 private fun aliasVisibleTo(viewer: Did?, item: Alias<GearItems>) =
     visibleTo(viewer, item[GearItems.visibility], item[GearItems.authorDid], item[GearItems.uri], item[GearItems.cid])

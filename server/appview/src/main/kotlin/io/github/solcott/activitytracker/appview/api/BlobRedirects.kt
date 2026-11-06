@@ -61,6 +61,13 @@ class AvatarUrls(private val publicUrl: String) {
 class MediaUrls(private val publicUrl: String, private val tokens: PrivateMediaTokens? = null) {
     fun url(did: String, cid: String): String = "$publicUrl$PATH/$did/$cid"
 
+    /**
+     * The URL [viewer] gets to a photo in a record of [visibility]: the public one for a public record, else one signed for them
+     * ([privateUrl]), null with no viewer.
+     */
+    fun forTier(did: String, cid: String, visibility: String, viewer: Did?): String? =
+        if (visibility == Visibility.PUBLIC) url(did, cid) else viewer?.let { privateUrl(did, cid, it) }
+
     /** [viewer]'s URL to a photo of a non-public activity; null when the AppView can't serve those (no signing key). */
     fun privateUrl(did: String, cid: String, viewer: Did): String? = tokens?.let { t ->
         URLBuilder(url(did, cid)).apply { t.params(did, cid, viewer).forEach { (k, v) -> parameters.append(k, v) } }.buildString()
@@ -178,8 +185,7 @@ private fun JdbcTransaction.isCurrentAvatar(did: String, cid: String): Boolean =
  * fetch from the PDS.
  */
 private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boolean =
-    !mediaRows(did, cid) { (Activities.visibility eq Visibility.PUBLIC) and servedToAll() }.empty() ||
-        !gearPhotoRows(did, cid) { GearItems.visibility eq Visibility.PUBLIC }.empty()
+    !mediaRows(did, cid) { visibleTo(null) }.empty() || !gearPhotoRows(did, cid) { gearVisibleTo(null) }.empty()
 
 /**
  * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one, or that a moderator was shown with a subject they
@@ -190,8 +196,7 @@ private fun JdbcTransaction.visibleMediaOrigin(did: String, cid: String, viewer:
         .firstOrNull()
         ?.get(Activities.origin)
         ?: gearPhotoRows(did, cid) {
-                (visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid) or
-                    openedByModerator(viewer, gear = GearItems.uri)) and (GearItems.origin neq Origins.REPO)
+                (gearVisibleTo(viewer) or openedByModerator(viewer, gear = GearItems.uri)) and (GearItems.origin neq Origins.REPO)
             }
             .firstOrNull()
             ?.get(GearItems.origin)
