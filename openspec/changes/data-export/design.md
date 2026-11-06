@@ -53,7 +53,7 @@ activity-tracker-<handle>-<yyyy-mm-dd>.zip
 
 ### 3. Activity files from the PDS, not the AppView
 
-`ActivityExporter` gains an internal entry point that takes the `StoredActivity` from `ActivityPlaces.read` plus the track and source stores, and feeds the existing `build`.
+`ActivityExporter` gains an internal entry point (`rebuiltFit`) that takes a `StoredActivity` and the full track and feeds the existing `build`. The export builds that `StoredActivity` from the records and blobs it has already staged (every place's activity, details and streams records, the streams blobs, the self space's track), so building the files reads nothing again, offline included. Originals come from the staged `feed.activitySource` blob, un-gzipped with `SourceFile.original`; a logbook's dives share one file.
 
 - This reuses every FIT rule in feed/activity-export.
 - It drops the AppView dependency. The one loss is the training load: that comes from `feed.activityZones` via the AppView, so the rebuilt FIT omits it.
@@ -61,7 +61,7 @@ activity-tracker-<handle>-<yyyy-mm-dd>.zip
 
 ### 4. Stage per item, zip at the end
 
-The job writes each item (one record JSON, one blob, one activity file) as its own file in a staging directory (`<app files>/exports/<id>/staging/`), then marks it done in Room. A final local pass streams the staging tree into the zip.
+The job writes each item (one record JSON, one blob, one activity file) as its own file in a staging directory (`exports/<id>/` in app-private storage: Android's `noBackupFilesDir`, iOS's Application Support marked excluded from backups, desktop's data folder, the web's OPFS), then marks it done in Room. A final local pass streams the staging tree into the zip, at save time; there is no separate zipping state.
 
 - **Why not append to one zip and truncate on resume?** It avoids twice the disk use, but zip libraries keep the central directory in memory and can't reopen a half-written archive. Writing our own zip writer to get that would be the hand-rolled code the library search was meant to avoid.
 - **Cost:** about twice the archive size on disk at the peak. Decision 9 covers the space check.
@@ -84,9 +84,11 @@ The job writes each item (one record JSON, one blob, one activity file) as its o
 
 ### 6. The job: `DataExports`, shaped like `ImportSaves`
 
-- **Room tables:**
-  - `data_exports`: id, DID, state (`running` / `zipping` / `ready` / `failed` / `cancelled`), started and finished times, counts, unsent-change count, `spacesIncluded`.
-  - `data_export_items`: export id, kind (record, blob, activity file), place, collection, rkey or CID, state (`pending` / `done` / `skipped`), staging path, reason.
+- **Room tables** (schema 11, with a hand-written `MIGRATION_10_11` as the repo's other migrations are, since Kotlin/Native crashes on `AutoMigration`):
+  - `data_export`: id, DID, handle, PDS host, state (`running` / `paused` / `ready` / `failed`), reason, created and finished times, unsent-change count, `spacesIncluded`, bytes needed while paused. Cancelling deletes the row.
+  - `data_export_list`: per place and collection, the listing's cursor, whether it's done and how many records it wrote. Records themselves get no rows.
+  - `data_export_item`: blobs (by place and CID) and activity files (by rkey), each `pending` / `done` / `skipped` with its staging path or reason.
+- **What's listed:** the repo collection by collection (`AppCollections.records`); each space in one walk with the collection left out, which the space protocol lists as every collection, keeping only `app.activitytracker` ones.
 - **Enumerate, then fetch:**
   - Listing pages stay part of the job, with a per-collection cursor stored so a resume continues the listing.
   - Each listed record is written straight away; its blobs and activity file become pending items.
@@ -106,11 +108,11 @@ A new `rememberArchiveHandOff(): (ExportArchive) -> Unit` sits beside `rememberF
 | Platform | Behaviour |
 |---|---|
 | Android | `openFileSaver` (Storage Access Framework create-document) → zip pass streams into its `sink()`. |
-| iOS | Zip pass into a cache file → share sheet (offers Save to Files). |
+| iOS | Zip pass into a cache file → share sheet (offers Save to Files), shown with `UIActivityViewController` itself rather than FileKit's launcher, whose call returns as the sheet opens; the cache file goes once the sheet closes. |
 | Desktop | `openFileSaver` → zip pass into its sink. |
-| Web | Zip pass into an OPFS file through our own small `RawSink` over `FileSystemWritableFileStream` → `getFile()` → `URL.createObjectURL` → anchor download. The browser keeps the `File` on disk, so the archive never sits in wasm memory. Staging on the web is OPFS too, through the same sink. |
+| Web | The zipper hands its chunks to a suspending writer over an OPFS `FileSystemWritableFileStream` (a kotlinx-io sink can't await the stream's promises), then `getFile()` → `URL.createObjectURL` → anchor download. The browser keeps the `File` on disk, so the archive never sits in wasm memory; bytes cross from wasm through linear memory in bulk. Staging on the web is OPFS too, a whole file per write. |
 
-On iOS, Android and desktop, cancelling the dialog keeps the export `ready`. On iOS the share sheet gives no reliable "saved" signal, so the export is deleted after a share completes with an activity type, and kept otherwise.
+On Android and desktop, cancelling the dialog keeps the export `ready`. On iOS the share sheet gives no reliable "saved" signal, only whether an activity ran: closing it without one keeps the export `ready` like a cancelled dialog, and after one ran the Account page asks whether the athlete kept the zip, and deletes the app's copy only if they did. The question waits until the sheet has closed, since UIKit won't present the alert over it.
 
 ### 8. Problems are data
 
@@ -120,20 +122,22 @@ On iOS, Android and desktop, cancelling the dialog keeps the export `ready`. On 
 
 ### 9. Disk space
 
-- **Before starting:** the job estimates the archive as the sum of blob sizes the records declare plus about 1 KB per record, and requires twice that free. Free space comes from the platform via an `expect fun freeBytes(dir)`; on the web it comes from `navigator.storage.estimate()`.
+- **Before fetching:** once listing is done (records are small), the job adds up the blob sizes the records declare and requires twice that free, plus a 50 MB margin. Each platform's `ExportFiles` binding says how much is free (`File.usableSpace`, `NSFileSystemFreeSize`, `navigator.storage.estimate()`).
 - **Mid-run:** a write that fails for lack of space pauses the export rather than failing it, and the Account page says how much more it needs.
 
 ### 10. Account page and sign-out
 
 - **State:** `AccountScreen.State` gains an `export` sub-state (none / running(progress) / ready(problems) / paused(reason) / failed(reason)), from a `DataExports` flow. Events are Export, Cancel and Save.
 - **Sign-out:** `AuthRepository`'s pending-work summary gains `exportPending`. `signedOut(did)` cancels the job and deletes `exports/<id>/`, like `ImportSaves.signedOut`.
-- **Expiry:** a ready export older than 7 days is deleted at session start.
+- **Expiry:** a ready export older than 7 days is deleted at session start, with any staged folder no export names.
+- **Notifications:** Android posts a ready notification on its own channel when allowed; iOS posts one with provisional authorization (delivered quietly, no permission prompt). Tapping either opens Settings → Account through `AccountScreenRequests`.
+- **README:** written in English by the data layer, like the archive's file names: it's read outside the app, where the app's language isn't known.
 
 ## Risks / Trade-offs
 
 - [kmp-zip is young (2.1.0, ~40 stars) and has no Android variant] → An Android resolve spike comes first. The `expect`-wrapped `java.util.zip` is the fallback, and round-trip tests unzip with `java.util.zip` on the JVM.
 - [Staging needs about twice the archive on disk] → A space check before and during the run, and a pause rather than a failure. On Android, iOS and desktop the zip pass streams straight to the destination.
-- [The OPFS sink is our own code on an experimental browser path] → A spike task first. If OPFS can't stream from wasm, the web falls back to building in memory with a cap (for example 500 MB), and says larger exports need a desktop or phone.
+- [The OPFS sink is our own code on an experimental browser path] → A spike task first. If OPFS can't stream from wasm, the web falls back to building in memory with a cap (for example 500 MB), and says larger exports need a desktop or phone. Spike (Chrome, 2026-11-05): 1 GiB written to an OPFS writable in 1 MiB chunks took 2.2 s with the JS heap peaking near 100 MiB, and the file read back through an object URL as a stream; the browser's download never passes through JS.
 - [iOS gives background processing time only opportunistically] → Resume on next launch, and keep the job resumable per item. The Account page says the export continues while the app is open.
 - [Thousands of PDS reads could trip PDS rate limits] → Bounded concurrency, plus backoff on 429 that honors `ratelimit-reset`. A rate-limited item is retried, not skipped.
 - [The archive holds sensitive data (unblurred tracks, privacy zones)] → It's staged only in app-private storage, deleted after saving, after 7 days or at sign-out, and the README says it holds private data.

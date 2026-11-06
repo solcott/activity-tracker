@@ -165,7 +165,7 @@ Saving SHALL open a save dialog on Android and desktop, the share sheet on iOS, 
 - **THEN** the Account page still offers Save
 
 ### Requirement: The app doesn't keep the archive
-The app SHALL delete its copy of an export once the athlete has saved it, when the export is 7 days old, when it's cancelled, and when the account signs out.
+The app SHALL delete its copy of an export once the athlete has saved it, when the export is 7 days old, when it's cancelled, and when the account signs out. On iOS, where the share sheet doesn't say whether the zip was kept, the app SHALL ask before deleting its copy, and keep it when the athlete says they didn't keep the zip.
 
 #### Scenario: Saved
 - **WHEN** alice saves her finished export
@@ -174,6 +174,10 @@ The app SHALL delete its copy of an export once the athlete has saved it, when t
 #### Scenario: Never saved
 - **WHEN** alice's finished export is 7 days old and unsaved
 - **THEN** the app deletes it, and the Account page offers Export again
+
+#### Scenario: Shared on iOS
+- **WHEN** alice shares her finished export from the share sheet on iOS
+- **THEN** the app asks whether she kept it, deletes its copy if she did, and otherwise keeps it to save later
 
 ### Requirement: The export needs room on the device
 Before starting, and as it goes, the export SHALL check that the device has room for it. When it runs out of room it SHALL stop, keep what it wrote, and say how much space it needs, so it can resume once there's room.
