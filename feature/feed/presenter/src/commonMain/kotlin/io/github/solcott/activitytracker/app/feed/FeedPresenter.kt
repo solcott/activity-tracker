@@ -109,7 +109,7 @@ fun FeedPresenter(
                 runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { e -> error = uiErrorOf(UiError.Kind.UpdateBlock, e) }
             }
         }
-    val postEvents = rememberPostEventSink(navigator, names, reporting) { error = it }
+    val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
     var askSegments by remember { mutableStateOf(false) }
     // The same for grouping, shown only once the segments card is answered, so the two never ask at once.

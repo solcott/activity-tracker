@@ -45,6 +45,7 @@
     <string name="error_propose_segment_name">Couldn't send the name</string>
     <string name="error_load_post_share">Couldn't check how this proposal is shared</string>
     <string name="error_load_posts">Couldn't load posts</string>
+    <string name="error_load_post">Couldn't load this post</string>
     <string name="error_vote_segment_name">Couldn't send your vote</string>
     <string name="error_delete_segment_name">Couldn't delete the proposal</string>
     <string name="error_load_blocks">Couldn't load blocked accounts</string>
@@ -1938,7 +1939,10 @@
     <string name="segment_name_disclosure">Proposing shows others, under your name, that you ride this segment regularly, including activities only you can see.</string>
     <string name="segment_name_edit_warning">Editing the name clears every vote it has.</string>
     <string name="post_card_more">More for this post</string>
-    <string name="post_card_open">Open the segment</string>
+    <string name="post_card_open">Open the post</string>
+    <string name="post_card_open_place">Open the segment or dive site</string>
+    <string name="post_page_title">Post</string>
+    <string name="post_unavailable">This post isn't available. It may have been withdrawn, or you may not be able to see it.</string>
     <string name="post_card_proposes">Proposes “%1$s”</string>
     <string name="post_card_segment">Name for segment %1$s</string>
     <string name="post_card_dive_site">Name for dive site %1$s</string>

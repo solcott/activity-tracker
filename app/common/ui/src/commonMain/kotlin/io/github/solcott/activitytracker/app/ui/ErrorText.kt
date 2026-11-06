@@ -64,6 +64,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderb
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mutes
+import io.github.solcott.activitytracker.composeApp.resources.error_load_post
 import io.github.solcott.activitytracker.composeApp.resources.error_load_post_share
 import io.github.solcott.activitytracker.composeApp.resources.error_load_posts
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
@@ -208,6 +209,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.DeleteSegmentName -> Res.string.error_delete_segment_name
             UiError.Kind.LoadPostShare -> Res.string.error_load_post_share
             UiError.Kind.LoadPosts -> Res.string.error_load_posts
+            UiError.Kind.LoadPost -> Res.string.error_load_post
             UiError.Kind.OpenSubject -> Res.string.error_open_subject
             UiError.Kind.InvalidSubjectUri -> Res.string.error_invalid_subject_uri
             UiError.Kind.UpdateMute -> Res.string.error_update_mute

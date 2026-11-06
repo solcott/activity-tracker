@@ -42,6 +42,7 @@ android {
                 implementation(projects.featureMapUi)
                 implementation(projects.featureMediaUi)
                 implementation(projects.featureModerationUi)
+                implementation(projects.featurePostUi)
                 implementation(projects.featureProfileUi)
                 implementation(projects.featureRecordUi)
                 implementation(projects.featureReportUi)

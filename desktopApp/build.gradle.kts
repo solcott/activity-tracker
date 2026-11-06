@@ -40,6 +40,8 @@ dependencies {
     implementation(projects.featureMediaUi)
     implementation(projects.featureModerationPresenter)
     implementation(projects.featureModerationUi)
+    implementation(projects.featurePostPresenter)
+    implementation(projects.featurePostUi)
     implementation(projects.featureProfilePresenter)
     implementation(projects.featureProfileUi)
     implementation(projects.featureRecordPresenter)

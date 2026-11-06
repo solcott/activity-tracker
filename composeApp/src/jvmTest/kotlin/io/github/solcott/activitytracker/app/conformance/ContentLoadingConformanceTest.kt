@@ -48,6 +48,8 @@ import io.github.solcott.activitytracker.app.map.RouteMapSamples
 import io.github.solcott.activitytracker.app.map.RouteMapUi
 import io.github.solcott.activitytracker.app.media.MediaGallerySamples
 import io.github.solcott.activitytracker.app.media.MediaGalleryUi
+import io.github.solcott.activitytracker.app.post.PostPageSamples
+import io.github.solcott.activitytracker.app.post.PostPageUi
 import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.profile.BlockListSamples
 import io.github.solcott.activitytracker.app.profile.BlockListUi
@@ -156,6 +158,7 @@ class ContentLoadingConformanceTest {
             entry({ EditActivitySamples.all }, null) { EditActivityUi(it) },
             entry({ GearListSamples.all }, "Gravel bike") { GearListUi(it) },
             entry({ GearSamples.all }, "Rivendell Appaloosa") { GearUi(it) },
+            entry({ PostPageSamples.all }, "Everyone at the trailhead already calls it this.") { PostPageUi(it) },
             entry({ EditGearSamples.all }, null) { EditGearUi(it) },
             entry({ GearCollectionSamples.all }, "Cold water setup") { GearCollectionUi(it) },
             entry({ EditGearCollectionSamples.all }, null) { EditGearCollectionUi(it) },

@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -122,12 +123,16 @@ fun ProfilePresenter(
         }
     val postChanges by names.changes.collectAsState()
     val localPosts by feed.localPosts.changes.collectAsState()
+    // The viewer's like toggles show at once on the pages already loaded (feed/posts).
+    val likeOverrides by feed.likeOverrides.collectAsState()
     val shownPosts =
-        remember(posts.state, postChanges, localPosts) {
+        remember(posts.state, postChanges, localPosts, likeOverrides) {
             val removed = localPosts.filterValues { it == null }.keys
-            posts.state.updated(PostView::uri) { items -> items.filterNot { it.uri.value in removed }.map(names::applyTo) }
+            posts.state.updated(PostView::uri) { items ->
+                items.filterNot { it.uri.value in removed }.map { names.applyTo(it).withLikeOverrides(likeOverrides) }
+            }
         }
-    val postEvents = rememberPostEventSink(navigator, names, reporting) { error = it }
+    val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
     val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }

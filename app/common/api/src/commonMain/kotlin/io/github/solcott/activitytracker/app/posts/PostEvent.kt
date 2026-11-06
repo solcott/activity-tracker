@@ -9,6 +9,12 @@ sealed interface PostEvent {
     /** Opens the segment or dive site the post's proposal names. */
     data class Open(val post: PostView) : PostEvent
 
+    /** Opens the post page (feed/post-page): its comments and who liked it. */
+    data class OpenPost(val post: PostView) : PostEvent
+
+    /** Gives or takes back the viewer's like of someone else's post. */
+    data class Like(val post: PostView) : PostEvent
+
     /** Opens the post's author's profile. */
     data class OpenAuthor(val post: PostView) : PostEvent
 

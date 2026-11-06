@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.AuthorHeader
@@ -29,9 +30,14 @@ import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_report
+import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
+import io.github.solcott.activitytracker.composeApp.resources.comments_count
+import io.github.solcott.activitytracker.composeApp.resources.like_content_description
+import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.post_card_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.post_card_more
 import io.github.solcott.activitytracker.composeApp.resources.post_card_open
+import io.github.solcott.activitytracker.composeApp.resources.post_card_open_place
 import io.github.solcott.activitytracker.composeApp.resources.post_card_proposes
 import io.github.solcott.activitytracker.composeApp.resources.post_card_segment
 import io.github.solcott.activitytracker.composeApp.resources.post_card_unavailable
@@ -44,26 +50,30 @@ import io.github.solcott.activitytracker.composeApp.resources.post_status_supers
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_totals
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_down
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.persistentListOf
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * One post (feed/posts) in a timeline or on a profile: its author and audience, their text, and the proposal it shares as it stands now,
- * its name, status and totals, with up and down votes when the viewer may vote. A tap opens the segment or dive site. [canReport] offers
- * Report on someone else's post.
+ * One post (feed/posts) in a timeline, on a profile or atop its own page: its author and audience, their text, the proposal it shares as it
+ * stands now, its name, status and totals, with up and down votes when the viewer may vote, and its like and comment counts, with a like
+ * button on someone else's post. A tap opens the post page (feed/post-page); the segment or dive site line opens that, and the author their
+ * profile. [canReport] offers Report on someone else's post.
  */
 @Composable
 fun PostCard(post: PostView, viewerDid: String, canReport: Boolean, onEvent: (PostEvent) -> Unit, modifier: Modifier = Modifier) {
     val embed = post.embed as? PostEmbedView.Proposal
     val openLabel = stringResource(Res.string.post_card_open)
-    Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel) { onEvent(PostEvent.Open(post)) }.handCursor()) {
+    val own = post.author.did.value == viewerDid
+    Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenPost(post)) }.handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Header(post, own = post.author.did.value == viewerDid, canReport, onEvent)
+            Header(post, own, canReport, onEvent)
             post.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             if (embed == null) {
                 Text(
@@ -74,7 +84,34 @@ fun PostCard(post: PostView, viewerDid: String, canReport: Boolean, onEvent: (Po
             } else {
                 Proposal(post, embed, onEvent)
             }
+            Counts(post, own, onEvent)
         }
+    }
+}
+
+/** The like button on someone else's post, and the post's like and comment counts as the viewer is shown them. */
+@Composable
+private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (!own) {
+            val given = post.viewer?.like != null
+            AppIconButton(
+                AppIcon.Like,
+                contentDescription = stringResource(Res.string.like_content_description),
+                onClick = { onEvent(PostEvent.Like(post)) },
+                modifier = Modifier.testTag(TestTags.POST_LIKE),
+                filled = given,
+                tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+            )
+        }
+        Text(
+            stringResource(
+                Res.string.activity_card_counts,
+                pluralStringResource(Res.plurals.like_count, post.likeCount.toInt(), formatWhole(post.likeCount)),
+                pluralStringResource(Res.plurals.comments_count, post.commentCount.toInt(), formatWhole(post.commentCount)),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -115,7 +152,13 @@ private fun Proposal(post: PostView, embed: PostEmbedView.Proposal, onEvent: (Po
         embed.segment?.let { stringResource(Res.string.post_card_segment, it.name) }
             ?: embed.diveSite?.let { stringResource(Res.string.post_card_dive_site, it.name) }.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            place,
+            Modifier.clickable(onClickLabel = stringResource(Res.string.post_card_open_place)) { onEvent(PostEvent.Open(post)) }
+                .handCursor(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(Res.string.post_card_proposes, embed.name), style = MaterialTheme.typography.titleMedium)

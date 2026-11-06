@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.feed
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -13,7 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/** Posts in the timeline (feed/posts): the shared proposal as it stands, voting from the card, and opening its segment. */
+/** Posts in the timeline (feed/posts): the shared proposal as it stands, voting from the card, and opening the post or its segment. */
 @OptIn(ExperimentalTestApi::class)
 class PostsUiTest {
     private fun postEvents(events: List<FeedEvent>) = events.filterIsInstance<FeedEvent.Post>().map { it.event }
@@ -32,10 +34,18 @@ class PostsUiTest {
     }
 
     @Test
-    fun tappingTheCardOpensItsSegment() = runComposeUiTest {
+    fun tappingTheCardOpensThePost() = runComposeUiTest {
         val events = mutableListOf<FeedEvent>()
         setContent { AppPreview { FeedUi(FeedSamples.posts.copy(eventSink = { events += it })) } }
         onNodeWithText("Proposes “Wiggly Woods”").performClick()
+        assertIs<PostEvent.OpenPost>(postEvents(events).last())
+    }
+
+    @Test
+    fun tappingTheSegmentLineOpensTheSegment() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.posts.copy(eventSink = { events += it })) } }
+        onAllNodesWithText("Name for segment", substring = true).onFirst().performClick()
         assertIs<PostEvent.Open>(postEvents(events).last())
     }
 }

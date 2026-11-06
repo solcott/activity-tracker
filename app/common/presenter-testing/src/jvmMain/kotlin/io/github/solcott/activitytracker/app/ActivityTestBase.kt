@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.OwnGroups
+import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentPublisher
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -101,6 +102,9 @@ open class ActivityTestBase {
 
     /** More of the activity's view, as JSON members each followed by a comma (`"labels":[…],`). */
     protected var viewExtra = ""
+
+    /** The post `getPost` serves (feed/post-page), as JSON; NotFound while null. */
+    protected var postFromAppView: String? = null
 
     /** The comments the AppView lists, as JSON objects, oldest first. */
     protected var commentsFromAppView = listOf<String>()
@@ -224,6 +228,12 @@ open class ActivityTestBase {
                         } else {
                             respond("""{"activity":$activity,"comments":[]}""", headers = json)
                         }
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_POST}" -> {
+                        val post = postFromAppView
+                        if (post == null) respond("""{"error":"NotFound","message":"Post not found"}""", HttpStatusCode.BadRequest, json)
+                        else respond("""{"post":$post}""", headers = json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
@@ -402,6 +412,7 @@ open class ActivityTestBase {
         val groups: OwnGroups,
         val diveSites: DiveSiteRepository,
         val sitePublisher: DiveSitePublisher,
+        val names: SegmentNames,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -473,6 +484,7 @@ open class ActivityTestBase {
             segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
             diveSites,
             DiveSitePublisher(clients, writer, outbox, diveSites, Clock.System),
+            SegmentNames(clients, writer, outbox, Clock.System),
         )
     }
 }

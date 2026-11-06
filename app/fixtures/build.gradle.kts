@@ -22,6 +22,7 @@ kotlin {
             api(projects.featureMapApi)
             api(projects.featureMediaApi)
             api(projects.featureModerationApi)
+            api(projects.featurePostApi)
             api(projects.featureProfileApi)
             api(projects.featureRecordApi)
             api(projects.featureReportApi)

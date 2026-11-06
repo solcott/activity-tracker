@@ -18,6 +18,8 @@ kotlin {
             api(projects.featureDetailApi)
             api(projects.featureDivesiteApi)
             api(projects.featureMediaApi)
+            // The post sink opens the post page (feed/post-page).
+            api(projects.featurePostApi)
             api(projects.featureProfileApi)
             // rememberReporting builds report's Reporting.
             api(projects.featureReportApi)
