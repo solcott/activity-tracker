@@ -146,4 +146,17 @@ class CombineDataSourcesTest : CombineTestBase() {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun aRebuildTheGrantDoesntCoverAsksToSignInAgain() = runTest {
+        ride()
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val loaded = awaitSources()
+            scopeMissing = true
+            loaded.eventSink(ActivityDetailEvent.SetIncluded(DataKind.Power, included = false))
+            val failed = awaitUntil { it.page()?.dataSources?.error != null }.page()!!
+            assertEquals(UiError.Kind.SignInAgain, failed.dataSources?.error?.kind, "not a generic save failure")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

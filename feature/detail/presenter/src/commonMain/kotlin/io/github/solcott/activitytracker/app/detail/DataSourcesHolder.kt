@@ -11,6 +11,7 @@ import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ChartAttribution
@@ -79,7 +80,7 @@ internal fun rememberDataSources(
                 }
                 .onFailure {
                     failed = event
-                    saveError = UiError.of(UiError.Kind.SaveDataSource, it)
+                    saveError = uiErrorOf(UiError.Kind.SaveDataSource, it)
                 }
         }
     }

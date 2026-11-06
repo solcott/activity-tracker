@@ -42,6 +42,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -71,6 +72,8 @@ open class CombineTestBase {
     /** Holds each `putRecord` until completed. */
     protected var gate = CompletableDeferred(Unit)
     protected var failReads = false
+    /** Reads answer that the session's grant lacks the athlete's spaces. */
+    protected var scopeMissing = false
     protected var failByStart = false
     protected var byStartQueries = 0
 
@@ -180,6 +183,8 @@ open class CombineTestBase {
                     }
 
                     "/xrpc/com.atproto.repo.getRecord" -> {
+                        if (scopeMissing)
+                            return@MockEngine respond("""{"error":"${SpaceErrors.SCOPE_MISSING}"}""", HttpStatusCode.Forbidden, json)
                         if (failReads)
                             return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         val rkey = request.url.parameters["rkey"]!!
