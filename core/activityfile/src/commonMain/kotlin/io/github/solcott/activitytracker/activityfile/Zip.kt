@@ -1,12 +1,17 @@
 package io.github.solcott.activitytracker.activityfile
 
-/** A file in a zip: its [path] in the archive, how it's stored, and its sizes as the archive declares them. */
+import no.synth.kmpzlib.Crc32
+
+/** A file in a zip: its [path] in the archive, how it's stored, and its sizes and CRC-32 as the archive declares them. */
+@Suppress("LongParameterList") // One per header field.
 internal class ZipEntry(
     val path: String,
     val method: Int,
     val flags: Int,
     val compressedSize: Long,
     val size: Long,
+    /** Its data's CRC-32; 0 in a local header whose sizes follow its data, where the data descriptor holds it. */
+    val crc: Long = 0,
     /** Where its local header starts; -1 for an entry read from a stream. */
     val localHeaderOffset: Long = -1,
 ) {
@@ -34,14 +39,15 @@ internal fun isZip(bytes: ByteArray): Boolean =
  * over 65,535 members) are read too. Fails with [ActivityFileException] when the archive is damaged.
  */
 internal class ZipArchive private constructor(private val source: ImportSource, val entries: List<ZipEntry>) {
-    /** [entry]'s data, decompressed as it's read. */
+    /** [entry]'s data, decompressed as it's read and checked against its CRC-32 once read to the end. */
     suspend fun open(entry: ZipEntry): ByteInput {
         if (!entry.isSupported) throw UnsupportedArchiveEntryException(entry.path)
         val header = source.read(entry.localHeaderOffset, LOCAL_HEADER_SIZE)
         if (header.size < LOCAL_HEADER_SIZE || header.u32(0) != LOCAL_HEADER_SIGNATURE) damaged()
         val dataStart = entry.localHeaderOffset + LOCAL_HEADER_SIZE + header.u16(LOCAL_NAME_LENGTH) + header.u16(LOCAL_EXTRA_LENGTH)
         val data = SourceInput(source, dataStart, entry.compressedSize)
-        return if (entry.method == METHOD_STORED) data else InflaterInput(BufferedInput(data))
+        val plain = if (entry.method == METHOD_STORED) data else InflaterInput(BufferedInput(data))
+        return CheckedInput(plain, entry.path) { entry.crc }
     }
 
     companion object {
@@ -85,6 +91,7 @@ internal class ZipArchive private constructor(private val source: ImportSource, 
                         flags = header.u16(CENTRAL_FLAGS),
                         compressedSize = compressedSize,
                         size = size,
+                        crc = header.u32(CENTRAL_CRC),
                         localHeaderOffset = offset,
                     )
                 index++
@@ -161,6 +168,7 @@ internal class ZipStream(input: ByteInput) {
                 flags = flags,
                 compressedSize = zip64?.u64(U64_BYTES) ?: header.u32(LOCAL_COMPRESSED_SIZE),
                 size = zip64?.u64(0) ?: header.u32(LOCAL_SIZE),
+                crc = header.u32(LOCAL_CRC),
             )
         return LocalHeader(entry, flags, zip64 != null)
     }
@@ -169,11 +177,9 @@ internal class ZipStream(input: ByteInput) {
     private fun entryWithSizesAfter(header: LocalHeader): Entry {
         val entry = header.entry
         if (entry.method != METHOD_DEFLATED || entry.isEncrypted) throw ZipStreamEndedException(entry.path)
-        val data = InflaterInput(input)
-        return Entry(entry, data) {
-            data.drain()
-            skipDataDescriptor(header.zip64)
-        }
+        // Read to its end, the data is followed by the descriptor holding its CRC-32; skipping it reads that too.
+        val data = CheckedInput(InflaterInput(input), entry.path) { readDataDescriptor(header.zip64) }
+        return Entry(entry, data) { data.drain() }
     }
 
     /** A member whose stored size is in its header; an unsupported one is skipped by that size, never decompressed. */
@@ -183,17 +189,19 @@ internal class ZipStream(input: ByteInput) {
         val data: ByteInput =
             when {
                 !entry.isSupported -> EmptyInput
-                entry.method == METHOD_STORED -> raw
-                else -> InflaterInput(BufferedInput(raw))
+                entry.method == METHOD_STORED -> CheckedInput(raw, entry.path) { entry.crc }
+                else -> CheckedInput(InflaterInput(BufferedInput(raw)), entry.path) { entry.crc }
             }
         return Entry(entry, data) { raw.drain() }
     }
 
-    private suspend fun skipDataDescriptor(zip64: Boolean) {
-        val first = input.readExactly(SIGNATURE_BYTES)
-        val sizesLength = 2L * (if (zip64) U64_BYTES else U32_BYTES)
+    /** Reads the data descriptor after a member's data; returns its CRC-32. */
+    private suspend fun readDataDescriptor(zip64: Boolean): Long {
+        val first = input.readExactly(SIGNATURE_BYTES).u32(0)
         // The descriptor's signature is optional: without it, the four bytes read were the CRC.
-        input.skip(if (first.u32(0) == DATA_DESCRIPTOR_SIGNATURE) CRC_BYTES + sizesLength else sizesLength)
+        val crc = if (first == DATA_DESCRIPTOR_SIGNATURE) input.readExactly(CRC_BYTES).u32(0) else first
+        input.skip(2L * (if (zip64) U64_BYTES else U32_BYTES))
+        return crc
     }
 
     private object EmptyInput : ByteInput {
@@ -214,6 +222,25 @@ private fun zip64Extra(extra: ByteArray): ByteArray? {
         at = dataEnd
     }
     return found
+}
+
+/**
+ * [input], a member's data, with its CRC-32 worked out as it's read: once read to the end, it's compared with [expected] (read then, as a
+ * data descriptor follows the data), failing with [ActivityFileException] when they differ. A member read only in part isn't checked.
+ */
+private class CheckedInput(private val input: ByteInput, private val path: String, private val expected: suspend () -> Long) : ByteInput {
+    private val crc = Crc32()
+    private var checked = false
+
+    override suspend fun read(into: ByteArray, offset: Int, length: Int): Int {
+        val read = input.read(into, offset, length)
+        if (read > 0) crc.update(into, offset, read)
+        if (read < 0 && !checked) {
+            checked = true
+            if (crc.value != expected()) activityFileError("Damaged file in zip archive: $path")
+        }
+        return read
+    }
 }
 
 private fun damaged(): Nothing = activityFileError("Damaged zip archive")
@@ -251,6 +278,7 @@ private const val ZIP64_EXTRA_ID = 0x0001
 private const val LOCAL_HEADER_SIZE = 30
 private const val LOCAL_FLAGS = 6
 private const val LOCAL_METHOD = 8
+private const val LOCAL_CRC = 14
 private const val LOCAL_COMPRESSED_SIZE = 18
 private const val LOCAL_SIZE = 22
 private const val LOCAL_NAME_LENGTH = 26
@@ -259,6 +287,7 @@ private const val LOCAL_EXTRA_LENGTH = 28
 private const val CENTRAL_HEADER_SIZE = 46
 private const val CENTRAL_FLAGS = 8
 private const val CENTRAL_METHOD = 10
+private const val CENTRAL_CRC = 16
 private const val CENTRAL_COMPRESSED_SIZE = 20
 private const val CENTRAL_SIZE = 24
 private const val CENTRAL_NAME_LENGTH = 28

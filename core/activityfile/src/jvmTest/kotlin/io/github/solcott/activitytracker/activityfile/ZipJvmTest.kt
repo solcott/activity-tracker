@@ -107,6 +107,31 @@ class ZipJvmTest {
         assertContentEquals(fit, stream.next()!!.data.readAll(Int.MAX_VALUE))
         assertEquals(null, stream.next())
     }
+
+    @Test
+    fun failsOnAMemberWhoseDataDoesNotMatchItsChecksum() = runTest {
+        val zip = zipOf("b.fit" to fit, stored = setOf("b.fit")).flippedAt(fit.size / 2, after = fit.copyOfRange(0, 64))
+        val archive = ZipArchive.read(ByteArrayImportSource("x.zip", zip)).archive
+        assertFailsWith<ActivityFileException> { archive.open(archive.entries.single()).readAll(Int.MAX_VALUE) }
+        assertFailsWith<ActivityFileException> { ZipStream(ChunkedInput(zip, chunk = 999)).next()!!.data.readAll(Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun failsOnAStreamedMemberWhoseDescriptorChecksumDiffers() = runTest {
+        // The deflated member's CRC-32 is in the data descriptor after its data: flip its first byte.
+        val zip = zipOf("a.gpx" to gpx).flippedAt(4, after = byteArrayOf(0x50, 0x4b, 0x07, 0x08))
+        assertContentEquals(
+            gpx,
+            ZipArchive.read(ByteArrayImportSource("x.zip", zip)).archive.let { it.open(it.entries.single()) }.readAll(Int.MAX_VALUE),
+        )
+        assertFailsWith<ActivityFileException> { ZipStream(ChunkedInput(zip, chunk = 999)).next()!!.data.readAll(Int.MAX_VALUE) }
+    }
+}
+
+/** A copy with the byte [offset] bytes past the first occurrence of [after] inverted. */
+private fun ByteArray.flippedAt(offset: Int, after: ByteArray): ByteArray {
+    val start = (0..size - after.size).first { at -> after.indices.all { this[at + it] == after[it] } }
+    return copyOf().also { it[start + offset] = it[start + offset].toInt().inv().toByte() }
 }
 
 /** A zip of [files] in order, deflated unless named in [stored], with empty [folders] first. */
