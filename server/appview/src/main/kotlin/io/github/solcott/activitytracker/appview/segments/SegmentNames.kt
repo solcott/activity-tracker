@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
@@ -113,13 +114,21 @@ internal fun plausibleEffort(): Op<Boolean> =
  * Proposals with no `!hide` or `!takedown` on their record (at the stored version) or their proposer's account: only these are listed,
  * counted, adopted, or in effect.
  */
-internal fun unlabelledProposal(): Op<Boolean> =
-    listOf(LabelValues.HIDE, LabelValues.TAKEDOWN)
-        .map { value ->
-            not(labelled(SegmentNameProposals.uri, value, SegmentNameProposals.cid)) and
-                not(labelled(SegmentNameProposals.proposerDid, value))
-        }
-        .reduce { a, b -> a and b }
+internal fun unlabelledProposal(): Op<Boolean> = notLabelled(LabelValues.HIDE) and notLabelled(LabelValues.TAKEDOWN)
+
+/**
+ * The open proposals a list shows [viewer]: [unlabelledProposal], except that their own stay listed to them under `!hide`, as every hidden
+ * subject does for its author (moderation/labels), so they can still see and withdraw the one open proposal [mayPropose] counts. Never
+ * under `!takedown`, and never counted or adopted.
+ */
+internal fun listedProposal(viewer: Did?): Op<Boolean> {
+    val own = viewer?.let { SegmentNameProposals.proposerDid eq it.value } ?: Op.FALSE
+    return notLabelled(LabelValues.TAKEDOWN) and (own or notLabelled(LabelValues.HIDE))
+}
+
+/** No [value] on the proposal's record (at the stored version) or its proposer's account. */
+private fun notLabelled(value: String): Op<Boolean> =
+    not(labelled(SegmentNameProposals.uri, value, SegmentNameProposals.cid)) and not(labelled(SegmentNameProposals.proposerDid, value))
 
 /**
  * What a name proposal names (dive-sites/site-names): a segment, whose locals are the athletes with efforts on it, or a dive site, whose

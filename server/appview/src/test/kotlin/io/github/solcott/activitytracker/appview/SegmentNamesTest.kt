@@ -731,6 +731,23 @@ class SegmentNamesTest : SegmentTestBase() {
         assertEquals(ProposalState.OPEN, state(uri))
     }
 
+    @Test
+    fun aHiddenProposersOpenProposalStaysListedToThemAlone() {
+        activeSegment()
+        efforts(alice, 5)
+        val uri = votedProposal(up = 6, down = 0)
+        label(alice, "!hide")
+        assertEquals(emptyList(), view(bob).nameProposals)
+        assertEquals(emptyList(), view().nameProposals)
+        assertEquals(listOf(uri), view(alice).nameProposals.map { it.uri.value })
+        later(8.days)
+        pass()
+        assertEquals(ProposalState.OPEN, state(uri), "listed to its proposer, but never adopted")
+
+        label(uri, "!takedown")
+        assertEquals(emptyList(), view(alice).nameProposals, "a takedown hides it from its proposer too")
+    }
+
     // ---------------------------------------------------------------- Views
 
     @Test

@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.Tally
+import io.github.solcott.activitytracker.appview.segments.listedProposal
 import io.github.solcott.activitytracker.appview.segments.tallies
 import io.github.solcott.activitytracker.appview.segments.unlabelledProposal
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -68,8 +69,9 @@ internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars:
 }
 
 /**
- * [segment]'s open proposals the viewer may see, oldest first: not labelled, by a served account, and not by an athlete the viewer blocks,
- * mutes or is blocked by. Totals come from [tallies]; who voted is never served, except the viewer's own vote on the version listed.
+ * [segment]'s open proposals the viewer may see, oldest first: not labelled ([listedProposal]: their own stay under `!hide`), by a served
+ * account, and not by an athlete the viewer blocks, mutes or is blocked by. Totals come from [tallies]; who voted is never served, except
+ * the viewer's own vote on the version listed.
  */
 internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatars: AvatarUrls): List<SegmentNameProposalView> {
     val rows =
@@ -77,7 +79,7 @@ internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatar
             .where {
                 (SegmentNameProposals.segmentUri eq segment) and
                     (SegmentNameProposals.state eq ProposalState.OPEN) and
-                    unlabelledProposal() and
+                    listedProposal(viewer) and
                     served(viewer, SegmentNameProposals.proposerDid) and
                     notBlocked(viewer, SegmentNameProposals.proposerDid) and
                     notMuted(viewer, SegmentNameProposals.proposerDid)

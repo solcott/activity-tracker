@@ -203,7 +203,7 @@ For a signed-in viewer, `feed.getSegment` SHALL say whether they may propose a n
 - **THEN** the view says nothing about proposing or voting
 
 ### Requirement: Labels remove a proposal or its name
-A proposal whose record or proposer's account carries `!hide` or `!takedown` SHALL NOT be listed, counted or adopted. If it was already adopted, its name SHALL leave the history and stop being in effect, so the segment's current name falls back to the previous adopted name in effect, or the original. Negating the label SHALL restore it.
+A proposal whose record or proposer's account carries `!hide` or `!takedown` SHALL NOT be counted or adopted, nor listed to anyone but, under `!hide` alone, its proposer, as their own hidden content is. If it was already adopted, its name SHALL leave the history and stop being in effect, so the segment's current name falls back to the previous adopted name in effect, or the original. Negating the label SHALL restore it.
 
 #### Scenario: Offensive name adopted
 - **WHEN** the adopted name "Rooty Run" replaced "Wiggly Woods", and its proposal is then labelled `!takedown`
@@ -212,6 +212,10 @@ A proposal whose record or proposer's account carries `!hide` or `!takedown` SHA
 #### Scenario: Label negated
 - **WHEN** that `!takedown` is negated
 - **THEN** the segment's current name is "Rooty Run" again
+
+#### Scenario: Proposer's account hidden
+- **WHEN** bob's account is labelled `!hide` while his proposal "Bob's Bend" is open
+- **THEN** other viewers no longer see it, while bob still does and may withdraw it, and it isn't adopted
 
 ### Requirement: The segment screen shows its names
 The segment screen SHALL show the current name and, when it differs, the original name as "originally …". It SHALL show the name history when there is one, and the open proposals with their totals, in the content-loading pattern.
