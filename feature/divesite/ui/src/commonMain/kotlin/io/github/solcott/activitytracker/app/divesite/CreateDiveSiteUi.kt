@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.divesite
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +15,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.segment.CreatePlaceMessage
+import io.github.solcott.activitytracker.app.segment.PlaceDuplicates
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -24,7 +25,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSlider
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
@@ -44,9 +44,8 @@ import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_r
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
-import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 import kotlin.math.roundToInt
-import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -76,7 +75,7 @@ fun CreateDiveSiteUi(state: CreateDiveSiteState, modifier: Modifier = Modifier) 
             val unavailable = state.unavailable
             val outline = state.outline
             when {
-                unavailable != null -> Message(unavailableText(unavailable), Modifier.padding(padding))
+                unavailable != null -> CreatePlaceMessage(unavailableText(unavailable), Modifier.padding(padding))
                 outline != null -> Form(state, outline, padding)
             }
         }
@@ -111,28 +110,20 @@ private fun Form(state: CreateDiveSiteState, outline: String, padding: PaddingVa
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateDiveSiteEvent.OpenSite(it.uri)) }
+        if (state.duplicates.isNotEmpty()) {
+            val labels = state.duplicates.map { it.currentName }.toImmutableList()
+            PlaceDuplicates(
+                stringResource(Res.string.create_dive_site_duplicates),
+                labels,
+                onOpen = { state.eventSink(CreateDiveSiteEvent.OpenSite(state.duplicates[it].uri)) },
+            )
+        }
         if (state.limitReached) Text(stringResource(Res.string.create_dive_site_limit), color = MaterialTheme.colorScheme.error)
         state.actionError?.let { ErrorText(it) }
         AppButton(onClick = { state.eventSink(CreateDiveSiteEvent.Publish) }, enabled = state.canPublish) {
             Text(stringResource(Res.string.create_dive_site_publish))
         }
         if (state.publishing) AppProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-    }
-}
-
-@Composable
-private fun Duplicates(duplicates: ImmutableList<DiveSiteView>, onOpen: (DiveSiteView) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(Res.string.create_dive_site_duplicates), style = MaterialTheme.typography.bodyMedium)
-        duplicates.forEach { site -> AppTextButton(onClick = { onOpen(site) }) { Text(site.currentName) } }
-    }
-}
-
-@Composable
-private fun Message(text: String, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

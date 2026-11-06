@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +22,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppRangeSlider
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
@@ -45,8 +43,7 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_create_tit
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_long
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_short
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.SegmentView
-import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -77,7 +74,7 @@ fun CreateSegmentUi(state: CreateSegmentState, modifier: Modifier = Modifier) {
             val unavailable = state.unavailable
             val route = state.route
             when {
-                unavailable != null -> Message(unavailableText(unavailable), Modifier.padding(padding))
+                unavailable != null -> CreatePlaceMessage(unavailableText(unavailable), Modifier.padding(padding))
                 route != null -> Form(state, route, padding)
             }
         }
@@ -110,7 +107,14 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateSegmentEvent.OpenSegment(it.uri)) }
+        if (state.duplicates.isNotEmpty()) {
+            val labels = state.duplicates.map { "${it.currentName} · ${Format.distance(it.distanceMeters.toDouble())}" }.toImmutableList()
+            PlaceDuplicates(
+                stringResource(Res.string.segment_create_duplicates),
+                labels,
+                onOpen = { state.eventSink(CreateSegmentEvent.OpenSegment(state.duplicates[it].uri)) },
+            )
+        }
         if (state.limitReached) Text(stringResource(Res.string.segment_create_limit), color = MaterialTheme.colorScheme.error)
         state.actionError?.let { ErrorText(it) }
         AppButton(onClick = { state.eventSink(CreateSegmentEvent.Publish) }, enabled = state.canPublish) {
@@ -140,25 +144,6 @@ private fun SelectionText(state: CreateSegmentState) {
 
 @Composable
 private fun ErrorLine(text: String) = Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-
-@Composable
-private fun Duplicates(duplicates: ImmutableList<SegmentView>, onOpen: (SegmentView) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(Res.string.segment_create_duplicates), style = MaterialTheme.typography.bodyMedium)
-        duplicates.forEach { segment ->
-            AppTextButton(onClick = { onOpen(segment) }) {
-                Text("${segment.currentName} · ${Format.distance(segment.distanceMeters.toDouble())}")
-            }
-        }
-    }
-}
-
-@Composable
-private fun Message(text: String, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
 
 @Composable
 private fun unavailableText(unavailable: CreateSegmentUnavailable): String =
