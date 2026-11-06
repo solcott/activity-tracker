@@ -19,8 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -45,7 +44,6 @@ import io.github.solcott.activitytracker.composeApp.resources.post_status_supers
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_totals
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_down
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
-import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
@@ -82,22 +80,13 @@ fun PostCard(post: PostView, viewerDid: String, canReport: Boolean, onEvent: (Po
 
 @Composable
 private fun Header(post: PostView, own: Boolean, canReport: Boolean, onEvent: (PostEvent) -> Unit) {
-    val author = post.author.shownName
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier.weight(1f).clickable { onEvent(PostEvent.OpenAuthor(post)) },
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Avatar(post.author.avatar, author, 32.dp, blur = ModerationDecision.mediaOf(null, post.author.labels))
-            Column {
-                Text(author, style = MaterialTheme.typography.labelLarge)
-                Text(
-                    visibilityLabel(post.visibility ?: Visibility.PUBLIC),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        AuthorHeader(post.author, Modifier.weight(1f), onClick = { onEvent(PostEvent.OpenAuthor(post)) }) {
+            Text(
+                visibilityLabel(post.visibility ?: Visibility.PUBLIC),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (!own && canReport) {
             Box {

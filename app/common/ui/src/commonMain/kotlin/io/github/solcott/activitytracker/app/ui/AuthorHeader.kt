@@ -18,9 +18,9 @@ import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 
 /**
- * A feed card's author line: [author]'s avatar, blurred when their account's labels say so (the card's own labels blur only its media,
- * never the avatar), beside their name, anything [beside] it (a visibility badge), and the lines [below] it (when, and with whom). With
- * [onClick] the line opens the athlete.
+ * A feed card's author line (activities, import batches, posts): [author]'s avatar, blurred when their account's labels say so (the card's
+ * own labels blur only its media, never the avatar), beside their name, anything [beside] it (a visibility badge), and the lines [below] it
+ * (when, and with whom). With [onClick] the line opens the athlete.
  */
 @Composable
 fun AuthorHeader(
