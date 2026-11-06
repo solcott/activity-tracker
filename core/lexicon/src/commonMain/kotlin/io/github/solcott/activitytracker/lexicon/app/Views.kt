@@ -229,7 +229,16 @@ data class ThreadView(
  * `app.activitytracker.feed.defs#elevationProfile`: a segment's smoothed terrain heights in decimeters, evenly spaced along its line from
  * its start to its end, so each is [SegmentView.distanceMeters] / ([heights] size - 1) apart.
  */
-@Immutable @Serializable data class ElevationProfile(val heights: List<Int>)
+@Immutable
+@Serializable
+data class ElevationProfile(
+    val heights: List<Int>,
+    /**
+     * The steepest absolute grade along the line, in tenths of a percent, each measured over about 50 m of the smoothed terrain [heights]
+     * come from, at full sample resolution. Null on a profile derived before it was.
+     */
+    val maxGrade: Int? = null,
+)
 
 /** `app.activitytracker.feed.defs#segmentView` */
 @Immutable

@@ -41,6 +41,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -204,7 +205,13 @@ class SegmentRecordsTest {
         val output = GetSegment.Output(view, ElevationProfile(listOf(14_240, 14_310, 15_670)))
         val json = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), output).jsonObject
         assertEquals(3, json["elevationProfile"]!!.jsonObject["heights"]!!.jsonArray.size)
+        assertFalse("maxGrade" in json["elevationProfile"]!!.jsonObject)
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), json))
+
+        val graded = GetSegment.Output(view, ElevationProfile(listOf(14_240, 14_310, 15_670), maxGrade = 162))
+        val gradedJson = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), graded).jsonObject
+        assertEquals(162, gradedJson["elevationProfile"]!!.jsonObject["maxGrade"]!!.jsonPrimitive.int)
+        assertEquals(graded, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), gradedJson))
     }
 
     @Test

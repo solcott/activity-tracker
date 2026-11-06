@@ -225,6 +225,11 @@
           "maxLength": 512,
           "items": { "type": "integer" },
           "description": "Heights above sea level in decimeters."
+        },
+        "maxGrade": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The steepest absolute grade along the line in tenths of a percent, each measured over about 50 m of the smoothed terrain the heights come from, at full sample resolution. Descents count like climbs. Absent on profiles derived before it was."
         }
       }
     },
