@@ -33,20 +33,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_extremes
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_range
 import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
-import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
 import io.github.solcott.activitytracker.composeApp.resources.segment_star
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed_help
@@ -129,13 +125,16 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                         Extremes(it)
                         SegmentProfileChart(it, Modifier.padding(top = 8.dp))
                     }
-                    Text(
-                        stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    CreatedBy(segment.creator.handle.value)
                     state.credit?.let { Credit(it) }
-                    Status(segment) { state.eventSink(SegmentEvent.OpenOriginal) }
+                    PlaceStatus(
+                        segment.status,
+                        hasOriginal = segment.duplicateOf != null,
+                        proposedHelp = Res.string.segment_status_proposed_help,
+                        duplicateHelp = Res.string.segment_duplicate_help,
+                        archivedHelp = Res.string.segment_status_archived_help,
+                        onOpenOriginal = { state.eventSink(SegmentEvent.OpenOriginal) },
+                    )
                     if (!lift && SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {
                         AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, Modifier.padding(top = 8.dp)) {
                             Text(stringResource(Res.string.segment_leaderboard))
@@ -170,28 +169,6 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-        }
-    }
-}
-
-/** A segment that isn't active: its status and what it means, and for a duplicate a link to the original. */
-@Composable
-private fun Status(segment: SegmentView, onOpenOriginal: () -> Unit) {
-    val status = SegmentStatus.of(segment.status)
-    val help =
-        when (status) {
-            SegmentStatus.PROPOSED -> Res.string.segment_status_proposed_help
-            SegmentStatus.DUPLICATE -> Res.string.segment_duplicate_help
-            SegmentStatus.ARCHIVED -> Res.string.segment_status_archived_help
-            else -> return
-        }
-    Column(Modifier.padding(top = 8.dp)) {
-        segmentStatusLabel(segment.status)?.let {
-            Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
-        }
-        Text(stringResource(help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (status == SegmentStatus.DUPLICATE && segment.duplicateOf != null) {
-            AppTextButton(onClick = onOpenOriginal) { Text(stringResource(Res.string.segment_open_original)) }
         }
     }
 }

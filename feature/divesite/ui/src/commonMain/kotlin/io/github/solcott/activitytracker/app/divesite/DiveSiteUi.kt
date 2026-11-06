@@ -25,7 +25,8 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.names.OriginalName
 import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
 import io.github.solcott.activitytracker.app.names.PlaceNames
-import io.github.solcott.activitytracker.app.segment.segmentStatusLabel
+import io.github.solcott.activitytracker.app.segment.CreatedBy
+import io.github.solcott.activitytracker.app.segment.PlaceStatus
 import io.github.solcott.activitytracker.app.settings.monthName
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
@@ -41,7 +42,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -61,15 +61,12 @@ import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_archived_help
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_proposed_help
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_visits
-import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_license
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_osm
-import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
-import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -136,13 +133,16 @@ private fun About(state: DiveSiteState, site: DiveSiteView) {
             stringResource(Res.string.dive_site_radius, Format.elevation(site.record.radius.toDouble())),
             style = MaterialTheme.typography.titleMedium,
         )
-        Text(
-            stringResource(Res.string.segment_created_by, handleLabel(site.creator.handle.value)),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        CreatedBy(site.creator.handle.value)
         Credit(site)
-        Status(site) { state.eventSink(DiveSiteEvent.OpenOriginal) }
+        PlaceStatus(
+            site.status,
+            hasOriginal = site.duplicateOf != null,
+            proposedHelp = Res.string.dive_site_status_proposed_help,
+            duplicateHelp = Res.string.dive_site_duplicate_help,
+            archivedHelp = Res.string.dive_site_status_archived_help,
+            onOpenOriginal = { state.eventSink(DiveSiteEvent.OpenOriginal) },
+        )
         state.regulars?.let { regulars ->
             RegularsCard(regulars, onClick = { state.eventSink(DiveSiteEvent.OpenRegulars) }, Modifier.padding(top = 12.dp))
         }
@@ -162,28 +162,6 @@ private fun Credit(site: DiveSiteView) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-/** A site that isn't active: its status and what it means, and for a duplicate a link to the original. */
-@Composable
-private fun Status(site: DiveSiteView, onOpenOriginal: () -> Unit) {
-    val status = SegmentStatus.of(site.status)
-    val help =
-        when (status) {
-            SegmentStatus.PROPOSED -> Res.string.dive_site_status_proposed_help
-            SegmentStatus.DUPLICATE -> Res.string.dive_site_duplicate_help
-            SegmentStatus.ARCHIVED -> Res.string.dive_site_status_archived_help
-            else -> return
-        }
-    Column(Modifier.padding(top = 8.dp)) {
-        segmentStatusLabel(site.status)?.let {
-            Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
-        }
-        Text(stringResource(help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (status == SegmentStatus.DUPLICATE && site.duplicateOf != null) {
-            AppTextButton(onClick = onOpenOriginal) { Text(stringResource(Res.string.segment_open_original)) }
-        }
     }
 }
 
