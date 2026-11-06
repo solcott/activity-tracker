@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.boundedCache
+import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.location.ElevationGain
 import io.github.solcott.activitytracker.location.ElevationProfile
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -183,7 +184,6 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val BYTE = 0xFF
         private const val BYTE_VALUES = 256
         private const val TERRARIUM_OFFSET = 32768f
-        private const val E7 = 1e7
         private const val TENTHS = 10.0
     }
 }

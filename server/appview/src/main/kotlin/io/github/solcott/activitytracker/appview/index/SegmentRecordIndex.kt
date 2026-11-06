@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.text.BreakIterator
-import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.Column
@@ -61,7 +60,6 @@ private const val MAX_NAME_GRAPHEMES = 100
 internal const val MAX_TOKEN_LENGTH = 64
 private const val MAX_LAT = 90.0
 private const val MAX_LNG = 180.0
-private const val E7 = 1e7
 
 /**
  * A segment from [author]'s repo. Indexed only with a name, a known sport group and kind ([validKind]: a lift only alpine and only from the
@@ -234,7 +232,8 @@ internal fun JdbcTransaction.duplicatesOf(
         .map { it[Segments.uri] }
 }
 
-private fun earlier(a: Pair<Long, String>, b: Pair<Long, String>) = a.first < b.first || (a.first == b.first && a.second < b.second)
+/** Whether [a], a first-indexed time and URI, came before [b]: the order duplicate checks settle ties by. */
+internal fun earlier(a: Pair<Long, String>, b: Pair<Long, String>) = a.first < b.first || (a.first == b.first && a.second < b.second)
 
 /**
  * Checks again each segment marked duplicate of one of [originals], which was deleted, archived or changed, earliest first indexed first,
@@ -315,8 +314,6 @@ private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint
         this[SegmentCellIndex.segmentUri] = uri
     }
 }
-
-internal fun Double.e7(): Int = (this * E7).roundToInt()
 
 /** Sets [line]'s bounding box, in degrees × 10^7, on the four columns that hold it: a segment's or a staged candidate's. */
 internal fun UpdateBuilder<*>.setBox(

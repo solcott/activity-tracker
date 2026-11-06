@@ -10,8 +10,6 @@ import io.github.solcott.activitytracker.appview.segments.unlabelledProposal
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Handle
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
@@ -125,5 +123,3 @@ internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatar
         )
     }
 }
-
-private fun unknownProfile(did: String) = ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE))

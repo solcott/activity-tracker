@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.api.ModerationAccessLog
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.commentViews
+import io.github.solcott.activitytracker.appview.api.notFound
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.tx
@@ -110,7 +111,7 @@ class ModeratorSubjects(
     private fun requireOzone(): OzoneClient =
         ozone ?: throw XrpcError(HttpStatusCode.ServiceUnavailable.value, "LabelerUnavailable", "No labeler team is configured")
 
-    private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "No such subject under review")
+    private fun notFound() = notFound("No such subject under review")
 
     /** Team roles from `listMembers`, read at most every [ttl]. */
     private class RoleCache(private val clock: Clock, private val ttl: Duration = 5.minutes) {

@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.appview.db.groupableTracks
 import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
+import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
 import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfActivity
@@ -812,7 +813,6 @@ internal fun segmentTrackPieces(bytes: ByteArray): List<List<TimedPoint>> =
         }
     }
 
-private const val E7 = 1e7
 private const val CM_PER_M = 100.0
 
 /** Whether an activity of [sport] and [subSport] visits dive sites: a dive that isn't a pool session (dive-sites/site-visits). */

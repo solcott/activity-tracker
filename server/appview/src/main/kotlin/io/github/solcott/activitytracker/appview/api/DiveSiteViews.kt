@@ -22,7 +22,6 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.CheckDiveSite
 import io.github.solcott.activitytracker.lexicon.app.CheckDiveSites
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteConditions
@@ -36,7 +35,6 @@ import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
 import io.github.solcott.activitytracker.lexicon.app.Paging
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
@@ -46,7 +44,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.ktor.http.HttpStatusCode
 import java.time.LocalDate
 import java.time.ZoneOffset
-import kotlin.math.abs
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -108,7 +105,7 @@ class DiveSiteViews(
      * the viewer created or dived.
      */
     suspend fun search(viewer: Did?, params: SearchDiveSites.Params): SearchDiveSites.Output {
-        requireBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
+        requireSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
         val limit = Paging.clamp(params.limit)
         return db.tx {
             val rows =
@@ -270,7 +267,7 @@ class DiveSiteViews(
             val ahead = counts(board, (VISITS greater visits) or ((VISITS eq visits) and (REACHED less reached))).count()
             DiveSiteRegularEntry(
                 rank = ahead.toInt() + 1,
-                athlete = athletes[did] ?: ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE)),
+                athlete = athletes[did] ?: unknownProfile(did),
                 visits = visits.toInt(),
                 reachedOn = reached,
             )
@@ -299,13 +296,6 @@ class DiveSiteViews(
         else DiveSites.selectAll().where { (DiveSites.uri inList uris) and diveSiteServed(viewer) }.associateBy { it[DiveSites.uri] }
 
     private fun today(): LocalDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
-
-    private fun requireBox(minLat: Int, minLng: Int, maxLat: Int, maxLng: Int) {
-        if (!validPositionE7(minLat, minLng) || !validPositionE7(maxLat, maxLng)) invalidRequest("The box is outside the globe")
-        if (minLat > maxLat || minLng > maxLng) invalidRequest("The box's minimum is above its maximum")
-        if (abs(maxLat - minLat) > SearchSegments.MAX_SPAN_E7 || abs(maxLng - minLng) > SearchSegments.MAX_SPAN_E7)
-            invalidRequest("The box is wider than one degree")
-    }
 
     private companion object {
         val VISITS = DiveSiteVisits.activityUri.count()
@@ -410,7 +400,7 @@ internal fun JdbcTransaction.diveSiteViews(rows: List<ResultRow>, avatars: Avata
         DiveSiteView(
             uri = AtUri(it[DiveSites.uri]),
             cid = Cid(it[DiveSites.cid]),
-            creator = creators[author] ?: ProfileViewBasic(Did(author), Handle(UNKNOWN_HANDLE)),
+            creator = creators[author] ?: unknownProfile(author),
             record = AtJson.decodeFromString(DiveSiteRecord.serializer(), it[DiveSites.record]),
             status = it[DiveSites.status],
             duplicateOf = it[DiveSites.duplicateOf]?.let(::AtUri),
@@ -419,9 +409,7 @@ internal fun JdbcTransaction.diveSiteViews(rows: List<ResultRow>, avatars: Avata
     }
 }
 
-private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Dive site not found")
-
-private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
+private fun notFound() = notFound("Dive site not found")
 
 /** Whether a dive site is indexed at [uri], whatever its status or labels. */
 private fun JdbcTransaction.siteIndexed(uri: String): Boolean = DiveSites.select(DiveSites.uri).where { DiveSites.uri eq uri }.any()

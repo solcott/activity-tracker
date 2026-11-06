@@ -180,7 +180,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val since = params.since.toEpochMilliseconds()
         val until = params.until.toEpochMilliseconds()
-        if (until <= since) throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", "until must be after since")
+        if (until <= since) invalidRequest("until must be after since")
         val sport = params.sport?.let { Activities.sport eq it } ?: Op.TRUE
         val pageSize = Paging.clamp(params.limit)
         val rows =
@@ -557,8 +557,6 @@ private fun feedFilter(types: List<String>?, since: Instant?, until: Instant?): 
         .fold(Op.TRUE) { acc: Op<Boolean>, op -> acc and op }
 }
 
-private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
-
 /** The athlete whose activity [uri] is; [notFound] when the viewer may not see it, as if it didn't exist. */
 internal fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): String =
     Activities.select(Activities.authorDid)
@@ -566,7 +564,7 @@ internal fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): 
         .singleOrNull()
         ?.get(Activities.authorDid) ?: throw notFound()
 
-private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+private fun notFound() = notFound("Activity not found")
 
 /** A post's row among the timeline's entries, told apart from an activity's [ResultRow]. */
 private class PostRow(val row: ResultRow)

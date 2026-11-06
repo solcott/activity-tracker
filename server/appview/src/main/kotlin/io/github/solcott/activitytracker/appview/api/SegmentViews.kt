@@ -10,10 +10,12 @@ import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
+import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
 import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
+import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.mayPropose
@@ -25,7 +27,6 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
@@ -43,7 +44,6 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
@@ -56,12 +56,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
-import io.ktor.http.HttpStatusCode
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToLong
 import kotlin.time.Clock
@@ -600,7 +598,7 @@ class SegmentViews(
         return page
             .mapIndexedNotNull { i, (did, _) ->
                 val effort = chosen[did]?.let(efforts::get) ?: return@mapIndexedNotNull null
-                LeaderboardEntry(ranks[i], athletes[did] ?: ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE)), effort)
+                LeaderboardEntry(ranks[i], athletes[did] ?: unknownProfile(did), effort)
             }
             .sortedWith(compareBy({ it.rank }, { it.effort.startedOn }))
     }
@@ -687,7 +685,7 @@ class SegmentViews(
             )
         val athletes = basicProfiles(page.map { it.first }, avatars)
         return page.mapIndexed { i, (did, efforts, reached) ->
-            MayorEntry(ranks[i], athletes[did] ?: ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE)), efforts.toInt(), reached)
+            MayorEntry(ranks[i], athletes[did] ?: unknownProfile(did), efforts.toInt(), reached)
         }
     }
 
@@ -753,7 +751,7 @@ class SegmentViews(
             SegmentView(
                 uri = AtUri(it[Segments.uri]),
                 cid = Cid(it[Segments.cid]),
-                creator = creators[author] ?: ProfileViewBasic(Did(author), Handle(UNKNOWN_HANDLE)),
+                creator = creators[author] ?: unknownProfile(author),
                 record = AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record]),
                 distanceMeters = it[Segments.distanceM],
                 status = it[Segments.status],
@@ -764,15 +762,6 @@ class SegmentViews(
                 elevationSource = elevation?.source,
             )
         }
-    }
-
-    /** Refuses a search box off the globe, upside down, or wider than [SearchSegments.MAX_SPAN_E7] on either side as `InvalidRequest`. */
-    private fun requireSearchBox(minLat: Int, minLng: Int, maxLat: Int, maxLng: Int) {
-        if (listOf(minLat, maxLat).any { abs(it) > MAX_LAT_E7 } || listOf(minLng, maxLng).any { abs(it) > MAX_LNG_E7 })
-            invalidRequest("The box is outside the globe")
-        if (minLat > maxLat || minLng > maxLng) invalidRequest("The box's minimum is above its maximum")
-        if (maxLat - minLat > SearchSegments.MAX_SPAN_E7 || maxLng - minLng > SearchSegments.MAX_SPAN_E7)
-            invalidRequest("The box is wider than one degree")
     }
 
     /** A name search's box, checked like [search]'s: all four sides or none, else `InvalidRequest`. */
@@ -791,7 +780,7 @@ class SegmentViews(
         val lng = params.nearLng
         if (lat == null && lng == null) return null
         if (lat == null || lng == null) invalidRequest("Give both nearLat and nearLng, or neither")
-        if (abs(lat) > MAX_LAT_E7 || abs(lng) > MAX_LNG_E7) invalidRequest("The centre is outside the globe")
+        if (!validPositionE7(lat, lng)) invalidRequest("The centre is outside the globe")
         return lat to lng
     }
 
@@ -802,10 +791,6 @@ class SegmentViews(
         }
 
     companion object {
-        private const val E7 = 1e7
-        private const val MAX_LAT_E7 = 900_000_000
-        private const val MAX_LNG_E7 = 1_800_000_000
-
         /** The batches of candidates one search reads at most: 300 rows at the default batch size. */
         private const val SEARCH_BATCHES = 3
 
@@ -839,10 +824,6 @@ class SegmentViews(
 
         /** An effort's ID, rebuilt from its view as the matcher writes it, for the keyset cursor. */
         private fun effortId(effort: EffortView) = "${effort.activity.value} ${effort.segment.uri.value} ${effort.startOffset}"
-
-        private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
-
-        private fun notFound(message: String) = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", message)
     }
 }
 

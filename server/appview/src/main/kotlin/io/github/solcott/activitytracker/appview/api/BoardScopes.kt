@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
-import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.eq
@@ -17,9 +16,9 @@ import org.jetbrains.exposed.v1.core.or
  */
 internal fun followingScope(viewer: Did?, scope: String?): Boolean {
     val chosen = scope ?: LeaderboardScope.EVERYONE
-    if (chosen !in LeaderboardScope.all) invalidScope("Unknown scope $chosen")
+    if (chosen !in LeaderboardScope.all) invalidRequest("Unknown scope $chosen")
     val following = chosen == LeaderboardScope.FOLLOWING
-    if (following && viewer == null) invalidScope("The following scope needs a signed-in viewer")
+    if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
     return following
 }
 
@@ -28,5 +27,3 @@ internal fun followedOrOwn(author: Column<String>, viewer: Did?, following: Bool
     val own = viewer?.value
     return if (following && own != null) (author eq own) or (author inSubQuery effectivelyFollowedBy(own)) else Op.TRUE
 }
-
-private fun invalidScope(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)

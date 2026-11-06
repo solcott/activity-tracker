@@ -79,7 +79,7 @@ class SegmentCandidateViews(
         requireImporter(caller)
         requireRun(input.region, input.revision)
         if (input.candidates.size > SegmentCandidates.MAX_BATCH) {
-            invalid("At most ${SegmentCandidates.MAX_BATCH} candidates per call, not ${input.candidates.size}")
+            invalidRequest("At most ${SegmentCandidates.MAX_BATCH} candidates per call, not ${input.candidates.size}")
         }
         val now = clock.now().toEpochMilliseconds()
         val rejected = mutableListOf<SegmentCandidateRejection>()
@@ -178,7 +178,7 @@ class SegmentCandidateViews(
         requireImporter(caller)
         requireRegion(input.region)
         if (input.ids.size > SegmentCandidates.MAX_BATCH)
-            invalid("At most ${SegmentCandidates.MAX_BATCH} ids per call, not ${input.ids.size}")
+            invalidRequest("At most ${SegmentCandidates.MAX_BATCH} ids per call, not ${input.ids.size}")
         val checked = db.tx {
             SegmentCandidateRows.selectAll()
                 .where { (SegmentCandidateRows.region eq input.region) and (SegmentCandidateRows.id inList input.ids.distinct()) }
@@ -305,15 +305,13 @@ class SegmentCandidateViews(
     private fun requireRun(region: String, revision: String) {
         requireRegion(region)
         if (revision.isEmpty() || revision.length > SegmentCandidates.MAX_REVISION_LENGTH) {
-            invalid("A revision must be 1 to ${SegmentCandidates.MAX_REVISION_LENGTH} characters")
+            invalidRequest("A revision must be 1 to ${SegmentCandidates.MAX_REVISION_LENGTH} characters")
         }
     }
 
     private fun requireRegion(region: String) {
-        if (!SegmentCandidates.ID_PATTERN.matches(region)) invalid("A region must be 1 to 64 of a-z, 0-9 and -")
+        if (!SegmentCandidates.ID_PATTERN.matches(region)) invalidRequest("A region must be 1 to 64 of a-z, 0-9 and -")
     }
-
-    private fun invalid(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
 
     private companion object {
         /** `importer.defs#candidate.line`'s maxLength, as `feed.segment#line`'s. */

@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -183,7 +182,7 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
     private fun uriOf(invite: ResultRow) =
         AtUri.of(Did(invite[ActivityInvites.inviterDid]), Nsid.FEED_ACTIVITY_INVITE, invite[ActivityInvites.rkey])
 
-    private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "No such invite")
+    private fun notFound() = notFound("No such invite")
 
     companion object {
         /** The categories an invite lets its invitee copy, besides core data. */

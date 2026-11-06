@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.activitytracker.lexicon.app.GearYearTotals
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Alias
 import org.jetbrains.exposed.v1.core.Case
@@ -137,8 +136,7 @@ internal fun ActivityView.withGearOnly(gear: List<GearView>?): ActivityView {
 
 /** The item at [uri] if [viewer] may see it; `NotFound` otherwise, as if it didn't exist. */
 internal fun JdbcTransaction.requireVisibleGear(uri: String, viewer: Did?): ResultRow =
-    GearItems.selectAll().where { (GearItems.uri eq uri) and gearVisibleTo(viewer) }.singleOrNull()
-        ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Gear not found")
+    GearItems.selectAll().where { (GearItems.uri eq uri) and gearVisibleTo(viewer) }.singleOrNull() ?: throw notFound("Gear not found")
 
 /** The [GearItems] rows [viewer] may see ([visibleTo]). */
 internal fun gearVisibleTo(viewer: Did?) = visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid)

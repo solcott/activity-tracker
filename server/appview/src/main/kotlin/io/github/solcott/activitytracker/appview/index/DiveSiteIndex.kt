@@ -41,16 +41,6 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 /** How many new dive sites one creator may have indexed in any [CREATION_WINDOW_MS]; the segment importer isn't limited. */
 internal const val DAILY_DIVE_SITE_LIMIT = 10L
 
-private const val E7 = 1e7
-private const val MAX_LAT_E7 = 900_000_000
-private const val MAX_LNG_E7 = 1_800_000_000
-
-/** The point of [lat] and [lng], in 1e-7 degrees. */
-internal fun pointE7(lat: Int, lng: Int) = GeoPoint(lat / E7, lng / E7)
-
-/** Whether [lat] and [lng], in 1e-7 degrees, are a valid position. */
-internal fun validPositionE7(lat: Int, lng: Int): Boolean = lat in -MAX_LAT_E7..MAX_LAT_E7 && lng in -MAX_LNG_E7..MAX_LNG_E7
-
 /** A site row's centre. */
 internal fun ResultRow.siteCentre() = pointE7(this[DiveSites.latE7], this[DiveSites.lngE7])
 
@@ -165,11 +155,7 @@ internal fun JdbcTransaction.diveSiteDuplicatesOf(centre: GeoPoint, before: Pair
     return DiveSites.selectAll()
         .where { (DiveSites.uri inList inCells) and (DiveSites.status inList LIVE_STATUSES) }
         .orderBy(DiveSites.firstIndexedAt to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
-        .filter { row ->
-            before == null ||
-                row[DiveSites.firstIndexedAt] < before.first ||
-                (row[DiveSites.firstIndexedAt] == before.first && row[DiveSites.uri] < before.second)
-        }
+        .filter { row -> before == null || earlier(row[DiveSites.firstIndexedAt] to row[DiveSites.uri], before) }
         .filter { SegmentGeometry.distanceMeters(it.siteCentre(), centre) <= CheckDiveSite.DUPLICATE_METERS }
         .map { it[DiveSites.uri] }
 }

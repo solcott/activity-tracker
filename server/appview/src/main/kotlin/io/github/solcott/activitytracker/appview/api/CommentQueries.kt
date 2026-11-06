@@ -119,7 +119,7 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
         CommentView(
             uri = AtUri(c[Comments.uri]),
             cid = Cid(c[Comments.cid]),
-            author = authors[c[Comments.authorDid]] ?: ProfileViewBasic(Did(c[Comments.authorDid]), Handle(UNKNOWN_HANDLE)),
+            author = authors[c[Comments.authorDid]] ?: unknownProfile(c[Comments.authorDid]),
             text = c[Comments.text],
             createdAt = Instant.fromEpochMilliseconds(c[Comments.createdAt]),
             hidden = true.takeIf { c[Comments.uri] in hidden },
@@ -133,6 +133,9 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
 
 /** atproto's handle for an account whose handle can't be resolved. */
 internal const val UNKNOWN_HANDLE = "handle.invalid"
+
+/** The view of [did] when there's no profile to show: its DID with [UNKNOWN_HANDLE]. */
+internal fun unknownProfile(did: String) = ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE))
 
 /** A comment row's place in a keyset on (created_at, uri). */
 internal fun commentCursor(row: ResultRow): String = cursorOf(row[Comments.createdAt], row[Comments.uri])
