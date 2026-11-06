@@ -10,7 +10,6 @@ import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
 import io.github.solcott.activitytracker.lexicon.app.GroupPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -71,11 +70,7 @@ class GroupPrefsRepository(private val clients: SessionClients, private val cloc
      */
     suspend fun shouldAsk(): Boolean {
         if (!canUse || load() != GroupChoice.NEVER_ASKED) return false
-        val tracks = runSuspendCatching {
-            clients.spaces.listRecords(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.FEED_ACTIVITY_TRACK, 1)
-        }
-            .getOrNull()
-        return tracks is SpaceRead.Found && tracks.value.records.isNotEmpty()
+        return clients.hasActivityTrack()
     }
 
     /** The choice read again, as Settings shows it on opening: another device may have changed it. Null when it can't be read now. */

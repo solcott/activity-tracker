@@ -10,7 +10,6 @@ import io.github.solcott.activitytracker.data.activity.writeSelfRecord
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.time.Clock
@@ -78,11 +77,7 @@ class SegmentPrefsRepository(private val clients: SessionClients, private val cl
      */
     suspend fun shouldAsk(): Boolean {
         if (!canUse || load() != SegmentMatching.NEVER_ASKED) return false
-        val tracks = runSuspendCatching {
-            clients.spaces.listRecords(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.FEED_ACTIVITY_TRACK, 1)
-        }
-            .getOrNull()
-        return tracks is SpaceRead.Found && tracks.value.records.isNotEmpty()
+        return clients.hasActivityTrack()
     }
 
     /** The setting read again, as Settings shows it on opening: another device may have changed it. Null when it can't be read now. */
