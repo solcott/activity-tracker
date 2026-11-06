@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.startTime
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
@@ -145,11 +146,7 @@ private fun QueueList(state: UploadsState, view: UploadQueueView, padding: Paddi
             }
             if (view.isEmpty) {
                 item(key = "empty") {
-                    Text(
-                        stringResource(Res.string.uploads_empty),
-                        Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    EmptyListText(stringResource(Res.string.uploads_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

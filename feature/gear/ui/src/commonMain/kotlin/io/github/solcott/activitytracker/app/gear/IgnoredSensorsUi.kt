@@ -1,17 +1,16 @@
 package io.github.solcott.activitytracker.app.gear
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -40,11 +39,7 @@ fun IgnoredSensorsUi(state: IgnoredSensorsState, modifier: Modifier = Modifier) 
         state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
         if (sensors.isEmpty()) {
             item(key = "empty") {
-                Text(
-                    stringResource(Res.string.gear_ignored_empty),
-                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                EmptyListText(stringResource(Res.string.gear_ignored_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         items(sensors, key = { it.id }) { sensor ->

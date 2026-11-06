@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -69,11 +70,7 @@ fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) 
         }
         if (detail.members.isEmpty()) {
             item(key = "empty") {
-                Text(
-                    stringResource(Res.string.gear_collection_empty),
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                EmptyListText(stringResource(Res.string.gear_collection_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         itemsIndexed(detail.members, key = { _, row -> row.rkey }) { _, row ->
