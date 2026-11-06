@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStar
 import io.github.solcott.activitytracker.data.segments.SegmentStars
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.dataresult.dataOrNull
@@ -100,7 +101,21 @@ private class StarPages(private val stars: SegmentStars, private val segments: S
     private suspend fun pageAt(from: Int): Outcome<Page<StarredSegment, Unit>> {
         val page = starred.drop(from).take(PAGE_SIZE)
         val next = (from + page.size).takeIf { it < starred.size }?.toString()
-        return segments.resolve(page).mapData { pageOf(it, next) }
+        return segments.resolve(page).mapData { resolved -> pageOf(resolved.map { followHandoff(it) }, next) }
+    }
+
+    /**
+     * A star whose segment came back under another URI, its successor after a handoff (segments/segment-handoffs), moves to it; a failed
+     * move is tried again on the next load.
+     */
+    private suspend fun followHandoff(item: StarredSegment): StarredSegment {
+        val segment = item.segment
+        val star = starred.firstOrNull { it.segment.uri == item.uri }
+        if (segment == null || star == null || segment.uri == item.uri) return item
+        val successor = StrongRef(segment.uri, segment.cid)
+        runSuspendCatching { stars.moveStar(star, successor) }
+        starred = starred.map { if (it === star) SegmentStar(successor, star.starredAt) else it }
+        return item.copy(uri = segment.uri)
     }
 }
 

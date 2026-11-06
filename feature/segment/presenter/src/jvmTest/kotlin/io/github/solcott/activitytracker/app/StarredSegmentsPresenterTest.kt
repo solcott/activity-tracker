@@ -48,6 +48,8 @@ class StarredSegmentsPresenterTest {
     private val stored = mutableMapOf<String, String>()
     /** Segments the AppView serves, by rkey; any other is NotFound. */
     private val served = mutableMapOf("3ka" to "Hill", "3kb" to "Bridge", "3kc" to "Dam")
+    /** Handed-off segments (segments/segment-handoffs): an old rkey, whose lookup serves its successor's. */
+    private val handedOff = mutableMapOf<String, String>()
     private var pdsDown = false
     /** Lookups of these rkeys fail as a lost connection would. */
     private val unreachable = mutableSetOf<String>()
@@ -74,7 +76,8 @@ class StarredSegmentsPresenterTest {
                         respond("""{"records":[${records.joinToString(",")}]}""", headers = json)
                     }
                     "/xrpc/${Nsid.FEED_GET_SEGMENT}" -> {
-                        val rkey = AtUri(params["uri"]!!).rkey
+                        val asked = AtUri(params["uri"]!!).rkey
+                        val rkey = handedOff[asked] ?: asked
                         val name = served[rkey]
                         when {
                             rkey in unreachable -> throw IOException("Connection refused")
@@ -164,6 +167,21 @@ class StarredSegmentsPresenterTest {
                 "${queued.operation} ${queued.collection} ${queued.rkey}",
             )
             navigator.expectNoGoToEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aStarOnAHandedOffSegmentMovesToItsSuccessor() = runTest {
+        star("3ko", "2026-10-01T00:00:00Z")
+        handedOff["3ko"] = "3ka"
+        signIn()
+        presenterTestOf({ StarredSegmentsPresenter(navigator, stars, segments) }) {
+            val state = awaitUntil { it.answered }
+            assertEquals(listOf(uri("3ka")), state.segments.items.map { it.uri })
+            assertEquals("Hill", state.segments.items.single().segment?.record?.name)
+            val queued = db.outbox().pending(alice.value).map { "${it.operation} ${it.rkey}" }
+            assertEquals(listOf("put ${segmentStarRkey(uri("3ka"))}", "delete ${segmentStarRkey(uri("3ko"))}"), queued)
             cancelAndIgnoreRemainingEvents()
         }
     }

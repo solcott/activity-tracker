@@ -132,6 +132,32 @@ class SegmentStars(
         outbox.drain()
     }
 
+    /**
+     * Moves [star] to [successor], the segment its segment was handed off to (segments/segment-handoffs): a star for [successor], keeping
+     * when it was starred, and none for the old URI any more. Queued like any star change.
+     */
+    suspend fun moveStar(star: SegmentStar, successor: StrongRef) {
+        if (successor.uri == star.segment.uri) return
+        mutex.withLock {
+            if (!canUse) return
+            val moved = SegmentStar(successor, star.starredAt)
+            val previous = overrides.value
+            overrides.update { it + (star.segment.uri.value to null) + (successor.uri.value to moved) }
+            undoingOnFailure({ overrides.value = previous }) {
+                val self = clients.tiers.uri(AthleteSpace.SELF)
+                writer.put(
+                    Nsid.FEED_SEGMENT_STAR,
+                    segmentStarRkey(successor.uri),
+                    SegmentStarRecord.serializer(),
+                    SegmentStarRecord(successor, star.starredAt),
+                    space = self,
+                )
+                writer.delete(Nsid.FEED_SEGMENT_STAR, segmentStarRkey(star.segment.uri), self)
+            }
+        }
+        outbox.drain()
+    }
+
     /** [block] on the athlete's `self` space; null when it fails. */
     private suspend fun <T> read(block: suspend SpaceClient.(SpaceUri) -> SpaceRead<T>): SpaceRead<T>? = runSuspendCatching {
         clients.spaces.block(clients.tiers.uri(AthleteSpace.SELF))
