@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Sites are looked up and found by area
-`feed.getDiveSite` SHALL return a site's view by URI, whatever its status, with its current and original names, centre, radius, source, licence, attribution, status and, for a duplicate, the site it duplicates. For the URI of a handed-off site that has a successor, it SHALL return the successor's view (`dive-sites/site-handoffs`). `feed.searchDiveSites` SHALL return the sites whose centre lies in a bounding box, at most 100 per page with a cursor: `active` ones to everyone, `proposed` ones only to their creator and athletes with a visit, never `duplicate` or `archived` ones.
+`feed.getDiveSite` SHALL return a site's view by URI, whatever its status, with its current and original names, centre, radius, source, licence, attribution, status and, for a duplicate, the site it duplicates. `feed.searchDiveSites` SHALL return the sites whose centre lies in a bounding box, at most 100 per page with a cursor: `active` ones to everyone, `proposed` ones only to their creator and athletes with a visit, never `duplicate` or `archived` ones. Handed-off URIs serve their successor.
 
 #### Scenario: Searching a bay
 - **WHEN** a viewer searches a bay holding one active and one proposed site they haven't visited
