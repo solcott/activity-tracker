@@ -38,7 +38,10 @@ enum class GrantFeature {
     Gear,
 
     /** Segment matching, leaderboards, brackets, grouping, stars and name votes. */
-    SegmentsAndGroups;
+    SegmentsAndGroups,
+
+    /** Deleting the athlete's spaces, which leaving Activity Tracker needs (auth/leaving): the scope's `manage=delete`. */
+    Leaving;
 
     companion object {
         /** The feature each collection the athlete space declares belongs to; `GrantStatusTest` checks it covers every one. */
@@ -83,15 +86,22 @@ enum class GrantFeature {
 
 /**
  * The grant status of a session with [hasSpacesScope] on a PDS whose Spaces support is [unsupported] or not, where [canWrite] says whether
- * the grant covers a collection. A PDS without Spaces wins: signing in again can't fix it. Kept apart from `SessionClients` so it can be
- * tested without a session.
+ * the grant covers a collection and [canDeleteSpaces] whether it may delete the athlete's spaces. A PDS without Spaces wins: signing in
+ * again can't fix it. Kept apart from `SessionClients` so it can be tested without a session.
  */
-internal fun grantStatusOf(hasSpacesScope: Boolean, unsupported: Boolean, canWrite: (String) -> Boolean): GrantStatus =
+internal fun grantStatusOf(
+    hasSpacesScope: Boolean,
+    unsupported: Boolean,
+    canDeleteSpaces: Boolean,
+    canWrite: (String) -> Boolean,
+): GrantStatus =
     when {
         unsupported -> GrantStatus.SpacesUnsupported
         !hasSpacesScope -> GrantStatus.Outdated(GrantFeature.all)
         else -> {
-            val missing = AthleteSpaceDeclaration.collections.filterNot(canWrite)
-            if (missing.isEmpty()) GrantStatus.Current else GrantStatus.Outdated(GrantFeature.of(missing))
+            val missing =
+                GrantFeature.of(AthleteSpaceDeclaration.collections.filterNot(canWrite)) +
+                    if (canDeleteSpaces) emptySet() else setOf(GrantFeature.Leaving)
+            if (missing.isEmpty()) GrantStatus.Current else GrantStatus.Outdated(missing)
         }
     }

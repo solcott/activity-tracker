@@ -133,6 +133,7 @@ class SessionClients(
             grantStatusOf(
                 hasSpacesScope = hasSpacesScope,
                 unsupported = spacesSupport.value == SpacesSupport.Unsupported,
+                canDeleteSpaces = canDeleteSpaces,
                 canWrite = ::canWriteToSpaces,
             )
 
@@ -148,6 +149,10 @@ class SessionClients(
     }
 
     private val athleteSpaceScopes: List<String> = session.scope.split(' ').filter { it.startsWith("space:${Nsid.SPACE_ATHLETE}") }
+
+    /** Whether the grant lets the athlete delete their own spaces (the scope's `manage=delete`), which leaving needs (auth/leaving). */
+    val canDeleteSpaces: Boolean
+        get() = athleteSpaceScopes.any { "delete" in scopeParams(it, "manage") }
 
     private val managingAppLock = Mutex()
     private var resolvedManagingApp: String? = null

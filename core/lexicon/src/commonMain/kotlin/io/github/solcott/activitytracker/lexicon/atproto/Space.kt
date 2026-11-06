@@ -241,6 +241,17 @@ object Space {
         val method = XrpcProcedure("com.atproto.space.updateSpace", Input.serializer(), NoOutput.serializer())
     }
 
+    /**
+     * On the owner's PDS: deletes the space (the owner's own repo in it) and notifies its registered services. Needs the `space:` scope's
+     * `manage=delete`. A space already deleted succeeds; one that never existed is [SpaceErrors.SPACE_NOT_FOUND], which
+     * `SpaceClient.deleteSpace` takes as done.
+     */
+    object DeleteSpace {
+        @Serializable data class Input(val space: SpaceUri)
+
+        val method = XrpcProcedure("com.atproto.space.deleteSpace", Input.serializer(), NoOutput.serializer())
+    }
+
     /** On the viewer's own PDS: a 60 s, single-use token naming the viewer, to exchange at the space's authority. */
     object GetDelegationToken {
         @Serializable data class Params(val space: SpaceUri)

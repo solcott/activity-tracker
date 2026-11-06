@@ -41,6 +41,7 @@ sealed interface CreateSpaceResult {
  *
  * A session signed in before the `space:` scope existed gets `ScopeMissingError` ([SpaceErrors.SCOPE_MISSING]) as an [XrpcException].
  */
+@Suppress("TooManyFunctions") // One call per Spaces method the app uses.
 class SpaceClient(
     val did: Did,
     private val pds: XrpcClient,
@@ -118,6 +119,18 @@ class SpaceClient(
      */
     suspend fun updateSpace(space: SpaceUri, policy: SpacePolicy) {
         pds.procedure(Space.UpdateSpace.method, Space.UpdateSpace.Input(space, policy))
+    }
+
+    /**
+     * Deletes the athlete's space at [space]. Idempotent: a space already deleted, or never created, counts as done. A grant without the
+     * scope's `manage=delete` fails with [SpaceErrors.SCOPE_MISSING].
+     */
+    suspend fun deleteSpace(space: SpaceUri) {
+        try {
+            pds.procedure(Space.DeleteSpace.method, Space.DeleteSpace.Input(space))
+        } catch (e: XrpcException) {
+            if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
+        }
     }
 
     /** Writes [record] to the athlete's repo in [space]. Idempotent: the same put twice leaves one record. */

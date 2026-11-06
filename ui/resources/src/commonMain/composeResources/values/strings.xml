@@ -555,6 +555,7 @@
     <string name="account_feature_blocks_and_mutes">Blocks and mutes</string>
     <string name="account_feature_gear">Private gear, gear defaults and collections</string>
     <string name="account_feature_segments_and_groups">Segments, leaderboards and grouping</string>
+    <string name="account_feature_leaving">Leaving Activity Tracker</string>
     <string name="account_section_managed">Password and security</string>
     <string name="account_managed_by_server">Your password, two-factor sign-in, app passwords and handle, and deactivating or deleting your account, are managed by %1$s, the server hosting your account, not by Activity Tracker. You sign in on that server's own page, so Activity Tracker never sees your password.</string>
     <string name="account_end_title">Sign out?</string>

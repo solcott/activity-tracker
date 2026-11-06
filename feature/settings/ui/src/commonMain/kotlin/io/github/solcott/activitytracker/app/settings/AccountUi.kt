@@ -47,6 +47,7 @@ import io.github.solcott.activitytracker.composeApp.resources.account_end_title
 import io.github.solcott.activitytracker.composeApp.resources.account_end_title_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_blocks_and_mutes
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_gear
+import io.github.solcott.activitytracker.composeApp.resources.account_feature_leaving
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_private_activities
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_private_interactions
@@ -318,4 +319,5 @@ private val GrantFeature.label: StringResource
             GrantFeature.BlocksAndMutes -> Res.string.account_feature_blocks_and_mutes
             GrantFeature.Gear -> Res.string.account_feature_gear
             GrantFeature.SegmentsAndGroups -> Res.string.account_feature_segments_and_groups
+            GrantFeature.Leaving -> Res.string.account_feature_leaving
         }

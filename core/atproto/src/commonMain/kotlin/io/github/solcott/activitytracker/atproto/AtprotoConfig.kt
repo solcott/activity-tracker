@@ -38,7 +38,7 @@ data class OAuthClientConfig(
          */
         const val DEFAULT_SCOPE =
             "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?authority=*&action=read&action=read_self&action=create" +
-                "&action=update&action=delete&manage=create&manage=update"
+                "&action=update&action=delete&manage=create&manage=update&manage=delete"
 
         /**
          * ATProto "loopback" development client: no hosted metadata required. Only valid for redirect URIs on 127.0.0.1 / [::1], so this is

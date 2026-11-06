@@ -75,4 +75,19 @@ echo "ok   getRecord refused without credentials"
 xrpc com.atproto.space.deleteRecord POST "${auth[@]}" -H 'Content-Type: application/json' \
   -d "{\"space\":\"$space\",\"repo\":\"$did\",\"collection\":\"$collection\",\"rkey\":\"self\"}" >/dev/null
 echo "ok   deleteRecord"
+
+# Space deletion (leave-activity-tracker): a throwaway space per run, so the space above stays for the other checks.
+gone="at://$did/space/$space_type/gone-$(date +%s)"
+xrpc com.atproto.space.createSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{
+  \"spaceType\":\"$space_type\",\"skey\":\"${gone##*/}\",
+  \"policy\":{\"\$type\":\"com.atproto.memberspace.policy\"}}" >/dev/null
+xrpc com.atproto.space.deleteSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{\"space\":\"$gone\"}" >/dev/null
+echo "ok   deleteSpace"
+xrpc com.atproto.space.deleteSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{\"space\":\"$gone\"}" >/dev/null
+echo "ok   deleteSpace again is a no-op"
+allow="SpaceNotFound"
+after=$(xrpc com.atproto.space.getSpace GET "${auth[@]}" -G --data "space=$(urlencode "$gone")")
+allow=""
+[[ $after == *SpaceNotFound* || $after == *deleted* ]] || { echo "FAIL com.atproto.space.getSpace: deleted space still served: ${after:0:300}" >&2; exit 1; }
+echo "ok   getSpace after deleteSpace: ${after:0:80}"
 echo "Spaces smoke check passed on $pds"

@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
@@ -264,6 +265,34 @@ class SpaceClientTest {
             respondJson("""{"error":"SpaceNotFound","message":"none"}""", HttpStatusCode.BadRequest)
         }
         assertNull(owner().getSpace(f.aliceSpace))
+    }
+
+    @Test
+    fun deleteSpaceSendsTheSpace() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.deleteSpace") { respondJson("{}") }
+        owner().deleteSpace(f.aliceSpace)
+
+        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.space.deleteSpace").single().jsonBody()
+        assertEquals(mapOf("space" to f.aliceSpace.value), body.mapValues { it.value.jsonPrimitive.content })
+    }
+
+    @Test
+    fun deletingASpaceThatIsGoneIsDone() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.deleteSpace") {
+            respondJson("""{"error":"SpaceNotFound","message":"Space not found"}""", HttpStatusCode.BadRequest)
+        }
+        owner().deleteSpace(f.aliceSpace)
+        owner().deleteSpace(f.aliceSpace)
+        assertEquals(2, f.requestsTo("alicepds.test/xrpc/com.atproto.space.deleteSpace").size)
+    }
+
+    @Test
+    fun deletingWithoutTheScopeSaysSo() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.deleteSpace") {
+            respondJson("""{"error":"ScopeMissingError","message":"missing manage=delete"}""", HttpStatusCode.Forbidden)
+        }
+        val e = assertFailsWith<XrpcException> { owner().deleteSpace(f.aliceSpace) }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
     }
 
     @Test

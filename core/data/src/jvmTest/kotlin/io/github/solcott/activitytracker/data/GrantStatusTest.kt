@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
 import io.github.solcott.activitytracker.lexicon.AthleteSpaceDeclaration
@@ -14,7 +15,8 @@ class GrantStatusTest {
 
     private fun spaceScope(collections: List<String>) =
         "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?" +
-            (collections.map { "collection=$it" } + "action=read&action=read_self&action=create").joinToString("&")
+            (collections.map { "collection=$it" } + "action=read&action=read_self&action=create&manage=create&manage=update&manage=delete")
+                .joinToString("&")
 
     @Test
     fun everyDeclaredCollectionHasAFeature() {
@@ -48,6 +50,20 @@ class GrantStatusTest {
         val s = pds.session(scope = spaceScope(AthleteSpaceDeclaration.collections - Nsid.FEED_SEGMENT_NAME_VOTE))
 
         assertEquals(GrantStatus.Outdated(setOf(GrantFeature.SegmentsAndGroups)), s.clients.grantStatus)
+    }
+
+    @Test
+    fun aGrantFromBeforeSpaceDeletionMissesLeaving() = runTest {
+        val before = spaceScope(AthleteSpaceDeclaration.collections).replace("&manage=delete", "")
+        val s = pds.session(scope = before)
+
+        assertEquals(false, s.clients.canDeleteSpaces)
+        assertEquals(GrantStatus.Outdated(setOf(GrantFeature.Leaving)), s.clients.grantStatus)
+    }
+
+    @Test
+    fun theRequestedScopeAsksForSpaceDeletion() {
+        assertEquals(true, OAuthClientConfig.DEFAULT_SCOPE.contains("manage=delete"))
     }
 
     @Test
