@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
+import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -98,10 +99,20 @@ fun DiveSitePresenter(screen: DiveSiteScreen, navigator: Navigator, sites: DiveS
             DiveSiteEvent.OpenRegulars ->
                 site?.takeIf { active }?.let { navigator.goTo(DiveSiteRegularsScreen(it.uri.value, it.currentName)) }
             DiveSiteEvent.ProposeName ->
-                site?.takeIf { it.viewer?.canProposeName == true }?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName) }
+                site
+                    ?.takeIf { it.viewer?.canProposeName == true }
+                    ?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName, sharedPlace = sharedPlaceOf(it)) }
             is DiveSiteEvent.EditProposal ->
                 own(event.proposal)?.let {
-                    nameSheet = ProposePlaceNameScreen(screen.uri, site?.currentName.orEmpty(), it.uri.value, it.name)
+                    nameSheet =
+                        ProposePlaceNameScreen(
+                            screen.uri,
+                            site?.currentName.orEmpty(),
+                            it.uri.value,
+                            it.name,
+                            proposalView = it,
+                            sharedPlace = site?.let(::sharedPlaceOf),
+                        )
                 }
             is DiveSiteEvent.DeleteProposal -> if (own(event.proposal) != null) confirmDelete = event.proposal
             is DiveSiteEvent.ConfirmDelete -> {

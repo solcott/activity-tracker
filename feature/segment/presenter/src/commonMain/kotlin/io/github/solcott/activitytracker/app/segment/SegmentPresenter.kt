@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
+import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -137,10 +138,18 @@ fun SegmentPresenter(
             SegmentEvent.ProposeName ->
                 segment
                     ?.takeIf { it.viewer?.canProposeName == true }
-                    ?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName) }
+                    ?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName, sharedPlace = sharedPlaceOf(it)) }
             is SegmentEvent.EditProposal ->
                 own(event.proposal)?.let {
-                    nameSheet = ProposePlaceNameScreen(screen.uri, segment?.currentName.orEmpty(), it.uri.value, it.name)
+                    nameSheet =
+                        ProposePlaceNameScreen(
+                            screen.uri,
+                            segment?.currentName.orEmpty(),
+                            it.uri.value,
+                            it.name,
+                            proposalView = it,
+                            sharedPlace = segment?.let(::sharedPlaceOf),
+                        )
                 }
             is SegmentEvent.DeleteProposal -> if (own(event.proposal) != null) confirmDelete = event.proposal
             is SegmentEvent.ConfirmDelete -> {

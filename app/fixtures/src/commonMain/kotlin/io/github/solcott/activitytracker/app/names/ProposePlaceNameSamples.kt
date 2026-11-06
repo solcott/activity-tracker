@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.names
 
 import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlinx.collections.immutable.persistentListOf
 
 /** The name sheet (segments/segment-names), proposing a new name for a place or editing the viewer's own proposal. */
 object ProposePlaceNameSamples {
@@ -17,6 +19,28 @@ object ProposePlaceNameSamples {
     val invalid: ProposePlaceNameState
         get() = state("trail 214")
 
+    /** Proposing with Share to feed on, for Followers, with a reason (feed/posts). */
+    val sharing: ProposePlaceNameState
+        get() =
+            state("Wiggly Woods")
+                .copy(
+                    sharing = true,
+                    audience = Visibility.FOLLOWERS,
+                    shareText = TextFieldState("Everyone at the trailhead already calls it this."),
+                    audiences = persistentListOf(Visibility.PUBLIC, Visibility.FOLLOWERS, Visibility.MUTUALS),
+                )
+
+    /** Sharing on a session whose grant predates posts in spaces: only Public, and why. */
+    val sharingPublicOnly: ProposePlaceNameState
+        get() = state("Wiggly Woods").copy(sharing = true, shareLimit = ShareLimit.SignInAgain)
+
     val all: Map<String, ProposePlaceNameState>
-        get() = mapOf(SampleKind.LOADED to propose, "edit" to edit, SampleKind.INVALID to invalid)
+        get() =
+            mapOf(
+                SampleKind.LOADED to propose,
+                "edit" to edit,
+                SampleKind.INVALID to invalid,
+                "sharing" to sharing,
+                "sharingPublicOnly" to sharingPublicOnly,
+            )
 }

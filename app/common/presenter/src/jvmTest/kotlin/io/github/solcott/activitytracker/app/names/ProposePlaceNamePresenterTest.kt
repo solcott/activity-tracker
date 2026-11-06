@@ -42,12 +42,24 @@ class ProposePlaceNamePresenterTest {
                         puts += (request.body as TextContent).text
                         respond("""{"uri":"at://$alice/x/y","cid":"bafyput"}""", headers = json)
                     }
+                    // Nothing is shared yet: the post is found neither in the repo nor in a space.
+                    "/xrpc/com.atproto.repo.getRecord",
+                    "/xrpc/com.atproto.space.getRecord" ->
+                        respond("""{"error":"RecordNotFound","message":"none"}""", HttpStatusCode.BadRequest, json)
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             }
         ) {
             expectSuccess = false
         }
+
+    /** The next state the sheet emits that [predicate] matches, skipping any in between. */
+    private suspend fun <T> app.cash.turbine.ReceiveTurbine<T>.nextWhere(predicate: (T) -> Boolean): T {
+        while (true) {
+            val item = awaitItem()
+            if (predicate(item)) return item
+        }
+    }
 
     private suspend fun presenter(screen: ProposePlaceNameScreen): ProposePlaceNamePresenter {
         val (db, _, clients) = signedInTestSession(http, did = alice)
@@ -80,7 +92,8 @@ class ProposePlaceNamePresenterTest {
     @Test
     fun editingStartsFromTheProposalsNameAndRewritesItsRkey() = runTest {
         presenter(ProposePlaceNameScreen(segment, "Trail 214", proposal, "Rooty Ridge")).test {
-            val state = awaitItem()
+            // Nothing is sent until the proposal's sharing has been read.
+            val state = nextWhere { !it.shareLoading }
             assertTrue(state.editing)
             assertEquals("Rooty Ridge", state.name.text.toString())
             assertFalse(state.canSend, "an unchanged name isn't sent")
@@ -103,6 +116,62 @@ class ProposePlaceNamePresenterTest {
                 state.eventSink(ProposePlaceNameEvent.Send)
             }
             state.eventSink(ProposePlaceNameEvent.Cancel)
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
+            assertEquals(emptyList(), puts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // ---------------------------------------------------------------- Share to feed (feed/posts)
+
+    @Test
+    fun sharingPutsAPostAfterTheProposal() = runTest {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214")).test {
+            val state = awaitItem()
+            assertFalse(state.sharing, "off by default")
+            state.name.setTextAndPlaceCursorAtEnd("Wiggly Woods")
+            state.shareText.setTextAndPlaceCursorAtEnd(" Everyone calls it that ")
+            state.eventSink(ProposePlaceNameEvent.SharingChanged(true))
+            val sharing = nextWhere { it.sharing }
+            sharing.eventSink(ProposePlaceNameEvent.Send)
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
+            assertEquals(2, puts.size)
+            assertTrue(puts[0].contains(Nsid.FEED_SEGMENT_NAME_PROPOSAL))
+            assertTrue(puts[1].contains("\"collection\":\"${Nsid.FEED_POST}\""))
+            assertTrue(puts[1].contains("\"text\":\"Everyone calls it that\""))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anEditThatOnlySharesKeepsTheProposal() = runTest {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214", proposal, "Rooty Ridge")).test {
+            val loaded = nextWhere { !it.shareLoading }
+            assertFalse(loaded.initialSharing)
+            assertFalse(loaded.canSend)
+            loaded.eventSink(ProposePlaceNameEvent.SharingChanged(true))
+            val sharing = nextWhere { it.sharing }
+            assertTrue(sharing.canSend, "a change of sharing alone may be saved")
+            sharing.eventSink(ProposePlaceNameEvent.Send)
+            assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
+            assertEquals(1, puts.size, "the proposal isn't rewritten, so it keeps its votes")
+            assertTrue(puts.single().contains("\"rkey\":\"3kali\""))
+            assertTrue(puts.single().contains(Nsid.FEED_POST))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun overLongShareTextIsntSent() = runTest {
+        presenter(ProposePlaceNameScreen(segment, "Trail 214")).test {
+            val state = awaitItem()
+            state.name.setTextAndPlaceCursorAtEnd("Wiggly Woods")
+            state.shareText.setTextAndPlaceCursorAtEnd("x".repeat(1001))
+            state.eventSink(ProposePlaceNameEvent.SharingChanged(true))
+            val sharing = nextWhere { it.sharing }
+            assertFalse(sharing.canSend)
+            sharing.eventSink(ProposePlaceNameEvent.Send)
+            sharing.eventSink(ProposePlaceNameEvent.Cancel)
             assertEquals(ProposePlaceNameOuterEvent.Closed, outerEvents.awaitEvent())
             assertEquals(emptyList(), puts)
             cancelAndIgnoreRemainingEvents()

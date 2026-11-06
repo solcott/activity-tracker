@@ -16,10 +16,13 @@ kotlin {
             api(projects.appCommonApi)
             // The activity-list sink opens the activity, the gallery and profiles.
             api(projects.featureDetailApi)
+            api(projects.featureDivesiteApi)
             api(projects.featureMediaApi)
             api(projects.featureProfileApi)
             // rememberReporting builds report's Reporting.
             api(projects.featureReportApi)
+            // The post sink opens the segment or dive site a shared proposal names (feed/posts).
+            api(projects.featureSegmentApi)
 
             implementation(libs.circuit.codegen.annotations)
             implementation(libs.circuit.retained)

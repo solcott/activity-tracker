@@ -58,6 +58,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         ProposeSegmentName,
         VoteSegmentName,
         DeleteSegmentName,
+
+        /** How the athlete's proposal is shared to the feed couldn't be read, so its sharing can't be changed (feed/posts). */
+        LoadPostShare,
+
+        /** An athlete's posts couldn't be loaded (feed/posts). */
+        LoadPosts,
         OpenSubject,
 
         /** Text typed as a moderation subject isn't an AT-URI, so nothing was asked for. */

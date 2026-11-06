@@ -5,6 +5,13 @@ package io.github.solcott.activitytracker.app.ui
  * They don't depend on the text shown or its language, and mean nothing beyond tests: screen readers still read the pieces' own text.
  */
 object TestTags {
+    /** The name sheet's Share to feed switch (feed/posts). */
+    const val SHARE_TO_FEED = "shareToFeed"
+
+    /** A post card's up and down vote buttons (feed/posts). */
+    const val POST_VOTE_UP = "postVoteUp"
+    const val POST_VOTE_DOWN = "postVoteDown"
+
     /** The first-load spinner: `ContentStateLayout`'s, or a paged list's before it answers. */
     const val LOADING = "loading"
 
