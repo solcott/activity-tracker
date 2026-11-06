@@ -2,8 +2,7 @@ package io.github.solcott.activitytracker.app.uploads
 
 import androidx.compose.foundation.layout.plus
 import androidx.compose.runtime.Composable
-import io.github.solcott.activitytracker.app.detail.timeFormat
-import io.github.solcott.activitytracker.app.ui.LocalClock
+import io.github.solcott.activitytracker.app.detail.untilText
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -44,7 +43,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
-import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -96,16 +94,8 @@ internal fun changeName(change: RejectedChange): String =
 
 /** "Uploads paused by the server until 3:40 PM", or "until tomorrow at" when the pause ends after midnight. */
 @Composable
-internal fun serverPausedUntil(until: Instant): String {
-    val zone = LocalTimeZone.current
-    val end = until.toLocalDateTime(zone)
-    val time = end.format(timeFormat())
-    return if (end.date > LocalClock.current.now().toLocalDateTime(zone).date) {
-        stringResource(Res.string.uploads_server_paused_tomorrow, time)
-    } else {
-        stringResource(Res.string.uploads_server_paused, time)
-    }
-}
+internal fun serverPausedUntil(until: Instant): String =
+    untilText(until, Res.string.uploads_server_paused, Res.string.uploads_server_paused_tomorrow)
 
 /** "About 40 min left", "About 3 h left" or "About 2 days left": the estimate is rough, so it's rounded to its largest unit. */
 @Composable

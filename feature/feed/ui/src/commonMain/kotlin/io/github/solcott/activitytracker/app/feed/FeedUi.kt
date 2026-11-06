@@ -34,15 +34,13 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.detail.timeFormat
+import io.github.solcott.activitytracker.app.detail.untilText
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.LocalClock
-import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
@@ -100,8 +98,6 @@ import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.isLoading
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -353,13 +349,7 @@ private fun scopeLabel(scope: FeedScope): String =
 
 /** "Paused by the server until 3:40 PM", or "until tomorrow at" when the pause ends after midnight (data/outbox). */
 @Composable
-private fun pausedUntil(until: Instant): String {
-    val zone = LocalTimeZone.current
-    val end = until.toLocalDateTime(zone)
-    val time = end.format(timeFormat())
-    return if (end.date > LocalClock.current.now().toLocalDateTime(zone).date) stringResource(Res.string.feed_upload_paused_tomorrow, time)
-    else stringResource(Res.string.feed_upload_paused, time)
-}
+private fun pausedUntil(until: Instant): String = untilText(until, Res.string.feed_upload_paused, Res.string.feed_upload_paused_tomorrow)
 
 /** The timeline's activities, import cards and posts, in their order. */
 private fun LazyListScope.timelineItems(state: FeedState) {
