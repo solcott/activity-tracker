@@ -1,10 +1,8 @@
 package io.github.solcott.activitytracker.app.divesite
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,11 +15,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.RouteEnds
@@ -31,13 +27,12 @@ import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
 import io.github.solcott.activitytracker.app.names.PlaceNames
 import io.github.solcott.activitytracker.app.segment.segmentStatusLabel
 import io.github.solcott.activitytracker.app.settings.monthName
-import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
-import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
@@ -45,7 +40,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.pagedFooter
@@ -196,41 +190,15 @@ private fun Status(site: DiveSiteView, onOpenOriginal: () -> Unit) {
 /** An active site's top Regular and their count, or that it has none yet, and the viewer's own count; tapping it opens the board. */
 @Composable
 private fun RegularsCard(regulars: RegularsSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    AppCard(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                stringResource(Res.string.dive_site_regulars_card),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.tertiary,
-            )
-            val leader = regulars.leader
-            if (leader == null) {
-                Text(
-                    stringResource(Res.string.dive_site_regulars_none),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                val name = leader.athlete.shownName
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(leader.athlete.avatar, name, 36.dp)
-                    Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        pluralStringResource(Res.plurals.dive_site_visits, leader.visits, leader.visits),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-            regulars.viewer?.let { own ->
-                Text(
-                    pluralStringResource(Res.plurals.dive_site_regulars_yours, own.visits, own.visits),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+    LeaderCard(
+        title = stringResource(Res.string.dive_site_regulars_card),
+        leader = regulars.leader?.athlete,
+        leaderValue = regulars.leader?.let { pluralStringResource(Res.plurals.dive_site_visits, it.visits, it.visits) }.orEmpty(),
+        noneText = stringResource(Res.string.dive_site_regulars_none),
+        viewerText = regulars.viewer?.let { pluralStringResource(Res.plurals.dive_site_regulars_yours, it.visits, it.visits) },
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
 
 /**

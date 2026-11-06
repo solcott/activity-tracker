@@ -20,19 +20,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.shownName
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_everyone
+import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_following
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 // Pieces of a ranked board (segments' leaderboards and Mayors, dive sites' Regulars) shared by the features that show one.
@@ -94,6 +103,73 @@ fun RankRow(
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+    }
+}
+
+private val SCOPES = persistentListOf(LeaderboardScope.EVERYONE, LeaderboardScope.FOLLOWING)
+
+/** A board's Everyone / Following control: [scope], a [LeaderboardScope] value, selected. */
+@Composable
+fun ScopeControl(scope: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    AppSegmentedControl(
+        persistentListOf(stringResource(Res.string.leaderboard_scope_everyone), stringResource(Res.string.leaderboard_scope_following)),
+        selected = SCOPES.indexOf(scope).coerceAtLeast(0),
+        onSelect = { onSelect(SCOPES[it]) },
+        modifier = modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * A board's rows (ui/content-loading): [entries]' refresh status, each entry's [row] with a divider under it, the viewer's [own] place when
+ * it isn't among them ([ownPlace]), then the next page's spinner or failure, or [emptyText] when the board lists no one.
+ */
+@Suppress("LongParameterList") // A paged board's state, its error and retry, the viewer's place and the pieces a board fills in.
+fun <E : Any> LazyListScope.rankBoardRows(
+    entries: PagedState<E, *>,
+    own: E?,
+    errorKind: UiError.Kind,
+    onRetry: () -> Unit,
+    emptyText: StringResource,
+    key: (E) -> Any,
+    row: @Composable (E) -> Unit,
+) {
+    pagedRows(entries, errorKind, onRetry, key, empty = null, row)
+    ownPlace(own, row)
+    pagedFooter(entries, errorKind, onRetry) {
+        EmptyListText(stringResource(emptyText), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * A board in brief on its place's page: [title], the [leader] and their [leaderValue], or [noneText] while it has none, and [viewerText],
+ * the viewer's own count, when they're on it. Tapping it opens the board.
+ */
+@Composable
+@Suppress("LongParameterList") // A summary card's parts.
+fun LeaderCard(
+    title: String,
+    leader: ProfileViewBasic?,
+    leaderValue: String,
+    noneText: String,
+    viewerText: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AppCard(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+            if (leader == null) {
+                Text(noneText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val name = leader.shownName
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(leader.avatar, name, 36.dp)
+                    Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(leaderValue, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                }
+            }
+            viewerText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
     }
 }
 

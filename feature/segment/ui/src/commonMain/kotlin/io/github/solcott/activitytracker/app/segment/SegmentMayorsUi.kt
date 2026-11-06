@@ -1,54 +1,37 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ChoiceChip
-import io.github.solcott.activitytracker.app.ui.EmptyListText
+import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.RankRow
-import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
+import io.github.solcott.activitytracker.app.ui.ScopeControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.ownPlace
-import io.github.solcott.activitytracker.app.ui.pagedFooter
-import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_all_time
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_month
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_year
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_everyone
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_following
 import io.github.solcott.activitytracker.composeApp.resources.mayor_efforts
 import io.github.solcott.activitytracker.composeApp.resources.mayor_period_last_90_days
 import io.github.solcott.activitytracker.composeApp.resources.mayor_period_last_month
@@ -62,15 +45,11 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_none
 import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_title
 import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_yours
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-
-private val SCOPES = persistentListOf(LeaderboardScope.EVERYONE, LeaderboardScope.FOLLOWING)
 
 /**
  * A segment's Mayors board: the period, scope, e-bike board for a ride segment and the brackets above the entries, each with its rank,
@@ -97,12 +76,16 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
         ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
                 item(key = "filters") { Filters(state) }
-                pagedRefreshStatus(state.entries, UiError.Kind.LoadMayors) { state.eventSink(SegmentMayorsEvent.Retry) }
-                items(state.entries.items, key = { it.athlete.did.value }) { entry ->
+                rankBoardRows(
+                    state.entries,
+                    state.viewerEntry,
+                    UiError.Kind.LoadMayors,
+                    onRetry = { state.eventSink(SegmentMayorsEvent.Retry) },
+                    emptyText = Res.string.mayors_empty,
+                    key = { it.athlete.did.value },
+                ) { entry ->
                     MayorRow(entry, onClick = { state.eventSink(SegmentMayorsEvent.OpenAthlete(entry.athlete.did)) })
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                footer(state)
             }
         }
     }
@@ -114,54 +97,21 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
  */
 @Composable
 internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    AppCard(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                stringResource(Res.string.segment_mayor_title),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.tertiary,
-            )
-            val leader = mayor.leader
-            if (leader == null) {
-                Text(
-                    stringResource(Res.string.segment_mayor_none),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                val name = leader.athlete.shownName
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(leader.athlete.avatar, name, 36.dp)
-                    Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        pluralStringResource(Res.plurals.mayor_efforts, leader.efforts, leader.efforts),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-            mayor.viewer?.let { own ->
-                Text(
-                    pluralStringResource(Res.plurals.segment_mayor_yours, own.efforts, own.efforts),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+    LeaderCard(
+        title = stringResource(Res.string.segment_mayor_title),
+        leader = mayor.leader?.athlete,
+        leaderValue = mayor.leader?.let { pluralStringResource(Res.plurals.mayor_efforts, it.efforts, it.efforts) }.orEmpty(),
+        noneText = stringResource(Res.string.segment_mayor_none),
+        viewerText = mayor.viewer?.let { pluralStringResource(Res.plurals.segment_mayor_yours, it.efforts, it.efforts) },
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
 
 @Composable
 private fun Filters(state: SegmentMayorsState) {
-    val scopeLabels =
-        persistentListOf(stringResource(Res.string.leaderboard_scope_everyone), stringResource(Res.string.leaderboard_scope_following))
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppSegmentedControl(
-            scopeLabels,
-            selected = SCOPES.indexOf(state.scope).coerceAtLeast(0),
-            onSelect = { state.eventSink(SegmentMayorsEvent.ScopeChanged(SCOPES[it])) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        ScopeControl(state.scope, onSelect = { state.eventSink(SegmentMayorsEvent.ScopeChanged(it)) })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PeriodChip(state.period) { state.eventSink(SegmentMayorsEvent.PeriodChanged(it)) }
             BoardTypeChip(state.board, state.boards) { state.eventSink(SegmentMayorsEvent.BoardChanged(it)) }
@@ -209,12 +159,4 @@ private fun MayorRow(entry: MayorEntry, onClick: () -> Unit) {
         value = pluralStringResource(Res.plurals.mayor_efforts, entry.efforts, entry.efforts),
         onClick = onClick,
     )
-}
-
-/** The viewer's place when it's off the list, then the next page's spinner or failure, or the empty state, below the entries. */
-private fun LazyListScope.footer(state: SegmentMayorsState) {
-    ownPlace(state.viewerEntry) { own -> MayorRow(own, onClick = { state.eventSink(SegmentMayorsEvent.OpenAthlete(own.athlete.did)) }) }
-    pagedFooter(state.entries, UiError.Kind.LoadMayors, onRetry = { state.eventSink(SegmentMayorsEvent.Retry) }) {
-        EmptyListText(stringResource(Res.string.mayors_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
 }
