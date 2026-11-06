@@ -4,6 +4,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.RateLimit
+import io.github.solcott.activitytracker.data.account.getOrPut
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -26,16 +27,7 @@ import kotlinx.coroutines.sync.Mutex
 class OutboxPacing {
     private val accounts = AtomicReference(emptyMap<Did, AccountPacing>())
 
-    fun of(did: Did): AccountPacing {
-        while (true) {
-            val current = accounts.load()
-            current[did]?.let {
-                return it
-            }
-            val created = AccountPacing()
-            if (accounts.compareAndSet(current, current + (did to created))) return created
-        }
-    }
+    fun of(did: Did): AccountPacing = accounts.getOrPut(did) { AccountPacing() }
 }
 
 /** One account's drain lock, the PDS's stated [rateLimits], and the pauses it set. */

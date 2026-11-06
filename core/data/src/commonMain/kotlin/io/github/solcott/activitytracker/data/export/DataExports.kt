@@ -3,44 +3,25 @@ package io.github.solcott.activitytracker.data.export
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
+import io.github.solcott.activitytracker.data.account.AccountRunner
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.DataExportEntity
 import io.github.solcott.activitytracker.data.db.DataExportItemCount
 import io.github.solcott.activitytracker.data.db.DataExportItemEntity
 import io.github.solcott.activitytracker.lexicon.Did
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-
-/**
- * Starts a data export running where the platform keeps it alive: Android hands it to a foreground WorkManager job, which also runs it
- * again after the process is killed; iOS asks for background time and a background task. Set by the platform's app at startup
- * ([DataExports.launcher]); without one, exports run in this process.
- */
-fun interface DataExportLauncher {
-    /**
-     * Starts [did]'s export: through the platform's own job, or [inProcess], which runs it in this process ([DataExports.runInProcess]).
-     */
-    fun launch(did: Did, inProcess: suspend () -> Unit)
-}
 
 /** An account's data export as the Account page shows it (auth/account-page). */
 data class DataExportProgress(
@@ -70,16 +51,15 @@ data class DataExportProgress(
  */
 @SingleIn(AppScope::class)
 @Inject
-@OptIn(ExperimentalAtomicApi::class)
 @Suppress("TooManyFunctions") // Each step of an export's life on the device: launch, progress, save, cancel, expiry and sign-out.
 class DataExports(private val db: AppDatabase, private val files: ExportFiles, private val clock: Clock) {
-    @Suppress("InjectDispatcher") // App-wide work that outlives every screen and session graph, as ImportSaves' does.
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val locks = AtomicReference(emptyMap<Did, Mutex>())
-    private val jobs = AtomicReference(emptyMap<Did, Job>())
+    private val runner = AccountRunner()
 
-    /** The platform's way of keeping an export alive, set at startup; null runs exports in this process. */
-    var launcher: DataExportLauncher? = null
+    /**
+     * The platform's way of keeping an export alive, set at startup: Android's foreground WorkManager job, iOS's background task; null runs
+     * exports in this process.
+     */
+    var launcher: AccountJobLauncher? by runner::launcher
 
     private val dao
         get() = db.dataExports()
@@ -130,33 +110,18 @@ class DataExports(private val db: AppDatabase, private val files: ExportFiles, p
     suspend fun hasExport(did: Did): Boolean = dao.exportOf(did.value) != null
 
     /** Runs [block] holding [did]'s export lock, or returns null at once when another runner holds it: that one finishes the export. */
-    suspend fun <T> exclusive(did: Did, block: suspend () -> T): T? {
-        val lock = lockOf(did)
-        if (!lock.tryLock()) return null
-        try {
-            return block()
-        } finally {
-            lock.unlock()
-        }
-    }
+    suspend fun <T> exclusive(did: Did, block: suspend () -> T): T? = runner.exclusive(did, block)
 
     /** Starts [did]'s export running: through the platform's [launcher], else [inProcess] in this app-wide scope. */
-    fun launch(did: Did, inProcess: suspend () -> Unit) {
-        val platform = launcher
-        if (platform != null) platform.launch(did, inProcess) else runInProcess(did, inProcess)
-    }
+    fun launch(did: Did, inProcess: suspend () -> Unit) = runner.launch(did, inProcess)
 
     /** Runs [block], [did]'s export, in this app-wide scope, until it ends, is cancelled or [did] signs out. */
-    fun runInProcess(did: Did, block: suspend () -> Unit) {
-        val job = scope.launch { block() }
-        update(jobs) { it + (did to job) }
-    }
+    fun runInProcess(did: Did, block: suspend () -> Unit) = runner.runInProcess(did, block)
 
     /** Stops and deletes [did]'s export, whatever its state, with its staged files. */
     suspend fun cancel(did: Did) =
         withContext(NonCancellable) {
-            jobs.load()[did]?.cancel()
-            update(jobs) { it - did }
+            runner.cancel(did)
             dao.exportOf(did.value)?.let { delete(it.id) }
         }
 
@@ -167,7 +132,7 @@ class DataExports(private val db: AppDatabase, private val files: ExportFiles, p
     suspend fun signedOut(did: Did) = cancel(did)
 
     /** Stops every in-process export, for tests. */
-    internal fun cancelAll() = scope.coroutineContext[Job]?.cancelChildren()
+    internal fun cancelAll() = runner.cancelAll()
 
     /**
      * Deletes ready exports a week old ([EXPIRY]) and staged folders no export names (a crash between deleting the row and the files), at
@@ -195,23 +160,6 @@ class DataExports(private val db: AppDatabase, private val files: ExportFiles, p
     private suspend fun delete(id: String) {
         dao.drop(id)
         files.delete(id)
-    }
-
-    private fun lockOf(did: Did): Mutex {
-        while (true) {
-            val current = locks.load()
-            current[did]?.let {
-                return it
-            }
-            if (locks.compareAndSet(current, current + (did to Mutex()))) return lockOf(did)
-        }
-    }
-
-    private inline fun <T> update(ref: AtomicReference<T>, change: (T) -> T) {
-        while (true) {
-            val current = ref.load()
-            if (ref.compareAndSet(current, change(current))) return
-        }
     }
 
     companion object {

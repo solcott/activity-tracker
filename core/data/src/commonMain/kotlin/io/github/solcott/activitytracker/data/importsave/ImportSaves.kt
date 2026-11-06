@@ -4,35 +4,19 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.activityfile.ImportSource
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
+import io.github.solcott.activitytracker.data.account.AccountRunner
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.ImportSaveSourceEntity
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlin.concurrent.atomics.update
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
-
-/**
- * Starts a persisted batch save running for an account where the platform keeps it alive: Android hands it to a foreground WorkManager job,
- * which also runs it again after the process is killed; iOS asks for background time and a background task. Set by the platform's app at
- * startup ([ImportSaves.launcher]); without one, saves run in this process ([ImportSaves.launch]).
- */
-fun interface ImportSaveLauncher {
-    /**
-     * Starts [did]'s saves: through the platform's own job, or [inProcess], which runs them in this process ([ImportSaves.runInProcess]).
-     */
-    fun launch(did: Did, inProcess: suspend () -> Unit)
-}
 
 /** Works through an account's persisted batch saves (feed/batch-import), in whichever session graph runs it. */
 interface ImportSaveRunner {
@@ -50,13 +34,13 @@ interface ImportSaveRunner {
 @OptIn(ExperimentalAtomicApi::class)
 @Suppress("TooManyFunctions") // One per step of a save's life: holding files, running, ending, signing out.
 class ImportSaves(private val db: AppDatabase, private val keeper: SourceKeeper) {
-    @Suppress("InjectDispatcher") // App-wide work that outlives every screen and session graph, as `ActivityRecorder`'s does.
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val locks = AtomicReference(emptyMap<Did, Mutex>())
-    private val jobs = AtomicReference(emptyMap<Did, Job>())
+    private val runner = AccountRunner()
 
-    /** The platform's way of keeping a save alive, set at startup; null runs saves in this process. */
-    var launcher: ImportSaveLauncher? = null
+    /**
+     * The platform's way of keeping a save alive, set at startup: Android's foreground WorkManager job, iOS's background task; null runs
+     * saves in this process.
+     */
+    var launcher: AccountJobLauncher? by runner::launcher
 
     /** Batch saves whose runner is working on them now, by batch id. */
     val running: StateFlow<Set<String>>
@@ -70,7 +54,7 @@ class ImportSaves(private val db: AppDatabase, private val keeper: SourceKeeper)
 
     /** Keeps [sources], the files picked for save [batchId], for runs in this process. */
     fun hold(batchId: String, sources: List<ImportSource>) {
-        update(picked) { it + (batchId to sources) }
+        picked.update { it + (batchId to sources) }
     }
 
     /** The files picked for [batchId] in this process, if it was started here. */
@@ -78,43 +62,26 @@ class ImportSaves(private val db: AppDatabase, private val keeper: SourceKeeper)
 
     /** Lets go of [batchId]'s picked files once its save is over. */
     fun drop(batchId: String) {
-        update(picked) { it - batchId }
+        picked.update { it - batchId }
     }
 
     /**
      * Runs [block] holding [did]'s save lock, or returns null at once when another runner holds it: that one finishes what's queued,
      * including saves written after it started.
      */
-    suspend fun <T> exclusive(did: Did, block: suspend () -> T): T? {
-        val lock = lockOf(did)
-        if (!lock.tryLock()) return null
-        try {
-            return block()
-        } finally {
-            lock.unlock()
-        }
-    }
+    suspend fun <T> exclusive(did: Did, block: suspend () -> T): T? = runner.exclusive(did, block)
 
     /** Starts [did]'s saves: through the platform's [launcher], else [inProcess] in this app-wide scope. */
-    fun launch(did: Did, inProcess: suspend () -> Unit) {
-        val platform = launcher
-        if (platform != null) platform.launch(did, inProcess) else runInProcess(did, inProcess)
-    }
+    fun launch(did: Did, inProcess: suspend () -> Unit) = runner.launch(did, inProcess)
 
     /** Runs [block], [did]'s saves, in this app-wide scope, until it ends or [did] signs out. */
-    fun runInProcess(did: Did, block: suspend () -> Unit) {
-        val job = scope.launch { block() }
-        update(jobs) { it + (did to job) }
-    }
+    fun runInProcess(did: Did, block: suspend () -> Unit) = runner.runInProcess(did, block)
 
     /** Stops [did]'s in-process saves: the athlete signed out. */
-    fun cancel(did: Did) {
-        jobs.load()[did]?.cancel()
-        update(jobs) { it - did }
-    }
+    fun cancel(did: Did) = runner.cancel(did)
 
     /** Stops every in-process save, for tests. */
-    internal fun cancelAll() = scope.coroutineContext[Job]?.cancelChildren()
+    internal fun cancelAll() = runner.cancelAll()
 
     /** Marks [batchId] running; a runner calls it as it starts the save. */
     fun started(batchId: String) {
@@ -169,21 +136,4 @@ class ImportSaves(private val db: AppDatabase, private val keeper: SourceKeeper)
     }
 
     private fun ImportSaveSourceEntity.kept(): KeptSource? = kind?.let { kind -> handle?.let { KeptSource.of(kind, it) } }
-
-    private fun lockOf(did: Did): Mutex {
-        while (true) {
-            val current = locks.load()
-            current[did]?.let {
-                return it
-            }
-            if (locks.compareAndSet(current, current + (did to Mutex()))) return lockOf(did)
-        }
-    }
-
-    private inline fun <T> update(ref: AtomicReference<T>, change: (T) -> T) {
-        while (true) {
-            val current = ref.load()
-            if (ref.compareAndSet(current, change(current))) return
-        }
-    }
 }

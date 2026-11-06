@@ -3,7 +3,7 @@ package io.github.solcott.activitytracker.app.background
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.appGraph
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.data.importsave.ImportSaveLauncher
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
@@ -40,7 +40,7 @@ object IosImportSaves {
             run(task as BGProcessingTask, fitDecoder)
         }
         val saves = appGraph(fitDecoder).importSaves
-        saves.launcher = ImportSaveLauncher { did, inProcess ->
+        saves.launcher = AccountJobLauncher { did, inProcess ->
             schedule()
             saves.runInProcess(did) { inBackgroundTask { inProcess() } }
         }

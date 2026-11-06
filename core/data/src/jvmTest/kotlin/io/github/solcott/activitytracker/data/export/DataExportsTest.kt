@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.export
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.FakeAthletePds
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.db.DataExportEntity
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.AfterTest
@@ -149,7 +150,7 @@ class DataExportsTest {
         val (s, exporter) = setUp()
         val id = exporter.start()
         val ran = CompletableDeferred<Unit>()
-        exports.launcher = DataExportLauncher { _, inProcess -> ran.complete(Unit) }
+        exports.launcher = AccountJobLauncher { _, inProcess -> ran.complete(Unit) }
 
         exports.resume(s.clients.did) { exporter.run(id) }
 
@@ -162,7 +163,7 @@ class DataExportsTest {
         val id = exporter.start()
         s.db.dataExports().setState(id, DataExportEntity.STATE_PAUSED, DataExportEntity.REASON_NO_SPACE)
         var launched = false
-        exports.launcher = DataExportLauncher { _, _ -> launched = true }
+        exports.launcher = AccountJobLauncher { _, _ -> launched = true }
 
         exports.resume(s.clients.did) { exporter.run(id) }
 

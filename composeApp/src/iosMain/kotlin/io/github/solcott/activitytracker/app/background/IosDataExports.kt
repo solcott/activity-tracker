@@ -6,8 +6,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.export_data_ready_notification_text
 import io.github.solcott.activitytracker.composeApp.resources.export_data_ready_notification_title
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.db.DataExportEntity
-import io.github.solcott.activitytracker.data.export.DataExportLauncher
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
@@ -63,7 +63,7 @@ object IosDataExports {
         }
         UNUserNotificationCenter.currentNotificationCenter().delegate = taps
         val graph = appGraph(fitDecoder)
-        graph.dataExports.launcher = DataExportLauncher { did, inProcess ->
+        graph.dataExports.launcher = AccountJobLauncher { did, inProcess ->
             schedule()
             graph.dataExports.runInProcess(did) {
                 inBackgroundTask { inProcess() }

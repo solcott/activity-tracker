@@ -4,10 +4,10 @@ import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.ByteArrayImportSource
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.record.BatchSaveRunner
+import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
-import io.github.solcott.activitytracker.data.importsave.ImportSaveLauncher
 import io.github.solcott.activitytracker.data.importsave.NewImportSave
 import io.github.solcott.activitytracker.data.importsave.PlannedActivity
 import io.github.solcott.activitytracker.data.importsave.PlannedChoices
@@ -137,7 +137,7 @@ class ImportSaveRunnerTest {
         // The app was killed before the save ran; the next launch reopens the files and starts a session.
         repos.saves.hold("3kbatch", sources)
         val launched = mutableListOf<Did>()
-        repos.saves.launcher = ImportSaveLauncher { did, inProcess ->
+        repos.saves.launcher = AccountJobLauncher { did, inProcess ->
             launched += did
             repos.saves.runInProcess(did, inProcess)
         }
@@ -153,7 +153,7 @@ class ImportSaveRunnerTest {
     fun aSessionStartWithNothingLeftLaunchesNothing() = runTest {
         val repos = fixture.repos()
         val launched = mutableListOf<Did>()
-        repos.saves.launcher = ImportSaveLauncher { did, _ -> launched += did }
+        repos.saves.launcher = AccountJobLauncher { did, _ -> launched += did }
 
         repos.saves.resume(repos.saveStore.account, repos.saveStore, repos.runner())
 
