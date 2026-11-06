@@ -69,26 +69,14 @@ fun ActivityCard(
     val blur = remember(activity) { ModerationDecision.mediaOf(activity.labels, activity.author.labels) }
     Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val author = activity.author.shownName
-            Row(
-                if (onAuthorClick != null) Modifier.clickable(onClick = onAuthorClick).handCursor() else Modifier,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Revealed on the athlete's profile: a tap here opens it.
-                Avatar(activity.author.avatar, author, 32.dp, blur = ModerationDecision.mediaOf(null, activity.author.labels))
-                Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(author, style = MaterialTheme.typography.labelLarge)
-                        VisibilityBadge(activity.visibilityOrPublic)
-                    }
-                    Text(
-                        startTime(remember(record) { record.startTimeValue() }),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TogetherWith(activity)
-                }
+            // A blurred avatar is revealed on the athlete's profile, which a tap here opens.
+            AuthorHeader(activity.author, onClick = onAuthorClick, beside = { VisibilityBadge(activity.visibilityOrPublic) }) {
+                Text(
+                    startTime(remember(record) { record.startTimeValue() }),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TogetherWith(activity)
             }
             ModerationNotice(decision, isOwn, warn = ModerationDecision.warnOf(activity.labels, activity.author.labels))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

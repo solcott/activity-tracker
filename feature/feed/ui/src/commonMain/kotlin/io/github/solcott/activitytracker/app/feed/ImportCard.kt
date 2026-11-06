@@ -11,12 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.settings.monthName
-import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RoutePreview
@@ -28,7 +26,6 @@ import io.github.solcott.activitytracker.composeApp.resources.import_card_open
 import io.github.solcott.activitytracker.composeApp.resources.import_card_range
 import io.github.solcott.activitytracker.composeApp.resources.import_card_sport
 import io.github.solcott.activitytracker.composeApp.resources.import_card_title
-import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
@@ -42,20 +39,15 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 internal fun ImportCard(card: ImportCardView, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val author = card.author.shownName
     val openLabel = stringResource(Res.string.import_card_open)
     Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel, onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(card.author.avatar, author, 32.dp, blur = ModerationDecision.mediaOf(null, card.author.labels))
-                Column {
-                    Text(author, style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        stringResource(Res.string.import_card_range, monthYear(card.earliestStartedAt), monthYear(card.latestStartedAt)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            AuthorHeader(card.author) {
+                Text(
+                    stringResource(Res.string.import_card_range, monthYear(card.earliestStartedAt), monthYear(card.latestStartedAt)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Text(
                 pluralStringResource(Res.plurals.import_card_title, card.count.toInt(), card.count.toInt()),
