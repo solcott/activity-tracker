@@ -76,6 +76,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -96,6 +97,24 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
     val requests = mutableListOf<String>()
     val announced = mutableListOf<String>()
     val created = mutableListOf<String>()
+
+    /** Spaces deleted with `deleteSpace`, by key, in order; a deleted space is gone until created again. */
+    val deletedSpaces = mutableListOf<String>()
+
+    /** Whether the athlete's space [skey] exists: created, or holding records, and not deleted since. */
+    fun spaceExists(skey: String) = skey in created || skey in stored
+
+    /** Collections in the repo that `describeRepo` lists besides those holding records, such as Bluesky's. */
+    val otherRepoCollections = mutableListOf<String>()
+
+    /** Collections `applyWrites` refuses deletes from, with a non-rate-limit error. */
+    var failApplyWritesOf: String? = null
+
+    /** The status `getSegment` and `getDiveSite` serve for each URI; one not listed is `NotFound`. */
+    val statuses = mutableMapOf<String, String>()
+
+    /** How many `applyWrites` calls to answer `429` before serving them again. */
+    var applyWritesRateLimited = 0
 
     /** Fail space deletes, or space puts, while set; and every request to the PDS while [offline]. */
     var failSpaceDeletes = false
@@ -276,8 +295,68 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     blobs[request.url.parameters["cid"]]?.let {
                                         respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
                                     } ?: error("BlobNotFound")
+                                path == "/xrpc/com.atproto.space.getSpace" -> {
+                                    val tier = request.url.parameters["space"].orEmpty().substringAfterLast('/')
+                                    if (!spaceExists(tier)) return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
+                                    json(
+                                        """{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier",""" +
+                                            """"policy":{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:appview.test#activitytracker_space"}}"""
+                                    )
+                                }
+                                path == "/xrpc/com.atproto.space.deleteSpace" -> {
+                                    val tier = body(request).getValue("space").jsonPrimitive.content.substringAfterLast('/')
+                                    if (!spaceExists(tier) && tier !in deletedSpaces) return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
+                                    created.removeAll { it == tier }
+                                    stored.remove(tier)
+                                    if (tier !in deletedSpaces) deletedSpaces += tier
+                                    writes += "deleteSpace $tier"
+                                    json("{}")
+                                }
+                                path == "/xrpc/${Nsid.FEED_GET_SEGMENT}" || path == "/xrpc/${Nsid.FEED_GET_DIVE_SITE}" -> {
+                                    val uri = request.url.parameters["uri"].orEmpty()
+                                    val status = statuses[uri] ?: return@addHandler error("NotFound")
+                                    val creator = """{"did":"$did","handle":"alice.test"}"""
+                                    val created = "\"createdAt\":\"2026-10-01T00:00:00Z\""
+                                    json(
+                                        if (path.endsWith("getSegment"))
+                                            """{"segment":{"uri":"$uri","cid":"bafyseg","creator":$creator,"distanceMeters":1000,""" +
+                                                """"status":"$status","record":{"name":"Hill","sport":"run",""" +
+                                                """"line":"_p~iF~ps|U_ulLnnqC",""" +
+                                                """"source":"athlete","license":"CC0-1.0",$created}}}"""
+                                        else
+                                            """{"site":{"uri":"$uri","cid":"bafysite","creator":$creator,"status":"$status",""" +
+                                                """"record":{"name":"Blue Hole","lat":0,"lng":0,"radius":100,"source":"athlete",""" +
+                                                """"license":"CC0-1.0",$created}}}"""
+                                    )
+                                }
+                                path == "/xrpc/com.atproto.repo.describeRepo" -> {
+                                    val collections =
+                                        (stored[repo].orEmpty().keys.map { it.substringBefore('/') } + otherRepoCollections)
+                                            .distinct()
+                                            .sorted()
+                                    val listed = collections.joinToString(",") { "\"$it\"" }
+                                    json("""{"handle":"alice.test","did":"$did","collections":[$listed]}""")
+                                }
+                                path == "/xrpc/com.atproto.repo.applyWrites" -> {
+                                    val input = body(request)
+                                    val ops = input.getValue("writes").jsonArray.map { it.jsonObject }
+                                    if (applyWritesRateLimited > 0) {
+                                        applyWritesRateLimited--
+                                        return@addHandler error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
+                                    }
+                                    if (ops.any { it.getValue("collection").jsonPrimitive.content == failApplyWritesOf })
+                                        return@addHandler error("InvalidRequest")
+                                    for (op in ops) {
+                                        val key =
+                                            "${op.getValue("collection").jsonPrimitive.content}/${op.getValue("rkey").jsonPrimitive.content}"
+                                        stored[repo]?.remove(key)
+                                        writes += "delete $repo $key"
+                                    }
+                                    json("{}", limitHeaders)
+                                }
                                 path == "/xrpc/com.atproto.space.createSpace" -> {
                                     val tier = body(request).getValue("skey").jsonPrimitive.content
+                                    deletedSpaces.remove(tier)
                                     created += tier
                                     json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
                                 }

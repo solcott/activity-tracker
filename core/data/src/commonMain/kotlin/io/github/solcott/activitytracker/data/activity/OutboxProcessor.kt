@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.data.toDataError
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -22,6 +23,7 @@ import io.github.solcott.dataresult.DataError
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -35,7 +37,9 @@ import kotlinx.serialization.json.jsonObject
  * rkey), while the rest go on. A write with a space goes to that tier space, which is created (and announced to the AppView) first if need
  * be; its blob is uploaded the same way as a repo write's, and the space record takes it over. Writes sharing a blob
  * ([OutboxEntity.blobKey]) upload it once. Deleting from a space that doesn't exist, or a record that isn't there, is done already. The one
- * write dropped rather than rejected is an original file (`feed.activitySource`) the PDS refuses as too large.
+ * write dropped rather than rejected is an original file (`feed.activitySource`) the PDS refuses as too large. Nothing is sent once the
+ * athlete left Activity Tracker on another device ([SessionClients.checkStillHere], auth/leaving), checked before a session's first send
+ * and again when a write finds a space gone.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -74,7 +78,7 @@ class OutboxProcessor(
             val held = all.filter { it.rejectedAt != null }.mapTo(mutableSetOf()) { it.rkey }
             val bulkRkeys = all.filter { it.bulk }.mapTo(mutableSetOf()) { it.rkey }
             val selected = sendOrder(all).filter { only(it) && (!ownOnly || (!it.bulk && it.rkey !in bulkRkeys)) }
-            if (pacing.isPaused(clock.now())) return@withLock DrainRun(selected.size)
+            if (clients.mayNotSend(clock.now(), selected)) return@withLock DrainRun(selected.size)
             var notApplied = 0
             for ((index, item) in selected.withIndex()) {
                 val waits = item.rkey !in held && (item.bulk || item.rkey in bulkRkeys) && !bulkMaySend()
@@ -133,6 +137,15 @@ class OutboxProcessor(
     private suspend fun failed(item: OutboxEntity, e: Throwable, pending: Int): Failure {
         val error = e.message ?: e::class.simpleName.orEmpty()
         return when {
+            e is AthleteSpaces.AccountLeftException -> {
+                log.i { "Outbox stopped: the athlete left Activity Tracker on another device; $pending pending" }
+                clients.markLeft()
+                Failure.Stop
+            }
+            e is XrpcException && e.error == SpaceErrors.SPACE_NOT_FOUND && clients.checkStillHere(again = true) -> {
+                log.i { "Outbox stopped: a space is gone because the athlete left Activity Tracker; $pending pending" }
+                Failure.Stop
+            }
             item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge() -> {
                 // Only the original is lost: the activity just offers no download.
                 log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
@@ -326,3 +339,10 @@ internal suspend fun SessionClients.deleteFromSpace(space: SpaceUri, collection:
         if (e.error != SpaceErrors.SPACE_NOT_FOUND && e.error != SpaceErrors.RECORD_NOT_FOUND) throw e
     }
 }
+
+/**
+ * Whether nothing may be sent now: the PDS's pause lasts, or the athlete left Activity Tracker on another device (auth/leaving), which is
+ * asked only when there's something to send.
+ */
+private suspend fun SessionClients.mayNotSend(now: Instant, selected: List<OutboxEntity>): Boolean =
+    pacing.isPaused(now) || (selected.isNotEmpty() && checkStillHere())

@@ -33,6 +33,9 @@ data class EndedSession(val did: Did, val handle: Handle, val reason: Reason) {
 
         /** The athlete chose Sign in again, to renew the session's grant (auth/account-page). */
         SignInAgain,
+
+        /** The athlete left Activity Tracker, here or on another device (auth/leaving); their atproto account is unchanged. */
+        Left,
     }
 }
 
@@ -74,6 +77,23 @@ class AuthRepository(
     suspend fun signInAgain() {
         val ending = sessionManager.session.value ?: return
         endSession(expired = null, signingInAgain = ending)
+    }
+
+    /**
+     * Ends the session after the athlete left Activity Tracker (auth/leaving), or discarded what this device held after they left on
+     * another one: as a chosen sign-out, with the login screen saying they left. What the leave discarded is gone already, so nothing is
+     * kept for a next sign-in.
+     */
+    suspend fun left() {
+        val ending = sessionManager.session.value ?: return
+        withContext(NonCancellable) {
+            saves.signedOut(ending.did)
+            exports.signedOut(ending.did)
+            lastEnd.value = EndedSession(ending.did, ending.handle, EndedSession.Reason.Left)
+            sessionManager.signOut(revoke = true)
+            db.feed().clearAll()
+            http.pluginOrNull(HttpCache)?.clearAllCaches()
+        }
     }
 
     /** Ends each session the session manager finds expired, the way a sign-out does. Runs for as long as the app does. */

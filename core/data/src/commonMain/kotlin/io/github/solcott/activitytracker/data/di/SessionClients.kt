@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.data.activity.AccountPacing
 import io.github.solcott.activitytracker.data.activity.OutboxPacing
+import io.github.solcott.activitytracker.data.auth.AccountMarks
 import io.github.solcott.activitytracker.data.auth.GrantStatus
 import io.github.solcott.activitytracker.data.auth.grantStatusOf
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
@@ -46,6 +47,7 @@ class SessionClients(
     identity: IdentityResolver,
     clock: Clock,
     pacing: OutboxPacing,
+    private val marks: AccountMarks,
 ) {
     val did: Did = session.did
 
@@ -87,7 +89,54 @@ class SessionClients(
 
     /** The athlete's tier spaces, shared so each is ensured, and announced to the AppView, once per session. */
     val tiers: AthleteSpaces =
-        AthleteSpaces(spaces, ::managingApp) { space -> appView.procedure(NotifySpace.method, NotifySpace.Input(space)) }
+        AthleteSpaces(
+            spaces,
+            ::managingApp,
+            object : AthleteSpaces.SpaceMemory {
+                override suspend fun known() = marks.knownSpaces(did)
+
+                override suspend fun remember(skey: String) = marks.rememberSpace(did, skey)
+            },
+        ) { space ->
+            appView.procedure(NotifySpace.method, NotifySpace.Input(space))
+        }
+
+    /**
+     * Whether the athlete left Activity Tracker on another device (auth/leaving): the `self` space this device used is gone. Set by
+     * [checkStillHere]; while it's true nothing is sent for the account until they discard or rejoin.
+     */
+    val accountLeft: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
+    private val leftCheck = Mutex()
+    private var leftChecked = false
+
+    /**
+     * Checks, once per session unless [again], whether the athlete left Activity Tracker elsewhere ([AthleteSpaces.leftElsewhere]), and
+     * returns [accountLeft]. A failed check (no connection) counts as still here and is tried again next time.
+     */
+    suspend fun checkStillHere(again: Boolean = false): Boolean = leftCheck.withLock {
+        if (!leftChecked || again) {
+            runSuspendCatching { tiers.leftElsewhere() }
+                .onSuccess { left ->
+                    leftChecked = true
+                    if (left) accountLeft.value = true
+                }
+        }
+        accountLeft.value
+    }
+
+    /** Marks the account as having left elsewhere, when a write found a space this device used gone. */
+    fun markLeft() {
+        accountLeft.value = true
+    }
+
+    /** Rejoin (auth/leaving): forgets the spaces this device used, so writes create them afresh, and lets the outbox send again. */
+    suspend fun rejoin() {
+        marks.forgetSpaces(did)
+        tiers.reset()
+        leftCheck.withLock { accountLeft.value = false }
+    }
 
     /**
      * Whether the athlete's PDS serves Spaces, from its `describeServer` ([resolveSpacesSupport]). [SpacesSupport.Unknown] until that

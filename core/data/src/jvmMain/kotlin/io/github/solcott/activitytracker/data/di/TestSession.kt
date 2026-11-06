@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.activity.OutboxPacing
+import io.github.solcott.activitytracker.data.auth.AccountMarks
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.AppDatabase
@@ -66,5 +67,5 @@ suspend fun signedInTestSession(
         )
     val identity = IdentityResolver(http, config)
     val manager = OAuthSessionManager(OAuthClient(http, identity, config.oauth), store).apply { restore() }
-    return TestSession(db, manager, SessionClients(session, http, manager, config, identity, clock, pacing))
+    return TestSession(db, manager, SessionClients(session, http, manager, config, identity, clock, pacing, AccountMarks(db)))
 }

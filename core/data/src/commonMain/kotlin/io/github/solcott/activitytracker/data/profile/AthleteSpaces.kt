@@ -25,13 +25,39 @@ import kotlinx.coroutines.sync.withLock
  * with the AppView ([managingApp]) deciding who reads it and only the athlete writing, and points an existing one at the current managing
  * app (the local tunnel's DID changes between runs), then tells the AppView it exists ([announce], `notifySpace`) so it syncs what's in it.
  * Each tier is ensured once per session; reads never create spaces. A failed announcement doesn't fail the save: the next session announces
- * again.
+ * again. A space this device has used before ([memory]) and that is now gone is never created again: the athlete left Activity Tracker,
+ * here or on another device (auth/leaving), so [ensure] throws [AccountLeftException] instead.
  */
+@Suppress("TooManyFunctions") // Each record kind the athlete keeps in their spaces, and the spaces themselves.
 class AthleteSpaces(
     private val spaces: SpaceClient,
     private val managingApp: suspend () -> String,
+    private val memory: SpaceMemory = SpaceMemory.None,
     private val announce: suspend (SpaceUri) -> Unit = {},
 ) {
+    /** The keys of the athlete's spaces this device has used, across sessions. */
+    interface SpaceMemory {
+        suspend fun known(): Set<String>
+
+        suspend fun remember(skey: String)
+
+        /** Remembers nothing, so every missing space may be created. */
+        object None : SpaceMemory {
+            override suspend fun known(): Set<String> = emptySet()
+
+            override suspend fun remember(skey: String) = Unit
+        }
+    }
+
+    /** Thrown instead of creating a space this device used before and that is gone: the athlete left Activity Tracker. */
+    class AccountLeftException(val tier: String) : IllegalStateException("The athlete's $tier space is gone: they left Activity Tracker")
+
+    /** Whether the athlete's `self` space, which this device has used, is gone: they left Activity Tracker, here or elsewhere. */
+    suspend fun leftElsewhere(): Boolean = AthleteSpace.SELF in memory.known() && spaces.getSpace(uri(AthleteSpace.SELF)) == null
+
+    /** Forgets this session's ensured spaces, so the next write creates or checks them again (after a rejoin). */
+    suspend fun reset() = mutex.withLock { ensured.clear() }
+
     private val mutex = Mutex()
     private val ensured = mutableMapOf<String, CompletableDeferred<SpaceUri>>()
 
@@ -100,7 +126,9 @@ class AthleteSpaces(
         // Every failure, cancellation included, must release the callers waiting on this attempt.
         @Suppress("TooGenericExceptionCaught")
         try {
+            if (tier in memory.known() && spaces.getSpace(uri(tier)) == null) throw AccountLeftException(tier)
             val uri = create(tier)
+            memory.remember(tier)
             runSuspendCatching { announce(uri) }
             return uri.also { pending.complete(it) }
         } catch (e: Throwable) {

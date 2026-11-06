@@ -169,6 +169,22 @@ interface UploadDao {
 
     @Query("DELETE FROM outbox WHERE did = :did AND rkey = :rkey") suspend fun deleteWrites(did: String, rkey: String)
 
+    /** Every queued write of [did], for leaving Activity Tracker (auth/leaving): none is ever sent. */
+    @Query("DELETE FROM outbox WHERE did = :did") suspend fun deleteAllWrites(did: String)
+
+    @Query("DELETE FROM upload_item WHERE did = :did") suspend fun deleteAllItems(did: String)
+
+    @Query("DELETE FROM upload_batch WHERE did = :did") suspend fun deleteAllBatches(did: String)
+
+    /** [did]'s queued writes and upload log, and the blobs no write names any more: what leaving discards on this device. */
+    @Transaction
+    suspend fun discardAll(did: String) {
+        deleteAllWrites(did)
+        deleteAllItems(did)
+        deleteAllBatches(did)
+        deleteUnreferencedBlobs()
+    }
+
     @Query("DELETE FROM outbox_blob WHERE `key` NOT IN (SELECT blobKey FROM outbox WHERE blobKey IS NOT NULL)")
     suspend fun deleteUnreferencedBlobs()
 
