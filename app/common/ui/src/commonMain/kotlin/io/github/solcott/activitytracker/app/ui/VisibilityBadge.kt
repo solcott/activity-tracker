@@ -18,16 +18,20 @@ import io.github.solcott.activitytracker.composeApp.resources.activity_visibilit
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import org.jetbrains.compose.resources.stringResource
 
+/** A non-public tier's short label (Followers, Mutuals, Only me), as badges and locks show it; null for public or an unknown tier. */
+@Composable
+fun narrowTierLabel(visibility: String): String? =
+    when (Visibility.known(visibility)) {
+        Visibility.FOLLOWERS -> stringResource(Res.string.activity_visibility_badge_followers)
+        Visibility.MUTUALS -> stringResource(Res.string.activity_visibility_badge_mutuals)
+        Visibility.SELF -> stringResource(Res.string.activity_visibility_badge_self)
+        else -> null
+    }
+
 /** Who may see a non-public activity, as a small label beside it; nothing for a public one. [visibility] is a [Visibility] value. */
 @Composable
 fun VisibilityBadge(visibility: String, modifier: Modifier = Modifier) {
-    val label =
-        when (Visibility.known(visibility)) {
-            Visibility.FOLLOWERS -> stringResource(Res.string.activity_visibility_badge_followers)
-            Visibility.MUTUALS -> stringResource(Res.string.activity_visibility_badge_mutuals)
-            Visibility.SELF -> stringResource(Res.string.activity_visibility_badge_self)
-            else -> return
-        }
+    val label = narrowTierLabel(visibility) ?: return
     val description = stringResource(Res.string.activity_visibility_badge_description, label)
     Text(
         label,

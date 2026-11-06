@@ -19,9 +19,6 @@ import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_followers
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_mutuals
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_self
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence_only
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_calories
@@ -124,13 +121,7 @@ private fun detailCategoryHelp(category: String): String? =
  */
 @Composable
 fun CategoryLock(category: String, visibility: String, modifier: Modifier = Modifier) {
-    val tier =
-        when (Visibility.known(visibility)) {
-            Visibility.FOLLOWERS -> stringResource(Res.string.activity_visibility_badge_followers)
-            Visibility.MUTUALS -> stringResource(Res.string.activity_visibility_badge_mutuals)
-            Visibility.SELF -> stringResource(Res.string.activity_visibility_badge_self)
-            else -> return
-        }
+    val tier = narrowTierLabel(visibility) ?: return
     val description = stringResource(Res.string.detail_category_lock_description, detailCategoryLabel(category), tier)
     Row(
         modifier.semantics(mergeDescendants = true) { contentDescription = description },
