@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostRecord
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
@@ -89,5 +90,24 @@ class PostSerializationTest {
         val embed = AtJson.parseToJsonElement("""{"${'$'}type":"${Nsid.FEED_DEFS}#postQuoteEmbedView"}""")
         val changed = kotlinx.serialization.json.JsonObject(json + ("embed" to embed))
         assertIs<PostEmbedView.Unknown>(AtJson.decodeFromJsonElement(PostView.serializer(), changed).embed)
+    }
+
+    @Test
+    fun viewFromAnOlderAppViewHasNoCounts() {
+        val json = AtJson.encodeToJsonElement(PostView.serializer(), view).jsonObject
+        val older = kotlinx.serialization.json.JsonObject(json - "likeCount" - "commentCount" - "viewer")
+        val decoded = AtJson.decodeFromJsonElement(PostView.serializer(), older)
+        assertEquals(0, decoded.likeCount)
+        assertEquals(0, decoded.commentCount)
+        assertEquals(null, decoded.viewer)
+    }
+
+    @Test
+    fun countsAndViewerLikeRoundTrip() {
+        val like = AtUri("at://did:plc:bob/${Nsid.FEED_LIKE}/3klike")
+        val counted = view.copy(likeCount = 2, commentCount = 3, viewer = PostViewerState(like))
+        val json = AtJson.encodeToJsonElement(PostView.serializer(), counted).jsonObject
+        assertEquals(like.value, json.getValue("viewer").jsonObject.getValue("like").jsonPrimitive.content)
+        assertEquals(counted, AtJson.decodeFromJsonElement(PostView.serializer(), json))
     }
 }

@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A like on an activity.",
+      "description": "A like on an activity or a post (app.activitytracker.feed.post), told apart by the subject's collection. A like on a public subject is stored in the giver's repo, and any other in their app.activitytracker.space.athlete interactions space.",
       "key": "tid",
       "record": {
         "type": "object",

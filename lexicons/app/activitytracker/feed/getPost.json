@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getPost",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "One post (feed/post-page), by the same rules as every other read of posts: served only at a tier that admits the viewer, with no block either way, unlabelled for them, and while the proposal it shares may be shown. Anything else, a post that isn't indexed included, is NotFound.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "The app.activitytracker.feed.post." }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["post"],
+          "properties": {
+            "post": { "type": "ref", "ref": "app.activitytracker.feed.defs#postView" }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound" }]
+    }
+  }
+}

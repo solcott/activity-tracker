@@ -509,10 +509,34 @@
         },
         "createdAt": { "type": "string", "format": "datetime", "description": "As the record gives it, capped at indexedAt; places the post on the timeline." },
         "indexedAt": { "type": "string", "format": "datetime" },
+        "likeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Likes the viewer is shown: from givers who, like the viewer, may see the post at its current tier, with no block between giver and viewer. An author's like of their own post isn't counted."
+        },
+        "commentCount": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Comments and replies the viewer is shown that the post's author hasn't hidden (app.activitytracker.feed.commentHide): what app.activitytracker.feed.getComments lists for them, less those marked hidden."
+        },
+        "viewer": { "type": "ref", "ref": "#postViewerState" },
         "labels": {
           "type": "array",
           "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
           "description": "Labels on the post; the author's account labels are on author. Absent when there are none."
+        }
+      }
+    },
+    "postViewerState": {
+      "type": "object",
+      "description": "The signed-in viewer's relation to a post.",
+      "properties": {
+        "like": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of the viewer's like on the post, if any. A like on a non-public post is stored in the giver's interactions space, under the same repo-style URI."
         }
       }
     },

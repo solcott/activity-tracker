@@ -79,6 +79,12 @@ data class PostView(
     val visibility: String? = null,
     /** Labels on the post; its author's are on [author]. Null when there are none. */
     val labels: List<LabelView>? = null,
+    /** Likes the viewer is shown (feed/posts); 0 from an AppView from before likes on posts. */
+    val likeCount: Long = 0,
+    /** Comments and replies the viewer is shown that aren't hidden, matching `getComments`; 0 from an older AppView. */
+    val commentCount: Long = 0,
+    /** Null for a signed-out viewer, and from an older AppView. */
+    val viewer: PostViewerState? = null,
     @SerialName($$"$type") val type: String = TYPE,
 ) {
     val visibilityOrPublic: String
@@ -88,6 +94,9 @@ data class PostView(
         const val TYPE = "${Nsid.FEED_DEFS}#postView"
     }
 }
+
+/** `app.activitytracker.feed.defs#postViewerState`: the signed-in viewer's [like] on a post, if any. */
+@Immutable @Serializable data class PostViewerState(val like: AtUri? = null)
 
 /** A member of `app.activitytracker.feed.defs#postView.embed`: [Proposal] today, [Unknown] for a kind this client can't show. */
 @Immutable

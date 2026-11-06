@@ -88,6 +88,15 @@ object GetAuthorPosts {
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_POSTS, Params.serializer(), Output.serializer())
 }
 
+/** One post the viewer may see (feed/post-page), by the rules every read of posts uses; `NotFound` otherwise. */
+object GetPost {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable data class Output(val post: PostView)
+
+    val method = XrpcQuery(Nsid.FEED_GET_POST, Params.serializer(), Output.serializer())
+}
+
 /** An athlete's activities from one batch import ([ActivityRecord.importBatch]) the viewer may see, newest started first. */
 object GetImportBatch {
     @Serializable

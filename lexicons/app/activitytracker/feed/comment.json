@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A comment on an activity, or a reply to one of its comments.",
+      "description": "A comment on an activity or a post (app.activitytracker.feed.post), told apart by the subject's collection, or a reply to one of its comments.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -16,9 +16,9 @@
           "audience": {
             "type": "string",
             "knownValues": ["public", "followers", "mutuals", "self"],
-            "description": "Who the comment was written for (app.activitytracker.actor.defs#visibility). For a top-level comment, the activity's visibility as the commenter's view showed it; for a reply, the narrower of that and the audience of the comment it answers. Absent means public. A comment written for public is stored in the commenter's repo, and any other in their app.activitytracker.space.athlete interactions space. The comment is shown only to viewers its audience admits, even if the activity is later made wider."
+            "description": "Who the comment was written for (app.activitytracker.actor.defs#visibility). For a top-level comment, the visibility of the activity or post as the commenter's view showed it; for a reply, the narrower of that and the audience of the comment it answers. Absent means public. A comment written for public is stored in the commenter's repo, and any other in their app.activitytracker.space.athlete interactions space. The comment is shown only to viewers its audience admits, even if the activity or post is later made wider."
           },
-          "reply": { "type": "ref", "ref": "#replyRef", "description": "Present on a reply. subject still names the activity." }
+          "reply": { "type": "ref", "ref": "#replyRef", "description": "Present on a reply. subject still names the activity or post." }
         }
       }
     },
