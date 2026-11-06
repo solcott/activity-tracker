@@ -11,10 +11,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
-import io.github.solcott.activitytracker.app.names.sharedPlaceOf
+import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.names.rememberPlaceNames
+import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -32,7 +31,6 @@ import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.dataresult.combineOutcomes
 import io.github.solcott.dataresult.dataOrNull
 import io.github.solcott.dataresult.mapData
-import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentStates
 import io.github.solcott.uistate.contentStatesOf
 import kotlinx.collections.immutable.ImmutableList
@@ -70,7 +68,7 @@ fun SegmentPresenter(
             )
         }
     // The segment and its profile come from one read; the screen's content is the segment.
-    val content = ContentState(detail.data?.segment, detail.origin, detail.status)
+    val content = detail.mapContent { it?.segment }
     val profile = remember(detail.data) { detail.data?.let(::segmentProfileOf) }
     val segment = content.data
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
