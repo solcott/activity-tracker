@@ -6,9 +6,9 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.segmentStarRkey
 import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.scopeMissing
 import io.github.solcott.activitytracker.data.activity.undoingOnFailure
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -19,7 +19,6 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentStarRecord
 import io.github.solcott.activitytracker.lexicon.atproto.Space
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.dataresult.DataError
@@ -113,7 +112,7 @@ class SegmentStars(
     /** Stars ([starred]) or unstars [segment]. Throws for a session that can't use stars, changing nothing. */
     suspend fun setStarred(segment: StrongRef, starred: Boolean) {
         mutex.withLock {
-            if (!canUse) throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to star segments")
+            if (!canUse) throw scopeMissing("Sign in again to star segments")
             val key = segment.uri.value
             val previous = overrides.value
             val star = SegmentStar(segment, clock.now()).takeIf { starred }
@@ -172,6 +171,5 @@ class SegmentStars(
 
     private companion object {
         const val PAGE_SIZE = 100
-        const val SCOPE_MISSING_STATUS = 403
     }
 }

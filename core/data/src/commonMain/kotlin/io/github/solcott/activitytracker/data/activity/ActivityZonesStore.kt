@@ -5,7 +5,6 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -21,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
 import kotlinx.coroutines.async
@@ -116,7 +114,7 @@ class ActivityZonesStore(
             }
         val (narrowest, record) = copies.maxByOrNull { (at, _) -> Visibility.rank(at) } ?: return@withLock
         val target = ZonesPlacement.target(charts, training, current = narrowest)
-        if (!canWrite(target)) throw scopeMissing()
+        if (!canWrite(target)) throw scopeMissing(ZONES_SCOPE_MESSAGE)
         if (copies.none { it.first == target }) clients.writeOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, record, place(target))
         for ((at, _) in copies) if (at != target) clients.deleteOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, place(at))
     }
@@ -208,7 +206,7 @@ class ActivityZonesStore(
     }
 
     private suspend fun queueMove(rkey: String, record: JsonObject, from: String, to: String) {
-        if (!canWrite(to)) throw scopeMissing()
+        if (!canWrite(to)) throw scopeMissing(ZONES_SCOPE_MESSAGE)
         writer.put(Nsid.FEED_ACTIVITY_ZONES, rkey, JsonObject.serializer(), record, space = place(to))
         writer.delete(Nsid.FEED_ACTIVITY_ZONES, rkey, place(from))
     }
@@ -220,8 +218,6 @@ class ActivityZonesStore(
         val pending = outbox.drain { it.collection == Nsid.FEED_ACTIVITY_ZONES }
         if (pending > 0) throw PendingWritesException(pending)
     }
-
-    private fun scopeMissing() = XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to hide your zones")
 
     private suspend fun queuedRkeys(): Set<String> =
         db.outbox().pending(clients.did.value).filter { it.collection == Nsid.FEED_ACTIVITY_ZONES }.map { it.rkey }.toSet()
@@ -239,7 +235,7 @@ class ActivityZonesStore(
 
         /** The categories zones reveal: heart rate zones and power zones. */
         val ZONE_CATEGORIES = setOf(DetailCategory.HEART_RATE, DetailCategory.POWER)
-        const val SCOPE_MISSING_STATUS = 403
+        const val ZONES_SCOPE_MESSAGE = "Sign in again to hide your zones"
     }
 }
 

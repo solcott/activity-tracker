@@ -59,8 +59,10 @@ internal fun SessionClients.requireInteractionsFor(collection: String, scopeMess
 
 /** Why this session can't write to its spaces: no Spaces on its PDS, or else a grant from before the scope ([scopeMessage]). */
 private fun SessionClients.spacesRefused(scopeMessage: String): Exception =
-    if (spacesSupport.value == SpacesSupport.Unsupported) SpacesUnsupportedException()
-    else XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, scopeMessage)
+    if (spacesSupport.value == SpacesSupport.Unsupported) SpacesUnsupportedException() else scopeMissing(scopeMessage)
+
+/** A write the session's `space:` grant doesn't cover, refused as the PDS would: sign in again ([message] says what for). */
+internal fun scopeMissing(message: String): XrpcException = XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, message)
 
 /** The athlete's own [collection]/[rkey] at [place], as stored now; null when it isn't there. */
 internal suspend fun SessionClients.readOwn(collection: String, rkey: String, place: SpaceUri?): JsonObject? =
