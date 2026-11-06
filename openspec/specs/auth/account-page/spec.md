@@ -57,6 +57,21 @@ The Account page SHALL explain that the password, two-factor sign-in, app passwo
 - **WHEN** alice looks on the Account page for how to change her password or turn on two-factor sign-in
 - **THEN** the page tells her these are managed by `pds.example.com`, her account's host
 
+### Requirement: The Account page offers a data export
+The Account page SHALL have an Export your data row. With no export, it SHALL say what an export holds and start one. While one runs, it SHALL show its progress and offer Cancel. When one is ready, it SHALL offer Save and say what was left out, if anything.
+
+#### Scenario: No export yet
+- **WHEN** alice opens the Account page with no export
+- **THEN** it offers Export your data, saying it downloads everything Activity Tracker holds of hers, including private activities and settings
+
+#### Scenario: Export running
+- **WHEN** alice opens the Account page while her export has read 120 of 400 activities
+- **THEN** the row shows that progress and offers Cancel
+
+#### Scenario: Export ready with problems
+- **WHEN** alice's export finished with 1 item left out
+- **THEN** the row offers Save and says 1 item couldn't be read
+
 ### Requirement: Sign out lives on the Account page
 The Account page SHALL offer Sign out. Signing out SHALL behave as a chosen sign-out does today: a recording in progress is kept for the account's next sign-in on this device, the login screen shows no expiry note and an empty handle, and queued writes stay on the device.
 
@@ -65,7 +80,7 @@ The Account page SHALL offer Sign out. Signing out SHALL behave as a chosen sign
 - **THEN** she is signed out at once without being asked, and the login screen's handle field is empty
 
 ### Requirement: Signing out with pending work asks first
-When the account has changes on this device that haven't uploaded (waiting, uploading or refused) or an import still saving, Sign out SHALL first say how many changes haven't uploaded, that they stay on this device and upload when this account signs in here again, and, if an import is saving, that its unsaved activities will be dropped. The athlete SHALL be able to cancel or sign out anyway; signing out anyway SHALL keep the queued writes.
+When the account has changes on this device that haven't uploaded (waiting, uploading or refused), an import still saving, or a data export running or waiting to be saved, Sign out SHALL first say how many changes haven't uploaded, that they stay on this device and upload when this account signs in here again, if an import is saving, that its unsaved activities will be dropped, and, if there's an export, that it will be cancelled and deleted. The athlete SHALL be able to cancel or sign out anyway; signing out anyway SHALL keep the queued writes.
 
 #### Scenario: Uploads waiting
 - **WHEN** alice has 3 activities waiting to upload and chooses Sign out
@@ -82,6 +97,10 @@ When the account has changes on this device that haven't uploaded (waiting, uplo
 #### Scenario: Import still saving
 - **WHEN** bob chooses Sign out while a batch import is still saving
 - **THEN** he is also told the import's unsaved activities will be dropped before he confirms
+
+#### Scenario: Export not yet saved
+- **WHEN** carol chooses Sign out while her data export is running
+- **THEN** she is told the export will be cancelled and deleted, and signing out anyway stops it and deletes its files
 
 ### Requirement: Signing in again with pending work asks first
 Sign in again SHALL ask the same question as Sign out when work is pending, since it ends the session the same way.
