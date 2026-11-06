@@ -21,6 +21,7 @@ import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.JsonElement
 
 /**
  * What a `publish` run did; [gone] were listed but no longer staged when checked (a `stage` finished meanwhile), and [stoppedBy] is the
@@ -53,33 +54,27 @@ internal suspend fun publish(
     val duplicates = mutableListOf<String>()
     val present = mutableListOf<String>()
     val gone = mutableListOf<String>()
-    val stoppedBy =
-        try {
-            val repo = clients.session.did()
-            val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
-            pages.collect { page ->
-                val checks = check(clients, region, page)
-                for (listed in page) {
-                    val check = checks[listed.id]
-                    // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
-                    val candidate = check?.candidate ?: listed
-                    when {
-                        check == null -> gone += listed.id
-                        // The importer's own segment for this candidate is live, so the check lists it: already published.
-                        AtUri.of(repo, Nsid.FEED_SEGMENT, listed.id) in check.duplicates -> present += listed.id
-                        check.duplicates.isNotEmpty() -> duplicates += listed.id
-                        exists(clients, repo, listed.id) -> present += listed.id
-                        create(clients, repo, candidate, clock) -> published += listed.id
-                        else -> present += listed.id
-                    }
+    val stoppedBy = stopOnError {
+        val repo = clients.session.did()
+        val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
+        pages.collect { page ->
+            val checks = check(clients, region, page)
+            for (listed in page) {
+                val check = checks[listed.id]
+                // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
+                val candidate = check?.candidate ?: listed
+                when {
+                    check == null -> gone += listed.id
+                    // The importer's own segment for this candidate is live, so the check lists it: already published.
+                    AtUri.of(repo, Nsid.FEED_SEGMENT, listed.id) in check.duplicates -> present += listed.id
+                    check.duplicates.isNotEmpty() -> duplicates += listed.id
+                    exists(clients, repo, listed.id) -> present += listed.id
+                    createIfAbsent(clients, repo, Nsid.FEED_SEGMENT, listed.id, segmentRecord(candidate, clock)) -> published += listed.id
+                    else -> present += listed.id
                 }
             }
-            null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            e
         }
+    }
     return PublishResult(published, duplicates, present, gone, stoppedBy)
 }
 
@@ -121,12 +116,10 @@ internal suspend fun exists(clients: Clients, repo: Did, rkey: String, collectio
         false
     }
 
-/**
- * Creates [candidate]'s segment; false when a concurrent run created it first (`createRecord` refuses a key that exists, and a re-check
- * finds it).
- */
-private suspend fun create(clients: Clients, repo: Did, candidate: SegmentCandidate, clock: Clock): Boolean {
-    val record =
+/** [candidate] as a `feed.segment` record created now, with its own source, licence and attribution. */
+private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElement =
+    AtJson.encodeToJsonElement(
+        SegmentRecord.serializer(),
         SegmentRecord(
             name = candidate.name,
             sport = candidate.sport,
@@ -136,24 +129,35 @@ private suspend fun create(clients: Clients, repo: Did, candidate: SegmentCandid
             createdAt = clock.now(),
             attribution = candidate.attribution,
             kind = candidate.kind,
-        )
-    return try {
-        clients.pds.procedure(
-            CreateRecord.method,
-            CreateRecord.Input(
-                repo,
-                Nsid.FEED_SEGMENT,
-                AtJson.encodeToJsonElement(SegmentRecord.serializer(), record),
-                candidate.id,
-                false,
-            ),
-        )
+        ),
+    )
+
+/**
+ * Creates [record] in [repo]'s [collection] under [rkey]; false when a concurrent run created it first (`createRecord` refuses a key that
+ * exists, and a re-check finds it). Every command that publishes goes through it, so none ever overwrites a record.
+ */
+internal suspend fun createIfAbsent(clients: Clients, repo: Did, collection: String, rkey: String, record: JsonElement): Boolean =
+    try {
+        clients.pds.procedure(CreateRecord.method, CreateRecord.Input(repo, collection, record, rkey, false))
         true
     } catch (e: XrpcException) {
-        if (e.status != CLIENT_ERROR || !exists(clients, repo, candidate.id)) throw e
+        if (e.status != CLIENT_ERROR || !exists(clients, repo, rkey, collection)) throw e
         false
     }
-}
+
+/**
+ * Runs [block], a command's whole run, and returns the error that stopped it, or null when it finished; cancellation still propagates. A
+ * command keeps what it did before the error and reports it with what stopped it, and running it again carries on.
+ */
+internal suspend fun stopOnError(block: suspend () -> Unit): Exception? =
+    try {
+        block()
+        null
+    } catch (e: CancellationException) {
+        throw e
+    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+        e
+    }
 
 /**
  * Publishes [region], printing what happened; throws what stopped it, after the summary. With [every], a candidates file of [region], it

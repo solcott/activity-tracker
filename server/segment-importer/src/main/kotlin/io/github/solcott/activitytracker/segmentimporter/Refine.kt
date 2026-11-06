@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.io.File
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -54,35 +53,29 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
     val moved = mutableListOf<String>()
     val missing = mutableListOf<String>()
     val renamed = mutableListOf<Renamed>()
-    val stoppedBy =
-        try {
-            val repo = clients.session.did()
-            var cursor: String? = null
-            do {
-                val page = clients.pds.query(ListRecords.method, ListRecords.Params(repo.value, Nsid.FEED_SEGMENT, PAGE, cursor))
-                for (record in page.records) {
-                    val rkey = record.uri.rkey ?: continue
-                    val (line, changes) = candidates[rkey]?.let { refinementOf(record.value, it) } ?: (null to emptyMap())
-                    if (changes.isNotEmpty()) {
-                        val rewritten = JsonObject(record.value + changes)
-                        clients.pds.procedure(PutRecord.method, PutRecord.Input(repo, Nsid.FEED_SEGMENT, rkey, rewritten))
-                    }
-                    when (line) {
-                        null -> missing += rkey
-                        LineChange.UNCHANGED -> unchanged += rkey
-                        LineChange.MOVED -> moved += rkey
-                        LineChange.REFINED -> refined += rkey
-                    }
-                    changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
+    val stoppedBy = stopOnError {
+        val repo = clients.session.did()
+        var cursor: String? = null
+        do {
+            val page = clients.pds.query(ListRecords.method, ListRecords.Params(repo.value, Nsid.FEED_SEGMENT, PAGE, cursor))
+            for (record in page.records) {
+                val rkey = record.uri.rkey ?: continue
+                val (line, changes) = candidates[rkey]?.let { refinementOf(record.value, it) } ?: (null to emptyMap())
+                if (changes.isNotEmpty()) {
+                    val rewritten = JsonObject(record.value + changes)
+                    clients.pds.procedure(PutRecord.method, PutRecord.Input(repo, Nsid.FEED_SEGMENT, rkey, rewritten))
                 }
-                cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-            } while (cursor != null)
-            null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            e
-        }
+                when (line) {
+                    null -> missing += rkey
+                    LineChange.UNCHANGED -> unchanged += rkey
+                    LineChange.MOVED -> moved += rkey
+                    LineChange.REFINED -> refined += rkey
+                }
+                changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
+            }
+            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
+        } while (cursor != null)
+    }
     return RefineResult(refined, unchanged, moved, missing, renamed, stoppedBy)
 }
 

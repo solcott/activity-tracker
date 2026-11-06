@@ -2,9 +2,7 @@
 
 package io.github.solcott.activitytracker.segmentimporter
 
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
 import io.github.solcott.activitytracker.lexicon.app.GetHandoffs
@@ -12,8 +10,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
-import io.github.solcott.activitytracker.lexicon.atproto.CreateRecord
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlinx.serialization.json.JsonElement
 
@@ -39,36 +35,30 @@ internal suspend fun handoff(clients: Clients, clock: Clock = Clock.System): Han
     val published = mutableListOf<String>()
     val present = mutableListOf<String>()
     val skipped = mutableListOf<String>()
-    val stoppedBy =
-        try {
-            val repo = clients.session.did()
-            var cursor: String? = null
-            do {
-                val page = clients.asImporter {
-                    clients.appView.query(GetHandoffs.method, GetHandoffs.Params(SegmentCandidates.MAX_BATCH, cursor))
+    val stoppedBy = stopOnError {
+        val repo = clients.session.did()
+        var cursor: String? = null
+        do {
+            val page = clients.asImporter {
+                clients.appView.query(GetHandoffs.method, GetHandoffs.Params(SegmentCandidates.MAX_BATCH, cursor))
+            }
+            for (handoff in page.handoffs) {
+                val (collection, record) =
+                    recordOf(handoff, clock)
+                        ?: run {
+                            skipped += handoff.id
+                            null
+                        }
+                        ?: continue
+                when {
+                    exists(clients, repo, handoff.id, collection) -> present += handoff.id
+                    createIfAbsent(clients, repo, collection, handoff.id, record) -> published += handoff.id
+                    else -> present += handoff.id
                 }
-                for (handoff in page.handoffs) {
-                    val (collection, record) =
-                        recordOf(handoff, clock)
-                            ?: run {
-                                skipped += handoff.id
-                                null
-                            }
-                            ?: continue
-                    when {
-                        exists(clients, repo, handoff.id, collection) -> present += handoff.id
-                        createRecord(clients, repo, collection, handoff.id, record) -> published += handoff.id
-                        else -> present += handoff.id
-                    }
-                }
-                cursor = page.cursor
-            } while (cursor != null)
-            null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            e
-        }
+            }
+            cursor = page.cursor
+        } while (cursor != null)
+    }
     return HandoffResult(published, present, skipped, stoppedBy)
 }
 
@@ -107,16 +97,6 @@ private fun recordOf(handoff: SubjectHandoff, clock: Clock): Pair<String, JsonEl
                     )
         }
         else -> null
-    }
-
-/** Creates [record] under [rkey]; false when a concurrent run created it first (`createRecord` refuses a key that exists). */
-private suspend fun createRecord(clients: Clients, repo: Did, collection: String, rkey: String, record: JsonElement): Boolean =
-    try {
-        clients.pds.procedure(CreateRecord.method, CreateRecord.Input(repo, collection, record, rkey, false))
-        true
-    } catch (e: XrpcException) {
-        if (e.status != CLIENT_ERROR || !exists(clients, repo, rkey, collection)) throw e
-        false
     }
 
 /** Republishes the pending handoffs, printing what happened; throws what stopped it, after the summary. */

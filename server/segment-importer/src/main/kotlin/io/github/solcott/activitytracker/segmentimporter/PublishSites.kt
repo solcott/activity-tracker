@@ -2,20 +2,17 @@
 
 package io.github.solcott.activitytracker.segmentimporter
 
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckDiveSites
 import io.github.solcott.activitytracker.lexicon.app.DiveSitePosition
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
-import io.github.solcott.activitytracker.lexicon.atproto.CreateRecord
 import java.io.File
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
+import kotlinx.serialization.json.JsonElement
 
 /** What a `publish-sites` run did; [stoppedBy] is the error that ended the run early, if one did. */
 internal data class PublishSitesResult(
@@ -36,28 +33,22 @@ internal suspend fun publishSites(clients: Clients, sites: List<SiteEntry>, cloc
     val published = mutableListOf<String>()
     val duplicates = mutableListOf<String>()
     val present = mutableListOf<String>()
-    val stoppedBy =
-        try {
-            val repo = clients.session.did()
-            for (page in sites.chunked(SegmentCandidates.MAX_BATCH)) {
-                val checks = checkSites(clients, page)
-                for (site in page) {
-                    val found = checks[site.id]?.duplicates.orEmpty()
-                    when {
-                        AtUri.of(repo, Nsid.FEED_DIVE_SITE, site.id) in found -> present += site.id
-                        found.isNotEmpty() -> duplicates += site.id
-                        exists(clients, repo, site.id, Nsid.FEED_DIVE_SITE) -> present += site.id
-                        createSite(clients, repo, site, clock) -> published += site.id
-                        else -> present += site.id
-                    }
+    val stoppedBy = stopOnError {
+        val repo = clients.session.did()
+        for (page in sites.chunked(SegmentCandidates.MAX_BATCH)) {
+            val checks = checkSites(clients, page)
+            for (site in page) {
+                val found = checks[site.id]?.duplicates.orEmpty()
+                when {
+                    AtUri.of(repo, Nsid.FEED_DIVE_SITE, site.id) in found -> present += site.id
+                    found.isNotEmpty() -> duplicates += site.id
+                    exists(clients, repo, site.id, Nsid.FEED_DIVE_SITE) -> present += site.id
+                    createIfAbsent(clients, repo, Nsid.FEED_DIVE_SITE, site.id, siteRecord(site, clock)) -> published += site.id
+                    else -> present += site.id
                 }
             }
-            null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            e
         }
+    }
     return PublishSitesResult(published, duplicates, present, stoppedBy)
 }
 
@@ -70,23 +61,12 @@ private suspend fun checkSites(clients: Clients, page: List<SiteEntry>): Map<Str
         .sites
         .associateBy { it.id }
 
-/**
- * Creates [site]'s record; false when a concurrent run created it first (`createRecord` refuses a key that exists, and a re-check finds
- * it).
- */
-private suspend fun createSite(clients: Clients, repo: Did, site: SiteEntry, clock: Clock): Boolean {
-    val record = DiveSiteRecord(site.name, site.lat, site.lon, site.radius, site.source, site.license, clock.now())
-    return try {
-        clients.pds.procedure(
-            CreateRecord.method,
-            CreateRecord.Input(repo, Nsid.FEED_DIVE_SITE, AtJson.encodeToJsonElement(DiveSiteRecord.serializer(), record), site.id, false),
-        )
-        true
-    } catch (e: XrpcException) {
-        if (e.status != CLIENT_ERROR || !exists(clients, repo, site.id, Nsid.FEED_DIVE_SITE)) throw e
-        false
-    }
-}
+/** [site] as a `feed.diveSite` record created now. */
+private fun siteRecord(site: SiteEntry, clock: Clock): JsonElement =
+    AtJson.encodeToJsonElement(
+        DiveSiteRecord.serializer(),
+        DiveSiteRecord(site.name, site.lat, site.lon, site.radius, site.source, site.license, clock.now()),
+    )
 
 /** Publishes the sites in [file], printing what happened; throws what stopped it, after the summary. */
 internal suspend fun publishSitesFile(clients: Clients, file: File) {
