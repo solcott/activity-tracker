@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
@@ -18,10 +19,10 @@ import kotlin.test.assertEquals
 /** A segment's community names on its screen (segments/segment-names); the name sheet's own tests are `ProposePlaceNameUiTest`. */
 @OptIn(ExperimentalTestApi::class)
 class SegmentNamesUiTest {
-    private val events = mutableListOf<SegmentEvent>()
+    private val events = mutableListOf<PlaceNameEvent>()
 
     private fun show(state: SegmentState, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
-        setContent { AppPreview { SegmentUi(state.copy(eventSink = { events += it })) } }
+        setContent { AppPreview { SegmentUi(state.copy(names = state.names.copy(eventSink = { events += it }))) } }
         checks()
     }
 
@@ -43,8 +44,8 @@ class SegmentNamesUiTest {
             onNodeWithContentDescription("Vote against Rooty Run").performClick()
             val bobs = AtUri(checkNotNull(SegmentSamples.renamed.segment).nameProposals.first().uri.value)
             assertEquals(
-                listOf(SegmentEvent.Vote(bobs, null), SegmentEvent.Vote(bobs, SegmentNameVoteDirection.DOWN)),
-                events.filterIsInstance<SegmentEvent.Vote>(),
+                listOf(PlaceNameEvent.Vote(bobs, null), PlaceNameEvent.Vote(bobs, SegmentNameVoteDirection.DOWN)),
+                events.filterIsInstance<PlaceNameEvent.Vote>(),
             )
         }
 
@@ -54,7 +55,7 @@ class SegmentNamesUiTest {
             assertEquals(1, onAllNodesWithContentDescription("Edit name").fetchSemanticsNodes().size)
             onNodeWithContentDescription("Delete proposal").performScrollTo().performClick()
             onNodeWithContentDescription("Vote for Rooty Ridge").assertDoesNotExist()
-            assertEquals(SegmentEvent.DeleteProposal::class, events.last()::class)
+            assertEquals(PlaceNameEvent.DeleteProposal::class, events.last()::class)
         }
 
     @Test

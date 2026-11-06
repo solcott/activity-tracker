@@ -4,9 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
+import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
@@ -44,19 +42,8 @@ data class SegmentState(
      * active, or the board hasn't loaded or failed to.
      */
     val mayor: MayorSummary? = null,
-    /**
-     * Whether this session can vote on names (segments/segment-names): false on a PDS without Spaces or a grant from before votes, when the
-     * vote controls are disabled with why.
-     */
-    val canVoteHere: Boolean = true,
-    /** The sheet proposing a name, or editing the viewer's own open proposal, while it's open. */
-    val nameSheet: ProposePlaceNameScreen? = null,
-    /** The viewer's own open proposal whose deletion is being confirmed. */
-    val confirmDelete: AtUri? = null,
-    /** Why the last vote or deletion failed. */
-    val nameError: UiError? = null,
-    /** The signed-in viewer's DID: the proposals they made are offered Edit and Delete, not votes. */
-    val self: String? = null,
+    /** The segment's names (segments/segment-names): the sheet, a deletion being confirmed, the last failure, and their events. */
+    val names: PlaceNameFields = PlaceNameFields(),
     /** The segment's terrain profile (segments/segment-elevation); null when the AppView sent none, or until loaded. */
     val profile: SegmentProfile? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
@@ -73,7 +60,7 @@ data class SegmentState(
     val canPropose: Boolean
         get() = segment?.viewer?.canProposeName == true
 
-    /** The viewer may vote ([SegmentView.viewer]'s flag); [canVoteHere] says whether this session can send it. */
+    /** The viewer may vote ([SegmentView.viewer]'s flag); [PlaceNameFields.canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = segment?.viewer?.canVoteOnNames == true
 }
@@ -161,22 +148,4 @@ sealed interface SegmentEvent {
 
     /** Opens the segment's Mayors board (segments/segment-mayors); offered only for an active segment. */
     data object OpenMayors : SegmentEvent
-
-    /** Opens the sheet proposing a name (segments/segment-names); offered only when [SegmentState.canPropose]. */
-    data object ProposeName : SegmentEvent
-
-    /** Opens the sheet editing the viewer's own open proposal [proposal]. */
-    data class EditProposal(val proposal: AtUri) : SegmentEvent
-
-    /** Asks to delete the viewer's own open proposal [proposal]; [ConfirmDelete] answers. */
-    data class DeleteProposal(val proposal: AtUri) : SegmentEvent
-
-    /** The deletion confirmation's answer. */
-    data class ConfirmDelete(val confirmed: Boolean) : SegmentEvent
-
-    /** Votes [direction] (a `SegmentNameVoteDirection` value) on [proposal], or takes the viewer's vote back when null. */
-    data class Vote(val proposal: AtUri, val direction: String?) : SegmentEvent
-
-    /** The name sheet's outer event. */
-    data class NameSheet(val event: ProposePlaceNameOuterEvent) : SegmentEvent
 }

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsEvent
 import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsPresenter
 import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
+import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -188,8 +189,8 @@ class DiveSitePresenterTest {
             val loaded = awaitUntil { it.site != null }
             assertTrue(loaded.canPropose)
             assertTrue(loaded.canVote)
-            loaded.eventSink(DiveSiteEvent.ProposeName)
-            val sheet = awaitUntil { it.nameSheet != null }.nameSheet
+            loaded.names.eventSink(PlaceNameEvent.ProposeName)
+            val sheet = awaitUntil { it.names.sheet != null }.names.sheet
             assertEquals(uri, sheet?.place)
             assertEquals("Blue Hole", sheet?.currentName)
             cancelAndIgnoreRemainingEvents()

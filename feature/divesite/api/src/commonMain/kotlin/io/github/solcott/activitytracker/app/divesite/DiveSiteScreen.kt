@@ -4,9 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
-import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
+import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -38,16 +36,8 @@ data class DiveSiteState(
     val regulars: RegularsSummary? = null,
     /** The dives at the site the viewer may see, newest first, a page at a time (ui/content-loading). */
     val dives: PagedState<ActivityView, Unit> = pagedStateOf(),
-    /** Whether this session can vote on names: false on a PDS without Spaces or a grant from before votes. */
-    val canVoteHere: Boolean = true,
-    /** The sheet proposing a name, or editing the viewer's own open proposal, while it's open. */
-    val nameSheet: ProposePlaceNameScreen? = null,
-    /** The viewer's own open proposal whose deletion is being confirmed. */
-    val confirmDelete: AtUri? = null,
-    /** Why the last vote or deletion failed. */
-    val nameError: UiError? = null,
-    /** The signed-in viewer's DID: the proposals they made are offered Edit and Delete, not votes. */
-    val self: String? = null,
+    /** The site's names: the sheet, a deletion being confirmed, the last failure, and their events. */
+    val names: PlaceNameFields = PlaceNameFields(),
     val eventSink: (DiveSiteEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s site: the last loaded, or null before the first. */
@@ -62,7 +52,7 @@ data class DiveSiteState(
     val canPropose: Boolean
         get() = site?.viewer?.canProposeName == true
 
-    /** The viewer may vote, having visited the site; [canVoteHere] says whether this session can send it. */
+    /** The viewer may vote, having visited the site; [PlaceNameFields.canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = site?.viewer?.canVoteOnNames == true
 }
@@ -90,22 +80,4 @@ sealed interface DiveSiteEvent {
 
     /** Opens the site's Regulars board; offered only for an active site. */
     data object OpenRegulars : DiveSiteEvent
-
-    /** Opens the sheet proposing a name; offered only when [DiveSiteState.canPropose]. */
-    data object ProposeName : DiveSiteEvent
-
-    /** Opens the sheet editing the viewer's own open proposal [proposal]. */
-    data class EditProposal(val proposal: AtUri) : DiveSiteEvent
-
-    /** Asks to delete the viewer's own open proposal [proposal]; [ConfirmDelete] answers. */
-    data class DeleteProposal(val proposal: AtUri) : DiveSiteEvent
-
-    /** The deletion confirmation's answer. */
-    data class ConfirmDelete(val confirmed: Boolean) : DiveSiteEvent
-
-    /** Votes [direction] (a `SegmentNameVoteDirection` value) on [proposal], or takes the viewer's vote back when null. */
-    data class Vote(val proposal: AtUri, val direction: String?) : DiveSiteEvent
-
-    /** The name sheet's outer event. */
-    data class NameSheet(val event: ProposePlaceNameOuterEvent) : DiveSiteEvent
 }

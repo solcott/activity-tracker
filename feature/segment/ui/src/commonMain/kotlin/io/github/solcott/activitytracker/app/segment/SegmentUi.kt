@@ -206,25 +206,14 @@ private fun SegmentNames(state: SegmentState, segment: SegmentView) {
         history = history,
         canPropose = state.canPropose,
         canVote = state.canVote,
-        canVoteHere = state.canVoteHere,
-        error = state.nameError,
-        self = state.self,
-        onPropose = { state.eventSink(SegmentEvent.ProposeName) },
-        onEdit = { state.eventSink(SegmentEvent.EditProposal(it)) },
-        onDelete = { state.eventSink(SegmentEvent.DeleteProposal(it)) },
-        onVote = { proposal, direction -> state.eventSink(SegmentEvent.Vote(proposal, direction)) },
+        fields = state.names,
     )
 }
 
 /** The name sheet while it's open, and the confirmation before the viewer's own proposal is deleted. */
 @Composable
 private fun SegmentNameDialogs(state: SegmentState) {
-    PlaceNameDialogs(
-        sheet = state.nameSheet,
-        confirmingDelete = state.confirmDelete != null,
-        onSheetEvent = { state.eventSink(SegmentEvent.NameSheet(it)) },
-        onConfirmDelete = { state.eventSink(SegmentEvent.ConfirmDelete(it)) },
-    )
+    PlaceNameDialogs(state.names)
 }
 
 /**

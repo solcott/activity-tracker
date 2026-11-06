@@ -10,6 +10,7 @@ import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
@@ -589,7 +590,7 @@ class SegmentPresenterTest {
             assertEquals("Wiggly Woods", state.segment?.currentName)
             assertEquals("Hill", state.originalName)
             assertEquals(listOf("Wiggly Woods"), state.segment?.nameHistory?.map { it.name })
-            assertEquals(alice.value, state.self)
+            assertEquals(alice.value, state.names.self)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -600,8 +601,8 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val loaded = awaitUntil { it.segment != null }
-            assertTrue(loaded.canVote && loaded.canVoteHere)
-            loaded.eventSink(SegmentEvent.Vote(AtUri(bobsProposal), SegmentNameVoteDirection.UP))
+            assertTrue(loaded.canVote && loaded.names.canVoteHere)
+            loaded.names.eventSink(PlaceNameEvent.Vote(AtUri(bobsProposal), SegmentNameVoteDirection.UP))
             val voted = awaitUntil { s -> s.segment?.nameProposals?.first()?.viewerVote != null }
             val bob = voted.segment!!.nameProposals.first()
             assertEquals(4 to 1, bob.up to bob.down)
@@ -622,7 +623,7 @@ class SegmentPresenterTest {
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
             assertTrue(state.canVote)
-            assertFalse(state.canVoteHere)
+            assertFalse(state.names.canVoteHere)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -634,17 +635,17 @@ class SegmentPresenterTest {
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
             assertFalse(state.canPropose)
-            state.eventSink(SegmentEvent.ProposeName)
+            state.names.eventSink(PlaceNameEvent.ProposeName)
             // Other parts of the page may still be loading, so check only what the event would open.
             testScheduler.runCurrent()
-            assertNull(mostRecentItemOr(state).nameSheet)
+            assertNull(mostRecentItemOr(state).names.sheet)
             cancelAndIgnoreRemainingEvents()
         }
         renamed(canPropose = true)
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment?.viewer?.canProposeName == true }
-            state.eventSink(SegmentEvent.ProposeName)
-            val sheet = awaitUntil { it.nameSheet != null }.nameSheet!!
+            state.names.eventSink(PlaceNameEvent.ProposeName)
+            val sheet = awaitUntil { it.names.sheet != null }.names.sheet!!
             assertEquals("Wiggly Woods", sheet.currentName)
             assertNull(sheet.proposal)
             cancelAndIgnoreRemainingEvents()
@@ -657,11 +658,11 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
-            state.eventSink(SegmentEvent.DeleteProposal(AtUri(alicesProposal)))
-            val asking = awaitUntil { it.confirmDelete != null }
-            asking.eventSink(SegmentEvent.ConfirmDelete(true))
+            state.names.eventSink(PlaceNameEvent.DeleteProposal(AtUri(alicesProposal)))
+            val asking = awaitUntil { it.names.confirmDelete != null }
+            asking.names.eventSink(PlaceNameEvent.ConfirmDelete(true))
             val deleted = awaitUntil { s ->
-                s.confirmDelete == null && s.segment?.nameProposals?.none { it.uri.value == alicesProposal } == true
+                s.names.confirmDelete == null && s.segment?.nameProposals?.none { it.uri.value == alicesProposal } == true
             }
             assertEquals(listOf(bobsProposal), deleted.segment!!.nameProposals.map { it.uri.value })
             cancelAndIgnoreRemainingEvents()
@@ -674,8 +675,8 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
-            state.eventSink(SegmentEvent.EditProposal(AtUri(alicesProposal)))
-            val sheet = awaitUntil { it.nameSheet != null }.nameSheet!!
+            state.names.eventSink(PlaceNameEvent.EditProposal(AtUri(alicesProposal)))
+            val sheet = awaitUntil { it.names.sheet != null }.names.sheet!!
             assertEquals(alicesProposal, sheet.proposal)
             assertEquals("Rooty Ridge", sheet.proposalName)
             cancelAndIgnoreRemainingEvents()
@@ -688,12 +689,12 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
-            state.eventSink(SegmentEvent.EditProposal(AtUri(bobsProposal)))
-            state.eventSink(SegmentEvent.DeleteProposal(AtUri(bobsProposal)))
+            state.names.eventSink(PlaceNameEvent.EditProposal(AtUri(bobsProposal)))
+            state.names.eventSink(PlaceNameEvent.DeleteProposal(AtUri(bobsProposal)))
             testScheduler.runCurrent()
             val after = mostRecentItemOr(state)
-            assertNull(after.nameSheet)
-            assertNull(after.confirmDelete)
+            assertNull(after.names.sheet)
+            assertNull(after.names.confirmDelete)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -705,9 +706,9 @@ class SegmentPresenterTest {
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
             val state = awaitUntil { it.segment != null }
             // Alice's adopted "Wiggly Woods" is in the history only, not among the open proposals.
-            state.eventSink(SegmentEvent.EditProposal(AtUri("at://$alice/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kadopted")))
+            state.names.eventSink(PlaceNameEvent.EditProposal(AtUri("at://$alice/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kadopted")))
             testScheduler.runCurrent()
-            assertNull(mostRecentItemOr(state).nameSheet)
+            assertNull(mostRecentItemOr(state).names.sheet)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -10,11 +10,11 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameOuterEvent
 import io.github.solcott.activitytracker.app.names.ProposePlaceNameScreen
 import io.github.solcott.activitytracker.app.names.sharedPlaceOf
+import io.github.solcott.activitytracker.app.names.rememberPlaceNames
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.map
 
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
-@Suppress("LongMethod", "CyclomaticComplexMethod") // An event per action on the segment, its board and its names.
+@Suppress("LongMethod") // An event per action on the segment and its board.
 fun SegmentPresenter(
     screen: SegmentScreen,
     navigator: Navigator,
@@ -90,11 +90,16 @@ fun SegmentPresenter(
         }
     }
 
-    var nameSheet by rememberRetained { mutableStateOf<ProposePlaceNameScreen?>(null) }
-    var confirmDelete by rememberRetained { mutableStateOf<AtUri?>(null) }
-    var nameError by rememberRetained { mutableStateOf<UiError?>(null) }
-    /** The viewer's own open proposal [proposal], as listed. */
-    fun own(proposal: AtUri) = segment?.nameProposals?.firstOrNull { it.uri == proposal && it.proposer.did == names.self }
+    val placeNames =
+        rememberPlaceNames(
+            place = uri,
+            currentName = segment?.currentName.orEmpty(),
+            proposals = remember(segment?.nameProposals) { segment?.nameProposals.orEmpty().toImmutableList() },
+            canPropose = segment?.viewer?.canProposeName == true,
+            canVote = segment?.viewer?.canVoteOnNames == true,
+            sharedPlace = segment?.let(::sharedPlaceOf),
+            names = names,
+        )
 
     return SegmentState(
         content = content,
@@ -104,11 +109,7 @@ fun SegmentPresenter(
         starred = starred,
         credit = segment?.record?.let(::creditOf),
         mayor = mayor,
-        canVoteHere = names.canVote,
-        nameSheet = nameSheet,
-        confirmDelete = confirmDelete,
-        nameError = nameError,
-        self = names.self.value,
+        names = placeNames,
         profile = profile,
     ) { event ->
         when (event) {
@@ -135,48 +136,6 @@ fun SegmentPresenter(
                     ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.currentName, screen.board)) }
             SegmentEvent.OpenMayors ->
                 segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.currentName, screen.board)) }
-            SegmentEvent.ProposeName ->
-                segment
-                    ?.takeIf { it.viewer?.canProposeName == true }
-                    ?.let { nameSheet = ProposePlaceNameScreen(it.uri.value, it.currentName, sharedPlace = sharedPlaceOf(it)) }
-            is SegmentEvent.EditProposal ->
-                own(event.proposal)?.let {
-                    nameSheet =
-                        ProposePlaceNameScreen(
-                            screen.uri,
-                            segment?.currentName.orEmpty(),
-                            it.uri.value,
-                            it.name,
-                            proposalView = it,
-                            sharedPlace = segment?.let(::sharedPlaceOf),
-                        )
-                }
-            is SegmentEvent.DeleteProposal -> if (own(event.proposal) != null) confirmDelete = event.proposal
-            is SegmentEvent.ConfirmDelete -> {
-                val proposal = confirmDelete
-                confirmDelete = null
-                if (event.confirmed && proposal != null) {
-                    nameError = null
-                    flights.launch(proposal) {
-                        runSuspendCatching { names.delete(uri, proposal) }
-                            .onFailure { nameError = UiError.of(UiError.Kind.DeleteSegmentName, it) }
-                    }
-                }
-            }
-            is SegmentEvent.Vote -> {
-                val proposal = segment?.nameProposals?.firstOrNull { it.uri == event.proposal }
-                if (proposal != null && segment.viewer?.canVoteOnNames == true && proposal.proposer.did != names.self) {
-                    nameError = null
-                    flights.launch(proposal.uri) {
-                        runSuspendCatching { names.vote(uri, proposal, event.direction, proposal.viewerVote) }
-                            .onFailure { nameError = UiError.of(UiError.Kind.VoteSegmentName, it) }
-                    }
-                }
-            }
-            is SegmentEvent.NameSheet ->
-                when (event.event) {
-                    ProposePlaceNameOuterEvent.Closed -> nameSheet = null
-                }
         }
     }
 }

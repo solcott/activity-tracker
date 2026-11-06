@@ -104,12 +104,7 @@ fun DiveSiteUi(state: DiveSiteState, modifier: Modifier = Modifier) {
             if (loaded != null) Loaded(state, loaded, padding, retry)
         }
     }
-    PlaceNameDialogs(
-        sheet = state.nameSheet,
-        confirmingDelete = state.confirmDelete != null,
-        onSheetEvent = { state.eventSink(DiveSiteEvent.NameSheet(it)) },
-        onConfirmDelete = { state.eventSink(DiveSiteEvent.ConfirmDelete(it)) },
-    )
+    PlaceNameDialogs(state.names)
 }
 
 @Composable
@@ -130,13 +125,7 @@ private fun Loaded(state: DiveSiteState, site: DiveSiteView, padding: PaddingVal
                     history = history,
                     canPropose = state.canPropose,
                     canVote = state.canVote,
-                    canVoteHere = state.canVoteHere,
-                    error = state.nameError,
-                    self = state.self,
-                    onPropose = { state.eventSink(DiveSiteEvent.ProposeName) },
-                    onEdit = { state.eventSink(DiveSiteEvent.EditProposal(it)) },
-                    onDelete = { state.eventSink(DiveSiteEvent.DeleteProposal(it)) },
-                    onVote = { proposal, direction -> state.eventSink(DiveSiteEvent.Vote(proposal, direction)) },
+                    fields = state.names,
                 )
             }
             dives(state)

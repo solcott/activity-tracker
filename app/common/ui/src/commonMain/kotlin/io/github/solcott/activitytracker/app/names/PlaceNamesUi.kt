@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitContent
-import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.segment.effortDateLabel
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
@@ -58,7 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 
 // A place's community names (segments/segment-names) on its screen, for any place named by proposal and vote (a segment): its original
 // name, its name history, the open proposals with their votes, Propose, and the viewer's own proposal's Edit and Delete. The host's
-// presenter owns what they do; these only lay them out and call back.
+// presenter owns what they do (`rememberPlaceNames`); these only lay them out and send to its [PlaceNameFields.eventSink].
 
 /** "originally …" under a place's title, when a community name replaced its original. */
 @Composable
@@ -73,8 +72,8 @@ fun OriginalName(original: String, modifier: Modifier = Modifier) {
 
 /**
  * The place's names: Propose when [canPropose], the open [proposals] with votes, and the name [history], collapsed until opened. [canVote]
- * says the viewer may vote, [canVoteHere] whether this session can send it (the controls are disabled with why when not), [self] is the
- * viewer's DID, whose own proposals offer Edit and Delete instead of votes, and [error] why the last vote or deletion failed.
+ * says the viewer may vote and [fields] the rest: whether this session can send a vote (the controls are disabled with why when not), the
+ * viewer's DID, whose own proposals offer Edit and Delete instead of votes, and why the last vote or deletion failed.
  */
 @Composable
 fun PlaceNames(
@@ -82,21 +81,18 @@ fun PlaceNames(
     history: ImmutableList<SegmentNameAdoption>,
     canPropose: Boolean,
     canVote: Boolean,
-    canVoteHere: Boolean,
-    error: UiError?,
-    self: String?,
-    onPropose: () -> Unit,
-    onEdit: (proposal: AtUri) -> Unit,
-    onDelete: (proposal: AtUri) -> Unit,
-    onVote: (proposal: AtUri, direction: String?) -> Unit,
+    fields: PlaceNameFields,
     modifier: Modifier = Modifier,
 ) {
+    val error = fields.error
+    val canVoteHere = fields.canVoteHere
+    val send = fields.eventSink
     // Nothing to show takes no space.
     val nothingListed = proposals.isEmpty() && history.isEmpty()
     if (nothingListed && !canPropose && error == null) return
     Column(modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (canPropose) {
-            AppSecondaryButton(onClick = onPropose) { Text(stringResource(Res.string.segment_name_propose)) }
+            AppSecondaryButton(onClick = { send(PlaceNameEvent.ProposeName) }) { Text(stringResource(Res.string.segment_name_propose)) }
         }
         if (proposals.isNotEmpty()) {
             Text(stringResource(Res.string.segment_name_proposals), style = MaterialTheme.typography.titleMedium)
@@ -110,12 +106,12 @@ fun PlaceNames(
             proposals.forEach { proposal ->
                 Proposal(
                     proposal,
-                    own = proposal.proposer.did.value == self,
+                    own = proposal.proposer.did.value == fields.self,
                     canVote = canVote,
                     canVoteHere = canVoteHere,
-                    onEdit = onEdit,
-                    onDelete = onDelete,
-                    onVote = onVote,
+                    onEdit = { send(PlaceNameEvent.EditProposal(it)) },
+                    onDelete = { send(PlaceNameEvent.DeleteProposal(it)) },
+                    onVote = { uri, direction -> send(PlaceNameEvent.Vote(uri, direction)) },
                 )
             }
         }
@@ -199,23 +195,17 @@ private fun HistoryEntry(adoption: SegmentNameAdoption) {
 
 @Composable private fun dateOf(instant: Instant): String = effortDateLabel(instant.toLocalDateTime(LocalTimeZone.current).date.toString())
 
-/**
- * The name [sheet] while it's open, its outer events going to [onSheetEvent], and, while [confirmingDelete], the confirmation before the
- * viewer's own proposal is deleted, answered through [onConfirmDelete].
- */
+/** [fields]' name sheet while it's open, and the confirmation before the viewer's own proposal is deleted while one is asked for. */
 @Composable
-fun PlaceNameDialogs(
-    sheet: ProposePlaceNameScreen?,
-    confirmingDelete: Boolean,
-    onSheetEvent: (ProposePlaceNameOuterEvent) -> Unit,
-    onConfirmDelete: (confirmed: Boolean) -> Unit,
-) {
-    sheet?.let {
+fun PlaceNameDialogs(fields: PlaceNameFields) {
+    val onSheetEvent = { event: ProposePlaceNameOuterEvent -> fields.eventSink(PlaceNameEvent.Sheet(event)) }
+    val onConfirmDelete = { confirmed: Boolean -> fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed)) }
+    fields.sheet?.let {
         AppBottomSheet(onDismiss = { onSheetEvent(ProposePlaceNameOuterEvent.Closed) }, sheetState = rememberAppSheetState()) {
             SubCircuitContent(it, outerEventSink = onSheetEvent)
         }
     }
-    if (confirmingDelete) {
+    if (fields.confirmDelete != null) {
         val delete = stringResource(Res.string.segment_name_delete)
         AppAlertDialog(
             title = stringResource(Res.string.segment_name_delete_confirm_title),
