@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.appview.api
 
-import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -41,11 +40,11 @@ import org.jetbrains.exposed.v1.jdbc.select
 // through [admittedComments] and [commentsListedFor] or [commentsVisibleTo], so the count matches the pages.
 
 /**
- * Comments joined to the activity they name, for [commentsVisibleTo]. Like likes, a comment is served by the activity's current visibility
+ * Comments joined to the [subject] they name, for [commentsVisibleTo]. Like likes, a comment is served by the subject's current visibility
  * wherever it's stored, but never wider than the audience it was written for.
  */
-internal fun admittedComments() =
-    Comments.join(Activities, JoinType.INNER, Comments.subjectUri, Activities.uri)
+internal fun admittedComments(subject: Subject) =
+    Comments.join(subject.table, JoinType.INNER, Comments.subjectUri, subject.uri)
         .join(
             Roots,
             JoinType.LEFT,
@@ -54,51 +53,52 @@ internal fun admittedComments() =
             additionalConstraint = { Roots[Comments.subjectUri] eq Comments.subjectUri },
         )
 
-/** The top-level comment of each comment's thread, in [admittedComments], when it's indexed on the same activity. */
+/** The top-level comment of each comment's thread, in [admittedComments], when it's indexed on the same subject. */
 private val Roots = Comments.alias("roots")
 
 /**
- * Comments on activities [viewer] may already see (the caller filters the activities) that they may see too: while the commenter may still
- * see the activity at its current visibility, and the comment's audience admits the viewer, judged against the activity's athlete. Tiers
- * nest, so a comment is shown at the narrower of the activity's visibility and its audience. A commenter in a block with the viewer, or
- * muted by them, is never shown to them, and a comment taken down, or by an account that isn't served, only to its commenter.
+ * Comments on subjects [viewer] may already see (the caller filters the subjects) that they may see too: while the commenter may still see
+ * the subject at its current visibility, and the comment's audience admits the viewer, judged against the subject's author. Tiers nest, so
+ * a comment is shown at the narrower of the subject's visibility and its audience. A commenter in a block with the viewer, or muted by
+ * them, is never shown to them, and a comment taken down, or by an account that isn't served, only to its commenter.
  */
-internal fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
-    visibleTo(Comments.authorDid) and
-        visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid) and
-        rootAdmits(viewer) and
+internal fun commentsVisibleTo(viewer: Did?, subject: Subject): Op<Boolean> =
+    subject.visibleTo(Comments.authorDid) and
+        visibleTo(viewer, visibility = Comments.audience, author = subject.author, record = subject.uri, cid = subject.cid) and
+        rootAdmits(viewer, subject) and
         notBlocked(viewer, Comments.authorDid) and
         notMuted(viewer, Comments.authorDid) and
         served(viewer, Comments.authorDid, Comments.uri, Comments.cid) and
         unhidden(viewer, Comments.authorDid, Comments.uri)
 
 /**
- * A reply is also capped by its thread's top-level comment's audience while that's indexed on the activity: clients cap a reply by its
+ * A reply is also capped by its thread's top-level comment's audience while that's indexed on the subject: clients cap a reply by its
  * parent, so an honest chain only narrows, and a reply from a client that doesn't still never reaches past the root's audience. Only the
  * root, not every ancestor, is checked. A top-level comment joins itself, which adds nothing.
  */
-private fun rootAdmits(viewer: Did?): Op<Boolean> =
-    Roots[Comments.uri].isNull() or visibleTo(viewer, visibility = Roots[Comments.audience], author = Activities.authorDid)
+private fun rootAdmits(viewer: Did?, subject: Subject): Op<Boolean> =
+    Roots[Comments.uri].isNull() or
+        visibleTo(viewer, visibility = Roots[Comments.audience], author = subject.author, record = subject.uri, cid = subject.cid)
 
 /**
- * The activity's athlete hid the comment (`feed.commentHide`), from their repo or their interactions space. Checked here rather than at
- * index time, so a hide indexed before its comment counts, and a hide by anyone else changes nothing.
+ * The subject's author hid the comment (`feed.commentHide`), from their repo or their interactions space. Checked here rather than at index
+ * time, so a hide indexed before its comment counts, and a hide by anyone else changes nothing.
  */
-internal fun hiddenByAthlete(): Op<Boolean> =
+internal fun hiddenByAthlete(subject: Subject): Op<Boolean> =
     exists(
         CommentHides.select(CommentHides.uri).where {
-            (CommentHides.commentUri eq Comments.uri) and (CommentHides.authorDid eq Activities.authorDid)
+            (CommentHides.commentUri eq Comments.uri) and (CommentHides.authorDid eq subject.author)
         }
     )
 
 /**
- * The comments listed for [viewer]: [commentsVisibleTo], and a hidden one ([hiddenByAthlete]) only for the activity's athlete and its
+ * The comments listed for [viewer]: [commentsVisibleTo], and a hidden one ([hiddenByAthlete]) only for the subject's author and its
  * commenter. It's never counted ([hydrate] leaves it out for everyone), so the count matches the listed comments that aren't hidden.
  */
-internal fun commentsListedFor(viewer: Did?): Op<Boolean> {
-    val shown = commentsVisibleTo(viewer)
-    if (viewer == null) return shown and not(hiddenByAthlete())
-    return shown and (not(hiddenByAthlete()) or (Activities.authorDid eq viewer.value) or (Comments.authorDid eq viewer.value))
+internal fun commentsListedFor(viewer: Did?, subject: Subject): Op<Boolean> {
+    val shown = commentsVisibleTo(viewer, subject)
+    if (viewer == null) return shown and not(hiddenByAthlete(subject))
+    return shown and (not(hiddenByAthlete(subject)) or (subject.author eq viewer.value) or (Comments.authorDid eq viewer.value))
 }
 
 /**
@@ -165,6 +165,7 @@ internal fun JdbcTransaction.threadPage(
     avatars: AvatarUrls,
     listed: Op<Boolean>,
     athlete: String,
+    subject: Subject,
 ): GetComments.Output {
     val pageSize = Paging.clamp(params.limit)
     val first = threadPlace.min()
@@ -173,7 +174,7 @@ internal fun JdbcTransaction.threadPage(
             (first greaterEq sortValue) and ((first greater sortValue) or ((first eq sortValue) and (Comments.threadUri greater thread)))
         } ?: Op.TRUE
     val threads =
-        admittedComments()
+        admittedComments(subject)
             .select(Comments.threadUri, first)
             .where { listed }
             .groupBy(Comments.threadUri)
@@ -185,17 +186,17 @@ internal fun JdbcTransaction.threadPage(
     val threadUris = threads.map { it[Comments.threadUri] }
     if (threadUris.isEmpty()) return GetComments.Output(params.uri, emptyList(), next, emptyList())
     val isRoot = Comments.uri eq Comments.threadUri
-    val rootRows = listedRows(listed and (Comments.uri inList threadUris) and isRoot)
+    val rootRows = listedRows(subject, listed and (Comments.uri inList threadUris) and isRoot)
     val replyCount = Comments.uri.count()
     val replyCounts =
-        admittedComments()
+        admittedComments(subject)
             .select(Comments.threadUri, replyCount)
             .where { listed and (Comments.threadUri inList threadUris) and not(isRoot) }
             .groupBy(Comments.threadUri)
             .associate { it[Comments.threadUri] to it[replyCount].toInt() }
     val firstReplyRows =
         replyCounts.keys.associateWith { thread ->
-            listedRows(listed and (Comments.threadUri eq thread) and not(isRoot), limit = FIRST_REPLIES)
+            listedRows(subject, listed and (Comments.threadUri eq thread) and not(isRoot), limit = FIRST_REPLIES)
         }
     val views = commentViews(rootRows + firstReplyRows.values.flatten(), athlete, avatars).associateBy { it.uri.value }
     return GetComments.Output(
@@ -217,9 +218,9 @@ internal fun JdbcTransaction.threadPage(
     )
 }
 
-/** The comment rows matching [where], oldest first, the first [limit] of them if given. */
-internal fun listedRows(where: Op<Boolean>, limit: Int? = null): List<ResultRow> =
-    admittedComments()
+/** The comment rows on a [subject] matching [where], oldest first, the first [limit] of them if given. */
+internal fun listedRows(subject: Subject, where: Op<Boolean>, limit: Int? = null): List<ResultRow> =
+    admittedComments(subject)
         .select(Comments.columns)
         .where { where }
         .orderBy(Comments.createdAt to SortOrder.ASC, Comments.uri to SortOrder.ASC)

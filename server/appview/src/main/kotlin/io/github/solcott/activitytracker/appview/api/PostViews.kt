@@ -32,6 +32,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -54,6 +55,13 @@ internal fun postRows(viewer: Did?): Op<Boolean> =
                     listedProposal(viewer)
             }
         )
+
+/** The author of the post [uri]; `NotFound` when [viewer] may not see it ([postRows]), as if it didn't exist. */
+internal fun JdbcTransaction.requireVisiblePost(uri: String, viewer: Did?): String =
+    Posts.select(Posts.authorDid).where { (Posts.uri eq uri) and postRows(viewer) }.singleOrNull()?.get(Posts.authorDid)
+        ?: throw postNotFound()
+
+internal fun postNotFound() = notFound("Post not found")
 
 /** A page of [rows] (already [postRows]) newest first by feed position, keyset on (sort_at, uri) with cursor `"<sort>::<uri>"`. */
 internal fun JdbcTransaction.postPage(rows: Op<Boolean>, limit: Int, cursor: String?): List<ResultRow> =
@@ -95,6 +103,7 @@ internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avat
     val sites = sitesAmong(bySubject.keys)
     val authors = basicProfiles(rows.map { it[Posts.authorDid] }, avatars)
     val labels = labelViews(rows.associate { it[Posts.uri] to it[Posts.cid] })
+    val counts = postCounts(rows.map { it[Posts.uri] }, viewer)
     return rows.mapNotNull { row ->
         val proposal = proposals[row[Posts.proposalUri]] ?: return@mapNotNull null
         val subject = proposal[SegmentNameProposals.segmentUri]
@@ -116,6 +125,9 @@ internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avat
             text = row[Posts.text],
             visibility = row[Posts.visibility].takeIf { it != Visibility.PUBLIC },
             labels = labels[row[Posts.uri]],
+            likeCount = counts.likes(row[Posts.uri]),
+            commentCount = counts.comments(row[Posts.uri]),
+            viewer = counts.viewer(row[Posts.uri]),
         )
     }
 }

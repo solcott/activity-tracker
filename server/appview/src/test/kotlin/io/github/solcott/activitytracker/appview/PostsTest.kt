@@ -1,30 +1,16 @@
 package io.github.solcott.activitytracker.appview
 
-import io.github.solcott.activitytracker.appview.api.AvatarUrls
-import io.github.solcott.activitytracker.appview.api.LabelSources
-import io.github.solcott.activitytracker.appview.api.MediaUrls
-import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.db.Posts
-import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
-import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
-import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.appview.segments.ProposalState
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
-import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
-import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
-import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
-import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import java.time.LocalDate
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,94 +21,12 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
 /** Posts (feed/posts): which are indexed, who sees them, and how the timeline and profiles list them. */
-class PostsTest : SegmentTestBase() {
-    private val labeler = "did:plc:labeler"
-    private val views = Views(db, AvatarUrls("https://appview.test"), MediaUrls("https://appview.test"))
-    private val seg = segmentUri("3ks", importer)
-    private val now = Clock.System.now()
-    private var effortIds = 0
-
-    @AfterTest fun forgetLabelers() = run { LabelSources.trusted = emptyList() }
-
-    private fun activeSegment() {
-        segment("3ks", sport = "ride", did = importer, name = "Trail 214")
-        runBlocking { db.tx { Segments.update({ Segments.uri eq seg }) { it[status] = SegmentStatus.ACTIVE } } }
-    }
-
-    /** [days] efforts by [did] on distinct dates, so they're a regular after 5. */
-    private fun efforts(did: String, days: Int) = runBlocking {
-        db.tx {
-            SegmentEfforts.batchInsert(0 until days) { i ->
-                this[SegmentEfforts.id] = "effort-${effortIds++}"
-                this[SegmentEfforts.segmentUri] = seg
-                this[SegmentEfforts.activityUri] = activityUri("3ke$i", did)
-                this[SegmentEfforts.trackUri] = trackUri("3ke$i", did)
-                this[SegmentEfforts.authorDid] = did
-                this[SegmentEfforts.sport] = "ride"
-                this[SegmentEfforts.eBike] = false
-                this[SegmentEfforts.startOffsetS] = i * 10L
-                this[SegmentEfforts.elapsedS] = 600
-                this[SegmentEfforts.visibility] = Visibility.SELF
-                this[SegmentEfforts.startedOn] = LocalDate.of(2026, 9, 1).plusDays(i.toLong()).toString()
-            }
-        }
-    }
-
-    private fun proposalUri(rkey: String = "3kp", did: String = alice) = "at://$did/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/$rkey"
-
-    private fun postUri(rkey: String = "3kp", did: String = alice) = "at://$did/${Nsid.FEED_POST}/$rkey"
-
-    private fun propose(name: String = "Wiggly Woods", rkey: String = "3kp", did: String = alice) =
-        commit(did, Nsid.FEED_SEGMENT_NAME_PROPOSAL, rkey, """{"segment":"$seg","name":"$name","createdAt":"${now - 2.hours}"}""")
-
-    /** [did] shares [proposal] at [tier], under [rkey]. */
-    @Suppress("LongParameterList")
-    private fun share(
-        tier: String = Visibility.PUBLIC,
-        rkey: String = "3kp",
-        did: String = alice,
-        proposal: String = proposalUri(rkey, did),
-        text: String? = "Everyone already calls it this",
-        createdAt: kotlin.time.Instant = now - 1.hours,
-    ) {
-        val textField = text?.let { ""","text":"$it"""" }.orEmpty()
-        put(
-            did,
-            Nsid.FEED_POST,
-            rkey,
-            """{"embed":{"${'$'}type":"${Nsid.FEED_POST}#proposal","proposal":"$proposal"},"createdAt":"$createdAt"$textField}""",
-            tier,
-        )
-    }
-
-    /** Alice, a regular on the active segment, proposes "Wiggly Woods"; bob and carol are known accounts, bob a rider. */
-    private fun aliceProposes() {
-        activeSegment()
-        efforts(alice, 5)
-        efforts(bob, 1)
-        commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"b"}""")
-        commit(carol, Nsid.ACTOR_PROFILE, "self", """{"displayName":"c"}""")
-        propose()
-    }
-
-    private fun timeline(viewer: String, params: GetTimeline.Params = GetTimeline.Params(limit = 50)) = runBlocking {
-        views.timeline(Did(viewer), params)
-    }
-
-    private fun timelinePosts(viewer: String): List<PostView> = timeline(viewer).posts
-
-    private fun profilePosts(actor: String, viewer: String?): List<PostView> = runBlocking {
-        views.authorPosts(viewer?.let(::Did), GetAuthorPosts.Params(actor)).posts
-    }
-
-    private fun PostView.proposal() = embed as PostEmbedView.Proposal
-
+class PostsTest : PostTestBase() {
     // ---------------------------------------------------------------- Storage and acceptance
 
     @Test
@@ -363,11 +267,6 @@ class PostsTest : SegmentTestBase() {
         )
         assertTrue(timelinePosts(bob).isEmpty())
         assertEquals(1, profilePosts(alice, bob).size)
-    }
-
-    private fun label(uri: String, value: String) = runBlocking {
-        LabelSources.trusted = listOf(labeler)
-        LabelStore(db, labeler, null).apply(labeler, 1, listOf(testLabel(labeler, uri, value)))
     }
 
     @Test

@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
+import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -41,7 +42,6 @@ import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -96,6 +96,12 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val rows = postPage((Posts.authorDid eq did) and postRows(viewer), pageSize, params.cursor)
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
         GetAuthorPosts.Output(postViews(rows, viewer, avatars), next)
+    }
+
+    /** [GetPost]: one post the viewer may see, by [postRows] like every other read of posts (feed/post-page); `NotFound` otherwise. */
+    suspend fun post(viewer: Did?, params: GetPost.Params): GetPost.Output = db.tx {
+        val row = Posts.selectAll().where { (Posts.uri eq params.uri.value) and postRows(viewer) }.singleOrNull() ?: throw postNotFound()
+        GetPost.Output(postViews(listOf(row), viewer, avatars).singleOrNull() ?: throw postNotFound())
     }
 
     /**
@@ -258,49 +264,47 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     /**
-     * An activity's comments listed for the viewer ([commentsListedFor], the rule [hydrate] counts by), oldest first, in one of three
-     * modes: a page of threads ([threadPage]), the `uris` asked for, or with `root` a page of that thread's replies. Comment keysets are on
-     * (created_at, uri) ascending, cursor `"<createdAt>::<uri>"`, taken from the last row read rather than the last view built, since a
-     * view is built for every row read.
+     * An activity's or a post's comments listed for the viewer ([commentsListedFor], the rule [hydrate] and [postViews] count by), oldest
+     * first, in one of three modes: a page of threads ([threadPage]), the `uris` asked for, or with `root` a page of that thread's replies.
+     * Comment keysets are on (created_at, uri) ascending, cursor `"<createdAt>::<uri>"`, taken from the last row read rather than the last
+     * view built, since a view is built for every row read.
      */
     suspend fun comments(viewer: Did?, params: GetComments.Params): GetComments.Output = db.tx {
         val uris = params.uris
         if (uris != null && uris.size > GetComments.MAX_URIS)
             invalidRequest("At most ${GetComments.MAX_URIS} uris may be given, not ${uris.size}")
         if (uris != null && params.root != null) invalidRequest("uris and root can't be given together")
-        val athlete = requireVisibleActivity(params.uri.value, viewer)
-        // A combined activity's comments include those on its members.
-        val listed = (Comments.subjectUri inList interactionSubjects(params.uri.value)) and commentsListedFor(viewer)
+        val on = requireInteractable(params.uri, viewer)
+        val athlete = on.author
+        val listed = (Comments.subjectUri inList on.uris) and commentsListedFor(viewer, on.subject)
         val root = params.root
         when {
             uris != null -> {
-                val rows = listedRows(listed and (Comments.uri inList uris.map { it.value }))
+                val rows = listedRows(on.subject, listed and (Comments.uri inList uris.map { it.value }))
                 GetComments.Output(params.uri, commentViews(rows, athlete, avatars))
             }
 
             root != null -> {
                 val pageSize = Paging.clamp(params.limit)
                 val replies = (Comments.threadUri eq root.value) and (Comments.uri neq root.value)
-                val rows = listedRows(listed and replies and keysetAfter(Comments.createdAt, Comments.uri, params.cursor), pageSize)
+                val rows =
+                    listedRows(on.subject, listed and replies and keysetAfter(Comments.createdAt, Comments.uri, params.cursor), pageSize)
                 val next = rows.takeIf { it.size == pageSize }?.last()?.let(::commentCursor)
                 GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
             }
 
-            else -> threadPage(params, avatars, listed, athlete)
+            else -> threadPage(params, avatars, listed, athlete, on.subject)
         }
     }
 
     /**
-     * Athletes who liked an activity, each once (a repo may hold duplicate like records), most recent like first, counting only givers who
-     * may see it now ([admittedLikes]). Keyset pagination over authors on (latest indexed_at, author_did) descending; cursor is
+     * Athletes who liked an activity or a post, each once (a repo may hold duplicate like records), most recent like first, counting only
+     * givers who may see it now ([admittedLikes]). Keyset pagination over authors on (latest indexed_at, author_did) descending; cursor is
      * `"<indexedAt>::<authorDid>"`.
      */
     suspend fun likes(viewer: Did?, params: GetLikes.Params): GetLikes.Output = db.tx {
-        val uri = params.uri.value
-        // An activity the viewer may not see answers as if it didn't exist, revealing none of its likes.
-        requireVisibleActivity(uri, viewer)
-        // A combined activity's likes include those on its members.
-        val subjects = interactionSubjects(uri)
+        // A subject the viewer may not see answers as if it didn't exist, revealing none of its likes.
+        val on = requireInteractable(params.uri, viewer)
         val pageSize = Paging.clamp(params.limit)
         val latest = Likes.indexedAt.max()
         val after =
@@ -308,9 +312,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 (latest less sortValue) or ((latest eq sortValue) and (Likes.authorDid less did))
             } ?: Op.TRUE
         val rows =
-            admittedLikes()
+            admittedLikes(on.subject)
                 .select(Likes.authorDid, latest)
-                .where { (Likes.subjectUri inList subjects) and likesShownTo(viewer) }
+                .where { (Likes.subjectUri inList on.uris) and likesShownTo(viewer, on.subject) }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -395,9 +399,13 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val likeCounts = likeCountsOf(countedAs, viewer)
         val commentCount = Comments.uri.count()
         val commentCounts =
-            admittedComments()
+            admittedComments(Subject.ACTIVITY)
                 .select(Comments.subjectUri, commentCount)
-                .where { (Comments.subjectUri inList subjects) and commentsVisibleTo(viewer) and not(hiddenByAthlete()) }
+                .where {
+                    (Comments.subjectUri inList subjects) and
+                        commentsVisibleTo(viewer, Subject.ACTIVITY) and
+                        not(hiddenByAthlete(Subject.ACTIVITY))
+                }
                 .groupBy(Comments.subjectUri)
                 .toList()
                 .groupBy({ countedAs.getValue(it[Comments.subjectUri]) }) { it[commentCount] }
@@ -444,9 +452,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
      * may see: the giver may see the activity too, and neither blocks the viewer.
      */
     private fun JdbcTransaction.likeCountsOf(countedAs: Map<String, String>, viewer: Did?): Map<String, Long> =
-        admittedLikes()
+        admittedLikes(Subject.ACTIVITY)
             .select(Likes.subjectUri, Likes.authorDid)
-            .where { (Likes.subjectUri inList countedAs.keys) and likesShownTo(viewer) }
+            .where { (Likes.subjectUri inList countedAs.keys) and likesShownTo(viewer, Subject.ACTIVITY) }
             .withDistinct()
             .toList()
             .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
@@ -498,18 +506,6 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :
     Exception(message, cause)
 
-/**
- * Likes joined to the activity they name, for [visibleTo] with the like's giver as viewer: a like is served only while its giver may see
- * the activity at its current visibility, wherever the like is stored. Likes follow the activity when it's narrowed or widened.
- */
-private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subjectUri, Activities.uri)
-
-/**
- * The likes over [admittedLikes] that [viewer] is shown: the giver may see the activity, and the giver is neither in a block with the
- * viewer nor hidden from them. `getLikes` and `hydrate`'s counts both use it, so a count never includes a like the list leaves out.
- */
-private fun likesShownTo(viewer: Did?): Op<Boolean> = visibleTo(Likes.authorDid) and accountShownTo(viewer, Likes.authorDid)
-
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
 
@@ -556,6 +552,22 @@ private fun feedFilter(types: List<String>?, since: Instant?, until: Instant?): 
         )
         .fold(Op.TRUE) { acc: Op<Boolean>, op -> acc and op }
 }
+
+/**
+ * What [subject]'s likes and comments are on, by [author], counting those on [uris]: the subject itself, and a combined activity's members.
+ */
+private class Interactable(val subject: Subject, val author: String, val uris: List<String>)
+
+/**
+ * The activity or post [uri] names, as its likes and comments are read: `NotFound` when the viewer may not see it, as if it didn't exist,
+ * and for anything else, which has none. A combined activity's likes and comments include those on its members.
+ */
+private fun JdbcTransaction.requireInteractable(uri: AtUri, viewer: Did?): Interactable =
+    when (Subject.of(uri)) {
+        Subject.ACTIVITY -> Interactable(Subject.ACTIVITY, requireVisibleActivity(uri.value, viewer), interactionSubjects(uri.value))
+        Subject.POST -> Interactable(Subject.POST, requireVisiblePost(uri.value, viewer), listOf(uri.value))
+        null -> throw notFound()
+    }
 
 /** The athlete whose activity [uri] is; [notFound] when the viewer may not see it, as if it didn't exist. */
 internal fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): String =
