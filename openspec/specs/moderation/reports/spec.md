@@ -7,10 +7,14 @@ Lets athletes report activities, photos, comments and accounts to the app's mode
 ## Requirements
 
 ### Requirement: Report entry points
-Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer.
+Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer.
 
 #### Scenario: Report a comment
 - **WHEN** alice opens the menu on bob's comment
+- **THEN** Report is offered
+
+#### Scenario: Report a post
+- **WHEN** alice opens the menu on bob's post in her timeline
 - **THEN** Report is offered
 
 #### Scenario: Own activity
@@ -33,11 +37,15 @@ The report sheet SHALL ask for a reason: spam, sexual content, violence or graph
 - **THEN** the sheet doesn't let her send the report
 
 ### Requirement: Report subject
-A report on an activity or comment SHALL name it by `com.atproto.repo.strongRef`, using the URI and CID its view carries. A report on a photo SHALL name the activity, and the note SHALL say which photo by its position. A report on an account SHALL name its DID by `com.atproto.admin.defs#repoRef`.
+A report on an activity, comment or post SHALL name it by `com.atproto.repo.strongRef`, using the URI and CID its view carries. A report on a photo SHALL name the activity, and the note SHALL say which photo by its position. A report on an account SHALL name its DID by `com.atproto.admin.defs#repoRef`.
 
 #### Scenario: Photo report
 - **WHEN** alice reports the third photo of bob's activity
 - **THEN** the report's subject is the activity's URI and CID, and the note names photo 3
+
+#### Scenario: Post report
+- **WHEN** alice reports bob's post
+- **THEN** the report's subject is the post's URI and CID, not the proposal it shares
 
 #### Scenario: Account report
 - **WHEN** alice reports bob's profile

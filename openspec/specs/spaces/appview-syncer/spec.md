@@ -126,11 +126,19 @@ The AppView SHALL accept `com.atproto.space.notifySpaceDeleted` callouts, authen
 - **THEN** the AppView joins it as a new space and indexes only what the new space holds
 
 ### Requirement: Only activity data is indexed from spaces
-From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records. From the `self` space it SHALL also index `feed.segmentTrack`, `actor.segmentPrefs`, `actor.groupPrefs`, `actor.leaderboardBrackets` and `feed.activityInvite` records.
+From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records. From the `followers` and `mutuals` spaces it SHALL also index `feed.post` records. From the `self` space it SHALL also index `feed.segmentTrack`, `actor.segmentPrefs`, `actor.groupPrefs`, `actor.leaderboardBrackets` and `feed.activityInvite` records.
 
 #### Scenario: Zones indexed from a tier space
 - **WHEN** a synced `mutuals` space's ops include a `feed.activityZones` write
 - **THEN** the AppView indexes the zones at Mutuals
+
+#### Scenario: Post indexed from a tier space
+- **WHEN** a synced `followers` space's ops include a `feed.post` write
+- **THEN** the AppView indexes the post at Followers
+
+#### Scenario: Post in self ignored
+- **WHEN** a synced `self` or `interactions` space's ops include a `feed.post` write
+- **THEN** the AppView indexes no post from it
 
 #### Scenario: Like in a tier space ignored
 - **WHEN** a synced `followers` space's ops include a `feed.like` write

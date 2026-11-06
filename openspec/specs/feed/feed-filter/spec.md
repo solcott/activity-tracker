@@ -183,3 +183,18 @@ While a query is entered, category headers in the type picker SHALL show no chec
 #### Scenario: Category checkboxes return
 - **WHEN** the athlete clears the query
 - **THEN** every category header shows its checkbox again, reflecting the draft
+
+### Requirement: Posts in feed scopes
+The Following scope with no filter SHALL show posts (`feed/posts`) alongside activities, including the viewer's own. The Mine scope SHALL show activities only. A type or date filter SHALL leave posts out.
+
+#### Scenario: Unfiltered Following
+- **WHEN** bob, who follows alice, opens Following with no filter
+- **THEN** alice's posts that bob may see appear among the activities
+
+#### Scenario: Type filter
+- **WHEN** bob filters Following to rides
+- **THEN** no posts appear
+
+#### Scenario: Date filter
+- **WHEN** bob filters Following to last week
+- **THEN** no posts appear, even ones created last week
