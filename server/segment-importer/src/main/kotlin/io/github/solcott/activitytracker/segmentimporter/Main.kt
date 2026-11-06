@@ -30,11 +30,15 @@ Commands:
   publish --region <id> [--all <candidates.ndjson>]
       Publishes the region's ridden candidates that duplicate no live segment as feed.segment records. With --all and the region's staged
       candidates file, publishes every candidate in it that is still staged and duplicates no live segment, ridden or not.
+  handoff
+      Republishes the segments and dive sites athletes deleted or left behind while others still used them, as listed by the AppView:
+      each becomes a feed.segment or feed.diveSite keyed by its handoff id, with source athlete, CC0-1.0 and no attribution. A handoff
+      already republished is never written again.
   refine <candidates.ndjson>
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
       of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
 
-stage, publish, publish-sites and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
+stage, publish, publish-sites, handoff and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one (Gradle's run task gives the local
 one its DID, device mode included)."""
 
@@ -55,6 +59,7 @@ fun main(args: Array<String>) {
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
         is Command.PublishSites -> asServiceAccount { publishSitesFile(it, command.file) }
+        Command.Handoff -> asServiceAccount { handoffAll(it) }
     }
 }
 
@@ -105,6 +110,8 @@ internal sealed interface Command {
     data class Refine(val file: File) : Command
 
     data class PublishSites(val file: File) : Command
+
+    data object Handoff : Command
 }
 
 /** [args] as a [Command], or null when they don't make one. */
@@ -116,6 +123,7 @@ internal fun parse(args: List<String>): Command? =
         "publish" -> parsePublish(args.drop(1))
         "refine" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Refine(File(it)) }
         "publish-sites" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.PublishSites(File(it)) }
+        "handoff" -> Command.Handoff.takeIf { args.size == 1 }
         else -> null
     }
 

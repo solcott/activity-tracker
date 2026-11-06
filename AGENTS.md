@@ -41,6 +41,7 @@ scripts/segment-import.sh us-utah --all           # a region with a preset (scri
 ./gradlew :server-segment-importer:run --args="extract-sites region.osm.pbf --region eg-red-sea --out build/eg-red-sea-sites.ndjson"   # OSM dive sites -> sites file
 ./gradlew :server-segment-importer:run --args="publish-sites build/eg-red-sea-sites.ndjson"   # publish sites no live site is within 50 m of as feed.diveSite records
 scripts/segment-import.sh us-florida --sites      # also extract and publish the region's OSM dive sites (from the whole extract)
+./gradlew :server-segment-importer:run --args="handoff"   # republish active segments and dive sites their creators deleted or left behind
 scripts/segment-fetch.sh us-utah                  # just download a preset region's inputs into build/segment-import/<region>/
 scripts/terrain-fetch.sh us-vermont               # terrain tiles for segment elevation into build/terrain (or a west,south,east,north box; --zoom, --out)
 scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)

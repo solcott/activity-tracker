@@ -4,13 +4,14 @@
 # the importer's service account, then refine the segments already published with the candidates' finer lines and names. Each step must
 # succeed before the next runs, and every step is safe to repeat, so a scheduler can simply run this again.
 #
-#   scripts/segment-import.sh <region> [--all] [--sites]
-#   scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all] [--sites]
+#   scripts/segment-import.sh <region> [--all] [--sites] [--handoff]
+#   scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all] [--sites] [--handoff]
 #
 # With no inputs, the region's preset (scripts/segment-regions/<region>.conf) names them, and scripts/segment-fetch.sh downloads them first.
 # --all publishes every staged candidate that duplicates no live segment, ridden or not. --sites then also extracts the region's dive sites
 # from its whole OSM extract (a preset's download, not the trails-only cut) and publishes those that duplicate no live site
-# (dive-sites/site-import).
+# (dive-sites/site-import). --handoff finally republishes the segments and dive sites athletes deleted or left behind while others still
+# used them, whatever their region (segments/segment-handoffs).
 #
 # The service account comes from SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD and SEGMENT_IMPORTER_PDS_URL (and APPVIEW_URL,
 # APPVIEW_DID for an AppView other than the local one, whose DID the importer derives, device mode included), in the environment or
@@ -18,11 +19,12 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all] [--sites]" >&2
+  echo "usage: scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps|blm=<file.geojsonl>]... [--lang <code>] [--all] [--sites] [--handoff]" >&2
   echo "  region: lower-case letters, digits and dashes, such as us-utah; with no inputs, its preset in scripts/segment-regions names them" >&2
   echo "  lang: the region's two-letter language code, en unless given (or the preset's)" >&2
   echo "  --all: publish every staged candidate, ridden or not" >&2
   echo "  --sites: also publish the region's OSM dive sites, from the whole extract" >&2
+  echo "  --handoff: also republish handed-off segments and dive sites, of every region" >&2
   exit 2
 }
 [[ $# -ge 1 ]] || usage
@@ -34,6 +36,7 @@ inputs=()
 lang=
 all=false
 sites=false
+handoff=false
 pbf=
 while [[ $# -gt 0 ]]; do
   if [[ $1 == --all ]]; then
@@ -41,6 +44,9 @@ while [[ $# -gt 0 ]]; do
     shift
   elif [[ $1 == --sites ]]; then
     sites=true
+    shift
+  elif [[ $1 == --handoff ]]; then
+    handoff=true
     shift
   elif [[ $1 == --lang ]]; then
     [[ $# -ge 2 ]] || usage
@@ -102,4 +108,8 @@ if $sites; then
   importer extract-sites "$pbf" --region "$region" --out "$sites_out"
   echo "==> publish-sites $sites_out"
   importer publish-sites "$sites_out"
+fi
+if $handoff; then
+  echo "==> handoff"
+  importer handoff
 fi

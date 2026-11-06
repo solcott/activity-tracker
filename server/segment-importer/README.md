@@ -119,6 +119,16 @@ Publishing never rewrites a segment, so segments published from older files keep
 
 `publish-sites` checks the file's sites with `importer.checkDiveSites`, 500 to a call, and writes a `feed.diveSite` in the service account's repo, keyed by site id, for each one no live (proposed or active) site lies within 50 m of. A site divers already placed wins, and is reported as a duplicate. It never rewrites, moves or deletes a site it published, so running it again, or on a newer file, writes only sites that are new; it stops at the first failed call, and running again carries on. `scripts/segment-import.sh <region> --sites` runs both after the segment steps, on a preset's whole download or the extract you give it, writing `build/segment-import/<region>-sites.ndjson`.
 
+## Handoffs
+
+When an athlete deletes an active segment or dive site, or leaves Activity Tracker, the AppView keeps a handoff of it (`openspec/specs/segments/segment-handoffs`, `dive-sites/site-handoffs`), so the trail or site others use stays on the map:
+
+```bash
+./gradlew :server-segment-importer:run --args="handoff"
+```
+
+`handoff` lists the pending handoffs with `importer.getHandoffs` (the AppView first links any that a live segment or site now covers) and writes each as a `feed.segment` or `feed.diveSite` in the service account's repo, keyed by its handoff id, with `source` `athlete`, `license` `CC0-1.0` and no attribution. The AppView makes the copy the old one's successor: its adopted names carry over, efforts and visits come back from stored segment tracks, and the old URI serves it. A handoff already written is never written again. Handoffs belong to no region, so `scripts/segment-import.sh <region> --handoff` runs it last, for all of them.
+
 ## Memory
 
 The importer reads the file three times (relations, ways, then only the nodes trails use) and holds ids and coordinates in primitive arrays, so one region the size of a US state fits in a couple of GB of heap. For a large extract, shrink it first with [osmium](https://osmcode.org/osmium-tool/) (`brew install osmium-tool`) to the features the importer reads:
