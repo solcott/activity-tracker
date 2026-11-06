@@ -21,7 +21,6 @@ import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
-import kotlin.math.cos
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -48,23 +47,7 @@ fun RoutePreview(
     val stretchCurve = remember(stretch) { RouteCurve.smooth(stretch) }
     val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().height(height)) {
-        val latScale = cos(points.first().first * kotlin.math.PI / 180)
-        val xs = points.map { it.second * latScale }
-        val ys = points.map { -it.first }
-        val minX = xs.min()
-        val minY = ys.min()
-        val spanX = (xs.max() - minX).coerceAtLeast(1e-9)
-        val spanY = (ys.max() - minY).coerceAtLeast(1e-9)
-        val pad = 12.dp.toPx()
-        val scale = minOf((size.width - 2 * pad) / spanX, (size.height - 2 * pad) / spanY)
-        val offsetX = (size.width - spanX * scale) / 2
-        val offsetY = (size.height - spanY * scale) / 2
-
-        fun at(point: Pair<Double, Double>) =
-            Offset(
-                ((point.second * latScale - minX) * scale + offsetX).toFloat(),
-                ((-point.first - minY) * scale + offsetY).toFloat(),
-            )
+        val at = canvasFit(points, size, pad = 12.dp.toPx()) ?: return@Canvas
         val path =
             Path().apply {
                 for (piece in curves) {
@@ -73,7 +56,7 @@ fun RoutePreview(
                 }
             }
         drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawHighlight(stretchCurve.map(::at), highlightColor)
+        drawHighlight(stretchCurve.map { at(it) }, highlightColor)
         markers?.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
             for ((stop, resume) in breaks) {
