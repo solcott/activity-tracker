@@ -37,7 +37,7 @@ The importer SHALL read a region id and, for that region, an OpenStreetMap `.osm
 - **THEN** the importer stops with its usage and writes nothing
 
 ### Requirement: Trail ways qualify by sport group
-A way SHALL be a trail for `ride` when it is a cycleway, or a path, track or bridleway not tagged `bicycle=no`, or carries `mtb:scale`. It SHALL be a trail for `run` and for `hike` when it is a path, footway, track or bridleway not tagged `foot=no`, or carries `sac_scale`. It SHALL be a trail for `ski` when tagged `piste:type=nordic`, and for `alpine` when tagged `piste:type=downhill`. A way SHALL qualify only with a non-empty `name`, or for `alpine` a non-empty `piste:name` when it has no `name`.
+A way SHALL be a trail for `ride` when it is a cycleway, or a path, track or bridleway not tagged `bicycle=no`, or carries `mtb:scale`. It SHALL be a trail for `run` and for `hike` when it is a path, footway, track or bridleway not tagged `foot=no`, or carries `sac_scale`. It SHALL be a trail for `ski` when tagged `piste:type=nordic`, and for `alpine` when tagged `piste:type=downhill`.
 
 #### Scenario: Mountain bike path
 - **WHEN** an extract has a named `highway=path` with `mtb:scale=2`
@@ -47,6 +47,13 @@ A way SHALL be a trail for `ride` when it is a cycleway, or a path, track or bri
 - **WHEN** an extract has a named `highway=footway` without `bicycle=yes` or `bicycle=designated`
 - **THEN** it is a trail for `run` and `hike`, but not for `ride`
 
+#### Scenario: Piste mapped as an area
+- **WHEN** a named `piste:type=downhill` way is tagged `area=yes`
+- **THEN** it gives no candidate
+
+### Requirement: A trail way needs a name
+A way SHALL qualify only with a non-empty `name`, or for `alpine` a non-empty `piste:name` when it has no `name`.
+
 #### Scenario: Unnamed path
 - **WHEN** an extract has a `highway=path` with no `name`
 - **THEN** it gives no candidate on its own
@@ -54,10 +61,6 @@ A way SHALL be a trail for `ride` when it is a cycleway, or a path, track or bri
 #### Scenario: Downhill piste named by its piste name
 - **WHEN** an extract has a way tagged `piste:type=downhill` and `piste:name=Upper Lynx`, with no `name`
 - **THEN** it is a trail for `alpine` named "Upper Lynx", and for no other group
-
-#### Scenario: Piste mapped as an area
-- **WHEN** a named `piste:type=downhill` way is tagged `area=yes`
-- **THEN** it gives no candidate
 
 ### Requirement: Route relations are trails
 A route relation tagged `route=mtb` or `route=bicycle` SHALL be a trail for `ride`; `route=hiking`, `route=foot` or `route=running` for `run` and `hike`; `route=ski` for `ski`; `route=piste` with `piste:type=downhill` for `alpine`; and `route=canoe` for `paddle`. Its member ways SHALL be joined in order into one trail named by the relation, whatever their own names. A relation whose ways can't be joined into one line SHALL give a trail for each joined stretch.

@@ -149,7 +149,7 @@ An activity's served view SHALL list a partner only when the viewer may see the 
 - **THEN** Carol doesn't see Bob listed
 
 ### Requirement: Pairing follows changes
-A matched pair SHALL stop being served as soon as the AppView indexes any change that breaks the pairing rule: either athlete choosing Off, a follow ending under Connected, a block, either activity or its track being deleted, or either activity leaving its group. An invite pair SHALL stop being served on a block either way, either activity's deletion, the invite's deletion, the copy losing its `copyOf`, or the original leaving its group, and SHALL NOT stop for a follow ending. A change in the viewer's access SHALL take effect on the next view.
+A matched pair SHALL stop being served as soon as the AppView indexes any change that breaks the pairing rule: either athlete choosing Off, a follow ending under Connected, a block, either activity or its track being deleted, or either activity leaving its group. For any pair, a change in the viewer's access SHALL take effect on the next view.
 
 #### Scenario: Unfollow under Connected
 - **WHEN** Alice chose Connected and stops following Bob, the only follow between them
@@ -158,6 +158,9 @@ A matched pair SHALL stop being served as soon as the AppView indexes any change
 #### Scenario: Visibility narrowed
 - **WHEN** Bob narrows a paired ride from Public to Only me
 - **THEN** no one but Bob sees him listed on Alice's activity
+
+### Requirement: Invite pairs follow changes
+An invite pair SHALL stop being served on a block either way, either activity's deletion, the invite's deletion, the copy losing its `copyOf`, or the original leaving its group, and SHALL NOT stop for a follow ending.
 
 #### Scenario: Unfollow after accepting
 - **WHEN** Bob accepted Alice's invite and later unfollows her

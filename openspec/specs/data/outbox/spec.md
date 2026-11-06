@@ -111,7 +111,7 @@ Signing out SHALL stop it.
 - **THEN** the upload continues within 15 minutes without the athlete opening the feed
 
 ### Requirement: Uploads continue in the background on phones
-On Android and iOS, when the app leaves the foreground with writes still queued that may be sent, the client SHALL ask the system to run the upload in the background with a network connection. A paused upload SHALL ask to run no earlier than the pause ends. Each background run SHALL send writes as the app would, stop when the system asks, and ask for another run while such writes remain. Writes held only by the athlete's pause of imports SHALL NOT ask for a run. On desktop and web, uploads SHALL continue only while the app is open. Only one upload SHALL run at a time per account.
+On Android and iOS, when the app leaves the foreground with writes still queued that may be sent, the client SHALL ask the system to run the upload in the background with a network connection. A paused upload SHALL ask to run no earlier than the pause ends. Each background run SHALL send writes as the app would, stop when the system asks, and ask for another run while such writes remain. Writes held only by the athlete's pause of imports SHALL NOT ask for a run.
 
 #### Scenario: Android app closed during an import
 - **WHEN** the athlete saves an import of 1,000 activities on Android and closes the app
@@ -124,6 +124,17 @@ On Android and iOS, when the app leaves the foreground with writes still queued 
 #### Scenario: Imports paused by the athlete
 - **WHEN** the athlete pauses imports and closes the app with only import writes queued
 - **THEN** no background upload runs until they resume
+
+### Requirement: Uploads elsewhere run only while the app is open
+On desktop and web, uploads SHALL continue only while the app is open. On every platform, only one upload SHALL run at a time per account.
+
+#### Scenario: Desktop app closed
+- **WHEN** the athlete closes the desktop app with writes still queued
+- **THEN** no upload runs until the app is open again
+
+#### Scenario: Background run while the app uploads
+- **WHEN** a background run starts on Android while the open app is already uploading for the same account
+- **THEN** only one upload sends that account's writes
 
 ### Requirement: The athlete sees when uploads are paused
 While the upload waits out a rate limit, the feed SHALL say, beside what is still uploading, that the server paused the upload and the local time it will go on. While the athlete has paused imports, it SHALL say so.

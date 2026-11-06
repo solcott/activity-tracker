@@ -68,7 +68,7 @@ The importer SHALL sign in to one account of its own on a PDS, with credentials 
 - **THEN** the check finds no duplicate, and `publish` writes the lift
 
 ### Requirement: An operator can publish every staged candidate
-When the operator asks to publish every candidate (`publish --all` with a region's candidates file), `publish` SHALL take the file's candidates instead of the ridden list and SHALL NOT require riders. Every other condition of publishing SHALL still apply. The file SHALL belong to the region named, checked before any call. The file only chooses which candidates: what `publish` writes for each SHALL be the candidate as the AppView stages it, which `importer.checkSegmentCandidates` returns, never the file's copy.
+When the operator asks to publish every candidate (`publish --all` with a region's candidates file), `publish` SHALL take the file's candidates instead of the ridden list and SHALL NOT require riders. Every other condition of publishing SHALL still apply. The file SHALL belong to the region named, checked before any call.
 
 #### Scenario: Publishing every candidate
 - **WHEN** an operator runs `publish --all` with a region's staged candidates file, and a candidate in it has no riders and duplicates nothing
@@ -78,6 +78,13 @@ When the operator asks to publish every candidate (`publish --all` with a region
 - **WHEN** an operator runs `publish --all` and a candidate in the file follows a live segment
 - **THEN** `publish` doesn't write a segment for it, and reports it as a duplicate
 
+#### Scenario: File of another region
+- **WHEN** an operator runs `publish --region us-utah --all` with a candidates file of `us-vermont`
+- **THEN** the importer refuses it before calling the AppView or the PDS
+
+### Requirement: Publishing every candidate writes what the AppView stages
+With `publish --all`, the file only chooses which candidates: what `publish` writes for each SHALL be the candidate as the AppView stages it, which `importer.checkSegmentCandidates` returns, never the file's copy.
+
 #### Scenario: Candidate in the file no longer staged
 - **WHEN** an operator runs `publish --all` with a file holding a candidate the region's current run doesn't stage
 - **THEN** `publish` doesn't write a segment for it, and reports it as gone
@@ -85,10 +92,6 @@ When the operator asks to publish every candidate (`publish --all` with a region
 #### Scenario: Older file of the same region
 - **WHEN** an operator runs `publish --all` with an older candidates file whose copy of a staged candidate has a different line or name
 - **THEN** the segment `publish` writes has the staged line and name
-
-#### Scenario: File of another region
-- **WHEN** an operator runs `publish --region us-utah --all` with a candidates file of `us-vermont`
-- **THEN** the importer refuses it before calling the AppView or the PDS
 
 ### Requirement: A published segment carries its candidate's data
 A segment the importer publishes SHALL be a `feed.segment` in the service account's repo, with the candidate's sport group, kind, name, line, source and licence, and its attribution when it has one, keyed by the candidate's id. It SHALL be indexed, matched and given a status like any other segment.

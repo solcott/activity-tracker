@@ -80,7 +80,7 @@ The Account page SHALL offer Sign out. Signing out SHALL behave as a chosen sign
 - **THEN** she is signed out at once without being asked, and the login screen's handle field is empty
 
 ### Requirement: Signing out with pending work asks first
-When the account has changes on this device that haven't uploaded (waiting, uploading or refused), an import still saving, or a data export running or waiting to be saved, Sign out SHALL first say how many changes haven't uploaded, that they stay on this device and upload when this account signs in here again, if an import is saving, that its unsaved activities will be dropped, and, if there's an export, that it will be cancelled and deleted. The athlete SHALL be able to cancel or sign out anyway; signing out anyway SHALL keep the queued writes.
+When the account has changes on this device that haven't uploaded (waiting, uploading or refused), an import still saving, or a data export running or waiting to be saved, Sign out SHALL first say how many changes haven't uploaded and that they stay on this device and upload when this account signs in here again. The athlete SHALL be able to cancel or sign out anyway; signing out anyway SHALL keep the queued writes.
 
 #### Scenario: Uploads waiting
 - **WHEN** alice has 3 activities waiting to upload and chooses Sign out
@@ -93,6 +93,9 @@ When the account has changes on this device that haven't uploaded (waiting, uplo
 #### Scenario: Cancelling
 - **WHEN** alice cancels the sign-out question
 - **THEN** she stays signed in on the Account page
+
+### Requirement: The sign-out question names the import or export it ends
+When an import is still saving, the sign-out question SHALL also say that its unsaved activities will be dropped. When a data export is running or waiting to be saved, it SHALL also say that the export will be cancelled and deleted.
 
 #### Scenario: Import still saving
 - **WHEN** bob chooses Sign out while a batch import is still saving
