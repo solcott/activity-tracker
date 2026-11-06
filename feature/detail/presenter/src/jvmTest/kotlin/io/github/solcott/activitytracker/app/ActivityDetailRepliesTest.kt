@@ -9,7 +9,7 @@ import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
-import io.github.solcott.activitytracker.app.detail.RepliesState
+import io.github.solcott.activitytracker.app.interactions.RepliesState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri

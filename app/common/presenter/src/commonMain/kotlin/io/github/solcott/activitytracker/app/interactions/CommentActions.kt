@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.detail
+package io.github.solcott.activitytracker.app.interactions
 
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
@@ -11,21 +11,21 @@ import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.InteractionSubject
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * The detail screen's comment actions: sending [draft], as a reply to [replyingTo] when set ([ActivityDetailEvent.ReplyTo]), deleting the
- * viewer's own comments, and hiding or unhiding others' comments on the viewer's own activity, from the screen's [comments]. Each shows
- * through [FeedRepository.localComments] as soon as it's made, and is taken back there if it can't be; why the last one failed goes to
- * [onError], and null clears it. How far each moves the activity's comment count goes to [onCountMoved] at once, with the list, and back
- * again if it fails.
+ * A screen's comment actions on a subject (an activity or a post): sending [draft], as a reply to [replyingTo] when set
+ * ([CommentEvent.ReplyTo]), deleting the viewer's own comments, and hiding or unhiding others' comments on the viewer's own subject, from
+ * the screen's [comments]. Each shows through [FeedRepository.localComments] as soon as it's made, and is taken back there if it can't be;
+ * why the last one failed goes to [onError], and null clears it. How far each moves the subject's comment count goes to [onCountMoved] at
+ * once, with the list, and back again if it fails.
  */
 @Suppress("LongParameterList") // The screen's state it acts on, and how to report back.
-internal class CommentActions(
+class CommentActions(
     private val draft: TextFieldState,
     private val flights: SingleFlight,
     private val activities: ActivityRepository,
@@ -36,39 +36,38 @@ internal class CommentActions(
     private val onError: (UiError?) -> Unit,
     private val onCountMoved: (Int) -> Unit,
 ) {
-    /** Handles [event] on [activity] if it's a comment event, paging included. */
-    fun on(event: ActivityDetailEvent, activity: ActivityView) {
+    /** Handles [event] on [subject], paging included. */
+    fun on(event: CommentEvent, subject: InteractionSubject) {
         when (event) {
-            ActivityDetailEvent.LoadMoreComments -> comments.loadMore()
-            ActivityDetailEvent.RetryComments -> comments.retry()
-            ActivityDetailEvent.SendComment -> send(activity)
+            CommentEvent.LoadMore -> comments.loadMore()
+            CommentEvent.Retry -> comments.retry()
+            CommentEvent.Send -> send(subject)
             // Only a listed comment can be answered: it has a CID, which a sent one doesn't. Nor a hidden one.
-            is ActivityDetailEvent.ReplyTo -> comments.listed(event.uri)?.takeIf { it.hidden != true }?.let { replyingTo.value = it }
-            ActivityDetailEvent.CancelReply -> replyingTo.value = null
-            is ActivityDetailEvent.LoadMoreReplies -> comments.loadMoreReplies(event.thread)
-            is ActivityDetailEvent.DeleteComment -> delete(activity, event.uri)
-            is ActivityDetailEvent.HideComment -> setHidden(activity, event.uri, hidden = true)
-            is ActivityDetailEvent.UnhideComment -> setHidden(activity, event.uri, hidden = false)
-            is ActivityDetailEvent.BlockCommenter -> leaveOut(event.uri, block = true)
-            is ActivityDetailEvent.MuteCommenter -> leaveOut(event.uri, block = false)
-            else -> Unit
+            is CommentEvent.ReplyTo -> comments.listed(event.uri)?.takeIf { it.hidden != true }?.let { replyingTo.value = it }
+            CommentEvent.CancelReply -> replyingTo.value = null
+            is CommentEvent.LoadMoreReplies -> comments.loadMoreReplies(event.thread)
+            is CommentEvent.Delete -> delete(subject, event.uri)
+            is CommentEvent.Hide -> setHidden(subject, event.uri, hidden = true)
+            is CommentEvent.Unhide -> setHidden(subject, event.uri, hidden = false)
+            is CommentEvent.BlockAuthor -> leaveOut(event.uri, block = true)
+            is CommentEvent.MuteAuthor -> leaveOut(event.uri, block = false)
         }
     }
 
     /**
-     * Sends [draft] on [activity], as a reply to [replyingTo] when set, and clears it, unless it's blank or a comment is already sending.
+     * Sends [draft] on [subject], as a reply to [replyingTo] when set, and clears it, unless it's blank or a comment is already sending.
      * Once sent, the field goes back to top-level comments, unless the viewer has chosen another comment to answer since. A comment the
      * session can't give is reported, its text put back unless something new has been typed since, and still answers [replyingTo].
      */
-    private fun send(activity: ActivityView) {
+    private fun send(subject: InteractionSubject) {
         val text = draft.text.toString()
         // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
-        if (text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
+        if (text.isNotBlank() && !flights.isRunning(CommentEvent.Send)) {
             val replyTo = replyingTo.value
             draft.clearText()
             onError(null)
-            launchCounted(ActivityDetailEvent.SendComment, 1) {
-                runSuspendCatching { activities.comment(activity, text, replyTo) }
+            launchCounted(CommentEvent.Send, 1) {
+                runSuspendCatching { activities.comment(subject, text, replyTo) }
                     .onSuccess { if (replyingTo.value?.uri == replyTo?.uri) replyingTo.value = null }
                     .onFailure { e ->
                         onCountMoved(-1)
@@ -81,10 +80,10 @@ internal class CommentActions(
     }
 
     /**
-     * Deletes the viewer's comment [uri] on [activity], listed or just sent. It leaves the list at once, so a repeat finds nothing to
+     * Deletes the viewer's comment [uri] on [subject], listed or just sent. It leaves the list at once, so a repeat finds nothing to
      * delete; a failure puts it back and is reported.
      */
-    private fun delete(activity: ActivityView, uri: AtUri) {
+    private fun delete(subject: InteractionSubject, uri: AtUri) {
         val listed = comments.listed(uri)
         if (listed == null && !comments.isSent(uri)) return
         onError(null)
@@ -93,7 +92,7 @@ internal class CommentActions(
         // A hidden comment was never counted.
         val moved = if (hidden) 0 else -1
         launchCounted(uri, moved) {
-            runSuspendCatching { activities.deleteComment(activity, uri, hidden) }
+            runSuspendCatching { activities.deleteComment(subject, uri, hidden) }
                 .onFailure { e ->
                     onCountMoved(-moved)
                     onError(UiError.of(UiError.Kind.DeleteComment, e))
@@ -102,17 +101,17 @@ internal class CommentActions(
     }
 
     /**
-     * Hides or unhides comment [uri] on the viewer's own [activity]. It's marked so at once, so the count moves with it; a repeat while the
+     * Hides or unhides comment [uri] on the viewer's own [subject]. It's marked so at once, so the count moves with it; a repeat while the
      * first is running is dropped. A failure puts the mark back and is reported, a session that can't hide there asked to sign in again.
      */
-    private fun setHidden(activity: ActivityView, uri: AtUri, hidden: Boolean) {
+    private fun setHidden(subject: InteractionSubject, uri: AtUri, hidden: Boolean) {
         val comment = comments.listed(uri)?.takeIf { (it.hidden == true) != hidden && !flights.isRunning(uri) } ?: return
         onError(null)
         // A hidden comment can't be replied to.
         if (hidden) stopReplyingTo(uri)
         val moved = if (hidden) -1 else 1
         launchCounted(uri, moved) {
-            runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
+            runSuspendCatching { activities.setCommentHidden(subject, comment, hidden) }
                 .onSuccess { changed -> if (!changed) onCountMoved(-moved) }
                 .onFailure { e ->
                     onCountMoved(-moved)
@@ -129,7 +128,7 @@ internal class CommentActions(
      */
     private fun leaveOut(uri: AtUri, block: Boolean) {
         val author = comments.listed(uri)?.author?.did?.takeUnless { it == comments.viewer } ?: return
-        val key = if (block) ActivityDetailEvent.BlockCommenter(uri) else ActivityDetailEvent.MuteCommenter(uri)
+        val key = if (block) CommentEvent.BlockAuthor(uri) else CommentEvent.MuteAuthor(uri)
         onError(null)
         val counted = comments.countedBy(author)
         if (replyingTo.value?.author?.did == author) replyingTo.value = null

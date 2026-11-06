@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.detail
+package io.github.solcott.activitytracker.app.interactions
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -31,9 +31,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.flow
 
-/** The detail screen's comments: [paging] and [sent] as the viewer left them. */
+/** A subject's comments on a screen (an activity's or a post's): [paging] and [sent] as the viewer left them. */
 @Suppress("LongParameterList") // The comments as shown, how to page them, and what the viewer has changed since.
-internal class Comments(
+class Comments(
     val paging: CommentsPaging,
     /** The viewer's top-level comments the AppView doesn't list yet; their sent replies are in [paging]'s threads. */
     val sent: ImmutableList<SentComment>,
@@ -72,30 +72,30 @@ internal class Comments(
 }
 
 /**
- * [activity]'s comment threads, the first page loaded with each [loadKey] and the next whenever asked, after the last loaded, and each
- * thread's further replies a page at a time when asked. Both are retained with the page, so coming back shows them at once, and a failed
- * page is tried again alone (feed/comments). A new [loadKey] keeps the threads listed until its first page answers, and only then starts
- * each thread's replies again from those it came with. The AppView's pages are kept as it served them; the viewer's own changes
- * ([FeedRepository.localComments]) are laid over them as they're made, so a send, delete, hide or unhide shows at once, on whichever page
- * or thread.
+ * [subject]'s comment threads (an activity's or a post's), the first page loaded with each [loadKey] and the next whenever asked, after the
+ * last loaded, and each thread's further replies a page at a time when asked. Both are retained with the page, so coming back shows them at
+ * once, and a failed page is tried again alone (feed/comments). A new [loadKey] keeps the threads listed until its first page answers, and
+ * only then starts each thread's replies again from those it came with. The AppView's pages are kept as it served them; the viewer's own
+ * changes ([FeedRepository.localComments]) are laid over them as they're made, so a send, delete, hide or unhide shows at once, on
+ * whichever page or thread.
  */
 @Composable
-internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: FeedRepository): Comments {
+fun rememberComments(subject: AtUri, viewer: Did, loadKey: Int, feed: FeedRepository): Comments {
     val local = feed.localComments
     // A change, from this screen or any other, shows at once; so does a block or mute.
     val changes by local.entries.collectAsState()
     val blocked by feed.localBlocks.entries.collectAsState()
     val threads =
-        rememberRetainedPaging(activity, loadKey, idOf = ThreadView::uri) { cursor -> flow { emit(feed.commentsPage(activity, cursor)) } }
+        rememberRetainedPaging(subject, loadKey, idOf = ThreadView::uri) { cursor -> flow { emit(feed.commentsPage(subject, cursor)) } }
     val served = threads.state
     // The load whose first page has answered. Each thread's replies start again from the thread as served only then, so a reload keeps
     // the replies loaded before until the threads it lists replace them.
     var answered by rememberRetained { mutableIntStateOf(loadKey) }
     SideEffect { if (served.hasLoaded && served.refresh is LoadStatus.Idle) answered = loadKey }
-    val replies = served.items.associate { thread -> thread.uri to key(thread.uri) { rememberReplies(activity, thread, answered, feed) } }
+    val replies = served.items.associate { thread -> thread.uri to key(thread.uri) { rememberReplies(subject, thread, answered, feed) } }
     val replyStates = served.items.map { replies.getValue(it.uri).state }
 
-    val sent = remember(changes) { local.sent(activity) }
+    val sent = remember(changes) { local.sent(subject) }
     val shown =
         remember(changes, blocked, served, replyStates, sent) {
             val sentReplies = sent.mapNotNull { s -> s.root?.let { it to s } }.groupBy({ it.first }, { it.second })
@@ -132,7 +132,7 @@ internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: 
 
 /** [thread]'s replies: those it came with, then each page of more asked for. A new [loadKey] starts them again from [thread] as served. */
 @Composable
-private fun rememberReplies(activity: AtUri, thread: ThreadView, loadKey: Int, feed: FeedRepository): Paging<CommentView, Unit> =
+private fun rememberReplies(subject: AtUri, thread: ThreadView, loadKey: Int, feed: FeedRepository): Paging<CommentView, Unit> =
     rememberRetainedPaging(
         thread.uri,
         loadKey,
@@ -140,7 +140,7 @@ private fun rememberReplies(activity: AtUri, thread: ThreadView, loadKey: Int, f
         initial = Outcome.Data(pageOf(thread.replies, thread.repliesCursor), Origin.Network),
     ) { cursor ->
         // Started from the replies the thread came with, it only ever asks for a page after them.
-        flow { if (cursor != null) emit(feed.repliesPage(activity, thread.uri, cursor)) }
+        flow { if (cursor != null) emit(feed.repliesPage(subject, thread.uri, cursor)) }
     }
 
 /**

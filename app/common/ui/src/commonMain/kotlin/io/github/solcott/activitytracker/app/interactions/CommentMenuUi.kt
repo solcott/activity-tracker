@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.detail
+package io.github.solcott.activitytracker.app.interactions
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -35,11 +35,11 @@ import org.jetbrains.compose.resources.stringResource
 
 /** The "…" menu on a comment by [author], with [actions] (at least one). */
 @Composable
-internal fun CommentMenu(
+fun CommentMenu(
     comment: AtUri,
     author: String,
     actions: ImmutableSet<CommentAction>,
-    eventSink: (ActivityDetailEvent) -> Unit,
+    eventSink: (CommentEvent) -> Unit,
     modifier: Modifier = Modifier,
     onReport: () -> Unit = {},
 ) {
@@ -59,11 +59,10 @@ internal fun CommentMenu(
                 .mapNotNull { action ->
                     when (action) {
                         CommentAction.Reply -> null // A button under the comment.
-                        CommentAction.Hide -> AppMenuItem(hide, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideComment(comment)) }
-                        CommentAction.Unhide ->
-                            AppMenuItem(unhide, AppIcon.Unhide) { eventSink(ActivityDetailEvent.UnhideComment(comment)) }
+                        CommentAction.Hide -> AppMenuItem(hide, AppIcon.Hide) { eventSink(CommentEvent.Hide(comment)) }
+                        CommentAction.Unhide -> AppMenuItem(unhide, AppIcon.Unhide) { eventSink(CommentEvent.Unhide(comment)) }
                         CommentAction.Delete -> AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true }
-                        CommentAction.MuteAuthor -> AppMenuItem(mute) { eventSink(ActivityDetailEvent.MuteCommenter(comment)) }
+                        CommentAction.MuteAuthor -> AppMenuItem(mute) { eventSink(CommentEvent.MuteAuthor(comment)) }
                         CommentAction.BlockAuthor -> AppMenuItem(block, destructive = true) { confirmingBlock = true }
                         CommentAction.Report -> AppMenuItem(report) { onReport() }
                     }
@@ -78,8 +77,7 @@ internal fun CommentMenu(
         AppAlertDialog(
             title = stringResource(Res.string.delete_comment_title),
             message = stringResource(Res.string.delete_comment_message),
-            actions =
-                persistentListOf(AppDialogAction(delete, destructive = true) { eventSink(ActivityDetailEvent.DeleteComment(comment)) }),
+            actions = persistentListOf(AppDialogAction(delete, destructive = true) { eventSink(CommentEvent.Delete(comment)) }),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { confirming = false },
         )
@@ -89,8 +87,7 @@ internal fun CommentMenu(
         AppAlertDialog(
             title = stringResource(Res.string.block_confirm_title, author),
             message = stringResource(Res.string.block_confirm_message),
-            actions =
-                persistentListOf(AppDialogAction(confirm, destructive = true) { eventSink(ActivityDetailEvent.BlockCommenter(comment)) }),
+            actions = persistentListOf(AppDialogAction(confirm, destructive = true) { eventSink(CommentEvent.BlockAuthor(comment)) }),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { confirmingBlock = false },
         )

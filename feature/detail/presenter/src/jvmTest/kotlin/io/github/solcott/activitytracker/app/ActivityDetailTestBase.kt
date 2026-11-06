@@ -8,8 +8,8 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
-import io.github.solcott.activitytracker.app.detail.CommentsPaging
-import io.github.solcott.activitytracker.app.detail.LikesList
+import io.github.solcott.activitytracker.app.interactions.CommentsPaging
+import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus

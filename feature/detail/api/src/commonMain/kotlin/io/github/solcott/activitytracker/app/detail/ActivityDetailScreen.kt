@@ -7,6 +7,10 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.interactions.CommentEvent
+import io.github.solcott.activitytracker.app.interactions.CommentsPaging
+import io.github.solcott.activitytracker.app.interactions.CommentsState
+import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
@@ -22,9 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.MemberView
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.ContentState
-import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -253,59 +255,54 @@ data class ActivityExportState(
 /** An imported activity's original file: its [name] as picked and its [format] (a `feed.activitySource#format` token). */
 @Immutable data class OriginalFile(val name: String, val format: String)
 
-/** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */
-@Immutable
-data class CommentsPaging(
-    /** The threads loaded so far, as the viewer left them. */
-    val items: ImmutableList<CommentThread> = persistentListOf(),
-    /** The first page's load: a first load, a reload, or [ActivityDetailEvent.RetryComments] after either failed. */
-    val refresh: LoadStatus = LoadStatus.Loading,
-    /** The latest next page's load; [ActivityDetailEvent.RetryComments] tries a failed one again. */
-    val append: LoadStatus = LoadStatus.Idle,
-    /** Whether a first page has answered, so empty [items] means there are no comments. */
-    val hasAnswer: Boolean = false,
-    /** Whether [ActivityDetailEvent.LoadMoreComments] would load a page now. */
-    val canLoadMore: Boolean = false,
-    /** Every page is loaded. */
-    val endReached: Boolean = false,
-)
+/** The page's comments as the shared comment list shows them, its events sent on as the page's own. */
+val ActivityDetailPage.commentsState: CommentsState
+    get() =
+        CommentsState(
+            paging = comments,
+            sent = sentComments,
+            draft = draftComment,
+            replyingTo = replyingTo,
+            viewerDid = viewerDid,
+            author = activity.author,
+            isOwn = isOwn,
+            count = activity.commentCount,
+            error = commentError,
+            eventSink = { eventSink(it.asDetailEvent()) },
+        )
 
-/**
- * A thread on the detail screen, as the viewer left it: a top-level comment and its replies, indented under it. Threads are one level deep,
- * so a reply to a reply is listed here too.
- */
-@Immutable
-data class CommentThread(
-    /** The top-level comment's URI. */
-    val uri: AtUri,
-    /** The top-level comment; null for the placeholder shown when it isn't listed for the viewer, which says nothing more about it. */
-    val root: CommentView?,
-    /** The replies loaded so far, oldest first: its first few, then each page of more the viewer asked for. */
-    val replies: ImmutableList<CommentView>,
-    /** The viewer's replies in this thread the AppView doesn't list yet, after [replies]. */
-    val sentReplies: ImmutableList<SentComment> = persistentListOf(),
-    /** Replies not loaded yet: "View n more replies", which sends [ActivityDetailEvent.LoadMoreReplies]. */
-    val moreReplies: Int = 0,
-    val repliesState: RepliesState = RepliesState.Idle,
-)
+/** [this] as the activity page's own event. */
+fun CommentEvent.asDetailEvent(): ActivityDetailEvent =
+    when (this) {
+        CommentEvent.LoadMore -> ActivityDetailEvent.LoadMoreComments
+        CommentEvent.Retry -> ActivityDetailEvent.RetryComments
+        CommentEvent.Send -> ActivityDetailEvent.SendComment
+        is CommentEvent.ReplyTo -> ActivityDetailEvent.ReplyTo(uri)
+        CommentEvent.CancelReply -> ActivityDetailEvent.CancelReply
+        is CommentEvent.LoadMoreReplies -> ActivityDetailEvent.LoadMoreReplies(thread)
+        is CommentEvent.Delete -> ActivityDetailEvent.DeleteComment(uri)
+        is CommentEvent.Hide -> ActivityDetailEvent.HideComment(uri)
+        is CommentEvent.Unhide -> ActivityDetailEvent.UnhideComment(uri)
+        is CommentEvent.BlockAuthor -> ActivityDetailEvent.BlockCommenter(uri)
+        is CommentEvent.MuteAuthor -> ActivityDetailEvent.MuteCommenter(uri)
+    }
 
-/** Loading more of a thread's replies. */
-@Immutable
-sealed interface RepliesState {
-    data object Idle : RepliesState
-
-    data object Loading : RepliesState
-
-    /** The last page couldn't be loaded; [ActivityDetailEvent.LoadMoreReplies] tries it again. */
-    data class Failed(val error: UiError) : RepliesState
-}
-
-@Immutable
-data class LikesList(
-    val athletes: ImmutableList<ProfileViewBasic>,
-    val isLoading: Boolean,
-    val error: UiError?,
-)
+/** The activity page's comment event as the shared comment list's, or null for any other. */
+fun ActivityDetailEvent.asCommentEvent(): CommentEvent? =
+    when (this) {
+        ActivityDetailEvent.LoadMoreComments -> CommentEvent.LoadMore
+        ActivityDetailEvent.RetryComments -> CommentEvent.Retry
+        ActivityDetailEvent.SendComment -> CommentEvent.Send
+        is ActivityDetailEvent.ReplyTo -> CommentEvent.ReplyTo(uri)
+        ActivityDetailEvent.CancelReply -> CommentEvent.CancelReply
+        is ActivityDetailEvent.LoadMoreReplies -> CommentEvent.LoadMoreReplies(thread)
+        is ActivityDetailEvent.DeleteComment -> CommentEvent.Delete(uri)
+        is ActivityDetailEvent.HideComment -> CommentEvent.Hide(uri)
+        is ActivityDetailEvent.UnhideComment -> CommentEvent.Unhide(uri)
+        is ActivityDetailEvent.BlockCommenter -> CommentEvent.BlockAuthor(uri)
+        is ActivityDetailEvent.MuteCommenter -> CommentEvent.MuteAuthor(uri)
+        else -> null
+    }
 
 sealed interface ActivityDetailEvent {
     data object Back : ActivityDetailEvent

@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.interactions.LikersList
+import io.github.solcott.activitytracker.app.interactions.LoadMoreNearTheEnd
+import io.github.solcott.activitytracker.app.interactions.comments
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
@@ -58,7 +61,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -67,7 +69,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -76,7 +77,6 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
-import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_segment_created
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
@@ -224,10 +224,10 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
             item(key = "stats") {
                 StatsList(page.stats, columns = if (medium) 2 else 1, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) })
             }
-            comments(state)
+            comments(state.commentsState, state.reporting)
         }
     }
-    LoadMoreNearTheEnd(listState, state)
+    LoadMoreNearTheEnd(listState, state.commentsState)
 }
 
 /**
@@ -260,7 +260,7 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
                 item(key = "avgMax") { AvgMaxTable(page.avgMax) }
                 item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
                 item(key = "stats") { StatsList(page.stats, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) }) }
-                comments(state)
+                comments(state.commentsState, state.reporting)
             }
             AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
@@ -279,7 +279,7 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
     }
-    LoadMoreNearTheEnd(paneState, state)
+    LoadMoreNearTheEnd(paneState, state.commentsState)
 }
 
 /** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
@@ -419,7 +419,7 @@ private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
             }
         }
         state.likeError?.let { ErrorText(it) }
-        state.likesList?.let { LikesList(it, state.eventSink) }
+        state.likesList?.let { list -> LikersList(list, { state.eventSink(ActivityDetailEvent.OpenProfile(it)) }) }
     }
 }
 
@@ -437,31 +437,6 @@ private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier)
                         count,
                     )
                 )
-            }
-        }
-    }
-}
-
-/** Who liked it, under the like row: a spinner, an error, the empty state, or one tappable row per athlete. */
-@Composable
-private fun LikesList(list: LikesList, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
-    val error = list.error
-    Column(modifier.fillMaxWidth()) {
-        when {
-            list.isLoading -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
-            error != null -> ErrorText(error)
-            list.athletes.isEmpty() -> Text(stringResource(Res.string.detail_no_likes), style = MaterialTheme.typography.bodyMedium)
-            else -> {
-                list.athletes.forEach { athlete ->
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .clickable { eventSink(ActivityDetailEvent.OpenProfile(athlete.did)) }
-                            .padding(vertical = 6.dp)
-                    ) {
-                        Text(athlete.shownName, style = MaterialTheme.typography.titleSmall)
-                        Text(handleLabel(athlete.handle.value), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
             }
         }
     }

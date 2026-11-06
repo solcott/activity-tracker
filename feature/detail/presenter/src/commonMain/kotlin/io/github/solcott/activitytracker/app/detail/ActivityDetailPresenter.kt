@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,6 +22,9 @@ import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
+import io.github.solcott.activitytracker.app.interactions.CommentActions
+import io.github.solcott.activitytracker.app.interactions.rememberComments
+import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.mapContent
@@ -46,6 +48,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -60,20 +63,14 @@ import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
-import io.github.solcott.dataresult.Outcome
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
-import io.github.solcott.uistate.errorOrNull
-import io.github.solcott.uistate.isLoading
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
@@ -220,7 +217,7 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.UnhideComment,
             is ActivityDetailEvent.BlockCommenter,
             is ActivityDetailEvent.MuteCommenter -> {
-                current?.let { commentActions(it).on(event, it) }
+                current?.let { commentActions(it).on(requireNotNull(event.asCommentEvent()), it.asSubject()) }
             }
 
             is ActivityDetailEvent.Delete,
@@ -443,47 +440,6 @@ private fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, fee
 private fun ActivityCharts.missingZones(): Boolean =
     lines.any { it.kind == StreamKind.HeartRate } && heartRateZones == null ||
         lines.any { it.kind == StreamKind.Power } && powerZones == null
-
-/**
- * Who liked [uri] while [show] is set, reloaded each time it's shown. The AppView lags the viewer's own toggles, so the viewer is added or
- * dropped to match [viewerGave].
- */
-@Composable
-private fun rememberLikesList(
-    show: Boolean,
-    uri: AtUri,
-    viewerGave: Boolean,
-    feed: FeedRepository,
-    profiles: ProfileRepository,
-): LikesList? {
-    // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash the list as it was.
-    val likes =
-        produceRetainedContentState<List<ProfileViewBasic>>(emptyList(), show) {
-            if (show) outcomeFlow { feed.likes(uri) } else flowOf(Outcome.Loading)
-        }
-    val athletes = likes.data
-    val loading = likes.isLoading
-    val error = likes.errorOrNull?.let { UiError(UiError.Kind.LoadLikes, it) }
-    var me by remember { mutableStateOf<ProfileViewBasic?>(null) }
-
-    val viewer = profiles.did
-    val viewerListed = athletes.any { it.did == viewer }
-    val needMe = show && !loading && error == null && viewerGave && !viewerListed && me == null
-    LaunchedEffect(needMe) {
-        if (needMe) {
-            runSuspendCatching { profiles.profile(viewer.value) }.onSuccess { me = ProfileViewBasic(it.did, it.handle, it.displayName) }
-        }
-    }
-
-    if (!show) return null
-    val merged =
-        when {
-            !viewerGave -> athletes.filter { it.did != viewer }
-            viewerListed -> athletes
-            else -> listOfNotNull(me) + athletes
-        }
-    return LikesList(merged.toImmutableList(), loading, error)
-}
 
 /**
  * The board type (`SegmentBoard`) a segment opened from [activity] shows first: the e-bike board for an [eBike] effort, else the sport of

@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
+import io.github.solcott.activitytracker.app.interactions.CommentThread
+import io.github.solcott.activitytracker.app.interactions.CommentsPaging
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup

@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.detail
+package io.github.solcott.activitytracker.app.interactions
 
 // The rows of a comment thread that aren't comments (CommentsUi).
 
@@ -24,7 +24,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /** In place of a top-level comment that isn't listed for the viewer, while some of its replies are. It says nothing more about it. */
 @Composable
-internal fun CommentUnavailable(modifier: Modifier = Modifier) {
+fun CommentUnavailable(modifier: Modifier = Modifier) {
     Text(
         stringResource(Res.string.comment_unavailable),
         modifier,
@@ -36,8 +36,8 @@ internal fun CommentUnavailable(modifier: Modifier = Modifier) {
 
 /** "View n more replies" under a thread, a spinner while they load, or why they couldn't and a way to try again. */
 @Composable
-internal fun MoreReplies(thread: CommentThread, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
-    val load = { eventSink(ActivityDetailEvent.LoadMoreReplies(thread.uri)) }
+fun MoreReplies(thread: CommentThread, eventSink: (CommentEvent) -> Unit, modifier: Modifier = Modifier) {
+    val load = { eventSink(CommentEvent.LoadMoreReplies(thread.uri)) }
     when (val replies = thread.repliesState) {
         RepliesState.Loading -> Box(modifier.padding(8.dp)) { AppProgressIndicator(Modifier.size(20.dp)) }
         is RepliesState.Failed -> ErrorRetryRow(replies.error, onRetry = load, modifier)

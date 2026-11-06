@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.detail
+package io.github.solcott.activitytracker.app.interactions
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,8 +23,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.CARD_PADDING
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
@@ -60,7 +63,7 @@ import kotlinx.collections.immutable.toImmutableSet
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-// The detail screen's comments: lazy items, threads paged as the viewer scrolls (ActivityDetailUi).
+// A subject's comments, an activity's or a post's (feed/comments): lazy items, threads paged as the viewer scrolls.
 
 /**
  * Asks for the next page of threads when one of the last [LOAD_MORE_AHEAD] threads listed, or anything after them, is shown, while a page
@@ -68,8 +71,8 @@ import org.jetbrains.compose.resources.stringResource
  * presenter drops a repeat while one loads.
  */
 @Composable
-internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailPage) {
-    val paging = state.comments
+fun LoadMoreNearTheEnd(listState: LazyListState, state: CommentsState) {
+    val paging = state.paging
     val near by
         remember(listState, paging.items) {
             derivedStateOf {
@@ -81,42 +84,45 @@ internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailP
             }
         }
     val wanted = near && paging.canLoadMore
-    SideEffect(wanted, paging.items.size) { if (wanted) state.eventSink(ActivityDetailEvent.LoadMoreComments) }
+    SideEffect(wanted, paging.items.size) { if (wanted) state.eventSink(CommentEvent.LoadMore) }
 }
 
 /**
  * The comment count (hidden ones left out), then the threads loaded so far, oldest first: each top-level comment, or a placeholder when it
  * isn't listed, with its replies indented under it, the viewer's just-sent replies, and a row to view the rest. Each comment has Reply, and
- * a menu to delete the viewer's own or hide others' on their own activity. Then the viewer's just-sent comments, a row while more load or
- * when they couldn't, and a field to add one, saying which comment it answers, and why the last one couldn't be sent, deleted, hidden or
- * unhidden. A hidden comment, listed only for the athlete and its author, is dimmed and says so.
+ * a menu to delete the viewer's own or hide others' on their own subject. Rows are padded [horizontal] from the list's edges. Then the
+ * viewer's just-sent comments, a row while more load or when they couldn't, and a field to add one, saying which comment it answers, and
+ * why the last one couldn't be sent, deleted, hidden or unhidden. A hidden comment, listed only for the subject's author and its commenter,
+ * is dimmed and says so. Report on others' comments opens [reporting]'s sheet.
  */
-internal fun LazyListScope.comments(state: ActivityDetailPage) {
-    item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = CARD_PADDING)) }
-    val top = Modifier.padding(horizontal = CARD_PADDING)
-    val reply = Modifier.padding(start = CARD_PADDING + REPLY_INDENT, end = CARD_PADDING)
-    for (thread in state.comments.items) {
+fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizontal: Dp = CARD_PADDING) {
+    item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = horizontal)) }
+    val top = Modifier.padding(horizontal = horizontal)
+    val reply = Modifier.padding(start = horizontal + REPLY_INDENT, end = horizontal)
+    for (thread in state.paging.items) {
         val prefix = THREAD_KEY + thread.uri.value
         item(key = "$prefix|root") {
             val root = thread.root
-            if (root == null) CommentUnavailable(top) else CommentRow(root, commentActions(root, state), state, top)
+            if (root == null) CommentUnavailable(top) else CommentRow(root, commentActions(root, state, reporting), state, reporting, top)
         }
-        items(thread.replies, key = { "$prefix|r|${it.uri.value}" }) { CommentRow(it, commentActions(it, state), state, reply) }
+        items(thread.replies, key = { "$prefix|r|${it.uri.value}" }) {
+            CommentRow(it, commentActions(it, state, reporting), state, reporting, reply)
+        }
         items(thread.sentReplies, key = { "$prefix|s|${it.uri.value}" }) { SentCommentRow(it, state, reply) }
         if (thread.moreReplies > 0 || thread.repliesState is RepliesState.Failed) {
             item(key = "$prefix|more") { MoreReplies(thread, state.eventSink, reply) }
         }
     }
-    items(state.sentComments, key = { SENT_KEY + it.uri.value }) { SentCommentRow(it, state, top) }
+    items(state.sent, key = { SENT_KEY + it.uri.value }) { SentCommentRow(it, state, top) }
     item(key = TAIL_KEYS[0]) { CommentsLoading(state, top) }
     item(key = TAIL_KEYS[1]) { CommentField(state, top) }
 }
 
 @Composable
-private fun CommentsHeader(state: ActivityDetailPage, modifier: Modifier = Modifier) {
+private fun CommentsHeader(state: CommentsState, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        val count = state.activity.commentCount.toInt()
+        val count = state.count.toInt()
         Text(
             pluralStringResource(Res.plurals.detail_comment_count, count, formatWhole(count)),
             style = MaterialTheme.typography.labelMedium,
@@ -129,7 +135,8 @@ private fun CommentsHeader(state: ActivityDetailPage, modifier: Modifier = Modif
 private fun CommentRow(
     comment: CommentView,
     actions: ImmutableSet<CommentAction>,
-    state: ActivityDetailPage,
+    state: CommentsState,
+    reporting: Reporting,
     modifier: Modifier = Modifier,
 ) {
     val name = shownNameLabel(comment.author)
@@ -141,16 +148,14 @@ private fun CommentRow(
         uri = comment.uri,
         state = state,
         modifier = modifier,
-        onReport = {
-            state.reporting.eventSink(ReportingEvent.Open(ReportTarget.Comment(comment.uri, comment.cid, comment.author.did), name))
-        },
+        onReport = { reporting.eventSink(ReportingEvent.Open(ReportTarget.Comment(comment.uri, comment.cid, comment.author.did), name)) },
         decision = ModerationDecision.of(comment.labels, comment.author.labels, isOwn = comment.author.did == state.viewerDid),
     )
 }
 
 /** The viewer's comment or reply the AppView doesn't list yet: they can delete it, but not reply to it until it's listed. */
 @Composable
-private fun SentCommentRow(comment: SentComment, state: ActivityDetailPage, modifier: Modifier = Modifier) =
+private fun SentCommentRow(comment: SentComment, state: CommentsState, modifier: Modifier = Modifier) =
     CommentRow(
         author = comment.author.shownName,
         text = comment.text,
@@ -169,7 +174,7 @@ private fun CommentRow(
     hidden: Boolean,
     actions: ImmutableSet<CommentAction>,
     uri: AtUri,
-    state: ActivityDetailPage,
+    state: CommentsState,
     modifier: Modifier = Modifier,
     /** Opens the report sheet, for [CommentAction.Report]. */
     onReport: () -> Unit = {},
@@ -182,7 +187,7 @@ private fun CommentRow(
             ModerationNotice(decision, isOwn = false)
             Text(text, style = MaterialTheme.typography.bodyMedium)
             if (hidden) {
-                val athlete = state.activity.author.shownName
+                val athlete = state.author.shownName
                 Text(
                     if (state.isOwn) stringResource(Res.string.comment_hidden) else stringResource(Res.string.comment_hidden_by, athlete),
                     style = MaterialTheme.typography.labelSmall,
@@ -190,7 +195,7 @@ private fun CommentRow(
                 )
             }
             if (CommentAction.Reply in actions) {
-                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ReplyTo(uri)) }) {
+                AppTextButton(onClick = { state.eventSink(CommentEvent.ReplyTo(uri)) }) {
                     Text(stringResource(Res.string.comment_reply), style = MaterialTheme.typography.labelMedium)
                 }
             }
@@ -205,14 +210,14 @@ private fun CommentRow(
  * (ui/content-loading); nothing otherwise. A failed reload keeps the threads listed above it.
  */
 @Composable
-private fun CommentsLoading(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    val paging = state.comments
+private fun CommentsLoading(state: CommentsState, modifier: Modifier = Modifier) {
+    val paging = state.paging
     val failed = (paging.refresh as? LoadStatus.Failed) ?: (paging.append as? LoadStatus.Failed)
     when {
         failed != null ->
             ErrorRetryRow(
                 UiError(UiError.Kind.LoadComments, failed.error),
-                onRetry = { state.eventSink(ActivityDetailEvent.RetryComments) },
+                onRetry = { state.eventSink(CommentEvent.Retry) },
                 modifier,
             )
         paging.refresh is LoadStatus.Loading || paging.append is LoadStatus.Loading ->
@@ -222,7 +227,7 @@ private fun CommentsLoading(state: ActivityDetailPage, modifier: Modifier = Modi
 }
 
 @Composable
-private fun CommentField(state: ActivityDetailPage, modifier: Modifier = Modifier) {
+private fun CommentField(state: CommentsState, modifier: Modifier = Modifier) {
     Column(modifier) {
         state.replyingTo?.let { parent ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,23 +240,23 @@ private fun CommentField(state: ActivityDetailPage, modifier: Modifier = Modifie
                 AppIconButton(
                     AppIcon.Close,
                     stringResource(Res.string.comment_cancel_reply),
-                    { state.eventSink(ActivityDetailEvent.CancelReply) },
+                    { state.eventSink(CommentEvent.CancelReply) },
                 )
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             AppTextField(
-                state = state.draftComment,
+                state = state.draft,
                 placeholder = stringResource(Res.string.detail_comment_placeholder),
                 modifier = Modifier.weight(1f),
             )
             AppIconButton(
                 AppIcon.Send,
                 stringResource(Res.string.detail_send_comment),
-                { state.eventSink(ActivityDetailEvent.SendComment) },
+                { state.eventSink(CommentEvent.Send) },
             )
         }
-        state.commentError?.let { ErrorText(it) }
+        state.error?.let { ErrorText(it) }
     }
 }
 
@@ -273,10 +278,10 @@ private val TAIL_KEYS = listOf("comments/loading", "comments/field")
 private const val LOAD_MORE_AHEAD = 5
 
 /**
- * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own activity,
+ * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own subject,
  * and mutes, blocks or reports the author of anyone else's. A placeholder and a just-sent comment never come here.
  */
-private fun commentActions(comment: CommentView, state: ActivityDetailPage): ImmutableSet<CommentAction> {
+private fun commentActions(comment: CommentView, state: CommentsState, reporting: Reporting): ImmutableSet<CommentAction> {
     val hidden = comment.hidden == true
     val manage =
         when {
@@ -291,7 +296,7 @@ private fun commentActions(comment: CommentView, state: ActivityDetailPage): Imm
             manage,
             CommentAction.MuteAuthor.takeIf { others },
             CommentAction.BlockAuthor.takeIf { others },
-            CommentAction.Report.takeIf { others && state.reporting.available },
+            CommentAction.Report.takeIf { others && reporting.available },
         )
         .toImmutableSet()
 }
