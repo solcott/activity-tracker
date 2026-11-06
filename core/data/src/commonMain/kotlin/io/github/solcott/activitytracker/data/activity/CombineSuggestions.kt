@@ -135,7 +135,7 @@ class CombineSuggestions(
         tracks.read(uri)?.takeIf { it.isNotEmpty() }?.let(::trackEnds) ?: routeEnds(uri, record)
 
     private suspend fun routeEnds(uri: AtUri, record: ActivityRecord): ActivityEnds {
-        val line = record.polyline?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }.orEmpty()
+        val line = record.polyline?.let(TrackMath::decodePolylineOrNull).orEmpty()
         return if (line.isEmpty()) ActivityEnds()
         else polylineEnds(line, runSuspendCatching { feed.streams(uri)?.data?.altitude }.getOrNull().orEmpty())
     }

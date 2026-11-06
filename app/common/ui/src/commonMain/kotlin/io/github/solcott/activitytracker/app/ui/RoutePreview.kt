@@ -38,9 +38,9 @@ fun RoutePreview(
     ends: RouteEnds? = null,
     highlight: String? = null,
 ) {
-    val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
+    val points = remember(polyline) { TrackMath.decodePolylineOrNull(polyline).orEmpty() }
     if (points.size < 2) return
-    val stretch = remember(highlight) { highlight?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }.orEmpty() }
+    val stretch = remember(highlight) { highlight?.let(TrackMath::decodePolylineOrNull).orEmpty() }
     val highlightColor = MaterialTheme.colorScheme.tertiary
     val markers = remember(points, gaps, ends) { RouteMarkers.of(SegmentedPolyline.pieces(points, gaps))?.shownAt(ends) }
     // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.

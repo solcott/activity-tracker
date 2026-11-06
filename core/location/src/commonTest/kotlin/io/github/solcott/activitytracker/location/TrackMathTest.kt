@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.location
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -23,6 +25,14 @@ class TrackMathTest {
         val encoded = TrackMath.encodePolyline(points)
         assertEquals("_p~iF~ps|U_ulLnnqC_mqNvxq`@", encoded)
         assertEquals(38.5 to -120.2, TrackMath.decodePolyline(encoded).first())
+    }
+
+    @Test
+    fun aMalformedPolylineDecodesToNull() {
+        assertEquals(38.5 to -120.2, TrackMath.decodePolylineOrNull("_p~iF~ps|U_ulLnnqC_mqNvxq`@")?.first())
+        assertNull(TrackMath.decodePolylineOrNull("_p~iF~ps|U_"), "cut off mid-value")
+        assertNull(TrackMath.decodePolylineOrNull("_p~iF~ps|U _"), "a character outside the format")
+        assertFailsWith<IllegalStateException> { TrackMath.decodePolyline("_p~iF~ps|U_") }
     }
 
     @Test

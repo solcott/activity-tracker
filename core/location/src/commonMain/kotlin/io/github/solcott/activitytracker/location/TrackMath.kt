@@ -104,8 +104,14 @@ object TrackMath {
     /** Google encoded polyline, precision 5. */
     fun encodePolyline(points: List<LocationSample>): String = encodePolyline(points.map { it.latitude to it.longitude }, POLYLINE_SCALE)
 
-    fun decodePolyline(encoded: String): List<Pair<Double, Double>> =
-        checkNotNull(decodePolyline(encoded, POLYLINE_SCALE)) { "malformed polyline" }
+    /** [encoded]'s lat/lon pairs at precision 5; throws on a malformed one, which [decodePolylineOrNull] answers with null. */
+    fun decodePolyline(encoded: String): List<Pair<Double, Double>> = checkNotNull(decodePolylineOrNull(encoded)) { "malformed polyline" }
+
+    /**
+     * [encoded]'s lat/lon pairs at precision 5, or null when it's malformed (cut off mid-value, or a character outside the format): for
+     * polylines from records, which are untrusted.
+     */
+    fun decodePolylineOrNull(encoded: String): List<Pair<Double, Double>>? = decodePolyline(encoded, POLYLINE_SCALE)
 
     /** An encoded polyline of lat/lon pairs at [scale] (1e5 for precision 5, 1e6 for 6). */
     internal fun encodePolyline(points: List<Pair<Double, Double>>, scale: Double): String = buildString {

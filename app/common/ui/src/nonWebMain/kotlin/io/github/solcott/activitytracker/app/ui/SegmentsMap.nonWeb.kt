@@ -188,7 +188,7 @@ private fun e7(degrees: Double): Int = (degrees * E7).roundToInt()
 /** A GeoJSON FeatureCollection of [lines], each a LineString carrying its segment's URI; GeoJSON orders positions longitude first. */
 private fun featuresJson(lines: List<MapSegmentLine>): String =
     lines.joinToString(",", prefix = """{"type":"FeatureCollection","features":[""", postfix = "]}") { line ->
-        val points = runCatching { TrackMath.decodePolyline(line.polyline) }.getOrDefault(emptyList())
+        val points = TrackMath.decodePolylineOrNull(line.polyline).orEmpty()
         val coordinates = points.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
         // A URI is an at:// string of DID and record-key characters, so it needs no escaping in a JSON string.
         """{"type":"Feature","properties":{"uri":"${line.uri}"},"geometry":{"type":"LineString","coordinates":$coordinates}}"""

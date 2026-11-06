@@ -64,7 +64,7 @@ actual fun ActivityMap(
         return
     }
     // (lat, lng) pairs, like RoutePreview.
-    val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
+    val points = remember(polyline) { TrackMath.decodePolylineOrNull(polyline).orEmpty() }
     if (points.size < 2) return
     val pieces = remember(points, gaps) { SegmentedPolyline.pieces(points, gaps) }
     // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
@@ -83,10 +83,7 @@ actual fun ActivityMap(
     val highlightColor = MaterialTheme.colorScheme.tertiary
     val highlightJson =
         remember(highlight) {
-            highlight
-                ?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }
-                ?.takeIf { it.size >= 2 }
-                ?.let { lineJson(listOf(RouteCurve.smooth(it))) }
+            highlight?.let(TrackMath::decodePolylineOrNull)?.takeIf { it.size >= 2 }?.let { lineJson(listOf(RouteCurve.smooth(it))) }
         }
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =

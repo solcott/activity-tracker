@@ -27,9 +27,7 @@ import kotlinx.collections.immutable.ImmutableList
 internal fun SegmentsPreview(segments: ImmutableList<MapSegmentLine>, selected: String?, modifier: Modifier = Modifier) {
     val lines =
         remember(segments) {
-            segments.mapNotNull { line ->
-                runCatching { TrackMath.decodePolyline(line.polyline) }.getOrNull()?.takeIf { it.size >= 2 }?.let { line to it }
-            }
+            segments.mapNotNull { line -> TrackMath.decodePolylineOrNull(line.polyline)?.takeIf { it.size >= 2 }?.let { line to it } }
         }
     val run = MaterialTheme.colorScheme.primary
     val lift = MaterialTheme.colorScheme.outline

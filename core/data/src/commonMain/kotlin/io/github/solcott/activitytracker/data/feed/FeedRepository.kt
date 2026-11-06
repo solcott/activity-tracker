@@ -377,9 +377,7 @@ class FeedRepository(
                 .filter { it.author.did == did && it.uri !in deletes }
                 .map { it.effectiveRecord() }
                 .sortedByDescending { it.startedAt }
-                .firstNotNullOfOrNull { record ->
-                    record.polyline?.let { line -> runCatching { TrackMath.decodePolyline(line) }.getOrNull() }?.firstOrNull()
-                }
+                .firstNotNullOfOrNull { record -> record.polyline?.let(TrackMath::decodePolylineOrNull)?.firstOrNull() }
         val cached = runSuspendCatching {
             db.feed().byUriPrefix("at://${did.value}/${Nsid.FEED_ACTIVITY}/").mapNotNull { item ->
                 runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }.getOrNull()

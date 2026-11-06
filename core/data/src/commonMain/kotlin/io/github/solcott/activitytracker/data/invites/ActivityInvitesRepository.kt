@@ -237,10 +237,9 @@ class ActivityInvitesRepository(
 fun copyOf(invite: GetActivityInvite.Output, title: String?): ActivityDraft {
     val record = invite.invite.record
     val route =
-        record.polyline
-            ?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }
-            .orEmpty()
-            .map { (lat, lon) -> LocationSample(lat, lon, altitude = null, speed = null, accuracy = null, time = record.startedAt) }
+        record.polyline?.let(TrackMath::decodePolylineOrNull).orEmpty().map { (lat, lon) ->
+            LocationSample(lat, lon, altitude = null, speed = null, accuracy = null, time = record.startedAt)
+        }
     return ActivityDraft(
         type = ActivityType(record.sport, record.subSport),
         title = title?.trim()?.ifEmpty { null },
