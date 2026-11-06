@@ -13,7 +13,7 @@ import kotlin.time.Instant
  */
 internal object OsmReader {
     fun read(pbf: File): OsmData {
-        val relations = RelationPass().also { pbf.process(it) }
+        val relations = RelationPass { TrailTags.relationGroups(it).isNotEmpty() }.also { pbf.process(it) }
         val members =
             LongSetBuilder().apply { relations.kept.forEach { r -> r.members.forEach { if (it.type == WAY) add(it.ref) } } }.build()
         val ways = WayPass(members).also { pbf.process(it) }
@@ -28,7 +28,7 @@ internal object OsmReader {
      * trail network.
      */
     fun readDiveSites(pbf: File): OsmData {
-        val relations = SiteRelationPass().also { pbf.process(it) }
+        val relations = RelationPass(DiveSiteTags::isDiveSite).also { pbf.process(it) }
         val members = relations.kept.flatMap { it.members }
         val memberWays = LongSetBuilder().apply { members.forEach { if (it.type == WAY) add(it.ref) } }.build()
         val ways = SiteWayPass(memberWays).also { pbf.process(it) }
@@ -72,13 +72,48 @@ internal object OsmReader {
             }
         }
 
+        /**
+         * Each of [nodes]' id and position, delta-decoded, with its tags when [tagged] (otherwise, and for an untagged node, none): a pass
+         * that only needs positions skips the string lookups.
+         */
+        protected fun forEachDense(
+            nodes: Osmformat.DenseNodes,
+            tagged: Boolean,
+            visit: (Long, Double, Double, Map<String, String>) -> Unit,
+        ) {
+            var id = 0L
+            var lat = 0L
+            var lng = 0L
+            var kv = 0
+            for (i in 0 until nodes.idCount) {
+                id += nodes.getId(i)
+                lat += nodes.getLat(i)
+                lng += nodes.getLon(i)
+                // Each node's tags are key and value string ids, ended by a 0; a block of untagged nodes has no list at all.
+                val tags =
+                    if (!tagged) {
+                        emptyMap()
+                    } else {
+                        buildMap {
+                            while (kv < nodes.keysValsCount && nodes.getKeysVals(kv) != 0) {
+                                put(getStringById(nodes.getKeysVals(kv)), getStringById(nodes.getKeysVals(kv + 1)))
+                                kv += 2
+                            }
+                            kv++
+                        }
+                    }
+                visit(id, parseLat(lat), parseLon(lng), tags)
+            }
+        }
+
         protected fun refs(way: Osmformat.Way): LongArray {
             var ref = 0L
             return LongArray(way.refsCount) { i -> (ref + way.getRefs(i)).also { ref = it } }
         }
     }
 
-    private class RelationPass : Pass() {
+    /** Keeps the relations [keep] accepts, with their members, and the extract's replication time. */
+    private class RelationPass(private val keep: (Map<String, String>) -> Boolean) : Pass() {
         val kept = mutableListOf<OsmRelation>()
         var timestamp: Instant? = null
 
@@ -89,8 +124,7 @@ internal object OsmReader {
         override fun parseRelations(rels: List<Osmformat.Relation>) {
             for (rel in rels) {
                 val tags = tags(rel.keysList, rel.valsList)
-                if (TrailTags.relationGroups(tags).isEmpty()) continue
-                kept += OsmRelation(rel.id, tags, members(rel))
+                if (keep(tags)) kept += OsmRelation(rel.id, tags, members(rel))
             }
         }
     }
@@ -117,33 +151,8 @@ internal object OsmReader {
             for (node in nodes) if (node.id in coords) coords.set(node.id, parseLat(node.lat), parseLon(node.lon))
         }
 
-        override fun parseDense(nodes: Osmformat.DenseNodes) {
-            var id = 0L
-            var lat = 0L
-            var lng = 0L
-            for (i in 0 until nodes.idCount) {
-                id += nodes.getId(i)
-                lat += nodes.getLat(i)
-                lng += nodes.getLon(i)
-                if (id in coords) coords.set(id, parseLat(lat), parseLon(lng))
-            }
-        }
-    }
-
-    private class SiteRelationPass : Pass() {
-        val kept = mutableListOf<OsmRelation>()
-        var timestamp: Instant? = null
-
-        override fun parse(header: Osmformat.HeaderBlock) {
-            if (header.hasOsmosisReplicationTimestamp()) timestamp = Instant.fromEpochSeconds(header.osmosisReplicationTimestamp)
-        }
-
-        override fun parseRelations(rels: List<Osmformat.Relation>) {
-            for (rel in rels) {
-                val tags = tags(rel.keysList, rel.valsList)
-                if (DiveSiteTags.isDiveSite(tags)) kept += OsmRelation(rel.id, tags, members(rel))
-            }
-        }
+        override fun parseDense(nodes: Osmformat.DenseNodes) =
+            forEachDense(nodes, tagged = false) { id, lat, lng, _ -> if (id in coords) coords.set(id, lat, lng) }
     }
 
     /** Keeps dive-site ways and dive-site relations' [members], collecting their nodes. */
@@ -170,26 +179,7 @@ internal object OsmReader {
             for (node in nodes) visit(node.id, parseLat(node.lat), parseLon(node.lon), tags(node.keysList, node.valsList))
         }
 
-        override fun parseDense(nodes: Osmformat.DenseNodes) {
-            var id = 0L
-            var lat = 0L
-            var lng = 0L
-            var kv = 0
-            for (i in 0 until nodes.idCount) {
-                id += nodes.getId(i)
-                lat += nodes.getLat(i)
-                lng += nodes.getLon(i)
-                // Each node's tags are key and value string ids, ended by a 0; a block of untagged nodes has no list at all.
-                val tags = buildMap {
-                    while (kv < nodes.keysValsCount && nodes.getKeysVals(kv) != 0) {
-                        put(getStringById(nodes.getKeysVals(kv)), getStringById(nodes.getKeysVals(kv + 1)))
-                        kv += 2
-                    }
-                    kv++
-                }
-                visit(id, parseLat(lat), parseLon(lng), tags)
-            }
-        }
+        override fun parseDense(nodes: Osmformat.DenseNodes) = forEachDense(nodes, tagged = true, ::visit)
 
         private fun visit(id: Long, lat: Double, lng: Double, tags: Map<String, String>) {
             if (id in coords) coords.set(id, lat, lng)
