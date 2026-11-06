@@ -39,7 +39,7 @@ fun DiveSiteRegularsPresenter(screen: DiveSiteRegularsScreen, navigator: Navigat
         when (event) {
             DiveSiteRegularsEvent.Back -> navigator.pop()
             is DiveSiteRegularsEvent.PeriodChanged -> if (event.period in RegularsPeriod.all) period = event.period
-            is DiveSiteRegularsEvent.ScopeChanged -> scope = event.scope
+            is DiveSiteRegularsEvent.ScopeChanged -> if (event.scope in LeaderboardScope.all) scope = event.scope
             DiveSiteRegularsEvent.LoadMore -> entries.loadMore()
             DiveSiteRegularsEvent.Retry -> entries.retry()
             is DiveSiteRegularsEvent.OpenAthlete -> navigator.goTo(ProfileScreen(event.did.value))

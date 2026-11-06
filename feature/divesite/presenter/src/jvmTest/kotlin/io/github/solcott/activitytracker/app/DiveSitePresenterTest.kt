@@ -221,6 +221,13 @@ class DiveSitePresenterTest {
                 regularsRequested.map { it["period"] to it["scope"] },
             )
 
+            // An unknown scope or period is ignored, as on the segment boards: the choice stays and nothing more is asked for.
+            first.eventSink(DiveSiteRegularsEvent.ScopeChanged("nearby"))
+            first.eventSink(DiveSiteRegularsEvent.PeriodChanged("forever"))
+            testScheduler.runCurrent()
+            expectNoEvents()
+            assertEquals(3, regularsRequested.size)
+
             first.eventSink(DiveSiteRegularsEvent.OpenAthlete(Did("did:plc:bob")))
             assertEquals(ProfileScreen("did:plc:bob"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
