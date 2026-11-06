@@ -299,7 +299,7 @@ class DetailVisibilityTest {
         streams(Visibility.SELF, "bafkself", listOf(StreamChannel.HEART_RATE, StreamChannel.LAPS))
         assertEquals(Visibility.FOLLOWERS, client.streamsFor(alice).visibility)
         assertEquals(
-            HttpStatusCode.NotFound,
+            HttpStatusCode.BadRequest,
             client.raw(GetActivityStreams.method.nsid, dave, "?uri=${activityUri.encodeURLParameter()}").status,
         )
     }
@@ -327,7 +327,7 @@ class DetailVisibilityTest {
         assertEquals(listOf(Visibility.SELF), own.parts?.map { it.visibility })
         assertEquals(listOf(120, 130, 140), own.data.heartRate)
         assertEquals(
-            HttpStatusCode.NotFound,
+            HttpStatusCode.BadRequest,
             client.raw(GetActivityStreams.method.nsid, bob, "?uri=${activityUri.encodeURLParameter()}").status,
         )
     }

@@ -413,7 +413,7 @@ class SpaceMediaTest {
         assertEquals(Visibility.FOLLOWERS, bobs.visibility, "capped at the tier")
         assertEquals(listOf(120, 121), bobs.data.heartRate)
         assertEquals(listOf(space(Visibility.FOLLOWERS).value), origins)
-        assertEquals(HttpStatusCode.NotFound, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
     }
 
     @Test
@@ -429,7 +429,7 @@ class SpaceMediaTest {
                 """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${blobCid(streams)}"},"mimeType":"application/json","size":12}}""",
         )
         val streamsUri = "?uri=${uri("3kme").encodeURLParameter()}"
-        assertEquals(HttpStatusCode.NotFound, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
         assertEquals(HttpStatusCode.OK, client.raw(GetActivityStreams.method.nsid, alice, streamsUri).status)
     }
 }

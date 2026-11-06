@@ -57,7 +57,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -148,6 +150,12 @@ class ActivityStreamsTest {
     private suspend fun HttpClient.streamsFor(viewer: String?, uri: String = activityUri): HttpResponse {
         val nsid = GetActivityStreams.method.nsid
         return get("/xrpc/$nsid?uri=$uri") { viewer?.let { header(HttpHeaders.Authorization, auth(it, nsid)) } }
+    }
+
+    /** The answer for streams the viewer may not see, the same as for an activity that doesn't exist: XRPC's `400 NotFound`. */
+    private suspend fun HttpResponse.assertNotFound() {
+        assertEquals(HttpStatusCode.BadRequest, status, bodyAsText())
+        assertEquals("NotFound", Json.parseToJsonElement(bodyAsText()).jsonObject["error"]?.jsonPrimitive?.content)
     }
 
     private suspend fun HttpResponse.output(): GetActivityStreams.Output {
@@ -329,14 +337,25 @@ class ActivityStreamsTest {
     }
 
     @Test
+    fun hiddenStreamsAnswerAsAnActivityThatDoesntExist() = testApplication {
+        start()
+        streams(Visibility.SELF)
+        val hidden = client.streamsFor(bob)
+        val missing = client.streamsFor(bob, "at://$alice/${Nsid.FEED_ACTIVITY}/3knothere")
+        hidden.assertNotFound()
+        assertEquals(missing.status, hidden.status)
+        assertEquals(missing.bodyAsText(), hidden.bodyAsText())
+    }
+
+    @Test
     fun mutualsStreamsServeOnlyTheAthleteAndMutuals() = testApplication {
         start()
         streams(Visibility.MUTUALS)
 
         assertEquals(Visibility.MUTUALS, client.streamsFor(alice).output().visibility)
         client.streamsFor(bob).output()
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(carol).status)
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
+        client.streamsFor(carol).assertNotFound()
+        client.streamsFor(null).assertNotFound()
     }
 
     @Test
@@ -347,13 +366,13 @@ class ActivityStreamsTest {
         client.streamsFor(alice).output()
         client.streamsFor(bob).output()
         client.streamsFor(carol).output()
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
+        client.streamsFor(null).assertNotFound()
 
         // With approval on, only the follower she approved still sees them.
         commit(alice, Nsid.ACTOR_PROFILE, "self", """{"followPolicy":"approve"}""")
         commit(alice, Nsid.GRAPH_FOLLOW_APPROVAL, bob, """{"subject":"$bob","createdAt":"2026-09-30T09:00:00Z"}""")
         client.streamsFor(bob).output()
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(carol).status)
+        client.streamsFor(carol).assertNotFound()
     }
 
     @Test
@@ -361,12 +380,12 @@ class ActivityStreamsTest {
         start()
         streams(Visibility.SELF)
         client.streamsFor(alice).output()
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(bob).status)
+        client.streamsFor(bob).assertNotFound()
 
         val other = "at://$alice/${Nsid.FEED_ACTIVITY}/3kother"
         streams("friendsOfFriends", rkey = "3kother", activity = other)
         assertEquals(Visibility.SELF, client.streamsFor(alice, other).output().visibility)
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(bob, other).status)
+        client.streamsFor(bob, other).assertNotFound()
     }
 
     @Test
@@ -383,8 +402,8 @@ class ActivityStreamsTest {
         streams(Visibility.MUTUALS, claim = Visibility.PUBLIC)
         assertEquals(Visibility.MUTUALS, client.streamsFor(alice).output().visibility)
         assertEquals(Visibility.MUTUALS, client.streamsFor(bob).output().visibility)
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(carol).status)
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
+        client.streamsFor(carol).assertNotFound()
+        client.streamsFor(null).assertNotFound()
     }
 
     /** Alice's zones for [activity] in her repo when [tier] is public, else in her space for [tier]. */
@@ -500,7 +519,7 @@ class ActivityStreamsTest {
         streams(Visibility.PUBLIC)
         client.streamsFor(alice).output()
         commit(alice, Nsid.FEED_ACTIVITY_STREAMS, "3kride", null, op = "delete")
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(alice).status)
+        client.streamsFor(alice).assertNotFound()
         assertEquals(0L, runBlocking { db.tx { StreamDataCache.selectAll().count() } })
     }
 
@@ -509,7 +528,7 @@ class ActivityStreamsTest {
         start()
         streams(Visibility.PUBLIC, rkey = "3kother")
         streams(Visibility.PUBLIC, activity = "at://$bob/${Nsid.FEED_ACTIVITY}/3kride")
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(alice).status)
+        client.streamsFor(alice).assertNotFound()
     }
 
     @Test
@@ -517,7 +536,7 @@ class ActivityStreamsTest {
         start()
         blobs["bafkjunk"] = "not json".encodeToByteArray()
         streams(Visibility.PUBLIC, blob = "bafkjunk")
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(alice).status)
+        client.streamsFor(alice).assertNotFound()
     }
 
     @Test

@@ -370,7 +370,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         }
     }
 
-    private fun notFound(): Nothing = throw XrpcError(HttpStatusCode.NotFound.value, "NotFound", "No streams the viewer may see")
+    private fun notFound(): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "No streams the viewer may see")
 
     companion object {
         /** The pause after a first failed fetch of data that was missing or unreachable, doubling with each failure after. */
