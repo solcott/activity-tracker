@@ -14,11 +14,15 @@ Every error the app shows SHALL name what failed in the athlete's language, such
 - **THEN** the app says it couldn't save privacy zones
 
 ### Requirement: Errors say why when the reason is known
-When a failure is known to be the device being offline, a problem on the server, or a reply the app couldn't read, the error SHALL say so after what failed. When the reason is anything else, the error SHALL say only what failed.
+When a failure is known to be that the server couldn't be reached (no response arrived, because the device is offline or the server is down), a problem on the server, or a reply the app couldn't read, the error SHALL say so after what failed. An error SHALL NOT say the device is offline, because the app can't tell that from a server that is down. When the reason is anything else, the error SHALL say only what failed.
 
 #### Scenario: Saving offline
 - **WHEN** an athlete saves their profile while the device has no connection
-- **THEN** the app says it couldn't save the profile because the device is offline
+- **THEN** the app says it couldn't save the profile because the server couldn't be reached
+
+#### Scenario: Server down while the device is online
+- **WHEN** an athlete opens the feed while the device has a connection but the AppView isn't accepting connections
+- **THEN** the app says it couldn't load the feed because the server couldn't be reached, and doesn't say the device is offline
 
 #### Scenario: Server error on an action
 - **WHEN** changing an activity's visibility fails because the server answered with a server error
@@ -33,10 +37,10 @@ No error the app shows SHALL include an exception's message, an HTTP status code
 
 #### Scenario: Web fetch failure on an unmigrated screen
 - **WHEN** the activity page fails to load in the web app because the request never reached the server
-- **THEN** the page says it couldn't load the activity because the device is offline, and doesn't show "Fail to fetch"
+- **THEN** the page says it couldn't load the activity because the server couldn't be reached, and doesn't show "Fail to fetch"
 
 ### Requirement: Sign-in tells an unknown handle apart from being offline
-When every way of resolving the handle an athlete typed answers that it doesn't exist, sign-in SHALL say that no account was found for that handle. When the handle couldn't be resolved because the device is offline, sign-in SHALL say it couldn't start because the device is offline, not that the account doesn't exist.
+When every way of resolving the handle an athlete typed answers that it doesn't exist, sign-in SHALL say that no account was found for that handle. When the handle couldn't be resolved because no lookup got a response, sign-in SHALL say it couldn't start because the server couldn't be reached, not that the account doesn't exist.
 
 #### Scenario: Mistyped handle
 - **WHEN** an athlete signs in as a handle that no lookup resolves
@@ -44,7 +48,7 @@ When every way of resolving the handle an athlete typed answers that it doesn't 
 
 #### Scenario: Offline at sign-in
 - **WHEN** an athlete signs in while the device has no connection
-- **THEN** sign-in says it couldn't start because the device is offline
+- **THEN** sign-in says it couldn't start because the server couldn't be reached
 
 ### Requirement: Sign-in failures say what failed and why
 A sign-in that fails after the handle resolved SHALL say whether starting or completing sign-in failed and, where the reason is known, why, under the same rules as other errors.

@@ -18,7 +18,7 @@ A token refresh SHALL end the session only when the authorization server refuses
 - **THEN** the session ends
 
 ### Requirement: Any other refresh failure keeps the session
-A refresh that fails for any other reason SHALL keep the session, so that a later request refreshes again. The request that needed the refresh SHALL fail, reported as a problem on the server for a server error and as the device being offline when the authorization server couldn't be reached.
+A refresh that fails for any other reason SHALL keep the session, so that a later request refreshes again. The request that needed the refresh SHALL fail, reported as a problem on the server for a server error and as the server being unreachable when no response came from the authorization server.
 
 #### Scenario: Authorization server unavailable
 - **WHEN** a refresh gets a `503` from the authorization server
@@ -30,7 +30,7 @@ A refresh that fails for any other reason SHALL keep the session, so that a late
 
 #### Scenario: Offline
 - **WHEN** a refresh can't reach the authorization server
-- **THEN** the athlete stays signed in and the request fails saying the device is offline
+- **THEN** the athlete stays signed in and the request fails saying the server couldn't be reached
 
 ### Requirement: Refreshing, signing in and signing out don't overwrite each other
 Signing out, completing a sign-in and refreshing SHALL each finish before the next starts. A refresh SHALL never save a session after a sign-out, and signing out SHALL revoke the newest refresh token the session holds.

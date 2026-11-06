@@ -113,4 +113,4 @@ When the segments for an area or a name query can't be loaded, the browse screen
 
 #### Scenario: Offline while panning
 - **WHEN** an athlete pans the map while the device is offline
-- **THEN** the lines already drawn stay, and the list says it couldn't load segments because the device is offline, with a way to try again
+- **THEN** the lines already drawn stay, and the list says it couldn't load segments because the server couldn't be reached, with a way to try again

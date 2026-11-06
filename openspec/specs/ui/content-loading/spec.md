@@ -100,7 +100,7 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 
 #### Scenario: Media gallery offline
 - **WHEN** an athlete opens an activity's photos while the device has no connection
-- **THEN** the gallery says it couldn't load the activity because the device is offline, and offers to try again
+- **THEN** the gallery says it couldn't load the activity because the server couldn't be reached, and offers to try again
 
 #### Scenario: Training zones retry
 - **WHEN** an athlete's training zones fail to load and they try again once the AppView answers
@@ -108,7 +108,7 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 
 #### Scenario: Activity page offline, then retry
 - **WHEN** an athlete opens an activity's page while the device is offline, then tries again once it is back online
-- **THEN** the page says it couldn't load the activity because the device is offline and offers to try again, then shows that it is loading, then the activity, and no error
+- **THEN** the page says it couldn't load the activity because the server couldn't be reached and offers to try again, then shows that it is loading, then the activity, and no error
 
 #### Scenario: Default zones fail, then retry
 - **WHEN** an athlete opens their default zones while their profile can't be read, then tries again once it can
@@ -116,7 +116,7 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 
 #### Scenario: Edit activity offline
 - **WHEN** an athlete opens edit activity while the device is offline
-- **THEN** the screen says it couldn't load the activity because the device is offline, and offers to try again
+- **THEN** the screen says it couldn't load the activity because the server couldn't be reached, and offers to try again
 
 #### Scenario: Privacy zones can't be read
 - **WHEN** an athlete opens their privacy zones and the zones can't be read this session
@@ -132,7 +132,7 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 
 #### Scenario: Route can't be read for a new segment
 - **WHEN** an athlete chooses to create a segment from their activity while the device is offline and its track can't be read
-- **THEN** the screen says it couldn't load the route because the device is offline and offers to try again, and doesn't say the activity has no route
+- **THEN** the screen says it couldn't load the route because the server couldn't be reached and offers to try again, and doesn't say the activity has no route
 
 ### Requirement: Content stays on screen while it refreshes
 When the feed, the segment page, one of the activity and profile screens or one of the paged lists refreshes content it already shows, it SHALL keep showing that content with an indication that it is refreshing. It SHALL NOT replace the content with a full-screen loading state.
@@ -162,19 +162,19 @@ When refreshing content already on screen fails, the feed, the segment page, the
 
 #### Scenario: Feed refresh while offline
 - **WHEN** an athlete pulls to refresh the feed while offline
-- **THEN** the activities already listed stay, and the feed says it couldn't refresh because the device is offline
+- **THEN** the activities already listed stay, and the feed says it couldn't refresh because the server couldn't be reached
 
 #### Scenario: Profile refresh while offline
 - **WHEN** a profile that shows its header and activities refreshes while the device is offline
-- **THEN** the header and activities stay, and the profile says it couldn't load because the device is offline
+- **THEN** the header and activities stay, and the profile says it couldn't load because the server couldn't be reached
 
 #### Scenario: Activity page refresh while offline
 - **WHEN** an activity's page that shows the activity reloads while the device is offline
-- **THEN** the activity, its charts and its segment efforts stay, and the page says it couldn't load the activity because the device is offline, and offers to try again
+- **THEN** the activity, its charts and its segment efforts stay, and the page says it couldn't load the activity because the server couldn't be reached, and offers to try again
 
 #### Scenario: Comments reload while offline
 - **WHEN** an activity's page that lists comments reloads while the device is offline
-- **THEN** the comments listed stay, and the page says it couldn't load the comments because the device is offline, and offers to try again
+- **THEN** the comments listed stay, and the page says it couldn't load the comments because the server couldn't be reached, and offers to try again
 
 ### Requirement: Loaded content survives coming back
 When an athlete leaves the feed, the segment page, one of the activity and profile screens, one of the paged lists or the create segment screen for a screen opened from it and then comes back, the page SHALL show the content it last showed at once, without a full-screen loading state.
@@ -212,11 +212,11 @@ When an athlete leaves the feed, the segment page, one of the activity and profi
 - **THEN** the screen shows the route, the stretch they chose and the name they typed at once, not a loading state
 
 ### Requirement: Load errors say why
-A load error on the feed, the segment page, one of the activity and profile screens, one of the form screens or one of the paged lists SHALL say what failed and, where it is known, why: no connection, the server failing, or a response the app couldn't read. It SHALL NOT show raw technical text such as status codes or exception messages.
+A load error on the feed, the segment page, one of the activity and profile screens, one of the form screens or one of the paged lists SHALL say what failed and, where it is known, why: the server couldn't be reached (no connection, or the server is down), the server failing, or a response the app couldn't read. It SHALL NOT show raw technical text such as status codes or exception messages.
 
 #### Scenario: Offline
 - **WHEN** the feed fails to load because the device has no connection
-- **THEN** the feed says it couldn't load the feed because the device is offline
+- **THEN** the feed says it couldn't load the feed because the server couldn't be reached
 
 #### Scenario: Server error
 - **WHEN** a segment page fails to load because the AppView answered with a server error
@@ -228,23 +228,23 @@ A load error on the feed, the segment page, one of the activity and profile scre
 
 #### Scenario: Activity page on the web while offline
 - **WHEN** an athlete opens an activity's page in the web app while the browser has no connection
-- **THEN** the page says it couldn't load the activity because the device is offline, not the browser's fetch error text
+- **THEN** the page says it couldn't load the activity because the server couldn't be reached, not the browser's fetch error text
 
 #### Scenario: Who liked it, offline
 - **WHEN** an athlete shows who liked an activity while the device is offline
-- **THEN** the list says it couldn't load the likes because the device is offline, with no exception text
+- **THEN** the list says it couldn't load the likes because the server couldn't be reached, with no exception text
 
 #### Scenario: Privacy zones offline
 - **WHEN** an athlete opens their privacy zones while the device is offline and no zones have been read this session
-- **THEN** the screen says it couldn't load their privacy zones because the device is offline
+- **THEN** the screen says it couldn't load their privacy zones because the server couldn't be reached
 
 #### Scenario: Search offline
 - **WHEN** an athlete searches while the device is offline
-- **THEN** the screen says it couldn't search because the device is offline, with no exception text
+- **THEN** the screen says it couldn't search because the server couldn't be reached, with no exception text
 
 #### Scenario: Starred segments offline
 - **WHEN** an athlete opens their starred segments while the device is offline
-- **THEN** the screen says it couldn't load their starred segments because the device is offline, with no exception text
+- **THEN** the screen says it couldn't load their starred segments because the server couldn't be reached, with no exception text
 
 ### Requirement: Supplementary content fails quietly
 The segment page SHALL show the segment when the viewer's own efforts on it fail to load, without them and without an error. The athlete's own profile SHALL show without the count of their follow requests when that count fails to load, without an error. The activity page SHALL show the activity without its charts, segment efforts, combine suggestion, the owner's full route or the original file to download when any of those fails to load, without an error for it.
@@ -278,14 +278,14 @@ A profile SHALL show its header as soon as the header loads, without waiting for
 
 #### Scenario: Activities fail to load
 - **WHEN** a profile's header loads but its activities fail to load because the device is offline
-- **THEN** the profile shows the header, and below it says it couldn't load the activities because the device is offline, and offers to try again
+- **THEN** the profile shows the header, and below it says it couldn't load the activities because the server couldn't be reached, and offers to try again
 
 ### Requirement: Action failures leave loaded content in place
 On the activity and profile screens, the form screens and the blocked, muted, followers and starred segments lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
 
 #### Scenario: Follow fails offline
 - **WHEN** an athlete taps Follow on a loaded profile while the device is offline
-- **THEN** the profile stays on screen, and it says it couldn't update the follow because the device is offline
+- **THEN** the profile stays on screen, and it says it couldn't update the follow because the server couldn't be reached
 
 #### Scenario: Ungroup fails
 - **WHEN** the owner ungroups an activity from its one recording and the write fails
@@ -293,7 +293,7 @@ On the activity and profile screens, the form screens and the blocked, muted, fo
 
 #### Scenario: Profile save fails offline
 - **WHEN** an athlete edits their profile and saves while the device is offline
-- **THEN** the form stays with what they typed, and the screen says it couldn't save the profile because the device is offline, with no load retry
+- **THEN** the form stays with what they typed, and the screen says it couldn't save the profile because the server couldn't be reached, with no load retry
 
 #### Scenario: Unblock fails
 - **WHEN** an athlete taps Unblock in their blocked accounts and the write fails
@@ -305,7 +305,7 @@ On the activity and profile screens, the form screens and the blocked, muted, fo
 
 #### Scenario: Publishing a segment fails offline
 - **WHEN** an athlete publishes a new segment and the duplicate check fails because the device is offline
-- **THEN** the route, the stretch they chose and the name they typed stay on screen, and the screen says it couldn't check the segment because the device is offline, with no load retry
+- **THEN** the route, the stretch they chose and the name they typed stay on screen, and the screen says it couldn't check the segment because the server couldn't be reached, with no load retry
 
 ### Requirement: Answered follow requests stay answered
 A follow request the athlete approved or declined on the follow-requests screen SHALL NOT show again as unanswered when the list reloads, even before the server has caught up with the answer.
@@ -327,7 +327,7 @@ When the athlete opens an activity they wrote moments ago on this device (one ju
 
 #### Scenario: Offline while waiting
 - **WHEN** an athlete opens an activity they just saved while the device is offline
-- **THEN** the page says at once that it couldn't load the activity because the device is offline, without waiting through the tries
+- **THEN** the page says at once that it couldn't load the activity because the server couldn't be reached, without waiting through the tries
 
 #### Scenario: Someone else's missing activity
 - **WHEN** an athlete opens an activity they didn't write on this device, and the AppView doesn't serve it
@@ -353,7 +353,7 @@ When a paged list, or a thread's replies, fails to load a page after its first, 
 
 #### Scenario: Third page fails
 - **WHEN** an athlete has two pages of a following list and the third fails because the device is offline
-- **THEN** both pages stay listed at their scroll position, and below them the screen says it couldn't load more because the device is offline and offers to try again
+- **THEN** both pages stay listed at their scroll position, and below them the screen says it couldn't load more because the server couldn't be reached and offers to try again
 
 #### Scenario: Trying again after a failed page
 - **WHEN** the athlete then tries again and the third page loads

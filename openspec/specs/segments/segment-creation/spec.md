@@ -27,7 +27,7 @@ The app SHALL offer to create a segment only on the signed-in athlete's own acti
 
 #### Scenario: Track can't be read
 - **WHEN** an athlete creates a segment from their own ride and its track can't be read because the device is offline
-- **THEN** the screen says it couldn't load the route because the device is offline and offers to try again, not that the ride has no route
+- **THEN** the screen says it couldn't load the route because the server couldn't be reached and offers to try again, not that the ride has no route
 
 ### Requirement: A segment's line stays outside the athlete's privacy zones
 The athlete SHALL choose a start and an end along their activity's track as cut by their privacy zones and hide-start/end distance, and the segment's line SHALL be the track between them. The line SHALL NOT include any point inside a zone or within the hidden ends, and SHALL NOT span a gap where the cut track is broken. The app SHALL NOT offer creation while it can't read the athlete's zones, and SHALL say why and offer to try again.
