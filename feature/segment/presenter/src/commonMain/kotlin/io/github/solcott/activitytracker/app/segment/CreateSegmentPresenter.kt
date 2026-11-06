@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.mapIsPublic
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
@@ -29,10 +30,8 @@ import io.github.solcott.activitytracker.data.segments.SegmentRoute
 import io.github.solcott.activitytracker.data.segments.SegmentSelection
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -99,7 +98,7 @@ fun CreateSegmentPresenter(
         }
     val ok = selection as? SegmentSelection.Ok
     val highlight = remember(ok) { ok?.line?.let(SegmentGeometry::toPrecision5) }
-    val namesActivity = remember(activity) { activity?.let(::routeIsPublic) == true }
+    val namesActivity = remember(activity) { activity?.let(::mapIsPublic) == true }
     // Read here so typing a name gives a new state.
     val title = name.text.toString().trim()
 
@@ -179,13 +178,6 @@ private fun drawnRoute(lines: List<List<GeoPoint>>): SegmentedPolyline? {
     if (lines.isEmpty()) return null
     val gaps = lines.runningFold(0) { at, line -> at + line.size }.drop(1).dropLast(1)
     return SegmentedPolyline(SegmentGeometry.toPrecision5(lines.flatten()), gaps.ifEmpty { null })
-}
-
-/** Whether [view]'s route is public: the activity is, and so is its Map category, so a segment may name it as its source. */
-private fun routeIsPublic(view: ActivityView): Boolean {
-    val activity = view.visibilityOrPublic
-    if (activity != Visibility.PUBLIC) return false
-    return (DetailCategory.currentTiers(activity, view, null)[DetailCategory.MAP] ?: activity) == Visibility.PUBLIC
 }
 
 private fun SegmentSelection?.toCheck(): SelectionCheck =

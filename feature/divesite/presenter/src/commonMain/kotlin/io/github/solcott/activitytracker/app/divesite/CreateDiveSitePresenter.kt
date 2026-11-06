@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.mapIsPublic
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
