@@ -51,3 +51,10 @@ fun heldSegmentTracks(): Query = SegmentTracks.selectAll().where { heldTrack() }
 fun heldTrack(): Op<Boolean> =
     exists(SegmentPrefs.select(SegmentPrefs.did).where { matchingOn(SegmentTracks.authorDid) }) or
         exists(GroupPrefs.select(GroupPrefs.did).where { groupingIn(SegmentTracks.authorDid) and (SegmentTracks.groupExcluded eq false) })
+
+/** [author] hides from leaderboards, Mayors and Regulars (`actor.segmentPrefs`). */
+fun hidesFromLeaderboards(author: Expression<String>): Op<Boolean> =
+    exists(SegmentPrefs.select(SegmentPrefs.did).where { (SegmentPrefs.did eq author) and (SegmentPrefs.hideFromLeaderboards eq true) })
+
+/** The outer query's [SegmentTracks] row excludes its activity from leaderboards, Mayors and Regulars. */
+fun excludedFromLeaderboards(): Op<Boolean> = SegmentTracks.leaderboardExcluded eq true

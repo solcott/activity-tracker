@@ -4,9 +4,10 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
-import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
+import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
@@ -36,7 +37,6 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
@@ -81,7 +81,6 @@ import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
@@ -366,7 +365,7 @@ class SegmentViews(
         val period = params.period ?: MayorPeriod.LAST_90_DAYS
         if (period !in MayorPeriod.all) invalidRequest("Unknown period $period")
         val (since, until) = mayorWindow(period, today())
-        val following = following(viewer, params.scope)
+        val following = followingScope(viewer, params.scope)
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
@@ -505,18 +504,8 @@ class SegmentViews(
     private fun rankedSegment(): Op<Boolean> = (Segments.status eq SegmentStatus.ACTIVE) and (Segments.kind inList SegmentKind.ranked)
 
     /** [rankable] less the segment's status: what [notRankedReasons] gives a reason for failing, from the same Ops. */
-    private fun rankableEffort(): Op<Boolean> = not(hidesFromLeaderboards()) and not(excludedFromLeaderboards()) and plausibleEffort()
-
-    /** The effort's athlete hides from leaderboards (`actor.segmentPrefs`). */
-    private fun hidesFromLeaderboards(): Op<Boolean> =
-        exists(
-            SegmentPrefs.select(SegmentPrefs.did).where {
-                (SegmentPrefs.did eq SegmentEfforts.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
-            }
-        )
-
-    /** The effort's activity is excluded from leaderboards, on the segment track it came from. */
-    private fun excludedFromLeaderboards(): Op<Boolean> = SegmentTracks.leaderboardExcluded eq true
+    private fun rankableEffort(): Op<Boolean> =
+        not(hidesFromLeaderboards(SegmentEfforts.authorDid)) and not(excludedFromLeaderboards()) and plausibleEffort()
 
     /**
      * The efforts on [segment]'s [board] (a [SegmentBoard] type) that [viewer] may see and that are [rankable], from [since] and before
@@ -531,7 +520,6 @@ class SegmentViews(
         following: Boolean,
         until: String? = null,
     ): Op<Boolean> {
-        val own = viewer?.value
         val type =
             if (board == SegmentBoard.E_BIKE) SegmentEfforts.eBike eq true
             else (SegmentEfforts.eBike eq false) and (Activities.sport eq board)
@@ -541,9 +529,7 @@ class SegmentViews(
             rankable() and
             (since?.let { SegmentEfforts.startedOn greaterEq it } ?: Op.TRUE) and
             (until?.let { SegmentEfforts.startedOn less it } ?: Op.TRUE) and
-            (if (following && own != null) {
-                (SegmentEfforts.authorDid eq own) or (SegmentEfforts.authorDid inSubQuery effectivelyFollowedBy(own))
-            } else Op.TRUE)
+            followedOrOwn(SegmentEfforts.authorDid, viewer, following)
     }
 
     /**
@@ -637,7 +623,7 @@ class SegmentViews(
     private fun JdbcTransaction.notRankedReasons(activity: String): Map<String, String> {
         val reason =
             Case()
-                .When(hidesFromLeaderboards(), stringLiteral(NotRanked.HIDDEN))
+                .When(hidesFromLeaderboards(SegmentEfforts.authorDid), stringLiteral(NotRanked.HIDDEN))
                 .When(excludedFromLeaderboards(), stringLiteral(NotRanked.EXCLUDED))
                 .Else(stringLiteral(NotRanked.IMPLAUSIBLE))
         return rankedEfforts()
@@ -710,19 +696,7 @@ class SegmentViews(
     private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<String?, Boolean> {
         val period = params.period ?: LeaderboardPeriod.ALL_TIME
         if (period !in LeaderboardPeriod.all) invalidRequest("Unknown period $period")
-        return periodStart(period) to following(viewer, params.scope)
-    }
-
-    /**
-     * Whether [scope] (a [LeaderboardScope] value, null for everyone) is the following scope; `InvalidRequest` when unknown, or without a
-     * [viewer].
-     */
-    private fun following(viewer: Did?, scope: String?): Boolean {
-        val chosen = scope ?: LeaderboardScope.EVERYONE
-        if (chosen !in LeaderboardScope.all) invalidRequest("Unknown scope $chosen")
-        val following = chosen == LeaderboardScope.FOLLOWING
-        if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
-        return following
+        return periodStart(period) to followingScope(viewer, params.scope)
     }
 
     /**

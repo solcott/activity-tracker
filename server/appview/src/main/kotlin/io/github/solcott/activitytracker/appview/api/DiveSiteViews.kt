@@ -5,8 +5,9 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.DiveSites
-import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
+import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_DIVE_SITE_LIMIT
 import io.github.solcott.activitytracker.appview.index.diveSiteDuplicatesOf
@@ -33,7 +34,6 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
@@ -58,7 +58,6 @@ import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.max
@@ -240,33 +239,15 @@ class DiveSiteViews(
         return mayorWindow(chosen, today())
     }
 
-    /** Whether [scope] is the following scope; `InvalidRequest` when unknown, or without a [viewer]. */
-    private fun followingScope(viewer: Did?, scope: String?): Boolean {
-        val chosen = scope ?: LeaderboardScope.EVERYONE
-        if (chosen !in LeaderboardScope.all) invalidRequest("Unknown scope $chosen")
-        val following = chosen == LeaderboardScope.FOLLOWING
-        if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
-        return following
-    }
-
     /** The visits a Regulars board counts. */
     private fun regularsBoard(viewer: Did?, site: String, since: String?, until: String?, following: Boolean): Op<Boolean> {
-        val own = viewer?.value
-        val hidden =
-            exists(
-                SegmentPrefs.select(SegmentPrefs.did).where {
-                    (SegmentPrefs.did eq DiveSiteVisits.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
-                }
-            )
         return (DiveSiteVisits.siteUri eq site) and
             visitsVisibleTo(viewer) and
-            not(hidden) and
-            (SegmentTracks.leaderboardExcluded eq false) and
+            not(hidesFromLeaderboards(DiveSiteVisits.authorDid)) and
+            not(excludedFromLeaderboards()) and
             (since?.let { DiveSiteVisits.startedOn greaterEq it } ?: Op.TRUE) and
             (until?.let { DiveSiteVisits.startedOn less it } ?: Op.TRUE) and
-            (if (following && own != null) {
-                (DiveSiteVisits.authorDid eq own) or (DiveSiteVisits.authorDid inSubQuery effectivelyFollowedBy(own))
-            } else Op.TRUE)
+            followedOrOwn(DiveSiteVisits.authorDid, viewer, following)
     }
 
     private fun counts(board: Op<Boolean>, having: Op<Boolean>): Query =
