@@ -5,17 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -28,25 +25,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_add
@@ -68,48 +60,36 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(GearListScreen::class, SessionScope::class)
 @Composable
 fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.gear_title),
-                onBack = { state.eventSink(GearListEvent.Back) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    AppIconButton(AppIcon.Add, stringResource(Res.string.gear_add), { state.eventSink(GearListEvent.Add) })
-                    MoreMenu(state.eventSink)
-                },
-            )
+    ListScreen(
+        title = stringResource(Res.string.gear_title),
+        onBack = { state.eventSink(GearListEvent.Back) },
+        content = state.content,
+        errorKind = UiError.Kind.LoadGear,
+        onRetry = { state.eventSink(GearListEvent.Retry) },
+        modifier = modifier,
+        edgeToEdge = true,
+        actions = {
+            AppIconButton(AppIcon.Add, stringResource(Res.string.gear_add), { state.eventSink(GearListEvent.Add) })
+            MoreMenu(state.eventSink)
         },
-    ) { padding ->
-        ContentStateLayout(state.content, UiError.Kind.LoadGear, { state.eventSink(GearListEvent.Retry) }, contentPadding = padding) { lists
-            ->
-            val listState = rememberLazyListState()
-            ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
-                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
-                    // Over the loaded list: a spinner while it reloads, or why the last reload failed with Retry.
-                    item(key = "refresh") {
-                        RefreshStatus(state.content, UiError.Kind.LoadGear, onRetry = { state.eventSink(GearListEvent.Retry) })
-                    }
-                    if (lists.isEmpty) {
-                        item(key = "empty") {
-                            Column(
-                                Modifier.fillMaxWidth().padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                            ) {
-                                Text(stringResource(Res.string.gear_empty))
-                                AppButton(onClick = { state.eventSink(GearListEvent.Add) }) { Text(stringResource(Res.string.gear_add)) }
-                            }
-                        }
-                    }
-                    if (!lists.isEmpty) collections(lists.collections, state.eventSink)
-                    lists.active.forEach { group -> section(group.type, group.type, group.items, state.eventSink) }
-                    if (lists.retired.isNotEmpty()) section("retired", null, lists.retired, state.eventSink)
+    ) { lists ->
+        // Over the loaded list: a spinner while it reloads, or why the last reload failed with Retry.
+        item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGear, onRetry = { state.eventSink(GearListEvent.Retry) }) }
+        if (lists.isEmpty) {
+            item(key = "empty") {
+                Column(
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(stringResource(Res.string.gear_empty))
+                    AppButton(onClick = { state.eventSink(GearListEvent.Add) }) { Text(stringResource(Res.string.gear_add)) }
                 }
             }
         }
+        if (!lists.isEmpty) collections(lists.collections, state.eventSink)
+        lists.active.forEach { group -> section(group.type, group.type, group.items, state.eventSink) }
+        if (lists.retired.isNotEmpty()) section("retired", null, lists.retired, state.eventSink)
     }
 }
 

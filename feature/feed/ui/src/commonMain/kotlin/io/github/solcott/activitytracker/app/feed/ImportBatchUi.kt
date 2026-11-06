@@ -1,11 +1,8 @@
 package io.github.solcott.activitytracker.app.feed
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
@@ -13,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -21,12 +17,9 @@ import io.github.solcott.activitytracker.app.settings.monthName
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -51,46 +44,37 @@ fun ImportBatchUi(state: ImportBatchState, modifier: Modifier = Modifier) {
                 it.effectiveRecord().startedAt.toLocalDateTime(zone).date.let { d -> d.year to d.month.ordinal + 1 }
             }
         }
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.import_batch_title, state.name),
-                onBack = { state.eventSink(ImportBatchEvent.Back) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
-                state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
-                pagedRefreshStatus(state.activities, UiError.Kind.LoadImportBatch) { state.eventSink(ImportBatchEvent.Retry) }
-                months.forEach { (month, activities) ->
-                    val (year, number) = month
-                    item(key = "month-$year-$number") {
-                        Text(
-                            stringResource(Res.string.import_batch_month, monthName(number), year),
-                            Modifier.padding(top = 16.dp, bottom = 4.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    items(activities, key = { it.uri.value }) { activity ->
-                        ActivityListCard(
-                            activity,
-                            state.viewerDid,
-                            authorClickable = false,
-                            state.revealed,
-                            onEvent = { state.eventSink(ImportBatchEvent.Activity(it)) },
-                            modifier = Modifier.padding(bottom = 12.dp),
-                        )
-                    }
-                }
-                pagedFooter(state.activities, UiError.Kind.LoadImportBatch, onRetry = { state.eventSink(ImportBatchEvent.Retry) }) {
-                    EmptyListText(stringResource(Res.string.import_batch_empty))
-                }
+    ListScreen(
+        title = stringResource(Res.string.import_batch_title, state.name),
+        onBack = { state.eventSink(ImportBatchEvent.Back) },
+        modifier = modifier,
+        listState = listState,
+    ) {
+        state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
+        pagedRefreshStatus(state.activities, UiError.Kind.LoadImportBatch) { state.eventSink(ImportBatchEvent.Retry) }
+        months.forEach { (month, activities) ->
+            val (year, number) = month
+            item(key = "month-$year-$number") {
+                Text(
+                    stringResource(Res.string.import_batch_month, monthName(number), year),
+                    Modifier.padding(top = 16.dp, bottom = 4.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
+            items(activities, key = { it.uri.value }) { activity ->
+                ActivityListCard(
+                    activity,
+                    state.viewerDid,
+                    authorClickable = false,
+                    state.revealed,
+                    onEvent = { state.eventSink(ImportBatchEvent.Activity(it)) },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+            }
+        }
+        pagedFooter(state.activities, UiError.Kind.LoadImportBatch, onRetry = { state.eventSink(ImportBatchEvent.Retry) }) {
+            EmptyListText(stringResource(Res.string.import_batch_empty))
         }
     }
 }

@@ -1,13 +1,10 @@
 package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,22 +13,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.AccountActionRow
-import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ListNote
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.signInAgainItem
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_approve
@@ -52,57 +44,44 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun FollowRequestsUi(state: FollowRequestsState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.follow_requests_title),
-                onBack = { state.eventSink(FollowRequestsEvent.Back) },
-                scrollBehavior = scrollBehavior,
+    val retry = { state.eventSink(FollowRequestsEvent.Retry) }
+    ListScreen(
+        title = stringResource(Res.string.follow_requests_title),
+        onBack = { state.eventSink(FollowRequestsEvent.Back) },
+        content = state.content,
+        errorKind = UiError.Kind.LoadFollowRequests,
+        onRetry = retry,
+        modifier = modifier,
+        listState = listState,
+        edgeToEdge = true,
+    ) { content ->
+        item(key = "tabs") {
+            val tabs = FollowRequestsTab.entries
+            AppSegmentedControl(
+                labels =
+                    persistentListOf(
+                        stringResource(Res.string.follow_requests_tab_requests),
+                        stringResource(Res.string.follow_requests_tab_declined),
+                    ),
+                selected = tabs.indexOf(state.tab),
+                onSelect = { state.eventSink(FollowRequestsEvent.SelectTab(tabs[it])) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
-        },
-    ) { padding ->
-        val retry = { state.eventSink(FollowRequestsEvent.Retry) }
-        ContentStateLayout(state.content, UiError.Kind.LoadFollowRequests, retry, contentPadding = padding) { content ->
-            ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    state = listState,
-                    contentPadding = listPadding + PaddingValues(vertical = 8.dp),
-                ) {
-                    item(key = "tabs") {
-                        val tabs = FollowRequestsTab.entries
-                        AppSegmentedControl(
-                            labels =
-                                persistentListOf(
-                                    stringResource(Res.string.follow_requests_tab_requests),
-                                    stringResource(Res.string.follow_requests_tab_declined),
-                                ),
-                            selected = tabs.indexOf(state.tab),
-                            onSelect = { state.eventSink(FollowRequestsEvent.SelectTab(tabs[it])) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    }
-                    item(key = "refresh") {
-                        RefreshStatus(state.content, UiError.Kind.LoadFollowRequests, retry, Modifier.padding(horizontal = 16.dp))
-                    }
-                    signInAgainItem(state.error, state.needsSignIn) { state.eventSink(FollowRequestsEvent.SignInAgain) }
-                    val accounts = if (state.tab == FollowRequestsTab.Requests) content.requests else content.declined
-                    if (state.tab == FollowRequestsTab.Declined && accounts.isNotEmpty()) {
-                        item(key = "declinedHelp") { ListNote(stringResource(Res.string.follow_requests_declined_help)) }
-                    }
-                    items(accounts, key = { it.did.value }) { account ->
-                        RequestRow(account, state)
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    if (state.tab == FollowRequestsTab.Requests && content.truncated) {
-                        item(key = "truncated") { ListNote(stringResource(Res.string.follow_requests_truncated)) }
-                    }
-                    if (accounts.isEmpty()) emptyItem(state.tab)
-                }
-            }
         }
+        item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadFollowRequests, retry, Modifier.padding(horizontal = 16.dp)) }
+        signInAgainItem(state.error, state.needsSignIn) { state.eventSink(FollowRequestsEvent.SignInAgain) }
+        val accounts = if (state.tab == FollowRequestsTab.Requests) content.requests else content.declined
+        if (state.tab == FollowRequestsTab.Declined && accounts.isNotEmpty()) {
+            item(key = "declinedHelp") { ListNote(stringResource(Res.string.follow_requests_declined_help)) }
+        }
+        items(accounts, key = { it.did.value }) { account ->
+            RequestRow(account, state)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        if (state.tab == FollowRequestsTab.Requests && content.truncated) {
+            item(key = "truncated") { ListNote(stringResource(Res.string.follow_requests_truncated)) }
+        }
+        if (accounts.isEmpty()) emptyItem(state.tab)
     }
 }
 

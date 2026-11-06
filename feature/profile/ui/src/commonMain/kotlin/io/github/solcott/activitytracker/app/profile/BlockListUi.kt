@@ -1,29 +1,22 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.AccountActionRow
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_unblock
@@ -43,57 +36,45 @@ fun BlockListUi(state: BlockListState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LoadMoreAtEnd(listState, state.accounts.canLoadMore) { state.eventSink(BlockListEvent.LoadMore) }
 
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(state.kind.title),
-                onBack = { state.eventSink(BlockListEvent.Back) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = listPadding + PaddingValues(vertical = 8.dp),
-            ) {
-                state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
-                pagedRows(
-                    state.accounts,
-                    state.kind.loadError,
-                    onRetry = { state.eventSink(BlockListEvent.Retry) },
-                    key = { it.profile.did.value },
-                    empty = { EmptyListText(stringResource(state.kind.emptyText)) },
-                ) { account ->
-                    val did = account.profile.did
-                    AccountActionRow(
-                        account.profile,
-                        onClick = { state.eventSink(BlockListEvent.Open(did)) },
-                        supporting =
-                            if (account.onBluesky && !account.removable) {
-                                {
-                                    Text(
-                                        stringResource(Res.string.blocked_on_bluesky),
-                                        Modifier.padding(horizontal = 16.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                    ) {
-                        if (account.removable) {
-                            AppSecondaryButton(
-                                onClick = { state.eventSink(BlockListEvent.Remove(did)) },
-                                enabled = did !in state.removing,
-                            ) {
-                                Text(stringResource(state.kind.removeLabel))
-                            }
+    ListScreen(
+        title = stringResource(state.kind.title),
+        onBack = { state.eventSink(BlockListEvent.Back) },
+        modifier = modifier,
+        listState = listState,
+        edgeToEdge = true,
+    ) {
+        state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
+        pagedRows(
+            state.accounts,
+            state.kind.loadError,
+            onRetry = { state.eventSink(BlockListEvent.Retry) },
+            key = { it.profile.did.value },
+            empty = { EmptyListText(stringResource(state.kind.emptyText)) },
+        ) { account ->
+            val did = account.profile.did
+            AccountActionRow(
+                account.profile,
+                onClick = { state.eventSink(BlockListEvent.Open(did)) },
+                supporting =
+                    if (account.onBluesky && !account.removable) {
+                        {
+                            Text(
+                                stringResource(Res.string.blocked_on_bluesky),
+                                Modifier.padding(horizontal = 16.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
+                    } else {
+                        null
+                    },
+            ) {
+                if (account.removable) {
+                    AppSecondaryButton(
+                        onClick = { state.eventSink(BlockListEvent.Remove(did)) },
+                        enabled = did !in state.removing,
+                    ) {
+                        Text(stringResource(state.kind.removeLabel))
                     }
                 }
             }

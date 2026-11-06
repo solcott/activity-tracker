@@ -3,30 +3,23 @@ package io.github.solcott.activitytracker.app.segment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ChoiceChip
 import io.github.solcott.activitytracker.app.ui.LeaderCard
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.ScopeControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_all_time
@@ -62,31 +55,23 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LoadMoreAtEnd(listState, state.entries.canLoadMore) { state.eventSink(SegmentMayorsEvent.LoadMore) }
 
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.mayors_title, state.name),
-                onBack = { state.eventSink(SegmentMayorsEvent.Back) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-                item(key = "filters") { Filters(state) }
-                rankBoardRows(
-                    state.entries,
-                    state.viewerEntry,
-                    UiError.Kind.LoadMayors,
-                    onRetry = { state.eventSink(SegmentMayorsEvent.Retry) },
-                    emptyText = Res.string.mayors_empty,
-                    key = { it.athlete.did.value },
-                ) { entry ->
-                    MayorRow(entry, onClick = { state.eventSink(SegmentMayorsEvent.OpenAthlete(entry.athlete.did)) })
-                }
-            }
+    ListScreen(
+        title = stringResource(Res.string.mayors_title, state.name),
+        onBack = { state.eventSink(SegmentMayorsEvent.Back) },
+        modifier = modifier,
+        listState = listState,
+        verticalPadding = 12.dp,
+    ) {
+        item(key = "filters") { Filters(state) }
+        rankBoardRows(
+            state.entries,
+            state.viewerEntry,
+            UiError.Kind.LoadMayors,
+            onRetry = { state.eventSink(SegmentMayorsEvent.Retry) },
+            emptyText = Res.string.mayors_empty,
+            key = { it.athlete.did.value },
+        ) { entry ->
+            MayorRow(entry, onClick = { state.eventSink(SegmentMayorsEvent.OpenAthlete(entry.athlete.did)) })
         }
     }
 }

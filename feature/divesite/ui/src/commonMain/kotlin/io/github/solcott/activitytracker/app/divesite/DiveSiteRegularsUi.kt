@@ -2,28 +2,21 @@ package io.github.solcott.activitytracker.app.divesite
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.segment.effortDateLabel
 import io.github.solcott.activitytracker.app.ui.ChoiceChip
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.ScopeControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars_empty
@@ -49,31 +42,23 @@ import org.jetbrains.compose.resources.stringResource
 fun DiveSiteRegularsUi(state: DiveSiteRegularsState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LoadMoreAtEnd(listState, state.entries.canLoadMore) { state.eventSink(DiveSiteRegularsEvent.LoadMore) }
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.dive_site_regulars_title, state.name),
-                onBack = { state.eventSink(DiveSiteRegularsEvent.Back) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-                item(key = "filters") { Filters(state) }
-                rankBoardRows(
-                    state.entries,
-                    state.viewerEntry,
-                    UiError.Kind.LoadRegulars,
-                    onRetry = { state.eventSink(DiveSiteRegularsEvent.Retry) },
-                    emptyText = Res.string.dive_site_regulars_empty,
-                    key = { it.athlete.did.value },
-                ) { entry ->
-                    RegularRow(entry, onClick = { state.eventSink(DiveSiteRegularsEvent.OpenAthlete(entry.athlete.did)) })
-                }
-            }
+    ListScreen(
+        title = stringResource(Res.string.dive_site_regulars_title, state.name),
+        onBack = { state.eventSink(DiveSiteRegularsEvent.Back) },
+        modifier = modifier,
+        listState = listState,
+        verticalPadding = 12.dp,
+    ) {
+        item(key = "filters") { Filters(state) }
+        rankBoardRows(
+            state.entries,
+            state.viewerEntry,
+            UiError.Kind.LoadRegulars,
+            onRetry = { state.eventSink(DiveSiteRegularsEvent.Retry) },
+            emptyText = Res.string.dive_site_regulars_empty,
+            key = { it.athlete.did.value },
+        ) { entry ->
+            RegularRow(entry, onClick = { state.eventSink(DiveSiteRegularsEvent.OpenAthlete(entry.athlete.did)) })
         }
     }
 }
