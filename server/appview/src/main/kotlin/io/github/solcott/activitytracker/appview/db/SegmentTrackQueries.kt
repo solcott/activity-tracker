@@ -8,6 +8,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
@@ -41,7 +42,7 @@ fun groupingIn(author: Expression<String>, modes: List<String> = GROUPING_MODES)
  */
 fun groupableTracks(): Query =
     SegmentTracks.join(GroupPrefs, JoinType.INNER, SegmentTracks.authorDid, GroupPrefs.did).selectAll().where {
-        groupingIn(SegmentTracks.authorDid) and (SegmentTracks.groupExcluded eq false)
+        groupingIn(SegmentTracks.authorDid) and not(leftGroup())
     }
 
 /** The segment tracks some purpose may read now: [usableSegmentTracks] or [groupableTracks]. Their cells are kept for both. */
@@ -50,7 +51,7 @@ fun heldSegmentTracks(): Query = SegmentTracks.selectAll().where { heldTrack() }
 /** Whether the track in the outer query's [SegmentTracks] row may be read for some purpose now. */
 fun heldTrack(): Op<Boolean> =
     exists(SegmentPrefs.select(SegmentPrefs.did).where { matchingOn(SegmentTracks.authorDid) }) or
-        exists(GroupPrefs.select(GroupPrefs.did).where { groupingIn(SegmentTracks.authorDid) and (SegmentTracks.groupExcluded eq false) })
+        exists(GroupPrefs.select(GroupPrefs.did).where { groupingIn(SegmentTracks.authorDid) and not(leftGroup()) })
 
 /** [author] hides from leaderboards, Mayors and Regulars (`actor.segmentPrefs`). */
 fun hidesFromLeaderboards(author: Expression<String>): Op<Boolean> =
@@ -58,3 +59,10 @@ fun hidesFromLeaderboards(author: Expression<String>): Op<Boolean> =
 
 /** The outer query's [SegmentTracks] row excludes its activity from leaderboards, Mayors and Regulars. */
 fun excludedFromLeaderboards(): Op<Boolean> = SegmentTracks.leaderboardExcluded eq true
+
+/** The outer query's [SegmentTracks] row keeps its activity out of every group (feed/group-activities). */
+fun leftGroup(): Op<Boolean> = SegmentTracks.groupExcluded eq true
+
+/** [activity]'s segment track keeps it out of every group ([leftGroup]). */
+fun leftGroup(activity: Expression<String>): Op<Boolean> =
+    exists(SegmentTracks.select(SegmentTracks.uri).where { (SegmentTracks.activityUri eq activity) and leftGroup() })

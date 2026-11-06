@@ -7,8 +7,8 @@ import io.github.solcott.activitytracker.appview.db.ActivityInvites
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GROUPING_MODES
 import io.github.solcott.activitytracker.appview.db.GroupPrefs
-import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.groupingIn
+import io.github.solcott.activitytracker.appview.db.leftGroup
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
@@ -134,11 +134,5 @@ private fun invitePairRuleHolds(): Op<Boolean> {
                 (copies[Activities.uri] eq p.copyUri) and (copies[Activities.copyOf] eq p.originalUri)
             }
         )
-    val left =
-        exists(
-            SegmentTracks.select(SegmentTracks.uri).where {
-                (SegmentTracks.activityUri eq p.originalUri) and (SegmentTracks.groupExcluded eq true)
-            }
-        )
-    return invite and namesOriginal and not(left) and not(blocked(p.inviterDid, p.inviteeDid))
+    return invite and namesOriginal and not(leftGroup(p.originalUri)) and not(blocked(p.inviterDid, p.inviteeDid))
 }

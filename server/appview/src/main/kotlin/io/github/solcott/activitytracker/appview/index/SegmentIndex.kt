@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.leftGroup
 import io.github.solcott.activitytracker.appview.db.matchingOn
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -166,7 +167,7 @@ internal fun JdbcTransaction.dropTracks(uris: List<String>) {
         SegmentTracks.select(SegmentTracks.activityUri).where { SegmentTracks.uri inList uris }.map { it[SegmentTracks.activityUri] }
     )
     SegmentTracks.select(SegmentTracks.activityUri)
-        .where { (SegmentTracks.uri inList uris) and (SegmentTracks.groupExcluded eq true) }
+        .where { (SegmentTracks.uri inList uris) and leftGroup() }
         .map { it[SegmentTracks.activityUri] }
         .takeIf { it.isNotEmpty() }
         ?.let { left -> ActivityInvitePairs.deleteWhere { originalUri inList left } }
