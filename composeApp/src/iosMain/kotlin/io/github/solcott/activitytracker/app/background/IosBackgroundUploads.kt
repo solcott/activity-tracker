@@ -9,20 +9,9 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.value
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import platform.BackgroundTasks.BGProcessingTask
-import platform.BackgroundTasks.BGProcessingTaskRequest
-import platform.BackgroundTasks.BGTaskScheduler
 import platform.Foundation.NSDate
-import platform.Foundation.NSError
-import platform.Foundation.NSLog
-import platform.Foundation.NSString
 import platform.Foundation.dateWithTimeIntervalSince1970
 
 /**
@@ -39,31 +28,18 @@ object IosBackgroundUploads {
 
     /** Registers the task's handler; iOS requires it before the app finishes launching. */
     fun register(fitDecoder: FitDecoder) {
-        BGTaskScheduler.sharedScheduler.registerForTaskWithIdentifier(IDENTIFIER, usingQueue = null) { task ->
-            run(task as BGProcessingTask, fitDecoder)
-        }
+        registerProcessingTask(IDENTIFIER) { run(it, fitDecoder) }
     }
 
     /** Asks iOS for a run with a connection, no sooner than [after]; it replaces any run already asked for. */
-    fun schedule(after: Instant? = null) {
-        val request = BGProcessingTaskRequest(IDENTIFIER)
-        request.requiresNetworkConnectivity = true
-        request.requiresExternalPower = false
-        if (after != null) request.earliestBeginDate = NSDate.dateWithTimeIntervalSince1970(after.epochSeconds.toDouble())
-        memScoped {
-            val error = alloc<ObjCObjectVar<NSError?>>()
-            // iOS refuses when Background App Refresh is off, too many requests are pending, or (the simulator) always; the writes then
-            // wait for the app to open, so say why where Console shows it.
-            if (!BGTaskScheduler.sharedScheduler.submitTaskRequest(request, error.ptr)) {
-                // A Kotlin String reaches a C variadic as a C string, so %@ needs an NSString.
-                NSLog("Background uploads not scheduled: %@", (error.value?.localizedDescription ?: "unknown error") as NSString)
-            }
+    fun schedule(after: Instant? = null) =
+        submitProcessingTask(IDENTIFIER, needsNetwork = true, what = "Background uploads") {
+            if (after != null) earliestBeginDate = NSDate.dateWithTimeIntervalSince1970(after.epochSeconds.toDouble())
         }
-    }
 
-    private fun run(task: BGProcessingTask, fitDecoder: FitDecoder) {
-        val job = scope.launch {
-            // Whatever failed (restoring the session, building the graph) is worth another try later.
+    private fun run(task: BGProcessingTask, fitDecoder: FitDecoder) =
+        task.runIn(scope, reschedule = { schedule() }) {
+            // Whatever failed (restoring the session, building the graph) is worth another try later; what's left stays queued.
             val outcome = runSuspendCatching { appGraph(fitDecoder).uploadQueuedWrites() }.getOrElse { PacerOutcome.Failed }
             when (outcome) {
                 is PacerOutcome.Paused -> schedule(outcome.until)
@@ -71,13 +47,6 @@ object IosBackgroundUploads {
                 PacerOutcome.Idle,
                 null -> Unit
             }
-            task.setTaskCompletedWithSuccess(outcome != PacerOutcome.Failed)
+            outcome != PacerOutcome.Failed
         }
-        task.expirationHandler = {
-            // Out of time: what's left is still queued, so ask again.
-            job.cancel()
-            schedule()
-            task.setTaskCompletedWithSuccess(false)
-        }
-    }
 }

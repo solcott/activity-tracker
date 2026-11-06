@@ -10,23 +10,11 @@ import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.db.DataExportEntity
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.value
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import platform.BackgroundTasks.BGProcessingTask
-import platform.BackgroundTasks.BGProcessingTaskRequest
-import platform.BackgroundTasks.BGTaskScheduler
-import platform.Foundation.NSError
-import platform.Foundation.NSLog
-import platform.Foundation.NSString
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationState
-import platform.UIKit.UIBackgroundTaskInvalid
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionProvisional
 import platform.UserNotifications.UNMutableNotificationContent
@@ -58,68 +46,31 @@ object IosDataExports {
     /** Registers the task's handler, as iOS requires before the app finishes launching, and runs every export in a background task. */
     fun register(fitDecoder: FitDecoder) {
         decoder = fitDecoder
-        BGTaskScheduler.sharedScheduler.registerForTaskWithIdentifier(IDENTIFIER, usingQueue = null) { task ->
-            run(task as BGProcessingTask, fitDecoder)
-        }
+        registerProcessingTask(IDENTIFIER) { run(it, fitDecoder) }
         UNUserNotificationCenter.currentNotificationCenter().delegate = taps
         val graph = appGraph(fitDecoder)
         graph.dataExports.launcher = AccountJobLauncher { did, inProcess ->
             schedule()
             graph.dataExports.runInProcess(did) {
-                inBackgroundTask { inProcess() }
+                inBackgroundTask("data-export") { inProcess() }
                 if (graph.dataExports.current(did)?.state == DataExportEntity.STATE_READY) notifyReady()
             }
         }
     }
 
     /** Asks iOS for a run, in case the app is stopped before the export ends; it replaces any run already asked for. */
-    fun schedule() {
-        val request = BGProcessingTaskRequest(IDENTIFIER)
-        request.requiresNetworkConnectivity = true
-        request.requiresExternalPower = false
-        memScoped {
-            val error = alloc<ObjCObjectVar<NSError?>>()
-            // iOS refuses when Background App Refresh is off, too many requests are pending, or (the simulator) always; the export then
-            // resumes when the app opens, so say why where Console shows it.
-            if (!BGTaskScheduler.sharedScheduler.submitTaskRequest(request, error.ptr)) {
-                NSLog("Background export not scheduled: %@", (error.value?.localizedDescription ?: "unknown error") as NSString)
-            }
-        }
-    }
+    fun schedule() = submitProcessingTask(IDENTIFIER, needsNetwork = true, what = "Background export")
 
-    /** Runs [block] inside a UIKit background task, so leaving the app gives it the time iOS allows before suspending it. */
-    private suspend fun inBackgroundTask(block: suspend () -> Unit) {
-        val application = UIApplication.sharedApplication
-        var id = UIBackgroundTaskInvalid
-        id =
-            application.beginBackgroundTaskWithName("data-export") {
-                // Out of time: the export stops where it is and resumes later.
-                application.endBackgroundTask(id)
-                id = UIBackgroundTaskInvalid
-            }
-        try {
-            block()
-        } finally {
-            if (id != UIBackgroundTaskInvalid) application.endBackgroundTask(id)
-        }
-    }
-
-    private fun run(task: BGProcessingTask, fitDecoder: FitDecoder) {
-        val job = scope.launch {
+    private fun run(task: BGProcessingTask, fitDecoder: FitDecoder) =
+        task.runIn(scope, reschedule = ::schedule) {
+            // Everything staged so far stays staged; what's left resumes on the next run.
             val graph = appGraph(fitDecoder)
             var ready = false
             val left = runSuspendCatching { graph.runDataExport { ready = it?.state == DataExportEntity.STATE_READY } }.getOrElse { true }
             if (ready) notifyReady()
             if (left == true) schedule()
-            task.setTaskCompletedWithSuccess(left != true)
+            left != true
         }
-        task.expirationHandler = {
-            // Out of time: everything staged so far stays staged; ask again for the rest.
-            job.cancel()
-            schedule()
-            task.setTaskCompletedWithSuccess(false)
-        }
-    }
 
     /** Says the export is ready, unless the app is in front, where the Account page already says so. */
     private suspend fun notifyReady() {
