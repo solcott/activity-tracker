@@ -452,12 +452,13 @@ class ActivityRepository(
      * Once a session, finishes any split activity an interrupted save left stored in two places ([ActivityPlaces.repairOnce], never
      * widening), moves any zones left wider than they should be and drops copies an interrupted move left behind
      * ([ActivityZonesStore.sweepOnce]), then sends the moves. Best effort, and slow for an athlete with many activities, so callers run it
-     * apart from anything the athlete waits on.
+     * apart from anything the athlete waits on. It sends no import's (bulk) writes, which are the pacer's: one stalled at the PDS would
+     * hold the account's drain, and the feed's [syncOwn] behind it (data/outbox).
      */
     suspend fun repairZones() {
         places.repairOnce()
         zones.sweepOnce()
-        outbox.drain()
+        outbox.drain { !it.bulk }
     }
 }
 
