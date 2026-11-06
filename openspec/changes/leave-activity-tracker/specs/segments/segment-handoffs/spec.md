@@ -85,12 +85,8 @@ When the AppView indexes the importer's segment keyed by a handoff id, it SHALL 
 - **THEN** the AppView answers `NotFound`
 
 ### Requirement: Stars follow the successor
-When the app finds that a starred segment's view has a different URI, it SHALL replace the star with one for the successor. A star whose segment is `NotFound` SHALL be kept and shown as unavailable.
+When the app finds that a starred segment's view has a different URI, it SHALL replace the star with one for the successor.
 
 #### Scenario: Star moved
 - **WHEN** dave starred alice's segment and opens his starred list after its republication
 - **THEN** the list shows the republished segment, and his `self` space holds a star for it and none for the old URI
-
-#### Scenario: Waiting for republication
-- **WHEN** dave opens his starred list before the importer has run
-- **THEN** the star is listed as unavailable and kept

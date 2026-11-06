@@ -2,7 +2,7 @@
 
 ## 1. Space deletion and scope
 
-- [ ] 1.1 On the local stack, confirm the pinned Spaces alpha PDS accepts a grant with `manage=delete` and that `com.atproto.space.deleteSpace` deletes a space and sends `notifySpaceDeleted` to the AppView (purge in the AppView log). Add the step to `docker/scripts/spaces-smoke.sh`. Stop and bump the pin in its own change if either fails
+- [ ] 1.1 On the local stack, confirm the pinned 2026-11-05 Spaces alpha PDS (atproto `704b9e2`) accepts a grant with `manage=delete` and that `com.atproto.space.deleteSpace` deletes a space and sends `notifySpaceDeleted` to the AppView (purge in the AppView log). Add the step to `docker/scripts/spaces-smoke.sh`. Stop and bump the pin in its own change if either fails
 - [ ] 1.2 Mirror `com.atproto.space.deleteSpace` in `core/lexicon` `Space.kt` and add `SpaceClient.deleteSpace`, treating NotFound as done and surfacing `ScopeMissingError`; cover delete, repeat delete and missing scope in `SpaceClientTest` (`./gradlew :core-atproto:jvmTest --tests "*.SpaceClientTest"`)
 - [ ] 1.3 Add `&manage=delete` to `OAuthClientConfig.DEFAULT_SCOPE` and the hosted `/oauth/client-metadata.json`; update `OAuthFlowTest` and the metadata-matches test, and add a grant-status test showing an old grant as `Outdated` (`./gradlew :core-atproto:jvmTest :core-data:jvmTest :server-appview:test`)
 
@@ -32,14 +32,14 @@
 
 ## 6. Client: the leave job
 
-- [ ] 6.1 Add a `LeaveJob` in `core/data` per design Decision 6 with a `leaving(did, step)` Room row; discard the outbox, imports and recording; delete spaces `self` first; delete `app.activitytracker.*` repo records via `describeRepo`, `listRecords` and `applyWrites` under `AccountPacing`; clear the account's local data and secrets; jvm tests for the full run (Bluesky records untouched), no spaces, a 429 mid-run, a non-rate-limit refusal stopping with Retry, and resuming at each step
+- [ ] 6.1 Add a `LeaveJob` in `core/data` per design Decision 6 with a `leaving(did, step)` Room row; discard the outbox, imports and recording; delete spaces `self` first; delete the repo records of every collection in `AppCollections.records` plus any other `app.activitytracker.*` collection `describeRepo` reports, via `listRecords` and `applyWrites` under `AccountPacing`; clear the account's local data, export files and secrets; refuse to start while the account's export runs or its PDS can't be reached; jvm tests for the full run (Bluesky records untouched), a retired collection still in the repo, a running export, an unreachable PDS, no spaces, a 429 mid-run, a non-rate-limit refusal stopping with Retry, and resuming at each step
 - [ ] 6.2 The app shell resumes a `leaving` row on start or sign-in instead of opening the session UI, and shows the left note on the login screen after it finishes; tests in `composeApp` and the login presenter
-- [ ] 6.3 Rewrite a segment star when `getSegment` returns another URI, and keep one whose segment is `NotFound` as unavailable; `SegmentStars` tests and the starred list's presenter test
+- [ ] 6.3 Rewrite a segment star when `getSegment` returns another URI (a `NotFound` one stays unavailable as `segment-favorites` already says); `SegmentStars` tests and the starred list's presenter test
 
 ## 7. Leave screen
 
 - [ ] 7.1 Add `LeaveScreen`, `LeaveState` and `LeaveEvent` in `feature/settings/api`, and a Leave Activity Tracker row on the Account page; `composeStabilityCheck` passes
-- [ ] 7.2 `LeavePresenter`: the deleted/stays summary, the count of active segments and dive sites that stay (from the AppView's segment and site lists for the athlete) and of the rest that go, pending device work, the export offer (opening `data-export`'s export), the grant and connectivity checks, a typed-handle gate, and the job's progress and errors; presenter tests for each `auth/leaving` scenario
+- [ ] 7.2 `LeavePresenter`: the deleted/stays summary, the count of active segments and dive sites that stay (from the AppView's segment and site lists for the athlete) and of the rest that go, pending device work, the export states (start one, wait for or cancel a running one, save a ready one first, using the Account page's export), the grant and PDS-reachability checks, a typed-handle gate, and the job's progress and errors; presenter tests for each `auth/leaving` scenario
 - [ ] 7.3 `LeaveUi` from `ui/adaptive` wrappers, with the progress and error states; strings and plurals in `:ui-resources`, `LeaveSamples` in `:app-fixtures`, `LeaveUiTest`, `ContentLoadingConformanceTest` if it applies, and screenshot tests in `:androidApp` (`ScreenshotCoverageTest` passes)
 - [ ] 7.4 Regenerate screenshot references with `./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite` and review the changed Account, Leave and Login images
 

@@ -6,7 +6,7 @@ An athlete who stops using Activity Tracker has no way to take back what the app
 
 ## What Changes
 
-- New **Leave Activity Tracker** action on the Account page. Before confirming, it shows the athlete what will be deleted, what stays (the atproto account, handle and Bluesky data), and how many of their segments and dive sites other athletes use, which stay on the map without their name. It offers an export first.
+- New **Leave Activity Tracker** action on the Account page. Before confirming, it shows the athlete what will be deleted, what stays (the atproto account, handle and Bluesky data), and how many of their segments and dive sites other athletes use, which stay on the map without their name. It offers an export first, won't start while an export is running, and offers to save a finished export before leaving deletes it.
 - Leaving runs as one resumable job on the device:
   1. Record locally that the account is leaving.
   2. Discard this device's outbox and cancel any import or recording.
@@ -41,4 +41,4 @@ Out of scope: deleting the atproto account (the PDS's job), signing other device
 - **Client**: `core/atproto` (`SpaceClient.deleteSpace`, `OAuthClientConfig.DEFAULT_SCOPE` and the hosted client metadata); `core/data` (a leave job built on the outbox's `AccountPacing`, `describeRepo`/`listRecords`/`applyWrites`, `AthleteSpaces` no longer recreating a space this device has seen, an account-left check before draining, local data cleared per account, the segment star rewrite); `feature/settings` (Leave screen, progress, the other-device prompt); `:app-fixtures`, `:ui-resources`, screenshot references.
 - **AppView**: a `segment_handoffs` table (Flyway migration) filled by the segment and dive-site delete paths, including `deleteActor`; successor linking when the importer's copy is indexed or a live duplicate takes over; name history carried over; `getSegment`/`getDiveSite` resolving old URIs; the `getHandoffs` route, open only to the importer.
 - **Segment importer**: a `handoff` command that publishes pending segment and site handoffs.
-- **Depends on** `data-export` for the "export first" offer, and on the pinned Spaces alpha PDS for `deleteSpace` and the `manage=delete` scope.
+- **Builds on** `data-export` (archived): the leave screen uses the Account page's export, and the repo deletion walks its `AppCollections` list. **Depends on** the pinned 2026-11-05 Spaces alpha PDS for `deleteSpace` and the `manage=delete` scope.

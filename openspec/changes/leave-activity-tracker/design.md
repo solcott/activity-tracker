@@ -9,7 +9,8 @@ See proposal.md for why. What shapes the approach:
 - Removing a segment already re-checks its duplicates (`recheckDuplicatesOf`). A duplicate that is left duplicating nothing becomes live and is queued for matching. Importer segments start `active` (`liveStatus`).
 - Efforts, leaderboards, Mayors boards and dive-site visits are all derived from stored segment tracks. Only names (adopted names and their history) are held per segment URI.
 - On the client, `AthleteSpaces.ensure` creates a missing tier space on the next write. Sign-out keeps queued writes, which upload when the account signs in again. The outbox drains under `AccountPacing`, shared per DID.
-- The pinned Spaces alpha PDS (2026-10-29) has `com.atproto.space.deleteSpace`: its lexicon was copied in `spaces-alpha-2026-10-29`. It notifies registered services, and the AppView handles that notification (`spaces-deletion-callout`). Whether that alpha's permission parser accepts `manage=delete` has not been checked yet; task 1.1 does that first.
+- The Spaces alpha PDS is now pinned to the 2026-11-05 build (atproto `704b9e2`). `com.atproto.space.deleteSpace` was in the 2026-10-29 lexicons (`spaces-alpha-2026-10-29`), a deleted space notifies registered services, and the AppView handles that notification (`spaces-deletion-callout`). Whether the current pin still has `deleteSpace` and accepts `manage=delete` has not been checked; task 1.1 does that first.
+- `data-export` has shipped. Exports run in the background, wait on the Account page to be saved, and are deleted on sign-out. `AppCollections` (`core/lexicon`) lists every `app.activitytracker` record collection.
 - The app has no in-app delete for segments or dive sites, only for name proposals. So the leave screen is the only place in the app where athletes are told about handoffs.
 
 ## Goals / Non-Goals
@@ -53,12 +54,12 @@ Name-history rows are re-keyed from the old URI to the handoff, then to the succ
 `importer.getHandoffs` (new lexicon query, importer-only, cursor by id) runs the duplicate check itself. `importer.checkSegmentCandidates` and `importer.checkDiveSites` take staged ids or a file's sites, not a handoff, so they don't fit. For each pending handoff, the AppView applies the segment or site duplicate test against live subjects. A handoff that a live subject duplicates is linked to it (Decision 3) and left out; the rest are listed. `handoff` writes each listed one with `putRecord` under the handoff id, only where no record exists, and is exempt from creation limits like other importer writes. If something live appears between the listing and the write, the importer's copy is indexed as `duplicate`. The AppView then links the handoff to the copy's `duplicateOf` instead of to the copy.
 
 ### 6. The leave job
-`LeaveJob` lives in `core/data` and is scoped per account, with a `leaving` row in Room that holds the DID and the current step. In order:
+`LeaveJob` lives in `core/data` and is scoped per account, with a `leaving` row in Room that holds the DID and the current step. It won't start while the account's data export runs: the export would read records as they're deleted. An export waiting to be saved is deleted with the account's local data, so the leave screen offers Save first. In order:
 1. Write `leaving(did, step = DISCARD)`.
 2. Cancel the account's outbox entries, imports and recording.
 3. `deleteSpace` for each athlete space key, `self` first, then the tiers and `interactions`. NotFound counts as done.
-4. `describeRepo`, then for each `app.activitytracker.*` collection, `listRecords` pages, then `applyWrites` deletes in batches of `ApplyWrites.MAX_WRITES`, under the account's `AccountPacing` (429 waits, and the pause shown).
-5. Clear the account's Room rows, the cached space credentials and the session secrets.
+4. Take the union of `AppCollections.records` and the `app.activitytracker.*` collections `describeRepo` reports, so collections since retired from the app are deleted too. For each, `listRecords` pages, then `applyWrites` deletes in batches of `ApplyWrites.MAX_WRITES`, under the account's `AccountPacing` (429 waits, and the pause shown).
+5. Clear the account's Room rows, its export files, the cached space credentials and the session secrets.
 6. Delete the `leaving` row and sign out with a "left" login note.
 
 The app shell checks for a `leaving` row before building the `SessionGraph`'s normal UI, and shows the leave progress screen instead. Every step lists before deleting, so a replay is idempotent.
@@ -78,7 +79,8 @@ Room keeps `known_spaces(did, skey)`, written when this device first reads or wr
 
 ## Risks / Trade-offs
 
-- [The pinned alpha rejects `manage=delete`, or its `deleteSpace` doesn't notify] → Task 1.1 checks this first on the local stack, before any other work. If it fails, bump the alpha pin in its own change first.
+- [The 2026-11-05 pin rejects `manage=delete`, or its `deleteSpace` doesn't notify] → Task 1.1 checks this first on the local stack, before any other work. If it fails, bump the alpha pin in its own change first.
+- [The athlete leaves with an export they never saved] → The leave screen offers Save first and says leaving deletes it, and leaving can't start while an export is still running.
 - [Gap between delete and republication: links and stars briefly hit `NotFound`] → Stars are kept and shown as unavailable. Operators run `handoff` regularly; it's cheap when nothing is pending.
 - [Deleting a mistaken active segment no longer removes it] → A `!takedown` label still removes it with no handoff, and that is documented in the proposal as **BREAKING**.
 - [A device offline for weeks drains public repo writes before it ever reaches `getSpace`] → The check runs before the first drain of every session, not after one, so no write goes out before it.

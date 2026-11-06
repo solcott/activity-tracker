@@ -28,14 +28,22 @@ The leave screen SHALL say how many of the athlete's segments and dive sites are
 - **THEN** it says 3 segments and 1 dive site others use will stay without her name, and the other 2 segments will be deleted
 
 ### Requirement: Leaving offers an export first
-The leave screen SHALL offer to export the athlete's data before they leave, and SHALL let them go on without exporting.
+With no export, the leave screen SHALL offer to start one, as the Account page's Export your data does, and SHALL let the athlete go on without exporting. While an export runs, leaving SHALL NOT start: the screen SHALL say to wait for it or cancel it. When an export waits to be saved, the screen SHALL offer Save first and say that leaving deletes it.
 
 #### Scenario: Exporting first
 - **WHEN** alice chooses to export from the leave screen
 - **THEN** the export starts, and she can come back to the leave screen afterwards
 
+#### Scenario: Export running
+- **WHEN** alice opens the leave screen while her export is running
+- **THEN** leaving is unavailable, and the screen says to wait for the export or cancel it
+
+#### Scenario: Export not yet saved
+- **WHEN** alice's export is ready and unsaved when she opens the leave screen
+- **THEN** the screen offers Save, and says leaving deletes the export
+
 ### Requirement: Leaving says what this device loses
-When this device has changes that haven't uploaded (waiting, uploading or refused), an import saving, or a recording in progress for the account, the leave screen SHALL say how many changes and which of these will be discarded, never uploaded.
+When this device has changes that haven't uploaded (waiting, uploading or refused), an import saving, a recording in progress, or an export waiting to be saved for the account, the leave screen SHALL say how many changes and which of these will be discarded, never uploaded or kept.
 
 #### Scenario: Uploads waiting
 - **WHEN** bob has 2 activities waiting to upload and opens the leave screen
@@ -52,16 +60,16 @@ Leaving SHALL start only after the athlete types their handle and confirms. Unti
 - **WHEN** alice cancels the leave screen
 - **THEN** nothing is deleted or discarded and she stays signed in
 
-### Requirement: Leaving needs a current grant and a connection
-Leaving SHALL refuse to start when the session's grant lacks the permission to delete spaces, and SHALL point to Sign in again. It SHALL also refuse to start when the device is offline, so a leave never starts without a connection.
+### Requirement: Leaving needs a current grant and a reachable PDS
+Leaving SHALL refuse to start when the session's grant lacks the permission to delete spaces, and SHALL point to Sign in again. It SHALL also refuse to start when the athlete's PDS can't be reached, so nothing is discarded before the leave can run.
 
 #### Scenario: Grant from before space deletion
 - **WHEN** bob, whose sign-in predates the space-deletion permission, chooses Leave Activity Tracker
 - **THEN** he is told he must sign in again first, and is offered Sign in again
 
-#### Scenario: Offline
-- **WHEN** alice confirms leaving with no connection
-- **THEN** she is told leaving needs a connection, and nothing is discarded
+#### Scenario: PDS unreachable
+- **WHEN** alice confirms leaving and her PDS can't be reached
+- **THEN** she is told her PDS couldn't be reached, and nothing is discarded
 
 ### Requirement: Leaving removes the app's data in order
 Once confirmed, leaving SHALL first discard this device's queued writes for the account and stop its import and recording. It SHALL then delete each of the athlete's spaces that exists (`self` first, then the tiers and `interactions`), then delete every record in the repo in an `app.activitytracker.*` collection, then clear the account's data on this device and sign out.
