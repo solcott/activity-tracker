@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10,26 +11,35 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ArchiveHandOffResult
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppListRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppListSection
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.rememberArchiveHandOff
+import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
+import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.account_did
 import io.github.solcott.activitytracker.composeApp.resources.account_did_copied
 import io.github.solcott.activitytracker.composeApp.resources.account_did_copy
 import io.github.solcott.activitytracker.composeApp.resources.account_end_changes
+import io.github.solcott.activitytracker.composeApp.resources.account_end_export
 import io.github.solcott.activitytracker.composeApp.resources.account_end_import
 import io.github.solcott.activitytracker.composeApp.resources.account_end_sign_in_again_anyway
 import io.github.solcott.activitytracker.composeApp.resources.account_end_sign_out_anyway
@@ -44,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.account_feature_pr
 import io.github.solcott.activitytracker.composeApp.resources.account_feature_segments_and_groups
 import io.github.solcott.activitytracker.composeApp.resources.account_handle
 import io.github.solcott.activitytracker.composeApp.resources.account_managed_by_server
+import io.github.solcott.activitytracker.composeApp.resources.account_section_export
 import io.github.solcott.activitytracker.composeApp.resources.account_section_identity
 import io.github.solcott.activitytracker.composeApp.resources.account_section_managed
 import io.github.solcott.activitytracker.composeApp.resources.account_section_sign_in
@@ -54,10 +65,34 @@ import io.github.solcott.activitytracker.composeApp.resources.account_sign_in_sp
 import io.github.solcott.activitytracker.composeApp.resources.account_title
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.export_data
+import io.github.solcott.activitytracker.composeApp.resources.export_data_about
+import io.github.solcott.activitytracker.composeApp.resources.export_data_activities
+import io.github.solcott.activitytracker.composeApp.resources.export_data_cancel
+import io.github.solcott.activitytracker.composeApp.resources.export_data_delete
+import io.github.solcott.activitytracker.composeApp.resources.export_data_failed
+import io.github.solcott.activitytracker.composeApp.resources.export_data_files
+import io.github.solcott.activitytracker.composeApp.resources.export_data_keep_open
+import io.github.solcott.activitytracker.composeApp.resources.export_data_listing
+import io.github.solcott.activitytracker.composeApp.resources.export_data_no_spaces
+import io.github.solcott.activitytracker.composeApp.resources.export_data_paused_space
+import io.github.solcott.activitytracker.composeApp.resources.export_data_paused_space_unknown
+import io.github.solcott.activitytracker.composeApp.resources.export_data_problems
+import io.github.solcott.activitytracker.composeApp.resources.export_data_ready
+import io.github.solcott.activitytracker.composeApp.resources.export_data_records
+import io.github.solcott.activitytracker.composeApp.resources.export_data_save
+import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_delete
+import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_keep
+import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_message
+import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_title
+import io.github.solcott.activitytracker.composeApp.resources.export_data_try_again
+import io.github.solcott.activitytracker.composeApp.resources.export_data_unsent
+import io.github.solcott.activitytracker.composeApp.resources.import_megabytes
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -91,6 +126,7 @@ fun AccountUi(state: AccountState, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            AppListSection(stringResource(Res.string.account_section_export)) { ExportSection(state) }
             AppListSection(null) {
                 AppListRow(
                     stringResource(Res.string.profile_sign_out),
@@ -101,7 +137,107 @@ fun AccountUi(state: AccountState, modifier: Modifier = Modifier) {
         }
     }
     state.confirming?.let { EndDialog(it, state.eventSink) }
+    if (state.askingKeptShared) KeptSharedDialog(state.eventSink)
 }
+
+/** The data export (auth/data-export): what it holds, then its progress, or the finished archive to save. */
+@Composable
+private fun ExportSection(state: AccountState) {
+    val handOff = rememberArchiveHandOff { result ->
+        when (result) {
+            ArchiveHandOffResult.Saved -> state.eventSink(AccountEvent.ExportSaved)
+            ArchiveHandOffResult.Shared -> state.eventSink(AccountEvent.ExportShared)
+            ArchiveHandOffResult.Failed -> state.eventSink(AccountEvent.ExportSaveFailed)
+            ArchiveHandOffResult.Dismissed -> Unit
+        }
+    }
+    val body = MaterialTheme.typography.bodyMedium
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        when (val export = state.export) {
+            DataExportStatus.None -> {
+                Text(stringResource(Res.string.export_data_about), style = body)
+                AppButton(onClick = { state.eventSink(AccountEvent.Export) }) { Text(stringResource(Res.string.export_data)) }
+            }
+            is DataExportStatus.Running -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AppProgressIndicator(small = true)
+                    Text(runningText(export), style = body)
+                }
+                if (LocalUiPlatform.current == UiPlatform.Web) Text(stringResource(Res.string.export_data_keep_open), style = body)
+                AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) {
+                    Text(stringResource(Res.string.export_data_cancel))
+                }
+            }
+            is DataExportStatus.Ready -> {
+                Text(stringResource(Res.string.export_data_ready), style = body)
+                if (export.problems > 0)
+                    Text(pluralStringResource(Res.plurals.export_data_problems, export.problems, export.problems), style = body)
+                if (export.unsentChanges > 0) {
+                    Text(pluralStringResource(Res.plurals.export_data_unsent, export.unsentChanges, export.unsentChanges), style = body)
+                }
+                if (!export.spacesIncluded) Text(stringResource(Res.string.export_data_no_spaces), style = body)
+                AppButton(onClick = { handOff(export.archive) }) { Text(stringResource(Res.string.export_data_save)) }
+                AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) {
+                    Text(stringResource(Res.string.export_data_delete))
+                }
+            }
+            is DataExportStatus.Paused -> {
+                Text(
+                    export.neededBytes?.let {
+                        stringResource(
+                            Res.string.export_data_paused_space,
+                            stringResource(Res.string.import_megabytes, formatWhole((it + BYTES_PER_MB - 1) / BYTES_PER_MB)),
+                        )
+                    } ?: stringResource(Res.string.export_data_paused_space_unknown),
+                    style = body,
+                )
+                RetryOrCancel(state)
+            }
+            DataExportStatus.Failed -> {
+                Text(stringResource(Res.string.export_data_failed), style = body)
+                RetryOrCancel(state)
+            }
+        }
+        state.exportError?.let { Text(errorText(it), style = body, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun RetryOrCancel(state: AccountState) {
+    AppButton(onClick = { state.eventSink(AccountEvent.Export) }) { Text(stringResource(Res.string.export_data_try_again)) }
+    AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) { Text(stringResource(Res.string.export_data_cancel)) }
+}
+
+@Composable
+private fun runningText(export: DataExportStatus.Running): String =
+    when (export.phase) {
+        DataExportStatus.Running.Phase.Records ->
+            if (export.records == 0) stringResource(Res.string.export_data_listing)
+            else pluralStringResource(Res.plurals.export_data_records, export.records, formatWhole(export.records))
+        DataExportStatus.Running.Phase.Files ->
+            stringResource(Res.string.export_data_files, formatWhole(export.filesDone), formatWhole(export.filesTotal))
+        DataExportStatus.Running.Phase.Activities ->
+            stringResource(Res.string.export_data_activities, formatWhole(export.activitiesDone), formatWhole(export.activitiesTotal))
+    }
+
+/** iOS's share sheet doesn't say whether the zip was kept, so the athlete says whether the app's copy can go. */
+@Composable
+private fun KeptSharedDialog(eventSink: (AccountEvent) -> Unit) {
+    AppAlertDialog(
+        title = stringResource(Res.string.export_data_shared_title),
+        message = stringResource(Res.string.export_data_shared_message),
+        actions =
+            persistentListOf(
+                AppDialogAction(stringResource(Res.string.export_data_shared_delete), destructive = true) {
+                    eventSink(AccountEvent.KeptShared(kept = true))
+                }
+            ),
+        cancelLabel = stringResource(Res.string.export_data_shared_keep),
+        onDismiss = { eventSink(AccountEvent.KeptShared(kept = false)) },
+    )
+}
+
+private const val BYTES_PER_MB = 1024L * 1024
 
 @Composable
 private fun Identity(state: AccountState) {
@@ -152,9 +288,10 @@ private fun Grant(state: AccountState) {
 private fun EndDialog(ending: EndingSession, eventSink: (AccountEvent) -> Unit) {
     val changes = ending.pending.changes.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.account_end_changes, it, it) }
     val import = if (ending.pending.importSaving) stringResource(Res.string.account_end_import) else null
+    val export = if (ending.pending.exportPending) stringResource(Res.string.account_end_export) else null
     AppAlertDialog(
         title = stringResource(if (ending.signInAgain) Res.string.account_end_title_sign_in_again else Res.string.account_end_title),
-        message = listOfNotNull(changes, import).joinToString("\n\n"),
+        message = listOfNotNull(changes, import, export).joinToString("\n\n"),
         actions =
             persistentListOf(
                 AppDialogAction(

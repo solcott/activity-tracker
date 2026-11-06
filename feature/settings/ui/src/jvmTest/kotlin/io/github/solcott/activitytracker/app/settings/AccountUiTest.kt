@@ -66,4 +66,57 @@ class AccountUiTest {
         // The dialog dismisses itself before its action runs, so the confirmation carries the choice.
         assertEquals(listOf(AccountEvent.Dismiss, AccountEvent.Confirm(signInAgain = false)), events.takeLast(2))
     }
+
+    @Test
+    fun noExportOffersOne() = runComposeUiTest {
+        val events = mutableListOf<AccountEvent>()
+        setContent { AppPreview { AccountUi(AccountSamples.default.copy(eventSink = { events += it })) } }
+        onNodeWithText("including private activities", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Export your data").performScrollTo().performClick()
+        assertEquals(AccountEvent.Export, events.last())
+    }
+
+    @Test
+    fun aRunningExportShowsHowFarItsGotAndCanBeCancelled() = runComposeUiTest {
+        val events = mutableListOf<AccountEvent>()
+        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("exportRunning").copy(eventSink = { events += it })) } }
+        onNodeWithText("Preparing activities: 120 of 400").performScrollTo().assertExists()
+        onNodeWithText("Export your data").assertDoesNotExist()
+        onNodeWithText("Cancel export").performScrollTo().performClick()
+        assertEquals(AccountEvent.CancelExport, events.last())
+    }
+
+    @Test
+    fun aReadyExportOffersSaveAndSaysWhatWasLeftOut() = runComposeUiTest {
+        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("exportReadyWithProblems")) } }
+        onNodeWithText("Your export is ready.").performScrollTo().assertExists()
+        onNodeWithText("1 item couldn't be read", substring = true).performScrollTo().assertExists()
+        onNodeWithText("2 changes still on this device", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Your private data isn't included", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Save").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun aPausedExportSaysHowMuchRoomItNeeds() = runComposeUiTest {
+        val events = mutableListOf<AccountEvent>()
+        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("exportPaused").copy(eventSink = { events += it })) } }
+        onNodeWithText("Free up 1,200 MB", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Try again").performScrollTo().performClick()
+        assertEquals(AccountEvent.Export, events.last())
+    }
+
+    @Test
+    fun aSharedExportAsksBeforeDeletingTheAppsCopy() = runComposeUiTest {
+        val events = mutableListOf<AccountEvent>()
+        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("exportSharedAsk").copy(eventSink = { events += it })) } }
+        onNodeWithText("Did you keep the export?").assertExists()
+        onNodeWithText("Delete the app's copy").performClick()
+        assertEquals(AccountEvent.KeptShared(kept = true), events.last())
+    }
+
+    @Test
+    fun anUnsavedExportIsMentionedBeforeSigningOut() = runComposeUiTest {
+        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("pendingExport")) } }
+        onNodeWithText("Your data export hasn't been saved", substring = true).assertExists()
+    }
 }

@@ -110,6 +110,8 @@
     <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
     <string name="error_download_original">Couldn't download the original file. Check your connection and try again.</string>
     <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
+    <string name="error_start_data_export">Couldn't start the export. Try again.</string>
+    <string name="error_save_data_export">Couldn't save the export. Check there's room where you saved it, and try again.</string>
     <string name="error_retry_change">Couldn't send the change again</string>
     <string name="error_discard_change">Couldn't discard the change</string>
     <string name="error_load_uploads">Couldn't show your uploads</string>
@@ -562,8 +564,44 @@
         <item quantity="other">%1$d changes haven't uploaded yet. They stay on this device and upload when you sign in here again.</item>
     </plurals>
     <string name="account_end_import">An import is still saving. Signing out stops it, and the activities it hasn't saved yet are dropped.</string>
+    <string name="account_end_export">Your data export hasn't been saved. Signing out cancels it and deletes it from this device.</string>
     <string name="account_end_sign_out_anyway">Sign out anyway</string>
     <string name="account_end_sign_in_again_anyway">Sign in again anyway</string>
+    <!-- The Account page's data export (auth/data-export). -->
+    <string name="account_section_export">Your data</string>
+    <string name="export_data">Export your data</string>
+    <string name="export_data_about">Download everything Activity Tracker holds of yours as a zip, including private activities, exact tracks, your settings, gear, likes and comments. Each activity also comes as a file you can open elsewhere.</string>
+    <string name="export_data_listing">Gathering your records…</string>
+    <plurals name="export_data_records">
+        <item quantity="one">%1$d record so far</item>
+        <item quantity="other">%1$d records so far</item>
+    </plurals>
+    <string name="export_data_files">Downloading files: %1$d of %2$d</string>
+    <string name="export_data_activities">Preparing activities: %1$d of %2$d</string>
+    <string name="export_data_keep_open">Keep this tab open until the export is ready.</string>
+    <string name="export_data_ready">Your export is ready.</string>
+    <string name="export_data_save">Save</string>
+    <string name="export_data_cancel">Cancel export</string>
+    <string name="export_data_delete">Delete export</string>
+    <plurals name="export_data_unsent">
+        <item quantity="one">%1$d change still on this device isn't included.</item>
+        <item quantity="other">%1$d changes still on this device aren't included.</item>
+    </plurals>
+    <plurals name="export_data_problems">
+        <item quantity="one">%1$d item couldn't be read and was left out. The export's manifest lists it.</item>
+        <item quantity="other">%1$d items couldn't be read and were left out. The export's manifest lists them.</item>
+    </plurals>
+    <string name="export_data_no_spaces">Your private data isn't included: this sign-in can't read it. Sign in again and export again to include it.</string>
+    <string name="export_data_paused_space">The export is paused: there isn't enough free space on this device. Free up %1$s and try again.</string>
+    <string name="export_data_paused_space_unknown">The export is paused: there isn't enough free space on this device. Free up some space and try again.</string>
+    <string name="export_data_failed">The export couldn't reach your server. Check your connection and try again.</string>
+    <string name="export_data_try_again">Try again</string>
+    <string name="export_data_ready_notification_title">Your data export is ready</string>
+    <string name="export_data_ready_notification_text">Open Activity Tracker to save it</string>
+    <string name="export_data_shared_title">Did you keep the export?</string>
+    <string name="export_data_shared_message">If you saved the zip somewhere, the app can delete its copy. Otherwise keep it to save later.</string>
+    <string name="export_data_shared_delete">Delete the app's copy</string>
+    <string name="export_data_shared_keep">Keep it</string>
     <string name="settings_activity_defaults">Activity defaults</string>
     <string name="settings_segments_and_groups">Segments &amp; groups</string>
     <string name="settings_segments_on">Matching on</string>

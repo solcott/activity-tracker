@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.settings.AccountEvent
 import io.github.solcott.activitytracker.app.settings.AccountPresenter
 import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.AccountState
+import io.github.solcott.activitytracker.app.settings.DataExportStatus
 import io.github.solcott.activitytracker.app.settings.EndingSession
 import io.github.solcott.activitytracker.app.settings.hostOf
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
@@ -40,7 +41,9 @@ class AccountPresenterTest {
                 FakeNavigator(AccountScreen),
                 repos.clients,
                 repos.auth,
-                SignOutCheck(repos.uploads, repos.saves, repos.clients),
+                SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
+                repos.exports,
+                repos.dataExporter,
             )
         }) {
             block(repos)
@@ -135,6 +138,88 @@ class AccountPresenterTest {
             awaitItem().eventSink(AccountEvent.SignInAgain)
             val asking = awaitUntil { it.confirming != null }
             assertEquals(EndingSession(signInAgain = true, PendingWork(changes = 0, importSaving = true)), asking.confirming)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun noExportOffersOne() = runTest {
+        account {
+            assertEquals(DataExportStatus.None, awaitItem().export)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun exportingRunsToReadyAndADoubleTapStartsOne() = runTest {
+        account { repos ->
+            val state = awaitItem()
+            state.eventSink(AccountEvent.Export)
+            state.eventSink(AccountEvent.Export)
+            val ready = awaitUntil { it.export is DataExportStatus.Ready }.export as DataExportStatus.Ready
+            assertEquals(0, ready.problems)
+            assertEquals(ready.archive.id, repos.exports.current(repos.clients.did)?.id, "one export, however often it was asked for")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun savingDeletesTheAppsCopy() = runTest {
+        account(before = { repos -> repos.dataExporter.run(repos.dataExporter.start()) }) { repos ->
+            val ready = awaitUntil { it.export is DataExportStatus.Ready }
+            ready.eventSink(AccountEvent.ExportSaved)
+            awaitUntil { it.export == DataExportStatus.None }
+            assertNull(repos.exports.current(repos.clients.did))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSharedExportAsksBeforeDeletingAndKeepingLeavesIt() = runTest {
+        account(before = { repos -> repos.dataExporter.run(repos.dataExporter.start()) }) { repos ->
+            awaitUntil { it.export is DataExportStatus.Ready }.eventSink(AccountEvent.ExportShared)
+            val asking = awaitUntil { it.askingKeptShared }
+            asking.eventSink(AccountEvent.KeptShared(kept = false))
+            val kept = awaitUntil { !it.askingKeptShared }
+            assertEquals(true, kept.export is DataExportStatus.Ready)
+
+            kept.eventSink(AccountEvent.ExportShared)
+            awaitUntil { it.askingKeptShared }.eventSink(AccountEvent.KeptShared(kept = true))
+            awaitUntil { it.export == DataExportStatus.None }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun cancellingDeletesTheExport() = runTest {
+        account(before = { repos -> repos.dataExporter.start() }) { repos ->
+            awaitUntil { it.export is DataExportStatus.Running }.eventSink(AccountEvent.CancelExport)
+            awaitUntil { it.export == DataExportStatus.None }
+            assertNull(repos.exports.current(repos.clients.did))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedSaveSaysSo() = runTest {
+        account(before = { repos -> repos.dataExporter.run(repos.dataExporter.start()) }) { _ ->
+            awaitUntil { it.export is DataExportStatus.Ready }.eventSink(AccountEvent.ExportSaveFailed)
+            assertEquals(UiError.Kind.SaveDataExport, awaitUntil { it.exportError != null }.exportError?.kind)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anExportNotYetSavedIsMentionedOnSignOutAndSigningOutDeletesIt() = runTest {
+        account(before = { repos -> repos.dataExporter.start() }) { repos ->
+            awaitItem().eventSink(AccountEvent.SignOut)
+            val asking = awaitUntil { it.confirming != null }
+            assertEquals(PendingWork(changes = 0, importSaving = false, exportPending = true), asking.confirming?.pending)
+
+            asking.eventSink(AccountEvent.Dismiss)
+            asking.eventSink(AccountEvent.Confirm(signInAgain = false))
+            repos.auth.session.first { it == null }
+            assertNull(repos.exports.current(repos.clients.did))
             cancelAndIgnoreRemainingEvents()
         }
     }
