@@ -77,6 +77,7 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
@@ -232,9 +233,9 @@ class SegmentMatcher(
     }
 
     /**
-     * Queues an `elevation` job for every segment with no terrain elevation whose box touches the tiles' [TerrainTiles.coverage], when
-     * terrain tiles are configured: those indexed before them, and those they didn't cover, in case tiles were added since. Segments the
-     * tiles don't reach aren't queued, so a large table outside them costs one statement. Exposed for tests.
+     * Queues an `elevation` job for every segment with no terrain elevation, or no maximum grade, whose box touches the tiles'
+     * [TerrainTiles.coverage], when terrain tiles are configured: those indexed before them, and those they didn't cover, in case tiles
+     * were added since. Segments the tiles don't reach aren't queued, so a large table outside them costs one statement. Exposed for tests.
      */
     suspend fun backfillTerrain() {
         val tiles = terrain ?: return
@@ -250,7 +251,9 @@ class SegmentMatcher(
                         (Segments.minLngE7 lessEq area.maxLngE7)
                 }
                 .compoundOr()
-        val queued = db.tx { jobs.enqueueElevations(Segments.terrainGainM.isNull() and touchesTiles, now) }
+        // A covered segment sampled before maximum grades were has terrain but none; sampling it again gives it one.
+        val unsampled = Segments.terrainGainM.isNull() or Segments.terrainMaxGrade.isNull()
+        val queued = db.tx { jobs.enqueueElevations(unsampled and touchesTiles, now) }
         log.info("Queued {} segments for terrain elevation across {} tiled areas", queued, areas.size)
     }
 
@@ -275,6 +278,7 @@ class SegmentMatcher(
                 it[terrainGainM] = elevation?.gain
                 it[terrainLossM] = elevation?.loss
                 it[terrainProfile] = elevation?.profileDm?.joinToString(",")
+                it[terrainMaxGrade] = elevation?.maxGradeTenths
             }
         }
     }

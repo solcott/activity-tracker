@@ -89,6 +89,7 @@ class TerrainTilesTest {
         assertEquals(0L, flat?.gain)
         assertEquals(ElevationProfile.PROFILE_POINTS, flat?.profileDm?.size)
         assertTrue(flat!!.profileDm.all { it == 1000 }, "a flat 100 m in decimeters")
+        assertEquals(0, flat.maxGradeTenths)
         assertNull(tiles.terrainOf(listOf(GeoPoint(45.0, -0.0001), GeoPoint(45.0, 0.0001))), "crosses into the missing tile")
     }
 
@@ -130,6 +131,37 @@ class TerrainTilesTest {
         assertEquals(0L, terrain.loss)
         // The ends keep their own heights, which may sit on a step's top or bottom.
         assertTrue(abs(terrain.gain - climb) <= 7, "gain ${terrain.gain}, climb $climb")
+    }
+
+    @Test
+    fun maxGradeFollowsTheSlope() {
+        // One zoom-16 tile near 45 degrees north whose terrain climbs 10% northwards and is level east to west.
+        val zoom = 16
+        val n = 1 shl zoom
+        val tx = n / 4
+        val ty = (n * 0.36).toInt()
+        val pixelM = 40_075_016.686 * cos(Math.toRadians(latOf(ty * 256 + 128.0, n))) / (n * 256)
+        val dir = createTempDirectory("terrain").toFile().apply { deleteOnExit() }
+        val image = BufferedImage(256, 256, BufferedImage.TYPE_INT_RGB)
+        for (py in 0 until 256) {
+            val value = 1000.0 + (255 - py) * pixelM * 0.1 + 32768
+            val rgb = ((value / 256).toInt() shl 16) or ((value.toInt() % 256) shl 8) or ((value - value.toInt()) * 256).toInt()
+            for (px in 0 until 256) image.setRGB(px, py, rgb)
+        }
+        File(dir, "$zoom/$tx").mkdirs()
+        ImageIO.write(image, "png", File(dir, "$zoom/$tx/$ty.png"))
+        val tiles = TerrainTiles(dir, zoom)
+
+        val lng = (tx + 0.5) / n * 360 - 180
+        val west = (tx + 0.2) / n * 360 - 180
+        val east = (tx + 0.8) / n * 360 - 180
+        val north = tiles.terrainOf(listOf(GeoPoint(latOf(ty * 256 + 230.0, n), lng), GeoPoint(latOf(ty * 256 + 30.0, n), lng)))!!
+        assertTrue(abs(north.maxGradeTenths - 100) <= 3, "10% northwards, was ${north.maxGradeTenths}")
+        // Downhill is as steep.
+        val south = tiles.terrainOf(listOf(GeoPoint(latOf(ty * 256 + 30.0, n), lng), GeoPoint(latOf(ty * 256 + 230.0, n), lng)))!!
+        assertTrue(abs(north.maxGradeTenths - south.maxGradeTenths) <= 1, "north ${north.maxGradeTenths}, south ${south.maxGradeTenths}")
+        val across = tiles.terrainOf(listOf(GeoPoint(latOf(ty * 256 + 128.0, n), west), GeoPoint(latOf(ty * 256 + 128.0, n), east)))!!
+        assertTrue(across.maxGradeTenths <= 3, "level across, was ${across.maxGradeTenths}")
     }
 
     /** The latitude of global pixel row [y] at a zoom of [n] tiles a side. */

@@ -249,6 +249,11 @@ object Segments : Table("segments") {
      */
     val terrainProfile = text("terrain_profile").nullable()
     /**
+     * The steepest absolute grade over about 50 m of the smoothed terrain behind [terrainProfile], in tenths of a percent; null exactly
+     * when [terrainProfile] is, or when it was sampled before this was.
+     */
+    val terrainMaxGrade = integer("terrain_max_grade").nullable()
+    /**
      * The median across [effortAthletes] athletes of each one's median effort gain; null when no effort has elevation. Never per effort.
      */
     val effortGainM = long("effort_gain_m").nullable()

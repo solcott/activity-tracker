@@ -14,6 +14,7 @@ import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.ln
+import kotlin.math.roundToInt
 import kotlin.math.sinh
 import kotlin.math.tan
 
@@ -101,15 +102,22 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
 
     /**
      * [line]'s terrain (segments/segment-elevation): heights sampled every [SAMPLE_SPACING_M] meters, both ends included, smoothed over 50
-     * m ([ElevationProfile.smooth]), then counted into gain and loss and resampled into an evenly spaced profile. Null when any sample
-     * isn't covered, so a segment is given terrain elevation only when the tiles cover all of it.
+     * m ([ElevationProfile.smooth]), then counted into gain and loss, resampled into an evenly spaced profile, and measured for its
+     * steepest grade ([ElevationProfile.maxGrade]) at full sample resolution. Null when any sample isn't covered, so a segment is given
+     * terrain elevation only when the tiles cover all of it.
      */
     fun terrainOf(line: List<GeoPoint>): TerrainElevation? {
         val samples = SegmentGeometry.resample(line, SAMPLE_SPACING_M)
         val raw = samples.map { heightAt(it) ?: return null }
         val heights = ElevationProfile.smooth(raw, SAMPLE_SPACING_M)
         val atM = samples.zipWithNext(SegmentGeometry::distanceMeters).runningFold(0.0, Double::plus)
-        return ElevationGain.of(heights)?.let { TerrainElevation(it.gain, it.loss, ElevationProfile.even(heights, atM)) }
+        val gainLoss = ElevationGain.of(heights)
+        val maxGrade = ElevationProfile.maxGrade(heights, atM)
+        return if (gainLoss == null || maxGrade == null) {
+            null
+        } else {
+            TerrainElevation(gainLoss.gain, gainLoss.loss, ElevationProfile.even(heights, atM), (maxGrade * TENTHS).roundToInt())
+        }
     }
 
     /** [f] of the way from [a] to [b]; null when either is. */
@@ -176,13 +184,15 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val BYTE_VALUES = 256
         private const val TERRARIUM_OFFSET = 32768f
         private const val E7 = 1e7
+        private const val TENTHS = 10.0
     }
 }
 
 /**
- * A segment's terrain: gain and loss in whole meters, and [profileDm], its smoothed heights evenly spaced from start to end, in decimeters.
+ * A segment's terrain: gain and loss in whole meters, [profileDm], its smoothed heights evenly spaced from start to end, in decimeters, and
+ * [maxGradeTenths], its steepest absolute grade over about 50 m, in tenths of a percent.
  */
-data class TerrainElevation(val gain: Long, val loss: Long, val profileDm: List<Int>)
+data class TerrainElevation(val gain: Long, val loss: Long, val profileDm: List<Int>, val maxGradeTenths: Int)
 
 /** An area terrain tiles cover, in degrees times 10^7, edges included. */
 data class TerrainArea(val minLatE7: Int, val maxLatE7: Int, val minLngE7: Int, val maxLngE7: Int)

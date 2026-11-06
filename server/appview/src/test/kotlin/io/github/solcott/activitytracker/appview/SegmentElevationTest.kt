@@ -264,6 +264,8 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         assertTrue(abs(profile!!.heights.first() - TERRAIN_BASE_M * 10) <= 30, "starts at ${profile.heights.first()}")
         assertTrue(abs(profile.heights.last() - (TERRAIN_BASE_M + TERRAIN_GRADE_GAIN) * 10) <= 30, "ends at ${profile.heights.last()}")
         assertTrue(profile.heights.zipWithNext().all { (a, b) -> b >= a })
+        // The terrain's 10% grade, in tenths of a percent.
+        assertNear(TERRAIN_MAX_GRADE, profile.maxGrade?.toLong(), "max grade")
 
         // Search carries no profile.
         val box = mapOf("minLat" to "469900000", "minLng" to "79900000", "maxLat" to "470200000", "maxLng" to "80100000")
@@ -302,6 +304,39 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
             abs(profile.heights.last() - (TERRAIN_BASE_M + TERRAIN_GRADE_GAIN / 2) * 10) <= 30,
             "the 500 m line ends at ${profile.heights.last()}",
         )
+    }
+
+    @Test
+    fun aNewLineGetsANewMaxGrade() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+        // Due east, across the slope.
+        segment("3ks", path = listOf(0.0 to 0.0, 1000.0 to 0.0), did = carol)
+        match()
+
+        val profile = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile!!
+        assertNear(0, profile.maxGrade?.toLong(), "a level line's max grade")
+    }
+
+    @Test
+    fun segmentsWithoutAMaxGradeAreSampledOnStart() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks", did = carol)
+        match()
+        // Sampled before maximum grades were.
+        runBlocking { db.tx { Segments.update({ Segments.uri eq segmentUri("3ks", carol) }) { it[terrainMaxGrade] = null } } }
+        assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile!!.maxGrade)
+
+        runBlocking { matcher.backfillTerrain() }
+        assertEquals(listOf(SegmentJobs.ELEVATION to segmentUri("3ks", carol)), jobs())
+        match()
+        val profile = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks", carol))).elevationProfile!!
+        assertNear(TERRAIN_MAX_GRADE, profile.maxGrade?.toLong(), "max grade")
+
+        // Now it has one, a later start queues nothing.
+        runBlocking { matcher.backfillTerrain() }
+        assertTrue(jobs().isEmpty())
     }
 
     @Test
@@ -376,6 +411,7 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         /** Terrain climbs 0.1 m a meter north of the origin, so the 1 km straight segment gains about 100 m. */
         private const val TERRAIN_GRADE = 0.1
         private const val TERRAIN_GRADE_GAIN = 100L
+        private const val TERRAIN_MAX_GRADE = 100L
         private const val EFFORT_GRADE = 0.2
         private const val EFFORT_GRADE_GAIN = 200L
         private const val TERRAIN_BASE_M = 500.0

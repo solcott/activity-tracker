@@ -152,7 +152,10 @@ class SegmentViews(
                 .single()
                 .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state)
         // The profile is the terrain's, so it's served only beside terrain elevation (segments/segment-elevation).
-        val profile = terrainProfile(row)?.takeIf { view.elevationSource == SegmentElevationSource.TERRAIN }?.let(::ElevationProfile)
+        val profile =
+            terrainProfile(row)
+                ?.takeIf { view.elevationSource == SegmentElevationSource.TERRAIN }
+                ?.let { ElevationProfile(it, maxGrade = row[Segments.terrainMaxGrade]) }
         GetSegment.Output(view, elevationProfile = profile)
     }
 
