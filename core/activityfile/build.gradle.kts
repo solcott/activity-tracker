@@ -15,6 +15,8 @@ kotlin {
             implementation(projects.coreLexicon)
             // @Stable on ImportSource, which the import screen's events carry. Annotation-only, so harmless on the AppView classpath.
             implementation(libs.compose.runtime.annotation)
+            // Zip members' raw deflate, inflated a piece at a time in common code (InflaterInput).
+            implementation(libs.kmp.zlib)
             // Garmin Connect exports' activity summaries.
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.xmlutil.core)

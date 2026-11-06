@@ -34,8 +34,8 @@ internal class LimitedInput(private val input: ByteInput, private var limit: Lon
 }
 
 /**
- * [input] read through a buffer, a byte at a time where that's simpler, with bytes read too far pushed back: the inflater peeks past the
- * end of its data, which a zip read as a stream needs back for the next header.
+ * [input] read through a buffer the inflater can take from directly ([consume]): it takes only the bytes its data uses, leaving the next
+ * header of a zip read as a stream in the buffer.
  */
 internal class BufferedInput(private val input: ByteInput) : ByteInput {
     private var buffer = ByteArray(CHUNK_BYTES)
@@ -63,22 +63,9 @@ internal class BufferedInput(private val input: ByteInput) : ByteInput {
         return buffered >= count
     }
 
-    /** The next buffered byte (0 to 255), or -1 when the buffer is empty; [ensure] first. */
-    fun nextBuffered(): Int = if (position < limit) buffer[position++].toInt() and BYTE_MASK else -1
-
-    /** Puts [bytes] back to be read next. */
-    fun pushBack(bytes: ByteArray) {
-        if (bytes.isEmpty()) return
-        if (position >= bytes.size) {
-            position -= bytes.size
-        } else {
-            val merged = ByteArray(bytes.size + buffered)
-            buffer.copyInto(merged, bytes.size, position, limit)
-            buffer = if (merged.size >= CHUNK_BYTES) merged else merged.copyOf(CHUNK_BYTES)
-            limit = merged.size
-            position = 0
-        }
-        bytes.copyInto(buffer, position)
+    /** Hands [use] the buffered bytes (the buffer, where they start, how many); [use] returns how many it took, and the rest stay. */
+    fun consume(use: (buffer: ByteArray, from: Int, count: Int) -> Int) {
+        position += use(buffer, position, buffered)
     }
 
     override suspend fun read(into: ByteArray, offset: Int, length: Int): Int {

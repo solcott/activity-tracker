@@ -57,6 +57,7 @@ kotlinxDatetime = "0.8.0"
 jsJodaTimezone = "2.22.0"
 kotlinxIo = "0.9.2"
 kmpZip = "2.1.0"
+kmpZlib = "2.1.0"
 maplibreCompose = "0.20.0"
 filekit = "0.17.0"
 # ZoomImage: pinch, double-tap, wheel and keyboard zoom for Coil images on every client target (the media gallery).
@@ -177,6 +178,7 @@ zoomimage-compose-coil3 = { module = "io.github.panpf.zoomimage:zoomimage-compos
 garmin-fit = { module = "com.garmin:fit", version.ref = "garminFit" }
 kmp-zip = { module = "no.synth:kmp-zip", version.ref = "kmpZip" }
 kmp-zip-kotlinx = { module = "no.synth:kmp-zip-kotlinx", version.ref = "kmpZip" }
+kmp-zlib = { module = "no.synth:kmp-zlib", version.ref = "kmpZlib" }
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
