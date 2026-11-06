@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.Likes
+import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteDives
 import io.github.solcott.activitytracker.lexicon.app.GetGear
@@ -77,15 +79,38 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
             return@tx GetTimeline.Output.ofActivities(views, cursor)
         }
-        cardedTimeline(shown and feedRows(viewer), params.limit, params.cursor, viewer)
+        // Posts only unfiltered: they have no sport or start (feed/feed-filter).
+        val posts =
+            ((Posts.authorDid eq viewer.value) or (Posts.authorDid inSubQuery followed)) and
+                notMuted(viewer, Posts.authorDid) and
+                postRows(viewer)
+        cardedTimeline(shown and feedRows(viewer), posts, params.limit, params.cursor, viewer)
+    }
+
+    /** [GetAuthorPosts]: an athlete's posts the viewer may see, newest first; blocks hide them, mutes don't (feed/posts). */
+    suspend fun authorPosts(viewer: Did?, params: GetAuthorPosts.Params): GetAuthorPosts.Output = db.tx {
+        val did =
+            resolveShownActor(viewer, params.actor)
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val pageSize = Paging.clamp(params.limit)
+        val rows = postPage((Posts.authorDid eq did) and postRows(viewer), pageSize, params.cursor)
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
+        GetAuthorPosts.Output(postViews(rows, viewer, avatars), next)
     }
 
     /**
      * A page of the unfiltered timeline over [rows]: activities, with each batch whose backfilled activities [viewer] may see number at
-     * least [MIN_CARD_ACTIVITIES] collapsed into one import card at its latest post time (feed/import-cards). Activities and cards share
-     * one keyset on (feed position, key) descending, with cursor `"<position>::<key>"`; a card's key ([CardBatch.key]) is never a URI.
+     * least [MIN_CARD_ACTIVITIES] collapsed into one import card at its latest post time (feed/import-cards), and the [posts] rows
+     * (feed/posts). All three share one keyset on (feed position, key) descending, with cursor `"<position>::<key>"`; a card's key
+     * ([CardBatch.key]) is never a URI, and a post's URI never an activity's, so the order is total.
      */
-    private fun JdbcTransaction.cardedTimeline(rows: Op<Boolean>, limit: Int?, cursor: String?, viewer: Did): GetTimeline.Output {
+    private fun JdbcTransaction.cardedTimeline(
+        rows: Op<Boolean>,
+        posts: Op<Boolean>,
+        limit: Int?,
+        cursor: String?,
+        viewer: Did,
+    ): GetTimeline.Output {
         val pageSize = Paging.clamp(limit)
         val batches = cardBatches(rows)
         val after = cursor?.let(::parseCursor)
@@ -95,21 +120,30 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
+        val postRows = postPage(posts, pageSize, cursor)
         val cards = batches.filter { after == null || it.postedAt < after.first || (it.postedAt == after.first && it.key < after.second) }
         val entries =
-            (activityRows.map { Triple(it[Activities.sortAt], it[Activities.uri], it) } + cards.map { Triple(it.postedAt, it.key, it) })
+            (activityRows.map { Triple(it[Activities.sortAt], it[Activities.uri], it) } +
+                    postRows.map { Triple(it[Posts.sortAt], it[Posts.uri], PostRow(it)) } +
+                    cards.map { Triple(it.postedAt, it.key, it) })
                 .sortedWith(compareByDescending<Triple<Long, String, Any>> { it.first }.thenByDescending { it.second })
         val page = entries.take(pageSize)
         val views = hydrate(page.mapNotNull { it.third as? ResultRow }, viewer).associateBy { it.uri.value }
+        val postViews = postViews(page.mapNotNull { (it.third as? PostRow)?.row }, viewer, avatars).associateBy { it.uri.value }
         val pageCards = page.mapNotNull { it.third as? CardBatch }
         val authors = basicProfiles(pageCards.map { it.author }, avatars)
         val feed = page.mapNotNull { (_, key, entry) ->
             when (entry) {
                 is CardBatch -> authors[entry.author]?.let { TimelineItem.ImportCard(importCardView(entry, rows, it)) }
+                is PostRow -> postViews[key]?.let(TimelineItem::Post)
                 else -> views[key]?.let(TimelineItem::Activity)
             }
         }
-        val next = page.takeIf { entries.size > pageSize || activityRows.size == pageSize }?.last()?.let { cursorOf(it.first, it.second) }
+        val next =
+            page
+                .takeIf { entries.size > pageSize || activityRows.size == pageSize || postRows.size == pageSize }
+                ?.last()
+                ?.let { cursorOf(it.first, it.second) }
         return GetTimeline.Output(feed, next)
     }
 
@@ -533,3 +567,6 @@ internal fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): 
         ?.get(Activities.authorDid) ?: throw notFound()
 
 private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+
+/** A post's row among the timeline's entries, told apart from an activity's [ResultRow]. */
+private class PostRow(val row: ResultRow)

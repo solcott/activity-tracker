@@ -52,8 +52,8 @@ data class ImportCardView(
 @Immutable @Serializable data class CardRoute(val polyline: String, val polylineGaps: List<Int>? = null)
 
 /**
- * A member of `app.activitytracker.feed.getTimeline#feed`, an open union: an [Activity] or an [ImportCard]. Any other kind a newer AppView
- * serves decodes as [Unknown], which clients skip.
+ * A member of `app.activitytracker.feed.getTimeline#feed`, an open union: an [Activity], an [ImportCard] or a [Post]. Any other kind a
+ * newer AppView serves decodes as [Unknown], which clients skip.
  */
 @Immutable
 @Serializable(with = TimelineItemSerializer::class)
@@ -62,6 +62,9 @@ sealed interface TimelineItem {
     @Immutable data class Activity(val view: ActivityView) : TimelineItem
 
     @Immutable data class ImportCard(val card: ImportCardView) : TimelineItem
+
+    /** `app.activitytracker.feed.defs#postView` (feed/posts). */
+    @Immutable data class Post(val post: PostView) : TimelineItem
 
     @Immutable data class Unknown(val json: JsonObject) : TimelineItem
 
@@ -89,10 +92,20 @@ internal object TimelineItemSerializer : OpenUnionSerializer<TimelineItem>("Time
             encoder.encodeSerializableValue(ImportCardView.serializer(), value.card)
     }
 
+    private object PostMember : KSerializer<TimelineItem.Post> {
+        override val descriptor = PostView.serializer().descriptor
+
+        override fun deserialize(decoder: Decoder) = TimelineItem.Post(decoder.decodeSerializableValue(PostView.serializer()))
+
+        override fun serialize(encoder: Encoder, value: TimelineItem.Post) =
+            encoder.encodeSerializableValue(PostView.serializer(), value.post)
+    }
+
     override fun memberFor(type: String?) =
         when (type) {
             TimelineItem.ACTIVITY_TYPE -> ActivityMember
             ImportCardView.TYPE -> CardMember
+            PostView.TYPE -> PostMember
             else -> null
         }
 
@@ -110,6 +123,7 @@ internal object TimelineItemSerializer : OpenUnionSerializer<TimelineItem>("Time
                 )
             }
             is TimelineItem.ImportCard -> encoder.encodeSerializableValue(ImportCardView.serializer(), value.card)
+            is TimelineItem.Post -> encoder.encodeSerializableValue(PostView.serializer(), value.post)
             is TimelineItem.Unknown -> encoder.encodeJsonElement(value.json)
         }
 }

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.Origins
+import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -36,8 +37,8 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 // Indexing of `feed.activity` records, and the placing of activities and their zones by origin, which the Indexer hands off here.
 
 /**
- * [placement]'s copy of an activity, its zones or a gear item: decoded, then indexed as the row unless another origin's narrower copy holds
- * it ([place]). Streams and details aren't placed: each tier's copy is a row of its own.
+ * [placement]'s copy of an activity, its zones, a gear item or a post: decoded, then indexed as the row unless another origin's narrower
+ * copy holds it ([place]). Streams and details aren't placed: each tier's copy is a row of its own.
  */
 @Suppress("LongParameterList") // The record, and where it's from.
 internal fun JdbcTransaction.upsertPlaced(
@@ -59,6 +60,8 @@ internal fun JdbcTransaction.upsertPlaced(
         }
     } else if (collection == Nsid.GEAR_ITEM) {
         upsertGear(author, uri, cid, json, placement, now)
+    } else if (collection == Nsid.FEED_POST) {
+        upsertPost(author, uri, cid, json, placement, now)
     } else {
         error("$collection isn't placed by origin")
     }
@@ -118,6 +121,11 @@ internal fun JdbcTransaction.heldCopy(collection: String, uri: AtUri): HeldCopy?
                 .where { GearItems.uri eq uri.value }
                 .singleOrNull()
                 ?.let { HeldCopy(it[GearItems.origin], it[GearItems.visibility], it[GearItems.cid], it[GearItems.record]) }
+        Nsid.FEED_POST ->
+            Posts.selectAll()
+                .where { Posts.uri eq uri.value }
+                .singleOrNull()
+                ?.let { HeldCopy(it[Posts.origin], it[Posts.visibility], it[Posts.cid], it[Posts.record]) }
         else -> null
     }
 

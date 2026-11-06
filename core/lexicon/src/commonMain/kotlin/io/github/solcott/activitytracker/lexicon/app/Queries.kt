@@ -35,7 +35,7 @@ object GetTimeline {
         val until: Instant? = null,
     )
 
-    /** [feed] is activities and import cards ([TimelineItem]) by feed position, newest first. */
+    /** [feed] is activities, import cards and posts ([TimelineItem]) by feed position, newest first. */
     @Serializable
     data class Output(val feed: List<TimelineItem>, val cursor: String? = null) {
         /** [feed]'s activities, without its import cards. */
@@ -45,6 +45,10 @@ object GetTimeline {
         /** [feed]'s import cards. */
         val importCards: List<ImportCardView>
             get() = feed.mapNotNull { (it as? TimelineItem.ImportCard)?.card }
+
+        /** [feed]'s posts. */
+        val posts: List<PostView>
+            get() = feed.mapNotNull { (it as? TimelineItem.Post)?.post }
 
         companion object {
             /** A timeline of [activities] alone. */
@@ -73,6 +77,15 @@ object GetAuthorActivities {
     @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES, Params.serializer(), Output.serializer())
+}
+
+/** An athlete's posts the viewer may see (feed/posts), newest first by feed position. */
+object GetAuthorPosts {
+    @Serializable data class Params(val actor: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val posts: List<PostView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_POSTS, Params.serializer(), Output.serializer())
 }
 
 /** An athlete's activities from one batch import ([ActivityRecord.importBatch]) the viewer may see, newest started first. */

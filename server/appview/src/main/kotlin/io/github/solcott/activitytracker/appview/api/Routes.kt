@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
@@ -94,6 +95,7 @@ fun Route.xrpcRoutes(
 ) {
     xrpcQuery(GetTimeline.method, verifier) { params, viewer -> views.timeline(requireViewer(viewer), params) }
     xrpcQuery(GetAuthorActivities.method, verifier) { params, viewer -> views.authorActivities(viewer, params) }
+    xrpcQuery(GetAuthorPosts.method, verifier) { params, viewer -> views.authorPosts(viewer, params) }
     xrpcQuery(GetAuthorActivitiesByStart.method, verifier) { params, viewer -> views.authorActivitiesByStart(viewer, params) }
     xrpcQuery(GetImportBatch.method, verifier) { params, viewer -> views.importBatch(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }

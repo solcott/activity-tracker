@@ -44,6 +44,12 @@ object Nsid {
     const val FEED_COMMENT = "$NAMESPACE.feed.comment"
     /** The athlete hid a comment on their own activity; keyed by the comment (`commentHideRkey` in `core/atproto`). */
     const val FEED_COMMENT_HIDE = "$NAMESPACE.feed.commentHide"
+    /**
+     * A post in the feed (feed/posts): in the author's repo when public, else in their followers or mutuals space ([SPACE_ATHLETE]).
+     * Indexed from both.
+     */
+    const val FEED_POST = "$NAMESPACE.feed.post"
+    const val FEED_GET_AUTHOR_POSTS = "$NAMESPACE.feed.getAuthorPosts"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"
     const val FEED_GET_AUTHOR_ACTIVITIES = "$NAMESPACE.feed.getAuthorActivities"
     const val FEED_GET_AUTHOR_ACTIVITIES_BY_START = "$NAMESPACE.feed.getAuthorActivitiesByStart"
@@ -195,6 +201,7 @@ object Nsid {
             FEED_LIKE,
             FEED_COMMENT,
             FEED_COMMENT_HIDE,
+            FEED_POST,
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
             FEED_DIVE_SITE,

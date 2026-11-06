@@ -287,6 +287,28 @@ object SegmentNameProposals : Table("segment_name_proposals") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/**
+ * A `feed.post` (feed/posts), from its author's repo or their followers or mutuals space; the narrowest copy is the row, as for
+ * [Activities]. [proposalUri] is the proposal it shares, joined when served, so a post is served only while that proposal is indexed.
+ */
+object Posts : Table("posts") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val record = text("record")
+    val proposalUri = varchar("proposal_uri", 512)
+    val text = varchar("post_text", 10_000).nullable()
+    /** As the record gives it. */
+    val createdAt = long("created_at")
+    /** The feed position (feed/timeline-order): [createdAt] capped at when it was first indexed. */
+    val sortAt = long("sort_at")
+    val indexedAt = long("indexed_at")
+    val visibility = varchar("visibility", 16).default(Visibility.PUBLIC)
+    /** [Origins.REPO] or the tier space's URI. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
+    override val primaryKey = PrimaryKey(uri)
+}
+
 /** A `feed.segmentNameVote` from its voter's `interactions` space, on the proposal version [proposalCid]. Never served. */
 object SegmentNameVotes : Table("segment_name_votes") {
     val uri = varchar("uri", 512)

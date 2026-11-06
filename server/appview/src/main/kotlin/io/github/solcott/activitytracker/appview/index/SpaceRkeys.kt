@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
+import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
@@ -91,6 +92,7 @@ private val SPACE_RKEYS: Map<String, RkeysOf> =
         Nsid.FEED_ACTIVITY to placed(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY),
         Nsid.FEED_ACTIVITY_ZONES to placed(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
         Nsid.GEAR_ITEM to placed(GearItems.uri, GearItems.origin, Nsid.GEAR_ITEM),
+        Nsid.FEED_POST to placed(Posts.uri, Posts.origin, Nsid.FEED_POST),
         // Each tier's copy is a row of its own, so never shadowed.
         Nsid.FEED_ACTIVITY_DETAILS to byOrigin(ActivityDetails.uri, ActivityDetails.origin),
         Nsid.FEED_ACTIVITY_STREAMS to byOrigin(ActivityStreams.uri, ActivityStreams.origin),

@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
+import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
@@ -254,6 +255,7 @@ class Indexer(
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES,
+            Nsid.FEED_POST,
             Nsid.GEAR_ITEM -> {
                 upsertPlaced(collection, author, uri, cid, json, placement, now)
             }
@@ -386,6 +388,7 @@ class Indexer(
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES,
+            Nsid.FEED_POST,
             Nsid.GEAR_ITEM -> {
                 RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
                 if (heldCopy(collection, uri)?.origin != placement.origin) return
@@ -397,6 +400,7 @@ class Indexer(
                         ActivityGear.deleteWhere { (activityUri eq uri.value) and (listedIn eq ActivityGear.SOURCE_RECORD) }
                     }
                     Nsid.GEAR_ITEM -> deleteHeldGear(uri)
+                    Nsid.FEED_POST -> Posts.deleteWhere { (Posts.uri eq uri.value) and (Posts.origin eq placement.origin) }
                     else -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
@@ -540,6 +544,8 @@ class Indexer(
                 HeldRows(Blocks, Blocks.authorDid, Blocks.origin),
                 HeldRows(Mutes, Mutes.authorDid, Mutes.origin),
                 HeldRows(ActivityGear, ActivityGear.authorDid, ActivityGear.origin),
+                // Placed by origin like activities, so deleted by record through deleteRecord's placed branch.
+                HeldRows(Posts, Posts.authorDid, Posts.origin),
             )
 
         /** Blocks (the app's and Bluesky's) and mutes, which all go through [upsertBlockOrMute] and [deleteBlockOrMute]. */
@@ -556,19 +562,19 @@ class Indexer(
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks, mutes and segment name
          * votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is
-         * a tier only the athlete sees), plus from `self` the segment matching setting, the grouping choice and segment tracks
-         * (zone-trimmed copies of tracks, used for each purpose only while it's on and never served), the leaderboard brackets (used only
-         * to filter leaderboards, never served) and activity invites (served only to the inviter and the invitee). Private details, follow
-         * declines, invite declines (`feed.activityInviteDecline`), defaults, full tracks, imported files and their devices
-         * (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
-         * (`actor.privacyZones`, `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections
-         * (`gear.collection`, in `self`) are never stored.
+         * a tier only the athlete sees), plus posts from the other tiers (`upsertPost` ignores one at an unknown key), plus from `self` the
+         * segment matching setting, the grouping choice and segment tracks (zone-trimmed copies of tracks, used for each purpose only while
+         * it's on and never served), the leaderboard brackets (used only to filter leaderboards, never served) and activity invites (served
+         * only to the inviter and the invitee). Private details, follow declines, invite declines (`feed.activityInviteDecline`), defaults,
+         * full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`),
+         * privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`,
+         * in `self`) and gear collections (`gear.collection`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {
                 AthleteSpace.INTERACTIONS -> INTERACTION_COLLECTIONS
                 AthleteSpace.SELF -> SELF_COLLECTIONS
-                else -> TIER_COLLECTIONS
+                else -> TIER_COLLECTIONS + Nsid.FEED_POST
             }
     }
 }

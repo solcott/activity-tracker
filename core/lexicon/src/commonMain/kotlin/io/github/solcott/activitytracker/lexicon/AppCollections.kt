@@ -31,6 +31,7 @@ object AppCollections {
                 Nsid.FEED_COMMENT_HIDE,
                 Nsid.FEED_DIVE_SITE,
                 Nsid.FEED_LIKE,
+                Nsid.FEED_POST,
                 Nsid.FEED_SEGMENT,
                 Nsid.FEED_SEGMENT_NAME_PROPOSAL,
                 Nsid.FEED_SEGMENT_NAME_VOTE,

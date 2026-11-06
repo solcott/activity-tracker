@@ -488,6 +488,56 @@
         "reachedOn": { "type": "string", "description": "The local date of their latest counted visit, which reached the count, as YYYY-MM-DD." }
       }
     },
+    "postView": {
+      "type": "object",
+      "description": "A post (app.activitytracker.feed.post) the viewer may see: at its tier, with no block either way, and while its embed may be shown.",
+      "required": ["uri", "cid", "author", "embed", "createdAt", "indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "text": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
+        "visibility": {
+          "type": "string",
+          "knownValues": ["public", "followers", "mutuals"],
+          "description": "Who may see the post (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public."
+        },
+        "embed": {
+          "type": "union",
+          "refs": ["#postProposalEmbedView"],
+          "description": "What the post shares, as the viewer may see it now. An open union: later AppViews may add other kinds, which older clients show as unavailable."
+        },
+        "createdAt": { "type": "string", "format": "datetime", "description": "As the record gives it, capped at indexedAt; places the post on the timeline." },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "labels": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
+          "description": "Labels on the post; the author's account labels are on author. Absent when there are none."
+        }
+      }
+    },
+    "postProposalEmbedView": {
+      "type": "object",
+      "description": "A shared name proposal as it stands now (segments/segment-names): its latest name, status and totals. Never says who voted, except the viewer's own vote.",
+      "required": ["proposal", "name", "status", "openedAt", "up", "down"],
+      "properties": {
+        "segment": { "type": "ref", "ref": "#segmentViewBasic", "description": "The segment it names, with its current name; absent when it names a dive site." },
+        "diveSite": { "type": "ref", "ref": "#diveSiteViewBasic", "description": "The dive site it names, with its current name; absent when it names a segment." },
+        "proposal": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The proposal's latest version, which votes name." },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "status": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["open", "adopted", "rejected", "expired", "superseded"],
+          "description": "Unknown values mean closed."
+        },
+        "openedAt": { "type": "string", "format": "datetime", "description": "When it was accepted, or last edited." },
+        "up": { "type": "integer", "minimum": 0, "description": "Counted up votes; final once closed." },
+        "down": { "type": "integer", "minimum": 0, "description": "Counted down votes; final once closed." },
+        "viewerVote": { "type": "ref", "ref": "#segmentNameViewerVote" },
+        "canVote": { "type": "boolean", "description": "The viewer may vote now: the proposal is open and they have an effort on the segment (a visit to the site). Absent means false." }
+      }
+    },
     "importCardView": {
       "type": "object",
       "description": "One timeline item standing for an athlete's batch import (feed.activity#importBatch): the batch's activities posted more than 5 days after they ended, when the viewer may see at least 5. Everything on it comes from those activities as the viewer may see them. Open it with app.activitytracker.feed.getImportBatch.",

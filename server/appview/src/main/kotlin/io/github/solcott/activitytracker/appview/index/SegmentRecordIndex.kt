@@ -332,7 +332,7 @@ internal fun UpdateBuilder<*>.setBox(
     this[maxLng] = line.maxOf { it.lng }.e7()
 }
 
-private fun graphemes(text: String): Int {
+internal fun graphemes(text: String): Int {
     val breaks = BreakIterator.getCharacterInstance().apply { setText(text) }
     var count = 0
     while (breaks.next() != BreakIterator.DONE) count++
