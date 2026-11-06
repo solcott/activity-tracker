@@ -7,8 +7,11 @@ import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
+import io.github.solcott.activitytracker.app.fixtures.fakeAdoptedPost
 import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
+import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CardRoute
@@ -99,6 +102,21 @@ object FeedSamples {
                 )
             )
 
+    /** Loaded, with Bob's shared proposal the viewer may vote on and an adopted one above and between the activities (feed/posts). */
+    val posts: FeedState
+        get() =
+            state(
+                    ContentStates.loaded(
+                        persistentListOf(
+                            TimelineItem.Post(fakePost()),
+                            TimelineItem.Activity(activities[0]),
+                            TimelineItem.Post(fakeAdoptedPost()),
+                            TimelineItem.Activity(activities[1]),
+                        )
+                    )
+                )
+                .copy(reporting = Reporting(available = true))
+
     /**
      * Loaded, with a recording, 950 imported activities and 3 other changes uploading, and two changes the server refused (data/outbox).
      */
@@ -127,6 +145,7 @@ object FeedSamples {
                 "unsent" to unsent,
                 "paused" to paused,
                 "imported" to imported,
+                "posts" to posts,
                 "askingGroups" to askingGroups,
             )
 }

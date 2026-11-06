@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.GroupChoice
@@ -33,8 +35,8 @@ enum class FeedScope {
 @Immutable
 data class FeedState(
     /**
-     * The feed's activities and, on the unfiltered Following feed, import cards (feed/import-cards) in their places, with whether a refresh
-     * is in flight or failed.
+     * The feed's activities and, on the unfiltered Following feed, import cards (feed/import-cards) and posts (feed/posts) in their places,
+     * with whether a refresh is in flight or failed.
      */
     val content: ContentState<ImmutableList<TimelineItem>>,
     /** An action that failed (a like, the segments answer); load failures are [content]'s. */
@@ -64,6 +66,8 @@ data class FeedState(
      * asking.
      */
     val askGroups: Boolean = false,
+    /** Report on others' posts (feed/posts), with its sheet while open. */
+    val reporting: Reporting = Reporting(),
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState {
     /** [content]'s items: the last loaded, or none yet. */
@@ -88,6 +92,9 @@ sealed interface FeedEvent {
 
     /** A tap on one of [FeedState.activities]. */
     data class Activity(val event: ActivityListEvent) : FeedEvent
+
+    /** A tap on a post card (feed/posts). */
+    data class Post(val event: PostEvent) : FeedEvent
 
     /** A tap on an import card: opens its batch ([ImportBatchScreen]). */
     data class OpenImportBatch(val card: ImportCardView) : FeedEvent

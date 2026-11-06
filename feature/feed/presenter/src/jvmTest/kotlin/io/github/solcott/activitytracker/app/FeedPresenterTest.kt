@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.importsave.testImportSaves
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
@@ -143,8 +144,26 @@ class FeedPresenterTest {
     ) {
         val r = repos(http).apply { seed() }
         val uploads = UploadQueue(r.db, r.clients, r.rejected, Clock.System, testImportSaves(r.db))
+        val names = namesOf(r.db, r.clients, r.feed)
+        val reports = ReportRepository(r.clients)
+        val blocks = blocksOf(r.db, r.clients, r.feed)
         presenterTestOf(
-            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.groupPrefs, uploads) },
+            {
+                FeedPresenter(
+                    navigator,
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    tracker,
+                    Clock.System,
+                    r.segmentPrefs,
+                    r.groupPrefs,
+                    uploads,
+                    names,
+                    reports,
+                    blocks,
+                )
+            },
             block = block,
         )
     }
@@ -281,6 +300,9 @@ class FeedPresenterTest {
                         Clock.System,
                         testImportSaves(db),
                     ),
+                    namesOf(db, clients, feed),
+                    ReportRepository(clients),
+                    blocksOf(db, clients, feed),
                 )
             },
             block = block,

@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -208,7 +209,8 @@ class ProfilePresenterTest {
         val blocks = BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System)
         val reports = ReportRepository(clients)
         val invites = ActivityInvitesRepository(clients, activities, feed, Clock.System, Logger)
-        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, invites, blocks, reports) }
+        val names = SegmentNames(clients, zones.writer, zones.outbox, Clock.System, feed.localPosts)
+        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, invites, blocks, reports, names) }
     }
 
     @Test

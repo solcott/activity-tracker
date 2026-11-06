@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +11,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
@@ -17,6 +19,7 @@ import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEv
 import io.github.solcott.activitytracker.app.invites.ActivityInvitesScreen
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
@@ -32,17 +35,23 @@ import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequests
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentNames
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
+import io.github.solcott.uistate.updated
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 @CircuitInject(ProfileScreen::class, SessionScope::class)
@@ -58,6 +67,7 @@ fun ProfilePresenter(
     invites: ActivityInvitesRepository,
     blocks: BlockRepository,
     reports: ReportRepository,
+    names: SegmentNames,
 ): ProfileState {
     var loadKey by remember { mutableIntStateOf(0) }
     // The header drives the page. Retained, so coming back from an activity shows it at once; a retry reloads under it.
@@ -103,6 +113,21 @@ fun ProfilePresenter(
     // confirmation.
     val reporting =
         rememberReporting(reports) { _, _ -> if (profile?.viewer?.blocking == null) toggleBlockOrMute(ProfileEvent.ToggleBlock) }
+    // Retained, so coming back from a segment shows the same list; the posts load only once Posts is chosen (feed/posts).
+    var tab by rememberRetained { mutableStateOf(ProfileTab.Activities) }
+    val postsFor = did?.takeIf { tab == ProfileTab.Posts }
+    val posts =
+        rememberRetainedPaging(did.orEmpty(), loadKey, idOf = PostView::uri, enabled = postsFor != null) { cursor ->
+            flow { postsFor?.let { emit(feed.authorPostsPage(Did(it), cursor)) } }
+        }
+    val postChanges by names.changes.collectAsState()
+    val localPosts by feed.localPosts.changes.collectAsState()
+    val shownPosts =
+        remember(posts.state, postChanges, localPosts) {
+            val removed = localPosts.filterValues { it == null }.keys
+            posts.state.updated(PostView::uri) { items -> items.filterNot { it.uri.value in removed }.map(names::applyTo) }
+        }
+    val postEvents = rememberPostEventSink(navigator, names, reporting) { error = it }
     val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
@@ -123,6 +148,8 @@ fun ProfilePresenter(
         error = error,
         reporting = reporting,
         revealed = rememberRevealed(),
+        tab = tab,
+        posts = shownPosts,
     ) { event ->
         when (event) {
             ProfileEvent.Back -> {
@@ -131,6 +158,22 @@ fun ProfilePresenter(
 
             is ProfileEvent.Activity -> {
                 activityEvents(event.event)
+            }
+
+            is ProfileEvent.SelectTab -> {
+                tab = event.tab
+            }
+
+            is ProfileEvent.Post -> {
+                postEvents(event.event)
+            }
+
+            ProfileEvent.LoadMorePosts -> {
+                posts.loadMore()
+            }
+
+            ProfileEvent.RetryPosts -> {
+                posts.retry()
             }
 
             ProfileEvent.ToggleFollow -> {

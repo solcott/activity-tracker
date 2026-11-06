@@ -36,6 +36,8 @@ import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
+import io.github.solcott.activitytracker.app.posts.PostCard
+import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -187,6 +189,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
             }
         }
     }
+    ReportingHost(state.reporting)
 }
 
 @Composable
@@ -358,7 +361,7 @@ private fun pausedUntil(until: Instant): String {
     else stringResource(Res.string.feed_upload_paused, time)
 }
 
-/** The timeline's activities and import cards, in their order. */
+/** The timeline's activities, import cards and posts, in their order. */
 private fun LazyListScope.timelineItems(state: FeedState) {
     items(
         state.items,
@@ -366,6 +369,7 @@ private fun LazyListScope.timelineItems(state: FeedState) {
             when (it) {
                 is TimelineItem.Activity -> it.view.uri.value
                 is TimelineItem.ImportCard -> "importCard:${it.card.author.did.value}/${it.card.batch}"
+                is TimelineItem.Post -> "post:${it.post.uri.value}"
                 is TimelineItem.Unknown -> it.hashCode()
             }
         },
@@ -380,6 +384,8 @@ private fun LazyListScope.timelineItems(state: FeedState) {
                     onEvent = { state.eventSink(FeedEvent.Activity(it)) },
                 )
             is TimelineItem.ImportCard -> ImportCard(item.card, onClick = { state.eventSink(FeedEvent.OpenImportBatch(item.card)) })
+            is TimelineItem.Post ->
+                PostCard(item.post, state.viewerDid, state.reporting.available, onEvent = { state.eventSink(FeedEvent.Post(it)) })
             is TimelineItem.Unknown -> Unit
         }
     }

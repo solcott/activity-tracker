@@ -7,11 +7,15 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.PagedState
+import io.github.solcott.uistate.pagedStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -47,14 +51,33 @@ data class ProfileState(
     val reporting: Reporting = Reporting(),
     /** The avatar, labeled photos, or a hidden athlete's activities the viewer revealed on this screen. */
     val revealed: Revealed = Revealed(),
+    /** Which of the athlete's lists shows below the header: their activities, first, or their posts (feed/posts). */
+    val tab: ProfileTab = ProfileTab.Activities,
+    /** The athlete's posts the viewer may see, newest first, loaded once Posts is chosen (ui/content-loading). */
+    val posts: PagedState<PostView, Unit> = pagedStateOf(),
     val eventSink: (ProfileEvent) -> Unit = {},
 ) : CircuitUiState {
     val profile: ProfileView?
         get() = content.data
 }
 
+/** The lists a profile switches between below its header. */
+enum class ProfileTab {
+    Activities,
+    Posts,
+}
+
 sealed interface ProfileEvent {
     data object Back : ProfileEvent
+
+    data class SelectTab(val tab: ProfileTab) : ProfileEvent
+
+    /** A tap on one of [ProfileState.posts]. */
+    data class Post(val event: PostEvent) : ProfileEvent
+
+    data object LoadMorePosts : ProfileEvent
+
+    data object RetryPosts : ProfileEvent
 
     /** Follows, unfollows, or cancels a follow request. */
     data object ToggleFollow : ProfileEvent

@@ -4,9 +4,12 @@ import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.fixtures.PagedStates
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.fixtures.fakeAdoptedPost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfile
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeVotedPost
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -41,6 +44,18 @@ object ProfileSamples {
     val refreshFailed: ProfileState
         get() = state(ContentStates.refreshFailed(profile))
 
+    /** Posts chosen: the athlete's shared proposals (feed/posts). */
+    val posts: ProfileState
+        get() = loaded.copy(tab = ProfileTab.Posts, posts = PagedStates.end(listOf(fakeVotedPost(), fakeAdoptedPost()), Unit))
+
+    /** Posts chosen, and the athlete has none the viewer may see. */
+    val noPosts: ProfileState
+        get() = loaded.copy(tab = ProfileTab.Posts, posts = PagedStates.end(emptyList(), Unit))
+
+    /** Posts chosen, and their first page failed. */
+    val postsFailed: ProfileState
+        get() = loaded.copy(tab = ProfileTab.Posts, posts = PagedStates.failed())
+
     /** The viewer's own profile. */
     val self: ProfileState
         get() = loaded.copy(isSelf = true, viewerDid = Fixed.ALICE.value)
@@ -55,6 +70,9 @@ object ProfileSamples {
                 SampleKind.REFRESHING to refreshing,
                 SampleKind.REFRESH_FAILED to refreshFailed,
                 "self" to self,
+                "posts" to posts,
+                "noPosts" to noPosts,
+                "postsFailed" to postsFailed,
             )
 }
 

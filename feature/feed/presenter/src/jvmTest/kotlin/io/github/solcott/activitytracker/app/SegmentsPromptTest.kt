@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.importsave.testImportSaves
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -180,6 +181,9 @@ class SegmentsPromptTest {
                         Clock.System,
                         testImportSaves(db),
                     ),
+                    namesOf(db, clients, feed),
+                    ReportRepository(clients),
+                    blocksOf(db, clients, feed),
                 )
             },
             block = block,

@@ -19,10 +19,12 @@ import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEv
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -32,9 +34,12 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
+import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -44,7 +49,7 @@ import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.datetime.todayIn
 
@@ -61,6 +66,9 @@ fun FeedPresenter(
     segmentPrefs: SegmentPrefsRepository,
     groupPrefs: GroupPrefsRepository,
     uploads: UploadQueue,
+    names: SegmentNames,
+    reports: ReportRepository,
+    blocks: BlockRepository,
 ): FeedState {
     val viewerDid = profiles.did.value
     // Retained, so the scope and filter survive opening an activity and coming back.
@@ -75,6 +83,7 @@ fun FeedPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
+    val flights = rememberSingleFlight()
     // Keyed by the query, so a new filter starts from its own cache instead of showing the last filter's activities. A refresh restarts
     // the stream under the same state, so the activities stay listed while it runs and after it fails.
     val content =
@@ -89,15 +98,22 @@ fun FeedPresenter(
                             syncedFor = refreshKey
                         }
                     }
-                    .map { outcome -> outcome.mapData { it.toImmutableList() } }
+                    // The athlete's votes on posts' proposals show at once (feed/posts).
+                    .combine(names.changes) { outcome, _ -> outcome.mapData { items -> items.map(names::withChanges).toImmutableList() } }
             }
         }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
+    val reporting =
+        rememberReporting(reports) { author, _ ->
+            flights.launch(FeedEvent.Post::class) {
+                runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { e -> error = uiErrorOf(UiError.Kind.UpdateBlock, e) }
+            }
+        }
+    val postEvents = rememberPostEventSink(navigator, names, reporting) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
     var askSegments by remember { mutableStateOf(false) }
     // The same for grouping, shown only once the segments card is answered, so the two never ask at once.
     var askGroups by remember { mutableStateOf(false) }
-    val flights = rememberSingleFlight()
 
     // Apart from the feed load, which mustn't wait on them, and from each other: each is best effort and slow for a long history.
     LaunchedEffect(Unit) {
@@ -121,6 +137,7 @@ fun FeedPresenter(
         revealed,
         askSegments,
         askGroups = askGroups && !askSegments,
+        reporting = reporting,
     ) { event ->
         when (event) {
             FeedEvent.Refresh -> {
@@ -145,6 +162,10 @@ fun FeedPresenter(
 
             is FeedEvent.Activity -> {
                 activityEvents(event.event)
+            }
+
+            is FeedEvent.Post -> {
+                postEvents(event.event)
             }
 
             is FeedEvent.OpenImportBatch -> {

@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
@@ -35,6 +38,7 @@ import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.HiddenCard
+import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
@@ -50,6 +54,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
@@ -57,6 +62,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.pagedFooter
+import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_block
@@ -79,8 +86,11 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_followers_
 import io.github.solcott.activitytracker.composeApp.resources.profile_following
 import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_more
+import io.github.solcott.activitytracker.composeApp.resources.profile_posts_empty
 import io.github.solcott.activitytracker.composeApp.resources.profile_requested
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
+import io.github.solcott.activitytracker.composeApp.resources.profile_tab_activities
+import io.github.solcott.activitytracker.composeApp.resources.profile_tab_posts
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.composeApp.resources.starred_segments_title
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_cm
@@ -120,6 +130,9 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
         val retry = { state.eventSink(ProfileEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) {
             val listState = rememberLazyListState()
+            LoadMoreAtEnd(listState, state.tab == ProfileTab.Posts && state.posts.canLoadMore) {
+                state.eventSink(ProfileEvent.LoadMorePosts)
+            }
             ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
                 LazyColumn(
                     Modifier.fillMaxSize(),
@@ -167,7 +180,24 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             ProfileActions(state, following = p.viewer?.following != null, requested = p.viewer?.followRequested == true)
                         }
                     }
-                    activitiesSection(state, retry)
+                    if (!state.blocking) {
+                        item(key = TABS_KEY) {
+                            AppSegmentedControl(
+                                labels =
+                                    persistentListOf(
+                                        stringResource(Res.string.profile_tab_activities),
+                                        stringResource(Res.string.profile_tab_posts),
+                                    ),
+                                selected = state.tab.ordinal,
+                                onSelect = { state.eventSink(ProfileEvent.SelectTab(ProfileTab.entries[it])) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                    when (state.tab) {
+                        ProfileTab.Activities -> activitiesSection(state, retry)
+                        ProfileTab.Posts -> postsSection(state)
+                    }
                 }
             }
         }
@@ -199,6 +229,23 @@ private fun LazyListScope.activitiesSection(state: ProfileState, retry: () -> Un
                 )
             }
         }
+    }
+}
+
+/** The athlete's posts the viewer may see (feed/posts), paged, below the header; none while the viewer blocks them. */
+private fun LazyListScope.postsSection(state: ProfileState) {
+    if (state.blocking) return
+    val retry = { state.eventSink(ProfileEvent.RetryPosts) }
+    pagedRefreshStatus(state.posts, UiError.Kind.LoadPosts, retry)
+    items(state.posts.items, key = { "post:${it.uri.value}" }) { post ->
+        PostCard(post, state.viewerDid, state.reporting.available, onEvent = { state.eventSink(ProfileEvent.Post(it)) })
+    }
+    pagedFooter(state.posts, UiError.Kind.LoadPosts, retry) {
+        Text(
+            stringResource(Res.string.profile_posts_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -358,6 +405,7 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
 private const val HIDDEN_KEY = "hidden"
 private const val HEADER_KEY = "header"
 private const val ACTIVITIES_STATUS_KEY = "activitiesStatus"
+private const val TABS_KEY = "tabs"
 private const val NO_ACTIVITIES_KEY = "noActivities"
 
 /** The details this viewer may see: a location line, then age, gender, height and weight. */
