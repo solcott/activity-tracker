@@ -31,11 +31,11 @@ See proposal.md for why. What shapes the approach:
 `deleteSegments` and the dive-site equivalent write a handoff row for each `active`, non-importer, not-taken-down subject before deleting it. They run inside the transaction they're already in, so `deleteActor` gets handoffs for free. *Alternative:* a client call (`releaseSegments`) before deleting. Rejected: it misses accounts deleted at the PDS and gives the client a "leaving" mode the AppView has to trust.
 
 ### 2. Handoffs have their own table, not candidates
-`segment_handoffs` (Flyway migration) has these columns:
-- `id`: deterministic from the old URI, a TID-safe hash, so a repeated delete or a crash replays to the same id;
+`subject_handoffs` (Flyway migration V56) has these columns:
+- `id`: deterministic from the old URI (`handoff-` and 40 hex characters of its SHA-256, a valid record key), so a repeated delete or a crash replays to the same id;
 - `kind`: `segment` or `site`;
 - `old_uri`, `sport`, `segment_kind`, `line`, or `centre`/`radius`;
-- `original_name`, `current_name`;
+- `original_name` (the current name is derived again from the adopted proposals kept under `old_uri`);
 - `successor_uri`, null while pending;
 - `staged_at`.
 
@@ -44,22 +44,22 @@ Name-history rows are re-keyed from the old URI to the handoff, then to the succ
 ### 3. Successor linking
 - When the importer's record keyed by a handoff id is indexed, the AppView sets `successor_uri`, sets the new segment's `current_name` from the handoff, moves its history rows across, and queues matching. Importer segments are `active` already. Importer sites under a handoff id are `active` too, a new rule in the site status code.
 - When `recheckDuplicatesOf` makes a duplicate of the removed segment live, that segment becomes the successor. That happens in the same transaction, right after the recheck. Names move to it the same way, and its record name stays its original name.
-- When a successor is itself later handed off, handoffs pointing at it are re-pointed to the new handoff, so resolving an old URI is always one hop.
-- A record written again under an `old_uri` whose handoff is still pending drops the handoff. The original is back.
+- When a successor is itself later handed off, its own handoff is keyed by its URI, and an old URI resolves by following successors (at most 8 hops) until one is indexed. When a successor is removed *without* a handoff of its own (a proposed athlete duplicate deleted), the handoffs pointing at it go pending again, and the names it took move back under their old URIs, before the removal deletes its names.
+- A record written again under an `old_uri` whose handoff is still pending becomes that handoff's successor: the original is back, and its names never left. The handoff stays, so a replayed create and delete (the AppView rewinds its Jetstream cursor on restart) leaves it pending with its names instead of losing it; a removal therefore keeps the names of any URI that is a handoff's `old_uri`.
 
 ### 4. Old URIs resolve on read
-`getSegment` and `getDiveSite` look up `segment_handoffs.old_uri` when the URI isn't indexed, and return the successor's view. The view's `uri` is the successor's, so clients learn the new URI from the view they already parse. There's no new view field. *Alternative:* a `successor` field on a `NotFound`-like view. Rejected: every caller would need a second fetch.
+`getSegment` and `getDiveSite` look up `subject_handoffs.old_uri` when the URI isn't indexed, and return the successor's view. The view's `uri` is the successor's, so clients learn the new URI from the view they already parse. There's no new view field. *Alternative:* a `successor` field on a `NotFound`-like view. Rejected: every caller would need a second fetch.
 
 ### 5. Importer `handoff` command
 `importer.getHandoffs` (new lexicon query, importer-only, cursor by id) runs the duplicate check itself. `importer.checkSegmentCandidates` and `importer.checkDiveSites` take staged ids or a file's sites, not a handoff, so they don't fit. For each pending handoff, the AppView applies the segment or site duplicate test against live subjects. A handoff that a live subject duplicates is linked to it (Decision 3) and left out; the rest are listed. `handoff` writes each listed one with `putRecord` under the handoff id, only where no record exists, and is exempt from creation limits like other importer writes. If something live appears between the listing and the write, the importer's copy is indexed as `duplicate`. The AppView then links the handoff to the copy's `duplicateOf` instead of to the copy.
 
 ### 6. The leave job
-`LeaveJob` lives in `core/data` and is scoped per account, with a `leaving` row in Room that holds the DID and the current step. It won't start while the account's data export runs: the export would read records as they're deleted. An export waiting to be saved is deleted with the account's local data, so the leave screen offers Save first. In order:
-1. Write `leaving(did, step = DISCARD)`.
+`LeaveJob` lives in `core/data` (`SessionScope`) and records the current step in `key_value` under the account's DID (`AccountMarks.leaving`), so no schema migration is needed. It runs in a scope of its own, not a screen's, because the app shell turns over to the leave screen the moment the step is recorded. It won't start while the account's data export runs: the export would read records as they're deleted. An export waiting to be saved is deleted with the account's local data, so the leave screen offers Save first. In order:
+1. Record the step `Discard`.
 2. Cancel the account's outbox entries, imports and recording.
 3. `deleteSpace` for each athlete space key, `self` first, then the tiers and `interactions`. NotFound counts as done.
 4. Take the union of `AppCollections.records` and the `app.activitytracker.*` collections `describeRepo` reports, so collections since retired from the app are deleted too. For each, `listRecords` pages, then `applyWrites` deletes in batches of `ApplyWrites.MAX_WRITES`, under the account's `AccountPacing` (429 waits, and the pause shown).
-5. Clear the account's Room rows, its export files, the cached space credentials and the session secrets.
+5. Clear the account's queued writes, upload log, cached feed, export files and remembered spaces, then end the session (`AuthRepository.left()`), which drops the session secrets and sets the login screen's "left" note.
 6. Delete the `leaving` row and sign out with a "left" login note.
 
 The app shell checks for a `leaving` row before building the `SessionGraph`'s normal UI, and shows the leave progress screen instead. Every step lists before deleting, so a replay is idempotent.
@@ -67,15 +67,15 @@ The app shell checks for a `leaving` row before building the `SessionGraph`'s no
 Spaces go before the repo so that other devices are fenced off as early as possible (Decision 7). Public records left in the repo for a few minutes are already public.
 
 ### 7. Detecting a leave elsewhere
-Room keeps `known_spaces(did, skey)`, written when this device first reads or writes a space successfully. The detection rules:
-- `AthleteSpaces.ensure` refuses to create a space that is in `known_spaces`, and raises `AccountLeft` instead. Rejoin clears the rows and lets `ensure` create again.
+`AccountMarks` keeps the keys of the spaces this device has used in `key_value` under the account's DID, written when `AthleteSpaces.ensure` first succeeds for a space (every write to a space goes through it). The detection rules:
+- `AthleteSpaces.ensure` refuses to create a space it remembers that is now gone, and raises `AccountLeftException` instead. Rejoin forgets the remembered spaces and lets `ensure` create them again; the PDS accepts `createSpace` for a key that was deleted (checked on the local stack).
 - At session start, and before each drain, if `self` is known the outbox's drain loop calls `getSpace(self)`. Only once per session is enough, plus again after any write that fails with `SpaceNotFound`.
 - `AccountLeft` stops the drain and shows the sign-out-or-rejoin prompt.
 
 *Alternative:* a "left" marker in the AppView. Rejected: it adds state the AppView holds about the athlete, and a device that drains straight to the PDS never asks the AppView.
 
 ### 8. Scope
-`OAuthClientConfig.DEFAULT_SCOPE` and the hosted client metadata add `&manage=delete`. The Account page's grant check already compares the granted scope with what the app asks for, so older grants show as not current with no new code, and the leave screen reuses that check.
+`OAuthClientConfig.DEFAULT_SCOPE` and the hosted client metadata add `&manage=delete`. The PDS grants no `manage` operation by default, and the Account page's grant check compared only collections, so it gains `GrantFeature.Leaving`: missing when no athlete-space scope lists `manage=delete` (`SessionClients.canDeleteSpaces`). Older grants then show as not current, and the leave screen reuses that check.
 
 ## Risks / Trade-offs
 
@@ -84,7 +84,7 @@ Room keeps `known_spaces(did, skey)`, written when this device first reads or wr
 - [Gap between delete and republication: links and stars briefly hit `NotFound`] → Stars are kept and shown as unavailable. Operators run `handoff` regularly; it's cheap when nothing is pending.
 - [Deleting a mistaken active segment no longer removes it] → A `!takedown` label still removes it with no handoff, and that is documented in the proposal as **BREAKING**.
 - [A device offline for weeks drains public repo writes before it ever reaches `getSpace`] → The check runs before the first drain of every session, not after one, so no write goes out before it.
-- [Successor chains or cycles] → Re-pointing keeps every handoff one hop from a live subject. An old URI that is a live record again drops its handoff.
+- [Successor chains or cycles] → Re-pointing keeps every handoff one hop from a live subject. An old URI that is a live record again becomes its own handoff's successor rather than dropping it, so a replayed create and delete (a rewound Jetstream cursor) leaves the handoff pending with its names.
 - [Large repos make leaving slow] → Batched deletes under `AccountPacing`, with visible progress, and resumable.
 - [A former leaver's identity stays visible through carried name history] → The history's proposer comes from other athletes' proposals. The leaver's own proposals are deleted with their repo, so their name drops off as existing rules already say.
 

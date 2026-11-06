@@ -27,7 +27,11 @@ When the AppView removes an `active` segment that isn't the importer's, whether 
 
 #### Scenario: Original comes back
 - **WHEN** a deleted segment's record is written again under the same URI while its handoff is still pending
-- **THEN** the AppView drops the handoff and indexes the segment as usual
+- **THEN** the segment is indexed as usual and is its own handoff's successor, so the importer doesn't republish it
+
+#### Scenario: Create and delete replayed
+- **WHEN** the AppView replays an active segment's create and then its delete after its handoff was staged
+- **THEN** the handoff is pending again with its adopted names, as before the replay
 
 ### Requirement: A live duplicate takes over a handoff
 When the AppView checks a removed segment's duplicates again and one becomes live, it SHALL make that segment the handoff's successor instead of waiting for the importer.
