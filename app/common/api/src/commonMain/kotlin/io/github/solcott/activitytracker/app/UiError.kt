@@ -164,6 +164,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** The activity's original file couldn't be read for download. */
         DownloadOriginal,
 
+        /** A data export couldn't be started or cancelled (auth/data-export). */
+        StartDataExport,
+
+        /** A finished data export couldn't be written where the athlete chose (no room, the destination went away). */
+        SaveDataExport,
+
         /** The activity's original file is still waiting to be sent, so it can't be downloaded yet. */
         OriginalNotSent,
 

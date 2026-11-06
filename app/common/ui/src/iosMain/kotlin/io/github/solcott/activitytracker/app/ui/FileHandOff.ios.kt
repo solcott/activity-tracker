@@ -36,7 +36,7 @@ actual fun rememberFileHandOff(): (ExportedFile) -> Unit {
  * The export sheet closes as the file arrives, and UIKit refuses to present the share sheet while that sheet is still being dismissed
  * ("already presenting"). Wait until nothing is presented over the key window's root, for a second at most.
  */
-private suspend fun awaitModalsDismissed() {
+internal suspend fun awaitModalsDismissed() {
     repeat(MAX_CHECKS) {
         val scene = UIApplication.sharedApplication.connectedScenes.firstOrNull { it is UIWindowScene } as? UIWindowScene
         val root = scene?.windows?.filterIsInstance<UIWindow>()?.firstOrNull { it.isKeyWindow() }?.rootViewController

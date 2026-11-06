@@ -88,6 +88,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_reason_unrea
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_retry_change
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_save_data_export
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear_collection
@@ -104,6 +105,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_send_report
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_spaces_unsupported
 import io.github.solcott.activitytracker.composeApp.resources.error_split_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_start_data_export
 import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
@@ -258,6 +260,8 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.ExportActivity -> Res.string.error_export_activity
             UiError.Kind.ExportNotSent -> Res.string.error_export_not_sent
             UiError.Kind.DownloadOriginal -> Res.string.error_download_original
+            UiError.Kind.StartDataExport -> Res.string.error_start_data_export
+            UiError.Kind.SaveDataExport -> Res.string.error_save_data_export
             UiError.Kind.OriginalNotSent -> Res.string.error_original_not_sent
             UiError.Kind.RetryChange -> Res.string.error_retry_change
             UiError.Kind.DiscardChange -> Res.string.error_discard_change
