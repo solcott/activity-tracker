@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
+import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
@@ -98,6 +99,7 @@ private val SPACE_RKEYS: Map<String, RkeysOf> =
         Nsid.FEED_ACTIVITY_STREAMS to byOrigin(ActivityStreams.uri, ActivityStreams.origin),
         Nsid.FEED_LIKE to byOrigin(Likes.uri, Likes.origin),
         Nsid.FEED_COMMENT to byOrigin(Comments.uri, Comments.origin),
+        Nsid.FEED_REPOST to byOrigin(Reposts.uri, Reposts.origin),
         Nsid.FEED_COMMENT_HIDE to byOrigin(CommentHides.uri, CommentHides.origin),
         Nsid.GRAPH_BLOCK to byOrigin(Blocks.uri, Blocks.origin),
         Nsid.GRAPH_MUTE to byOrigin(Mutes.uri, Mutes.origin),

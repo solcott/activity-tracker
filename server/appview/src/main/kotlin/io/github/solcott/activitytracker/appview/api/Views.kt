@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Posts
+import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -34,10 +35,12 @@ import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetPost
+import io.github.solcott.activitytracker.lexicon.app.GetReposts
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
@@ -61,6 +64,7 @@ import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -79,12 +83,10 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
             return@tx GetTimeline.Output.ofActivities(views, cursor)
         }
-        // Posts only unfiltered: they have no sport or start (feed/feed-filter).
-        val posts =
-            ((Posts.authorDid eq viewer.value) or (Posts.authorDid inSubQuery followed)) and
-                notMuted(viewer, Posts.authorDid) and
-                postRows(viewer)
-        cardedTimeline(shown and feedRows(viewer), posts, params.limit, params.cursor, viewer)
+        // Posts and reposts only unfiltered: they have no sport or start (feed/feed-filter).
+        val postAuthors = (Posts.authorDid eq viewer.value) or (Posts.authorDid inSubQuery followed)
+        val posts = postAuthors and notMuted(viewer, Posts.authorDid) and postRows(viewer)
+        cardedTimeline(shown and feedRows(viewer), TimelinePosts(posts, postAuthors, followed), params.limit, params.cursor, viewer)
     }
 
     /** [GetAuthorPosts]: an athlete's posts the viewer may see, newest first; blocks hide them, mutes don't (feed/posts). */
@@ -106,13 +108,15 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /**
      * A page of the unfiltered timeline over [rows]: activities, with each batch whose backfilled activities [viewer] may see number at
-     * least [MIN_CARD_ACTIVITIES] collapsed into one import card at its latest post time (feed/import-cards), and the [posts] rows
-     * (feed/posts). All three share one keyset on (feed position, key) descending, with cursor `"<position>::<key>"`; a card's key
-     * ([CardBatch.key]) is never a URI, and a post's URI never an activity's, so the order is total.
+     * least [MIN_CARD_ACTIVITIES] collapsed into one import card at its latest post time (feed/import-cards), the [posts] rows
+     * (feed/posts), and reposts (feed/reposts), each post coming once, at the latest of its own position and its reposts' there
+     * (feed/timeline-order). All four share one keyset on (feed position, key) descending, with cursor `"<position>::<key>"`; a card's key
+     * ([CardBatch.key]) is never a URI, and a post's, a repost's and an activity's URIs are in different collections, so the order is
+     * total.
      */
     private fun JdbcTransaction.cardedTimeline(
         rows: Op<Boolean>,
-        posts: Op<Boolean>,
+        posts: TimelinePosts,
         limit: Int?,
         cursor: String?,
         viewer: Did,
@@ -126,28 +130,38 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val postRows = postPage(posts, pageSize, cursor)
+        val postRows = postPage(posts.rows and notRepostedLater(viewer, posts.followed), pageSize, cursor)
+        val repostRows = timelineRepostPage(viewer, posts.followed, posts.authors, pageSize, cursor)
         val cards = batches.filter { after == null || it.postedAt < after.first || (it.postedAt == after.first && it.key < after.second) }
         val entries =
             (activityRows.map { Triple(it[Activities.sortAt], it[Activities.uri], it) } +
                     postRows.map { Triple(it[Posts.sortAt], it[Posts.uri], PostRow(it)) } +
+                    repostRows.map { Triple(it[Reposts.sortAt], it[Reposts.uri], RepostRow(it)) } +
                     cards.map { Triple(it.postedAt, it.key, it) })
                 .sortedWith(compareByDescending<Triple<Long, String, Any>> { it.first }.thenByDescending { it.second })
         val page = entries.take(pageSize)
         val views = hydrate(page.mapNotNull { it.third as? ResultRow }, viewer).associateBy { it.uri.value }
-        val postViews = postViews(page.mapNotNull { (it.third as? PostRow)?.row }, viewer, avatars).associateBy { it.uri.value }
+        val pageReposts = page.mapNotNull { (it.third as? RepostRow)?.row }
+        // A post comes once a page, as itself or through a repost, so one pass builds every post's view.
+        val postViews =
+            postViews(page.mapNotNull { (it.third as? PostRow)?.row } + pageReposts, viewer, avatars).associateBy { it.uri.value }
+        val reasons = repostReasons(pageReposts, viewer, posts.followed, basicProfiles(pageReposts.map { it[Reposts.authorDid] }, avatars))
         val pageCards = page.mapNotNull { it.third as? CardBatch }
         val authors = basicProfiles(pageCards.map { it.author }, avatars)
         val feed = page.mapNotNull { (_, key, entry) ->
             when (entry) {
                 is CardBatch -> authors[entry.author]?.let { TimelineItem.ImportCard(importCardView(entry, rows, it)) }
                 is PostRow -> postViews[key]?.let(TimelineItem::Post)
+                is RepostRow ->
+                    postViews[entry.row[Posts.uri]]?.let { post -> reasons[key]?.let { TimelineItem.Repost(RepostedPostView(post, it)) } }
                 else -> views[key]?.let(TimelineItem::Activity)
             }
         }
         val next =
             page
-                .takeIf { entries.size > pageSize || activityRows.size == pageSize || postRows.size == pageSize }
+                .takeIf {
+                    entries.size > pageSize || activityRows.size == pageSize || postRows.size == pageSize || repostRows.size == pageSize
+                }
                 ?.last()
                 ?.let { cursorOf(it.first, it.second) }
         return GetTimeline.Output(feed, next)
@@ -323,6 +337,33 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Likes.authorDid]) }
         val profiles = basicProfiles(rows.map { it[Likes.authorDid] }, avatars)
         GetLikes.Output(params.uri, rows.mapNotNull { profiles[it[Likes.authorDid]] }, next)
+    }
+
+    /**
+     * [GetReposts]: who reposted a post the viewer may see (feed/reposts), most recently indexed first, by the rule its `repostCount`
+     * counts by; `NotFound` for a post they may not see and for anything but a post.
+     */
+    suspend fun reposts(viewer: Did?, params: GetReposts.Params): GetReposts.Output = db.tx {
+        if (Subject.of(params.uri) != Subject.POST) throw postNotFound()
+        requireVisiblePost(params.uri.value, viewer)
+        val pageSize = Paging.clamp(params.limit)
+        val latest = Reposts.indexedAt.max()
+        val after =
+            params.cursor?.let(::parseCursor)?.let { (sortValue, did) ->
+                (latest less sortValue) or ((latest eq sortValue) and (Reposts.authorDid less did))
+            } ?: Op.TRUE
+        val rows =
+            admittedReposts()
+                .select(Reposts.authorDid, latest)
+                .where { (Reposts.subjectUri eq params.uri.value) and repostsShownTo(viewer) }
+                .groupBy(Reposts.authorDid)
+                .having { after }
+                .orderBy(latest to SortOrder.DESC, Reposts.authorDid to SortOrder.DESC)
+                .limit(pageSize)
+                .toList()
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Reposts.authorDid]) }
+        val profiles = basicProfiles(rows.map { it[Reposts.authorDid] }, avatars)
+        GetReposts.Output(params.uri, rows.mapNotNull { profiles[it[Reposts.authorDid]] }, next)
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {
@@ -580,3 +621,12 @@ private fun notFound() = notFound("Activity not found")
 
 /** A post's row among the timeline's entries, told apart from an activity's [ResultRow]. */
 private class PostRow(val row: ResultRow)
+
+/** A repost's row, joined to its post's, among the timeline's entries (feed/reposts). */
+private class RepostRow(val row: ResultRow)
+
+/**
+ * The timeline's posts (feed/posts): its own post [rows], the [authors] whose posts it holds as themselves, and the athletes [followed],
+ * whose reposts it holds too (feed/reposts).
+ */
+private class TimelinePosts(val rows: Op<Boolean>, val authors: Op<Boolean>, val followed: Query)

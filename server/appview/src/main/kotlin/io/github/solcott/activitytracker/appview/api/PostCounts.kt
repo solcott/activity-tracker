@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Likes
+import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
@@ -12,23 +13,50 @@ import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 
-// The like and comment counts post views carry (feed/posts), by the rules getLikes and getComments list by.
+// The like, comment and repost counts post views carry (feed/posts, feed/reposts), by the rules getLikes, getComments and getReposts
+// list by.
 
-/** A page of posts' like and comment counts as one viewer is shown them, and that viewer's likes (null signed out). */
+/** A page of posts' like, comment and repost counts as one viewer is shown them, and that viewer's likes and reposts (null signed out). */
+@Suppress("LongParameterList") // One map per count, and the viewer's own.
 internal class PostCounts(
     private val likes: Map<String, Long>,
     private val comments: Map<String, Long>,
+    private val reposts: Map<String, Long>,
     private val viewerLikes: Map<String, String>?,
+    private val viewerReposts: Map<String, String>?,
 ) {
     fun likes(uri: String): Long = likes[uri] ?: 0
 
     fun comments(uri: String): Long = comments[uri] ?: 0
 
-    fun viewer(uri: String): PostViewerState? = viewerLikes?.let { PostViewerState(like = it[uri]?.let(::AtUri)) }
+    fun reposts(uri: String): Long = reposts[uri] ?: 0
+
+    fun viewer(uri: String): PostViewerState? = viewerLikes?.let {
+        PostViewerState(like = it[uri]?.let(::AtUri), repost = viewerReposts?.get(uri)?.let(::AtUri))
+    }
 }
 
 internal fun JdbcTransaction.postCounts(uris: List<String>, viewer: Did?): PostCounts =
-    PostCounts(postLikeCounts(uris, viewer), postCommentCounts(uris, viewer), viewer?.let { viewerLikes(it, uris) })
+    PostCounts(
+        postLikeCounts(uris, viewer),
+        postCommentCounts(uris, viewer),
+        postRepostCounts(uris, viewer),
+        viewer?.let { viewerLikes(it, uris) },
+        viewer?.let { viewerReposts(it, uris) },
+    )
+
+/**
+ * Distinct reposters of each of the posts [uris] that [viewer] is shown ([repostsShownTo]), the rule `getReposts` lists by. Reposters are
+ * counted, not records, as for likes.
+ */
+private fun JdbcTransaction.postRepostCounts(uris: List<String>, viewer: Did?): Map<String, Long> =
+    admittedReposts()
+        .select(Reposts.subjectUri, Reposts.authorDid)
+        .where { (Reposts.subjectUri inList uris) and repostsShownTo(viewer) }
+        .withDistinct()
+        .toList()
+        .groupBy({ it[Reposts.subjectUri] }) { it[Reposts.authorDid] }
+        .mapValues { (_, reposters) -> reposters.size.toLong() }
 
 /**
  * Distinct givers of the likes on each of the posts [uris] that [viewer] is shown ([likesShownTo]), the rule `getLikes` lists by. Repos may

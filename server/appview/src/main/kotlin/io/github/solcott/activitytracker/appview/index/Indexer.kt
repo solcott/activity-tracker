@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
+import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
@@ -50,6 +51,7 @@ import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.MuteRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
+import io.github.solcott.activitytracker.lexicon.app.RepostRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import java.util.concurrent.ConcurrentHashMap
@@ -290,6 +292,8 @@ class Indexer(
                     it[origin] = placement.origin
                 }
             }
+
+            Nsid.FEED_REPOST -> upsertRepost(AtJson.decodeFromJsonElement(RepostRecord.serializer(), json), author, uri, placement, now)
 
             Nsid.FEED_COMMENT -> {
                 upsertComment(AtJson.decodeFromJsonElement(CommentRecord.serializer(), json), author, uri, cid, placement, now)
@@ -537,6 +541,7 @@ class Indexer(
             listOf(
                 HeldRows(Likes, Likes.authorDid, Likes.origin, Nsid.FEED_LIKE, Likes.uri),
                 HeldRows(Comments, Comments.authorDid, Comments.origin, Nsid.FEED_COMMENT, Comments.uri),
+                HeldRows(Reposts, Reposts.authorDid, Reposts.origin, Nsid.FEED_REPOST, Reposts.uri),
                 HeldRows(CommentHides, CommentHides.authorDid, CommentHides.origin, Nsid.FEED_COMMENT_HIDE, CommentHides.uri),
                 HeldRows(Follows, Follows.authorDid, origin = null, Nsid.GRAPH_FOLLOW, Follows.uri),
                 HeldRows(FollowApprovals, FollowApprovals.authorDid, origin = null, Nsid.GRAPH_FOLLOW_APPROVAL, FollowApprovals.uri),
@@ -552,7 +557,15 @@ class Indexer(
         private val BLOCKS_AND_MUTES = setOf(Nsid.GRAPH_BLOCK, Nsid.BSKY_GRAPH_BLOCK, Nsid.GRAPH_MUTE)
 
         private val INTERACTION_COLLECTIONS =
-            setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE, Nsid.FEED_SEGMENT_NAME_VOTE)
+            setOf(
+                Nsid.FEED_LIKE,
+                Nsid.FEED_COMMENT,
+                Nsid.FEED_COMMENT_HIDE,
+                Nsid.FEED_REPOST,
+                Nsid.GRAPH_BLOCK,
+                Nsid.GRAPH_MUTE,
+                Nsid.FEED_SEGMENT_NAME_VOTE,
+            )
 
         /** Segment tracks, the segment matching setting, the grouping choice and the leaderboard brackets, indexed only from `self`. */
         private val SEGMENT_COLLECTIONS =
@@ -560,15 +573,16 @@ class Indexer(
         private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS + Nsid.FEED_ACTIVITY_INVITE
 
         /**
-         * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks, mutes and segment name
-         * votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is
-         * a tier only the athlete sees), plus posts from the other tiers (`upsertPost` ignores one at an unknown key), plus from `self` the
-         * segment matching setting, the grouping choice and segment tracks (zone-trimmed copies of tracks, used for each purpose only while
-         * it's on and never served), the leaderboard brackets (used only to filter leaderboards, never served) and activity invites (served
-         * only to the inviter and the invitee). Private details, follow declines, invite declines (`feed.activityInviteDecline`), defaults,
-         * full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`),
-         * privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`,
-         * in `self`) and gear collections (`gear.collection`, in `self`) are never stored.
+         * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, reposts, blocks, mutes and
+         * segment name votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an
+         * unknown key is a tier only the athlete sees), plus posts from the other tiers (`upsertPost` ignores one at an unknown key), plus
+         * from `self` the segment matching setting, the grouping choice and segment tracks (zone-trimmed copies of tracks, used for each
+         * purpose only while it's on and never served), the leaderboard brackets (used only to filter leaderboards, never served) and
+         * activity invites (served only to the inviter and the invitee). Private details, follow declines, invite declines
+         * (`feed.activityInviteDecline`), defaults, full tracks, imported files and their devices (`feed.activityTrack`,
+         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
+         * `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections (`gear.collection`, in
+         * `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {

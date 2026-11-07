@@ -203,6 +203,7 @@ class PostsTest : PostTestBase() {
             timeline(bob).feed.map {
                 when (it) {
                     is TimelineItem.Post -> "post"
+                    is TimelineItem.Repost -> "repost"
                     is TimelineItem.Activity -> it.view.uri.rkey
                     else -> "other"
                 }

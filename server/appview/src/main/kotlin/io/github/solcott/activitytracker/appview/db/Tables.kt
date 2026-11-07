@@ -540,6 +540,23 @@ object Likes : Table("likes") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/** A `feed.repost` of a post (feed/reposts), from the reposter's repo or `interactions` space; never of an activity or their own post. */
+object Reposts : Table("reposts") {
+    val uri = varchar("uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val subjectUri = varchar("subject_uri", 512)
+    val subjectCid = varchar("subject_cid", 255)
+    /** As the record gives it. */
+    val createdAt = long("created_at")
+    /** The repost's feed position (feed/timeline-order): [createdAt] capped at when it was first indexed. */
+    val sortAt = long("sort_at")
+    val indexedAt = long("indexed_at")
+
+    /** `repo`, or the URI of the `interactions` space the repost came from. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
+    override val primaryKey = PrimaryKey(uri)
+}
+
 object Comments : Table("comments") {
     val uri = varchar("uri", 512)
     val cid = varchar("cid", 255)

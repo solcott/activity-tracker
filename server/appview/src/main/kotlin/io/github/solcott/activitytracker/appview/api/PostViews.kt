@@ -127,6 +127,7 @@ internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avat
             labels = labels[row[Posts.uri]],
             likeCount = counts.likes(row[Posts.uri]),
             commentCount = counts.comments(row[Posts.uri]),
+            repostCount = counts.reposts(row[Posts.uri]),
             viewer = counts.viewer(row[Posts.uri]),
         )
     }
