@@ -32,7 +32,7 @@ internal fun JdbcTransaction.postCounts(uris: List<String>, viewer: Did?): PostC
 
 /**
  * Distinct givers of the likes on each of the posts [uris] that [viewer] is shown ([likesShownTo]), the rule `getLikes` lists by. Repos may
- * hold duplicate like records, so givers are counted, not records.
+ * hold duplicate like records, so givers are counted (the select is distinct per post and giver), not records.
  */
 private fun JdbcTransaction.postLikeCounts(uris: List<String>, viewer: Did?): Map<String, Long> =
     admittedLikes(Subject.POST)
@@ -41,7 +41,7 @@ private fun JdbcTransaction.postLikeCounts(uris: List<String>, viewer: Did?): Ma
         .withDistinct()
         .toList()
         .groupBy({ it[Likes.subjectUri] }) { it[Likes.authorDid] }
-        .mapValues { (_, givers) -> givers.toSet().size.toLong() }
+        .mapValues { (_, givers) -> givers.size.toLong() }
 
 /**
  * The comments and replies on each of the posts [uris] that [viewer] is shown and that the post's author hasn't hidden: what `getComments`
