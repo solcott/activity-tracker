@@ -288,7 +288,11 @@ class FeedRepository(
         val answer =
             lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
         val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
-        val post = localLikes.applyTo(localPosts.applyTo(listOf(view), includeNew = false).firstOrNull() ?: view)
+        // A post the athlete took back this session answers as the AppView will once it catches up.
+        val kept =
+            localPosts.applyTo(listOf(view), includeNew = false).firstOrNull()
+                ?: throw XrpcException(HTTP_BAD_REQUEST, POST_NOT_FOUND, "Post not found")
+        val post = localLikes.applyTo(kept)
         val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
         val counted = post.copy(commentCount = (post.commentCount + delta).coerceAtLeast(0))
         updateCachedPost(uri) { counted }
@@ -572,6 +576,10 @@ private const val CARD_KEY = "importCard:"
 
 /** Where a cached post is kept in its feed (feed/posts): its URI behind a prefix, so activity updates and deletes never touch it. */
 private const val POST_KEY = "post:"
+
+/** The AppView's answer for a post the viewer may not see, which [FeedRepository.post] gives for one taken back locally too. */
+private const val POST_NOT_FOUND = "NotFound"
+private const val HTTP_BAD_REQUEST = 400
 
 /** [this] as the cached items of timeline [key], in order. */
 private fun List<TimelineItem>.toTimelineFeedItems(key: String) = mapIndexedNotNull { index, item ->
