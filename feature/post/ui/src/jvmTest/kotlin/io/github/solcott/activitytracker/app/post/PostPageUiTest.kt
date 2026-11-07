@@ -1,12 +1,15 @@
 package io.github.solcott.activitytracker.app.post
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.ui.TestTags
@@ -80,4 +83,25 @@ class PostPageUiTest {
     @Test
     fun anUnavailablePostSaysSo() =
         show(PostPageSamples.notFound) { onNodeWithText("This post isn't available", substring = true).assertExists() }
+
+    @Test
+    fun theQuoteCountOpensTheQuotes() {
+        val events = mutableListOf<PostPageEvent>()
+        show(PostPageSamples.all.getValue("loaded").copy(eventSink = { events += it })) {
+            onNodeWithTag(TestTags.POST_QUOTE_COUNT, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+            assertEquals(PostPageEvent.OpenQuotes, events.last())
+            onNodeWithText("Show quotes").performClick()
+            assertEquals(PostPageEvent.OpenQuotes, events.last())
+        }
+    }
+
+    @Test
+    fun theirOwnQuoteOffersDelete() {
+        val events = mutableListOf<PostPageEvent>()
+        show(PostPageSamples.ownQuote.copy(eventSink = { events += it })) {
+            onNodeWithContentDescription("More for this post").performClick()
+            onNodeWithText("Delete quote").performClick()
+            assertIs<PostEvent.Delete>(assertIs<PostPageEvent.Post>(events.last()).event)
+        }
+    }
 }

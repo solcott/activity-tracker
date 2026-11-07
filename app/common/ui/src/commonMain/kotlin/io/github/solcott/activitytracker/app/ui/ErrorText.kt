@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_delete_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear_collection
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_quote
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_discard_change
 import io.github.solcott.activitytracker.composeApp.resources.error_discard_left
@@ -69,6 +70,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_post_sh
 import io.github.solcott.activitytracker.composeApp.resources.error_load_posts
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
+import io.github.solcott.activitytracker.composeApp.resources.error_load_quotes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_regulars
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_load_reposts
@@ -88,6 +90,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_pause_import
 import io.github.solcott.activitytracker.composeApp.resources.error_propose_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
+import io.github.solcott.activitytracker.composeApp.resources.error_quote_post
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_server
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreachable
@@ -212,6 +215,9 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadPostShare -> Res.string.error_load_post_share
             UiError.Kind.LoadPosts -> Res.string.error_load_posts
             UiError.Kind.LoadPost -> Res.string.error_load_post
+            UiError.Kind.LoadQuotes -> Res.string.error_load_quotes
+            UiError.Kind.QuotePost -> Res.string.error_quote_post
+            UiError.Kind.DeleteQuote -> Res.string.error_delete_quote
             UiError.Kind.OpenSubject -> Res.string.error_open_subject
             UiError.Kind.InvalidSubjectUri -> Res.string.error_invalid_subject_uri
             UiError.Kind.UpdateMute -> Res.string.error_update_mute

@@ -184,6 +184,7 @@ class SegmentsPromptTest {
                     namesOf(db, clients, feed),
                     ReportRepository(clients),
                     blocksOf(db, clients, feed),
+                    quotesOf(db, clients, feed),
                 )
             },
             block = block,

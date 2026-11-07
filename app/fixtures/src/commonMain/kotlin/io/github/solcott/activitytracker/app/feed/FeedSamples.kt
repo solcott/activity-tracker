@@ -11,7 +11,10 @@ import io.github.solcott.activitytracker.app.fixtures.fakeAdoptedPost
 import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
 import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeQuote
+import io.github.solcott.activitytracker.app.fixtures.fakeQuoteOfQuote
 import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
+import io.github.solcott.activitytracker.app.fixtures.fakeUnavailableQuote
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -124,6 +127,20 @@ object FeedSamples {
             state(ContentStates.loaded(persistentListOf(TimelineItem.Repost(fakeRepostedPost()), TimelineItem.Activity(activities[0]))))
                 .copy(reporting = Reporting(available = true))
 
+    /** Loaded, with quotes (feed/quote-posts): of a shared proposal, of another quote, and of a post that's gone. */
+    val quotes: FeedState
+        get() =
+            state(
+                    ContentStates.loaded(
+                        persistentListOf(
+                            TimelineItem.Post(fakeQuote()),
+                            TimelineItem.Post(fakeQuoteOfQuote()),
+                            TimelineItem.Post(fakeUnavailableQuote()),
+                        )
+                    )
+                )
+                .copy(reporting = Reporting(available = true))
+
     /**
      * Loaded, with a recording, 950 imported activities and 3 other changes uploading, and two changes the server refused (data/outbox).
      */
@@ -154,6 +171,7 @@ object FeedSamples {
                 "imported" to imported,
                 "posts" to posts,
                 "reposted" to reposted,
+                "quotes" to quotes,
                 "askingGroups" to askingGroups,
             )
 }

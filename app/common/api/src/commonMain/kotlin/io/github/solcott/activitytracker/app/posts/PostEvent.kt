@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.posts
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 
@@ -18,6 +19,15 @@ sealed interface PostEvent {
 
     /** Reposts someone else's post, or undoes the viewer's repost of it (feed/reposts). */
     data class Repost(val post: PostView) : PostEvent
+
+    /** Opens the quote sheet for the post (feed/quote-posts), the viewer's own included. */
+    data class Quote(val post: PostView) : PostEvent
+
+    /** Opens the page of the post at [uri], quoted in the post (feed/quote-posts). */
+    data class OpenQuoted(val uri: AtUri) : PostEvent
+
+    /** Deletes the viewer's own quote, once they confirm (feed/quote-posts). */
+    data class Delete(val post: PostView) : PostEvent
 
     /** Opens the profile of [reposter], who put the post in the viewer's timeline (feed/reposts). */
     data class OpenReposter(val reposter: ProfileViewBasic) : PostEvent

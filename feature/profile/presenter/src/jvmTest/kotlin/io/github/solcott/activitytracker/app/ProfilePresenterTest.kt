@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +12,8 @@ import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteEvent
 import io.github.solcott.activitytracker.app.profile.FollowRequestsScreen
 import io.github.solcott.activitytracker.app.profile.ProfileEvent
 import io.github.solcott.activitytracker.app.profile.ProfilePresenter
@@ -26,6 +29,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
@@ -43,8 +47,13 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
+import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.QuotedPost
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.hasLoaded
@@ -210,7 +219,69 @@ class ProfilePresenterTest {
         val reports = ReportRepository(clients)
         val invites = ActivityInvitesRepository(clients, activities, feed, Clock.System, Logger)
         val names = SegmentNames(clients, zones.writer, zones.outbox, Clock.System, feed.localPosts)
-        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, invites, blocks, reports, names) }
+        val quotes = QuotePosts(clients, zones.writer, zones.outbox, Clock.System, feed)
+        return {
+            ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, invites, blocks, reports, names, quotes)
+        }
+    }
+
+    /** A post by [author] at [visibility] (feed/posts): a quote of Bob's post when [quote], else sharing his proposal. */
+    private fun postBy(author: Did, visibility: String, quote: Boolean = false): PostView {
+        val bobsPost = AtUri.of(Did("did:plc:bob"), Nsid.FEED_POST, "3kpost")
+        return PostView(
+            uri = if (quote) AtUri.of(author, Nsid.FEED_POST, "3kquote") else bobsPost,
+            cid = Cid("bafypost"),
+            author = ProfileViewBasic(author, Handle("someone.test")),
+            embed =
+                if (quote) PostEmbedView.Quote(QuotedPost.Unavailable(bobsPost))
+                else
+                    PostEmbedView.Proposal(
+                        proposal = StrongRef(AtUri.of(Did("did:plc:bob"), Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3kpost"), Cid("bafyq")),
+                        name = "Wiggly Woods",
+                        status = PostProposalStatus.OPEN,
+                        openedAt = Instant.parse("2026-11-05T10:00:00Z"),
+                        up = 0,
+                        down = 0,
+                    ),
+            createdAt = Instant.parse("2026-11-05T10:00:00Z"),
+            indexedAt = Instant.parse("2026-11-05T10:00:00Z"),
+            text = "Yes",
+            visibility = visibility.takeIf { it != Visibility.PUBLIC },
+        )
+    }
+
+    @Test
+    fun quotingAPostFromTheProfileQuotesOnceInItsTierSpace() = runTest {
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.content.data != null }
+            loaded.eventSink(ProfileEvent.Post(PostEvent.Quote(postBy(Did("did:plc:bob"), Visibility.MUTUALS))))
+            val sheet = awaitUntil { it.quote.quoting != null }.quote
+            assertEquals(listOf(Visibility.MUTUALS), sheet.audiences, "no wider than the quoted post")
+            sheet.text.setTextAndPlaceCursorAtEnd("Yes")
+            sheet.eventSink(QuoteEvent.Post)
+            sheet.eventSink(QuoteEvent.Post)
+            awaitUntil { it.quote.quoting == null }
+            spacePut.await()
+            assertEquals(listOf("mutuals ${Nsid.FEED_POST}"), spacePuts.filter { it.endsWith(Nsid.FEED_POST) })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun deletingTheirOwnQuoteAsksFirstThenDeletesIt() = runTest {
+        presenterTestOf(presenter(actor = alice.value)) {
+            val loaded = awaitUntil { it.content.data != null }
+            val quote = postBy(alice, Visibility.PUBLIC, quote = true)
+            loaded.eventSink(ProfileEvent.Post(PostEvent.Delete(quote)))
+            val asking = awaitUntil { it.quote.confirmDelete != null }
+            assertEquals(0, puts, "nothing before confirming")
+            asking.quote.eventSink(QuoteEvent.ConfirmDelete(true))
+            putStarted.await()
+            assertEquals(1, puts)
+            putGate.complete(Unit)
+            awaitUntil { it.quote.confirmDelete == null }
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

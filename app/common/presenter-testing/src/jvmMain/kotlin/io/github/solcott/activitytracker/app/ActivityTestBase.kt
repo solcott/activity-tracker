@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.divesites.DiveSitePublisher
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -109,6 +110,9 @@ open class ActivityTestBase {
 
     /** The post `getPost` serves (feed/post-page), as JSON; NotFound while null. */
     protected var postFromAppView: String? = null
+
+    /** The quotes `getQuotes` lists (feed/quote-posts), as JSON post views, two to a page; NotFound while null. */
+    protected var quotesFromAppView: List<String>? = null
 
     /** The comments the AppView lists, as JSON objects, oldest first. */
     protected var commentsFromAppView = listOf<String>()
@@ -238,6 +242,17 @@ open class ActivityTestBase {
                         val post = postFromAppView
                         if (post == null) respond("""{"error":"NotFound","message":"Post not found"}""", HttpStatusCode.BadRequest, json)
                         else respond("""{"post":$post}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_QUOTES}" -> {
+                        val quotes = quotesFromAppView
+                        if (quotes == null) respond("""{"error":"NotFound","message":"Post not found"}""", HttpStatusCode.BadRequest, json)
+                        else {
+                            val from = request.url.parameters["cursor"]?.toInt() ?: 0
+                            val page = quotes.drop(from).take(QUOTES_PAGE)
+                            val next = (from + QUOTES_PAGE).takeIf { it < quotes.size }?.let { ""","cursor":"$it"""" }.orEmpty()
+                            respond("""{"posts":[${page.joinToString(",")}]$next}""", headers = json)
+                        }
                     }
 
                     "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
@@ -379,6 +394,7 @@ open class ActivityTestBase {
                             // Refused, as repo writes are, so they stay queued for a test to read: an outbox drain that sent one would
                             // delete it from under the test.
                             Nsid.FEED_COMMENT,
+                            Nsid.FEED_POST,
                             Nsid.GRAPH_BLOCK,
                             Nsid.GRAPH_MUTE ->
                                 return@MockEngine respond("""{"error":"Unavailable"}""", HttpStatusCode.ServiceUnavailable, json)
@@ -423,6 +439,7 @@ open class ActivityTestBase {
         val diveSites: DiveSiteRepository,
         val sitePublisher: DiveSitePublisher,
         val names: SegmentNames,
+        val quotes: QuotePosts,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -494,7 +511,11 @@ open class ActivityTestBase {
             segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
             diveSites,
             DiveSitePublisher(clients, writer, outbox, diveSites, Clock.System),
-            SegmentNames(clients, writer, outbox, Clock.System),
+            SegmentNames(clients, writer, outbox, Clock.System, feed.localPosts),
+            QuotePosts(clients, writer, outbox, Clock.System, feed),
         )
     }
 }
+
+/** How many quotes the fake `getQuotes` serves to a page. */
+private const val QUOTES_PAGE = 2

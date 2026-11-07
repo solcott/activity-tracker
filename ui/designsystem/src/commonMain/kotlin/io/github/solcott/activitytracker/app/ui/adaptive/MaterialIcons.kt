@@ -30,6 +30,14 @@ internal object MaterialIcons {
             )
         }
 
+    val FormatQuote: ImageVector =
+        materialIcon("Filled.FormatQuote") {
+            addPath(
+                PathParser().parsePathString("M6,17h3l2,-4L11,7L5,7v6h3zM14,17h3l2,-4L19,7h-6v6h3z").toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
     val Fullscreen: ImageVector =
         materialIcon("Filled.Fullscreen") {
             addPath(

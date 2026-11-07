@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.interactions.CommentsState
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
@@ -35,7 +36,7 @@ data class PostPageState(
  * @property post the post, its like, comment and repost counts already moved by the viewer's own changes the AppView hasn't caught up with.
  * @property likesList who liked it, once the viewer has shown the list; null while it's hidden.
  * @property repostsList who reposted it (feed/reposts), once the viewer has shown the list; null while it's hidden.
- * @property error why the viewer's last like, repost or vote couldn't be given.
+ * @property error why the viewer's last like, repost, vote or delete couldn't be done.
  */
 @Immutable
 data class PostPage(
@@ -47,6 +48,8 @@ data class PostPage(
     val error: UiError? = null,
     /** Report on someone else's post and on others' comments. */
     val reporting: Reporting = Reporting(),
+    /** The quote sheet and the delete confirmation (feed/quote-posts). */
+    val quote: QuoteFields = QuoteFields(),
 )
 
 sealed interface PostPageEvent {
@@ -64,4 +67,7 @@ sealed interface PostPageEvent {
     data object ToggleRepostsList : PostPageEvent
 
     data class OpenProfile(val did: Did) : PostPageEvent
+
+    /** Opens the list of the post's quotes (feed/quote-posts). */
+    data object OpenQuotes : PostPageEvent
 }

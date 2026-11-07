@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -68,6 +69,8 @@ data class FeedState(
     val askGroups: Boolean = false,
     /** Report on others' posts (feed/posts), with its sheet while open. */
     val reporting: Reporting = Reporting(),
+    /** The quote sheet and the delete confirmation for the timeline's posts (feed/quote-posts). */
+    val quote: QuoteFields = QuoteFields(),
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState {
     /** [content]'s items: the last loaded, or none yet. */

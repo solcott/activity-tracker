@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.interactions.rememberRepostsList
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
+import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
@@ -29,8 +30,10 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.feed.withQuoteOverrides
 import io.github.solcott.activitytracker.data.feed.withRepostOverrides
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
@@ -47,8 +50,9 @@ import io.github.solcott.uistate.hasLoaded
 
 /**
  * The post page (feed/post-page): the post as the viewer left it (their votes, likes, reposts and comment changes laid over it), its
- * comment threads a page at a time, and who liked or reposted it once asked. Comment actions are the activity page's ([CommentActions]);
- * the card's events are the timeline's ([rememberPostEventSink]), except that opening the post again does nothing.
+ * comment threads a page at a time, who liked or reposted it once asked, and its quotes on their own screen ([PostQuotesScreen]). Comment
+ * actions are the activity page's ([CommentActions]); the card's events are the timeline's ([rememberPostEventSink]), except that opening
+ * the post again does nothing.
  */
 @CircuitInject(PostPageScreen::class, SessionScope::class)
 @Composable
@@ -62,6 +66,7 @@ fun PostPagePresenter(
     names: SegmentNames,
     blocks: BlockRepository,
     reports: ReportRepository,
+    quotes: QuotePosts,
 ): PostPageState {
     val uri = AtUri(screen.uri)
     var loadKey by rememberRetained { mutableIntStateOf(0) }
@@ -80,10 +85,16 @@ fun PostPagePresenter(
     val nameChanges by names.changes.collectAsState()
     val likeOverrides by feed.likeOverrides.collectAsState()
     val repostOverrides by feed.localReposts.overrides.collectAsState()
+    val quoteOverrides by feed.localQuotes.overrides.collectAsState()
     val post =
-        remember(loaded, moves, nameChanges, likeOverrides, repostOverrides) {
+        remember(loaded, moves, nameChanges, likeOverrides, repostOverrides, quoteOverrides) {
             loaded?.let { view ->
-                val shown = names.applyTo(view).withLikeOverrides(likeOverrides).withRepostOverrides(repostOverrides)
+                val shown =
+                    names
+                        .applyTo(view)
+                        .withLikeOverrides(likeOverrides)
+                        .withRepostOverrides(repostOverrides)
+                        .withQuoteOverrides(quoteOverrides)
                 val moved = moves.over(view)
                 if (moved == 0) shown else shown.copy(commentCount = (shown.commentCount + moved).coerceAtLeast(0))
             }
@@ -107,7 +118,9 @@ fun PostPagePresenter(
                 }
             }
         }
-    val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
+    // Deleting the page's own quote leaves the page, which would only say it's gone.
+    val quoting = rememberQuoting(quotes, onDelete = { if (it.uri == uri) navigator.pop() }) { error = it }
+    val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
     val likesList = rememberLikesList(showLikes, uri, viewerGave = post?.viewer?.like != null, feed, profiles)
     val repostsList = rememberRepostsList(showReposts, uri, viewerGave = post?.viewer?.repost != null, feed, profiles)
 
@@ -120,6 +133,7 @@ fun PostPagePresenter(
             PostPageEvent.ToggleLikesList -> showLikes = !showLikes
             PostPageEvent.ToggleRepostsList -> showReposts = !showReposts
             is PostPageEvent.OpenProfile -> navigator.goTo(ProfileScreen(event.did.value))
+            PostPageEvent.OpenQuotes -> navigator.goTo(PostQuotesScreen(screen.uri))
         }
     }
     val failure = (content.status as? LoadStatus.Failed)?.error
@@ -144,6 +158,7 @@ fun PostPagePresenter(
             repostsList = repostsList,
             error = error,
             reporting = reporting,
+            quote = quoting.fields,
         )
     }
     return PostPageState(

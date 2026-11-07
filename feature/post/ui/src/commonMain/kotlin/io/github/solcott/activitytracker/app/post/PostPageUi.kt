@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.app.interactions.LikersList
 import io.github.solcott.activitytracker.app.interactions.LoadMoreNearTheEnd
 import io.github.solcott.activitytracker.app.interactions.comments
 import io.github.solcott.activitytracker.app.posts.PostCard
+import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -33,6 +34,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.post_hide_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_page_title
+import io.github.solcott.activitytracker.composeApp.resources.post_show_quotes
 import io.github.solcott.activitytracker.composeApp.resources.post_show_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_unavailable
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -86,6 +88,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                     canReport = page.reporting.available,
                     onEvent = { state.eventSink(PostPageEvent.Post(it)) },
                     modifier = Modifier.padding(horizontal = CARD_PADDING),
+                    onQuoteCount = { state.eventSink(PostPageEvent.OpenQuotes) },
                 )
             }
             page.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(horizontal = CARD_PADDING)) } }
@@ -119,8 +122,19 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                     LikersList(list, { state.eventSink(PostPageEvent.OpenProfile(it)) }, Modifier.padding(horizontal = CARD_PADDING))
                 }
             }
+            item(key = "quotes") {
+                if (page.post.quoteCount > 0) {
+                    AppTextButton(
+                        onClick = { state.eventSink(PostPageEvent.OpenQuotes) },
+                        modifier = Modifier.padding(horizontal = CARD_PADDING),
+                    ) {
+                        Text(stringResource(Res.string.post_show_quotes))
+                    }
+                }
+            }
             comments(page.comments, page.reporting)
         }
     }
     ReportingHost(page.reporting)
+    QuoteSheetHost(page.quote)
 }

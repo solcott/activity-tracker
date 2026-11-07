@@ -30,6 +30,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.posts.PostCard
+import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
@@ -277,6 +278,7 @@ private fun ProfileBarActions(state: ProfileState) {
                 },
         )
         ReportingHost(reporting)
+        QuoteSheetHost(state.quote)
     }
 }
 

@@ -2,6 +2,9 @@ package io.github.solcott.activitytracker.app.feed
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
@@ -11,6 +14,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
 import io.github.solcott.activitytracker.app.posts.PostEvent
@@ -21,6 +25,7 @@ import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlinx.collections.immutable.persistentListOf
 
 /** Posts in the timeline (feed/posts): the shared proposal as it stands, voting from the card, and opening the post or its segment. */
@@ -62,7 +67,7 @@ class PostsUiTest {
         val events = mutableListOf<FeedEvent>()
         setContent { AppPreview { FeedUi(FeedSamples.reposted.copy(eventSink = { events += it })) } }
         onNodeWithText("Reposted by Bob and 1 other").assertExists()
-        onNodeWithText("3 likes · 1 comment · 2 reposts").assertExists()
+        onNodeWithText("3 likes · 1 comment · 2 reposts · 0 quotes").assertExists()
         onNodeWithTag(TestTags.POST_REPOSTED_BY, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(Fixed.BOB, assertIs<PostEvent.OpenReposter>(postEvents(events).last()).reposter.did)
     }
@@ -82,5 +87,41 @@ class PostsUiTest {
         setContent { AppPreview { FeedUi(state) } }
         onNodeWithText("Ledge Line", substring = true).assertExists()
         onNodeWithTag(TestTags.POST_REPOST, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun theQuoteButtonQuotesThePost() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.reposted.copy(eventSink = { events += it })) } }
+        onNodeWithTag(TestTags.POST_QUOTE, useUnmergedTree = true).performClick()
+        assertEquals(fakeRepostedPost().post.uri, assertIs<PostEvent.Quote>(postEvents(events).last()).post.uri)
+    }
+
+    @Test
+    fun theQuotedPostOpensItAndAQuotedQuotesLinkOpensItsPost() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.quotes.copy(eventSink = { events += it })) } }
+        onNodeWithText("Proposes “Wiggly Woods”").assertExists()
+        onAllNodesWithTag(TestTags.QUOTED_POST, useUnmergedTree = true).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(fakePost().uri, assertIs<PostEvent.OpenQuoted>(postEvents(events).last()).uri)
+        onNodeWithTag(TestTags.QUOTED_POST_LINK, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(fakePost().uri, assertIs<PostEvent.OpenQuoted>(postEvents(events).last()).uri)
+    }
+
+    @Test
+    fun anUnavailableQuotedPostOpensNothing() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.quotes.copy(eventSink = { events += it })) } }
+        onNodeWithText("Post unavailable").assertExists()
+        onNodeWithTag(TestTags.QUOTED_POST_UNAVAILABLE, useUnmergedTree = true).assertHasNoClickAction()
+        assertTrue(postEvents(events).none { it is PostEvent.OpenQuoted })
+    }
+
+    @Test
+    fun someoneElsesQuoteOffersReportNotDelete() = runComposeUiTest {
+        setContent { AppPreview { FeedUi(FeedSamples.quotes) } }
+        onAllNodesWithContentDescription("More for this post").onFirst().performClick()
+        onNodeWithText("Report").assertExists()
+        onNodeWithText("Delete quote").assertDoesNotExist()
     }
 }

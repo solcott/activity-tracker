@@ -68,6 +68,13 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** A post couldn't be loaded for its page (feed/post-page). */
         LoadPost,
+
+        /** A post's quotes couldn't be loaded (feed/quote-posts). */
+        LoadQuotes,
+
+        /** A quote couldn't be posted, or the athlete's own quote deleted (feed/quote-posts). */
+        QuotePost,
+        DeleteQuote,
         OpenSubject,
 
         /** Text typed as a moderation subject isn't an AT-URI, so nothing was asked for. */

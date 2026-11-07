@@ -50,6 +50,8 @@ import io.github.solcott.activitytracker.app.media.MediaGallerySamples
 import io.github.solcott.activitytracker.app.media.MediaGalleryUi
 import io.github.solcott.activitytracker.app.post.PostPageSamples
 import io.github.solcott.activitytracker.app.post.PostPageUi
+import io.github.solcott.activitytracker.app.post.PostQuotesSamples
+import io.github.solcott.activitytracker.app.post.PostQuotesUi
 import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.profile.BlockListSamples
 import io.github.solcott.activitytracker.app.profile.BlockListUi
@@ -159,6 +161,7 @@ class ContentLoadingConformanceTest {
             entry({ GearListSamples.all }, "Gravel bike") { GearListUi(it) },
             entry({ GearSamples.all }, "Rivendell Appaloosa") { GearUi(it) },
             entry({ PostPageSamples.all }, "Everyone at the trailhead already calls it this.") { PostPageUi(it) },
+            entry({ PostQuotesSamples.all }, "Proposes “Wiggly Woods”") { PostQuotesUi(it) },
             entry({ EditGearSamples.all }, null) { EditGearUi(it) },
             entry({ GearCollectionSamples.all }, "Cold water setup") { GearCollectionUi(it) },
             entry({ EditGearCollectionSamples.all }, null) { EditGearCollectionUi(it) },

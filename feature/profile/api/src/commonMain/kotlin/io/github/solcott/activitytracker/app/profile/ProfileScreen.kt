@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -55,6 +56,8 @@ data class ProfileState(
     val tab: ProfileTab = ProfileTab.Activities,
     /** The athlete's posts the viewer may see, newest first, loaded once Posts is chosen (ui/content-loading). */
     val posts: PagedState<PostView, Unit> = pagedStateOf(),
+    /** The quote sheet and the delete confirmation for posts on the Posts tab (feed/quote-posts). */
+    val quote: QuoteFields = QuoteFields(),
     val eventSink: (ProfileEvent) -> Unit = {},
 ) : CircuitUiState {
     val profile: ProfileView?

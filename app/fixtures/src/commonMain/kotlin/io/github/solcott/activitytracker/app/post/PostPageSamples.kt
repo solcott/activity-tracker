@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakeComment
 import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeQuote
 import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
 import io.github.solcott.activitytracker.app.interactions.CommentThread
 import io.github.solcott.activitytracker.app.interactions.CommentsPaging
@@ -19,7 +20,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 /** The post page (feed/post-page): Bob's Followers post as Alice sees it, liked by her, with Carol's comment and Bob's reply. */
 object PostPageSamples {
-    val post: PostView = fakePost().copy(likeCount = 3, commentCount = 2, repostCount = 1, viewer = PostViewerState())
+    val post: PostView = fakePost().copy(likeCount = 3, commentCount = 2, repostCount = 1, quoteCount = 2, viewer = PostViewerState())
 
     /** The page with one thread; a new draft each time. */
     val page: PostPage
@@ -53,7 +54,8 @@ object PostPageSamples {
         get() =
             contentSamples<PostPage?, PostPageState>(null, page) { PostPageState(it, eventSink = {}) } +
                 ("notFound" to notFound) +
-                ("reposters" to reposters)
+                ("reposters" to reposters) +
+                ("ownQuote" to ownQuote)
 
     /** The AppView doesn't serve the post to the viewer. */
     val notFound: PostPageState
@@ -78,4 +80,12 @@ object PostPageSamples {
                 LikesList(persistentListOf(fakeProfileBasic(Fixed.ALICE), fakeProfileBasic(Fixed.CAROL)), isLoading = false, error = null)
             return PostPageState(ContentStates.loaded(page.copy(post = reposted, repostsList = list)), eventSink = {})
         }
+
+    /** Alice's own quote of Bob's post, which offers Delete in its menu (feed/quote-posts). */
+    val ownQuote: PostPageState
+        get() =
+            PostPageState(
+                ContentStates.loaded(page.copy(post = fakeQuote(author = Fixed.ALICE, quoteCount = 1))),
+                eventSink = {},
+            )
 }

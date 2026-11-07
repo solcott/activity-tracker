@@ -13,6 +13,12 @@ object TestTags {
     const val POST_LIKE = "postLike"
     const val POST_REPOST = "postRepost"
     const val POST_REPOSTED_BY = "postRepostedBy"
+    const val POST_QUOTE = "postQuote"
+    const val POST_QUOTE_COUNT = "postQuoteCount"
+    const val QUOTED_POST = "quotedPost"
+    const val QUOTED_POST_LINK = "quotedPostLink"
+    const val QUOTED_POST_UNAVAILABLE = "quotedPostUnavailable"
+    const val QUOTE_TEXT = "quoteText"
     const val POST_VOTE_DOWN = "postVoteDown"
 
     /** The first-load spinner: `ContentStateLayout`'s, or a paged list's before it answers. */

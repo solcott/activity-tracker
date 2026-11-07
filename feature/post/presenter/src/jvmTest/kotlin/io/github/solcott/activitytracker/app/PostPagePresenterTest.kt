@@ -10,15 +10,20 @@ import io.github.solcott.activitytracker.app.post.PostPageEvent
 import io.github.solcott.activitytracker.app.post.PostPagePresenter
 import io.github.solcott.activitytracker.app.post.PostPageScreen
 import io.github.solcott.activitytracker.app.post.PostPageState
+import io.github.solcott.activitytracker.app.post.PostQuotesScreen
 import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
+import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,7 +50,7 @@ class PostPagePresenterTest : ActivityTestBase() {
             """"viewer":{${if (liked) """"like":"at://did:plc:alice/${Nsid.FEED_LIKE}/3klike"""" else ""}}}"""
 
     private fun presenterOf(r: Repos, navigator: FakeNavigator = FakeNavigator(screen)): @Composable () -> PostPageState = {
-        PostPagePresenter(screen, navigator, r.feed, r.activities, r.profiles, r.names, r.blocks, r.reports)
+        PostPagePresenter(screen, navigator, r.feed, r.activities, r.profiles, r.names, r.blocks, r.reports, r.quotes)
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<PostPageState>.awaitPage(done: (PostPage) -> Boolean = { true }): PostPage =
@@ -216,12 +221,76 @@ class PostPagePresenterTest : ActivityTestBase() {
     }
 
     @Test
+    fun quoteOpensTheSheetCappedAtThePostsAudienceAndADoublePostWritesOnce() = runTest {
+        postFromAppView = post(visibility = "followers")
+        val r = repos()
+        presenterTestOf(presenterOf(r)) {
+            val state = awaitUntil { it.content.data != null }
+            state.eventSink(PostPageEvent.Post(PostEvent.Quote(state.content.data!!.post)))
+            val sheet = awaitPage { it.quote.quoting != null }.quote
+            assertEquals(listOf(Visibility.FOLLOWERS, Visibility.MUTUALS), sheet.audiences)
+            assertEquals(Visibility.FOLLOWERS, sheet.audience)
+            assertEquals(false, sheet.canPost, "no Post for blank text")
+            sheet.text.setTextAndPlaceCursorAtEnd("Yes, and the lower half")
+            sheet.eventSink(QuoteEvent.Post)
+            sheet.eventSink(QuoteEvent.Post)
+            val closed = awaitPage { it.quote.quoting == null && it.post.quoteCount == 1L }
+            assertEquals(Visibility.FOLLOWERS, r.queued(Nsid.FEED_POST).single().first, "one quote, in the followers space")
+            assertEquals(1, closed.post.quoteCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun deletingTheirOwnQuoteAsksThenRemovesItAndLeavesItsPage() = runTest {
+        val quoteUri = "at://did:plc:alice/${Nsid.FEED_POST}/3kquote"
+        postFromAppView =
+            """{"${'$'}type":"${Nsid.FEED_DEFS}#postView","uri":"$quoteUri","cid":"bafyquote",""" +
+                """"author":{"did":"did:plc:alice","handle":"alice.test"},"text":"Yes","visibility":"mutuals",""" +
+                """"embed":{"${'$'}type":"${Nsid.FEED_DEFS}#postQuoteEmbedView","quoted":""" +
+                """{"${'$'}type":"${Nsid.FEED_DEFS}#quotedPostUnavailable","uri":"$postUri"}},""" +
+                """"createdAt":"2026-11-07T10:00:00Z","indexedAt":"2026-11-07T10:00:00Z"}"""
+        val r = repos()
+        val navigator = FakeNavigator(PostPageScreen(quoteUri))
+        presenterTestOf({
+            PostPagePresenter(PostPageScreen(quoteUri), navigator, r.feed, r.activities, r.profiles, r.names, r.blocks, r.reports, r.quotes)
+        }) {
+            val state = awaitUntil { it.content.data != null }
+            val quote = state.content.data!!.post
+            assertIs<PostEmbedView.Quote>(quote.embed)
+            state.eventSink(PostPageEvent.Post(PostEvent.Delete(quote)))
+            val asking = awaitPage { it.quote.confirmDelete != null }
+            assertTrue(r.db.outbox().pending(alice.value).isEmpty(), "nothing before confirming")
+            asking.quote.eventSink(QuoteEvent.ConfirmDelete(true))
+            navigator.awaitPop()
+            val deletes = r.db.outbox().pending(alice.value).filter { it.collection == Nsid.FEED_POST }
+            assertEquals(listOf("mutuals"), deletes.map { it.space?.substringAfterLast('/') })
+            assertEquals(listOf("3kquote"), deletes.map { it.rkey })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theQuoteCountOpensTheQuotesList() = runTest {
+        postFromAppView = post()
+        val r = repos()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf(presenterOf(r, navigator)) {
+            awaitUntil { it.content.data != null }.eventSink(PostPageEvent.OpenQuotes)
+            assertEquals(PostQuotesScreen(postUri), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun theTimelinesPostSinkOpensThePostPage() = runTest {
         val r = repos()
         // The timeline, say: any screen but the post page itself.
         val navigator = FakeNavigator(PostPageScreen("at://did:plc:carol/${Nsid.FEED_POST}/3kother"))
         val view = AtJson.decodeFromString(PostView.serializer(), post())
-        presenterTestOf({ SinkState(rememberPostEventSink(navigator, r.names, r.activities, Reporting()) {}) }) {
+        presenterTestOf({
+            SinkState(rememberPostEventSink(navigator, r.names, r.activities, Reporting(), rememberQuoting(r.quotes) {}) {})
+        }) {
             awaitItem().sink(PostEvent.OpenPost(view))
             assertEquals(PostPageScreen(postUri), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()

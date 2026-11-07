@@ -47,6 +47,9 @@
     <string name="error_load_post_share">Couldn't check how this proposal is shared</string>
     <string name="error_load_posts">Couldn't load posts</string>
     <string name="error_load_post">Couldn't load this post</string>
+    <string name="error_load_quotes">Couldn't load quotes</string>
+    <string name="error_quote_post">Couldn't post your quote</string>
+    <string name="error_delete_quote">Couldn't delete your quote</string>
     <string name="error_vote_segment_name">Couldn't send your vote</string>
     <string name="error_delete_segment_name">Couldn't delete the proposal</string>
     <string name="error_load_blocks">Couldn't load blocked accounts</string>
@@ -1942,13 +1945,32 @@
     <string name="segment_name_edit_warning">Editing the name clears every vote it has.</string>
     <string name="post_card_more">More for this post</string>
     <string name="post_card_open">Open the post</string>
-    <string name="post_card_counts">%1$s · %2$s · %3$s</string>
+    <string name="post_card_counts">%1$s · %2$s · %3$s · %4$s</string>
     <string name="repost_content_description">Repost</string>
     <string name="undo_repost_content_description">Undo repost</string>
     <plurals name="repost_count">
         <item quantity="one">%1$d repost</item>
         <item quantity="other">%1$d reposts</item>
     </plurals>
+    <string name="quote_content_description">Quote</string>
+    <plurals name="quote_count">
+        <item quantity="one">%1$d quote</item>
+        <item quantity="other">%1$d quotes</item>
+    </plurals>
+    <string name="quote_sheet_title">Quote post</string>
+    <string name="quote_sheet_post">Post</string>
+    <string name="quote_text_field">Your words</string>
+    <string name="quote_text_too_long">Keep it under %1$d characters.</string>
+    <string name="quoted_post_unavailable">Post unavailable</string>
+    <string name="quoted_post_open">Open the quoted post</string>
+    <string name="quoted_post_link">Quoting another post</string>
+    <string name="quote_delete">Delete quote</string>
+    <string name="quote_delete_title">Delete this quote?</string>
+    <string name="quote_delete_message">It's removed for everyone who can see it. This can't be undone.</string>
+    <string name="quote_delete_confirm">Delete</string>
+    <string name="post_quotes_title">Quotes</string>
+    <string name="post_quotes_empty">No quotes of this post yet.</string>
+    <string name="post_show_quotes">Show quotes</string>
     <string name="post_reposted_by">Reposted by %1$s</string>
     <string name="post_reposted_by_you">Reposted by you</string>
     <plurals name="post_reposted_by_others">

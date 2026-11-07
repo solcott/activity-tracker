@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
@@ -14,6 +15,8 @@ import io.github.solcott.activitytracker.app.feed.ImportBatchScreen
 import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
+import io.github.solcott.activitytracker.app.posts.PostEvent
+import io.github.solcott.activitytracker.app.posts.QuoteEvent
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
@@ -49,9 +52,14 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
+import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
+import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SportCount
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
@@ -162,6 +170,7 @@ class FeedPresenterTest {
                     names,
                     reports,
                     blocks,
+                    quotesOf(r.db, r.clients, r.feed),
                 )
             },
             block = block,
@@ -303,6 +312,7 @@ class FeedPresenterTest {
                     namesOf(db, clients, feed),
                     ReportRepository(clients),
                     blocksOf(db, clients, feed),
+                    quotesOf(db, clients, feed),
                 )
             },
             block = block,
@@ -313,6 +323,45 @@ class FeedPresenterTest {
     private suspend fun ReceiveTurbine<FeedState>.awaitRefreshed(): FeedState {
         awaitUntil { it.content.isLoading }
         return awaitUntil { !it.content.isLoading }
+    }
+
+    /** Bob's Followers post sharing a proposal (feed/posts), as the viewer sees it. */
+    private val bobsFollowersPost =
+        PostView(
+            uri = AtUri.of(Did("did:plc:bob"), Nsid.FEED_POST, "3kpost"),
+            cid = Cid("bafypost"),
+            author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")),
+            embed =
+                PostEmbedView.Proposal(
+                    proposal = StrongRef(AtUri.of(Did("did:plc:bob"), Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3kpost"), Cid("bafyq")),
+                    name = "Wiggly Woods",
+                    status = PostProposalStatus.OPEN,
+                    openedAt = Instant.parse("2026-03-05T09:00:00Z"),
+                    up = 0,
+                    down = 0,
+                ),
+            createdAt = Instant.parse("2026-03-05T09:00:00Z"),
+            indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
+            visibility = Visibility.FOLLOWERS,
+        )
+
+    @Test
+    fun quotingAPostOpensTheSheetAtItsAudienceAndADoublePostQuotesOnce() = runTest {
+        filterTest {
+            val state = awaitUntil { !it.content.isLoading }
+            state.eventSink(FeedEvent.Post(PostEvent.Quote(bobsFollowersPost)))
+            val sheet = awaitUntil { it.quote.quoting != null }.quote
+            assertEquals(listOf(Visibility.FOLLOWERS, Visibility.MUTUALS), sheet.audiences)
+            assertEquals(Visibility.FOLLOWERS, sheet.audience)
+            sheet.text.setTextAndPlaceCursorAtEnd("Yes, and the lower half")
+            sheet.eventSink(QuoteEvent.Post)
+            sheet.eventSink(QuoteEvent.Post)
+            val quoted = awaitUntil { it.quote.quoting == null && it.content.data.any { item -> item is TimelineItem.Post } }
+            val mine = quoted.content.data.filterIsInstance<TimelineItem.Post>()
+            assertEquals(1, mine.size, "one quote, first in the timeline")
+            assertEquals(Visibility.FOLLOWERS, mine.single().post.visibility)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

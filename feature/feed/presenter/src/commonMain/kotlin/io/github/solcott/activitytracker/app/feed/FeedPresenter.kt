@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
+import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
@@ -34,6 +35,7 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -69,6 +71,7 @@ fun FeedPresenter(
     names: SegmentNames,
     reports: ReportRepository,
     blocks: BlockRepository,
+    quotes: QuotePosts,
 ): FeedState {
     val viewerDid = profiles.did.value
     // Retained, so the scope and filter survive opening an activity and coming back.
@@ -109,7 +112,8 @@ fun FeedPresenter(
                 runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { e -> error = uiErrorOf(UiError.Kind.UpdateBlock, e) }
             }
         }
-    val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
+    val quoting = rememberQuoting(quotes) { error = it }
+    val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
     var askSegments by remember { mutableStateOf(false) }
     // The same for grouping, shown only once the segments card is answered, so the two never ask at once.
@@ -138,6 +142,7 @@ fun FeedPresenter(
         askSegments,
         askGroups = askGroups && !askSegments,
         reporting = reporting,
+        quote = quoting.fields,
     ) { event ->
         when (event) {
             FeedEvent.Refresh -> {

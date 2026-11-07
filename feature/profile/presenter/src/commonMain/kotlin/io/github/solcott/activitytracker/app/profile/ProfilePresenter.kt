@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.invites.ActivityInvitesScreen
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
+import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
@@ -29,7 +30,9 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.feed.withQuoteOverrides
 import io.github.solcott.activitytracker.data.feed.withRepostOverrides
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -70,6 +73,7 @@ fun ProfilePresenter(
     blocks: BlockRepository,
     reports: ReportRepository,
     names: SegmentNames,
+    quotes: QuotePosts,
 ): ProfileState {
     var loadKey by remember { mutableIntStateOf(0) }
     // The header drives the page. Retained, so coming back from an activity shows it at once; a retry reloads under it.
@@ -127,16 +131,22 @@ fun ProfilePresenter(
     // The viewer's like and repost toggles show at once on the pages already loaded (feed/posts, feed/reposts).
     val likeOverrides by feed.likeOverrides.collectAsState()
     val repostOverrides by feed.localReposts.overrides.collectAsState()
+    val quoteOverrides by feed.localQuotes.overrides.collectAsState()
     val shownPosts =
-        remember(posts.state, postChanges, localPosts, likeOverrides, repostOverrides) {
-            val removed = localPosts.filterValues { it == null }.keys
+        remember(posts.state, postChanges, localPosts, likeOverrides, repostOverrides, quoteOverrides) {
             posts.state.updated(PostView::uri) { items ->
-                items
-                    .filterNot { it.uri.value in removed }
-                    .map { names.applyTo(it).withLikeOverrides(likeOverrides).withRepostOverrides(repostOverrides) }
+                // The athlete's own quotes show first on their Posts until listed (feed/quote-posts); removed posts are left out.
+                feed.localPosts.applyTo(items, includeNew = isSelf, at = localPosts).map {
+                    names
+                        .applyTo(it)
+                        .withLikeOverrides(likeOverrides)
+                        .withRepostOverrides(repostOverrides)
+                        .withQuoteOverrides(quoteOverrides)
+                }
             }
         }
-    val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
+    val quoting = rememberQuoting(quotes) { error = it }
+    val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
     val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
@@ -159,6 +169,7 @@ fun ProfilePresenter(
         revealed = rememberRevealed(),
         tab = tab,
         posts = shownPosts,
+        quote = quoting.fields,
     ) { event ->
         when (event) {
             ProfileEvent.Back -> {

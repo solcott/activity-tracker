@@ -8,6 +8,8 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
+import io.github.solcott.activitytracker.lexicon.app.QuotedPost
+import io.github.solcott.activitytracker.lexicon.app.QuotedPostEmbed
 import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
 import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
@@ -90,3 +92,61 @@ fun fakeRepostedPost(reposted: Boolean = false): RepostedPostView {
         reason = ReasonRepost(fakeProfileBasic(Fixed.BOB), Fixed.NOW - 20.minutes, others = 1),
     )
 }
+
+/**
+ * [author]'s quote (feed/quote-posts) of [quoted], at [visibility], with [text] and its counts: Carol quoting Bob's shared proposal by
+ * default.
+ */
+@Suppress("LongParameterList") // What each sample varies.
+fun fakeQuote(
+    quoted: QuotedPost = fakePost().asQuotedPost(),
+    author: Did = Fixed.CAROL,
+    rkey: String = "3kquote",
+    text: String = "Yes, and the lower half should be its own segment.",
+    visibility: String = Visibility.FOLLOWERS,
+    quoteCount: Long = 0,
+): PostView =
+    PostView(
+        uri = AtUri.of(author, Nsid.FEED_POST, rkey),
+        cid = Cid("bafyquote$rkey"),
+        author = fakeProfileBasic(author),
+        embed = PostEmbedView.Quote(quoted),
+        createdAt = Fixed.NOW - 30.minutes,
+        indexedAt = Fixed.NOW - 30.minutes,
+        text = text,
+        visibility = visibility.takeIf { it != Visibility.PUBLIC },
+        likeCount = 2,
+        commentCount = 1,
+        quoteCount = quoteCount,
+        viewer = PostViewerState(),
+    )
+
+/** Dave's quote of Carol's quote of Bob's post, which shows Carol's quote with a link in place of Bob's post. */
+fun fakeQuoteOfQuote(): PostView =
+    fakeQuote(
+        quoted = fakeQuote().asQuotedPost(),
+        author = Did("did:plc:dave"),
+        rkey = "3kquote2",
+        text = "Agreed, the lower half is a different trail.",
+    )
+
+/** Carol's quote of a post Bob deleted: "Post unavailable" in its place. */
+fun fakeUnavailableQuote(): PostView =
+    fakeQuote(quoted = QuotedPost.Unavailable(AtUri.of(Fixed.BOB, Nsid.FEED_POST, "3kgone")), rkey = "3kquote3", text = "This was right.")
+
+/** This post as a quote of it shows it, one level deep. */
+fun PostView.asQuotedPost(): QuotedPost.Post =
+    QuotedPost.Post(
+        uri = uri,
+        cid = cid,
+        author = author,
+        createdAt = createdAt,
+        text = text,
+        visibility = visibility,
+        embed =
+            when (val shared = embed) {
+                is PostEmbedView.Proposal -> shared
+                is PostEmbedView.Quote -> (shared.quoted as? QuotedPost.Post)?.uri?.let(QuotedPostEmbed::Link)
+                is PostEmbedView.Unknown -> null
+            },
+    )

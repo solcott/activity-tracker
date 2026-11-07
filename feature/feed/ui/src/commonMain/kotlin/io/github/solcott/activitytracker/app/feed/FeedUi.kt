@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.untilText
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.posts.PostCard
+import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
@@ -186,6 +187,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
         }
     }
     ReportingHost(state.reporting)
+    QuoteSheetHost(state.quote)
 }
 
 @Composable

@@ -26,8 +26,9 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 
 /**
  * Handles [PostEvent]s for a host presenter (feed/posts): opens navigate, a vote goes through [SegmentNames] and a like or repost
- * (feed/reposts) through [activities], each once per post at a time, and Report opens the host's [reporting] sheet. A vote, like or repost
- * that fails to queue goes to [onError]: a session that can't like or repost a non-public post is asked to sign in again.
+ * (feed/reposts) through [activities], each once per post at a time, Report opens the host's [reporting] sheet, and Quote and Delete the
+ * host's [quoting] sheet and confirmation (feed/quote-posts). A vote, like or repost that fails to queue goes to [onError]: a session that
+ * can't like or repost a non-public post is asked to sign in again.
  */
 @Composable
 fun rememberPostEventSink(
@@ -35,11 +36,13 @@ fun rememberPostEventSink(
     names: SegmentNames,
     activities: ActivityRepository,
     reporting: Reporting,
+    quoting: Quoting,
     onError: (UiError) -> Unit,
 ): (PostEvent) -> Unit {
     val flights = rememberSingleFlight()
     val currentOnError by rememberUpdatedState(onError)
     val currentReporting by rememberUpdatedState(reporting)
+    val currentQuoting by rememberUpdatedState(quoting)
     return remember(navigator, names, activities, flights) {
         { event ->
             when (event) {
@@ -54,6 +57,12 @@ fun rememberPostEventSink(
                 is PostEvent.OpenAuthor -> navigator.goTo(ProfileScreen(event.post.author.did.value))
 
                 is PostEvent.OpenReposter -> navigator.goTo(ProfileScreen(event.reposter.did.value))
+
+                is PostEvent.OpenQuoted -> navigator.goTo(PostPageScreen(event.uri.value))
+
+                is PostEvent.Quote -> currentQuoting.open(event.post)
+
+                is PostEvent.Delete -> currentQuoting.delete(event.post)
 
                 is PostEvent.Like -> {
                     flights.launch(PostLike(event.post.uri)) {
