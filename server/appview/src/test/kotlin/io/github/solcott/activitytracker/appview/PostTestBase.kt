@@ -20,6 +20,7 @@ import java.time.LocalDate
 import kotlin.test.AfterTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -82,6 +83,27 @@ open class PostTestBase : SegmentTestBase() {
             Nsid.FEED_POST,
             rkey,
             """{"embed":{"${'$'}type":"${Nsid.FEED_POST}#proposal","proposal":"$proposal"},"createdAt":"$createdAt"$textField}""",
+            tier,
+        )
+    }
+
+    /** [did] quotes the post at [subject] at [tier], under [rkey] (feed/quote-posts); a null [text] writes none. */
+    @Suppress("LongParameterList")
+    protected fun quote(
+        did: String,
+        rkey: String,
+        subject: String = postUri(),
+        tier: String = Visibility.PUBLIC,
+        text: String? = "Yes, and the lower half too",
+        createdAt: kotlin.time.Instant = now - 30.minutes,
+    ) {
+        val textField = text?.let { ""","text":"$it"""" }.orEmpty()
+        put(
+            did,
+            Nsid.FEED_POST,
+            rkey,
+            """{"embed":{"${'$'}type":"${Nsid.FEED_POST}#quote","subject":{"uri":"$subject","cid":"bafyquoted"}},""" +
+                """"createdAt":"$createdAt"$textField}""",
             tier,
         )
     }

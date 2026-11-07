@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetPost
+import io.github.solcott.activitytracker.lexicon.app.GetQuotes
 import io.github.solcott.activitytracker.lexicon.app.GetReposts
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
@@ -364,6 +365,19 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Reposts.authorDid]) }
         val profiles = basicProfiles(rows.map { it[Reposts.authorDid] }, avatars)
         GetReposts.Output(params.uri, rows.mapNotNull { profiles[it[Reposts.authorDid]] }, next)
+    }
+
+    /**
+     * [GetQuotes]: quotes of a post the viewer may see (feed/quote-posts), newest first by feed position, by the rule its `quoteCount`
+     * counts by; `NotFound` for a post they may not see and for anything but a post.
+     */
+    suspend fun quotes(viewer: Did?, params: GetQuotes.Params): GetQuotes.Output = db.tx {
+        if (Subject.of(params.uri) != Subject.POST) throw postNotFound()
+        requireVisiblePost(params.uri.value, viewer)
+        val pageSize = Paging.clamp(params.limit)
+        val rows = postPage((Posts.quotedUri eq params.uri.value) and postRows(viewer), pageSize, params.cursor)
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
+        GetQuotes.Output(postViews(rows, viewer, avatars), next)
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {

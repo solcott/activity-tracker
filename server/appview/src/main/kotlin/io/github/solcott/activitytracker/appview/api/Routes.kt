@@ -48,6 +48,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetQuotes
 import io.github.solcott.activitytracker.lexicon.app.GetReposts
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
@@ -108,6 +109,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetActivityInvitees.method, verifier) { params, viewer -> invites.invitees(requireViewer(viewer), params) }
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
     xrpcQuery(GetReposts.method, verifier) { params, viewer -> views.reposts(viewer, params) }
+    xrpcQuery(GetQuotes.method, verifier) { params, viewer -> views.quotes(viewer, params) }
     xrpcQuery(GetComments.method, verifier) { params, viewer -> views.comments(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
     xrpcQuery(GetGear.method, verifier) { params, viewer -> views.gear(viewer, params) }

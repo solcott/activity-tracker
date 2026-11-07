@@ -408,6 +408,7 @@ class Indexer(
                     else -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
+                if (collection == Nsid.FEED_POST) dropQuoteChain(uri)
             }
 
             Nsid.FEED_ACTIVITY_STREAMS -> {
@@ -508,6 +509,7 @@ class Indexer(
         GearMountRows.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData(streamBlobs)
         for (held in HELD_ROWS) held.table.deleteWhere { held.author eq did.value }
+        dropQuoteChainsBy(did)
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
         GroupPrefs.deleteWhere { GroupPrefs.did eq did.value }
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }

@@ -296,7 +296,11 @@ object Posts : Table("posts") {
     val cid = varchar("cid", 255)
     val authorDid = varchar("author_did", 255)
     val record = text("record")
-    val proposalUri = varchar("proposal_uri", 512)
+    /** The shared proposal; null on a quote. */
+    val proposalUri = varchar("proposal_uri", 512).nullable()
+    /** The quoted post (feed/quote-posts); null on a post sharing a proposal. */
+    val quotedUri = varchar("quoted_uri", 512).nullable()
+    val quotedCid = varchar("quoted_cid", 255).nullable()
     val text = varchar("post_text", 10_000).nullable()
     /** As the record gives it. */
     val createdAt = long("created_at")
@@ -307,6 +311,21 @@ object Posts : Table("posts") {
     /** [Origins.REPO] or the tier space's URI. */
     val origin = varchar("origin", 512).default(Origins.REPO)
     override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * A quote's chain (feed/quote-posts): the post at [depth] 1 is the one [postUri] quotes, at 2 the one that quotes, and so on, up to
+ * [MAX_DEPTH]. Kept by the indexer (`index/PostIndex.kt`); a post's rows outlive its row, and are rebuilt when it's indexed again.
+ */
+object PostQuoteChains : Table("post_quote_chains") {
+    val postUri = varchar("post_uri", 512)
+    val ancestorUri = varchar("ancestor_uri", 512)
+    val depth = integer("chain_depth")
+    override val primaryKey = PrimaryKey(postUri, depth)
+
+    /** The deepest chain served is [MAX_SERVED]; one row deeper marks a quote too far from its first post. */
+    const val MAX_SERVED = 8
+    const val MAX_DEPTH = MAX_SERVED + 1
 }
 
 /** A `feed.segmentNameVote` from its voter's `interactions` space, on the proposal version [proposalCid]. Never served. */

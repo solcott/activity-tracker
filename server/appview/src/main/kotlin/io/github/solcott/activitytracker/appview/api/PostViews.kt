@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.DiveSites
+import io.github.solcott.activitytracker.appview.db.PostQuoteChains
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewBasic
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.QuotedPost
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
@@ -25,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -32,7 +35,9 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.not
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -40,21 +45,34 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 // The read side of posts (feed/posts): which a viewer may see, and their views with the proposal each shares as it stands now.
 
 /**
- * The post rows [viewer] may see: at a tier that admits them with no block either way ([visibleTo]), not hidden from them by a label, and
- * sharing a proposal that is indexed, whose record still exists, and that a list may show them ([listedProposal]). Every post query reads
- * through this, so a post never outlives its proposal.
+ * The post rows [viewer] may see: at a tier that admits them with no block either way ([visibleTo]) and not hidden from them by a label,
+ * and either sharing a proposal that is indexed, whose record still exists, and that a list may show them ([listedProposal]), or quoting a
+ * post along a chain that passes for them ([quoteChainPasses]); never a quote too far from its first post. Every post query reads through
+ * this, so a post never outlives its proposal and a quote never reaches past the posts it quotes.
  */
 internal fun postRows(viewer: Did?): Op<Boolean> =
     visibleTo(viewer, Posts.visibility, Posts.authorDid, Posts.uri, Posts.cid) and
         unhidden(viewer, Posts.authorDid, Posts.uri) and
-        exists(
-            SegmentNameProposals.select(SegmentNameProposals.uri).where {
-                (SegmentNameProposals.uri eq Posts.proposalUri) and
-                    (SegmentNameProposals.proposerDid eq Posts.authorDid) and
-                    (SegmentNameProposals.recordGone eq false) and
-                    listedProposal(viewer)
-            }
+        ((Posts.proposalUri.isNotNull() and liveProposal(Posts.proposalUri, Posts.authorDid, viewer)) or
+            (Posts.quotedUri.isNotNull() and quoteChainPasses(viewer))) and
+        not(
+            exists(
+                PostQuoteChains.select(PostQuoteChains.postUri).where {
+                    (PostQuoteChains.postUri eq Posts.uri) and (PostQuoteChains.depth eq PostQuoteChains.MAX_DEPTH)
+                }
+            )
         )
+
+/** The post's [proposal] is indexed, by its [author], its record still exists, and a list may show it to [viewer] ([listedProposal]). */
+private fun liveProposal(proposal: Column<String?>, author: Column<String>, viewer: Did?): Op<Boolean> =
+    exists(
+        SegmentNameProposals.select(SegmentNameProposals.uri).where {
+            (SegmentNameProposals.uri eq proposal) and
+                (SegmentNameProposals.proposerDid eq author) and
+                (SegmentNameProposals.recordGone eq false) and
+                listedProposal(viewer)
+        }
+    )
 
 /** The author of the post [uri]; `NotFound` when [viewer] may not see it ([postRows]), as if it didn't exist. */
 internal fun JdbcTransaction.requireVisiblePost(uri: String, viewer: Did?): String =
@@ -73,13 +91,53 @@ internal fun JdbcTransaction.postPage(rows: Op<Boolean>, limit: Int, cursor: Str
 
 /**
  * Views of post [rows] as [viewer] sees them, in order. A post whose proposal or the segment or site it names has gone since the rows were
- * read is left out. Open proposals carry live totals and the viewer's vote on their current version; closed ones their final totals.
+ * read is left out. Open proposals carry live totals and the viewer's vote on their current version; closed ones their final totals. A
+ * quote carries its quoted post one level deep ([quotedFor]).
  */
 internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avatars: AvatarUrls): List<PostView> {
     if (rows.isEmpty()) return emptyList()
+    val quoted = quotedFor(rows, viewer)
+    val proposals = proposalEmbeds(rows + quoted.values, viewer)
+    val authors = basicProfiles((rows + quoted.values).map { it[Posts.authorDid] }, avatars)
+    val labels = labelViews(rows.associate { it[Posts.uri] to it[Posts.cid] })
+    val counts = postCounts(rows.map { it[Posts.uri] }, viewer)
+    return rows.mapNotNull { row ->
+        val quotes = row[Posts.quotedUri]
+        val embed =
+            if (quotes != null) {
+                val shown = quoted[row[Posts.uri]]?.let { quotedView(it, authors, proposals) }
+                PostEmbedView.Quote(shown ?: QuotedPost.Unavailable(AtUri(quotes)))
+            } else {
+                proposals(row) ?: return@mapNotNull null
+            }
+        val author = authors[row[Posts.authorDid]] ?: return@mapNotNull null
+        PostView(
+            uri = AtUri(row[Posts.uri]),
+            cid = Cid(row[Posts.cid]),
+            author = author,
+            embed = embed,
+            createdAt = Instant.fromEpochMilliseconds(row[Posts.sortAt]),
+            indexedAt = Instant.fromEpochMilliseconds(row[Posts.indexedAt]),
+            text = row[Posts.text],
+            visibility = row[Posts.visibility].takeIf { it != Visibility.PUBLIC },
+            labels = labels[row[Posts.uri]],
+            likeCount = counts.likes(row[Posts.uri]),
+            commentCount = counts.comments(row[Posts.uri]),
+            repostCount = counts.reposts(row[Posts.uri]),
+            quoteCount = counts.quotes(row[Posts.uri]),
+            viewer = counts.viewer(row[Posts.uri]),
+        )
+    }
+}
+
+/**
+ * The proposal embed of each of the posts [rows] that shares one, as [viewer] sees it: null for a quote, and for a post whose proposal or
+ * the segment or site it names has gone since the rows were read.
+ */
+private fun JdbcTransaction.proposalEmbeds(rows: List<ResultRow>, viewer: Did?): (ResultRow) -> PostEmbedView.Proposal? {
     val proposals =
         SegmentNameProposals.selectAll()
-            .where { SegmentNameProposals.uri inList rows.map { it[Posts.proposalUri] } }
+            .where { SegmentNameProposals.uri inList rows.mapNotNull { it[Posts.proposalUri] }.distinct() }
             .associateBy { it[SegmentNameProposals.uri] }
     val bySubject = proposals.values.groupBy { it[SegmentNameProposals.segmentUri] }
     val openTallies =
@@ -101,35 +159,18 @@ internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avat
             .orEmpty()
     val segments = segmentsAmong(bySubject.keys)
     val sites = sitesAmong(bySubject.keys)
-    val authors = basicProfiles(rows.map { it[Posts.authorDid] }, avatars)
-    val labels = labelViews(rows.associate { it[Posts.uri] to it[Posts.cid] })
-    val counts = postCounts(rows.map { it[Posts.uri] }, viewer)
-    return rows.mapNotNull { row ->
-        val proposal = proposals[row[Posts.proposalUri]] ?: return@mapNotNull null
-        val subject = proposal[SegmentNameProposals.segmentUri]
-        val segment = segments[subject]
-        val site = sites[subject]
-        if (segment == null && site == null) return@mapNotNull null
-        val author = authors[row[Posts.authorDid]] ?: return@mapNotNull null
-        PostView(
-            uri = AtUri(row[Posts.uri]),
-            cid = Cid(row[Posts.cid]),
-            author = author,
-            embed =
+    return { row ->
+        proposals[row[Posts.proposalUri]]?.let { proposal ->
+            val subject = proposal[SegmentNameProposals.segmentUri]
+            val segment = segments[subject]
+            val site = sites[subject]
+            if (segment == null && site == null) null
+            else
                 proposalEmbed(proposal, openTallies, own, segment, site).let {
                     // The proposer's own vote never counts (segments/segment-names), so they get no buttons.
                     it.copy(canVote = it.status == PostProposalStatus.OPEN && subject in voters && viewer?.value != row[Posts.authorDid])
-                },
-            createdAt = Instant.fromEpochMilliseconds(row[Posts.sortAt]),
-            indexedAt = Instant.fromEpochMilliseconds(row[Posts.indexedAt]),
-            text = row[Posts.text],
-            visibility = row[Posts.visibility].takeIf { it != Visibility.PUBLIC },
-            labels = labels[row[Posts.uri]],
-            likeCount = counts.likes(row[Posts.uri]),
-            commentCount = counts.comments(row[Posts.uri]),
-            repostCount = counts.reposts(row[Posts.uri]),
-            viewer = counts.viewer(row[Posts.uri]),
-        )
+                }
+        }
     }
 }
 
