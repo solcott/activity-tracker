@@ -22,6 +22,14 @@ internal object MaterialIcons {
             )
         }
 
+    val Repeat: ImageVector =
+        materialIcon("Filled.Repeat") {
+            addPath(
+                PathParser().parsePathString("M7,7h10v3l4,-4 -4,-4v3H5v6h2V7zM17,17H7v-3l-4,4 4,4v-3h12v-6h-2v4z").toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
     val Fullscreen: ImageVector =
         materialIcon("Filled.Fullscreen") {
             addPath(

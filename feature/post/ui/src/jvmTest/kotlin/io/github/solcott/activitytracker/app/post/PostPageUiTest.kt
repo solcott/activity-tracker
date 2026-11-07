@@ -12,9 +12,13 @@ import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/** The post page (feed/post-page): the card with its counts and like button, Show likes, its comment threads, and an unavailable post. */
+/**
+ * The post page (feed/post-page): the card with its counts and like and repost buttons, Show likes and reposts, its comment threads, and an
+ * unavailable post.
+ */
 @OptIn(ExperimentalTestApi::class)
 class PostPageUiTest {
     private fun show(state: PostPageState, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
@@ -49,6 +53,27 @@ class PostPageUiTest {
     fun likersAreListed() =
         show(PostPageSamples.likers) {
             onNodeWithText("Hide likes").assertExists()
+            onNodeWithText("@carol.test", substring = true).assertExists()
+        }
+
+    @Test
+    fun theRepostButtonSendsARepostAndShowRepostsListsThem() {
+        val events = mutableListOf<PostPageEvent>()
+        val state = PostPageSamples.all.getValue("loaded").copy(eventSink = { events += it })
+        show(state) {
+            onAllNodesWithText("1 repost", substring = true).assertCountEquals(1)
+            onNodeWithTag(TestTags.POST_REPOST).performClick()
+            assertIs<PostEvent.Repost>(assertIs<PostPageEvent.Post>(events.last()).event)
+            onNodeWithText("Show reposts").performClick()
+            assertEquals(PostPageEvent.ToggleRepostsList, events.last())
+        }
+    }
+
+    @Test
+    fun repostersAreListed() =
+        show(PostPageSamples.reposters) {
+            onNodeWithText("Hide reposts").assertExists()
+            onNodeWithText("@alice.test", substring = true).assertExists()
             onNodeWithText("@carol.test", substring = true).assertExists()
         }
 

@@ -67,6 +67,10 @@ open class ActivityTestBase {
     protected val carol = """{"did":"did:plc:carol","handle":"carol.test"}"""
     protected val staleAlice = """{"did":"did:plc:alice","handle":"alice.test"}"""
     protected var likesFromAppView = listOf(carol)
+
+    /** Who reposted the post the AppView serves (feed/reposts), as `profileViewBasic` JSON. */
+    protected var repostsFromAppView = listOf(carol)
+
     protected var streams: String? = null
     protected var visibility = "public"
 
@@ -284,6 +288,12 @@ open class ActivityTestBase {
                         segmentsFromAppView?.let { respond("""{"efforts":$it}""", headers = json) }
                             ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                     }
+
+                    "/xrpc/${Nsid.FEED_GET_REPOSTS}" ->
+                        respond(
+                            """{"uri":"${request.url.parameters["uri"]}","reposts":[${repostsFromAppView.joinToString(",")}]}""",
+                            headers = json,
+                        )
 
                     "/xrpc/${Nsid.FEED_GET_LIKES}" -> {
                         if (failLikes)

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.posts
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 
 /** A tap on a post card (feed/posts), which every host wraps in an event of its own and hands to `rememberPostEventSink`. */
 @Immutable
@@ -14,6 +15,12 @@ sealed interface PostEvent {
 
     /** Gives or takes back the viewer's like of someone else's post. */
     data class Like(val post: PostView) : PostEvent
+
+    /** Reposts someone else's post, or undoes the viewer's repost of it (feed/reposts). */
+    data class Repost(val post: PostView) : PostEvent
+
+    /** Opens the profile of [reposter], who put the post in the viewer's timeline (feed/reposts). */
+    data class OpenReposter(val reposter: ProfileViewBasic) : PostEvent
 
     /** Opens the post's author's profile. */
     data class OpenAuthor(val post: PostView) : PostEvent

@@ -34,6 +34,7 @@
     <string name="error_load_mayors">Couldn't load the Mayors board</string>
     <string name="error_update_star">Couldn't update your star</string>
     <string name="error_load_likes">Couldn't load likes</string>
+    <string name="error_load_reposts">Couldn't load reposts</string>
     <string name="error_load_comments">Couldn't load comments</string>
     <string name="error_load_replies">Couldn't load replies</string>
     <string name="error_load_profile">Couldn't load profile</string>
@@ -416,6 +417,7 @@
     <string name="unsent_change_activity_named">%1$s, %2$s</string>
     <string name="unsent_change_activity">An activity</string>
     <string name="unsent_change_like">A like</string>
+    <string name="unsent_change_repost">A repost</string>
     <string name="unsent_change_comment">A comment</string>
     <string name="unsent_change_comment_hide">A hidden comment</string>
     <string name="unsent_change_block">A block</string>
@@ -1940,6 +1942,22 @@
     <string name="segment_name_edit_warning">Editing the name clears every vote it has.</string>
     <string name="post_card_more">More for this post</string>
     <string name="post_card_open">Open the post</string>
+    <string name="post_card_counts">%1$s · %2$s · %3$s</string>
+    <string name="repost_content_description">Repost</string>
+    <string name="undo_repost_content_description">Undo repost</string>
+    <plurals name="repost_count">
+        <item quantity="one">%1$d repost</item>
+        <item quantity="other">%1$d reposts</item>
+    </plurals>
+    <string name="post_reposted_by">Reposted by %1$s</string>
+    <string name="post_reposted_by_you">Reposted by you</string>
+    <plurals name="post_reposted_by_others">
+        <item quantity="one">Reposted by %1$s and %2$d other</item>
+        <item quantity="other">Reposted by %1$s and %2$d others</item>
+    </plurals>
+    <string name="post_reposted_by_open">Open the profile of who reposted it</string>
+    <string name="post_show_reposts">Show reposts</string>
+    <string name="post_hide_reposts">Hide reposts</string>
     <string name="post_card_open_place">Open the segment or dive site</string>
     <string name="post_page_title">Post</string>
     <string name="post_unavailable">This post isn't available. It may have been withdrawn, or you may not be able to see it.</string>

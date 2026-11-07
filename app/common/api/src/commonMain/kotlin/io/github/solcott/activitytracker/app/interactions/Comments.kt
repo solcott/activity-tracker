@@ -119,7 +119,7 @@ sealed interface RepliesState {
     data class Failed(val error: UiError) : RepliesState
 }
 
-/** Who liked a subject, once the viewer has shown the list. */
+/** Who liked a subject, or reposted a post (feed/reposts), once the viewer has shown the list. */
 @Immutable
 data class LikesList(
     val athletes: ImmutableList<ProfileViewBasic>,

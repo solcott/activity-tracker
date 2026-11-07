@@ -11,6 +11,8 @@ object TestTags {
     /** A post card's up and down vote buttons (feed/posts). */
     const val POST_VOTE_UP = "postVoteUp"
     const val POST_LIKE = "postLike"
+    const val POST_REPOST = "postRepost"
+    const val POST_REPOSTED_BY = "postRepostedBy"
     const val POST_VOTE_DOWN = "postVoteDown"
 
     /** The first-load spinner: `ContentStateLayout`'s, or a paged list's before it answers. */

@@ -12,11 +12,13 @@ import io.github.solcott.activitytracker.app.post.PostPageScreen
 import io.github.solcott.activitytracker.app.post.PostPageState
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
+import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,7 +26,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-/** The post page's presenter (feed/post-page): loading the post, NotFound, retry, liking, commenting and replying, and hiding. */
+/**
+ * The post page's presenter (feed/post-page): loading the post, NotFound, retry, liking, reposting, commenting and replying, and hiding.
+ */
 class PostPagePresenterTest : ActivityTestBase() {
     private val postUri = "at://did:plc:bob/${Nsid.FEED_POST}/3kpost"
     private val screen = PostPageScreen(postUri)
@@ -88,6 +92,57 @@ class PostPagePresenterTest : ActivityTestBase() {
             state.eventSink(PostPageEvent.Post(PostEvent.Like(state.content.data!!.post)))
             val liked = awaitPage { it.post.viewer?.like != null }
             assertEquals(1, liked.post.likeCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun repostingAFollowersPostQueuesItInTheInteractionsSpaceAndShowsAtOnce() = runTest {
+        postFromAppView = post()
+        val r = repos()
+        presenterTestOf(presenterOf(r)) {
+            val state = awaitUntil { it.content.data != null }
+            val post = state.content.data!!.post
+            // A double tap reposts once (undoing is core-data's PostRepostsTest).
+            state.eventSink(PostPageEvent.Post(PostEvent.Repost(post)))
+            state.eventSink(PostPageEvent.Post(PostEvent.Repost(post)))
+            val reposted = awaitPage { it.post.viewer?.repost != null }
+            assertEquals(1, reposted.post.repostCount)
+            val queued = r.queued(Nsid.FEED_REPOST).single()
+            assertEquals("interactions", queued.first)
+            assertTrue(postUri in queued.second)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theRepostersListShowsTheViewerAtOnceAfterTheyRepost() = runTest {
+        postFromAppView = post()
+        repostsFromAppView = listOf(carol)
+        val r = repos()
+        presenterTestOf(presenterOf(r)) {
+            val state = awaitUntil { it.content.data != null }
+            state.eventSink(PostPageEvent.Post(PostEvent.Repost(state.content.data!!.post)))
+            awaitPage { it.post.viewer?.repost != null }
+            state.eventSink(PostPageEvent.ToggleRepostsList)
+            val listed = awaitPage { list -> list.repostsList?.let { !it.isLoading && it.athletes.size == 2 } == true }
+            assertEquals(listOf(alice.value, "did:plc:carol"), listed.repostsList!!.athletes.map { it.did.value })
+            state.eventSink(PostPageEvent.ToggleRepostsList)
+            awaitPage { it.repostsList == null }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theRepostersHeaderOpensTheirProfile() = runTest {
+        postFromAppView = post()
+        val r = repos()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf(presenterOf(r, navigator)) {
+            val state = awaitUntil { it.content.data != null }
+            val reposter = AtJson.decodeFromString(ProfileViewBasic.serializer(), carol)
+            state.eventSink(PostPageEvent.Post(PostEvent.OpenReposter(reposter)))
+            assertEquals(ProfileScreen("did:plc:carol"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

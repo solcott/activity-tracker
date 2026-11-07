@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakeComment
 import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
 import io.github.solcott.activitytracker.app.interactions.CommentThread
 import io.github.solcott.activitytracker.app.interactions.CommentsPaging
 import io.github.solcott.activitytracker.app.interactions.CommentsState
@@ -18,7 +19,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 /** The post page (feed/post-page): Bob's Followers post as Alice sees it, liked by her, with Carol's comment and Bob's reply. */
 object PostPageSamples {
-    val post: PostView = fakePost().copy(likeCount = 3, commentCount = 2, viewer = PostViewerState())
+    val post: PostView = fakePost().copy(likeCount = 3, commentCount = 2, repostCount = 1, viewer = PostViewerState())
 
     /** The page with one thread; a new draft each time. */
     val page: PostPage
@@ -49,7 +50,10 @@ object PostPageSamples {
         }
 
     val all: Map<String, PostPageState>
-        get() = contentSamples<PostPage?, PostPageState>(null, page) { PostPageState(it, eventSink = {}) } + ("notFound" to notFound)
+        get() =
+            contentSamples<PostPage?, PostPageState>(null, page) { PostPageState(it, eventSink = {}) } +
+                ("notFound" to notFound) +
+                ("reposters" to reposters)
 
     /** The AppView doesn't serve the post to the viewer. */
     val notFound: PostPageState
@@ -64,4 +68,14 @@ object PostPageSamples {
                 ),
                 eventSink = {},
             )
+
+    /** Who reposted it, shown, after Alice reposted it too (feed/reposts). */
+    val reposters: PostPageState
+        get() {
+            val reposted =
+                post.copy(repostCount = 2, viewer = PostViewerState(repost = fakeRepostedPost(reposted = true).post.viewer?.repost))
+            val list =
+                LikesList(persistentListOf(fakeProfileBasic(Fixed.ALICE), fakeProfileBasic(Fixed.CAROL)), isLoading = false, error = null)
+            return PostPageState(ContentStates.loaded(page.copy(post = reposted, repostsList = list)), eventSink = {})
+        }
 }

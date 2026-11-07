@@ -14,7 +14,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.uistate.ContentState
 
-/** A post's page (feed/post-page): its card, who liked it, and its comment threads. [uri] is the `feed.post`'s AT-URI. */
+/** A post's page (feed/post-page): its card, who liked and reposted it, and its comment threads. [uri] is the `feed.post`'s AT-URI. */
 @CircuitSerializable(SessionScope::class) data class PostPageScreen(val uri: String) : Screen
 
 /**
@@ -32,9 +32,10 @@ data class PostPageState(
 /**
  * The loaded post page, as the viewer left it.
  *
- * @property post the post, its like and comment counts already moved by the viewer's own changes the AppView hasn't caught up with.
+ * @property post the post, its like, comment and repost counts already moved by the viewer's own changes the AppView hasn't caught up with.
  * @property likesList who liked it, once the viewer has shown the list; null while it's hidden.
- * @property error why the viewer's last like or vote couldn't be given.
+ * @property repostsList who reposted it (feed/reposts), once the viewer has shown the list; null while it's hidden.
+ * @property error why the viewer's last like, repost or vote couldn't be given.
  */
 @Immutable
 data class PostPage(
@@ -42,6 +43,7 @@ data class PostPage(
     val comments: CommentsState,
     val viewerDid: Did,
     val likesList: LikesList? = null,
+    val repostsList: LikesList? = null,
     val error: UiError? = null,
     /** Report on someone else's post and on others' comments. */
     val reporting: Reporting = Reporting(),
@@ -57,6 +59,9 @@ sealed interface PostPageEvent {
 
     /** Shows or hides who liked the post. */
     data object ToggleLikesList : PostPageEvent
+
+    /** Shows or hides who reposted the post (feed/reposts). */
+    data object ToggleRepostsList : PostPageEvent
 
     data class OpenProfile(val did: Did) : PostPageEvent
 }

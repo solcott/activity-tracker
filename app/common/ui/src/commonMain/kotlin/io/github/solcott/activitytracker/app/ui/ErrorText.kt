@@ -71,6 +71,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_regulars
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
+import io.github.solcott.activitytracker.composeApp.resources.error_load_reposts
 import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_shared_places
@@ -197,6 +198,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.CheckDiveSite -> Res.string.error_check_dive_site
             UiError.Kind.PublishDiveSite -> Res.string.error_publish_dive_site
             UiError.Kind.LoadLikes -> Res.string.error_load_likes
+            UiError.Kind.LoadReposts -> Res.string.error_load_reposts
             UiError.Kind.LoadComments -> Res.string.error_load_comments
             UiError.Kind.LoadReplies -> Res.string.error_load_replies
             UiError.Kind.LoadProfile -> Res.string.error_load_profile

@@ -20,20 +20,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_report
-import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
 import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.composeApp.resources.like_count
+import io.github.solcott.activitytracker.composeApp.resources.post_card_counts
 import io.github.solcott.activitytracker.composeApp.resources.post_card_dive_site
 import io.github.solcott.activitytracker.composeApp.resources.post_card_more
 import io.github.solcott.activitytracker.composeApp.resources.post_card_open
@@ -41,19 +43,27 @@ import io.github.solcott.activitytracker.composeApp.resources.post_card_open_pla
 import io.github.solcott.activitytracker.composeApp.resources.post_card_proposes
 import io.github.solcott.activitytracker.composeApp.resources.post_card_segment
 import io.github.solcott.activitytracker.composeApp.resources.post_card_unavailable
+import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by
+import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_open
+import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_others
+import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_you
 import io.github.solcott.activitytracker.composeApp.resources.post_status_adopted
 import io.github.solcott.activitytracker.composeApp.resources.post_status_closed
 import io.github.solcott.activitytracker.composeApp.resources.post_status_expired
 import io.github.solcott.activitytracker.composeApp.resources.post_status_open
 import io.github.solcott.activitytracker.composeApp.resources.post_status_rejected
 import io.github.solcott.activitytracker.composeApp.resources.post_status_superseded
+import io.github.solcott.activitytracker.composeApp.resources.repost_content_description
+import io.github.solcott.activitytracker.composeApp.resources.repost_count
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_totals
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_down
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
+import io.github.solcott.activitytracker.composeApp.resources.undo_repost_content_description
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.persistentListOf
@@ -62,17 +72,26 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * One post (feed/posts) in a timeline, on a profile or atop its own page: its author and audience, their text, the proposal it shares as it
- * stands now, its name, status and totals, with up and down votes when the viewer may vote, and its like and comment counts, with a like
- * button on someone else's post. A tap opens the post page (feed/post-page); the segment or dive site line opens that, and the author their
+ * stands now, its name, status and totals, with up and down votes when the viewer may vote, and its like, comment and repost counts, with
+ * like and repost buttons on someone else's post. A tap opens the post page (feed/post-page); the segment or dive site line opens that, and
+ * the author their profile. In a timeline through a repost (feed/reposts), [reason] heads it with who reposted it, which opens their
  * profile. [canReport] offers Report on someone else's post.
  */
 @Composable
-fun PostCard(post: PostView, viewerDid: String, canReport: Boolean, onEvent: (PostEvent) -> Unit, modifier: Modifier = Modifier) {
+fun PostCard(
+    post: PostView,
+    viewerDid: String,
+    canReport: Boolean,
+    onEvent: (PostEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    reason: ReasonRepost? = null,
+) {
     val embed = post.embed as? PostEmbedView.Proposal
     val openLabel = stringResource(Res.string.post_card_open)
     val own = post.author.did.value == viewerDid
     Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenPost(post)) }.handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            reason?.let { RepostedBy(it, viewerDid, onEvent) }
             Header(post, own, canReport, onEvent)
             post.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             if (embed == null) {
@@ -89,7 +108,29 @@ fun PostCard(post: PostView, viewerDid: String, canReport: Boolean, onEvent: (Po
     }
 }
 
-/** The like button on someone else's post, and the post's like and comment counts as the viewer is shown them. */
+/** "Reposted by …" above a post in the timeline through a repost (feed/reposts), opening the reposter's profile. */
+@Composable
+private fun RepostedBy(reason: ReasonRepost, viewerDid: String, onEvent: (PostEvent) -> Unit) {
+    val text =
+        when {
+            reason.by.did.value == viewerDid -> stringResource(Res.string.post_reposted_by_you)
+            reason.others > 0 ->
+                pluralStringResource(Res.plurals.post_reposted_by_others, reason.others.toInt(), reason.by.shownName, reason.others.toInt())
+            else -> stringResource(Res.string.post_reposted_by, reason.by.shownName)
+        }
+    Row(
+        Modifier.testTag(TestTags.POST_REPOSTED_BY)
+            .clickable(onClickLabel = stringResource(Res.string.post_reposted_by_open)) { onEvent(PostEvent.OpenReposter(reason.by)) }
+            .handCursor(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PlatformIcon(AppIcon.Repost, contentDescription = null, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The like and repost buttons on someone else's post, and the post's like, comment and repost counts as the viewer is shown them. */
 @Composable
 private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -103,12 +144,23 @@ private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit) {
                 filled = given,
                 tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
             )
+            val reposted = post.viewer?.repost != null
+            AppIconButton(
+                AppIcon.Repost,
+                contentDescription =
+                    stringResource(if (reposted) Res.string.undo_repost_content_description else Res.string.repost_content_description),
+                onClick = { onEvent(PostEvent.Repost(post)) },
+                modifier = Modifier.testTag(TestTags.POST_REPOST),
+                filled = reposted,
+                tint = if (reposted) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+            )
         }
         Text(
             stringResource(
-                Res.string.activity_card_counts,
+                Res.string.post_card_counts,
                 pluralStringResource(Res.plurals.like_count, post.likeCount.toInt(), formatWhole(post.likeCount)),
                 pluralStringResource(Res.plurals.comments_count, post.commentCount.toInt(), formatWhole(post.commentCount)),
+                pluralStringResource(Res.plurals.repost_count, post.repostCount.toInt(), formatWhole(post.repostCount)),
             ),
             style = MaterialTheme.typography.bodySmall,
         )

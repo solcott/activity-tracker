@@ -31,15 +31,41 @@ fun rememberLikesList(
     viewerGave: Boolean,
     feed: FeedRepository,
     profiles: ProfileRepository,
+): LikesList? = rememberAthletesList(show, viewerGave, profiles, UiError.Kind.LoadLikes) { feed.likes(uri) }
+
+/**
+ * Who reposted the post [uri] (feed/reposts), while [show] is set, as [rememberLikesList] lists likers: the viewer is added or dropped to
+ * match [viewerGave], their repost as this session left it.
+ */
+@Composable
+fun rememberRepostsList(
+    show: Boolean,
+    uri: AtUri,
+    viewerGave: Boolean,
+    feed: FeedRepository,
+    profiles: ProfileRepository,
+): LikesList? = rememberAthletesList(show, viewerGave, profiles, UiError.Kind.LoadReposts) { feed.reposts(uri) }
+
+/**
+ * The athletes [load] lists while [show] is set, reloaded each time it's shown, failing as [errorKind]. The AppView lags the viewer's own
+ * toggles, so the viewer is added or dropped to match [viewerGave].
+ */
+@Composable
+private fun rememberAthletesList(
+    show: Boolean,
+    viewerGave: Boolean,
+    profiles: ProfileRepository,
+    errorKind: UiError.Kind,
+    load: suspend () -> List<ProfileViewBasic>,
 ): LikesList? {
     // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash the list as it was.
-    val likes =
+    val listed =
         produceRetainedContentState<List<ProfileViewBasic>>(emptyList(), show) {
-            if (show) outcomeFlow { feed.likes(uri) } else flowOf(Outcome.Loading)
+            if (show) outcomeFlow { load() } else flowOf(Outcome.Loading)
         }
-    val athletes = likes.data
-    val loading = likes.isLoading
-    val error = likes.errorOrNull?.let { UiError(UiError.Kind.LoadLikes, it) }
+    val athletes = listed.data
+    val loading = listed.isLoading
+    val error = listed.errorOrNull?.let { UiError(errorKind, it) }
     var me by remember { mutableStateOf<ProfileViewBasic?>(null) }
 
     val viewer = profiles.did

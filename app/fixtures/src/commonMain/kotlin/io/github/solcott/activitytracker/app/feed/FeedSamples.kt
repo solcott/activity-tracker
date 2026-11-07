@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeAdoptedPost
 import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
 import io.github.solcott.activitytracker.app.fixtures.fakePost
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -117,6 +118,12 @@ object FeedSamples {
                 )
                 .copy(reporting = Reporting(available = true))
 
+    /** Loaded, with Carol's post in the timeline through Bob's repost, above an activity (feed/reposts). */
+    val reposted: FeedState
+        get() =
+            state(ContentStates.loaded(persistentListOf(TimelineItem.Repost(fakeRepostedPost()), TimelineItem.Activity(activities[0]))))
+                .copy(reporting = Reporting(available = true))
+
     /**
      * Loaded, with a recording, 950 imported activities and 3 other changes uploading, and two changes the server refused (data/outbox).
      */
@@ -146,6 +153,7 @@ object FeedSamples {
                 "paused" to paused,
                 "imported" to imported,
                 "posts" to posts,
+                "reposted" to reposted,
                 "askingGroups" to askingGroups,
             )
 }

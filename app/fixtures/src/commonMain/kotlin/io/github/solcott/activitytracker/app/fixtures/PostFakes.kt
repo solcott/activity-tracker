@@ -7,11 +7,15 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.PostViewerState
+import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
+import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * [author]'s post sharing their proposal of [name] for the sample segment (feed/posts), at [visibility], [status], with [up] and [down]
@@ -68,3 +72,21 @@ fun fakeAdoptedPost(): PostView =
 
 /** The viewer voted up on Bob's post. */
 fun fakeVotedPost(): PostView = fakePost(vote = SegmentNameVoteDirection.UP, up = 5)
+
+/**
+ * Carol's public post in the viewer's timeline through Bob's repost (feed/reposts), with one other athlete they follow having reposted it
+ * too, and the viewer's own repost when [reposted].
+ */
+fun fakeRepostedPost(reposted: Boolean = false): RepostedPostView {
+    val post = fakePost(author = Fixed.CAROL, rkey = "3kcarol", name = "Ledge Line", visibility = Visibility.PUBLIC, canVote = false)
+    return RepostedPostView(
+        post =
+            post.copy(
+                likeCount = 3,
+                commentCount = 1,
+                repostCount = if (reposted) 3 else 2,
+                viewer = PostViewerState(repost = AtUri.of(Fixed.ALICE, Nsid.FEED_REPOST, "3krepost").takeIf { reposted }),
+            ),
+        reason = ReasonRepost(fakeProfileBasic(Fixed.BOB), Fixed.NOW - 20.minutes, others = 1),
+    )
+}

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.app.interactions.CommentsState
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
+import io.github.solcott.activitytracker.app.interactions.rememberRepostsList
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
@@ -30,6 +31,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.feed.withRepostOverrides
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -44,9 +46,9 @@ import io.github.solcott.uistate.circuit.produceRetainedContentState
 import io.github.solcott.uistate.hasLoaded
 
 /**
- * The post page (feed/post-page): the post as the viewer left it (their votes, likes and comment changes laid over it), its comment threads
- * a page at a time, and who liked it once asked. Comment actions are the activity page's ([CommentActions]); the card's events are the
- * timeline's ([rememberPostEventSink]), except that opening the post again does nothing.
+ * The post page (feed/post-page): the post as the viewer left it (their votes, likes, reposts and comment changes laid over it), its
+ * comment threads a page at a time, and who liked or reposted it once asked. Comment actions are the activity page's ([CommentActions]);
+ * the card's events are the timeline's ([rememberPostEventSink]), except that opening the post again does nothing.
  */
 @CircuitInject(PostPageScreen::class, SessionScope::class)
 @Composable
@@ -66,6 +68,7 @@ fun PostPagePresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var commentError by remember { mutableStateOf<UiError?>(null) }
     var showLikes by remember { mutableStateOf(false) }
+    var showReposts by remember { mutableStateOf(false) }
     val draft = rememberTextFieldState()
     val replying = remember { mutableStateOf<CommentView?>(null) }
     val flights = rememberSingleFlight()
@@ -76,10 +79,11 @@ fun PostPagePresenter(
     var moves by rememberRetained { mutableStateOf<CountMoves?>(null) }
     val nameChanges by names.changes.collectAsState()
     val likeOverrides by feed.likeOverrides.collectAsState()
+    val repostOverrides by feed.localReposts.overrides.collectAsState()
     val post =
-        remember(loaded, moves, nameChanges, likeOverrides) {
+        remember(loaded, moves, nameChanges, likeOverrides, repostOverrides) {
             loaded?.let { view ->
-                val shown = names.applyTo(view).withLikeOverrides(likeOverrides)
+                val shown = names.applyTo(view).withLikeOverrides(likeOverrides).withRepostOverrides(repostOverrides)
                 val moved = moves.over(view)
                 if (moved == 0) shown else shown.copy(commentCount = (shown.commentCount + moved).coerceAtLeast(0))
             }
@@ -105,6 +109,7 @@ fun PostPagePresenter(
         }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }
     val likesList = rememberLikesList(showLikes, uri, viewerGave = post?.viewer?.like != null, feed, profiles)
+    val repostsList = rememberRepostsList(showReposts, uri, viewerGave = post?.viewer?.repost != null, feed, profiles)
 
     val sink: (PostPageEvent) -> Unit = { event ->
         when (event) {
@@ -113,6 +118,7 @@ fun PostPagePresenter(
             // Already here.
             is PostPageEvent.Post -> if (event.event !is PostEvent.OpenPost) postEvents(event.event)
             PostPageEvent.ToggleLikesList -> showLikes = !showLikes
+            PostPageEvent.ToggleRepostsList -> showReposts = !showReposts
             is PostPageEvent.OpenProfile -> navigator.goTo(ProfileScreen(event.did.value))
         }
     }
@@ -135,6 +141,7 @@ fun PostPagePresenter(
                 ),
             viewerDid = profiles.did,
             likesList = likesList,
+            repostsList = repostsList,
             error = error,
             reporting = reporting,
         )

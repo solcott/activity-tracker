@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.feed.withRepostOverrides
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -123,13 +124,16 @@ fun ProfilePresenter(
         }
     val postChanges by names.changes.collectAsState()
     val localPosts by feed.localPosts.changes.collectAsState()
-    // The viewer's like toggles show at once on the pages already loaded (feed/posts).
+    // The viewer's like and repost toggles show at once on the pages already loaded (feed/posts, feed/reposts).
     val likeOverrides by feed.likeOverrides.collectAsState()
+    val repostOverrides by feed.localReposts.overrides.collectAsState()
     val shownPosts =
-        remember(posts.state, postChanges, localPosts, likeOverrides) {
+        remember(posts.state, postChanges, localPosts, likeOverrides, repostOverrides) {
             val removed = localPosts.filterValues { it == null }.keys
             posts.state.updated(PostView::uri) { items ->
-                items.filterNot { it.uri.value in removed }.map { names.applyTo(it).withLikeOverrides(likeOverrides) }
+                items
+                    .filterNot { it.uri.value in removed }
+                    .map { names.applyTo(it).withLikeOverrides(likeOverrides).withRepostOverrides(repostOverrides) }
             }
         }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting) { error = it }

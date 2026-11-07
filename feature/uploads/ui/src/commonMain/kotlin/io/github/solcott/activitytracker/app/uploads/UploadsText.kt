@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.composeApp.resources.unsent_change_comm
 import io.github.solcott.activitytracker.composeApp.resources.unsent_change_like
 import io.github.solcott.activitytracker.composeApp.resources.unsent_change_mute
 import io.github.solcott.activitytracker.composeApp.resources.unsent_change_other
+import io.github.solcott.activitytracker.composeApp.resources.unsent_change_repost
 import io.github.solcott.activitytracker.composeApp.resources.unsent_change_segment
 import io.github.solcott.activitytracker.composeApp.resources.unsent_change_segment_star
 import io.github.solcott.activitytracker.composeApp.resources.uploads_list_last
@@ -83,6 +84,7 @@ internal fun changeName(change: RejectedChange): String =
     when (change.kind) {
         RejectedChange.Kind.Activity -> activityName(change.title, change.sport, change.startedAt)
         RejectedChange.Kind.Like -> stringResource(Res.string.unsent_change_like)
+        RejectedChange.Kind.Repost -> stringResource(Res.string.unsent_change_repost)
         RejectedChange.Kind.Comment -> stringResource(Res.string.unsent_change_comment)
         RejectedChange.Kind.CommentHide -> stringResource(Res.string.unsent_change_comment_hide)
         RejectedChange.Kind.Block -> stringResource(Res.string.unsent_change_block)

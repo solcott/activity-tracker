@@ -25,9 +25,9 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 
 /**
- * Handles [PostEvent]s for a host presenter (feed/posts): opens navigate, a vote goes through [SegmentNames] and a like through
- * [activities], each once per post at a time, and Report opens the host's [reporting] sheet. A vote or like that fails to queue goes to
- * [onError]: a session that can't like a non-public post is asked to sign in again.
+ * Handles [PostEvent]s for a host presenter (feed/posts): opens navigate, a vote goes through [SegmentNames] and a like or repost
+ * (feed/reposts) through [activities], each once per post at a time, and Report opens the host's [reporting] sheet. A vote, like or repost
+ * that fails to queue goes to [onError]: a session that can't like or repost a non-public post is asked to sign in again.
  */
 @Composable
 fun rememberPostEventSink(
@@ -53,9 +53,18 @@ fun rememberPostEventSink(
 
                 is PostEvent.OpenAuthor -> navigator.goTo(ProfileScreen(event.post.author.did.value))
 
+                is PostEvent.OpenReposter -> navigator.goTo(ProfileScreen(event.reposter.did.value))
+
                 is PostEvent.Like -> {
                     flights.launch(PostLike(event.post.uri)) {
                         runSuspendCatching { activities.toggleLike(event.post.asSubject()) }
+                            .onFailure { e -> interactionErrorOf(e)?.let(currentOnError) }
+                    }
+                }
+
+                is PostEvent.Repost -> {
+                    flights.launch(PostRepost(event.post.uri)) {
+                        runSuspendCatching { activities.toggleRepost(event.post) }
                             .onFailure { e -> interactionErrorOf(e)?.let(currentOnError) }
                     }
                 }
@@ -80,3 +89,6 @@ fun rememberPostEventSink(
 
 /** The single-flight key of liking [post], apart from voting on it. */
 private data class PostLike(val post: AtUri)
+
+/** The single-flight key of reposting [post], apart from liking or voting on it. */
+private data class PostRepost(val post: AtUri)

@@ -1,19 +1,27 @@
 package io.github.solcott.activitytracker.app.feed
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.fixtures.ContentStates
+import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeRepostedPost
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlinx.collections.immutable.persistentListOf
 
 /** Posts in the timeline (feed/posts): the shared proposal as it stands, voting from the card, and opening the post or its segment. */
 @OptIn(ExperimentalTestApi::class)
@@ -47,5 +55,32 @@ class PostsUiTest {
         setContent { AppPreview { FeedUi(FeedSamples.posts.copy(eventSink = { events += it })) } }
         onAllNodesWithText("Name for segment", substring = true).onFirst().performClick()
         assertIs<PostEvent.Open>(postEvents(events).last())
+    }
+
+    @Test
+    fun aRepostedCardSaysWhoRepostedItAndOpensThem() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.reposted.copy(eventSink = { events += it })) } }
+        onNodeWithText("Reposted by Bob and 1 other").assertExists()
+        onNodeWithText("3 likes · 1 comment · 2 reposts").assertExists()
+        onNodeWithTag(TestTags.POST_REPOSTED_BY, useUnmergedTree = true).performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(Fixed.BOB, assertIs<PostEvent.OpenReposter>(postEvents(events).last()).reposter.did)
+    }
+
+    @Test
+    fun theRepostButtonRepostsThePost() = runComposeUiTest {
+        val events = mutableListOf<FeedEvent>()
+        setContent { AppPreview { FeedUi(FeedSamples.reposted.copy(eventSink = { events += it })) } }
+        onNodeWithTag(TestTags.POST_REPOST, useUnmergedTree = true).performClick()
+        assertEquals(fakeRepostedPost().post.uri, assertIs<PostEvent.Repost>(postEvents(events).last()).post.uri)
+    }
+
+    @Test
+    fun theViewersOwnPostHasNoRepostButton() = runComposeUiTest {
+        val own = fakeRepostedPost().let { it.copy(post = it.post.copy(author = fakeProfileBasic(Fixed.ALICE))) }
+        val state = FeedSamples.reposted.let { it.copy(content = ContentStates.loaded(persistentListOf(TimelineItem.Repost(own)))) }
+        setContent { AppPreview { FeedUi(state) } }
+        onNodeWithText("Ledge Line", substring = true).assertExists()
+        onNodeWithTag(TestTags.POST_REPOST, useUnmergedTree = true).assertDoesNotExist()
     }
 }

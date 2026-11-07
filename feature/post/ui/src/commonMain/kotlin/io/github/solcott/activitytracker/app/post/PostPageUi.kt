@@ -31,7 +31,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
+import io.github.solcott.activitytracker.composeApp.resources.post_hide_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_page_title
+import io.github.solcott.activitytracker.composeApp.resources.post_show_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_unavailable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
@@ -99,6 +101,21 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
             }
             page.likesList?.let { list ->
                 item(key = "likers") {
+                    LikersList(list, { state.eventSink(PostPageEvent.OpenProfile(it)) }, Modifier.padding(horizontal = CARD_PADDING))
+                }
+            }
+            item(key = "reposts") {
+                if (page.post.repostCount > 0 || page.repostsList != null) {
+                    AppTextButton(
+                        onClick = { state.eventSink(PostPageEvent.ToggleRepostsList) },
+                        modifier = Modifier.padding(horizontal = CARD_PADDING),
+                    ) {
+                        Text(stringResource(if (page.repostsList != null) Res.string.post_hide_reposts else Res.string.post_show_reposts))
+                    }
+                }
+            }
+            page.repostsList?.let { list ->
+                item(key = "reposters") {
                     LikersList(list, { state.eventSink(PostPageEvent.OpenProfile(it)) }, Modifier.padding(horizontal = CARD_PADDING))
                 }
             }

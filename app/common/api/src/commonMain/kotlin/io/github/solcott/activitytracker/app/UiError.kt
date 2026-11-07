@@ -45,6 +45,7 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** A new dive site couldn't be queued to be published. */
         PublishDiveSite,
         LoadLikes,
+        LoadReposts,
         LoadComments,
         LoadReplies,
         LoadProfile,

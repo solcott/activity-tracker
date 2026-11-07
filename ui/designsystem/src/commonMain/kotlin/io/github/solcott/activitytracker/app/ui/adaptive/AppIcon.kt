@@ -85,6 +85,7 @@ enum class AppIcon(
         CupertinoIcons.handThumbsupFill,
         "hand.thumbsup.fill",
     ),
+    Repost(MaterialIcons.Repeat, CupertinoIcons.arrow2Squarepath, "arrow.2.squarepath"),
     Star(MaterialIcons.StarBorder, CupertinoIcons.star, "star", Icons.Filled.Star, CupertinoIcons.starFill, "star.fill"),
     Feed(Icons.Outlined.Home, CupertinoIcons.house, "house", Icons.Filled.Home, CupertinoIcons.houseFill, "house.fill"),
     You(Icons.Outlined.Person, CupertinoIcons.person, "person", Icons.Filled.Person, CupertinoIcons.personFill, "person.fill"),

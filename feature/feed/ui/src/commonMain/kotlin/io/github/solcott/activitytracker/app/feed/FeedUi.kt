@@ -351,7 +351,7 @@ private fun scopeLabel(scope: FeedScope): String =
 @Composable
 private fun pausedUntil(until: Instant): String = untilText(until, Res.string.feed_upload_paused, Res.string.feed_upload_paused_tomorrow)
 
-/** The timeline's activities, import cards and posts, in their order. */
+/** The timeline's activities, import cards, posts and reposted posts, in their order. */
 private fun LazyListScope.timelineItems(state: FeedState) {
     items(
         state.items,
@@ -360,6 +360,8 @@ private fun LazyListScope.timelineItems(state: FeedState) {
                 is TimelineItem.Activity -> it.view.uri.value
                 is TimelineItem.ImportCard -> "importCard:${it.card.author.did.value}/${it.card.batch}"
                 is TimelineItem.Post -> "post:${it.post.uri.value}"
+                // A post comes once a timeline, as itself or through a repost, so its URI keys it either way.
+                is TimelineItem.Repost -> "post:${it.reposted.post.uri.value}"
                 is TimelineItem.Unknown -> it.hashCode()
             }
         },
@@ -376,6 +378,14 @@ private fun LazyListScope.timelineItems(state: FeedState) {
             is TimelineItem.ImportCard -> ImportCard(item.card, onClick = { state.eventSink(FeedEvent.OpenImportBatch(item.card)) })
             is TimelineItem.Post ->
                 PostCard(item.post, state.viewerDid, state.reporting.available, onEvent = { state.eventSink(FeedEvent.Post(it)) })
+            is TimelineItem.Repost ->
+                PostCard(
+                    item.reposted.post,
+                    state.viewerDid,
+                    state.reporting.available,
+                    onEvent = { state.eventSink(FeedEvent.Post(it)) },
+                    reason = item.reposted.reason,
+                )
             is TimelineItem.Unknown -> Unit
         }
     }
