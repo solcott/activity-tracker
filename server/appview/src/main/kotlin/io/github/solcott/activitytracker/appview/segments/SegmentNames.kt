@@ -209,6 +209,26 @@ internal fun JdbcTransaction.ridersAmong(segment: String, dids: Collection<Strin
             .toSet()
     }
 
+/** Of [subjects] (segments and dive sites), those [did] has an effort or visit on, of any visibility: [ridersAmong] for one athlete. */
+internal fun JdbcTransaction.riddenBy(did: String, subjects: Collection<String>): Set<String> {
+    val (sites, segments) = subjects.partition(::isDiveSiteUri)
+    val visited =
+        if (sites.isEmpty()) emptyList()
+        else
+            DiveSiteVisits.select(DiveSiteVisits.siteUri)
+                .where { (DiveSiteVisits.authorDid eq did) and (DiveSiteVisits.siteUri inList sites) }
+                .withDistinct()
+                .map { it[DiveSiteVisits.siteUri] }
+    val ridden =
+        if (segments.isEmpty()) emptyList()
+        else
+            SegmentEfforts.select(SegmentEfforts.segmentUri)
+                .where { (SegmentEfforts.authorDid eq did) and (SegmentEfforts.segmentUri inList segments) }
+                .withDistinct()
+                .map { it[SegmentEfforts.segmentUri] }
+    return (visited + ridden).toSet()
+}
+
 /** Whether [segment] adopted a name still in effect within [SegmentNameRules.cooldownDays] before [now]. */
 internal fun JdbcTransaction.inCooldown(segment: String, now: Long, rules: SegmentNameRules): Boolean =
     SegmentNameProposals.select(SegmentNameProposals.uri)

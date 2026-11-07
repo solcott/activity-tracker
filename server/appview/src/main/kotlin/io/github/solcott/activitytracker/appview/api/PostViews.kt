@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.Tally
 import io.github.solcott.activitytracker.appview.segments.isDiveSiteUri
 import io.github.solcott.activitytracker.appview.segments.listedProposal
-import io.github.solcott.activitytracker.appview.segments.ridersAmong
+import io.github.solcott.activitytracker.appview.segments.riddenBy
 import io.github.solcott.activitytracker.appview.segments.tallies
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -89,7 +89,7 @@ internal fun JdbcTransaction.postViews(rows: List<ResultRow>, viewer: Did?, avat
                     .entries
             }
             .associate { it.key to it.value }
-    val voters = viewer?.let { me -> bySubject.keys.filter { me.value in ridersAmong(it, listOf(me.value)) }.toSet() }.orEmpty()
+    val voters = viewer?.let { riddenBy(it.value, bySubject.keys) }.orEmpty()
     val own =
         viewer
             ?.let { me ->
