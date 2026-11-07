@@ -84,3 +84,14 @@ A muted athlete's posts SHALL leave the muter's timeline, and SHALL still be lis
 #### Scenario: Muted author
 - **WHEN** bob mutes alice and alice shares a proposal with Followers
 - **THEN** her post isn't in bob's timeline, and bob still sees it under Posts on her profile
+
+### Requirement: Muted athletes' reposts leave the muter's timeline
+A repost by an athlete the viewer mutes, and a repost of a post by an athlete the viewer mutes, SHALL NOT be in the viewer's timeline. A mute SHALL NOT change any repost count or reposters list.
+
+#### Scenario: Muted reposter
+- **WHEN** carol mutes bob, and bob reposts alice's Public post
+- **THEN** carol's timeline doesn't show it through bob's repost, while the post's repost count still includes bob
+
+#### Scenario: Muted author
+- **WHEN** carol mutes alice, and bob, whom carol follows, reposts alice's Public post
+- **THEN** carol's timeline doesn't show the post

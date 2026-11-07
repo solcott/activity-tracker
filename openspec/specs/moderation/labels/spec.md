@@ -47,11 +47,11 @@ A label with `neg: true` SHALL remove the matching label (same source, subject a
 - **THEN** bob's account shows no warning
 
 ### Requirement: Label subjects
-A label on an account DID SHALL apply to the account's profile, avatar, activities, comments and posts. A label on a record URI SHALL apply to that record, at any CID unless the label names one. A label on an activity SHALL apply to all of its photos, and a label on a profile record to its avatar. Labels SHALL NOT target a single photo.
+A label on an account DID SHALL apply to the account's profile, avatar, activities, comments, posts and reposts. A label on a record URI SHALL apply to that record, at any CID unless the label names one. A label on an activity SHALL apply to all of its photos, and a label on a profile record to its avatar. Labels SHALL NOT target a single photo.
 
 #### Scenario: Account label covers content
 - **WHEN** bob's DID carries `!hide`
-- **THEN** bob's profile, activities, comments and posts are all hidden
+- **THEN** bob's profile, activities, comments, posts and reposts are all hidden
 
 #### Scenario: Activity label covers its photos
 - **WHEN** the labeler labels bob's activity `graphic-media`
@@ -68,6 +68,10 @@ A label on an account DID SHALL apply to the account's profile, avatar, activiti
 #### Scenario: Shared proposal taken down
 - **WHEN** a proposal bob shared is labelled `!takedown`
 - **THEN** his post sharing it is no longer served either
+
+#### Scenario: Reposted post taken down
+- **WHEN** the labeler labels alice's post `!takedown` after bob reposted it
+- **THEN** the post leaves the timelines of bob's followers, and bob's repost isn't counted or listed
 
 ### Requirement: Takedown removes content
 A subject with `!takedown` SHALL NOT be served to anyone but its author, signed-out viewers included. For other viewers it SHALL be left out of every feed, list, count and search, and a direct lookup SHALL answer as not found, the same answer a block gives. Its media SHALL NOT be served or redirected to anyone, its author included, because public media is fetched without a viewer. Its author SHALL see it marked as taken down, with its photos replaced by a placeholder.

@@ -173,7 +173,7 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 - **THEN** the AppView indexes nothing from it
 
 ### Requirement: Only interactions are indexed from interactions spaces
-From `interactions` spaces the AppView SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records.
+From `interactions` spaces the AppView SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `feed.repost`, `graph.block` and `graph.mute` records.
 
 #### Scenario: Zones in an interactions space ignored
 - **WHEN** a synced `interactions` space's ops include a `feed.activityZones` write
@@ -182,6 +182,10 @@ From `interactions` spaces the AppView SHALL index only `feed.like`, `feed.comme
 #### Scenario: Activity in an interactions space ignored
 - **WHEN** a synced `interactions` space's ops include a `feed.activity` write
 - **THEN** the AppView indexes no activity from it
+
+#### Scenario: Repost indexed from an interactions space
+- **WHEN** a synced `interactions` space's ops include a `feed.repost` of a Followers post
+- **THEN** the AppView indexes it as the space's authority's repost, and deleting the record, or the space being reported deleted, removes it
 
 #### Scenario: Block indexed from an interactions space
 - **WHEN** a synced `interactions` space's ops include a `graph.block` write whose rkey is its `subject`
