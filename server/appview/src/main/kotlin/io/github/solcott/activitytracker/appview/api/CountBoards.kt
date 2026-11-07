@@ -40,12 +40,11 @@ internal class CountBoard(
                     ((this.count eq count) and (this.reached greater reached)) or
                     ((this.count eq count) and (this.reached eq reached) and (athlete greater did))
             } ?: Op.TRUE
-        val rows =
-            counts(board, after)
-                .orderBy(count to SortOrder.DESC, reached to SortOrder.ASC, athlete to SortOrder.ASC)
-                .limit(limit)
-                .mapNotNull(::row)
-        val next = rows.takeIf { it.size == limit }?.last()?.let { (did, count, reached) -> cursorOf(count, reached, did) }
+        val read =
+            counts(board, after).orderBy(count to SortOrder.DESC, reached to SortOrder.ASC, athlete to SortOrder.ASC).limit(limit).toList()
+        val rows = read.mapNotNull(::row)
+        // Judged on the rows read, not those kept: a dropped empty group mustn't end the board early.
+        val next = rows.takeIf { read.size == limit }?.lastOrNull()?.let { (did, count, reached) -> cursorOf(count, reached, did) }
         return CountPage(ranked(board, rows), next)
     }
 
