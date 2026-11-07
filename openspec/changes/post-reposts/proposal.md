@@ -10,11 +10,11 @@ A shared name proposal reaches only its proposer's audience. Riders who agree wi
   - A repost of a Public post goes in the reposter's repo.
   - A repost of a Followers or Mutuals post goes in the reposter's `interactions` space, so the repo never reveals that they can see a non-public post.
   - A repost stays where it was written when the post's audience changes later, as likes on posts do.
-  - The AppView ignores a repost of a post the reposter can't see when it's indexed.
+  - The AppView ignores a repost of anything but someone else's post. A repost of a post the reposter can't see is never shown, as with likes.
 - **Repost is offered on every post the viewer can see except their own,** on the card in the timeline and on the post page. Undoing a repost deletes the record.
 - **Who sees a repost.** A repost is shown and counted for a viewer only while the viewer may see the post and the reposter may see it at its current tier. A repost never widens a post's audience: a viewer outside the post's audience never sees it, however many people they follow reposted it.
 - **Reposts go with their post.** Once a post isn't served to anyone (deleted, its proposal withdrawn, or taken down), its reposts aren't shown or counted anywhere, as its likes and comments aren't.
-- **Reposts in the timeline.** A viewer's timeline includes reposts by the athletes they effectively follow. It shows a repost as the original post with "Reposted by …", at the repost's position.
+- **Reposts in the timeline.** A viewer's timeline includes their own reposts and those of the athletes they effectively follow, the same people whose posts it shows. It shows a repost as the original post with "Reposted by …", at the repost's position.
   - A post appears at most once in a timeline. That item sits at the latest of the original's position (when the viewer would see the original there) and the reposts' positions.
   - When the latest of those is a repost, the item says "Reposted by …", naming one reposter and how many others the viewer follows reposted it.
 - `getTimeline`'s open union gains a repost item: the reposted `postView` with a `#reasonRepost` (the reposter shown, how many others, and the repost's position). Older clients skip it.
