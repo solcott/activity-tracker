@@ -24,20 +24,29 @@ import io.github.solcott.activitytracker.lexicon.atproto.DescribeRepo
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.RecordingState
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /** How far a leave has got (auth/leaving), in the order it runs. */
@@ -112,9 +121,9 @@ class LeaveJob(
     suspend fun exportRunning(): Boolean =
         exports.current(did)?.state.let { it == DataExportEntity.STATE_RUNNING || it == DataExportEntity.STATE_PAUSED }
 
-    /** Starts leaving: records it on the device first, so nothing is discarded unless it then runs to the end, here or after a restart. */
+    /** [begin], run in the caller's coroutine to the end (or the refusal that stops it) rather than in the background. */
     suspend fun start() {
-        if (marks.leaving(did) == null) marks.setLeaving(did, LeaveStep.Discard.name)
+        record()
         run()
     }
 
@@ -123,24 +132,35 @@ class LeaveJob(
      * screen, then runs it there.
      */
     suspend fun begin() {
-        if (marks.leaving(did) == null) {
-            // Nothing is discarded unless the leave can run: an export would read records as they go, and an unreachable PDS would leave
-            // this device's work discarded with nothing deleted. Each throws before the leave is recorded.
-            if (exportRunning()) throw ExportRunningException()
-            clients.pds.query(DescribeRepo.method, DescribeRepo.Params(did.value))
-            marks.setLeaving(did, LeaveStep.Discard.name)
-        }
+        record()
         resume()
+    }
+
+    /** Records the leave on the device, unless one is recorded, so a restart resumes it rather than reopening the app. */
+    private suspend fun record() {
+        if (marks.leaving(did) != null) return
+        // Nothing is discarded unless the leave can run: an export would read records as they go, and an unreachable PDS would leave this
+        // device's work discarded with nothing deleted. Each throws before the leave is recorded.
+        if (exportRunning()) throw ExportRunningException()
+        clients.pds.query(DescribeRepo.method, DescribeRepo.Params(did.value))
+        marks.setLeaving(did, LeaveStep.Discard.name)
     }
 
     /** Thrown by [begin] while a data export of the account is running or paused (auth/leaving): leaving waits for it. */
     class ExportRunningException : IllegalStateException("A data export is still running")
 
     /** Runs the recorded leave in the background, unless it's running already: after a restart, or to retry after a refusal. */
+    @OptIn(ExperimentalAtomicApi::class)
     fun resume() {
-        if (lock.isLocked) return
-        scope.launch { run() }
+        val current = running.load()
+        if (current?.isActive == true || lock.isLocked) return
+        // Claimed before it starts, so two quick calls launch one run rather than one queued behind the other.
+        val next = scope.launch(start = CoroutineStart.LAZY) { run() }
+        if (running.compareAndSet(current, next)) next.start() else next.cancel()
     }
+
+    /** The background run [resume] launched last. */
+    @OptIn(ExperimentalAtomicApi::class) private val running = AtomicReference<Job?>(null)
 
     /**
      * After the athlete left on another device and chose to discard what this one holds (auth/leaving): drops this device's queued writes,
@@ -158,27 +178,26 @@ class LeaveJob(
      * The athlete's own segments and dive sites, counted by whether they're active (auth/leaving): listed from their repo and looked up in
      * the AppView one by one. One the AppView doesn't serve counts as not active.
      */
-    suspend fun sharedPlaces(): SharedPlaces {
+    suspend fun sharedPlaces(): SharedPlaces = coroutineScope {
         suspend fun uris(collection: String): List<AtUri> {
             val all = mutableListOf<AtUri>()
             var cursor: String? = null
             do {
-                val page =
+                val page = paced {
                     clients.pds.query(ListRecords.method, ListRecords.Params(did.value, collection, limit = PAGE_SIZE, cursor = cursor))
+                }
                 all += page.records.map { it.uri }
                 cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
             } while (cursor != null)
             return all
         }
-        val segments =
-            uris(Nsid.FEED_SEGMENT).map { uri ->
-                runSuspendCatching { clients.appView.query(GetSegment.method, GetSegment.Params(uri)).segment.status }.getOrNull()
-            }
-        val sites =
-            uris(Nsid.FEED_DIVE_SITE).map { uri ->
-                runSuspendCatching { clients.appView.query(GetDiveSite.method, GetDiveSite.Params(uri)).site.status }.getOrNull()
-            }
-        return SharedPlaces(
+        // A few lookups at a time: an athlete may have hundreds of places, and one by one the screen would wait on each.
+        val lookups = Semaphore(STATUS_LOOKUPS)
+        suspend fun statuses(uris: List<AtUri>, status: suspend (AtUri) -> String?) =
+            uris.map { uri -> async { lookups.withPermit { runSuspendCatching { status(uri) }.getOrNull() } } }.awaitAll()
+        val segments = statuses(uris(Nsid.FEED_SEGMENT)) { clients.appView.query(GetSegment.method, GetSegment.Params(it)).segment.status }
+        val sites = statuses(uris(Nsid.FEED_DIVE_SITE)) { clients.appView.query(GetDiveSite.method, GetDiveSite.Params(it)).site.status }
+        SharedPlaces(
             activeSegments = segments.count { it == SegmentStatus.ACTIVE },
             otherSegments = segments.count { it != SegmentStatus.ACTIVE },
             activeSites = sites.count { it == SegmentStatus.ACTIVE },
@@ -283,6 +302,7 @@ class LeaveJob(
     private companion object {
         val SPACES_SELF_FIRST = listOf(AthleteSpace.SELF, AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.INTERACTIONS)
         const val PAGE_SIZE = 100
+        const val STATUS_LOOKUPS = 8
         const val HTTP_TOO_MANY_REQUESTS = 429
         val MIN_PAUSE = 10.seconds
     }
