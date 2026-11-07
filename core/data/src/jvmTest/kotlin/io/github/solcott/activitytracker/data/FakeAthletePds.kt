@@ -42,6 +42,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityInvites
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorPosts
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
@@ -49,9 +50,11 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
+import io.github.solcott.activitytracker.lexicon.app.GetQuotes
 import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -142,6 +145,12 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
 
     /** Further activities `getActivity` serves, by URI, when [served] isn't the one asked for. */
     val servedActivities = mutableMapOf<String, ActivityView>()
+
+    /** What the AppView's `getAuthorPosts` serves, by actor, in one page; none for any other. */
+    val authorPostsServed = mutableMapOf<String, List<PostView>>()
+
+    /** What the AppView's `getQuotes` serves, by quoted post URI, in one page; `NotFound` for any other. */
+    val quotesServed = mutableMapOf<String, List<PostView>>()
 
     /** What the AppView's `getProfile` serves, by DID; `ProfileNotFound` for any other. */
     val profiles = mutableMapOf<String, ProfileView>()
@@ -537,6 +546,14 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                             ),
                                         )
                                     )
+                                }
+                                path == "/xrpc/${Nsid.FEED_GET_AUTHOR_POSTS}" -> {
+                                    val posts = authorPostsServed[request.url.parameters["actor"]].orEmpty()
+                                    json(AtJson.encodeToString(GetAuthorPosts.Output.serializer(), GetAuthorPosts.Output(posts)))
+                                }
+                                path == "/xrpc/${Nsid.FEED_GET_QUOTES}" -> {
+                                    val posts = quotesServed[request.url.parameters["uri"]] ?: return@addHandler error("NotFound")
+                                    json(AtJson.encodeToString(GetQuotes.Output.serializer(), GetQuotes.Output(posts)))
                                 }
                                 else -> respond("", HttpStatusCode.NotFound)
                             }

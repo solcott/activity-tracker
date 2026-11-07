@@ -34,10 +34,12 @@ import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetQuotes
 import io.github.solcott.activitytracker.lexicon.app.GetReposts
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -95,6 +97,11 @@ class FeedRepository(
     /** The viewer's reposts toggled this session (feed/reposts), laid over every read of a post until the AppView catches up. */
     val localReposts = LocalReposts()
 
+    /**
+     * The viewer's quotes posted or deleted this session (feed/quote-posts), laid over quoted posts' counts until the AppView catches up.
+     */
+    val localQuotes = LocalQuotes()
+
     /** The viewer's like toggles this session ([LocalLikes]), for a screen that lays them over posts it has already loaded. */
     val likeOverrides: StateFlow<Map<String, AtUri?>>
         get() = localLikes.overrides
@@ -113,18 +120,20 @@ class FeedRepository(
             localBlocks.entries,
             localPosts.changes,
             localLikes.overrides,
-            localReposts.overrides,
-        ) { items, blocks, posts, likes, reposts ->
+            combine(localReposts.overrides, localQuotes.overrides, ::Pair),
+        ) { items, blocks, posts, likes, (reposts, quotes) ->
             val decoded = items.mapNotNull { item ->
                 runCatching {
                     when {
-                        item.uri.startsWith(CARD_KEY) ->
-                            TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
-                        item.uri.startsWith(POST_KEY) -> TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json))
-                        item.uri.startsWith(REPOST_KEY) ->
-                            TimelineItem.Repost(AtJson.decodeFromString(RepostedPostView.serializer(), item.json))
-                        else -> TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
-                    }.withToggles(likes, reposts)
+                            item.uri.startsWith(CARD_KEY) ->
+                                TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
+                            item.uri.startsWith(POST_KEY) -> TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json))
+                            item.uri.startsWith(REPOST_KEY) ->
+                                TimelineItem.Repost(AtJson.decodeFromString(RepostedPostView.serializer(), item.json))
+                            else -> TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
+                        }
+                        .withToggles(likes, reposts)
+                        .withQuoteOverrides(quotes)
                 }
                     .onFailure { log.w(it) { "Skipping undecodable cached timeline item ${item.uri}" } }
                     .getOrNull()
@@ -154,7 +163,23 @@ class FeedRepository(
             localPosts
                 .applyTo(output.posts, includeNew = own && cursor == null)
                 .filterNot { localBlocks.entries.value.blocks[it.author.did]?.on == true }
-                .map { localReposts.applyTo(localLikes.applyTo(it)) }
+                .map { localQuotes.applyTo(localReposts.applyTo(localLikes.applyTo(it))) }
+        pageOf(shown, output.cursor)
+    }
+
+    /**
+     * A page of the quotes of the post [uri] the viewer is shown after [cursor] (feed/quote-posts), newest first, with this session's post
+     * changes and toggles laid over them: on the first page, the viewer's own quotes of it the AppView doesn't list yet go first. Blocks
+     * made this session hide them. `NotFound` once the viewer may not see the post.
+     */
+    suspend fun quotesPage(uri: AtUri, cursor: String?): Outcome<Page<PostView, Unit>> = outcomeOf {
+        val output = clients.appView.query(GetQuotes.method, GetQuotes.Params(uri, cursor = cursor))
+        val sent = localPosts.changes.value.filterValues { it == null || it.quotes(uri) }
+        val shown =
+            localPosts
+                .applyTo(output.posts, includeNew = cursor == null, at = sent)
+                .filterNot { localBlocks.entries.value.blocks[it.author.did]?.on == true }
+                .map { localQuotes.applyTo(localReposts.applyTo(localLikes.applyTo(it))) }
         pageOf(shown, output.cursor)
     }
 
@@ -305,7 +330,7 @@ class FeedRepository(
         val kept =
             localPosts.applyTo(listOf(view), includeNew = false).firstOrNull()
                 ?: throw XrpcException(HTTP_BAD_REQUEST, POST_NOT_FOUND, "Post not found")
-        val post = localReposts.applyTo(localLikes.applyTo(kept))
+        val post = localQuotes.applyTo(localReposts.applyTo(localLikes.applyTo(kept)))
         val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
         val counted = post.copy(commentCount = (post.commentCount + delta).coerceAtLeast(0))
         updateCachedPost(uri) { counted }
@@ -657,3 +682,6 @@ sealed interface CachedLike {
 
     data class Set(val uri: AtUri?) : CachedLike
 }
+
+/** Whether this post quotes [post] (feed/quote-posts). */
+private fun PostView.quotes(post: AtUri): Boolean = (embed as? PostEmbedView.Quote)?.quoted?.uriOrNull() == post
