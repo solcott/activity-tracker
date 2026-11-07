@@ -52,8 +52,8 @@ data class ImportCardView(
 @Immutable @Serializable data class CardRoute(val polyline: String, val polylineGaps: List<Int>? = null)
 
 /**
- * A member of `app.activitytracker.feed.getTimeline#feed`, an open union: an [Activity], an [ImportCard] or a [Post]. Any other kind a
- * newer AppView serves decodes as [Unknown], which clients skip.
+ * A member of `app.activitytracker.feed.getTimeline#feed`, an open union: an [Activity], an [ImportCard], a [Post] or a [Repost]. Any other
+ * kind a newer AppView serves decodes as [Unknown], which clients skip.
  */
 @Immutable
 @Serializable(with = TimelineItemSerializer::class)
@@ -65,6 +65,9 @@ sealed interface TimelineItem {
 
     /** `app.activitytracker.feed.defs#postView` (feed/posts). */
     @Immutable data class Post(val post: PostView) : TimelineItem
+
+    /** `app.activitytracker.feed.defs#repostedPostView` (feed/reposts). */
+    @Immutable data class Repost(val reposted: RepostedPostView) : TimelineItem
 
     @Immutable data class Unknown(val json: JsonObject) : TimelineItem
 
@@ -101,11 +104,21 @@ internal object TimelineItemSerializer : OpenUnionSerializer<TimelineItem>("Time
             encoder.encodeSerializableValue(PostView.serializer(), value.post)
     }
 
+    private object RepostMember : KSerializer<TimelineItem.Repost> {
+        override val descriptor = RepostedPostView.serializer().descriptor
+
+        override fun deserialize(decoder: Decoder) = TimelineItem.Repost(decoder.decodeSerializableValue(RepostedPostView.serializer()))
+
+        override fun serialize(encoder: Encoder, value: TimelineItem.Repost) =
+            encoder.encodeSerializableValue(RepostedPostView.serializer(), value.reposted)
+    }
+
     override fun memberFor(type: String?) =
         when (type) {
             TimelineItem.ACTIVITY_TYPE -> ActivityMember
             ImportCardView.TYPE -> CardMember
             PostView.TYPE -> PostMember
+            RepostedPostView.TYPE -> RepostMember
             else -> null
         }
 
@@ -124,6 +137,7 @@ internal object TimelineItemSerializer : OpenUnionSerializer<TimelineItem>("Time
             }
             is TimelineItem.ImportCard -> encoder.encodeSerializableValue(ImportCardView.serializer(), value.card)
             is TimelineItem.Post -> encoder.encodeSerializableValue(PostView.serializer(), value.post)
+            is TimelineItem.Repost -> encoder.encodeSerializableValue(RepostedPostView.serializer(), value.reposted)
             is TimelineItem.Unknown -> encoder.encodeJsonElement(value.json)
         }
 }

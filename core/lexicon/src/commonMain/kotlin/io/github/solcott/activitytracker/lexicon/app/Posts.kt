@@ -83,6 +83,8 @@ data class PostView(
     val likeCount: Long = 0,
     /** Comments and replies the viewer is shown that aren't hidden, matching `getComments`; 0 from an older AppView. */
     val commentCount: Long = 0,
+    /** Reposters the viewer is shown, matching `getReposts` (feed/reposts); 0 from an older AppView. */
+    val repostCount: Long = 0,
     /** Null for a signed-out viewer, and from an older AppView. */
     val viewer: PostViewerState? = null,
     @SerialName($$"$type") val type: String = TYPE,
@@ -95,8 +97,33 @@ data class PostView(
     }
 }
 
-/** `app.activitytracker.feed.defs#postViewerState`: the signed-in viewer's [like] on a post, if any. */
-@Immutable @Serializable data class PostViewerState(val like: AtUri? = null)
+/** `app.activitytracker.feed.defs#postViewerState`: the signed-in viewer's [like] on a post and their [repost] of it, if any. */
+@Immutable @Serializable data class PostViewerState(val like: AtUri? = null, val repost: AtUri? = null)
+
+/**
+ * `app.activitytracker.feed.defs#repostedPostView`: a timeline item showing [post] because of a repost (feed/reposts), placed at
+ * [ReasonRepost.createdAt].
+ */
+@Immutable
+@Serializable
+data class RepostedPostView(val post: PostView, val reason: ReasonRepost, @SerialName($$"$type") val type: String = TYPE) {
+    companion object {
+        const val TYPE = "${Nsid.FEED_DEFS}#repostedPostView"
+    }
+}
+
+/**
+ * `app.activitytracker.feed.defs#reasonRepost`: the latest repost putting a post in the viewer's timeline, by [by], and how many [others]
+ * there reposted it too.
+ */
+@Immutable
+@Serializable
+data class ReasonRepost(
+    val by: ProfileViewBasic,
+    /** The repost's position: its record's `createdAt`, capped at when it was indexed. */
+    val createdAt: Instant,
+    val others: Long = 0,
+)
 
 /** A member of `app.activitytracker.feed.defs#postView.embed`: [Proposal] today, [Unknown] for a kind this client can't show. */
 @Immutable

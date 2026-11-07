@@ -1672,6 +1672,14 @@ data class LikeRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_LIKE,
 )
 
+/** `app.activitytracker.feed.repost`: a repost of someone else's post (feed/reposts), placed like a like by the post's visibility. */
+@Serializable
+data class RepostRecord(
+    val subject: StrongRef,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_REPOST,
+)
+
 @Serializable
 data class CommentRecord(
     val subject: StrongRef,

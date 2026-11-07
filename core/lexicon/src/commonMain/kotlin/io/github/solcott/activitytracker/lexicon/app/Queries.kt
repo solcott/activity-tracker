@@ -35,7 +35,7 @@ object GetTimeline {
         val until: Instant? = null,
     )
 
-    /** [feed] is activities, import cards and posts ([TimelineItem]) by feed position, newest first. */
+    /** [feed] is activities, import cards, posts and reposted posts ([TimelineItem]) by feed position, newest first. */
     @Serializable
     data class Output(val feed: List<TimelineItem>, val cursor: String? = null) {
         /** [feed]'s activities, without its import cards. */
@@ -46,9 +46,13 @@ object GetTimeline {
         val importCards: List<ImportCardView>
             get() = feed.mapNotNull { (it as? TimelineItem.ImportCard)?.card }
 
-        /** [feed]'s posts. */
+        /** [feed]'s posts, without those it holds through a repost. */
         val posts: List<PostView>
             get() = feed.mapNotNull { (it as? TimelineItem.Post)?.post }
+
+        /** [feed]'s posts held through a repost (feed/reposts), with why. */
+        val reposted: List<RepostedPostView>
+            get() = feed.mapNotNull { (it as? TimelineItem.Repost)?.reposted }
 
         companion object {
             /** A timeline of [activities] alone. */
@@ -276,6 +280,15 @@ object GetActivityInvitees {
     @Serializable data class Output(val invitees: List<InviteeView>)
 
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_INVITEES, Params.serializer(), Output.serializer())
+}
+
+/** Athletes whose reposts of a post the viewer is shown (feed/reposts), most recent first; `NotFound` when they may not see it. */
+object GetReposts {
+    @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val uri: AtUri, val reposts: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_REPOSTS, Params.serializer(), Output.serializer())
 }
 
 object GetLikes {

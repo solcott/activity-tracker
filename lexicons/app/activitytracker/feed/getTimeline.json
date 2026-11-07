@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Activities and posts (feed/posts) from athletes the viewer follows, plus the viewer's own, by feed position, newest first: the earliest of when each was posted, when it was indexed and 5 days after it ended. Posts come only unfiltered, placed at their creation time capped at when they were indexed. Unfiltered, a batch import's activities posted more than 5 days after they ended come as one import card when the viewer may see at least 5 of them. Requires auth.",
+      "description": "Activities and posts (feed/posts) from athletes the viewer follows, plus the viewer's own, by feed position, newest first: the earliest of when each was posted, when it was indexed and 5 days after it ended. Posts come only unfiltered, placed at their creation time capped at when they were indexed. A post reposted by the viewer or an athlete they follow comes as a repostedPostView at the latest such repost, when that is later than the post itself would be placed; each post comes at most once. Unfiltered, a batch import's activities posted more than 5 days after they ended come as one import card when the viewer may see at least 5 of them. Requires auth.",
       "parameters": {
         "type": "params",
         "properties": {
@@ -29,7 +29,7 @@
             "cursor": { "type": "string" },
             "feed": {
               "type": "array",
-              "items": { "type": "union", "refs": ["app.activitytracker.feed.defs#activityView", "app.activitytracker.feed.defs#importCardView", "app.activitytracker.feed.defs#postView"] },
+              "items": { "type": "union", "refs": ["app.activitytracker.feed.defs#activityView", "app.activitytracker.feed.defs#importCardView", "app.activitytracker.feed.defs#postView", "app.activitytracker.feed.defs#repostedPostView"] },
               "description": "An open union: later AppViews may add other kinds of item, which older clients skip."
             }
           }

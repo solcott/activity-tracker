@@ -38,5 +38,6 @@ object AthleteSpaceDeclaration {
             Nsid.GRAPH_MUTE,
             Nsid.FEED_SEGMENT_NAME_VOTE,
             Nsid.FEED_POST,
+            Nsid.FEED_REPOST,
         )
 }

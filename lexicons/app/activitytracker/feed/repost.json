@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.repost",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A repost of someone else's post (app.activitytracker.feed.post), passing it on to the reposter's followers without widening who may see it. A repost of a public post is stored in the reposter's repo, and any other in their app.activitytracker.space.athlete interactions space. A repost of anything but another athlete's post is ignored.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef" },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

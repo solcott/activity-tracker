@@ -49,6 +49,12 @@ object Nsid {
      * Indexed from both.
      */
     const val FEED_POST = "$NAMESPACE.feed.post"
+    /**
+     * A repost of someone else's [FEED_POST] (feed/reposts): in the reposter's repo when the post is public, else in their interactions
+     * space ([SPACE_ATHLETE]). Indexed from both.
+     */
+    const val FEED_REPOST = "$NAMESPACE.feed.repost"
+    const val FEED_GET_REPOSTS = "$NAMESPACE.feed.getReposts"
     const val FEED_GET_AUTHOR_POSTS = "$NAMESPACE.feed.getAuthorPosts"
     const val FEED_GET_POST = "$NAMESPACE.feed.getPost"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"
@@ -203,6 +209,7 @@ object Nsid {
             FEED_COMMENT,
             FEED_COMMENT_HIDE,
             FEED_POST,
+            FEED_REPOST,
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
             FEED_DIVE_SITE,
