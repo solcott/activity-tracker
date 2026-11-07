@@ -18,7 +18,7 @@ A post SHALL be a `feed.post` record with optional text, at most 1000 graphemes,
 - **THEN** the AppView ignores it
 
 ### Requirement: A post embeds its author's own proposal
-For now, the AppView SHALL accept a post only if its embed names a `feed.segmentNameProposal` in the post author's repo with the same record key as the post. It SHALL ignore any other post, including one with no embed or an unknown embed.
+The AppView SHALL accept a post only if its embed either names a `feed.segmentNameProposal` in the post author's repo with the same record key as the post, or quotes another post as feed/quote-posts allows. It SHALL ignore any other post, including one with no embed or an unknown embed.
 
 #### Scenario: Someone else's proposal
 - **WHEN** bob writes a post embedding alice's proposal
@@ -32,15 +32,19 @@ For now, the AppView SHALL accept a post only if its embed names a `feed.segment
 - **WHEN** alice writes a post embedding her proposal under a different record key from the proposal's
 - **THEN** the AppView ignores it
 
+#### Scenario: Quote
+- **WHEN** bob writes a post with text quoting alice's post
+- **THEN** the AppView accepts it as a quote
+
 ### Requirement: Clients offer no post composer
-Clients SHALL write a post only by sharing a name proposal, and SHALL offer no other way to write one.
+Clients SHALL write a post only by sharing a name proposal or by quoting a post, and SHALL offer no other way to write one.
 
 #### Scenario: Feed has no compose action
 - **WHEN** an athlete opens the feed or their profile
 - **THEN** no action offers to write a post
 
 ### Requirement: A post is served only with its proposal
-The AppView SHALL serve a post only while the proposal it embeds is indexed and may be shown to the viewer. A post that arrives before its proposal SHALL be served once the proposal is accepted, and one whose proposal is ignored or deleted SHALL NOT be served.
+The AppView SHALL serve a post that shares a proposal only while that proposal is indexed and may be shown to the viewer. A post that arrives before its proposal SHALL be served once the proposal is accepted, and one whose proposal is ignored or deleted SHALL NOT be served. A quote SHALL be served as feed/quote-posts says, with no proposal of its own.
 
 #### Scenario: Proposal ignored
 - **WHEN** bob, who isn't a regular, writes a proposal and a post sharing it
@@ -112,24 +116,24 @@ When the view says the viewer may vote (the proposal is open and they have an ef
 ### Requirement: A post card opens its segment
 The post card SHALL show:
 - the author and the text;
-- the segment or site, with its current name;
-- the proposal's name, status and totals;
-- the post's like, comment and repost counts, with like and repost buttons;
+- for a post sharing a proposal, the segment or site, with its current name, and the proposal's name, status and totals;
+- for a quote, the quoted post as feed/quote-posts says;
+- the post's like, comment, repost and quote counts, with like, repost and quote buttons;
 - "Reposted by" and the reposter, when it's in the timeline through a repost.
 
-Tapping the segment or site SHALL open that segment or site screen, and tapping the author or the reposter SHALL open their profile. Tapping anywhere else on the card SHALL open the post page.
+Tapping the segment or site SHALL open that segment or site screen, tapping the author or the reposter SHALL open their profile, and tapping the quoted post SHALL open it. Tapping anywhere else on the card SHALL open the post page.
 
 #### Scenario: Open from the card
 - **WHEN** bob taps the segment named on alice's post card
 - **THEN** the segment screen opens on that segment
 
 #### Scenario: Open the post page
-- **WHEN** bob taps alice's post card anywhere but the segment, the author, the reposter, a vote, the like button or the repost button
+- **WHEN** bob taps alice's post card anywhere but the segment, the author, the reposter, the quoted post, a vote, or the like, repost or quote button
 - **THEN** the post page opens on that post
 
 #### Scenario: Counts on the card
-- **WHEN** alice's post has two likes, three comments and one repost bob is shown
-- **THEN** its card in bob's timeline shows 2 likes, 3 comments and 1 repost
+- **WHEN** alice's post has two likes, three comments, one repost and one quote bob is shown
+- **THEN** its card in bob's timeline shows 2 likes, 3 comments, 1 repost and 1 quote
 
 #### Scenario: Open the reposter
 - **WHEN** carol taps "Reposted by bob" on a card in her timeline
@@ -228,7 +232,7 @@ A post's author SHALL be able to hide and unhide someone else's comment on it, a
 - **THEN** nothing changes for anyone
 
 ### Requirement: A post's view carries its counts
-A post's view SHALL include its like, comment and repost counts as the viewer is shown them, and, for a signed-in viewer, the URIs of their like and their repost when they have them. A client that doesn't know the fields SHALL still show the post.
+A post's view SHALL include its like, comment, repost and quote counts as the viewer is shown them, and, for a signed-in viewer, the URIs of their like and their repost when they have them. A client that doesn't know the fields SHALL still show the post.
 
 #### Scenario: Liked post in the timeline
 - **WHEN** bob, who liked alice's post, reads his timeline
@@ -238,12 +242,16 @@ A post's view SHALL include its like, comment and repost counts as the viewer is
 - **WHEN** bob, who reposted alice's post, opens it
 - **THEN** the post's view gives its repost count and bob's repost
 
+#### Scenario: Quoted post
+- **WHEN** carol, who may see bob's quote of alice's post, opens alice's post
+- **THEN** the post's view gives a quote count of one
+
 #### Scenario: Signed out
 - **WHEN** a signed-out viewer reads alice's Public post on her profile
 - **THEN** its counts are given, with no viewer like or repost
 
 ### Requirement: Interactions go with their post
-Once a post isn't served to anyone, its likes, comments and reposts SHALL NOT be shown, counted or listed anywhere. This covers a deleted post, a withdrawn proposal and a post taken down. If the post is written again at the same URI and served, they SHALL be counted again under the usual rules.
+Once a post isn't served to anyone, its likes, comments and reposts SHALL NOT be shown, counted or listed anywhere. This covers a deleted post, a withdrawn proposal and a post taken down. If the post is written again at the same URI and served, they SHALL be counted again under the usual rules. Quotes of it SHALL stay, showing "Post unavailable" in its place.
 
 #### Scenario: Proposal withdrawn
 - **WHEN** alice withdraws a proposal whose post had comments
@@ -252,3 +260,7 @@ Once a post isn't served to anyone, its likes, comments and reposts SHALL NOT be
 #### Scenario: Reposted post deleted
 - **WHEN** alice deletes a post that bob reposted
 - **THEN** it leaves the timelines of bob's followers, and `feed.getReposts` for it is `NotFound`
+
+#### Scenario: Quoted post deleted
+- **WHEN** alice deletes a post that bob quoted
+- **THEN** bob's quote stays in his followers' timelines, showing "Post unavailable" in place of alice's post
