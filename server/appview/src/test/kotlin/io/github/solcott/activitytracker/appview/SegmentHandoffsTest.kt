@@ -178,6 +178,21 @@ class SegmentHandoffsTest : SegmentTestBase() {
         assertEquals(mapOf("at://$bob/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kp" to aliceSeg), proposals())
     }
 
+    @Test
+    fun anOriginalBackAndTakenDownEndsItsHandoffRatherThanReopeningIt() = runBlocking {
+        aliceActive()
+        adopted(aliceSeg, "Wiggly Woods")
+        remove(alice, Nsid.FEED_SEGMENT, "3ks")
+        segment("3ks")
+        LabelSources.trusted = listOf(labeler)
+        LabelStore(db, labeler, null).apply(labeler, 1, listOf(testLabel(labeler, aliceSeg, "!takedown", "2026-10-15T10:00:00Z")))
+        remove(alice, Nsid.FEED_SEGMENT, "3ks")
+
+        assertEquals(emptyList(), handoffs(), "nothing of a taken-down segment is republished")
+        assertEquals(emptyList(), pending())
+        assertEquals(emptyMap(), proposals(), "its names go with it")
+    }
+
     // ---------------------------------------------------------------- A live duplicate takes over a handoff
 
     @Test

@@ -24,6 +24,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.not
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -133,19 +134,45 @@ private fun JdbcTransaction.keepAdoptedNames(subjects: Set<String>) {
 
 /**
  * Before [removed] subjects' names are deleted: those that were successors and got no handoff of their own ([staged]) give their handoffs
- * back, pending again with the names they took.
+ * back, pending again with the names they took. An original that came back to its own handoff and is removed taken down ends it instead:
+ * nothing of a taken-down subject is republished, and its names go with it.
  */
 internal fun JdbcTransaction.releaseHandoffsOf(removed: List<String>, staged: Set<String>) {
     val released = removed.filter { it !in staged }
     if (released.isEmpty()) return
+    val takenDown = takenDown(released)
     SubjectHandoffs.selectAll()
         .where { SubjectHandoffs.successorUri inList released }
+        .toList()
         .forEach { row ->
             val oldUri = row[SubjectHandoffs.oldUri]
             val successor = requireNotNull(row[SubjectHandoffs.successorUri])
-            moveNames(from = successor, to = oldUri)
-            SubjectHandoffs.update({ SubjectHandoffs.id eq row[SubjectHandoffs.id] }) { it[successorUri] = null }
+            if (successor == oldUri && successor in takenDown) {
+                SubjectHandoffs.deleteWhere { SubjectHandoffs.id eq row[SubjectHandoffs.id] }
+            } else {
+                moveNames(from = successor, to = oldUri)
+                SubjectHandoffs.update({ SubjectHandoffs.id eq row[SubjectHandoffs.id] }) { it[successorUri] = null }
+            }
         }
+}
+
+/** Of [uris], the segments and dive sites carrying `!takedown` on their record or their creator's account. */
+private fun JdbcTransaction.takenDown(uris: List<String>): Set<String> {
+    val segments =
+        Segments.select(Segments.uri)
+            .where {
+                (Segments.uri inList uris) and
+                    (labelled(Segments.uri, LabelValues.TAKEDOWN, Segments.cid) or labelled(Segments.authorDid, LabelValues.TAKEDOWN))
+            }
+            .map { it[Segments.uri] }
+    val sites =
+        DiveSites.select(DiveSites.uri)
+            .where {
+                (DiveSites.uri inList uris) and
+                    (labelled(DiveSites.uri, LabelValues.TAKEDOWN, DiveSites.cid) or labelled(DiveSites.authorDid, LabelValues.TAKEDOWN))
+            }
+            .map { it[DiveSites.uri] }
+    return (segments + sites).toSet()
 }
 
 /** Of [uris], those that are the old URI of a handoff: their adopted names are the handoff's, so a removal leaves them. */
