@@ -4,16 +4,16 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A post in the feed (feed/posts). A Public post is stored in its author's repo, a Followers or Mutuals one in their app.activitytracker.space.athlete space for that tier; the AppView ignores one in self or interactions. For now the AppView accepts a post only when its embed is a #proposal naming a feed.segmentNameProposal in the author's own repo with the post's record key, and serves it only while that proposal is indexed; clients write one only by sharing a name proposal.",
+      "description": "A post in the feed (feed/posts). A Public post is stored in its author's repo, a Followers or Mutuals one in their app.activitytracker.space.athlete space for that tier; the AppView ignores one in self or interactions. The AppView accepts a post whose embed is a #proposal naming a feed.segmentNameProposal in the author's own repo with the post's record key, served only while that proposal is indexed, or a #quote of another feed.post with non-blank text (feed/quote-posts), served only to viewers who may also see the quoted post while it is served. Clients write one only by sharing a name proposal or by quoting a post.",
       "key": "tid",
       "record": {
         "type": "object",
         "required": ["embed", "createdAt"],
         "properties": {
-          "text": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000, "description": "The author's own words, such as why they propose the name." },
+          "text": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000, "description": "The author's own words, such as why they propose the name. Required, and not blank, on a quote." },
           "embed": {
             "type": "union",
-            "refs": ["#proposal"],
+            "refs": ["#proposal", "#quote"],
             "description": "What the post shares. An open union: later clients may add other kinds, which the AppView ignores until it knows them."
           },
           "createdAt": { "type": "string", "format": "datetime" }
@@ -29,6 +29,18 @@
           "type": "string",
           "format": "at-uri",
           "description": "The app.activitytracker.feed.segmentNameProposal, in the post author's repo under the post's record key. A URI, not a strong ref: the post is written with the proposal, before its CID is known, and always shows the proposal's latest version."
+        }
+      }
+    },
+    "quote": {
+      "type": "object",
+      "description": "Quotes another post (feed/quote-posts). The quote's audience is no wider than the quoted post's, and it is shown only to viewers who may also see the quoted post while that is served.",
+      "required": ["subject"],
+      "properties": {
+        "subject": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "The quoted app.activitytracker.feed.post. The AppView ignores a quote of anything else."
         }
       }
     }

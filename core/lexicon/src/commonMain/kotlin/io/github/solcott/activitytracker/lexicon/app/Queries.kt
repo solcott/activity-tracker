@@ -291,6 +291,15 @@ object GetReposts {
     val method = XrpcQuery(Nsid.FEED_GET_REPOSTS, Params.serializer(), Output.serializer())
 }
 
+/** Quotes of a post the viewer is shown (feed/quote-posts), newest first by feed position; `NotFound` when they may not see it. */
+object GetQuotes {
+    @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val posts: List<PostView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_QUOTES, Params.serializer(), Output.serializer())
+}
+
 object GetLikes {
     @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
 

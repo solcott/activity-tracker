@@ -55,6 +55,7 @@ object Nsid {
      */
     const val FEED_REPOST = "$NAMESPACE.feed.repost"
     const val FEED_GET_REPOSTS = "$NAMESPACE.feed.getReposts"
+    const val FEED_GET_QUOTES = "$NAMESPACE.feed.getQuotes"
     const val FEED_GET_AUTHOR_POSTS = "$NAMESPACE.feed.getAuthorPosts"
     const val FEED_GET_POST = "$NAMESPACE.feed.getPost"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"

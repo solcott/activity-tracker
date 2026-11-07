@@ -504,7 +504,7 @@
         },
         "embed": {
           "type": "union",
-          "refs": ["#postProposalEmbedView"],
+          "refs": ["#postProposalEmbedView", "#postQuoteEmbedView"],
           "description": "What the post shares, as the viewer may see it now. An open union: later AppViews may add other kinds, which older clients show as unavailable."
         },
         "createdAt": { "type": "string", "format": "datetime", "description": "As the record gives it, capped at indexedAt; places the post on the timeline." },
@@ -520,6 +520,12 @@
           "minimum": 0,
           "default": 0,
           "description": "Comments and replies the viewer is shown that the post's author hasn't hidden (app.activitytracker.feed.commentHide): what app.activitytracker.feed.getComments lists for them, less those marked hidden."
+        },
+        "quoteCount": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Quotes of the post the viewer is shown, its author's own included: what app.activitytracker.feed.getQuotes lists."
         },
         "repostCount": {
           "type": "integer",
@@ -577,6 +583,56 @@
           "format": "datetime",
           "description": "The repost's position: as its record gives it, capped at when it was indexed."
         }
+      }
+    },
+    "postQuoteEmbedView": {
+      "type": "object",
+      "description": "A quote's quoted post (feed/quote-posts), one level deep.",
+      "required": ["quoted"],
+      "properties": {
+        "quoted": {
+          "type": "union",
+          "refs": ["#quotedPostView", "#quotedPostUnavailable"],
+          "description": "The quoted post, or unavailable once it is served to no one or the quoter may no longer see it. An open union."
+        }
+      }
+    },
+    "quotedPostView": {
+      "type": "object",
+      "description": "A quoted post as the viewer may see it, without counts or viewer state.",
+      "required": ["uri", "cid", "author", "createdAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "text": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
+        "visibility": {
+          "type": "string",
+          "knownValues": ["public", "followers", "mutuals"],
+          "description": "Who may see the quoted post. Absent means public."
+        },
+        "embed": {
+          "type": "union",
+          "refs": ["#postProposalEmbedView", "#quotedPostLink"],
+          "description": "What the quoted post shares: its proposal as it stands now, or, when it is itself a quote, a link to the post it quotes. An open union."
+        },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    },
+    "quotedPostLink": {
+      "type": "object",
+      "description": "In a quoted post that is itself a quote: the post it quotes, shown as a link only.",
+      "required": ["uri"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" }
+      }
+    },
+    "quotedPostUnavailable": {
+      "type": "object",
+      "description": "A quoted post that is served to no one, or that the quoter may no longer see. Reveals nothing but the quote's own subject.",
+      "required": ["uri"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" }
       }
     },
     "postProposalEmbedView": {

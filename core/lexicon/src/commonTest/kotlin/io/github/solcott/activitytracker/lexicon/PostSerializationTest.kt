@@ -8,6 +8,8 @@ import io.github.solcott.activitytracker.lexicon.app.PostRecord
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.QuotedPost
+import io.github.solcott.activitytracker.lexicon.app.QuotedPostEmbed
 import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
 import io.github.solcott.activitytracker.lexicon.app.RepostRecord
 import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
@@ -69,7 +71,7 @@ class PostSerializationTest {
     @Test
     fun unknownEmbedRoundTrips() {
         val raw =
-            """{"${'$'}type":"${Nsid.FEED_POST}","embed":{"${'$'}type":"${Nsid.FEED_POST}#quote","post":{}},"createdAt":"2026-11-06T12:00:00Z"}"""
+            """{"${'$'}type":"${Nsid.FEED_POST}","embed":{"${'$'}type":"${Nsid.FEED_POST}#video","video":{}},"createdAt":"2026-11-06T12:00:00Z"}"""
         val decoded = AtJson.decodeFromString(PostRecord.serializer(), raw)
         assertIs<PostEmbed.Unknown>(decoded.embed)
         assertEquals(AtJson.parseToJsonElement(raw), AtJson.encodeToJsonElement(PostRecord.serializer(), decoded))
@@ -90,7 +92,7 @@ class PostSerializationTest {
     @Test
     fun unknownEmbedViewDecodes() {
         val json = AtJson.encodeToJsonElement(PostView.serializer(), view).jsonObject
-        val embed = AtJson.parseToJsonElement("""{"${'$'}type":"${Nsid.FEED_DEFS}#postQuoteEmbedView"}""")
+        val embed = AtJson.parseToJsonElement("""{"${'$'}type":"${Nsid.FEED_DEFS}#postVideoEmbedView"}""")
         val changed = kotlinx.serialization.json.JsonObject(json + ("embed" to embed))
         assertIs<PostEmbedView.Unknown>(AtJson.decodeFromJsonElement(PostView.serializer(), changed).embed)
     }
@@ -98,11 +100,12 @@ class PostSerializationTest {
     @Test
     fun viewFromAnOlderAppViewHasNoCounts() {
         val json = AtJson.encodeToJsonElement(PostView.serializer(), view).jsonObject
-        val older = kotlinx.serialization.json.JsonObject(json - "likeCount" - "commentCount" - "repostCount" - "viewer")
+        val older = kotlinx.serialization.json.JsonObject(json - "likeCount" - "commentCount" - "repostCount" - "quoteCount" - "viewer")
         val decoded = AtJson.decodeFromJsonElement(PostView.serializer(), older)
         assertEquals(0, decoded.likeCount)
         assertEquals(0, decoded.commentCount)
         assertEquals(0, decoded.repostCount)
+        assertEquals(0, decoded.quoteCount)
         assertEquals(null, decoded.viewer)
     }
 
@@ -157,5 +160,62 @@ class PostSerializationTest {
     fun reasonWithoutOthersDecodesAsNone() {
         val raw = """{"by":{"did":"did:plc:bob","handle":"bob.test"},"createdAt":"2026-11-07T09:00:00Z"}"""
         assertEquals(0, AtJson.decodeFromString(ReasonRepost.serializer(), raw).others)
+    }
+
+    private val quoteUri = AtUri("at://did:plc:bob/${Nsid.FEED_POST}/3kquote")
+
+    private fun quotedPost(embed: QuotedPostEmbed?) =
+        QuotedPost.Post(
+            uri = view.uri,
+            cid = view.cid,
+            author = view.author,
+            createdAt = view.createdAt,
+            text = view.text,
+            visibility = "followers",
+            embed = embed,
+        )
+
+    @Test
+    fun quoteRecordRoundTrips() {
+        val quote = PostRecord(PostEmbed.Quote(StrongRef(view.uri, view.cid)), Instant.parse("2026-11-07T10:00:00Z"), text = "Yes, and…")
+        val json = AtJson.encodeToJsonElement(PostRecord.serializer(), quote).jsonObject
+        val embed = json.getValue("embed").jsonObject
+        assertEquals(PostEmbed.Quote.TYPE, embed["\$type"]?.jsonPrimitive?.content)
+        assertEquals(view.uri.value, embed.getValue("subject").jsonObject.getValue("uri").jsonPrimitive.content)
+        assertEquals(quote, AtJson.decodeFromJsonElement(PostRecord.serializer(), json))
+    }
+
+    @Test
+    fun eachQuotedMemberRoundTrips() {
+        val proposalEmbed = view.embed as PostEmbedView.Proposal
+        val members =
+            listOf(
+                QuotedPost.Unavailable(view.uri),
+                quotedPost(proposalEmbed),
+                quotedPost(QuotedPostEmbed.Link(AtUri("at://did:plc:carol/${Nsid.FEED_POST}/3kfirst"))),
+                quotedPost(null),
+            )
+        for (quoted in members) {
+            val quote = view.copy(uri = quoteUri, embed = PostEmbedView.Quote(quoted), quoteCount = 2)
+            val json = AtJson.encodeToJsonElement(PostView.serializer(), quote).jsonObject
+            assertEquals(PostEmbedView.Quote.TYPE, json.getValue("embed").jsonObject["\$type"]?.jsonPrimitive?.content)
+            assertEquals(quote, AtJson.decodeFromJsonElement(PostView.serializer(), json))
+        }
+    }
+
+    @Test
+    fun unknownQuotedMembersDecodeAndReEncodeUnchanged() {
+        val quoted = """{"${'$'}type":"${Nsid.FEED_DEFS}#quotedPostBlocked","uri":"${view.uri.value}"}"""
+        val embed = AtJson.parseToJsonElement("""{"${'$'}type":"${PostEmbedView.Quote.TYPE}","quoted":$quoted}""")
+        val decoded = AtJson.decodeFromJsonElement(PostEmbedView.serializer(), embed)
+        assertIs<QuotedPost.Unknown>(assertIs<PostEmbedView.Quote>(decoded).quoted)
+        assertEquals(embed, AtJson.encodeToJsonElement(PostEmbedView.serializer(), decoded))
+
+        val inner = AtJson.encodeToJsonElement(QuotedPost.serializer(), quotedPost(null)).jsonObject
+        val video = AtJson.parseToJsonElement("""{"${'$'}type":"${Nsid.FEED_DEFS}#postVideoEmbedView"}""")
+        val withVideo = kotlinx.serialization.json.JsonObject(inner + ("embed" to video))
+        val decodedPost = assertIs<QuotedPost.Post>(AtJson.decodeFromJsonElement(QuotedPost.serializer(), withVideo))
+        assertIs<QuotedPostEmbed.Unknown>(decodedPost.embed)
+        assertEquals(withVideo, AtJson.encodeToJsonElement(QuotedPost.serializer(), decodedPost))
     }
 }

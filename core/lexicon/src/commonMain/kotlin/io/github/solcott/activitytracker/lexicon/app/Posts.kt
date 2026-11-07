@@ -13,14 +13,15 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * `app.activitytracker.feed.post` (feed/posts): stored in the author's repo when [Visibility.PUBLIC], else in their tier space for
- * [Visibility.FOLLOWERS] or [Visibility.MUTUALS]. For now the AppView accepts one only when [embed] is a [PostEmbed.Proposal] naming the
- * author's own proposal under this record's rkey, and clients write one only by sharing that proposal.
+ * [Visibility.FOLLOWERS] or [Visibility.MUTUALS]. The AppView accepts one when [embed] is a [PostEmbed.Proposal] naming the author's own
+ * proposal under this record's rkey, or a [PostEmbed.Quote] of another post with non-blank [text] (feed/quote-posts). Clients write one
+ * only by sharing a proposal or by quoting a post.
  */
 @Serializable
 data class PostRecord(
     val embed: PostEmbed,
     val createdAt: Instant,
-    /** The author's own words; at most [MAX_TEXT_GRAPHEMES]. */
+    /** The author's own words; at most [MAX_TEXT_GRAPHEMES]. Required, and not blank, on a quote. */
     val text: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_POST,
 ) {
@@ -32,7 +33,9 @@ data class PostRecord(
     }
 }
 
-/** A member of `app.activitytracker.feed.post#embed`, an open union: [Proposal] today, [Unknown] for anything a newer client writes. */
+/**
+ * A member of `app.activitytracker.feed.post#embed`, an open union: [Proposal] or [Quote], [Unknown] for anything a newer client writes.
+ */
 @Immutable
 @Serializable(with = PostEmbedSerializer::class)
 sealed interface PostEmbed {
@@ -48,17 +51,32 @@ sealed interface PostEmbed {
         }
     }
 
+    /** `app.activitytracker.feed.post#quote`: quotes the post at [subject] (feed/quote-posts). */
+    @Immutable
+    @Serializable
+    data class Quote(val subject: StrongRef, @SerialName($$"$type") val type: String = TYPE) : PostEmbed {
+        companion object {
+            const val TYPE = "${Nsid.FEED_POST}#quote"
+        }
+    }
+
     @Immutable data class Unknown(val json: JsonObject) : PostEmbed
 }
 
 internal object PostEmbedSerializer : OpenUnionSerializer<PostEmbed>("PostEmbed") {
-    override fun memberFor(type: String?) = PostEmbed.Proposal.serializer().takeIf { type == PostEmbed.Proposal.TYPE }
+    override fun memberFor(type: String?) =
+        when (type) {
+            PostEmbed.Proposal.TYPE -> PostEmbed.Proposal.serializer()
+            PostEmbed.Quote.TYPE -> PostEmbed.Quote.serializer()
+            else -> null
+        }
 
     override fun unknown(json: JsonObject) = PostEmbed.Unknown(json)
 
     override fun encode(encoder: JsonEncoder, value: PostEmbed) =
         when (value) {
             is PostEmbed.Proposal -> encoder.encodeSerializableValue(PostEmbed.Proposal.serializer(), value)
+            is PostEmbed.Quote -> encoder.encodeSerializableValue(PostEmbed.Quote.serializer(), value)
             is PostEmbed.Unknown -> encoder.encodeJsonElement(value.json)
         }
 }
@@ -85,6 +103,8 @@ data class PostView(
     val commentCount: Long = 0,
     /** Reposters the viewer is shown, matching `getReposts` (feed/reposts); 0 from an older AppView. */
     val repostCount: Long = 0,
+    /** Quotes of the post the viewer is shown, matching `getQuotes` (feed/quote-posts); 0 from an older AppView. */
+    val quoteCount: Long = 0,
     /** Null for a signed-out viewer, and from an older AppView. */
     val viewer: PostViewerState? = null,
     @SerialName($$"$type") val type: String = TYPE,
@@ -125,7 +145,7 @@ data class ReasonRepost(
     val others: Long = 0,
 )
 
-/** A member of `app.activitytracker.feed.defs#postView.embed`: [Proposal] today, [Unknown] for a kind this client can't show. */
+/** A member of `app.activitytracker.feed.defs#postView.embed`: [Proposal] or [Quote], [Unknown] for a kind this client can't show. */
 @Immutable
 @Serializable(with = PostEmbedViewSerializer::class)
 sealed interface PostEmbedView {
@@ -151,7 +171,7 @@ sealed interface PostEmbedView {
         /** The proposal is open and the viewer has an effort on the segment (a visit to the site). */
         val canVote: Boolean = false,
         @SerialName($$"$type") val type: String = TYPE,
-    ) : PostEmbedView {
+    ) : PostEmbedView, QuotedPostEmbed {
         val isOpen: Boolean
             get() = status == PostProposalStatus.OPEN
 
@@ -160,7 +180,77 @@ sealed interface PostEmbedView {
         }
     }
 
+    /** `app.activitytracker.feed.defs#postQuoteEmbedView`: a quote's quoted post, one level deep (feed/quote-posts). */
+    @Immutable
+    @Serializable
+    data class Quote(val quoted: QuotedPost, @SerialName($$"$type") val type: String = TYPE) : PostEmbedView {
+        companion object {
+            const val TYPE = "${Nsid.FEED_DEFS}#postQuoteEmbedView"
+        }
+    }
+
     @Immutable data class Unknown(val json: JsonObject) : PostEmbedView
+}
+
+/** `app.activitytracker.feed.defs#postQuoteEmbedView.quoted`, an open union: the quoted [Post], or [Unavailable]. */
+@Immutable
+@Serializable(with = QuotedPostSerializer::class)
+sealed interface QuotedPost {
+    /** `app.activitytracker.feed.defs#quotedPostView`: the quoted post as the viewer may see it, without counts or viewer state. */
+    @Immutable
+    @Serializable
+    data class Post(
+        val uri: AtUri,
+        val cid: Cid,
+        val author: ProfileViewBasic,
+        val createdAt: Instant,
+        val text: String? = null,
+        /** A [Visibility] value; null means [Visibility.PUBLIC]. */
+        val visibility: String? = null,
+        /** Its proposal, or a link when it is itself a quote. */
+        val embed: QuotedPostEmbed? = null,
+        @SerialName($$"$type") val type: String = TYPE,
+    ) : QuotedPost {
+        val visibilityOrPublic: String
+            get() = visibility ?: Visibility.PUBLIC
+
+        companion object {
+            const val TYPE = "${Nsid.FEED_DEFS}#quotedPostView"
+        }
+    }
+
+    /**
+     * `app.activitytracker.feed.defs#quotedPostUnavailable`: the quoted post at [uri] is served to no one, or the quoter may no longer see
+     * it.
+     */
+    @Immutable
+    @Serializable
+    data class Unavailable(val uri: AtUri, @SerialName($$"$type") val type: String = TYPE) : QuotedPost {
+        companion object {
+            const val TYPE = "${Nsid.FEED_DEFS}#quotedPostUnavailable"
+        }
+    }
+
+    @Immutable data class Unknown(val json: JsonObject) : QuotedPost
+}
+
+/**
+ * `app.activitytracker.feed.defs#quotedPostView.embed`, an open union: a [PostEmbedView.Proposal], a [Link] to a quoted quote's subject, or
+ * [Unknown].
+ */
+@Immutable
+@Serializable(with = QuotedPostEmbedSerializer::class)
+sealed interface QuotedPostEmbed {
+    /** `app.activitytracker.feed.defs#quotedPostLink`: the post a quoted quote quotes, as a link only. */
+    @Immutable
+    @Serializable
+    data class Link(val uri: AtUri, @SerialName($$"$type") val type: String = TYPE) : QuotedPostEmbed {
+        companion object {
+            const val TYPE = "${Nsid.FEED_DEFS}#quotedPostLink"
+        }
+    }
+
+    @Immutable data class Unknown(val json: JsonObject) : QuotedPostEmbed
 }
 
 /** `app.activitytracker.feed.defs#postProposalEmbedView.status` values. */
@@ -173,13 +263,55 @@ object PostProposalStatus {
 }
 
 internal object PostEmbedViewSerializer : OpenUnionSerializer<PostEmbedView>("PostEmbedView") {
-    override fun memberFor(type: String?) = PostEmbedView.Proposal.serializer().takeIf { type == PostEmbedView.Proposal.TYPE }
+    override fun memberFor(type: String?) =
+        when (type) {
+            PostEmbedView.Proposal.TYPE -> PostEmbedView.Proposal.serializer()
+            PostEmbedView.Quote.TYPE -> PostEmbedView.Quote.serializer()
+            else -> null
+        }
 
     override fun unknown(json: JsonObject) = PostEmbedView.Unknown(json)
 
     override fun encode(encoder: JsonEncoder, value: PostEmbedView) =
         when (value) {
             is PostEmbedView.Proposal -> encoder.encodeSerializableValue(PostEmbedView.Proposal.serializer(), value)
+            is PostEmbedView.Quote -> encoder.encodeSerializableValue(PostEmbedView.Quote.serializer(), value)
             is PostEmbedView.Unknown -> encoder.encodeJsonElement(value.json)
+        }
+}
+
+internal object QuotedPostSerializer : OpenUnionSerializer<QuotedPost>("QuotedPost") {
+    override fun memberFor(type: String?) =
+        when (type) {
+            QuotedPost.Post.TYPE -> QuotedPost.Post.serializer()
+            QuotedPost.Unavailable.TYPE -> QuotedPost.Unavailable.serializer()
+            else -> null
+        }
+
+    override fun unknown(json: JsonObject) = QuotedPost.Unknown(json)
+
+    override fun encode(encoder: JsonEncoder, value: QuotedPost) =
+        when (value) {
+            is QuotedPost.Post -> encoder.encodeSerializableValue(QuotedPost.Post.serializer(), value)
+            is QuotedPost.Unavailable -> encoder.encodeSerializableValue(QuotedPost.Unavailable.serializer(), value)
+            is QuotedPost.Unknown -> encoder.encodeJsonElement(value.json)
+        }
+}
+
+internal object QuotedPostEmbedSerializer : OpenUnionSerializer<QuotedPostEmbed>("QuotedPostEmbed") {
+    override fun memberFor(type: String?) =
+        when (type) {
+            PostEmbedView.Proposal.TYPE -> PostEmbedView.Proposal.serializer()
+            QuotedPostEmbed.Link.TYPE -> QuotedPostEmbed.Link.serializer()
+            else -> null
+        }
+
+    override fun unknown(json: JsonObject) = QuotedPostEmbed.Unknown(json)
+
+    override fun encode(encoder: JsonEncoder, value: QuotedPostEmbed) =
+        when (value) {
+            is PostEmbedView.Proposal -> encoder.encodeSerializableValue(PostEmbedView.Proposal.serializer(), value)
+            is QuotedPostEmbed.Link -> encoder.encodeSerializableValue(QuotedPostEmbed.Link.serializer(), value)
+            is QuotedPostEmbed.Unknown -> encoder.encodeJsonElement(value.json)
         }
 }
