@@ -34,12 +34,14 @@ import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetReposts
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -90,6 +92,9 @@ class FeedRepository(
     /** Accounts the viewer blocked, muted or let back this session, laid over every read until the AppView catches up. */
     val localBlocks = LocalBlocks()
 
+    /** The viewer's reposts toggled this session (feed/reposts), laid over every read of a post until the AppView catches up. */
+    val localReposts = LocalReposts()
+
     /** The viewer's like toggles this session ([LocalLikes]), for a screen that lays them over posts it has already loaded. */
     val likeOverrides: StateFlow<Map<String, AtUri?>>
         get() = localLikes.overrides
@@ -99,24 +104,27 @@ class FeedRepository(
         timelineItems(filter).map { items -> items.mapNotNull { (it as? TimelineItem.Activity)?.view } }
 
     /**
-     * The cached timeline: activities and, unfiltered, import cards (feed/import-cards) and posts (feed/posts), in the AppView's order,
-     * with the athlete's own new posts first until it lists them.
+     * The cached timeline: activities and, unfiltered, import cards (feed/import-cards), posts (feed/posts) and reposted posts
+     * (feed/reposts), in the AppView's order, with the athlete's own new posts first until it lists them.
      */
     fun timelineItems(filter: ActivityFilter = ActivityFilter.None): Flow<List<TimelineItem>> =
-        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries, localPosts.changes, localLikes.overrides) {
-            items,
-            blocks,
-            posts,
-            likes ->
+        combine(
+            db.feed().observe(filter.cacheKey(TIMELINE)),
+            localBlocks.entries,
+            localPosts.changes,
+            localLikes.overrides,
+            localReposts.overrides,
+        ) { items, blocks, posts, likes, reposts ->
             val decoded = items.mapNotNull { item ->
                 runCatching {
                     when {
                         item.uri.startsWith(CARD_KEY) ->
                             TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
-                        item.uri.startsWith(POST_KEY) ->
-                            TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json).withLikeOverrides(likes))
+                        item.uri.startsWith(POST_KEY) -> TimelineItem.Post(AtJson.decodeFromString(PostView.serializer(), item.json))
+                        item.uri.startsWith(REPOST_KEY) ->
+                            TimelineItem.Repost(AtJson.decodeFromString(RepostedPostView.serializer(), item.json))
                         else -> TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
-                    }
+                    }.withToggles(likes, reposts)
                 }
                     .onFailure { log.w(it) { "Skipping undecodable cached timeline item ${item.uri}" } }
                     .getOrNull()
@@ -126,6 +134,10 @@ class FeedRepository(
                     is TimelineItem.Activity -> localBlocks.filter(listOf(item.view), timeline = true, blocks).isNotEmpty()
                     is TimelineItem.ImportCard -> !localBlocks.hidesOnTimeline(item.card.author.did, blocks)
                     is TimelineItem.Post -> !localBlocks.hidesOnTimeline(item.post.author.did, blocks)
+                    // Gone when the viewer blocked or muted either the post's author or the reposter (graph/blocks, graph/mutes).
+                    is TimelineItem.Repost ->
+                        !localBlocks.hidesOnTimeline(item.reposted.post.author.did, blocks) &&
+                            !localBlocks.hidesOnTimeline(item.reposted.reason.by.did, blocks)
                     is TimelineItem.Unknown -> false
                 }
             }
@@ -142,7 +154,7 @@ class FeedRepository(
             localPosts
                 .applyTo(output.posts, includeNew = own && cursor == null)
                 .filterNot { localBlocks.entries.value.blocks[it.author.did]?.on == true }
-                .map(localLikes::applyTo)
+                .map { localReposts.applyTo(localLikes.applyTo(it)) }
         pageOf(shown, output.cursor)
     }
 
@@ -204,6 +216,7 @@ class FeedRepository(
                     is TimelineItem.Activity -> kept[item.view.uri]?.let { TimelineItem.Activity(shownInFeed(it)) }
                     is TimelineItem.ImportCard -> item
                     is TimelineItem.Post -> item
+                    is TimelineItem.Repost -> item
                     is TimelineItem.Unknown -> null
                 }
             }
@@ -292,7 +305,7 @@ class FeedRepository(
         val kept =
             localPosts.applyTo(listOf(view), includeNew = false).firstOrNull()
                 ?: throw XrpcException(HTTP_BAD_REQUEST, POST_NOT_FOUND, "Post not found")
-        val post = localLikes.applyTo(kept)
+        val post = localReposts.applyTo(localLikes.applyTo(kept))
         val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
         val counted = post.copy(commentCount = (post.commentCount + delta).coerceAtLeast(0))
         updateCachedPost(uri) { counted }
@@ -332,6 +345,19 @@ class FeedRepository(
             }
         return localStreams.applyTo(uri, served)
     }
+
+    /**
+     * The first [Paging.MAX_LIMIT] athletes who reposted the post [uri] (feed/reposts), straight from the AppView, so it lags the viewer's
+     * own toggles (see [LocalReposts]), without accounts the viewer blocked this session. None for a post the viewer may no longer see.
+     */
+    suspend fun reposts(uri: AtUri): List<ProfileViewBasic> =
+        try {
+            clients.appView.query(GetReposts.method, GetReposts.Params(uri, limit = Paging.MAX_LIMIT)).reposts.filterNot {
+                localBlocks.blocked(it.did) == true
+            }
+        } catch (e: XrpcException) {
+            if (e.error == POST_NOT_FOUND) emptyList() else throw e
+        }
 
     /**
      * The first [Paging.MAX_LIMIT] athletes who liked [uri], straight from the AppView, so it lags the viewer's own toggles (see
@@ -494,17 +520,22 @@ class FeedRepository(
         }
     }
 
-    /** Optimistically rewrites every cached copy of the post [uri] (feed/posts), in the timeline and wherever else it's cached. */
+    /**
+     * Optimistically rewrites every cached copy of the post [uri] (feed/posts), in the timeline and wherever else it's cached, whether
+     * cached as itself or through a repost (feed/reposts).
+     */
     suspend fun updateCachedPost(uri: AtUri, transform: (PostView) -> PostView) {
-        val items = db.feed().byUri("$POST_KEY${uri.value}")
-        if (items.isEmpty()) return
-        db.feed()
-            .upsert(
-                items.map { item ->
-                    val view = transform(AtJson.decodeFromString(PostView.serializer(), item.json))
-                    item.copy(json = AtJson.encodeToString(PostView.serializer(), view))
-                }
-            )
+        val posts =
+            db.feed().byUri("$POST_KEY${uri.value}").map { item ->
+                val view = transform(AtJson.decodeFromString(PostView.serializer(), item.json))
+                item.copy(json = AtJson.encodeToString(PostView.serializer(), view))
+            }
+        val reposted =
+            db.feed().byUri("$REPOST_KEY${uri.value}").map { item ->
+                val held = AtJson.decodeFromString(RepostedPostView.serializer(), item.json)
+                item.copy(json = AtJson.encodeToString(RepostedPostView.serializer(), held.copy(post = transform(held.post))))
+            }
+        if (posts.isNotEmpty() || reposted.isNotEmpty()) db.feed().upsert(posts + reposted)
     }
 
     /** Optimistically rewrites every cached copy of [uri]. */
@@ -577,6 +608,12 @@ private const val CARD_KEY = "importCard:"
 /** Where a cached post is kept in its feed (feed/posts): its URI behind a prefix, so activity updates and deletes never touch it. */
 private const val POST_KEY = "post:"
 
+/**
+ * Where a post cached through a repost is kept in its feed (feed/reposts): the post's URI behind a prefix of its own, so a timeline holds
+ * it once whichever way it came, and [FeedRepository.updateCachedPost] finds both.
+ */
+private const val REPOST_KEY = "repost:"
+
 /** The AppView's answer for a post the viewer may not see, which [FeedRepository.post] gives for one taken back locally too. */
 private const val POST_NOT_FOUND = "NotFound"
 private const val HTTP_BAD_REQUEST = 400
@@ -595,6 +632,13 @@ private fun List<TimelineItem>.toTimelineFeedItems(key: String) = mapIndexedNotN
             )
         is TimelineItem.Post ->
             FeedItemEntity(key, "$POST_KEY${item.post.uri.value}", index, AtJson.encodeToString(PostView.serializer(), item.post))
+        is TimelineItem.Repost ->
+            FeedItemEntity(
+                key,
+                "$REPOST_KEY${item.reposted.post.uri.value}",
+                index,
+                AtJson.encodeToString(RepostedPostView.serializer(), item.reposted),
+            )
         is TimelineItem.Unknown -> null
     }
 }

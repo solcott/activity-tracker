@@ -34,8 +34,11 @@ import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
+import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
+import io.github.solcott.activitytracker.lexicon.app.RepostRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
@@ -276,6 +279,45 @@ class ActivityRepository(
                 if (clients.canWriteToSpaces(Nsid.FEED_LIKE))
                     writer.delete(Nsid.FEED_LIKE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
                 localLikes.set(subject.uri, null)
+            }
+        }
+        outbox.drain()
+    }
+
+    /**
+     * Reposts someone else's [post] (feed/reposts), or undoes the viewer's repost of it, deciding against what this repository last wrote
+     * rather than [post], which may be a stale UI snapshot, as [toggleLike] does. A repost of a public post goes in the repo, and of any
+     * other in the athlete's interactions space ([interactionPlaceOf]), refused up front without the `space:` scope covering `feed.repost`.
+     * Undoing can't tell where the repost went, so it deletes the rkey from both places.
+     */
+    suspend fun toggleRepost(post: PostView) {
+        if (post.author.did == clients.did) return
+        val place = clients.interactionPlaceOf(post.visibilityOrPublic)
+        val reposts = feed.localReposts
+        likeMutex.withLock {
+            val current = reposts.current(post)
+            if (current == null) {
+                val rkey = Tid.next(clock)
+                val repost = AtUri.of(clients.did, Nsid.FEED_REPOST, rkey)
+                // Refused before anything changes, so a repost is never shown that can't be written.
+                clients.requireSpacesFor(post.visibilityOrPublic, Nsid.FEED_REPOST)
+                feed.updateCachedPost(post.uri) { it.withRepost(repost) }
+                writer.put(
+                    Nsid.FEED_REPOST,
+                    rkey,
+                    RepostRecord.serializer(),
+                    RepostRecord(StrongRef(post.uri, post.cid), clock.now()),
+                    space = place,
+                )
+                reposts.set(post.uri, repost)
+            } else {
+                feed.updateCachedPost(post.uri) { it.withRepost(null) }
+                val rkey = requireNotNull(current.rkey)
+                writer.delete(Nsid.FEED_REPOST, rkey)
+                // As for unliking: without the scope this session can't reach the space, so its copy stays until a session with it undoes.
+                if (clients.canWriteToSpaces(Nsid.FEED_REPOST))
+                    writer.delete(Nsid.FEED_REPOST, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+                reposts.set(post.uri, null)
             }
         }
         outbox.drain()
@@ -526,4 +568,16 @@ internal inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
 internal fun SessionClients.requireDetailsSpaceFor(drafts: List<ActivityDraft>) {
     if (drafts.any { d -> d.tiers.filterKeys { it in d.heldCategories() }.values.any { it != Visibility.known(d.visibility) } })
         requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
+}
+
+/** This post with the viewer's repost set to [repost] (null to undo), its count moved by the difference. */
+private fun PostView.withRepost(repost: AtUri?): PostView {
+    val had = viewer?.repost != null
+    val delta =
+        when {
+            repost != null && !had -> 1
+            repost == null && had -> -1
+            else -> 0
+        }
+    return copy(repostCount = (repostCount + delta).coerceAtLeast(0), viewer = (viewer ?: PostViewerState()).copy(repost = repost))
 }

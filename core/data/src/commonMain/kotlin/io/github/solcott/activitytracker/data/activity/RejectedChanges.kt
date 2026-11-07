@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
+import io.github.solcott.activitytracker.lexicon.app.RepostRecord
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -39,6 +40,7 @@ data class RejectedChange(
     enum class Kind {
         Activity,
         Like,
+        Repost,
         Comment,
         CommentHide,
         Block,
@@ -125,6 +127,10 @@ class RejectedChanges(
                 localLikes.forget(uri)
                 listOfNotNull(row.recordJson?.let { decodeOrNull(LikeRecord.serializer(), it) }?.subject?.uri)
             }
+            Nsid.FEED_REPOST -> {
+                feed.localReposts.forget(uri)
+                listOfNotNull(row.recordJson?.let { decodeOrNull(RepostRecord.serializer(), it) }?.subject?.uri)
+            }
             Nsid.FEED_COMMENT -> {
                 feed.localComments.restore(uri, null)
                 listOfNotNull(row.recordJson?.let { decodeOrNull(CommentRecord.serializer(), it) }?.subject?.uri)
@@ -168,6 +174,7 @@ class RejectedChanges(
             when (collection) {
                 in ACTIVITY_RECORDS -> RejectedChange.Kind.Activity
                 Nsid.FEED_LIKE -> RejectedChange.Kind.Like
+                Nsid.FEED_REPOST -> RejectedChange.Kind.Repost
                 Nsid.FEED_COMMENT -> RejectedChange.Kind.Comment
                 Nsid.FEED_COMMENT_HIDE -> RejectedChange.Kind.CommentHide
                 Nsid.GRAPH_BLOCK -> RejectedChange.Kind.Block

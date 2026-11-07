@@ -45,13 +45,25 @@ class LocalPosts {
 
     /** A timeline's [items] with [changes] laid over its posts, as [applyTo]. */
     fun applyToTimeline(items: List<TimelineItem>, includeNew: Boolean, at: Map<String, PostView?> = changes.value): List<TimelineItem> {
-        val listed = items.mapNotNull { (it as? TimelineItem.Post)?.post?.uri?.value }.toSet()
+        val listed = items.mapNotNull { it.postOrNull()?.uri?.value }.toSet()
         val shown = items.mapNotNull { item ->
-            if (item !is TimelineItem.Post || item.post.uri.value !in at) return@mapNotNull item
-            at[item.post.uri.value]?.let { local -> TimelineItem.Post(item.post.copy(text = local.text, visibility = local.visibility)) }
+            val post = item.postOrNull()
+            if (post == null || post.uri.value !in at) return@mapNotNull item
+            at[post.uri.value]?.let { local ->
+                val changed = post.copy(text = local.text, visibility = local.visibility)
+                if (item is TimelineItem.Repost) TimelineItem.Repost(item.reposted.copy(post = changed)) else TimelineItem.Post(changed)
+            }
         }
         if (!includeNew) return shown
         val sent = at.values.filterNotNull().filter { it.uri.value !in listed }.sortedByDescending { it.createdAt }
         return sent.map(TimelineItem::Post) + shown
     }
 }
+
+/** The post a timeline item shows, as itself or through a repost (feed/reposts); null for anything else. */
+private fun TimelineItem.postOrNull(): PostView? =
+    when (this) {
+        is TimelineItem.Post -> post
+        is TimelineItem.Repost -> reposted.post
+        else -> null
+    }

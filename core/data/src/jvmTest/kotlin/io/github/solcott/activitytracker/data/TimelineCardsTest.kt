@@ -102,6 +102,7 @@ class TimelineCardsTest {
             is TimelineItem.Activity -> it.view.uri.rkey
             is TimelineItem.ImportCard -> "card"
             is TimelineItem.Post -> "post:${it.post.uri.rkey}"
+            is TimelineItem.Repost -> "repost:${it.reposted.post.uri.rkey}"
             is TimelineItem.Unknown -> "unknown"
         }
     }

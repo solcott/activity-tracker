@@ -61,7 +61,7 @@ enum class GrantFeature {
                 .forEach { put(it, PrivateActivities) }
             listOf(Nsid.ACTOR_PRIVACY_ZONES, Nsid.ACTOR_ROUTE_TRIM).forEach { put(it, PrivacyZones) }
             listOf(Nsid.ACTOR_PRIVATE_DETAILS, Nsid.GRAPH_FOLLOW_DECLINE).forEach { put(it, PrivateProfile) }
-            listOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE).forEach { put(it, PrivateInteractions) }
+            listOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.FEED_REPOST).forEach { put(it, PrivateInteractions) }
             listOf(Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE).forEach { put(it, BlocksAndMutes) }
             listOf(Nsid.GEAR_ITEM, Nsid.GEAR_AUTO_ASSIGN, Nsid.GEAR_COLLECTION).forEach { put(it, Gear) }
             listOf(

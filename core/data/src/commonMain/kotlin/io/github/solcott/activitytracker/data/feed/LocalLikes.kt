@@ -40,12 +40,12 @@ class LocalLikes {
 fun PostView.withLikeOverrides(overrides: Map<String, AtUri?>): PostView {
     if (uri.value !in overrides) return this
     val mine = overrides[uri.value]
-    val delta = likeDelta(mine, reported = viewer?.like != null)
+    val delta = toggleDelta(mine, reported = viewer?.like != null)
     return copy(likeCount = (likeCount + delta).coerceAtLeast(0), viewer = (viewer ?: PostViewerState()).copy(like = mine))
 }
 
-/** How far a local like ([mine]) moves a count that [reported] the viewer's like or not. */
-private fun likeDelta(mine: AtUri?, reported: Boolean): Int =
+/** How far a local like or repost ([mine]) moves a count that [reported] the viewer's own or not ([LocalLikes], [LocalReposts]). */
+internal fun toggleDelta(mine: AtUri?, reported: Boolean): Int =
     when {
         mine != null && !reported -> 1
         mine == null && reported -> -1
@@ -56,7 +56,7 @@ private fun likeDelta(mine: AtUri?, reported: Boolean): Int =
 fun ActivityView.withLikeOverrides(overrides: Map<String, AtUri?>): ActivityView {
     if (uri.value !in overrides) return this
     val mine = overrides[uri.value]
-    val delta = likeDelta(mine, reported = viewer?.like != null)
+    val delta = toggleDelta(mine, reported = viewer?.like != null)
     return copy(
         likeCount = (likeCount + delta).coerceAtLeast(0),
         viewer = (viewer ?: ActivityViewerState()).copy(like = mine),

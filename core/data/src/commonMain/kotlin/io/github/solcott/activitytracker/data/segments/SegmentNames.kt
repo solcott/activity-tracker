@@ -241,7 +241,12 @@ class SegmentNames(
     }
 
     /** A timeline [item] with this session's changes laid over it when it's a post ([applyTo]). */
-    fun withChanges(item: TimelineItem): TimelineItem = if (item is TimelineItem.Post) TimelineItem.Post(applyTo(item.post)) else item
+    fun withChanges(item: TimelineItem): TimelineItem =
+        when (item) {
+            is TimelineItem.Post -> TimelineItem.Post(applyTo(item.post))
+            is TimelineItem.Repost -> TimelineItem.Repost(item.reposted.copy(post = applyTo(item.reposted.post)))
+            else -> item
+        }
 
     /**
      * Votes [direction] on the proposal [post] shares, or takes the athlete's vote back when it's null, as [vote] does from the segment
