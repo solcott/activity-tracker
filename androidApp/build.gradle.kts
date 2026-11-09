@@ -88,8 +88,14 @@ dependencies {
     testImplementation(libs.robolectric)
 }
 
-// Layoutlib renders every screenshot in one JVM, which outgrows Test's default 512m heap.
-tasks.withType<Test>().matching { "ScreenshotTest" in it.name }.configureEach { maxHeapSize = "4g" }
+// Layoutlib renders a test JVM's screenshots in that JVM, which outgrows Test's default 512m heap. Forks split the suite's classes.
+tasks
+    .withType<Test>()
+    .matching { "ScreenshotTest" in it.name }
+    .configureEach {
+        maxHeapSize = "2g"
+        maxParallelForks = 4
+    }
 
 // Robolectric reaches into FileDescriptor (and the JDK's SharedSecrets for it), which JDK 17+ closes.
 tasks
