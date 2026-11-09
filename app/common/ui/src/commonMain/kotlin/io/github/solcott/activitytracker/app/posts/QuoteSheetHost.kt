@@ -71,6 +71,7 @@ fun QuoteSheet(fields: QuoteFields, quotedAuthor: String, quotedText: String?, m
             onCancel = { fields.eventSink(QuoteEvent.Cancel) },
             confirmLabel = stringResource(Res.string.quote_sheet_post),
             onConfirm = { if (fields.canPost) fields.eventSink(QuoteEvent.Post) },
+            confirmEnabled = fields.canPost,
         )
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

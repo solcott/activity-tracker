@@ -30,7 +30,7 @@ fun AppBottomSheet(
 /**
  * A sheet's title row with Cancel and a confirming action. iOS lays it out like a sheet's navigation bar: Cancel leading, the title centred
  * and [confirmLabel] trailing in semibold, all as text. Material platforms put the title first, then a text Cancel and a filled
- * [confirmLabel] button.
+ * [confirmLabel] button. [confirmEnabled] false shows the confirming action as unavailable.
  */
 @Composable
 expect fun AppSheetHeader(
@@ -40,4 +40,5 @@ expect fun AppSheetHeader(
     confirmLabel: String,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
+    confirmEnabled: Boolean = true,
 )

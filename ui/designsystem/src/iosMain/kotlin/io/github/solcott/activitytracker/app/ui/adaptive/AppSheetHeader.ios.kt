@@ -20,6 +20,7 @@ actual fun AppSheetHeader(
     confirmLabel: String,
     onConfirm: () -> Unit,
     modifier: Modifier,
+    confirmEnabled: Boolean,
 ) {
     Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
         AppTextButton(onClick = onCancel, modifier = Modifier.align(Alignment.CenterStart)) { Text(cancelLabel) }
@@ -30,7 +31,7 @@ actual fun AppSheetHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.Center).padding(horizontal = 88.dp),
         )
-        AppTextButton(onClick = onConfirm, modifier = Modifier.align(Alignment.CenterEnd)) {
+        AppTextButton(onClick = onConfirm, modifier = Modifier.align(Alignment.CenterEnd), enabled = confirmEnabled) {
             Text(confirmLabel, fontWeight = FontWeight.SemiBold)
         }
     }

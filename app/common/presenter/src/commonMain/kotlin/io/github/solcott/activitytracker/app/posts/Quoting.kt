@@ -39,8 +39,9 @@ internal constructor(
 
 /**
  * Holds a host's quoting (feed/quote-posts): the sheet offers audiences no wider than the quoted post's, starting on it (Public only when
- * this session can't write posts to its spaces), posts through [quotes] once per tap and closes; a confirmed Delete goes through [quotes]
- * too, then tells [onDelete]. A quote that fails to queue keeps the sheet open with why; a delete that fails goes to [onError].
+ * this session can't write posts to its spaces and the post is Public), posts through [quotes] once per tap and closes; a confirmed Delete
+ * goes through [quotes] too, then tells [onDelete]. A quote that fails to queue keeps the sheet open with why; a delete that fails goes to
+ * [onError].
  */
 @Composable
 @Suppress("CyclomaticComplexMethod") // One branch per sheet event, each checked against the state it acts on.
@@ -61,7 +62,8 @@ fun rememberQuoting(quotes: QuotePosts, onDelete: (PostView) -> Unit = {}, onErr
             text = text,
             audience = audience,
             audiences = audiences,
-            publicOnly = !canWriteSpaces && quoting != null,
+            // Only when narrower audiences were dropped for Public: a narrower post's quote keeps its own, and posting says why it can't.
+            publicOnly = !canWriteSpaces && quoting != null && Visibility.PUBLIC in audiences,
             posting = flights.isRunning(QuoteEvent.Post),
             error = error,
             confirmDelete = confirmDelete,
@@ -110,10 +112,14 @@ fun rememberQuoting(quotes: QuotePosts, onDelete: (PostView) -> Unit = {}, onErr
     )
 }
 
-/** What a quote of [post] may be shown to: its visibility or narrower, widest first, and Public only without spaces. */
-private fun audiencesFor(post: PostView, canWriteSpaces: Boolean): ImmutableList<String> =
-    Visibility.atMost(post.visibilityOrPublic)
-        .filter { it in QUOTE_AUDIENCES && (canWriteSpaces || it == Visibility.PUBLIC) }
-        .toImmutableList()
+/**
+ * What a quote of [post] may be shown to: its visibility or narrower, widest first. Without spaces only Public can be written, so a Public
+ * post's quote is offered Public alone; a narrower post's keeps its audiences, and posting is refused with the reason a like gets.
+ */
+private fun audiencesFor(post: PostView, canWriteSpaces: Boolean): ImmutableList<String> {
+    val allowed = Visibility.atMost(post.visibilityOrPublic).filter { it in QUOTE_AUDIENCES }
+    val writable = if (canWriteSpaces) allowed else allowed.filter { it == Visibility.PUBLIC }
+    return writable.ifEmpty { allowed }.toImmutableList()
+}
 
 private val QUOTE_AUDIENCES = setOf(Visibility.PUBLIC, Visibility.FOLLOWERS, Visibility.MUTUALS)

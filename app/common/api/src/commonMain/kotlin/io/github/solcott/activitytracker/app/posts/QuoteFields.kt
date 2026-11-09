@@ -28,9 +28,12 @@ data class QuoteFields(
     val confirmDelete: PostView? = null,
     val eventSink: (QuoteEvent) -> Unit = {},
 ) {
-    /** The text, trimmed, fits a post. */
+    /**
+     * The text, trimmed, fits a post. Counted in code points, so an emoji is one, not its two UTF-16 units; a code point is never more than
+     * a grapheme, which the AppView counts, so this never lets through text it would refuse.
+     */
     val textValid: Boolean
-        get() = text.text.trim().length <= MAX_TEXT_LENGTH
+        get() = text.text.trim().count { !it.isLowSurrogate() } <= MAX_TEXT_LENGTH
 
     /** Post is offered: the text, trimmed, isn't empty and fits, and nothing is being posted. */
     val canPost: Boolean

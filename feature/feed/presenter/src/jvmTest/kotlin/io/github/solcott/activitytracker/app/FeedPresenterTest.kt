@@ -365,6 +365,24 @@ class FeedPresenterTest {
     }
 
     @Test
+    fun withoutTheScopeAQuoteOfAFollowersPostIsRefusedWithWhy() = runTest {
+        // Signed in before the declaration listed posts: only Public could be written, and that's wider than the post.
+        filterTest(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}") {
+            val state = awaitUntil { !it.content.isLoading }
+            state.eventSink(FeedEvent.Post(PostEvent.Quote(bobsFollowersPost)))
+            val sheet = awaitUntil { it.quote.quoting != null }.quote
+            assertEquals(listOf(Visibility.FOLLOWERS, Visibility.MUTUALS), sheet.audiences)
+            assertEquals(false, sheet.publicOnly)
+            sheet.text.setTextAndPlaceCursorAtEnd("Yes")
+            sheet.eventSink(QuoteEvent.Post)
+            val refused = awaitUntil { it.quote.error != null }.quote
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.error)
+            assertEquals(bobsFollowersPost, refused.quoting, "the sheet stays open")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun likesAFollowersActivity() = runTest {
         timeline = listOf(bobsFollowersRun)
         filterTest {

@@ -19,6 +19,7 @@ actual fun AppSheetHeader(
     confirmLabel: String,
     onConfirm: () -> Unit,
     modifier: Modifier,
+    confirmEnabled: Boolean,
 ) {
     Row(
         modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
@@ -27,6 +28,6 @@ actual fun AppSheetHeader(
     ) {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
         AppTextButton(onClick = onCancel) { Text(cancelLabel) }
-        AppButton(onClick = onConfirm) { Text(confirmLabel) }
+        AppButton(onClick = onConfirm, enabled = confirmEnabled) { Text(confirmLabel) }
     }
 }
