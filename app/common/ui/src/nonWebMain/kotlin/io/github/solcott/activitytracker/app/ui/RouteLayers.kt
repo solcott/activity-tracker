@@ -66,7 +66,7 @@ private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>) {
                 listOf(
                     RouteMarkers.CONNECTOR_DASH / RouteMarkers.CONNECTOR_WIDTH,
                     RouteMarkers.CONNECTOR_SPACE / RouteMarkers.CONNECTOR_WIDTH,
-                )
+                ),
             ),
         cap = const(LineCap.Butt),
     )

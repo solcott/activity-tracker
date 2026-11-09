@@ -79,13 +79,13 @@ open class ModerationTestBase {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = cid,
-            )
+            ),
         )
     }
 
     protected fun account(did: String, active: Boolean, status: String? = null) = runBlocking {
         indexer.handle(
-            JetstreamEvent.Account(did, "2026-10-21T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, active, status))
+            JetstreamEvent.Account(did, "2026-10-21T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, active, status)),
         )
     }
 

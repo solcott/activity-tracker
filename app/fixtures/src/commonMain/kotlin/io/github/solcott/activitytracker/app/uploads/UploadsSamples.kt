@@ -124,7 +124,7 @@ object UploadsSamples {
                     emptyView.copy(
                         current = current,
                         imports = listOf(partWay.copy(source = UploadSource.Export(listOf("Strava", "Garmin")))),
-                    )
+                    ),
                 )
                 .copy(
                     importsPaused = true,
@@ -138,7 +138,7 @@ object UploadsSamples {
                 emptyView.copy(
                     own = listOf(item(5, UploadState.Refused, title = null, sport = Sport.RUN, startedAt = Fixed.STARTED_AT)),
                     refusedOther = listOf(refusedLike),
-                )
+                ),
             )
 
     /** Nothing left to upload: the import done overnight and a finished recording. */
@@ -154,10 +154,10 @@ object UploadsSamples {
                                 refused = 0,
                                 saved = 12,
                                 live = emptyList(),
-                            )
+                            ),
                         ),
                     finished = ownFinished,
-                )
+                ),
             )
 
     /** An import of 1,362 activities still saving, 500 saved so far, 40 of them uploaded. */
@@ -175,9 +175,9 @@ object UploadsSamples {
                                 live = partWay.live.drop(1),
                                 finished = partWay.finished.take(1),
                                 save = ImportSaveStatus.Saving(done = 500, total = 1362),
-                            )
-                        )
-                )
+                            ),
+                        ),
+                ),
             )
 
     /** An import of 400 selected activities that stopped saving after 120, all of them uploaded. */
@@ -196,9 +196,9 @@ object UploadsSamples {
                                 live = emptyList(),
                                 finished = partWay.finished.take(1),
                                 save = ImportSaveStatus.Stopped(saved = 120, total = 400),
-                            )
-                        )
-                )
+                            ),
+                        ),
+                ),
             )
 
     /** Asking to confirm cancelling the rest of the import still saving. */

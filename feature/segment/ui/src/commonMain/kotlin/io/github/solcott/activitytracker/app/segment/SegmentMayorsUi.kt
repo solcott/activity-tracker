@@ -130,7 +130,7 @@ private fun periodLabel(period: String): String =
             MayorPeriod.THIS_WEEK -> Res.string.mayor_period_this_week
             MayorPeriod.LAST_WEEK -> Res.string.mayor_period_last_week
             else -> Res.string.mayor_period_last_90_days
-        }
+        },
     )
 
 /** One athlete's place: rank, avatar and name, the day they reached their count, and the count. */

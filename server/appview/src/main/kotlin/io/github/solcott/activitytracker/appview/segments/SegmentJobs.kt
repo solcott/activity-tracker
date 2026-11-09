@@ -22,7 +22,7 @@ import org.jetbrains.exposed.v1.jdbc.upsert
  */
 class SegmentJobs(
     /** Whether terrain tiles are configured, so new and re-lined segments are given terrain elevation (segments/segment-elevation). */
-    private val terrain: Boolean = false
+    private val terrain: Boolean = false,
 ) {
     /** Signals the matcher that a job was enqueued. */
     internal val wakeups = Channel<Unit>(Channel.CONFLATED)

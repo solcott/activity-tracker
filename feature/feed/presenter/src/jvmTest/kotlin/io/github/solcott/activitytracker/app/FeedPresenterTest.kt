@@ -211,7 +211,7 @@ class FeedPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -619,7 +619,7 @@ class FeedPresenterTest {
                             rkey = "3klike",
                             recordJson = "{}",
                             createdAt = 0,
-                        )
+                        ),
                     )
         }
         var repos: Repos? = null
@@ -668,7 +668,7 @@ class FeedPresenterTest {
                 MockEngine { request ->
                     if (request.url.encodedPath.endsWith("putRecord")) awaitCancellation()
                     respond("", HttpStatusCode.NotFound)
-                }
+                },
             ) {
                 expectSuccess = false
             }

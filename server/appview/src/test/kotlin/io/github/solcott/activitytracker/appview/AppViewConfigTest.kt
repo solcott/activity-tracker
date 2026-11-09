@@ -52,7 +52,7 @@ class AppViewConfigTest {
                     "LABELER_DID" to "did:plc:labeler",
                     "LABELER_URL" to "http://localhost:3010/",
                     "BSKY_LABELER_DID" to "did:plc:ar7c4by46qjdydhdevvrndac",
-                )
+                ),
             )
         assertEquals(AppViewConfig.Labeler("did:plc:labeler", "http://localhost:3010"), config.labeler)
         // No URL: it's resolved from the DID document's #atproto_labeler.
@@ -107,7 +107,7 @@ class AppViewConfigTest {
                         "SEGMENT_NAME_REJECT_SCORE" to "-2",
                         "SEGMENT_NAME_EXPIRY_DAYS" to "30",
                         "SEGMENT_NAME_COOLDOWN_DAYS" to "0",
-                    )
+                    ),
                 )
                 .segmentNames
         assertEquals(SegmentNameRules(2, 1, 0, 0, -2, 30, 0), custom)
@@ -121,7 +121,7 @@ class AppViewConfigTest {
                         "SEGMENT_NAME_REJECT_SCORE" to "3",
                         "SEGMENT_NAME_EXPIRY_DAYS" to "",
                         "SEGMENT_NAME_COOLDOWN_DAYS" to "-5",
-                    )
+                    ),
                 )
                 .segmentNames
         assertEquals(SegmentNameRules(), invalid)

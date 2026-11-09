@@ -17,7 +17,7 @@ class QualityConventionPluginTest {
                     rootProject.name = "quality-test"
                     dependencyResolutionManagement { repositories { mavenCentral() } }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             resolve("gradle/libs.versions.toml")
@@ -26,7 +26,7 @@ class QualityConventionPluginTest {
                     [libraries]
                     compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version = "$COMPOSE_RULES_VERSION" }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("config/detekt").mkdirs()
             resolve("config/detekt/detekt.yml").writeText("")
@@ -42,7 +42,7 @@ class QualityConventionPluginTest {
 
                     kotlin { sourceSets.main { kotlin.srcDir("build/generated/ksp/main/kotlin") } }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
         }
 

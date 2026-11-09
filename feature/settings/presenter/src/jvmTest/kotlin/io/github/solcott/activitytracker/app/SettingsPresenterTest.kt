@@ -42,9 +42,9 @@ class SettingsPresenterTest {
     ) {
         val repos = repos()
         val forModeration = moderation ?: moderation()
-        presenterTestOf({
-            SettingsPresenter(navigator, repos.clients, repos.units, repos.defaults, repos.privacy, forModeration, repos.segmentPrefs)
-        }) {
+        presenterTestOf(
+            { SettingsPresenter(navigator, repos.clients, repos.units, repos.defaults, repos.privacy, forModeration, repos.segmentPrefs) },
+        ) {
             block()
         }
     }
@@ -176,7 +176,7 @@ class SettingsPresenterTest {
                         "/xrpc/${Nsid.MODERATION_GET_ROLE}" -> respond("""{"role":"$role"}""", headers = json)
                         else -> respond("", HttpStatusCode.NotFound)
                     }
-                }
+                },
             ) {
                 expectSuccess = false
             }

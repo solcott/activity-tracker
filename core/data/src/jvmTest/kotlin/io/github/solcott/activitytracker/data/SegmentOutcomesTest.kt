@@ -46,7 +46,7 @@ class SegmentOutcomesTest {
                         }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private suspend fun segments(): SegmentRepository {

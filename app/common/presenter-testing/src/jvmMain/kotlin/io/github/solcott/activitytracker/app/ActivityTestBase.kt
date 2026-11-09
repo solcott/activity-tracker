@@ -410,7 +410,7 @@ open class ActivityTestBase {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

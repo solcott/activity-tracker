@@ -213,7 +213,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
             """{"id":"$did","alsoKnownAs":["at://${name(did)}.test"],
                "verificationMethod":[{"id":"$did#atproto_kem","type":"Multikey","controller":"$did",
                  "publicKeyMultibase":"${kem(did).multikey}"}],
-               "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://${name(did)}pds.test"}]}"""
+               "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://${name(did)}pds.test"}]}""",
         )
 
     /**
@@ -253,7 +253,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                                     put("cid", op.cid)
                                     put("prev", op.prev)
                                     if (params["excludeValues"] != "true" && op.value != null) put("value", op.value)
-                                }
+                                },
                             )
                         }
                 },
@@ -278,7 +278,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                                 put("rkey", path.substringAfterLast('/'))
                                 put("cid", record.cid)
                                 put("value", record.value)
-                            }
+                            },
                         )
                     }
                 },

@@ -115,7 +115,7 @@ class DecodedActivityMapperTest {
                     listOf(summary(sport = "training", subSport = "indoor_cycling")),
                     emptyList(),
                     listOf(record(0, lat = null, lon = null)),
-                )
+                ),
             )
         assertEquals(ActivityType(Sport.RIDE, SubSport.INDOOR), activity.type)
         assertTrue(activity.samples.isEmpty())
@@ -130,7 +130,7 @@ class DecodedActivityMapperTest {
                     listOf(summary(avgHr = 140, timer = 1000.0), summary(sport = "cycling", avgHr = 160, timer = 3000.0)),
                     emptyList(),
                     emptyList(),
-                )
+                ),
             )
         assertEquals(ActivityType(Sport.MULTISPORT, SubSport.DUATHLON), activity.type, "a run and a ride")
         assertEquals(10_000.0, activity.distanceMeters)
@@ -257,7 +257,7 @@ class DecodedActivityMapperTest {
         val header = DecodedDive(18.0, null, null, null, null, null, null, listOf(DiveGas(21, 0)), false, avgDepthMeters = 12.0)
         val activity =
             DecodedActivityMapper.map(
-                DecodedActivity(null, listOf(summary("DIVING", "MULTI_GAS_DIVING", distance = 0.0)), emptyList(), records, header)
+                DecodedActivity(null, listOf(summary("DIVING", "MULTI_GAS_DIVING", distance = 0.0)), emptyList(), records, header),
             )
 
         val dive = activity.dive!!
@@ -298,7 +298,7 @@ class DecodedActivityMapperTest {
                     records,
                     header,
                     diveAlerts = listOf(DecodedDiveAlert((start + 60.seconds).toEpochMilliseconds(), DiveAlertKind.NDL_REACHED)),
-                )
+                ),
             )
         val dive = activity.dive!!
         assertEquals(DecoModel.ZHL16C, dive.header.decoModel)
@@ -348,7 +348,7 @@ class DecodedActivityMapperTest {
                     gasSwitches = listOf(DecodedGasSwitch(start.toEpochMilliseconds(), DiveGas(32, 0))),
                     tankUpdates = listOf(DecodedTankUpdate((start + 60.seconds).toEpochMilliseconds(), "t", 150.0)),
                     notes = "  Turtle at the wall\n",
-                )
+                ),
             )
         val dive = activity.dive!!
         assertEquals(listOf(tank), dive.header.tanks)
@@ -627,7 +627,7 @@ class DecodedActivityMapperTest {
                     "ALPINE_SKIING",
                     null,
                     splits + DecodedSplit("CLIMB_ACTIVE", at(0), 60.0, null, null, null, null, null, null, null, null, null),
-                )
+                ),
             )
         val laps = activity.streams?.laps.orEmpty()
         assertEquals(16, laps.size, "other split types are left out")

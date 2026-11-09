@@ -157,7 +157,7 @@ class MigrationTest {
         database.getValue("setupQueries").jsonArray.forEach { connection.execSQL(it.jsonPrimitive.content) }
         connection.execSQL(
             "INSERT INTO outbox (did, operation, collection, rkey, recordJson, attempts, createdAt) " +
-                "VALUES ('did:plc:alice', 'put', 'app.activitytracker.feed.activity', '3kold', '{}', 0, 0)"
+                "VALUES ('did:plc:alice', 'put', 'app.activitytracker.feed.activity', '3kold', '{}', 0, 0)",
         )
         connection.execSQL("PRAGMA user_version = $version")
         connection.close()

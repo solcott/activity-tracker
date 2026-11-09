@@ -15,7 +15,7 @@ class KmpLibraryConventionPluginTest {
                     dependencyResolutionManagement { repositories { google(); mavenCentral() } }
                     include(":lib")
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             File(System.getProperty("activitytracker.versionCatalog")).copyTo(resolve("gradle/libs.versions.toml"))
@@ -40,7 +40,7 @@ class KmpLibraryConventionPluginTest {
                         doLast { println("lintRunsAfter=${'$'}{after.get()}") }
                     }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
         }
 

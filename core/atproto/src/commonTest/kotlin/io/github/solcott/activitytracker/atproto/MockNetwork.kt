@@ -29,7 +29,7 @@ class MockNetwork {
                 val key = request.url.host + request.url.encodedPath
                 val handler = routes[key] ?: return@MockEngine respond("no route for $key", HttpStatusCode.NotFound)
                 handler(request)
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -45,6 +45,6 @@ fun MockRequestHandleScope.respondJson(
         status,
         headersOf(
             *(listOf(HttpHeaders.ContentType to listOf("application/json")) + extraHeaders.map { it.first to listOf(it.second) })
-                .toTypedArray()
+                .toTypedArray(),
         ),
     )

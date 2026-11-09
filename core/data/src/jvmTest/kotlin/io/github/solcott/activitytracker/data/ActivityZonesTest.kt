@@ -77,7 +77,7 @@ class ActivityZonesTest {
             stored.getOrPut(place) { mutableMapOf() }["${Nsid.FEED_ACTIVITY_ZONES}/$rkey"] =
                 json(
                     """{"${'$'}type":"${Nsid.FEED_ACTIVITY_ZONES}","activity":"$activity","createdAt":"2026-10-01T00:00:00Z",""" +
-                        """"powerZones":{"model":"coggan6","lows":[0,138]}}"""
+                        """"powerZones":{"model":"coggan6","lows":[0,138]}}""",
                 )
         }
         if (charts != null) {
@@ -417,7 +417,7 @@ class ActivityZonesTest {
         stored.getOrPut(Visibility.MUTUALS) { mutableMapOf() }["${Nsid.FEED_ACTIVITY_DETAILS}/3kride"] =
             json(
                 """{"${'$'}type":"${Nsid.FEED_ACTIVITY_DETAILS}","activity":"$activity","avgHeartRate":140,""" +
-                    """"createdAt":"2026-10-01T00:00:00Z"}"""
+                    """"createdAt":"2026-10-01T00:00:00Z"}""",
             )
         pds.session().activities.repairZones()
         assertEquals(setOf(Visibility.MUTUALS), zonesAt("3kride"))

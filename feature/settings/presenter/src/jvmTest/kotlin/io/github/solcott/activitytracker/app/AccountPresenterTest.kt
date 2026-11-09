@@ -38,16 +38,18 @@ class AccountPresenterTest {
     ) {
         val repos = fixture.repos()
         before(repos)
-        presenterTestOf({
-            AccountPresenter(
-                navigator,
-                repos.clients,
-                repos.auth,
-                SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
-                repos.exports,
-                repos.dataExporter,
-            )
-        }) {
+        presenterTestOf(
+            {
+                AccountPresenter(
+                    navigator,
+                    repos.clients,
+                    repos.auth,
+                    SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
+                    repos.exports,
+                    repos.dataExporter,
+                )
+            },
+        ) {
             block(repos)
         }
     }
@@ -135,7 +137,7 @@ class AccountPresenterTest {
         account(
             before = { repos ->
                 repos.saveStore.start(NewImportSave("3kbatch", UploadSource.Files("day1.gpx", 0), emptyList(), emptyList(), "{}"))
-            }
+            },
         ) { _ ->
             awaitItem().eventSink(AccountEvent.SignInAgain)
             val asking = awaitUntil { it.confirming != null }

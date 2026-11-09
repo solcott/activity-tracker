@@ -74,7 +74,7 @@ class AuthRepositoryTest {
                 requests += request
                 val (status, body) = routes[request.url.encodedPath]?.invoke() ?: (HttpStatusCode.NotFound to "")
                 respond(body, status, headersOf("Content-Type", "application/json"))
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -219,7 +219,7 @@ class AuthRepositoryTest {
                 issuer = "http://pds.test",
                 tokenEndpoint = "http://pds.test/oauth/token",
                 expectedDid = Did(did),
-            )
+            ),
         )
         tokenAnswer =
             HttpStatusCode.OK to

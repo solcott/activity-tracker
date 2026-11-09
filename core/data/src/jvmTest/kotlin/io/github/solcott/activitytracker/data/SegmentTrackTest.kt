@@ -242,7 +242,7 @@ class SegmentTrackTest {
         val s = pds.session()
         // The zone covers all but about 70 m at each end, which the hidden ends take.
         s.privacy.save(
-            PrivacySettings(listOf(PrivacyZone(latitudeE7 = 0, longitudeE7 = 150_000, radiusMeters = 1600)), hideEndsMeters = 200)
+            PrivacySettings(listOf(PrivacyZone(latitudeE7 = 0, longitudeE7 = 150_000, radiusMeters = 1600)), hideEndsMeters = 200),
         )
         s.matching(true)
         val uri = s.activities.publish(draft())

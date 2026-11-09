@@ -39,7 +39,7 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
             when (event) {
                 is VisibilityEvent.ActivityChanged -> shown.withActivity(event.visibility)
                 is VisibilityEvent.CategoryChanged -> shown.withCategory(event.category, event.visibility)
-            }
+            },
         )
     }
 

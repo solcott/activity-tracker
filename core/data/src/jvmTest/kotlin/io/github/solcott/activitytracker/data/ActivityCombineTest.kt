@@ -98,7 +98,7 @@ class ActivityCombineTest {
             activities.publish(draft("Lunch loop", streams = samples(2) { it.copy(heartRate = it.time.map { 120 }) }, choice = intoChoice))
         val edge =
             activities.publish(
-                draft("Morning Ride", streams = samples { it.copy(heartRate = it.time.map { 140 }, power = it.time.map { 210 }) })
+                draft("Morning Ride", streams = samples { it.copy(heartRate = it.time.map { 140 }, power = it.time.map { 210 }) }),
             )
         return watch to edge
     }
@@ -176,7 +176,7 @@ class ActivityCombineTest {
                     "Watch",
                     streams = samples { it.copy(heartRate = it.time.map { 120 }) },
                     choice = VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF)),
-                )
+                ),
             )
         val edge = s.activities.publish(draft("Edge", streams = samples(2) { it.copy(heartRate = it.time.map { 140 }) }))
         val combined = s.manager.combine(view(edge), view(watch))
@@ -318,7 +318,7 @@ class ActivityCombineTest {
                     "Lunch loop",
                     streams = samples(2) { it.copy(heartRate = it.time.map { 120 }) },
                     choice = VisibilityChoice(Visibility.FOLLOWERS),
-                )
+                ),
             )
 
         val combined = s.manager.combine(own(watch, Visibility.FOLLOWERS), edgeDraft())
@@ -365,7 +365,7 @@ class ActivityCombineTest {
                         minutes = 58,
                         streams = samples(5, 58) { it.copy(depth = it.time.map { 1810 }) },
                     ),
-                )
+                ),
             )
 
         val made = view(combined).record

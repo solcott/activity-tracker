@@ -158,14 +158,14 @@ class AgencyRulesTest {
                 "plan_allow_mode_trnsprt" to mode,
                 "plan_mode_trnsprt" to "Non-Motorized",
                 "plan_access_rstrct" to "None",
-            ) + more
+            ) + more,
         )
 
     @Test
     fun aWildernessTrailIsClosedToBikes() {
         val closed =
             AgencyRules.USFS.closedTo(
-                mapOf("hiker_pedestrian_managed" to "01/01-12/31", "bicycle_restricted" to "01/01-12/31", "bicycle_disc" to "01/01-12/31")
+                mapOf("hiker_pedestrian_managed" to "01/01-12/31", "bicycle_restricted" to "01/01-12/31", "bicycle_disc" to "01/01-12/31"),
             )
         assertEquals(setOf(RIDE), closed)
     }
@@ -190,7 +190,7 @@ class AgencyRulesTest {
                     "xcountry_ski_restricted" to "01/01-12/31",
                     "xcountry_ski_managed" to "N/A",
                     "motorcycle_restricted" to "01/01-12/31",
-                )
+                ),
             ),
         )
         assertEquals(emptySet(), AgencyRules.USFS.closedTo(mapOf("bicycle_managed" to null)), "blank isn't closed")

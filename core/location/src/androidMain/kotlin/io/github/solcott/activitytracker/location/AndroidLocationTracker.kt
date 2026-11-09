@@ -44,7 +44,7 @@ class AndroidLocationTracker(private val context: Context) : LocationTracker {
                                 speed = location.speed.toDouble().takeIf { location.hasSpeed() },
                                 accuracy = location.accuracy.toDouble().takeIf { location.hasAccuracy() },
                                 time = Instant.fromEpochMilliseconds(location.time),
-                            )
+                            ),
                         )
                     }
                 }

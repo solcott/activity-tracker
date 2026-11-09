@@ -25,7 +25,7 @@ class UseSingleFlight(config: Config) :
                 Entity.from(expression),
                 "Launch event work with rememberSingleFlight().launch(key) { ... } so a repeated tap is dropped while the first runs " +
                     "(launchLatest to replace it instead), and read isRunning(key) for a saving or pending flag.",
-            )
+            ),
         )
     }
 }

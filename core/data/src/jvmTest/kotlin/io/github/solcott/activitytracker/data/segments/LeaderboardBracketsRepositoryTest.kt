@@ -159,7 +159,7 @@ class LeaderboardBracketsRepositoryTest {
 
         val own = r.profiles.ownProfile()
         r.profiles.save(
-            ProfileEdit(own.displayName.orEmpty(), own.description.orEmpty(), own.details.copy(weight = 76_000), own.visibility)
+            ProfileEdit(own.displayName.orEmpty(), own.description.orEmpty(), own.details.copy(weight = 76_000), own.visibility),
         )
         eventually { stored()?.weightClass == "75-84" }
         session.cancel()

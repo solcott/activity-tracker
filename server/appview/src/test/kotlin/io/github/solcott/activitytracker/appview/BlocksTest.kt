@@ -79,7 +79,7 @@ class BlocksTest {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 

@@ -78,7 +78,7 @@ class ExportPointsTest {
         assertEquals(49.75, first.stanceTimeBalancePercent)
         assertEquals(52, first.rightBalancePercent)
         assertTrue(
-            ExportPoints.join(start, null, ActivityStreamData(time = listOf(0), depth = listOf(0))).single().tankPressuresBar.isEmpty()
+            ExportPoints.join(start, null, ActivityStreamData(time = listOf(0), depth = listOf(0))).single().tankPressuresBar.isEmpty(),
         )
     }
 

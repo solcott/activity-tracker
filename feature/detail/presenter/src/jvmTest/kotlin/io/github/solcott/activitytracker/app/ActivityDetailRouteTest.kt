@@ -160,25 +160,27 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
     fun theDetailMapOpensTheEnlargedMap() = runTest {
         val navigator = FakeNavigator(screen)
         val r = repos()
-        presenterTestOf({
-            ActivityDetailPresenter(
-                screen,
-                navigator,
-                r.feed,
-                r.activities,
-                r.profiles,
-                localLikes,
-                r.manager,
-                r.exporter,
-                r.units,
-                r.suggestions,
-                r.blocks,
-                r.reports,
-                r.segments,
-                r.diveSites,
-                r.groups,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ActivityDetailPresenter(
+                    screen,
+                    navigator,
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    localLikes,
+                    r.manager,
+                    r.exporter,
+                    r.units,
+                    r.suggestions,
+                    r.blocks,
+                    r.reports,
+                    r.segments,
+                    r.diveSites,
+                    r.groups,
+                )
+            },
+        ) {
             awaitLoaded().eventSink(ActivityDetailEvent.OpenMap)
             assertEquals(RouteMapScreen(activityUri), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()

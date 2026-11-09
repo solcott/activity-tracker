@@ -143,7 +143,7 @@ interface UploadDao {
     /** Finishes [rkey]'s live item once the outbox holds none of its writes. */
     @Query(
         "UPDATE upload_item SET finishedAt = :at WHERE did = :did AND rkey = :rkey AND finishedAt IS NULL " +
-            "AND NOT EXISTS (SELECT 1 FROM outbox WHERE did = :did AND rkey = :rkey)"
+            "AND NOT EXISTS (SELECT 1 FROM outbox WHERE did = :did AND rkey = :rkey)",
     )
     suspend fun finishIfDone(did: String, rkey: String, at: Long)
 
@@ -203,7 +203,7 @@ interface UploadDao {
             "(SELECT COUNT(*) FROM outbox o WHERE o.did = i.did AND o.rkey = i.rkey) AS remaining, " +
             "(SELECT COUNT(*) FROM outbox o WHERE o.did = i.did AND o.rejectedAt IS NOT NULL AND o.rkey = i.rkey) AS rejected, " +
             "(SELECT MIN(o.id) FROM outbox o WHERE o.did = i.did AND o.rkey = i.rkey) AS firstWrite " +
-            "FROM upload_item i WHERE i.did = :did ORDER BY i.id"
+            "FROM upload_item i WHERE i.did = :did ORDER BY i.id",
     )
     fun items(did: String): Flow<List<UploadItemRow>>
 
@@ -212,14 +212,14 @@ interface UploadDao {
     /** [did]'s activities logged as new, with their records, started in [since, until) (epoch millis): the duplicate check's local log. */
     @Query(
         "SELECT rkey, recordJson FROM upload_item WHERE did = :did AND kind = 'new' AND rkey IS NOT NULL AND recordJson IS NOT NULL " +
-            "AND startedAt >= :since AND startedAt < :until ORDER BY startedAt"
+            "AND startedAt >= :since AND startedAt < :until ORDER BY startedAt",
     )
     suspend fun loggedRecords(did: String, since: Long, until: Long): List<LoggedRecord>
 
     /** The activities import [batchId] logged as new, with their records, in the order saved. */
     @Query(
         "SELECT rkey, recordJson FROM upload_item WHERE did = :did AND batchId = :batchId AND kind = 'new' AND rkey IS NOT NULL " +
-            "AND recordJson IS NOT NULL ORDER BY id"
+            "AND recordJson IS NOT NULL ORDER BY id",
     )
     suspend fun recordsOfBatch(did: String, batchId: String): List<LoggedRecord>
 
@@ -230,7 +230,7 @@ interface UploadDao {
     @Query(
         "SELECT COUNT(DISTINCT o.rkey) FROM outbox o WHERE o.did = :did AND o.rejectedAt IS NULL " +
             "AND o.rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL) " +
-            "AND o.rkey NOT IN (SELECT rkey FROM upload_item WHERE did = :did AND finishedAt IS NULL AND rkey IS NOT NULL)"
+            "AND o.rkey NOT IN (SELECT rkey FROM upload_item WHERE did = :did AND finishedAt IS NULL AND rkey IS NOT NULL)",
     )
     fun otherChanges(did: String): Flow<Int>
 
@@ -238,7 +238,7 @@ interface UploadDao {
     @Query(
         "SELECT COUNT(*) AS writes, COALESCE(SUM(collection IN (:blobCollections)), 0) AS blobs FROM outbox " +
             "WHERE did = :did AND bulk = 1 AND rejectedAt IS NULL " +
-            "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL)"
+            "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL)",
     )
     fun bulkLeft(did: String, blobCollections: List<String>): Flow<BulkLeft>
 
@@ -252,7 +252,7 @@ interface UploadDao {
     /** Finishes live items whose writes all left the outbox but weren't counted (a crash between a send and its log). */
     @Query(
         "UPDATE upload_item SET finishedAt = :at WHERE did = :did AND finishedAt IS NULL AND rkey IS NOT NULL " +
-            "AND NOT EXISTS (SELECT 1 FROM outbox o WHERE o.did = :did AND o.rkey = upload_item.rkey)"
+            "AND NOT EXISTS (SELECT 1 FROM outbox o WHERE o.did = :did AND o.rkey = upload_item.rkey)",
     )
     suspend fun finishOrphans(did: String, at: Long)
 
@@ -262,7 +262,7 @@ interface UploadDao {
     /** Drops [did]'s imports with no items left, keeping those whose save is still there (saving, or stopped before saving any). */
     @Query(
         "DELETE FROM upload_batch WHERE did = :did AND id NOT IN (SELECT batchId FROM upload_item WHERE batchId IS NOT NULL) " +
-            "AND id NOT IN (SELECT batchId FROM import_save)"
+            "AND id NOT IN (SELECT batchId FROM import_save)",
     )
     suspend fun deleteEmptyBatches(did: String)
 

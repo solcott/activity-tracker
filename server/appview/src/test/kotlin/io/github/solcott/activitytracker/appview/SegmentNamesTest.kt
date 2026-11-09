@@ -116,7 +116,7 @@ class SegmentNamesTest : SegmentTestBase() {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey${record?.hashCode()}",
-            )
+            ),
         )
     }
 
@@ -682,7 +682,7 @@ class SegmentNamesTest : SegmentTestBase() {
                     did = bob,
                     time = "2026-10-28T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(bob, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertEquals(setOf(uri), proposals().keys)

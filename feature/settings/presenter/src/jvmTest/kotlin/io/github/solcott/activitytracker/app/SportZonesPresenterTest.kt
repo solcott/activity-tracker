@@ -47,15 +47,17 @@ class SportZonesPresenterTest {
         fixture.privateDetails = saved
         fixture.offline = true
         val repos = fixture.repos()
-        presenterTestOf({
-            SportZonesPresenter(
-                SportZonesScreen(Sport.RIDE),
-                FakeNavigator(SportZonesScreen(Sport.RIDE)),
-                repos.profiles,
-                repos.units,
-                clock,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SportZonesPresenter(
+                    SportZonesScreen(Sport.RIDE),
+                    FakeNavigator(SportZonesScreen(Sport.RIDE)),
+                    repos.profiles,
+                    repos.units,
+                    clock,
+                )
+            },
+        ) {
             val failed = awaitUntil { it.content.errorOrNull != null }
             assertEquals(DataError.Network, failed.content.errorOrNull)
             assertFalse(failed.loaded)
@@ -93,9 +95,17 @@ class SportZonesPresenterTest {
     fun loadsTheOverrideAndInheritsTheRest() = runTest {
         fixture.privateDetails = saved
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
-        presenterTestOf({
-            SportZonesPresenter(SportZonesScreen(Sport.RUN), FakeNavigator(SportZonesScreen(Sport.RUN)), repos.profiles, repos.units, clock)
-        }) {
+        presenterTestOf(
+            {
+                SportZonesPresenter(
+                    SportZonesScreen(Sport.RUN),
+                    FakeNavigator(SportZonesScreen(Sport.RUN)),
+                    repos.profiles,
+                    repos.units,
+                    clock,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.loaded }
             assertEquals(setOf(ZoneKind.HeartRate, ZoneKind.Power, ZoneKind.Speed), loaded.kinds)
             assertEquals(PaceUnit.PerMile, loaded.paceUnit)
@@ -117,15 +127,17 @@ class SportZonesPresenterTest {
     fun aNewSportStartsEmptyAndOffersOnlyItsZones() = runTest {
         fixture.privateDetails = saved
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({
-            SportZonesPresenter(
-                SportZonesScreen(Sport.SWIM),
-                FakeNavigator(SportZonesScreen(Sport.SWIM)),
-                repos.profiles,
-                repos.units,
-                clock,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SportZonesPresenter(
+                    SportZonesScreen(Sport.SWIM),
+                    FakeNavigator(SportZonesScreen(Sport.SWIM)),
+                    repos.profiles,
+                    repos.units,
+                    clock,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.loaded }
             assertEquals(setOf(ZoneKind.HeartRate, ZoneKind.Speed), loaded.kinds)
             assertEquals(PaceUnit.Per100Meters, loaded.paceUnit)

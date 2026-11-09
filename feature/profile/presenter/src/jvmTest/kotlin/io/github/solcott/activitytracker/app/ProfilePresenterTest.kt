@@ -178,7 +178,7 @@ class ProfilePresenterTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -565,12 +565,14 @@ class ProfilePresenterTest {
         val profile = presenter()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the activity it opened while it's on the back stack.
-                if (shown) profile() else ProfileState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the activity it opened while it's on the back stack.
+                    if (shown) profile() else ProfileState()
+                }
+            },
+        ) {
             awaitUntil { it.profile != null && it.activities.data.isNotEmpty() && !it.content.isLoading && !it.activities.isLoading }
             registry.saveAll()
             shown = false

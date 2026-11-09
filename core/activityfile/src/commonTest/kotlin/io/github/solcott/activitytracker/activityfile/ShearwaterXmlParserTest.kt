@@ -110,8 +110,8 @@ class ShearwaterXmlParserTest {
                             record(0, 10.0, 80.0, o2 = 0.18, he = 0.45),
                             record(10_000, 20.0, 80.0, o2 = 0.5),
                             record(20_000, 0.0, 80.0, o2 = 0.5),
-                        )
-                )
+                        ),
+                ),
             )
         assertEquals(SubSport.MULTI_GAS, switched.type.subSport)
         assertEquals(listOf(DiveGas(18, 45), DiveGas(50, 0)), switched.dive?.header?.gases)
@@ -133,7 +133,7 @@ class ShearwaterXmlParserTest {
                             record(1_800_000, 60.0, 80.0, o2 = 0.5),
                             record(1_810_000, 50.0, 80.0, o2 = 0.5),
                             record(2_000_000, 20.0, 80.0, o2 = 0.21),
-                        )
+                        ),
                 ),
                 zone,
             )
@@ -185,7 +185,7 @@ class ShearwaterXmlParserTest {
                         record(0, 3.5, 83.0, tank0 = "3000"),
                         record(10_000, 30.0, 82.0, tank0 = "2000"),
                         record(20_000, 0.0, 83.0, tank0 = "1000"),
-                    )
+                    ),
                 ),
                 zone,
             )

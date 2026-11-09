@@ -94,7 +94,7 @@ class RecordingService : Service() {
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentTitle(getString(if (paused) R.string.recording_paused_title else R.string.recording_title))
             .setContentText(
-                getString(R.string.recording_text, elapsedText(state.elapsed(Clock.System.now())), distanceText(state.distanceMeters))
+                getString(R.string.recording_text, elapsedText(state.elapsed(Clock.System.now())), distanceText(state.distanceMeters)),
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -127,7 +127,7 @@ class RecordingService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, getString(R.string.recording_channel), NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, getString(R.string.recording_channel), NotificationManager.IMPORTANCE_LOW),
             )
         }
     }

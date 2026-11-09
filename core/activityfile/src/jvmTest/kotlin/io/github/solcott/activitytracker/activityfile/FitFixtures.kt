@@ -75,7 +75,7 @@ object FitFixtures {
                 type = File.MONITORING_B
                 manufacturer = Manufacturer.GARMIN
                 timeCreated = DateTime(start.toJavaInstant())
-            }
+            },
         )
         return encoder.close()
     }
@@ -159,7 +159,7 @@ object FitFixtures {
                     timestamp = at(300)
                     event = Event.LAP
                     eventType = EventType.STOP
-                }
+                },
             ) +
                 Edge840Devices.messages(startedAt, (MTB_POINTS - 1) * 60L, hrmBattery = 80 to 75) +
                 listOf(shift(0, 5, 21), shift(60, 7, 17), shift(120, 6, 19), jump(200, 0.4f, 3.5f), jump(400, 0.9f, 8.2f))
@@ -537,7 +537,7 @@ object FitFixtures {
                 manufacturer = Manufacturer.GARMIN
                 product = GarminProduct.FENIX7
                 timeCreated = startedAt
-            }
+            },
         )
         for (t in 0..end step 30) {
             val leg = TRI_LEGS.last { it.start <= t }
@@ -547,7 +547,7 @@ object FitFixtures {
                     timestamp = at(t)
                     distance = (before + leg.meters * (t - leg.start).coerceAtMost(leg.seconds) / leg.seconds).toFloat()
                     heartRate = (130 + t % 30).toShort()
-                }
+                },
             )
         }
         for (leg in TRI_LEGS) {
@@ -563,7 +563,7 @@ object FitFixtures {
                         totalTimerTime = lapSeconds.toFloat()
                         totalDistance = leg.meters / leg.laps
                         lapTrigger = if (leg.laps > 1) LapTrigger.DISTANCE else LapTrigger.SESSION_END
-                    }
+                    },
                 )
             }
         }
@@ -578,7 +578,7 @@ object FitFixtures {
                     totalTimerTime = leg.seconds.toFloat()
                     totalDistance = leg.meters
                     avgHeartRate = 140.toShort()
-                }
+                },
             )
         }
         return encoder.close()
@@ -628,7 +628,7 @@ object FitFixtures {
                 timeCreated = startedAt
                 serialNumber = 1234L
                 fileId()
-            }
+            },
         )
         before.forEach(encoder::write)
         repeat(points) { i ->
@@ -636,7 +636,7 @@ object FitFixtures {
                 RecordMesg().apply {
                     timestamp = DateTime(startedAt).apply { add(i * interval) }
                     fill(i, this)
-                }
+                },
             )
         }
         extra.forEach(encoder::write)
@@ -649,7 +649,7 @@ object FitFixtures {
                     totalTimerTime = lap.elapsedSeconds
                     totalDistance = lap.distanceMeters
                     lap.configure(this)
-                }
+                },
             )
         }
         encoder.write(
@@ -663,7 +663,7 @@ object FitFixtures {
                 totalDistance = distance
                 if (avgHr > 0) avgHeartRate = avgHr.toShort()
                 session()
-            }
+            },
         )
         return encoder.close()
     }

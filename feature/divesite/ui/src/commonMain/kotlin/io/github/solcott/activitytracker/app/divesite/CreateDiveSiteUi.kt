@@ -135,5 +135,5 @@ private fun unavailableText(unavailable: CreateDiveSiteUnavailable): String =
             CreateDiveSiteUnavailable.InsideZone -> Res.string.create_dive_site_inside_zone
             CreateDiveSiteUnavailable.HiddenStart -> Res.string.create_dive_site_hidden_start
             CreateDiveSiteUnavailable.AtSite -> Res.string.create_dive_site_at_site
-        }
+        },
     )

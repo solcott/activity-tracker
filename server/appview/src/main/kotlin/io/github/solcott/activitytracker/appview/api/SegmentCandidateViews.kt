@@ -284,7 +284,7 @@ class SegmentCandidateViews(
         SegmentCandidateRiders.deleteWhere { candidateId inList changedIds }
         SegmentCandidateCells.deleteWhere { candidateId inList changedIds }
         SegmentCandidateCells.batchInsert(
-            changed.flatMap { staged -> SegmentCells.cellsOf(staged.line).map { staged.candidate.id to it } }
+            changed.flatMap { staged -> SegmentCells.cellsOf(staged.line).map { staged.candidate.id to it } },
         ) { (id, cell) ->
             this[SegmentCandidateCells.cell] = cell
             this[SegmentCandidateCells.candidateId] = id

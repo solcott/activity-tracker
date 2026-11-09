@@ -68,7 +68,7 @@ object TcxFixtures {
             if (leg.sport == "Transition") {
                 val (seconds, _) = leg.laps.single()
                 append(
-                    """<NextSport><Transition StartTime="${START + leg.start.seconds}"><TotalTimeSeconds>$seconds.0</TotalTimeSeconds>"""
+                    """<NextSport><Transition StartTime="${START + leg.start.seconds}"><TotalTimeSeconds>$seconds.0</TotalTimeSeconds>""",
                 )
                 append("<DistanceMeters>0.0</DistanceMeters><Calories>3</Calories><Intensity>Active</Intensity>")
                 append("<TriggerMethod>Manual</TriggerMethod></Transition>")

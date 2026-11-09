@@ -86,7 +86,7 @@ class ComposeStabilityCheckTest {
                     rootProject.name = "compose-stability-test"
                     dependencyResolutionManagement { repositories { google(); mavenCentral() } }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             addDetektRulesStub()
             resolve("gradle").mkdirs()
@@ -96,7 +96,7 @@ class ComposeStabilityCheckTest {
                     [libraries]
                     compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version = "$COMPOSE_RULES_VERSION" }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("config/detekt").mkdirs()
             resolve("config/detekt/detekt.yml").writeText("")
@@ -116,7 +116,7 @@ class ComposeStabilityCheckTest {
                         implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:$IMMUTABLE_VERSION")
                     }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
         }
 
@@ -160,7 +160,7 @@ class ComposeStabilityCheckTest {
 
                 @Composable fun Row(item: Item) = Unit
                 """
-                    .trimIndent()
+                    .trimIndent(),
             )
     }
 

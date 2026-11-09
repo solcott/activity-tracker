@@ -26,7 +26,7 @@ class OAuthCallbackIssuerTest {
             on("plc.test/$did") {
                 respondJson(
                     """{"id":"$did","alsoKnownAs":["at://alice.test"],
-                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"$issuer"}]}"""
+                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"$issuer"}]}""",
                 )
             }
             on("pds.test/.well-known/oauth-protected-resource") {
@@ -36,7 +36,7 @@ class OAuthCallbackIssuerTest {
             on("pds.test/.well-known/oauth-authorization-server") {
                 respondJson(
                     """{"issuer":"$issuer","authorization_endpoint":"$issuer/oauth/authorize",
-                   "token_endpoint":"$issuer/oauth/token","pushed_authorization_request_endpoint":"$issuer/oauth/par"$flag}"""
+                   "token_endpoint":"$issuer/oauth/token","pushed_authorization_request_endpoint":"$issuer/oauth/par"$flag}""",
                 )
             }
             on("pds.test/oauth/par") { respondJson("""{"request_uri":"urn:req:1","expires_in":60}""") }

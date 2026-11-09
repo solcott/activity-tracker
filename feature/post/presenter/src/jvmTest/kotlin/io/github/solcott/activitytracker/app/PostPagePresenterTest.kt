@@ -252,9 +252,21 @@ class PostPagePresenterTest : ActivityTestBase() {
                 """"createdAt":"2026-11-07T10:00:00Z","indexedAt":"2026-11-07T10:00:00Z"}"""
         val r = repos()
         val navigator = FakeNavigator(PostPageScreen(quoteUri))
-        presenterTestOf({
-            PostPagePresenter(PostPageScreen(quoteUri), navigator, r.feed, r.activities, r.profiles, r.names, r.blocks, r.reports, r.quotes)
-        }) {
+        presenterTestOf(
+            {
+                PostPagePresenter(
+                    PostPageScreen(quoteUri),
+                    navigator,
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    r.names,
+                    r.blocks,
+                    r.reports,
+                    r.quotes,
+                )
+            },
+        ) {
             val state = awaitUntil { it.content.data != null }
             val quote = state.content.data!!.post
             assertIs<PostEmbedView.Quote>(quote.embed)
@@ -288,9 +300,9 @@ class PostPagePresenterTest : ActivityTestBase() {
         // The timeline, say: any screen but the post page itself.
         val navigator = FakeNavigator(PostPageScreen("at://did:plc:carol/${Nsid.FEED_POST}/3kother"))
         val view = AtJson.decodeFromString(PostView.serializer(), post())
-        presenterTestOf({
-            SinkState(rememberPostEventSink(navigator, r.names, r.activities, Reporting(), rememberQuoting(r.quotes) {}) {})
-        }) {
+        presenterTestOf(
+            { SinkState(rememberPostEventSink(navigator, r.names, r.activities, Reporting(), rememberQuoting(r.quotes) {}) {}) },
+        ) {
             awaitItem().sink(PostEvent.OpenPost(view))
             assertEquals(PostPageScreen(postUri), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()

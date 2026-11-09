@@ -88,7 +88,7 @@ internal fun hiddenByAthlete(subject: Subject): Op<Boolean> =
     exists(
         CommentHides.select(CommentHides.uri).where {
             (CommentHides.commentUri eq Comments.uri) and (CommentHides.authorDid eq subject.author)
-        }
+        },
     )
 
 /**

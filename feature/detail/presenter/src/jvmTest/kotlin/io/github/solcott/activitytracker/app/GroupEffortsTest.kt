@@ -38,7 +38,7 @@ class GroupEffortsTest {
                     "Rattler Trail (eastbound)",
                     "  Bonneville Shoreline Trail to Upper Rattler Connector Trail",
                     "  Upper Rattler Connector Trail to Ghost Falls Trail",
-                )
+                ),
             ),
             shown(groupEfforts(listOf(rattler, rattler1, rattler2))),
         )
@@ -61,7 +61,7 @@ class GroupEffortsTest {
                     "Rush Trail - Limelight Section",
                     "  Bonneville Shoreline Trail - Draper Section to Creek View Foot Path",
                     "  Creek View Foot Path to Lower Corner Canyon Trail",
-                )
+                ),
             ),
             // In the AppView's order: by start.
             shown(groupEfforts(listOf(first, limelight, second))),
@@ -123,7 +123,7 @@ class GroupEffortsTest {
                     "Rush Trail via Exit Stage Left Section to Bonneville Shoreline Trail",
                     "  Rush Trail via Exit Stage Left Section to Canyon Hollow Trail",
                     "    Exit Stage Left Section",
-                )
+                ),
             ),
             // In the AppView's order: by start.
             shown(groupEfforts(listOf(toCanyon, toShoreline, section))),

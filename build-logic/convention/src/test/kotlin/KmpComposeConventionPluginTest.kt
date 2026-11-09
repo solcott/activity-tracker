@@ -15,7 +15,7 @@ class KmpComposeConventionPluginTest {
                     dependencyResolutionManagement { repositories { google(); mavenCentral() } }
                     include(":feature")
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             File(System.getProperty("activitytracker.versionCatalog")).copyTo(resolve("gradle/libs.versions.toml"))
@@ -39,7 +39,7 @@ class KmpComposeConventionPluginTest {
                         doLast { println("androidResources.enable=${'$'}enabled") }
                     }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("feature/src/commonMain/composeResources/values").mkdirs()
             resolve("feature/src/commonMain/composeResources/values/strings.xml")
@@ -100,7 +100,7 @@ class KmpComposeConventionPluginTest {
                 doLast { println("uiTestDependencies=${'$'}deps") }
             }
             """
-                .trimIndent()
+                .trimIndent(),
         )
     }
 

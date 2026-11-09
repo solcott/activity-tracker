@@ -73,7 +73,7 @@ fun detailGroupLabel(group: DetailGroup): String =
             DetailGroup.Gender -> Res.string.detail_gender
             DetailGroup.Body -> Res.string.detail_body
             DetailGroup.Training -> Res.string.detail_training
-        }
+        },
     )
 
 /** What a profile detail group's visibility covers, as the heading of its picker: every field in the group. */
@@ -86,5 +86,5 @@ fun visibilityScopeLabel(group: DetailGroup): String =
             DetailGroup.Gender -> Res.string.visibility_scope_gender
             DetailGroup.Body -> Res.string.visibility_scope_body
             DetailGroup.Training -> Res.string.zones_visibility_heading
-        }
+        },
     )

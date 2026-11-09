@@ -243,7 +243,7 @@ private fun KeptSharedDialog(eventSink: (AccountEvent) -> Unit) {
             persistentListOf(
                 AppDialogAction(stringResource(Res.string.export_data_shared_delete), destructive = true) {
                     eventSink(AccountEvent.KeptShared(kept = true))
-                }
+                },
             ),
         cancelLabel = stringResource(Res.string.export_data_shared_keep),
         onDismiss = { eventSink(AccountEvent.KeptShared(kept = false)) },
@@ -267,7 +267,7 @@ private fun Identity(state: AccountState) {
                     onClick = {
                         clipboard.setText(AnnotatedString(state.did))
                         copied = true
-                    }
+                    },
                 ) {
                     Text(stringResource(if (copied) Res.string.account_did_copied else Res.string.account_did_copy))
                 }
@@ -309,12 +309,12 @@ private fun EndDialog(ending: EndingSession, eventSink: (AccountEvent) -> Unit) 
             persistentListOf(
                 AppDialogAction(
                     stringResource(
-                        if (ending.signInAgain) Res.string.account_end_sign_in_again_anyway else Res.string.account_end_sign_out_anyway
+                        if (ending.signInAgain) Res.string.account_end_sign_in_again_anyway else Res.string.account_end_sign_out_anyway,
                     ),
                     destructive = true,
                 ) {
                     eventSink(AccountEvent.Confirm(ending.signInAgain))
-                }
+                },
             ),
         cancelLabel = stringResource(Res.string.action_cancel),
         onDismiss = { eventSink(AccountEvent.Dismiss) },

@@ -26,7 +26,7 @@ internal object CandidateDedup {
                             { !it.whole },
                             { it.kind == TrailKind.PARENT },
                             { it.id },
-                        )
+                        ),
                     )) {
                     val start = candidate.points.first()
                     val end = candidate.points.last()

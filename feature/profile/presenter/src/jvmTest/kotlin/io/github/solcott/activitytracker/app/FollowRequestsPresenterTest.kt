@@ -114,7 +114,7 @@ class FollowRequestsPresenterTest {
 
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -271,12 +271,14 @@ class FollowRequestsPresenterTest {
         val requests = presenter()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the profile it opened while it's on the back stack.
-                if (shown) requests() else FollowRequestsState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the profile it opened while it's on the back stack.
+                    if (shown) requests() else FollowRequestsState()
+                }
+            },
+        ) {
             awaitLoaded()
             registry.saveAll()
             shown = false

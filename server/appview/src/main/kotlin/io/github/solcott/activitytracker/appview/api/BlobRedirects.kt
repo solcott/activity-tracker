@@ -216,7 +216,7 @@ private fun openedByModerator(viewer: Did, gear: Column<String>? = null): Op<Boo
             (ModerationAccess.moderatorDid eq viewer.value) and
                 (gear?.let { ActivityGear.gearUri eq it } ?: (ModerationAccess.subjectUri eq Activities.uri)) and
                 (ModerationAccess.at greaterEq since)
-        }
+        },
     )
 }
 

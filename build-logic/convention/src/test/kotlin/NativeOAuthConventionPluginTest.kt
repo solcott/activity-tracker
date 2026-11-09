@@ -28,7 +28,7 @@ class NativeOAuthConventionPluginTest {
                         outputDir.set(layout.buildDirectory.dir("generated"))
                     }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
         }
 

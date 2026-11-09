@@ -336,22 +336,24 @@ class CreateSegmentPresenterTest : ActivityTestBase() {
         val r = repos()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the segment it opened while it's on the back stack.
-                if (shown)
-                    CreateSegmentPresenter(
-                        createScreen,
-                        FakeNavigator(createScreen),
-                        r.feed,
-                        r.activities,
-                        r.privacy,
-                        r.segments,
-                        r.publisher,
-                    )
-                else CreateSegmentState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the segment it opened while it's on the back stack.
+                    if (shown)
+                        CreateSegmentPresenter(
+                            createScreen,
+                            FakeNavigator(createScreen),
+                            r.feed,
+                            r.activities,
+                            r.privacy,
+                            r.segments,
+                            r.publisher,
+                        )
+                    else CreateSegmentState()
+                }
+            },
+        ) {
             val ready = awaitReady()
             ready.eventSink(CreateSegmentEvent.SelectionChanged(100f, 900f))
             ready.name.edit { replace(0, length, "Hill again") }

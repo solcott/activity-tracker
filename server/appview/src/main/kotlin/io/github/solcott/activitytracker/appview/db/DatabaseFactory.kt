@@ -17,7 +17,7 @@ object DatabaseFactory {
                     username = user
                     this.password = password
                     maximumPoolSize = 10
-                }
+                },
             )
         migrate(dataSource)
         return Database.connect(dataSource)

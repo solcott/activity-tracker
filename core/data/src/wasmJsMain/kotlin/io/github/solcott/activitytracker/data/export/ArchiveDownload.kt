@@ -30,7 +30,7 @@ private fun openOutput(name: String): Promise<JsAny> =
   const dir = await root.getDirectoryHandle('export-downloads', { create: true });
   const file = await dir.getFileHandle(name, { create: true });
   return await file.createWritable();
-})()"""
+})()""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -55,5 +55,5 @@ private fun downloadOutput(name: String): Promise<JsAny?> =
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => { URL.revokeObjectURL(url); dir.removeEntry(name).catch(() => {}); }, 60000);
   return null;
-})()"""
+})()""",
     )

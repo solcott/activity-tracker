@@ -33,26 +33,35 @@ class ImportPreviewPageTest {
     fun theHeroFollowsTheChosenType() = runTest {
         val repos = fixture.repos()
         val ride = mtbRide()
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                FakeNavigator(ImportActivityScreen()),
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { ride },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { ride }),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    FakeNavigator(ImportActivityScreen()),
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { ride },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { ride },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
             val asRide = awaitUntil { state -> state.page?.hero.orEmpty().any { it.key == FigureKey.AvgSpeed } }
             assertTrue(asRide.page!!.hero.none { it.key == FigureKey.AvgPace })
@@ -85,7 +94,7 @@ class ImportPreviewPageTest {
                         avgPowerWatts = 180,
                         avgCadence = 75,
                         avgTemperatureCelsius = null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = (0L..10L).map { i -> DecodedSample(millis(i * 60), null, null, null, 140, 80, 180, null, null, null) },

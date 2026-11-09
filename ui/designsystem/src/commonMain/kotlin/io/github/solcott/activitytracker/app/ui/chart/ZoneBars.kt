@@ -52,7 +52,7 @@ fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {
                         Box(
                             Modifier.fillMaxHeight()
                                 .fillMaxWidth(zone.fraction.coerceIn(MIN_BAR, 1f))
-                                .background(color, RoundedCornerShape(3.dp))
+                                .background(color, RoundedCornerShape(3.dp)),
                         )
                 }
                 Text(zone.time, Modifier.width(TIME_WIDTH.dp), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)

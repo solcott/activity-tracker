@@ -33,9 +33,7 @@ kotlin {
         jvmTest.dependencies { implementation(libs.garmin.fit) }
     }
 
-    compilerOptions {
-        freeCompilerArgs.addAll("-opt-in=kotlin.js.ExperimentalWasmJsInterop")
-    }
+    compilerOptions { freeCompilerArgs.addAll("-opt-in=kotlin.js.ExperimentalWasmJsInterop") }
 }
 
 // `-PworkoutSamples` lets WriteWorkoutSamples write the sample activity files to build/workout-fixtures (see the activity-files rule);

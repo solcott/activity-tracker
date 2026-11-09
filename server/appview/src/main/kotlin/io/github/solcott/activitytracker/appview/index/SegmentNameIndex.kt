@@ -98,7 +98,7 @@ internal fun JdbcTransaction.deleteSegmentNamesBy(author: Did) {
     deleteNameProposals(
         SegmentNameProposals.select(SegmentNameProposals.uri)
             .where { SegmentNameProposals.proposerDid eq author.value }
-            .map { it[SegmentNameProposals.uri] }
+            .map { it[SegmentNameProposals.uri] },
     )
     SegmentNameVotes.deleteWhere { voterDid eq author.value }
 }

@@ -42,7 +42,7 @@ class KmpComposeConventionPlugin : Plugin<Project> {
                     )
                 configurations.named("jvmTestImplementation") {
                     dependencies.addAllLater(
-                        uiTests.jvm.map { on -> if (on) uiTestLibraries.map { project.dependencies.create(it) } else emptyList() }
+                        uiTests.jvm.map { on -> if (on) uiTestLibraries.map { project.dependencies.create(it) } else emptyList() },
                     )
                 }
             }

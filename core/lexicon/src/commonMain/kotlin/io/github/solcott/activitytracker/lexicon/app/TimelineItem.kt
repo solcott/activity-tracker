@@ -132,7 +132,7 @@ internal object TimelineItemSerializer : OpenUnionSerializer<TimelineItem>("Time
                     buildJsonObject {
                         put($$"$type", JsonPrimitive(TimelineItem.ACTIVITY_TYPE))
                         view.forEach { (k, v) -> put(k, v) }
-                    }
+                    },
                 )
             }
             is TimelineItem.ImportCard -> encoder.encodeSerializableValue(ImportCardView.serializer(), value.card)

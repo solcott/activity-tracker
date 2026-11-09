@@ -26,25 +26,27 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     private suspend fun loaded(units: UnitSystem = UnitSystem.Metric): Pair<ActivityDetailPage, ActivityCharts> {
         val r = repos(units = units)
         var result: Pair<ActivityDetailPage, ActivityCharts>? = null
-        presenterTestOf({
-            ActivityDetailPresenter(
-                screen,
-                FakeNavigator(screen),
-                r.feed,
-                r.activities,
-                r.profiles,
-                localLikes,
-                r.manager,
-                r.exporter,
-                r.units,
-                r.suggestions,
-                r.blocks,
-                r.reports,
-                r.segments,
-                r.diveSites,
-                r.groups,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ActivityDetailPresenter(
+                    screen,
+                    FakeNavigator(screen),
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    localLikes,
+                    r.manager,
+                    r.exporter,
+                    r.units,
+                    r.suggestions,
+                    r.blocks,
+                    r.reports,
+                    r.segments,
+                    r.diveSites,
+                    r.groups,
+                )
+            },
+        ) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
             result = state to state.charts!!
@@ -63,7 +65,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
             """"time":[0,600,1200,1800],"depth":[0,3000,1200,0],"decoStopDepth":[null,600,300,null],""" +
                 """"ppO2":[210,840,1300,500],"cns":[1,5,12,14],"gasSwitches":[{"time":0,"oxygen":21,"helium":0},""" +
                 """{"time":1200,"oxygen":50,"helium":0}],"tankPressures":[{"pressure":[200000,150000,120000,100000]},""" +
-                """{"pressure":[210000,null,205000,200000]}]"""
+                """{"pressure":[210000,null,205000,200000]}]""",
         )
         val (state, charts) = loaded()
 
@@ -80,7 +82,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     fun onlyWarningsAreMarkedOnTheDepthChart() = runTest {
         streamsOf(
             """"time":[0,1500,2400],"depth":[0,3000,0],"diveAlerts":[{"time":2400,"kind":"ascentCritical"},""" +
-                """{"time":1500,"kind":"ndlReached"},{"time":1600,"kind":"safetyStopComplete"},{"time":1700,"kind":"someNewAlert"}]"""
+                """{"time":1500,"kind":"ndlReached"},{"time":1600,"kind":"safetyStopComplete"},{"time":1700,"kind":"someNewAlert"}]""",
         )
         val (_, charts) = loaded()
 
@@ -108,7 +110,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"time":[0,10,20],"heartRate":[140,150,160],"power":[200,210,220],"leftRightBalance":[52,51,50],""" +
                 """"respirationRate":[305,310,320],"verticalOscillation":[85,86,84],"stanceTime":[245,246,244],""" +
-                """"stepLength":[1250,1260,1240],"verticalRatio":[683,690,670],"stanceTimeBalance":[4975,5010,4990]"""
+                """"stepLength":[1250,1260,1240],"verticalRatio":[683,690,670],"stanceTimeBalance":[4975,5010,4990]""",
         )
         val (state, charts) = loaded()
 
@@ -155,7 +157,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"time":[0,300,600],"heartRate":[140,150,160],"laps":[""" +
                 """{"start":0,"elapsed":300,"moving":295,"distance":1609,"avgSpeed":5364,"avgHeartRate":150,"ascent":30},""" +
-                """{"start":300,"elapsed":300,"distance":3218,"avgPower":210,"avgCadence":88}]"""
+                """{"start":300,"elapsed":300,"distance":3218,"avgPower":210,"avgCadence":88}]""",
         )
         val (state, metric) = loaded()
         assertEquals(DetailSection.Laps, state.sections.last())
@@ -176,7 +178,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         // TCX laps without the LX AvgSpeed extension: moving time when the lap has it, else elapsed.
         streamsOf(
             """"time":[0,300,600],"laps":[{"start":0,"elapsed":300,"distance":1000},""" +
-                """{"start":300,"elapsed":320,"moving":300,"distance":1000},{"start":620,"elapsed":60}]"""
+                """{"start":300,"elapsed":320,"moving":300,"distance":1000},{"start":620,"elapsed":60}]""",
         )
         val laps = loaded().second.laps
         assertEquals(12.0, laps[0].speed!!, 0.01, "km/h")
@@ -220,7 +222,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"time":[0,10,20],"power":[200,210,220],"torqueEffectivenessLeft":[8000,8000,8000],""" +
                 """"torqueEffectivenessRight":[7650,7650,7650],"pedalSmoothnessLeft":[2200,2200,2200],""" +
-                """"pedalSmoothnessRight":[2050,2050,2050],"pcoLeft":[-2,-2,-2],"pcoRight":[3,3,3]"""
+                """"pedalSmoothnessRight":[2050,2050,2050],"pcoLeft":[-2,-2,-2],"pcoRight":[3,3,3]""",
         )
         val (state, charts) = loaded()
 
@@ -239,7 +241,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"time":[0,10,20],"coreTemperature":[3825,3830,3835],"smO2":[655,650,645],"totalHemoglobin":[1234,1234,1234],""" +
                 """"ebikeBattery":[90,89,88],"ebikeAssistMode":[2,2,3],"ebikeAssistLevel":[50,50,50],""" +
-                """"formPower":[70,70,70],"legSpringStiffness":[950,950,950]"""
+                """"formPower":[70,70,70],"legSpringStiffness":[950,950,950]""",
         )
         val (state, charts) = loaded()
         fun line(kind: StreamKind) = charts.lines.single { it.kind == kind }
@@ -260,7 +262,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         val (state, charts) = loaded()
 
         assertTrue(
-            charts.lines.none { it.kind in setOf(StreamKind.TorqueEffectiveness, StreamKind.CoreTemperature, StreamKind.EbikeBattery) }
+            charts.lines.none { it.kind in setOf(StreamKind.TorqueEffectiveness, StreamKind.CoreTemperature, StreamKind.EbikeBattery) },
         )
         assertTrue(state.sections.none { it in setOf(DetailSection.CyclingDynamics, DetailSection.Physiology, DetailSection.EBike) })
     }

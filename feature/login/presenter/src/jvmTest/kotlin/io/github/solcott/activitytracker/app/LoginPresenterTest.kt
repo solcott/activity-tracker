@@ -60,7 +60,7 @@ class LoginPresenterTest {
                 } else {
                     respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -98,7 +98,7 @@ class LoginPresenterTest {
                 expiresAt = null,
                 scope = "atproto",
                 dpopKey = DpopKey.generate().serialize(),
-            )
+            ),
         )
         manager.restore()
         backgroundScope.launch { auth.endExpiredSessions() }
@@ -161,7 +161,7 @@ class LoginPresenterTest {
                 expiresAt = null,
                 scope = "atproto",
                 dpopKey = DpopKey.generate().serialize(),
-            )
+            ),
         )
         manager.restore()
         auth.signInAgain()
@@ -209,7 +209,7 @@ class LoginPresenterTest {
                 expiresAt = null,
                 scope = "atproto",
                 dpopKey = DpopKey.generate().serialize(),
-            )
+            ),
         )
         manager.restore()
         auth.left()

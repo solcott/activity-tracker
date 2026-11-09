@@ -333,7 +333,7 @@ class RecordSerializationTest {
                                             thresholdSpeed = 3271,
                                             speedZoneModel = SpeedZoneModel.FRIEL_RUNNING,
                                             setAt = TrainingSetAt(thresholdSpeed = Instant.parse("2026-10-02T07:00:00Z")),
-                                        )
+                                        ),
                                     ),
                             ),
                     ),
@@ -687,7 +687,7 @@ class RecordSerializationTest {
                             setAt = Instant.parse("2026-10-02T07:00:00Z"),
                             sport = Sport.RUN,
                         ),
-                    )
+                    ),
             )
         val json = AtJson.encodeToJsonElement(TrainingDetails.serializer(), training).jsonObject
         val (ftp, pace) = json.getValue("history").jsonArray.map { it.jsonObject }

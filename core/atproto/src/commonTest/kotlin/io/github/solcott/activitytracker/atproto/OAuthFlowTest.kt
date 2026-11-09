@@ -28,7 +28,7 @@ class OAuthFlowTest {
             on("plc.test/$did") {
                 respondJson(
                     """{"id":"$did","alsoKnownAs":["at://alice.test"],
-                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://pds.test"}]}"""
+                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://pds.test"}]}""",
                 )
             }
             on("pds.test/.well-known/oauth-protected-resource") {
@@ -37,7 +37,7 @@ class OAuthFlowTest {
             on("pds.test/.well-known/oauth-authorization-server") {
                 respondJson(
                     """{"issuer":"http://pds.test","authorization_endpoint":"http://pds.test/oauth/authorize",
-                   "token_endpoint":"http://pds.test/oauth/token","pushed_authorization_request_endpoint":"http://pds.test/oauth/par"}"""
+                   "token_endpoint":"http://pds.test/oauth/token","pushed_authorization_request_endpoint":"http://pds.test/oauth/par"}""",
                 )
             }
             // First PAR demands a nonce, second succeeds.
@@ -60,7 +60,7 @@ class OAuthFlowTest {
             on("pds.test/oauth/token") {
                 respondJson(
                     """{"access_token":"at1","token_type":"DPoP","refresh_token":"rt1","expires_in":3600,
-                   "scope":"${OAuthClientConfig.DEFAULT_SCOPE}&collection=app.activitytracker.actor.privateDetails","sub":"$did"}"""
+                   "scope":"${OAuthClientConfig.DEFAULT_SCOPE}&collection=app.activitytracker.actor.privateDetails","sub":"$did"}""",
                 )
             }
             // PDS demands a nonce once, then serves the request.

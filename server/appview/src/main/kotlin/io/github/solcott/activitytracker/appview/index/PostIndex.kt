@@ -36,7 +36,7 @@ internal fun JdbcTransaction.upsertPost(author: Did, uri: AtUri, cid: String, js
     val record = AtJson.decodeFromJsonElement(PostRecord.serializer(), json)
     val text = record.text?.trim()?.takeIf { it.isNotEmpty() }
     require(
-        text == null || (text.encodeToByteArray().size <= PostRecord.MAX_TEXT_BYTES && graphemes(text) <= PostRecord.MAX_TEXT_GRAPHEMES)
+        text == null || (text.encodeToByteArray().size <= PostRecord.MAX_TEXT_BYTES && graphemes(text) <= PostRecord.MAX_TEXT_GRAPHEMES),
     ) {
         "post text over its limit"
     }
@@ -58,7 +58,7 @@ internal fun JdbcTransaction.upsertPost(author: Did, uri: AtUri, cid: String, js
             require(
                 PostQuoteChains.select(PostQuoteChains.postUri)
                     .where { (PostQuoteChains.postUri eq subject.value) and (PostQuoteChains.ancestorUri eq uri.value) }
-                    .empty()
+                    .empty(),
             ) {
                 "a quote of $subject, which quotes it"
             }

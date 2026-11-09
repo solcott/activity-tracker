@@ -73,7 +73,7 @@ class ModeratorSubjectsTest : ModerationTestBase() {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
     private val ozone =
         OzoneClient(ozoneHttp, AppViewConfig.Labeler(labeler, "http://ozone.test"), AppViewConfig.Triage(triage, "app-password")) { _, _ ->
@@ -291,7 +291,7 @@ class ModeratorSubjectsTest : ModerationTestBase() {
                 "bafy3kc",
                 AtJson.parseToJsonElement(
                         """{"sport":"run","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,""" +
-                            """"copyOf":"${activityUri(bob, "3kg")}","createdAt":"2026-10-02T09:31:00Z"}"""
+                            """"copyOf":"${activityUri(bob, "3kg")}","createdAt":"2026-10-02T09:31:00Z"}""",
                     )
                     .jsonObject,
             )

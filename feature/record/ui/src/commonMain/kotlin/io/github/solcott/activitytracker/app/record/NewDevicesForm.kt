@@ -156,7 +156,7 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
                     (listOf(
                             AppMenuItem(stringResource(Res.string.new_device_kind_none), checked = card.kind == null) {
                                 send(NewDeviceEvent.KindChanged(card.id, null))
-                            }
+                            },
                         ) +
                             kinds.map { kind ->
                                 AppMenuItem(gearKindLabel(card.type, kind), checked = kind == card.kind) {
@@ -176,7 +176,7 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
                     (listOf(
                             AppMenuItem(stringResource(Res.string.new_device_mount_none), checked = card.mountOn == null) {
                                 send(NewDeviceEvent.MountOn(card.id, null))
-                            }
+                            },
                         ) +
                             fields.mountOptions.map { option ->
                                 AppMenuItem(option.name, checked = option.uri == card.mountOn) {
@@ -221,7 +221,7 @@ private fun ProfileLink(offer: ProfileLinkOffer, send: (NewDeviceEvent) -> Unit,
                     (listOf(
                             AppMenuItem(stringResource(Res.string.profile_link_none), checked = offer.chosen == null) {
                                 send(NewDeviceEvent.LinkProfile(null))
-                            }
+                            },
                         ) +
                             offer.options.map { option ->
                                 AppMenuItem(option.name, checked = option.uri == offer.chosen) {

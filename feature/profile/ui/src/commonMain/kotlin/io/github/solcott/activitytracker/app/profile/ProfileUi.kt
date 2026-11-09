@@ -302,7 +302,7 @@ private fun ProfileActions(state: ProfileState, following: Boolean, requested: B
                         stringResource(
                             Res.string.profile_follow_requests,
                             if (state.moreFollowRequests) "$count+" else count.toString(),
-                        )
+                        ),
                     )
                 }
             }

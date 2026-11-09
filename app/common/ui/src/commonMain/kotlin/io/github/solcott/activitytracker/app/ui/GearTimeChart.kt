@@ -41,7 +41,7 @@ fun GearTimeChart(
                     Box(
                         Modifier.fillMaxWidth()
                             .height(height * (gear.seconds.toFloat() / longest).coerceAtLeast(MIN_BAR))
-                            .background(bar, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                            .background(bar, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)),
                     )
                 }
                 Text(gear.gear.toString(), style = MaterialTheme.typography.labelSmall, maxLines = 1)

@@ -63,7 +63,11 @@ class SiteHandoffsTest : DiveSiteTestBase() {
         aliceActive()
         runBlocking {
             indexer.handle(
-                JetstreamEvent.Account(alice, "2026-10-15T12:00:00.000000Z", account = JetstreamEvent.Account.Body(alice, false, "deleted"))
+                JetstreamEvent.Account(
+                    alice,
+                    "2026-10-15T12:00:00.000000Z",
+                    account = JetstreamEvent.Account.Body(alice, false, "deleted"),
+                ),
             )
         }
         val handoff = handoffs().single()

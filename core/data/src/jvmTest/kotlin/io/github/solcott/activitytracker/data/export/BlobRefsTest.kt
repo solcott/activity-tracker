@@ -13,7 +13,7 @@ class BlobRefsTest {
     fun streamsRecordNamesItsDataBlob() {
         val record =
             Json.parseToJsonElement(
-                """{"${'$'}type":"app.activitytracker.feed.activityStreams","data":${blob("bafy1", "application/gzip", 1234)}}"""
+                """{"${'$'}type":"app.activitytracker.feed.activityStreams","data":${blob("bafy1", "application/gzip", 1234)}}""",
             )
         assertEquals(listOf(BlobMention(Cid("bafy1"), "application/gzip", 1234)), blobMentions(record))
     }
@@ -22,7 +22,7 @@ class BlobRefsTest {
     fun sourceRecordNamesItsFile() {
         val record =
             Json.parseToJsonElement(
-                """{"${'$'}type":"app.activitytracker.feed.activitySource","file":${blob("bafysrc")},"fileName":"ride.fit"}"""
+                """{"${'$'}type":"app.activitytracker.feed.activitySource","file":${blob("bafysrc")},"fileName":"ride.fit"}""",
             )
         assertEquals(listOf(Cid("bafysrc")), blobMentions(record).map { it.cid })
     }
@@ -43,7 +43,7 @@ class BlobRefsTest {
         assertEquals(
             emptyList(),
             blobMentions(
-                Json.parseToJsonElement("""{"a":{"${'$'}type":"blob","ref":"bafy"},"b":{"${'$'}type":"blob","ref":{"${'$'}link":3}}}""")
+                Json.parseToJsonElement("""{"a":{"${'$'}type":"blob","ref":"bafy"},"b":{"${'$'}type":"blob","ref":{"${'$'}link":3}}}"""),
             ),
         )
     }

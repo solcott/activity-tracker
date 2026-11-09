@@ -43,12 +43,14 @@ internal constructor(
         // [MAX_ATTEMPTS], after which the next session start resumes them.
         val left =
             try {
-                runSaves({ counts ->
-                    if (counts != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
-                        shown = TimeSource.Monotonic.markNow()
-                        foreground(counts)
-                    }
-                })
+                runSaves(
+                    { counts ->
+                        if (counts != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
+                            shown = TimeSource.Monotonic.markNow()
+                            foreground(counts)
+                        }
+                    },
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") _: Exception) {

@@ -31,7 +31,7 @@ class ActivityFileReaderTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = emptyList(),
@@ -45,7 +45,7 @@ class ActivityFileReaderTest {
         Base64.decode(
             "H4sIAAAAAAAC/42QTWvDMAyG7/0VRvf4q6NfxO5tu+7QQuktpG4amtjG0Zb031cuPRS6w0BIr5B4XqFyO/Ud+3VpaIM3oLgE5nwd" +
                 "Tq1vDOx3n8UKtnZWNnF63VLA6uQqDMkAugGBEcYPBi6IcSPEOI4cQwxNqs7txOvQi6/vg1BCgS0xXSndorPpx3syKsWjy4PBNeRG" +
-                "IiLrKjTwseQLYF22LZTWfJ4Bbe+slnpRyHWh5U4uN1JSHAmUR1Qy4B0k1f9Q8z9Q4nndQ1Cmj9g7X2gjvD4BAAA="
+                "IiLrKjTwseQLYF22LZTWfJ4Bbe+slnpRyHWh5U4uN1JSHAmUR1Qy4B0k1f9Q8z9Q4nndQ1Cmj9g7X2gjvD4BAAA=",
         )
 
     private val reader = ActivityFileReader { fitRun }

@@ -50,9 +50,9 @@ class CreateDiveSitePresenterTest : ActivityTestBase() {
         block: suspend app.cash.turbine.ReceiveTurbine<CreateDiveSiteState>.(Repos) -> Unit,
     ) {
         val r = repos()
-        presenterTestOf({
-            CreateDiveSitePresenter(createScreen, navigator, r.feed, r.activities, r.privacy, r.diveSites, r.sitePublisher)
-        }) {
+        presenterTestOf(
+            { CreateDiveSitePresenter(createScreen, navigator, r.feed, r.activities, r.privacy, r.diveSites, r.sitePublisher) },
+        ) {
             block(r)
             cancelAndIgnoreRemainingEvents()
         }

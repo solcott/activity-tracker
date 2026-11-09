@@ -56,7 +56,7 @@ class ReportPresenterTest {
                         headers = json,
                     )
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

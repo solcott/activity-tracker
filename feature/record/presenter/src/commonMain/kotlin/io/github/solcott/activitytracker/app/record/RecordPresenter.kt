@@ -120,7 +120,7 @@ fun RecordPresenter(
                                         null,
                                     )
                                     .copy(gear = gear.selected)
-                                    .withVisibility(visibility.current)
+                                    .withVisibility(visibility.current),
                             )
                         recorder.finished()
                         // The saved activity opens, asking whether to combine it with another of the athlete's.

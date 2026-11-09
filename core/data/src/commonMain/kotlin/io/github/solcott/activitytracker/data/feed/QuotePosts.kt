@@ -83,10 +83,12 @@ class QuotePosts(
             val previousQuotes = feed.localQuotes.overrides.value
             feed.localQuotes.sent(post)
             feed.localPosts.put(view)
-            undoingOnFailure({
-                feed.localPosts.restore(previousPosts)
-                feed.localQuotes.restore(previousQuotes)
-            }) {
+            undoingOnFailure(
+                {
+                    feed.localPosts.restore(previousPosts)
+                    feed.localQuotes.restore(previousQuotes)
+                },
+            ) {
                 writer.put(
                     Nsid.FEED_POST,
                     rkey,
@@ -111,10 +113,12 @@ class QuotePosts(
             val previousQuotes = feed.localQuotes.overrides.value
             feed.localPosts.remove(quote.uri.value)
             embed.quoted.uriOrNull()?.let { feed.localQuotes.deleted(it.value) }
-            undoingOnFailure({
-                feed.localPosts.restore(previousPosts)
-                feed.localQuotes.restore(previousQuotes)
-            }) {
+            undoingOnFailure(
+                {
+                    feed.localPosts.restore(previousPosts)
+                    feed.localQuotes.restore(previousQuotes)
+                },
+            ) {
                 writer.delete(Nsid.FEED_POST, rkey, clients.placeOf(quote.visibilityOrPublic))
             }
         }

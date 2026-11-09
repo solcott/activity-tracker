@@ -149,7 +149,7 @@ class ActivityDetailManageTest {
                         respond("""{"error":"NotFound"}""", HttpStatusCode.NotFound, json)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -252,11 +252,13 @@ class ActivityDetailManageTest {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val recording = presenter(uri(alice, "3krec1"))
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) recording() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) recording() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             awaitUntil { it.page()?.manage?.canUngroup == true }
             registry.saveAll()
             shown = false

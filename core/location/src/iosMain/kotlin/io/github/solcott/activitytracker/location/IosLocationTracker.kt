@@ -56,7 +56,7 @@ class IosLocationTracker : LocationTracker {
                                 speed = location.speed.takeIf { it >= 0 },
                                 accuracy = location.horizontalAccuracy.takeIf { it >= 0 },
                                 time = Instant.fromEpochMilliseconds((location.timestamp.timeIntervalSince1970 * 1000).toLong()),
-                            )
+                            ),
                         )
                     }
                 }

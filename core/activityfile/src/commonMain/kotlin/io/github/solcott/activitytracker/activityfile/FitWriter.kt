@@ -243,7 +243,7 @@ object FitWriter {
                     FitMessage(
                         NUM,
                         listOf(TIMESTAMP(start + change.time), EVENT(event), EVENT_TYPE(TYPE_MARKER), DATA(data), EVENT_GROUP(0)),
-                    )
+                    ),
                 )
             }
         }
@@ -270,7 +270,7 @@ object FitWriter {
                         CCR_LOW_SETPOINT(hundredthsOfBar(dive.lowSetpoint)),
                         CCR_HIGH_SETPOINT(hundredthsOfBar(dive.highSetpoint)),
                     ),
-                )
+                ),
             )
         }
         writeGases(out, dive, activity, start)
@@ -289,7 +289,7 @@ object FitWriter {
                             END_PRESSURE(tank.endPressure?.let { it / MBAR_PER_HUNDREDTH_BAR }),
                             VOLUME_USED(tank.volumeUsed?.let { it * CENTI.toLong() }),
                         ),
-                    )
+                    ),
                 )
             }
         }
@@ -315,7 +315,7 @@ object FitWriter {
                             STATUS(STATUS_ENABLED),
                             MODE(mode),
                         ),
-                    )
+                    ),
                 )
             }
         }
@@ -332,7 +332,7 @@ object FitWriter {
                             DATA(slot),
                             EVENT_GROUP(0),
                         ),
-                    )
+                    ),
                 )
             }
         }
@@ -353,7 +353,7 @@ object FitWriter {
                             DATA(value.toLong()),
                             EVENT_GROUP(0),
                         ),
-                    )
+                    ),
                 )
             }
         }
@@ -373,7 +373,7 @@ object FitWriter {
                             FitMessage(
                                 NUM,
                                 listOf(TIMESTAMP(start + second(point)), SENSOR(sensorOf(index)), PRESSURE((bar * CENTI).roundToLong())),
-                            )
+                            ),
                         )
                     }
                 }
@@ -492,7 +492,7 @@ object FitWriter {
                 STAMINA_MIN(load?.staminaMin?.toLong()),
                 // FIT counts strides on foot, where the record counts steps.
                 TOTAL_CYCLES(
-                    activity.totals.cycles?.let { if (CycleCount.unitOf(activity.sport) == CycleCount.STEPS) it / 2 else it }?.toLong()
+                    activity.totals.cycles?.let { if (CycleCount.unitOf(activity.sport) == CycleCount.STEPS) it / 2 else it }?.toLong(),
                 ),
                 // Centimeters, as the lexicon keeps them.
                 AVG_STROKE_DISTANCE(activity.totals.avgStrokeDistance?.toLong()),

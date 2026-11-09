@@ -87,7 +87,7 @@ class TimelineRepostsTest {
                         }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private val likes = LocalLikes()

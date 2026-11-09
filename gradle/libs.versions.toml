@@ -12,7 +12,7 @@ detekt = "2.0.0-alpha.6"
 composeRules = "0.6.8"
 # Compose Preview Screenshot Testing engine, for androidApp's screenshotTest suite (AGP test suites).
 screenshot = "0.0.1-alpha17"
-ktfmt = "0.27.0"
+ktfmt = "0.28.0"
 sortDependencies = "0.21.0"
 # PMD's copy-paste detector (root cpdCheck) and the Gradle plugin whose Cpd task runs it.
 pmd = "7.29.0"

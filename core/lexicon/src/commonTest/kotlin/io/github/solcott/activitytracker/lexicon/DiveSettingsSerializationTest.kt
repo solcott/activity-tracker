@@ -33,7 +33,7 @@ class DiveSettingsSerializationTest {
                         lowSetpoint = 700,
                         highSetpoint = 1300,
                         safetyStopTime = 180,
-                    )
+                    ),
             )
         val json = AtJson.encodeToString(ActivityRecord.serializer(), dive)
         assertTrue(""""decoModel":"zhl16c","ppO2Warn":1400""" in json, json)

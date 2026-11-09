@@ -50,8 +50,8 @@ private fun postRowsAs(reader: Expression<String>?, tier: PostTier): Op<Boolean>
             exists(
                 PostQuoteChains.select(PostQuoteChains.postUri).where {
                     (PostQuoteChains.postUri eq Posts.uri) and (PostQuoteChains.depth eq PostQuoteChains.MAX_DEPTH)
-                }
-            )
+                },
+            ),
         )
 
 /** The post's [proposal] is indexed, by its [author], its record still exists, and a list may show it to [reader] ([listedProposal]). */
@@ -62,5 +62,5 @@ private fun liveProposal(proposal: Column<String?>, author: Column<String>, read
                 (SegmentNameProposals.proposerDid eq author) and
                 (SegmentNameProposals.recordGone eq false) and
                 listedProposalTo(reader)
-        }
+        },
     )

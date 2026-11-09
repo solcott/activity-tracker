@@ -58,7 +58,7 @@ class FilteredFeedTest {
                 val all = listOf(view("3kride", "ride"), view("3krun", "run"))
                 val activities = all.filter { types == null || it.record.sport in types }
                 respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output.ofActivities(activities)), headers = json)
-            }
+            },
         )
 
     private suspend fun feed(): FeedRepository {

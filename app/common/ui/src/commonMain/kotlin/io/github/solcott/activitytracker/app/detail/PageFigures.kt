@@ -170,7 +170,7 @@ internal fun figureLabel(figure: Figure): String {
         FigureKey.LeftRight -> stringResource(streamTitle((value as FigureValue.LeftRight).kind))
         FigureKey.DecoModel ->
             stringResource(
-                if ((value as? FigureValue.DecoModel)?.model == null) Res.string.stat_gradient_factors else Res.string.stat_deco_model
+                if ((value as? FigureValue.DecoModel)?.model == null) Res.string.stat_gradient_factors else Res.string.stat_deco_model,
             )
         else -> stringResource(LABELS.getValue(figure.key))
     }
@@ -283,7 +283,7 @@ internal fun groupTitle(kind: StatsGroupKind): String =
             StatsGroupKind.Counts -> Res.string.page_group_counts
             StatsGroupKind.Dive -> Res.string.page_group_dive
             StatsGroupKind.Device -> Res.string.page_group_device
-        }
+        },
     )
 
 @Composable
@@ -296,7 +296,7 @@ internal fun avgMaxLabel(metric: AvgMaxMetric): String =
             AvgMaxMetric.Pace -> Res.string.stat_pace
             AvgMaxMetric.Cadence -> Res.string.chart_cadence
             AvgMaxMetric.Temperature -> Res.string.chart_temperature
-        }
+        },
     )
 
 /** A figure's value in the viewer's units, with its unit, in full. */

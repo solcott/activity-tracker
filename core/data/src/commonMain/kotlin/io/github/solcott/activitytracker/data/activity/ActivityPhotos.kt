@@ -62,7 +62,11 @@ class HeldPhotos {
     fun dropServed(view: ActivityView) {
         if (photos.value.isEmpty()) return
         drop(
-            view.media.orEmpty().filterIsInstance<ActivityMediaView.Image>().filterNot { isHeld(it.fullsize) }.map { photoCid(it.fullsize) }
+            view.media
+                .orEmpty()
+                .filterIsInstance<ActivityMediaView.Image>()
+                .filterNot { isHeld(it.fullsize) }
+                .map { photoCid(it.fullsize) },
         )
     }
 

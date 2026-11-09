@@ -249,7 +249,7 @@ private fun Confirmations(state: UploadsState) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.uploads_cancel_confirm), destructive = true) {
                         state.eventSink(UploadsEvent.ConfirmCancel(rkey))
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.uploads_keep),
             onDismiss = { state.eventSink(UploadsEvent.Dismiss) },
@@ -264,7 +264,7 @@ private fun Confirmations(state: UploadsState) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.uploads_cancel_rest), destructive = true) {
                         state.eventSink(UploadsEvent.ConfirmCancelRest(batchId))
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.uploads_keep),
             onDismiss = { state.eventSink(UploadsEvent.Dismiss) },

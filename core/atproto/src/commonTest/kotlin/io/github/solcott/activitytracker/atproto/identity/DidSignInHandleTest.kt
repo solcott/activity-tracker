@@ -18,7 +18,7 @@ class DidSignInHandleTest {
         network.on("plc.test/$alice") {
             respondJson(
                 """{"id":"$alice","alsoKnownAs":["at://$handle"],""" +
-                    """"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.test"}]}"""
+                    """"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.test"}]}""",
             )
         }
 

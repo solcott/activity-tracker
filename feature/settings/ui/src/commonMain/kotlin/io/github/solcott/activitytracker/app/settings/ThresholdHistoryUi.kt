@@ -275,7 +275,7 @@ private fun ThresholdBlock(section: ThresholdHistorySection, state: ThresholdHis
             AppTextButton(onClick = { state.eventSink(ThresholdHistoryEvent.ToggleShowAll(section.threshold, section.sport)) }) {
                 Text(
                     if (section.showingAll) stringResource(Res.string.zones_history_show_fewer)
-                    else stringResource(Res.string.zones_history_show_all, section.rows.size)
+                    else stringResource(Res.string.zones_history_show_all, section.rows.size),
                 )
             }
         }
@@ -395,7 +395,7 @@ private fun RemoveButton(
                     AppMenuItem(remove, AppIcon.Delete, destructive = true) {
                         confirming = false
                         state.eventSink(ThresholdHistoryEvent.Remove(row.entry))
-                    }
+                    },
                 ),
         )
     }

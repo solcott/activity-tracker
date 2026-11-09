@@ -77,7 +77,7 @@ fun ManualActivityPresenter(
                             activities.publish(
                                 manualDraft(type.selected, title.text, distance.text, minutes, temperature.text, units, clock)
                                     .copy(gear = gear.selected)
-                                    .withVisibility(visibility.current)
+                                    .withVisibility(visibility.current),
                             )
                         // The saved activity opens, asking whether to combine it with another of the athlete's.
                         navigator.pop()

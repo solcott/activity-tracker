@@ -62,7 +62,7 @@ fun SegmentMapUi(state: SegmentMapState, modifier: Modifier = Modifier) {
                             Modifier.widthIn(max = CREDIT_MAX_WIDTH)
                                 .onSizeChanged { creditHeight = with(density) { it.height.toDp() } }
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = CREDIT_ALPHA), CREDIT_SHAPE)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                         ) {
                             Credit(credit)
                         }

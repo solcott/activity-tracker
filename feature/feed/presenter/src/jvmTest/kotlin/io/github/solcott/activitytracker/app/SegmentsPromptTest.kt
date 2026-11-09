@@ -129,7 +129,7 @@ class SegmentsPromptTest {
                         )
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

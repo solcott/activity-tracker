@@ -59,7 +59,7 @@ fun ActivityDefaultsUi(state: ActivityDefaultsState, modifier: Modifier = Modifi
                             state.saving -> Res.string.settings_saving
                             !defaults.canChoose -> lockedVisibilityNote(defaults)
                             else -> Res.string.settings_defaults_help
-                        }
+                        },
                     ),
                     style = MaterialTheme.typography.bodySmall,
                 )

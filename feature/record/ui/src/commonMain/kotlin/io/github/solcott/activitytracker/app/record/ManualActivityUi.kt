@@ -65,7 +65,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                         when (state.units) {
                             UnitSystem.Metric -> Res.string.manual_distance_label_km
                             UnitSystem.Imperial -> Res.string.manual_distance_label_mi
-                        }
+                        },
                     ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
@@ -83,7 +83,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                         when (state.units) {
                             UnitSystem.Metric -> Res.string.manual_temperature_label_c
                             UnitSystem.Imperial -> Res.string.manual_temperature_label_f
-                        }
+                        },
                     ),
                 // Not Decimal: some numeric keyboards have no minus key.
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),

@@ -334,6 +334,6 @@ fun PrivacyZones.zonesOutcome(): Flow<Outcome<PrivacySettings>> = flow {
         when (val read = refresh()) {
             is ZonesRead.Known -> Outcome.Data(read.trim.settings, Origin.Network)
             is ZonesRead.Unreadable -> Outcome.Error(read.reason, Origin.Network)
-        }
+        },
     )
 }

@@ -100,7 +100,7 @@ class ImportActivityPresenterTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records =
@@ -303,7 +303,7 @@ class ImportActivityPresenterTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = records,
@@ -389,7 +389,7 @@ class ImportActivityPresenterTest {
                         jumpCount = 1,
                         totalGrit = 9.5,
                         avgFlow = 3.1,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = (0L..10L).map { i -> DecodedSample(millis(i * 60), null, null, null, null, 80, 180, null, null, null) },
@@ -532,26 +532,35 @@ class ImportActivityPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         var fail = false
         val decoder = FitDecoder { if (fail) throw ActivityFileException("FIT file is corrupt or truncated") else run }
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader(decoder),
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader(decoder)),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader(decoder),
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader(decoder),
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("good.fit", bytes))
             val read = awaitUntil { it.preview != null }
 

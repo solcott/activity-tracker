@@ -87,7 +87,7 @@ internal object RideMetrics {
     /** Power for each second the athlete was recording (see [PerSecond.hold]). */
     private fun List<DecodedSample>.powerBySecond(): List<Int> =
         PerSecond.hold(
-            mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it / MILLIS_PER_SECOND to watts } } }
+            mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it / MILLIS_PER_SECOND to watts } } },
         )
 
     /** Null unless at least one session has the count. */

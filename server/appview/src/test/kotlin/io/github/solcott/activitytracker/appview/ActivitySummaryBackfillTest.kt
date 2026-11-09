@@ -32,12 +32,12 @@ class ActivitySummaryBackfillTest {
         execute(
             "INSERT INTO activities (uri, cid, author_did, record, sport, started_at, sort_at, indexed_at) VALUES " +
                 "('at://did:plc:alice/ride', 'bafy', 'did:plc:alice', '$ride', 'ride', 0, 0, 0), " +
-                "('at://did:plc:alice/broken', 'bafy', 'did:plc:alice', '{\"sport\":1}', 'ride', 0, 0, 0)"
+                "('at://did:plc:alice/broken', 'bafy', 'did:plc:alice', '{\"sport\":1}', 'ride', 0, 0, 0)",
         )
         val bike = """{"name":"Tarmac","type":"bike","startingDistance":2000000,"createdAt":"2026-10-01T09:00:00Z"}"""
         execute(
             "INSERT INTO gear_items (uri, origin, cid, author_did, visibility, item_name, item_type, record, indexed_at) VALUES " +
-                "('at://did:plc:alice/bike', 'repo', 'bafy', 'did:plc:alice', 'public', 'Tarmac', 'bike', '$bike', 0)"
+                "('at://did:plc:alice/bike', 'repo', 'bafy', 'did:plc:alice', 'public', 'Tarmac', 'bike', '$bike', 0)",
         )
 
         DatabaseFactory.migrate(source)

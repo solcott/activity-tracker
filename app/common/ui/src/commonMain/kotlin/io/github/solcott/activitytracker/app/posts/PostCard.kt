@@ -281,7 +281,7 @@ private fun Header(post: PostView, own: Boolean, canReport: Boolean, onEvent: (P
                             AppMenuItem(label) {
                                 open = false
                                 onEvent(if (canDelete) PostEvent.Delete(post) else PostEvent.Report(post))
-                            }
+                            },
                         ),
                 )
             }
@@ -347,5 +347,5 @@ private fun statusLabel(status: String): String =
             PostProposalStatus.EXPIRED -> Res.string.post_status_expired
             PostProposalStatus.SUPERSEDED -> Res.string.post_status_superseded
             else -> Res.string.post_status_closed
-        }
+        },
     )

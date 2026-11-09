@@ -64,7 +64,7 @@ private fun loadOrCreateKey(): Promise<JsAny> =
     db.close();
   }
 })()
-"""
+""",
     )
 
 /** Returns base64(iv || ciphertext || tag). */
@@ -82,7 +82,7 @@ private fun encrypt(key: JsAny, plaintext: String): Promise<JsString> =
   for (const b of out) bin += String.fromCharCode(b);
   return btoa(bin);
 })()
-"""
+""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -94,5 +94,5 @@ private fun decrypt(key: JsAny, ciphertext: String): Promise<JsString> =
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12) }, key, bytes.subarray(12));
   return new TextDecoder().decode(pt);
 })()
-"""
+""",
     )

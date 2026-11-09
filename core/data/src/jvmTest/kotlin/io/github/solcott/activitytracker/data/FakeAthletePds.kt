@@ -275,7 +275,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                 path == "/.well-known/did.json" ->
                                     json(
                                         """{"id":"did:web:appview.test","service":[
-                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}"""
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
                                     )
                                 path == "/xrpc/com.atproto.repo.uploadBlob" -> {
                                     val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
@@ -309,7 +309,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     if (!spaceExists(tier)) return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
                                     json(
                                         """{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier",""" +
-                                            """"policy":{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:appview.test#activitytracker_space"}}"""
+                                            """"policy":{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:appview.test#activitytracker_space"}}""",
                                     )
                                 }
                                 path == "/xrpc/com.atproto.space.deleteSpace" -> {
@@ -335,7 +335,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                         else
                                             """{"site":{"uri":"$uri","cid":"bafysite","creator":$creator,"status":"$status",""" +
                                                 """"record":{"name":"Blue Hole","lat":0,"lng":0,"radius":100,"source":"athlete",""" +
-                                                """"license":"CC0-1.0",$created}}}"""
+                                                """"license":"CC0-1.0",$created}}}""",
                                     )
                                 }
                                 path == "/xrpc/com.atproto.repo.describeRepo" -> {
@@ -467,7 +467,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                         AtJson.encodeToString(
                                             GetGearActivities.Output.serializer(),
                                             GetGearActivities.Output(activities, cursor),
-                                        )
+                                        ),
                                     )
                                 }
                                 path == "/xrpc/${Nsid.ACTOR_GET_PROFILE}" ->
@@ -491,7 +491,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                         AtJson.encodeToString(
                                             GetActivityInvites.Output.serializer(),
                                             GetActivityInvites.Output(invitesServed),
-                                        )
+                                        ),
                                     )
                                 path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITE}" ->
                                     inviteServed[request.url.parameters["uri"]]?.let {
@@ -502,7 +502,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                         AtJson.encodeToString(
                                             GetActivityInvitees.Output.serializer(),
                                             GetActivityInvitees.Output(inviteesServed),
-                                        )
+                                        ),
                                     )
                                 path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
                                     json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
@@ -544,7 +544,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                                 streamsData[uri.rkey] ?: ActivityStreamData(time = listOf(0)),
                                                 trainingLoad = streamsLoad[uri.rkey],
                                             ),
-                                        )
+                                        ),
                                     )
                                 }
                                 path == "/xrpc/${Nsid.FEED_GET_AUTHOR_POSTS}" -> {
@@ -558,8 +558,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                 else -> respond("", HttpStatusCode.NotFound)
                             }
                         }
-                    }
-            )
+                    },
+            ),
         ) {
             expectSuccess = false
         }

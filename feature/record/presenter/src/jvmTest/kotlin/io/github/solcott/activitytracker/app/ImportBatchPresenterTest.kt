@@ -254,7 +254,7 @@ class ImportBatchPresenterTest {
                         "a.gpx" to gpx("2026-09-01T07:00:00Z"),
                         "b.gpx" to gpx("2026-09-02T07:00:00Z"),
                         "c.gpx" to gpx("2026-09-03T07:00:00Z"),
-                    )
+                    ),
                 )
             awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
                 .eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
@@ -275,7 +275,7 @@ class ImportBatchPresenterTest {
                     picked(
                         "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
                         "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
-                    )
+                    ),
                 )
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             val rows = assertNotNull(read.batch).rows
@@ -337,7 +337,7 @@ class ImportBatchPresenterTest {
                     picked(
                         "edge.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
                         "run.gpx" to gpx("2026-09-03T07:00:00Z"),
-                    )
+                    ),
                 )
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             assertEquals(DuplicateAction.Combine, read.batch?.rows?.get(0)?.duplicate?.action)
@@ -446,8 +446,8 @@ class ImportBatchPresenterTest {
             awaitItem()
                 .eventSink(
                     ImportActivityEvent.FilesPicked(
-                        persistentListOf(ByteArrayImportSource("kept.gpx", gpx("2026-09-01T07:00:00Z")), vanishing)
-                    )
+                        persistentListOf(ByteArrayImportSource("kept.gpx", gpx("2026-09-01T07:00:00Z")), vanishing),
+                    ),
                 )
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             gone = true
@@ -480,7 +480,7 @@ class ImportBatchPresenterTest {
                         "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
                         "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
                         "run.gpx" to gpx("2026-09-03T07:00:00Z"),
-                    )
+                    ),
                 )
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             read.eventSink(ImportActivityEvent.FilterChanged(BatchFilter.Duplicates))
@@ -576,7 +576,7 @@ class ImportBatchPresenterTest {
                         "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
                         "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
                         "run.gpx" to gpx("2026-09-03T07:00:00Z"),
-                    )
+                    ),
                 )
             awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
                 .eventSink(ImportActivityEvent.FilterChanged(BatchFilter.Duplicates))
@@ -600,7 +600,7 @@ class ImportBatchPresenterTest {
                     picked(
                         "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
                         "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
-                    )
+                    ),
                 )
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             val first = assertNotNull(read.batch?.rows?.first())

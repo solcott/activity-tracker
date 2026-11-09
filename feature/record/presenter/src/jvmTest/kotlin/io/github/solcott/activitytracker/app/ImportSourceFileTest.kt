@@ -47,7 +47,7 @@ class ImportSourceFileTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = emptyList(),
@@ -60,26 +60,35 @@ class ImportSourceFileTest {
     fun theFileIsKeptAsTheActivitysSourceInTheSelfSpace() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             val read = awaitUntil { it.preview != null }
             assertFalse(read.originalTooLarge)
@@ -108,26 +117,35 @@ class ImportSourceFileTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         // Random bytes don't compress, so this stays over the 10 MB a kept file may take.
         val huge = ByteString(bytes.toByteArray() + Random(3).nextBytes(10_500_000))
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Huge.fit", huge))
             val read = awaitUntil { it.preview != null }
             assertTrue(read.originalTooLarge)

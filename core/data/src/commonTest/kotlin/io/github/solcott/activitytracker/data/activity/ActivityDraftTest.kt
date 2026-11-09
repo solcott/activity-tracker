@@ -118,7 +118,7 @@ class ActivityDraftTest {
                         listOf(
                             ImportedSensor(SensorKind.HeartRate, "Garmin", "HRM 200", SensorBattery.Good, 80),
                             ImportedSensor(SensorKind.Power, "SRAM", null, SensorBattery.Low, null),
-                        )
+                        ),
                 )
         val record = ActivityDraft.fromImport(ride, type = ActivityType(Sport.RIDE), title = null).toRecord(createdAt = start)
         assertEquals(
@@ -222,7 +222,7 @@ class ActivityDraftTest {
                         lowSetpointBar = 0.7,
                         highSetpointBar = 1.3,
                         safetyStopSeconds = 180,
-                    )
+                    ),
             )
         val dive =
             ActivityDraft.fromImport(imported(emptyList()).copy(dive = settings), ActivityType(Sport.DIVE), null).toRecord(start).dive!!
@@ -369,7 +369,7 @@ class ActivityDraftTest {
                 .findAll(
                     ActivityDraft.fromImport(imported(emptyList()).copy(dive = logbook), ActivityType(Sport.DIVE), null)
                         .gpx!!
-                        .decodeToString()
+                        .decodeToString(),
                 )
                 .count(),
         )

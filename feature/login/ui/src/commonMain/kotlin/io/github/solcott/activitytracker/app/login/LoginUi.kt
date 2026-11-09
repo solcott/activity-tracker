@@ -120,7 +120,7 @@ private fun failedText(status: Status.Failed): String =
                 Status.Stage.Start -> Res.string.error_sign_in_start
                 Status.Stage.Complete -> Res.string.error_sign_in_complete
                 Status.Stage.FindAccount -> Res.string.error_sign_in_find_account
-            }
+            },
         ),
         status.reason,
     )

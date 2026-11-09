@@ -605,7 +605,7 @@ class SessionTestFixture {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

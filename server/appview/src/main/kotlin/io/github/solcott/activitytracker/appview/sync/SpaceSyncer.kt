@@ -252,7 +252,7 @@ class SpaceSyncer(
             val moved = headCommit(member, space)?.rev != head?.rev
             if (!moved || attempt >= BACKFILL_ATTEMPTS) {
                 throw SetHashMismatchException(
-                    "$space's records don't match its commit at ${head?.rev}${if (moved) ", still moving" else ""}"
+                    "$space's records don't match its commit at ${head?.rev}${if (moved) ", still moving" else ""}",
                 )
             }
             log.info("{} was written during its backfill; starting over", space)

@@ -288,10 +288,12 @@ class SegmentNames(
             val previousPosts = posts.changes.value
             changes.update { it + (segment.value to change(it[segment.value] ?: SegmentNameChanges())) }
             postChange()
-            undoingOnFailure({
-                changes.value = previous
-                posts.restore(previousPosts)
-            }) {
+            undoingOnFailure(
+                {
+                    changes.value = previous
+                    posts.restore(previousPosts)
+                },
+            ) {
                 queue()
             }
         }

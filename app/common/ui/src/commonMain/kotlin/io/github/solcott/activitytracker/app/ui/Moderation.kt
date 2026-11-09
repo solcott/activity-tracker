@@ -50,7 +50,7 @@ fun blurLabel(reason: BlurReason): String =
             BlurReason.Sexual -> Res.string.label_sexual
             BlurReason.Nudity -> Res.string.label_nudity
             BlurReason.GraphicMedia -> Res.string.label_graphic_media
-        }
+        },
     )
 
 @Composable
@@ -60,7 +60,7 @@ fun warnLabel(reason: WarnReason): String =
             WarnReason.Warn -> Res.string.label_warn
             WarnReason.Spam -> Res.string.label_spam
             WarnReason.Impersonation -> Res.string.label_impersonation
-        }
+        },
     )
 
 /**

@@ -94,7 +94,7 @@ class DiveSiteSerializationTest {
                     medianTemperature = 220,
                     maxTemperature = 260,
                     months = listOf(DiveSiteMonth(month = 2, dives = 4, medianTemperature = 180)),
-                )
+                ),
             )
         val conditionsJson = AtJson.encodeToString(GetDiveSiteConditions.Output.serializer(), conditions)
         assertEquals(conditions, AtJson.decodeFromString(GetDiveSiteConditions.Output.serializer(), conditionsJson))

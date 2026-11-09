@@ -249,7 +249,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
                         when (state.units) {
                             UnitSystem.Metric -> Res.string.gear_starting_distance_km
                             UnitSystem.Imperial -> Res.string.gear_starting_distance_mi
-                        }
+                        },
                     ),
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

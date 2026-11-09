@@ -81,7 +81,7 @@ class PostSerializationTest {
     fun timelineCarriesPostsAndSkipsUnknown() {
         val output =
             GetTimeline.Output(
-                listOf(TimelineItem.Post(view), TimelineItem.Unknown(AtJson.parseToJsonElement("""{"${'$'}type":"x#y"}""").jsonObject))
+                listOf(TimelineItem.Post(view), TimelineItem.Unknown(AtJson.parseToJsonElement("""{"${'$'}type":"x#y"}""").jsonObject)),
             )
         val json = AtJson.encodeToString(GetTimeline.Output.serializer(), output)
         val decoded = AtJson.decodeFromString(GetTimeline.Output.serializer(), json)

@@ -17,7 +17,7 @@ class CpdConventionPluginTest {
                     rootProject.name = "cpd-test"
                     dependencyResolutionManagement { repositories { mavenCentral() } }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             resolve("gradle/libs.versions.toml")
@@ -26,7 +26,7 @@ class CpdConventionPluginTest {
                     [libraries]
                     pmd-kotlin = { module = "net.sourceforge.pmd:pmd-kotlin", version = "$PMD_VERSION" }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("build.gradle.kts").writeText("plugins { id(\"activitytracker.cpd\") }\n")
         }

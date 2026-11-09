@@ -66,7 +66,7 @@ object PostPageSamples {
         get() =
             PostPageState(
                 ContentStates.loaded(
-                    page.copy(likesList = LikesList(persistentListOf(fakeProfileBasic(Fixed.CAROL)), isLoading = false, error = null))
+                    page.copy(likesList = LikesList(persistentListOf(fakeProfileBasic(Fixed.CAROL)), isLoading = false, error = null)),
                 ),
                 eventSink = {},
             )

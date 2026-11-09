@@ -108,12 +108,14 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the screen it opened while it's on the back stack.
-                if (shown) presenter() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the screen it opened while it's on the back stack.
+                    if (shown) presenter() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             awaitUntil { it.settled() && it.page()?.charts != null && it.page()?.segments?.isNotEmpty() == true }
             registry.saveAll()
             shown = false
@@ -240,11 +242,13 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) presenter() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) presenter() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             awaitUntil { it.page()?.route?.ends != null && it.page()?.export?.original != null }
             registry.saveAll()
             shown = false

@@ -572,7 +572,7 @@ class FeedRepository(
                 items.map { item ->
                     val view = transform(AtJson.decodeFromString(ActivityView.serializer(), item.json))
                     item.copy(json = AtJson.encodeToString(ActivityView.serializer(), view))
-                }
+                },
             )
     }
 

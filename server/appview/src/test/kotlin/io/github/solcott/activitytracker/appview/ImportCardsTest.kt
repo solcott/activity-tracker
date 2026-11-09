@@ -262,7 +262,7 @@ class ImportCardsTest : ModerationTestBase() {
                 "3ke",
                 "bafy3ked",
                 AtJson.parseToJsonElement(
-                        """{"activity":"${activityUri(alice, "3ke")}","distance":9000,"createdAt":"2026-10-05T08:00:00Z"}"""
+                        """{"activity":"${activityUri(alice, "3ke")}","distance":9000,"createdAt":"2026-10-05T08:00:00Z"}""",
                     )
                     .jsonObject,
             )

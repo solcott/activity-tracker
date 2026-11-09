@@ -65,8 +65,8 @@ class OzoneClient(
                 params.forEach { (k, v) -> v?.let { parameter(k, it) } }
             }
         }
-            // Network failures of every kind, and no endpoint: the caller refuses.
-            .getOrElse { e -> throw e as? LabelerUnavailable ?: LabelerUnavailable("$method: ${e.message}", e) }
+        // Network failures of every kind, and no endpoint: the caller refuses.
+        .getOrElse { e -> throw e as? LabelerUnavailable ?: LabelerUnavailable("$method: ${e.message}", e) }
         return decode(response, output, method)
     }
 
@@ -95,7 +95,7 @@ class OzoneClient(
                     http.post("${pds()}/xrpc/${CreateSession.method.nsid}") {
                         contentType(ContentType.Application.Json)
                         setBody(
-                            AtJson.encodeToString(CreateSession.Input.serializer(), CreateSession.Input(triage.did, triage.appPassword))
+                            AtJson.encodeToString(CreateSession.Input.serializer(), CreateSession.Input(triage.did, triage.appPassword)),
                         )
                     }
                 decode(response, CreateSession.Output.serializer(), "createSession").accessJwt.also { session = it }

@@ -116,7 +116,7 @@ class GearDefaultsTest {
         repo.editLinks(GearLinkEdit(ignore = listOf(edge)))
         val after =
             repo.editLinks(
-                GearLinkEdit(link = listOf(GearSensorLink(SensorKey(manufacturer = "garmin", serialNumber = "3510682071"), uri(tarmac))))
+                GearLinkEdit(link = listOf(GearSensorLink(SensorKey(manufacturer = "garmin", serialNumber = "3510682071"), uri(tarmac)))),
             )
         assertEquals(null, after.ignored)
         assertEquals(listOf(uri(tarmac)), after.sensors?.map { it.gear })

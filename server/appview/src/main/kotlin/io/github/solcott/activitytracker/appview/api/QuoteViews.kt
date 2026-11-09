@@ -51,10 +51,10 @@ internal fun quoteChainPasses(reader: Expression<String>?, tier: PostTier): Op<B
                         exists(
                             earlier.select(earlier[Posts.uri]).where {
                                 (earlier[Posts.uri] eq before[PostQuoteChains.ancestorUri]) and postServed(earlier)
-                            }
-                        )
+                            },
+                        ),
                     )
-            }
+            },
         )
     val hiding =
         chain
@@ -65,7 +65,7 @@ internal fun quoteChainPasses(reader: Expression<String>?, tier: PostTier): Op<B
                     postServed(ancestor) and
                     not(
                         tier.admits(ancestor[Posts.visibility], ancestor[Posts.authorDid], ancestor[Posts.uri], ancestor[Posts.cid]) and
-                            unhiddenTo(reader, ancestor[Posts.authorDid], ancestor[Posts.uri])
+                            unhiddenTo(reader, ancestor[Posts.authorDid], ancestor[Posts.uri]),
                     ) and
                     not(brokenBefore)
             }
@@ -90,7 +90,7 @@ internal fun postServed(posts: Alias<Posts>): Op<Boolean> {
                         (SegmentNameProposals.proposerDid eq author) and
                         (SegmentNameProposals.recordGone eq false) and
                         unlabelledProposal()
-                }
+                },
             ))
 }
 

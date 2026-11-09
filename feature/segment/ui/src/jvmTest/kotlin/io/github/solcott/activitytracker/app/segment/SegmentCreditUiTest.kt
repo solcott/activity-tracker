@@ -27,7 +27,7 @@ class SegmentCreditUiTest {
                     fakeSegment(
                         creator = fakeProfileBasic(Did("did:plc:importer"), "segments.test"),
                         record = fakeSegmentRecord(source = source, license = license),
-                    )
+                    ),
                 ),
             credit = credit,
         )

@@ -86,7 +86,7 @@ class DataExporterTest {
             s.activities.publish(
                 draft()
                     .copy(source = DraftSource(requireNotNull(SourceFile.prepare(fit, "Morning_Ride.fit", file))))
-                    .withVisibility(VisibilityChoice(Visibility.SELF))
+                    .withVisibility(VisibilityChoice(Visibility.SELF)),
             )
         val rkey = requireNotNull(uri.rkey)
 
@@ -153,7 +153,7 @@ class DataExporterTest {
             s.activities.publish(
                 draft()
                     .copy(avgHeartRate = 141, streams = streams)
-                    .withVisibility(VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF)))
+                    .withVisibility(VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF))),
             )
         val rkey = requireNotNull(uri.rkey)
 

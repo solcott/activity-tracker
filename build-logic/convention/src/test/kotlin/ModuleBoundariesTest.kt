@@ -68,7 +68,7 @@ class ModuleBoundariesTest {
                     dependencyResolutionManagement { repositories { mavenCentral() } }
                     include(":feature-x-api", ":feature-x-presenter", ":feature-x-ui")
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             resolve("gradle/libs.versions.toml")
@@ -77,7 +77,7 @@ class ModuleBoundariesTest {
                     [libraries]
                     compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version = "0.5.6" }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("config/detekt").mkdirs()
             resolve("config/detekt/detekt.yml").writeText("")
@@ -103,7 +103,7 @@ class ModuleBoundariesTest {
                 ${dependsOn.joinToString("\n") { "    implementation(project(\"$it\"))" }}
                 }
                 """
-                    .trimIndent()
+                    .trimIndent(),
             )
     }
 

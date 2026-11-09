@@ -97,7 +97,7 @@ class ActivityPagePreviewTest {
                         thresholdPowerWatts = 250,
                         intensityFactor = 0.82,
                         trainingStressScore = 11.2,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records =

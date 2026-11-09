@@ -42,17 +42,19 @@ class ManualActivityPresenterTest {
     fun imperialEntryIsStoredInSiUnits() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
 
@@ -76,17 +78,19 @@ class ManualActivityPresenterTest {
     fun switchingUnitsChangesHowEntriesAreRead() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
             assertEquals(UnitSystem.Metric, metric.units)
@@ -107,17 +111,19 @@ class ManualActivityPresenterTest {
     fun acceptsACommaAsTheDecimalSeparator() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val form = awaitItem()
             form.distance.setTextAndPlaceCursorAtEnd("5,2")
             form.durationMinutes.setTextAndPlaceCursorAtEnd("30,5")
@@ -139,17 +145,19 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
         val gravel = ActivityType(Sport.RIDE, SubSport.GRAVEL)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val initial = awaitUntil { it.type.quickTypes.isNotEmpty() }
             assertEquals(SportCatalog.common, initial.type.quickTypes, "nothing tracked yet")
             assertEquals(ActivityType(Sport.RUN), initial.type.selected)
@@ -166,17 +174,19 @@ class ManualActivityPresenterTest {
         assertEquals(Sport.RIDE, record.getValue("sport").jsonPrimitive.content)
         assertEquals(SubSport.GRAVEL, record.getValue("subSport").jsonPrimitive.content)
 
-        presenterTestOf({
-            ManualActivityPresenter(
-                FakeNavigator(ManualActivityScreen),
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    FakeNavigator(ManualActivityScreen),
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val next = awaitUntil { it.type.quickTypes.firstOrNull() == gravel }
             assertEquals(listOf(gravel) + SportCatalog.common, next.type.quickTypes)
             cancelAndIgnoreRemainingEvents()
@@ -188,17 +198,19 @@ class ManualActivityPresenterTest {
         fixture.activityDefaults = """{"visibility":"followers","chartsVisibility":"followers"}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.visibility.eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
             val public = awaitUntil { it.visibility.activity == Visibility.PUBLIC }
@@ -221,17 +233,19 @@ class ManualActivityPresenterTest {
         fixture.activityDefaults = """{"visibility":"followers"}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
                 .visibility
                 .eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
@@ -253,17 +267,19 @@ class ManualActivityPresenterTest {
         fixture.activityDefaults = """{"visibility":"followers"}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.durationMinutes.setTextAndPlaceCursorAtEnd("30")
             defaulted.eventSink(ManualActivityEvent.Save)
@@ -280,17 +296,19 @@ class ManualActivityPresenterTest {
         fixture.spacesAlpha = null
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val form = awaitItem()
             assertEquals(Visibility.PUBLIC, form.visibility.activity, "the Followers default isn't read from a space the PDS can't host")
             assertFalse(form.visibility.canChoose)
@@ -308,17 +326,19 @@ class ManualActivityPresenterTest {
     fun aSessionFromBeforeTheSpaceScopeIsAskedToSignInAgain() = runTest {
         fixture.scope = "atproto transition:generic"
         val repos = fixture.repos()
-        presenterTestOf({
-            ManualActivityPresenter(
-                FakeNavigator(ManualActivityScreen),
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    FakeNavigator(ManualActivityScreen),
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             val form = awaitItem()
             assertFalse(form.visibility.canChoose)
             assertFalse(form.visibility.spacesUnsupported, "the PDS supports spaces: signing in again lifts it")
@@ -331,17 +351,19 @@ class ManualActivityPresenterTest {
         fixture.activityDefaults = """{"visibility":"public","details":{"dive":"self"}}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             var state = awaitUntil { it.visibility.tierOf(DetailCategory.START_TIME) != null }
             assertEquals(listOf(DetailCategory.START_TIME), state.visibility.categories.map { it.category }, "no distance, no pace")
             // A pace needs a time as well as a distance.
@@ -383,17 +405,19 @@ class ManualActivityPresenterTest {
             )
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({
-            ManualActivityPresenter(
-                navigator,
-                repos.activities,
-                repos.units,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
             awaitItem().type.eventSink(ActivityTypeEvent.Select(ActivityType(Sport.RIDE)))
             val ride = awaitUntil { it.gear.selected.isNotEmpty() }
             assertEquals(listOf(tarmac), ride.gear.selected)

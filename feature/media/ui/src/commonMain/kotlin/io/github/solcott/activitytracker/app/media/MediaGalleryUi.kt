@@ -142,7 +142,7 @@ private fun Pager(state: MediaGalleryState, modifier: Modifier = Modifier) {
         modifier.fillMaxSize().focusRequester(focus).focusable().onKeyEvent { event ->
             event.type == KeyEventType.KeyDown &&
                 pageKey(event.key, onPage = { go(pager.currentPage + it) }, onBack = { state.eventSink(MediaGalleryEvent.Back) })
-        }
+        },
     ) {
         HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = !state.zoomed, beyondViewportPageCount = 1, key = { it }) { page
             ->

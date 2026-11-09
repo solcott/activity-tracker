@@ -108,7 +108,7 @@ class ActivityStreamsTest {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 
@@ -498,7 +498,7 @@ class ActivityStreamsTest {
                     did = alice,
                     time = "2026-10-15T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertEquals(0L, zoneRows())
@@ -638,7 +638,7 @@ class ActivityStreamsTest {
                     torqueEffectivenessLeft = listOf(8000, 8100, 7900),
                     smO2 = listOf(655),
                     legSpringStiffness = listOf(950, 951, 952),
-                )
+                ),
             )
         assertEquals(listOf(8000, 8100, 7900), bounded.torqueEffectivenessLeft)
         assertEquals(listOf(950, 951, 952), bounded.legSpringStiffness)
@@ -675,7 +675,7 @@ class ActivityStreamsTest {
         val output = client.streamsFor(alice).output()
         assertEquals(workout, output.data, "a valid blob is served unchanged")
         assertTrue(
-            StreamChannel.LENGTHS in output.channels && StreamChannel.SETS in output.channels && StreamChannel.LEGS in output.channels
+            StreamChannel.LENGTHS in output.channels && StreamChannel.SETS in output.channels && StreamChannel.LEGS in output.channels,
         )
     }
 
@@ -693,7 +693,7 @@ class ActivityStreamsTest {
                         },
                     legs =
                         List(ActivityStreamsViews.MAX_LEGS + 10) { Leg(it, -1, long, subSport = long, avgHeartRate = 999, calories = -1) },
-                )
+                ),
             )
         val lap = bounded.laps!!.single()
         assertEquals(0, lap.calories)

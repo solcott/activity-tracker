@@ -63,7 +63,7 @@ class BskyBlockBackfillTest {
                         else -> page(emptyList(), cursor = null)
                     }
                 respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
-            }
+            },
         )
     private val backfill = BskyBlockBackfill(db, indexer, http, PdsLookup { "https://pds.test" }, clock)
 
@@ -86,7 +86,7 @@ class BskyBlockBackfillTest {
                 rkey = "self",
                 record = AtJson.parseToJsonElement("""{"displayName":"Alice"}""").jsonObject,
                 cid = "bafyself",
-            )
+            ),
         )
     }
 

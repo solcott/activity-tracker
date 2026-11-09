@@ -18,7 +18,7 @@ class ManagingAppTest {
     fun idComesFromTheDocumentNotTheUrl() = runTest {
         serves(
             """{"id":"#activity_appview","type":"ActivityTrackerAppView","serviceEndpoint":"https://tunnel.example"},
-               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"https://tunnel.example"}"""
+               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"https://tunnel.example"}""",
         )
         assertEquals("did:web:tunnel.example#activitytracker_space", ManagingApp.resolve(network.client, "http://localhost:8081/"))
     }

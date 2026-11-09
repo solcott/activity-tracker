@@ -125,14 +125,14 @@ private fun invitePairRuleHolds(): Op<Boolean> {
         exists(
             ActivityInvites.select(ActivityInvites.rkey).where {
                 (ActivityInvites.inviterDid eq p.inviterDid) and (ActivityInvites.rkey eq p.inviteRkey)
-            }
+            },
         )
     val copies = Activities.alias("copies")
     val namesOriginal =
         exists(
             copies.select(copies[Activities.uri]).where {
                 (copies[Activities.uri] eq p.copyUri) and (copies[Activities.copyOf] eq p.originalUri)
-            }
+            },
         )
     return invite and namesOriginal and not(leftGroup(p.originalUri)) and not(blocked(p.inviterDid, p.inviteeDid))
 }

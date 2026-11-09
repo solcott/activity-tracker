@@ -101,7 +101,7 @@ class TimelinePostsTest {
                     }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private val posts = LocalPosts()

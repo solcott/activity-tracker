@@ -71,7 +71,7 @@ class TrailTagsTest {
                     put("type", "route")
                     put("route", kind)
                     name?.let { put("name", it) }
-                }
+                },
             )
         assertEquals(setOf(RIDE), route("mtb"))
         assertEquals(setOf(RIDE), route("bicycle"))

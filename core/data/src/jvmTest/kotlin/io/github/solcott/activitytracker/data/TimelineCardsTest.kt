@@ -78,7 +78,7 @@ class TimelineCardsTest {
                                         TimelineItem.Activity(view(did, "3ka")),
                                         TimelineItem.ImportCard(card),
                                         TimelineItem.Activity(view(bob, "3kb")),
-                                    )
+                                    ),
                                 )
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), output), headers = json)
                     }
@@ -89,7 +89,7 @@ class TimelineCardsTest {
                     }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private suspend fun feed(): FeedRepository {

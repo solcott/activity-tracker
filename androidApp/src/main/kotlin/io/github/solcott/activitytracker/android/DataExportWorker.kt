@@ -51,13 +51,15 @@ internal constructor(
         var last: DataExportProgress? = null
         val left =
             try {
-                runExport({ progress ->
-                    last = progress
-                    if (progress != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
-                        shown = TimeSource.Monotonic.markNow()
-                        foreground(progress)
-                    }
-                })
+                runExport(
+                    { progress ->
+                        last = progress
+                        if (progress != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
+                            shown = TimeSource.Monotonic.markNow()
+                            foreground(progress)
+                        }
+                    },
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") _: Exception) {
@@ -122,7 +124,7 @@ internal constructor(
             val manager = context.getSystemService(NotificationManager::class.java)
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 manager.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, context.getString(R.string.export_channel), NotificationManager.IMPORTANCE_DEFAULT)
+                    NotificationChannel(CHANNEL_ID, context.getString(R.string.export_channel), NotificationManager.IMPORTANCE_DEFAULT),
                 )
             }
             val open =

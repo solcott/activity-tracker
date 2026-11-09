@@ -16,7 +16,7 @@ internal fun uploadsProgressNotification(context: Context, title: String): Notif
     val manager = context.getSystemService(NotificationManager::class.java)
     if (manager.getNotificationChannel(UPLOADS_CHANNEL_ID) == null) {
         manager.createNotificationChannel(
-            NotificationChannel(UPLOADS_CHANNEL_ID, context.getString(R.string.uploads_channel), NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(UPLOADS_CHANNEL_ID, context.getString(R.string.uploads_channel), NotificationManager.IMPORTANCE_LOW),
         )
     }
     return NotificationCompat.Builder(context, UPLOADS_CHANNEL_ID)

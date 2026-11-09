@@ -72,7 +72,7 @@ class SpaceMediaTest {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 
@@ -200,7 +200,7 @@ class SpaceMediaTest {
         assertTrue(
             listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
                 Nsid.FEED_ACTIVITY_SOURCE in Indexer.spaceCollections(it)
-            }
+            },
         )
         val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3ksrc").encodeURLParameter()}")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -230,7 +230,7 @@ class SpaceMediaTest {
         assertTrue(
             listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
                 Nsid.FEED_ACTIVITY_DEVICES in Indexer.spaceCollections(it)
-            }
+            },
         )
         val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3kdev").encodeURLParameter()}")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -263,7 +263,7 @@ class SpaceMediaTest {
             assertTrue(
                 listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
                     collection in Indexer.spaceCollections(it)
-                }
+                },
             )
         }
         val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3kzon").encodeURLParameter()}")
@@ -389,7 +389,7 @@ class SpaceMediaTest {
             StreamSource { _, _, origin ->
                 origins += origin
                 streams
-            }
+            },
         )
         follow(bob, alice)
         postSpace("3kfol", Visibility.FOLLOWERS, record(1))
@@ -403,7 +403,7 @@ class SpaceMediaTest {
                         """{"activity":"${uri("3kfol")}","visibility":"public","channels":["heartRate"],""" +
                             """"createdAt":"2026-10-01T07:31:00Z",""" +
                             """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${blobCid(streams)}"},""" +
-                            """"mimeType":"application/json","size":40}}"""
+                            """"mimeType":"application/json","size":40}}""",
                     )
                     .jsonObject,
             )

@@ -71,7 +71,7 @@ class SegmentMayorsPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

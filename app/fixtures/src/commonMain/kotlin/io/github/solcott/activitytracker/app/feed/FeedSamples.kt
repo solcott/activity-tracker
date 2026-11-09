@@ -102,8 +102,8 @@ object FeedSamples {
                         TimelineItem.ImportCard(importCard),
                         TimelineItem.Activity(activities[0]),
                         TimelineItem.Activity(activities[1]),
-                    )
-                )
+                    ),
+                ),
             )
 
     /** Loaded, with Bob's shared proposal the viewer may vote on and an adopted one above and between the activities (feed/posts). */
@@ -116,8 +116,8 @@ object FeedSamples {
                             TimelineItem.Activity(activities[0]),
                             TimelineItem.Post(fakeAdoptedPost()),
                             TimelineItem.Activity(activities[1]),
-                        )
-                    )
+                        ),
+                    ),
                 )
                 .copy(reporting = Reporting(available = true))
 
@@ -136,8 +136,8 @@ object FeedSamples {
                             TimelineItem.Post(fakeQuote()),
                             TimelineItem.Post(fakeQuoteOfQuote()),
                             TimelineItem.Post(fakeUnavailableQuote()),
-                        )
-                    )
+                        ),
+                    ),
                 )
                 .copy(reporting = Reporting(available = true))
 

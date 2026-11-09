@@ -168,9 +168,9 @@ object ThresholdHistorySamples {
                             chart = null,
                             undatedCount = 1,
                             change = null,
-                        )
+                        ),
                     ),
-            )
+            ),
         )
 
     val all: Map<String, ThresholdHistoryState>

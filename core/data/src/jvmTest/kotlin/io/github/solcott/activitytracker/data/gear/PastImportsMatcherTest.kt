@@ -58,7 +58,7 @@ class PastImportsMatcherTest {
                     model = "1052",
                     serialNumber = "3236233426",
                 ),
-            )
+            ),
         )
     private val withoutMeter = ImportedDevices(listOf(ImportedDevice(recorder = true, manufacturer = "Garmin", model = "Fenix 7")))
 

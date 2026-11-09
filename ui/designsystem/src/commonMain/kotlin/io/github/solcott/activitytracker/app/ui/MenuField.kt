@@ -74,7 +74,7 @@ fun MenuField(
                                 onClick = {
                                     expanded = false
                                     item.onClick()
-                                }
+                                },
                             )
                         }
                         .toImmutableList()

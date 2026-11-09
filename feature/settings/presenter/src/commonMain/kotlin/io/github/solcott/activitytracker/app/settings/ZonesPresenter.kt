@@ -155,7 +155,7 @@ private fun TrainingDetails.settingTimes(before: TrainingDetails, now: Instant):
         setAt =
             Threshold.all
                 .filter { ThresholdUpdates.value(this, it) != ThresholdUpdates.value(before, it) }
-                .fold(before.setAt) { setAt, threshold -> ThresholdUpdates.markSet(setAt, threshold, now) }
+                .fold(before.setAt) { setAt, threshold -> ThresholdUpdates.markSet(setAt, threshold, now) },
     )
 
 @Composable

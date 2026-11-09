@@ -94,9 +94,9 @@ abstract class ComposeStabilityCheck : DefaultTask() {
                     violations.forEach { appendLine("  $it") }
                     append(
                         "Annotate the type @Immutable or @Stable, use ImmutableList instead of List, or (for types we don't own) " +
-                            "add it to config/compose/stability.conf. Reports: build/compose/reports."
+                            "add it to config/compose/stability.conf. Reports: build/compose/reports.",
                     )
-                }
+                },
             )
         }
         marker.get().asFile.writeText("OK\n")

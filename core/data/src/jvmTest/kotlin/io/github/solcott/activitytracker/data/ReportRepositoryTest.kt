@@ -53,7 +53,7 @@ class ReportRepositoryTest {
                         }
                     else -> respond("""{"error":"NotFound"}""", HttpStatusCode.NotFound, json)
                 }
-            }
+            },
         )
 
     private suspend fun reports(labelerDid: Did? = labeler) =

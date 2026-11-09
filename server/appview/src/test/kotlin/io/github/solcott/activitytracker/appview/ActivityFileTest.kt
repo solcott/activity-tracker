@@ -27,7 +27,7 @@ class ActivityFileTest {
                         type = File.ACTIVITY
                         manufacturer = Manufacturer.GARMIN
                         timeCreated = start
-                    }
+                    },
                 )
                 write(
                     SessionMesg().apply {
@@ -36,7 +36,7 @@ class ActivityFileTest {
                         sport = FitSport.CYCLING
                         totalElapsedTime = 3600f
                         totalDistance = 30_000f
-                    }
+                    },
                 )
                 close()
             }

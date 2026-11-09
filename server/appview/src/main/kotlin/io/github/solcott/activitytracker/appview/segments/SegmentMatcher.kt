@@ -349,11 +349,13 @@ class SegmentMatcher(
         }
         log.info("Segment job {} {} failed, retrying in {}: {}", job.kind, job.subject, delay, e.message)
         db.tx {
-            SegmentMatchJobs.update({
-                (SegmentMatchJobs.kind eq job.kind) and
-                    (SegmentMatchJobs.subjectUri eq job.subject) and
-                    (SegmentMatchJobs.enqueuedAt eq job.enqueuedAt)
-            }) {
+            SegmentMatchJobs.update(
+                {
+                    (SegmentMatchJobs.kind eq job.kind) and
+                        (SegmentMatchJobs.subjectUri eq job.subject) and
+                        (SegmentMatchJobs.enqueuedAt eq job.enqueuedAt)
+                },
+            ) {
                 it[SegmentMatchJobs.attempts] = attempts
                 it[enqueuedAt] = (clock.now() + delay).toEpochMilliseconds()
             }
@@ -636,12 +638,12 @@ class SegmentMatcher(
                     exists(
                         SegmentTrackCells.select(SegmentTrackCells.cell).where {
                             (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                        }
+                        },
                     ) and
                         exists(
                             Activities.select(Activities.uri).where {
                                 (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
-                            }
+                            },
                         )
                 }
                 .map { it[SegmentTracks.uri] }
@@ -696,7 +698,7 @@ class SegmentMatcher(
                 exists(
                     SegmentTrackCells.select(SegmentTrackCells.cell).where {
                         (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                    }
+                    },
                 )
             }
             .map { it[SegmentTracks.uri] }

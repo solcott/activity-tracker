@@ -178,7 +178,7 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                                 when (state.units) {
                                     UnitSystem.Metric -> Res.string.edit_profile_weight_kg
                                     UnitSystem.Imperial -> Res.string.edit_profile_weight_lb
-                                }
+                                },
                             ),
                         isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

@@ -227,7 +227,7 @@ private fun SegmentRow(segment: SegmentView, metersAway: Int?, selected: Boolean
         Modifier.fillMaxWidth()
             .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
         Text(details, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

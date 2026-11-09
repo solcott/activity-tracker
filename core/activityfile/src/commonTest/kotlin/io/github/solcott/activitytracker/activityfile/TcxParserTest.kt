@@ -91,7 +91,7 @@ class TcxParserTest {
                 )
         assertEquals(
             ImportedDevices(
-                listOf(ImportedDevice(recorder = true, model = "Forerunner 965", serialNumber = "3456789012", softwareVersion = "19.02"))
+                listOf(ImportedDevice(recorder = true, model = "Forerunner 965", serialNumber = "3456789012", softwareVersion = "19.02")),
             ),
             DecodedActivityMapper.map(TcxParser.parse(run)).devices,
             "the Creator's version, not the exporting Author's",

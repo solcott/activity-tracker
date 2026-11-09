@@ -148,7 +148,7 @@ open class SpaceSyncFixture {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafyrepo$rkey",
-            )
+            ),
         )
     }
 
@@ -171,7 +171,7 @@ open class SpaceSyncFixture {
             contentType(ContentType.Application.Json)
             setBody(
                 """{"space":"${space.value}","repo":"${space.authority.value}","repoRev":"$rev",""" +
-                    """"data":{"${'$'}bytes":"AAAA"},"spaceRev":"$rev"}"""
+                    """"data":{"${'$'}bytes":"AAAA"},"spaceRev":"$rev"}""",
             )
         }
 

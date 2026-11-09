@@ -62,7 +62,7 @@ private fun opfsWrite(path: String, bytes: JsAny): Promise<JsAny?> =
   const writable = await file.createWritable();
   try { await writable.write(bytes); await writable.close(); } catch (e) { await writable.abort(); throw e; }
   return null;
-})()"""
+})()""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -76,7 +76,7 @@ private fun opfsRead(path: String): Promise<JsAny?> =
     const file = await (await dir.getFileHandle(name)).getFile();
     return new Uint8Array(await file.arrayBuffer());
   } catch (e) { if (e.name === 'NotFoundError') return null; throw e; }
-})()"""
+})()""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -94,7 +94,7 @@ private fun opfsList(path: String): Promise<JsArray<JsString>> =
   };
   await walk(dir, '');
   return out;
-})()"""
+})()""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -106,7 +106,7 @@ private fun opfsChildren(path: String): Promise<JsArray<JsString>> =
   try { for (const part of path.split('/')) dir = await dir.getDirectoryHandle(part); } catch (e) { if (e.name === 'NotFoundError') return out; throw e; }
   for await (const name of dir.keys()) out.push(name);
   return out;
-})()"""
+})()""",
     )
 
 @Suppress("UnusedParameter") // Used by the JS body.
@@ -119,7 +119,7 @@ private fun opfsDelete(path: String, name: String): Promise<JsAny?> =
     await dir.removeEntry(name, { recursive: true });
   } catch (e) { if (e.name !== 'NotFoundError') throw e; }
   return null;
-})()"""
+})()""",
     )
 
 private fun storageFree(): Promise<JsNumber?> =

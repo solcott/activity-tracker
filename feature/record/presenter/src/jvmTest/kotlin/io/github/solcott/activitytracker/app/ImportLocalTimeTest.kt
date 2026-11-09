@@ -48,33 +48,42 @@ class ImportLocalTimeTest {
                             null,
                             null,
                             null,
-                        )
+                        ),
                     ),
                 laps = emptyList(),
                 records = emptyList(),
                 activityTimestampMillis = end.toEpochMilliseconds(),
                 activityLocalTimestampSeconds = end.epochSeconds - FIT_EPOCH_SECONDS + 3600,
             )
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                FakeNavigator(ImportActivityScreen()),
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    FakeNavigator(ImportActivityScreen()),
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Run.fit", bytes))
             assertEquals(PartOfDay.Morning, awaitUntil { it.preview != null }.defaultTitle?.partOfDay)
             cancelAndIgnoreRemainingEvents()

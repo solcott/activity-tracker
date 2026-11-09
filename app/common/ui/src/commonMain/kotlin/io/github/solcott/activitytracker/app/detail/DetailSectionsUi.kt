@@ -50,7 +50,7 @@ internal fun sectionTitle(section: DetailSection): String =
             DetailSection.Sets -> Res.string.detail_section_sets
             DetailSection.Laps -> Res.string.detail_section_laps
             DetailSection.Device -> Res.string.detail_section_device
-        }
+        },
     )
 
 /** Gaps shared by the page's cards, so every card lines up. */

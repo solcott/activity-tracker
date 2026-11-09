@@ -175,12 +175,14 @@ class ThresholdHistoryPresenterTest {
         val repos = fixture.repos()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock)
-                else ThresholdHistoryState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock)
+                    else ThresholdHistoryState()
+                }
+            },
+        ) {
             awaitUntil { it.groups != null && !it.content.isLoading }
             registry.saveAll()
             shown = false

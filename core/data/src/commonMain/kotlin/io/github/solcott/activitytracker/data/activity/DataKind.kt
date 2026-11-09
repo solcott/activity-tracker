@@ -25,7 +25,7 @@ enum class DataKind(val channels: List<String>) {
             StreamChannel.PEDAL_SMOOTHNESS_RIGHT,
             StreamChannel.PCO_LEFT,
             StreamChannel.PCO_RIGHT,
-        )
+        ),
     ),
     Cadence(listOf(StreamChannel.CADENCE)),
     Temperature(listOf(StreamChannel.TEMPERATURE, StreamChannel.CORE_TEMPERATURE)),
@@ -38,7 +38,7 @@ enum class DataKind(val channels: List<String>) {
             StreamChannel.STANCE_TIME_BALANCE,
             StreamChannel.FORM_POWER,
             StreamChannel.LEG_SPRING_STIFFNESS,
-        )
+        ),
     ),
     Laps(listOf(CombinedChannel.LAPS, CombinedChannel.SETS, CombinedChannel.LENGTHS)),
     Dive(
@@ -52,7 +52,7 @@ enum class DataKind(val channels: List<String>) {
             StreamChannel.DECO_STOP_DEPTH,
             StreamChannel.DECO_STOP_TIME,
             StreamChannel.TTS,
-        )
+        ),
     );
 
     companion object {

@@ -73,7 +73,7 @@ class DecodedTemperatureTest {
     fun withoutTemperatureSamplesTheSessionAverageStands() {
         val activity =
             DecodedActivityMapper.map(
-                DecodedActivity(file, listOf(session(temperature = 19.0)), emptyList(), listOf(record(0, temperature = null)))
+                DecodedActivity(file, listOf(session(temperature = 19.0)), emptyList(), listOf(record(0, temperature = null))),
             )
 
         assertEquals(19.0, activity.avgTemperatureCelsius)

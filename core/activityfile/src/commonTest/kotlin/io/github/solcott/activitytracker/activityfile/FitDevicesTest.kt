@@ -43,8 +43,8 @@ class FitDevicesTest {
                         serialNumber = "3400000001",
                         connection = DeviceConnection.LOCAL,
                         softwareVersion = "21.19",
-                    )
-                )
+                    ),
+                ),
             ),
             devices,
         )
@@ -98,7 +98,7 @@ class FitDevicesTest {
                     kind = SensorKind.HeartRate,
                     manufacturer = "Polar",
                     connection = DeviceConnection.BLUETOOTH_LOW_ENERGY,
-                )
+                ),
             ),
             strap,
         )

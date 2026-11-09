@@ -64,7 +64,7 @@ class OwnActivitiesByStartTest {
                         GetAuthorActivitiesByStart.Output(listOf(view("3kd3", "2024-05-12T20:00:00Z")))
                     }
                 respond(AtJson.encodeToString(GetAuthorActivitiesByStart.Output.serializer(), output), headers = json)
-            }
+            },
         )
 
     @Test

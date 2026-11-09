@@ -86,7 +86,7 @@ fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) 
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.gear_collection_delete), destructive = true) {
                         state.eventSink(GearCollectionEvent.ConfirmDelete)
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(GearCollectionEvent.DismissDelete) },

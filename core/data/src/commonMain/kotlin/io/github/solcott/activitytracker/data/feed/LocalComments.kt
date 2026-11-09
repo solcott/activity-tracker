@@ -181,7 +181,7 @@ private fun Held.afterLookup(activity: AtUri, requested: Collection<AtUri>, retu
             asked.mapNotNull { uri ->
                 val entry = held[uri] ?: return@mapNotNull null
                 uri to entry.copy(seen = listed[uri]?.let { LocalComments.Seen.Listed(it.hidden == true) } ?: LocalComments.Seen.Absent)
-            }
+            },
         )
     }
 }

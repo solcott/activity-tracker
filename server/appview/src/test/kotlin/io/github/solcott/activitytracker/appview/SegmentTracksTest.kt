@@ -302,7 +302,7 @@ class SegmentTracksTest {
                     did = alice,
                     time = "2026-10-15T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertEquals(emptyList(), trackRows())
@@ -334,7 +334,7 @@ class SegmentTracksTest {
                     rkey = "self",
                     record = AtJson.parseToJsonElement(brackets()).jsonObject,
                     cid = "bafybrackets",
-                )
+                ),
             )
         }
         assertEquals(0L, bracketRows())
@@ -372,7 +372,7 @@ class SegmentTracksTest {
                     did = alice,
                     time = "2026-10-22T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertNull(storedBrackets())
@@ -394,7 +394,7 @@ class SegmentTracksTest {
                     rkey = "3ka",
                     record = AtJson.parseToJsonElement(activityRecord).jsonObject,
                     cid = "bafy3ka",
-                )
+                ),
             )
         }
         setMatching(true)

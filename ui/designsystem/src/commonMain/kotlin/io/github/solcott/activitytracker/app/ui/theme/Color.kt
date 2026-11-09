@@ -145,7 +145,7 @@ internal val IosDark: ColorScheme =
 @Immutable
 data class IosColors(
     /** `tertiarySystemFill`: translucent, so an unselected chip shows on a page and on a sheet alike. */
-    val tertiaryFill: Color
+    val tertiaryFill: Color,
 )
 
 internal val IosLightColors = IosColors(tertiaryFill = Color(0x1F767680))

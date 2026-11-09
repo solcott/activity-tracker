@@ -33,7 +33,7 @@ fun FollowListPresenter(
                     when (screen.kind) {
                         FollowListKind.Followers -> profiles.followersPage(screen.actor, cursor)
                         FollowListKind.Following -> profiles.followsPage(screen.actor, cursor)
-                    }
+                    },
                 )
             }
         }

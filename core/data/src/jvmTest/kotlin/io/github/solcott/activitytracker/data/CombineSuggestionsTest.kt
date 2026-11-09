@@ -98,7 +98,7 @@ class CombineSuggestionsTest {
                     }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private val tracks =

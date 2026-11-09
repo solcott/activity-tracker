@@ -457,11 +457,13 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) presenter() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) presenter() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(ActivityDetailEvent.LoadMoreComments)
             awaitUntil { it.loaded()?.comments?.roots?.size == 45 }
             registry.saveAll()

@@ -87,7 +87,7 @@ class DiveSitePresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

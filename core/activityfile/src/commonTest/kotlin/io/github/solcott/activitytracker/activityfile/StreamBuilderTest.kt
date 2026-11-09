@@ -170,7 +170,7 @@ class StreamBuilderTest {
                         ebikeAssistLevelPercent = 50,
                         formPowerWatts = 70.0,
                         legSpringStiffnessKnPerM = 9.5,
-                    )
+                    ),
             )
         val data = build(records)
         assertEquals(listOf(8000), data.torqueEffectivenessLeft, "hundredths of a percent")
@@ -317,7 +317,7 @@ class StreamBuilderTest {
                             summary("running", at(0), 600.0),
                             summary("cycling", at(660), 1200.0),
                         ),
-                )
+                ),
             )
         assertEquals(listOf(Length(0, 30, SwimStroke.FREESTYLE, 14), Length(30, 25, rest = true)), data.lengths)
         assertEquals(listOf(WorkoutSet(0, 40, category = "bench_press", exercise = "bench_press", reps = 8, weight = 60_000)), data.sets)
@@ -334,7 +334,7 @@ class StreamBuilderTest {
                     at(0),
                     emptyList(),
                     sets = listOf(DecodedSet(at(0), null, 40.0, "rest", null, null, null, null)),
-                )
+                ),
             )
         assertEquals(listOf(WorkoutSet(0, 40, rest = true)), data.sets)
         assertEquals(emptyList(), data.time)

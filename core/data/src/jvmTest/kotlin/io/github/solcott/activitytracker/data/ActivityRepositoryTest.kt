@@ -186,7 +186,7 @@ class ActivityRepositoryTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -555,7 +555,7 @@ class ActivityRepositoryTest {
                             ActivityMedia.Image(photoBlob("bafkold1")),
                             ActivityMedia.Unknown(video),
                             ActivityMedia.Image(photoBlob("bafkold2")),
-                        )
+                        ),
                 ),
             )
         val activity = ownActivity("3kdive").copy(media = listOf(ActivityMediaView.Image("https://appview/img/media/$did/bafkold2")))

@@ -95,7 +95,7 @@ class StarredSegmentsPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

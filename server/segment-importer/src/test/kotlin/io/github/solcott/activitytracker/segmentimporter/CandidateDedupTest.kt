@@ -28,7 +28,7 @@ class CandidateDedupTest {
     fun anAgencyTrailWinsOverTheSameOsmTrail() {
         val kept =
             CandidateDedup.dedup(
-                listOf(candidate("aaa", kind = TrailKind.RELATION), candidate("zzz", nudged, group = RIDE, source = "agency"))
+                listOf(candidate("aaa", kind = TrailKind.RELATION), candidate("zzz", nudged, group = RIDE, source = "agency")),
             )
         assertEquals(listOf("zzz"), kept.map { it.id })
     }
@@ -42,7 +42,7 @@ class CandidateDedupTest {
                     candidate("agency-hike", nudged, group = HIKE, source = "agency"),
                     candidate("osm-hike", group = HIKE),
                     candidate("osm-ride"),
-                )
+                ),
             )
         assertEquals(setOf("agency-hike", "osm-ride"), kept.map { it.id }.toSet())
     }

@@ -115,7 +115,7 @@ class ImportSaveWorkerTest {
                     factory {
                         runs++
                         error("the plan can't be opened")
-                    }
+                    },
                 )
                 .build(),
         )
@@ -143,7 +143,7 @@ class ImportSaveWorkerTest {
                     factory {
                         runs++
                         true
-                    }
+                    },
                 )
                 .build(),
         )

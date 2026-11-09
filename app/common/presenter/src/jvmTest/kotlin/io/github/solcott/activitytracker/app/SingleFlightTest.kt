@@ -20,7 +20,7 @@ class SingleFlightTest {
             flights.launch("save") {
                 runs++
                 gate.await()
-            }
+            },
         )
         assertTrue(flights.isRunning("save"))
         assertNull(flights.launch("save") { runs++ })

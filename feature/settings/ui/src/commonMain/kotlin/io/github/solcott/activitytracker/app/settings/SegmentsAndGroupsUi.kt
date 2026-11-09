@@ -132,7 +132,7 @@ private fun SegmentMatching(state: SegmentsAndGroupsState, modifier: Modifier = 
                     !state.canUseSegments -> Res.string.settings_segments_sign_in_again
                     state.savingSegments || state.savingLeaderboards || state.savingBracketBoards -> Res.string.settings_saving
                     else -> Res.string.settings_segments_help
-                }
+                },
             ),
             style = MaterialTheme.typography.bodySmall,
         )
@@ -165,7 +165,7 @@ private fun GroupActivities(state: SegmentsAndGroupsState, modifier: Modifier = 
                     !state.canUseGroups -> Res.string.settings_groups_sign_in_again
                     state.savingGroups -> Res.string.settings_saving
                     else -> Res.string.settings_groups_help
-                }
+                },
             ),
             style = MaterialTheme.typography.bodySmall,
         )

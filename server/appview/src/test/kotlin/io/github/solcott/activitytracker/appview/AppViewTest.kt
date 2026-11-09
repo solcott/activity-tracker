@@ -93,7 +93,7 @@ class AppViewTest {
                 rkey = rkey,
                 record = if (op == "delete") null else AtJson.parseToJsonElement(record).jsonObject,
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 

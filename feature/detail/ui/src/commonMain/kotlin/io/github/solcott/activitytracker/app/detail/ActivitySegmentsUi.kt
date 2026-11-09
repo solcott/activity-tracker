@@ -152,7 +152,7 @@ private fun SpanBar(start: Float, end: Float, modifier: Modifier = Modifier) {
                 val left = if (layoutDirection == LayoutDirection.Rtl) size.width * (1 - end) else size.width * start
                 val width = (size.width * (end - start)).coerceAtLeast(size.height)
                 drawRoundRect(fill, Offset(left, 0f), Size(width, size.height), CornerRadius(size.height / 2))
-            }
+            },
     )
 }
 

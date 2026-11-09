@@ -40,7 +40,7 @@ class FeedPositionMigrationTest {
             "INSERT INTO activities (uri, cid, author_did, record, sport, started_at, sort_at, indexed_at, elapsed_time) VALUES " +
                 "('at://did:plc:alice/recent', 'bafy', 'did:plc:alice', '{}', 'ride', ${posted - 7_200_000}, $posted, $posted, 3600), " +
                 "('at://did:plc:alice/old', 'bafy', 'did:plc:alice', '{}', 'ride', ${posted - 365 * day}, ${posted + 1}, $posted, 3600), " +
-                "('at://did:plc:alice/legacy', 'bafy', 'did:plc:alice', '{}', 'ride', ${posted - 400 * day}, $posted, $posted, NULL)"
+                "('at://did:plc:alice/legacy', 'bafy', 'did:plc:alice', '{}', 'ride', ${posted - 400 * day}, $posted, $posted, NULL)",
         )
 
         DatabaseFactory.migrate(source)
@@ -69,7 +69,7 @@ class FeedPositionMigrationTest {
         execute(
             "INSERT INTO activities (uri, cid, author_did, record, sport, started_at, sort_at, indexed_at, elapsed_time) VALUES " +
                 "('at://did:plc:alice/endless', 'bafy', 'did:plc:alice', '{}', 'ride', 0, 0, 0, ${Long.MAX_VALUE}), " +
-                "('at://did:plc:alice/negative', 'bafy', 'did:plc:alice', '{}', 'ride', 0, 0, 0, -5)"
+                "('at://did:plc:alice/negative', 'bafy', 'did:plc:alice', '{}', 'ride', 0, 0, 0, -5)",
         )
 
         DatabaseFactory.migrate(source)

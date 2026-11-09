@@ -146,7 +146,7 @@ fun EditGearPresenter(
             model.setTextAndPlaceCursorAtEnd(record.model.orEmpty())
             weight.setTextAndPlaceCursorAtEnd(record.weight?.toString().orEmpty())
             startingDistance.setTextAndPlaceCursorAtEnd(
-                record.startingDistance?.let { formatStarting(UnitConversions.toDistanceUnit(it.toDouble(), units)) }.orEmpty()
+                record.startingDistance?.let { formatStarting(UnitConversions.toDistanceUnit(it.toDouble(), units)) }.orEmpty(),
             )
             startingTime.setTextAndPlaceCursorAtEnd(record.startingTime?.let { formatStarting(it / SECONDS_PER_HOUR) }.orEmpty())
             notes.setTextAndPlaceCursorAtEnd(record.notes.orEmpty())

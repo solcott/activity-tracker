@@ -61,26 +61,35 @@ class ImportGearTest {
             )
         val repos = fixture.repos()
         val ride = mtbRide()
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                FakeNavigator(ImportActivityScreen()),
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { ride },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { ride }),
-            )
-        }) {
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    FakeNavigator(ImportActivityScreen()),
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { ride },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { ride },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
             val read = awaitUntil { it.preview != null && it.gear?.selected?.isNotEmpty() == true }
             assertEquals(listOf(gearUri("3stumpy"), gearUri("3helmet")), read.gear?.selected?.toList())
@@ -112,7 +121,7 @@ class ImportGearTest {
                         avgPowerWatts = null,
                         avgCadence = null,
                         avgTemperatureCelsius = null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records = (0L..10L).map { i -> DecodedSample(millis(i * 60), null, null, null, 140, 80, 180, null, null, null) },

@@ -50,7 +50,7 @@ fun DepthProfile(profile: ImmutableList<DepthPreviewPoint>, description: String,
         remember(profile) {
             val first = profile.first().seconds
             CartesianChartModel(
-                LineCartesianLayerModel.build { series(profile.map { it.seconds - first }, profile.map { -it.depthMeters }) }
+                LineCartesianLayerModel.build { series(profile.map { it.seconds - first }, profile.map { -it.depthMeters }) },
             )
         }
     val deepest = remember(profile) { profile.maxOf { it.depthMeters }.coerceAtLeast(1.0) }

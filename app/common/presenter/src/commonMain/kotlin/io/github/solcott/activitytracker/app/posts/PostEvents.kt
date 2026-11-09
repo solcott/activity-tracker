@@ -88,7 +88,7 @@ fun rememberPostEventSink(
                 is PostEvent.Report -> {
                     val post = event.post
                     currentReporting.eventSink(
-                        ReportingEvent.Open(ReportTarget.Post(post.uri, post.cid, post.author.did), post.author.shownName)
+                        ReportingEvent.Open(ReportTarget.Post(post.uri, post.cid, post.author.did), post.author.shownName),
                     )
                 }
             }

@@ -50,7 +50,7 @@ class SpaceFixtures {
                 """{"id":"${alice.value}","alsoKnownAs":["at://alice.test"],
                    "verificationMethod":[{"id":"${alice.value}#atproto_kem","type":"Multikey","controller":"${alice.value}",
                      "publicKeyMultibase":"${aliceKem().multikey}"}],
-                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://alicepds.test"}]}"""
+                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://alicepds.test"}]}""",
             )
         }
         network.on("pds.test/xrpc/com.atproto.space.getDelegationToken") { respondJson("""{"token":"delegation-${++delegations}"}""") }

@@ -106,7 +106,7 @@ class StageTest {
                     listOf(1L, 2L),
                     kind = TrailKind.NAMED,
                     whole = true,
-                )
+                ),
             )
         val out = java.io.StringWriter()
         write(out, "us-vermont", null, candidates)

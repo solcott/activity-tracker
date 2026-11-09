@@ -101,7 +101,7 @@ class PostRepostsTest : PostTestBase() {
                     did = bob,
                     time = "2026-10-14T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(bob, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertEquals(0, repostRows())

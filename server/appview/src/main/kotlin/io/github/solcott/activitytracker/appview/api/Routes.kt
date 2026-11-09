@@ -329,7 +329,7 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
                     put("type", "Multikey")
                     put("controller", config.serviceDid)
                     put("publicKeyMultibase", signingKey.publicMultibase)
-                }
+                },
             )
         }
     }
@@ -339,7 +339,7 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
                 put("id", "#activity_appview")
                 put("type", "ActivityTrackerAppView")
                 put("serviceEndpoint", config.publicUrl)
-            }
+            },
         )
         // Athletes' spaces name this service as their managingApp, so their PDSes call checkUserAccess here.
         add(
@@ -347,7 +347,7 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
                 put("id", "#${AppViewConfig.MANAGING_APP_FRAGMENT}")
                 put("type", "AtprotoSpaceService")
                 put("serviceEndpoint", config.publicUrl)
-            }
+            },
         )
         // The AppView registers this id for athletes' tier spaces, so their PDSes send notifyWrite here.
         add(
@@ -355,7 +355,7 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
                 put("id", "#${AppViewConfig.SYNCER_FRAGMENT}")
                 put("type", "AtprotoSpaceSyncer")
                 put("serviceEndpoint", config.publicUrl)
-            }
+            },
         )
     }
 }

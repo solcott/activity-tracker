@@ -43,7 +43,7 @@ internal fun ItemRow(item: UploadItem, state: UploadsState) {
                         Modifier.clickable(role = Role.Button) { state.eventSink(UploadsEvent.OpenActivity(uri.value)) }
                     } else {
                         Modifier
-                    }
+                    },
                 )
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

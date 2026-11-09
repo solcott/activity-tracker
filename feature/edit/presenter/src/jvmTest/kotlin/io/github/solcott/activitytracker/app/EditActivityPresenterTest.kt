@@ -262,7 +262,7 @@ class EditActivityPresenterTest {
 
                     else -> respond("""{"error":"NotFound"}""", HttpStatusCode.NotFound, json)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -426,11 +426,13 @@ class EditActivityPresenterTest {
         var saveable by mutableStateOf(SaveableStateRegistry(null) { true })
         var shown by mutableStateOf(true)
         val present = presenter(FakeNavigator(EditActivityScreen(uri)))
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides retained, LocalSaveableStateRegistry provides saveable) {
-                if (shown) present() else hidden
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides retained, LocalSaveableStateRegistry provides saveable) {
+                    if (shown) present() else hidden
+                }
+            },
+        ) {
             val loaded = awaitLoaded()
             loaded.title.setTextAndPlaceCursorAtEnd("Blue Hole at dawn")
             val reads = activityReads

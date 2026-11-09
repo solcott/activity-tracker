@@ -76,13 +76,15 @@ class MediaGalleryPresenterTest : ActivityTestBase() {
         val r = repos()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the screen it opened while it's on the back stack.
-                if (shown) MediaGalleryPresenter(gallery, FakeNavigator(gallery), r.feed, r.profiles, r.blocks, r.reports)
-                else MediaGalleryState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the screen it opened while it's on the back stack.
+                    if (shown) MediaGalleryPresenter(gallery, FakeNavigator(gallery), r.feed, r.profiles, r.blocks, r.reports)
+                    else MediaGalleryState()
+                }
+            },
+        ) {
             awaitUntil { it.items.isNotEmpty() && !it.content.isLoading }
             registry.saveAll()
             shown = false

@@ -65,7 +65,7 @@ class ImportLogbookPresenterTest {
                 ${times.mapIndexed { i, time -> logbookDive(i + 1, time, site = i == 0) }.joinToString("\n")}
               </repetitiongroup></profiledata>
             </uddf>"""
-                .encodeToByteArray()
+                .encodeToByteArray(),
         )
 
     /** A dive Alice already logged, as the AppView serves it. */
@@ -104,33 +104,35 @@ class ImportLogbookPresenterTest {
     fun aLogbookListsItsDivesAllSelected() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             val read = awaitUntil { it.batch != null }
             assertNull(read.preview, "a logbook isn't one activity")
@@ -159,36 +161,38 @@ class ImportLogbookPresenterTest {
                     .toByteArray()
                     .decodeToString()
                     .replaceFirst("<waypoint><depth>18</depth>", "<waypoint><heartrate>120</heartrate><depth>18</depth>")
-                    .encodeToByteArray()
+                    .encodeToByteArray(),
             )
         val repos = fixture.repos()
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                FakeNavigator(ImportActivityScreen()),
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    FakeNavigator(ImportActivityScreen()),
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", withHeartRate))
             val read = awaitUntil { it.batch != null && it.visibility.tierOf(DetailCategory.HEART_RATE) != null }
             assertTrue(read.visibility.tierOf(DetailCategory.DIVE) != null, "every dive has depths")
@@ -204,33 +208,35 @@ class ImportLogbookPresenterTest {
     fun divesToggleOneByOneAndAllAtOnce() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             val read = awaitUntil { it.batch != null }
 
@@ -254,33 +260,35 @@ class ImportLogbookPresenterTest {
     fun savingALogbookImportsTheSelectedDivesInThePickedZone() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.ItemToggled(1))
             awaitUntil { it.batch?.selectedCount == 2 }.eventSink(ImportActivityEvent.FileZoneChanged(0, "America/Cancun"))
@@ -304,33 +312,35 @@ class ImportLogbookPresenterTest {
     fun eachPickedDiveKeepsTheLogbookNamingItsEntry() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             val read = awaitUntil { it.batch != null }
             assertFalse(read.originalTooLarge)
@@ -543,7 +553,7 @@ class ImportLogbookPresenterTest {
         val repos = fixture.repos()
         fixture.failWrites = true
         repos.activities.publish(
-            ActivityDraft(ActivityType(Sport.DIVE), "Blue Hole", null, Instant.parse("2026-09-20T10:00:00Z"), 2400.seconds)
+            ActivityDraft(ActivityType(Sport.DIVE), "Blue Hole", null, Instant.parse("2026-09-20T10:00:00Z"), 2400.seconds),
         )
         fixture.ownActivities = emptyList()
         presenterTestOf(presenter(repos, FakeNavigator(ImportActivityScreen()))) {
@@ -590,33 +600,35 @@ class ImportLogbookPresenterTest {
         // Logged at 10:00 UTC; the file's 10:02 clock read in Cancun (UTC-5) is 15:02 UTC: the same length, 5 hours off.
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "America/Cancun"))
             val cancun = awaitUntil {
@@ -638,33 +650,35 @@ class ImportLogbookPresenterTest {
         val repos = fixture.repos()
         fixture.ownActivities = null
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03", "14:30")))
             val read = awaitUntil { it.duplicateCheck == DuplicateCheck.Failed && it.batch != null }
             val batch = assertNotNull(read.batch)
@@ -680,33 +694,35 @@ class ImportLogbookPresenterTest {
         val repos = fixture.repos()
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { error("not FIT") },
+                    ),
+                )
+            },
+        ) {
             // Both computers' copies of the logged dive: one matches the log, the other the log too.
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
             awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "UTC"))

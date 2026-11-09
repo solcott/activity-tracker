@@ -78,7 +78,7 @@ internal fun EditCombinationSheet(
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.detail_remove_member, name), destructive = true) {
                         eventSink(ActivityDetailEvent.RemoveMember(member.uri))
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { removing = null },

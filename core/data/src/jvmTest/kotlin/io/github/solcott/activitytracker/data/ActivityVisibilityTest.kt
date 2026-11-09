@@ -129,7 +129,7 @@ class ActivityVisibilityTest {
         val s = session()
         val uri =
             s.activities.publish(
-                draft().copy(visibility = Visibility.MUTUALS, categories = mapOf(DetailCategory.HEART_RATE to Visibility.PUBLIC))
+                draft().copy(visibility = Visibility.MUTUALS, categories = mapOf(DetailCategory.HEART_RATE to Visibility.PUBLIC)),
             )
         assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!))
     }
@@ -172,7 +172,7 @@ class ActivityVisibilityTest {
         val streams = stored.getValue(Visibility.FOLLOWERS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/$rkey")
         assertFalse("visibility" in streams)
         assertTrue(
-            streams.getValue("data").jsonObject.getValue("ref").jsonObject.getValue("\$link").jsonPrimitive.content.startsWith("bafyblob")
+            streams.getValue("data").jsonObject.getValue("ref").jsonObject.getValue("\$link").jsonPrimitive.content.startsWith("bafyblob"),
         )
         // Every record is written to its new place before any leaves the old one.
         assertEquals(

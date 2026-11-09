@@ -67,7 +67,7 @@ internal fun effectiveFollow(): Op<Boolean> =
         exists(
             FollowApprovals.select(FollowApprovals.uri).where {
                 (FollowApprovals.authorDid eq Follows.subjectDid) and (FollowApprovals.subjectDid eq Follows.authorDid)
-            }
+            },
         )) and not(blocked(Follows.authorDid, Follows.subjectDid))
 
 /**

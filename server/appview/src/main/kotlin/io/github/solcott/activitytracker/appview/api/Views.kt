@@ -551,7 +551,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                         (recorded[Activities.uri] eq Activities.recordingOf) and
                             recorded[Activities.recordingOf].isNull() and
                             (recorded[Activities.visibility] eq Activities.visibility)
-                    }
+                    },
                 )
         // A member of a combined activity shows only as that one.
         return notRecording and not(isMember())

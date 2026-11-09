@@ -62,7 +62,7 @@ class ProfileFollowTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

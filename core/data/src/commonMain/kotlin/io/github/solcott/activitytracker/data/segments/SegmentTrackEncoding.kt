@@ -24,6 +24,6 @@ fun segmentTrackData(pieces: List<List<LocationSample>>, origin: Instant): Segme
                 t = piece.map { (it.time - origin).inWholeSeconds },
                 alt = if (withAltitude) piece.map { s -> s.altitude?.let { (it * CM_PER_M).roundToInt() } } else null,
             )
-        }
+        },
     )
 }

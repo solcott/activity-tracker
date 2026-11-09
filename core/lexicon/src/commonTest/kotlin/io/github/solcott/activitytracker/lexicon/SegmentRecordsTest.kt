@@ -73,7 +73,7 @@ class SegmentRecordsTest {
                 listOf(
                     SegmentTrackPiece(lat = listOf(515_000_000), lng = listOf(-1_275_000), t = listOf(0L), alt = listOf(null)),
                     SegmentTrackPiece(lat = listOf(515_100_000), lng = listOf(-1_265_000), t = listOf(600L)),
-                )
+                ),
             )
         val dataJson = AtJson.encodeToJsonElement(SegmentTrackData.serializer(), data).jsonObject
         assertFalse("alt" in dataJson["pieces"]!!.jsonArray[1].jsonObject)

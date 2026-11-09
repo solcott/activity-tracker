@@ -16,7 +16,7 @@ internal object TcxParser {
         walkXml(xml, onStart = state::start, onEnd = state::end)
         if (!state.sawActivity) {
             activityFileError(
-                if (state.sawCourse) "This TCX file is a course rather than a recorded activity" else "No activity in this TCX file"
+                if (state.sawCourse) "This TCX file is a course rather than a recorded activity" else "No activity in this TCX file",
             )
         }
         return DecodedActivity(

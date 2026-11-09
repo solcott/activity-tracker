@@ -147,8 +147,8 @@ object SegmentSamples {
                             elevationGain = 84,
                             elevationLoss = 12,
                             elevationSource = SegmentElevationSource.TERRAIN,
-                        )
-                    )
+                        ),
+                    ),
                 )
                 .copy(profile = fakeProfile(1_600, maxGradePercent = 12.4) { at -> CLIMB_START_M + climbProfile(at) })
 
@@ -162,8 +162,8 @@ object SegmentSamples {
                         elevationGain = 84,
                         elevationLoss = 12,
                         elevationSource = SegmentElevationSource.EFFORTS,
-                    )
-                )
+                    ),
+                ),
             )
 
     private const val CLIMB_START_M = 1_420.0

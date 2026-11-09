@@ -39,25 +39,27 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         block: suspend ((ActivityDetailEvent) -> Unit, List<String>) -> Unit,
     ) {
         val r = repos()
-        presenterTestOf({
-            ActivityDetailPresenter(
-                screen,
-                navigator,
-                r.feed,
-                r.activities,
-                r.profiles,
-                localLikes,
-                r.manager,
-                r.exporter,
-                r.units,
-                r.suggestions,
-                r.blocks,
-                r.reports,
-                r.segments,
-                r.diveSites,
-                r.groups,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ActivityDetailPresenter(
+                    screen,
+                    navigator,
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    localLikes,
+                    r.manager,
+                    r.exporter,
+                    r.units,
+                    r.suggestions,
+                    r.blocks,
+                    r.reports,
+                    r.segments,
+                    r.diveSites,
+                    r.groups,
+                )
+            },
+        ) {
             val state = awaitUntil { s -> s.loaded()?.let(ready) == true }.page()!!
             block(
                 state.eventSink,
@@ -163,7 +165,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
      * their privacy zones. The track and the zones load apart, and until the zones are read its ends are [RouteEnds.HIDDEN].
      */
     private suspend fun canCreate(
-        settled: (ActivityDetailPage) -> Boolean = { it.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } }
+        settled: (ActivityDetailPage) -> Boolean = { it.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } },
     ): Boolean {
         var can = false
         detail(repos()) {

@@ -253,7 +253,7 @@ class SpaceClientTest {
         f.network.on("alicepds.test/xrpc/com.atproto.space.getSpace") {
             respondJson(
                 """{"uri":"${f.aliceSpace.value}","policy":""" +
-                    """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}"""
+                    """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}""",
             )
         }
         assertEquals(SpacePolicy.Managed("did:web:a.test#x"), owner().getSpace(f.aliceSpace)?.policy)

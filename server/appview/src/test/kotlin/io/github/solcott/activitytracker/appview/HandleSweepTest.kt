@@ -53,7 +53,7 @@ class HandleSweepTest {
                 rkey = "self",
                 record = AtJson.parseToJsonElement("""{"displayName":"x"}""").jsonObject,
                 cid = "bafy${did.last()}",
-            )
+            ),
         )
 
     private fun stored(did: String) =

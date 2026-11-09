@@ -202,7 +202,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                         (ActivityStreams.activityUri eq activity.value) and
                             visibleTo(viewer, ActivityStreams.visibility, ActivityStreams.authorDid, ActivityStreams.activityUri, null) and
                             activityVisible(activity, viewer)
-                    }
+                    },
                 )
                 .takeIf { it.isNotEmpty() } ?: return null
         // Zones are their own record, stored (and so served) at the narrowest of the heart rate, power and training visibilities.

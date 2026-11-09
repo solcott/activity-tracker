@@ -336,11 +336,13 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) presenter() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) presenter() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(loaded.comments.items.single().uri))
             awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }

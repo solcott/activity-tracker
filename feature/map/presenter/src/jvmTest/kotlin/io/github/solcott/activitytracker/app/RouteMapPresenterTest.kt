@@ -116,12 +116,14 @@ class RouteMapPresenterTest : ActivityTestBase() {
         val r = repos()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the screen it opened while it's on the back stack.
-                if (shown) RouteMapPresenter(mapScreen, FakeNavigator(mapScreen), r.feed, r.activities, r.profiles) else RouteMapState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the screen it opened while it's on the back stack.
+                    if (shown) RouteMapPresenter(mapScreen, FakeNavigator(mapScreen), r.feed, r.activities, r.profiles) else RouteMapState()
+                }
+            },
+        ) {
             awaitUntil { it.route != null && !it.content.isLoading }
             registry.saveAll()
             shown = false

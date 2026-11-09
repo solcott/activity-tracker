@@ -24,7 +24,7 @@ suspend fun ProfileRepository.saveTraining(training: TrainingDetails?, visibilit
             details = ProfileDetails(training = training),
             visibility = DetailsVisibility(training = visibility),
             groups = setOf(DetailGroup.Training),
-        )
+        ),
     )
 }
 

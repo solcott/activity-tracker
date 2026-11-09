@@ -40,19 +40,21 @@ class LeavePresenterTest {
     ) {
         val repos = fixture.repos()
         before(repos)
-        presenterTestOf({
-            LeavePresenter(
-                screen,
-                navigator,
-                repos.clients,
-                repos.auth,
-                repos.leaveJob,
-                SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
-                repos.exports,
-                repos.dataExporter,
-                repos.recorder,
-            )
-        }) {
+        presenterTestOf(
+            {
+                LeavePresenter(
+                    screen,
+                    navigator,
+                    repos.clients,
+                    repos.auth,
+                    repos.leaveJob,
+                    SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
+                    repos.exports,
+                    repos.dataExporter,
+                    repos.recorder,
+                )
+            },
+        ) {
             block(repos)
         }
     }
@@ -94,7 +96,7 @@ class LeavePresenterTest {
             before = {
                 it.queueARun()
                 it.queueARun("2026-10-15T06:12:00Z")
-            }
+            },
         ) {
             assertEquals(2, awaitUntil { state -> state.pending != null }.pending?.changes)
             cancelAndIgnoreRemainingEvents()

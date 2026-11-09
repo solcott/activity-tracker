@@ -62,11 +62,13 @@ class CombineSuggestionsTest : CombineTestBase() {
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
         val page = detail(uri("3kpm"), FakeNavigator(ActivityDetailScreen(uri("3kpm"), true)), suggestOnOpen = true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) page() else ActivityDetailState(eventSink = {})
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) page() else ActivityDetailState(eventSink = {})
+                }
+            },
+        ) {
             awaitUntil { it.suggestion()?.asPrompt == true }.page()!!.eventSink(ActivityDetailEvent.NotNowSuggestion)
             awaitUntil { it.suggestion()?.asPrompt == false }
             registry.saveAll()

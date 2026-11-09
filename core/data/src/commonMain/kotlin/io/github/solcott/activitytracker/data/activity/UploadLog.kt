@@ -41,7 +41,7 @@ internal object UploadLog {
                     queuedAt = now.toEpochMilliseconds(),
                     recordJson =
                         if (kind == UploadItemEntity.KIND_NEW) AtJson.encodeToString(ActivityRecord.serializer(), record) else null,
-                )
+                ),
             )
     }
 
@@ -78,7 +78,7 @@ internal object UploadLog {
                     queuedAt = at,
                     finishedAt = at,
                     skipped = true,
-                )
+                ),
             )
     }
 

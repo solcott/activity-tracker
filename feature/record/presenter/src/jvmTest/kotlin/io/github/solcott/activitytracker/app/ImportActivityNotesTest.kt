@@ -47,7 +47,7 @@ class ImportActivityNotesTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records =
@@ -74,33 +74,35 @@ class ImportActivityNotesTest {
     fun theFilesNotesPrefillTheDescriptionForTheAthleteToEdit() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run.copy(notes = "Turtle at the wall") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { run.copy(notes = "Turtle at the wall") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run.copy(notes = "Turtle at the wall") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))
             val read = awaitUntil { it.details != null }
             val details = assertNotNull(read.details)
@@ -118,33 +120,35 @@ class ImportActivityNotesTest {
     fun clearedNotesAreNotPublished() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run.copy(notes = "Turtle at the wall") },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.newDeviceChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-                repos.saveStore,
-                repos.saves,
-                BatchSaveRunner(
-                    repos.saveStore,
-                    repos.saves,
-                    repos.clients,
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
                     repos.activities,
                     repos.manager,
                     ActivityFileReader { run.copy(notes = "Turtle at the wall") },
-                ),
-            )
-        }) {
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run.copy(notes = "Turtle at the wall") },
+                    ),
+                )
+            },
+        ) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))
             val read = awaitUntil { it.details != null }
             assertNotNull(read.details).description.clearText()

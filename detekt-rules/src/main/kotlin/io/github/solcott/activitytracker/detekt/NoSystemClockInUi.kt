@@ -32,7 +32,7 @@ class NoSystemClockInUi(config: Config) :
             Finding(
                 Entity.from(expression),
                 "${expression.text} can't be fixed by a preview or test. Read $replacement (app.ui) instead.",
-            )
+            ),
         )
     }
 }

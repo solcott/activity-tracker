@@ -152,5 +152,5 @@ private fun unavailableText(unavailable: CreateSegmentUnavailable): String =
             CreateSegmentUnavailable.NoRoute -> Res.string.segment_create_no_route
             CreateSegmentUnavailable.NoSportGroup -> Res.string.segment_create_no_sport
             CreateSegmentUnavailable.AllHidden -> Res.string.segment_create_all_hidden
-        }
+        },
     )

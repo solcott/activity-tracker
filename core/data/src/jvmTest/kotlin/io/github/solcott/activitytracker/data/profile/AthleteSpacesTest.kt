@@ -89,7 +89,7 @@ class AthleteSpacesTest {
                         )
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

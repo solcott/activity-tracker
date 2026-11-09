@@ -137,7 +137,7 @@ internal data class Shares(val byTier: Map<String, PlaceShare>) {
                         channels = streams.filterValues { it == tier }.keys,
                         core = tier == core,
                     )
-                }
+                },
             )
 
         /** Every category of an activity at [activity] at its tier in [tiers], for summary fields and channels alike. */
@@ -183,7 +183,7 @@ internal class StoredActivity(val uri: AtUri, val places: Map<String, PlaceRecor
                         channels = held.streams?.heldCategories().orEmpty(),
                         core = held.streams?.holdsCore() == true,
                     )
-                }
+                },
             )
         }
 

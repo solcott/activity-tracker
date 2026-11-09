@@ -54,7 +54,7 @@ class AlpineCandidatesTest {
             TrailTags.relationGroups(mapOf("type" to "route", "route" to "piste", "piste:type" to "downhill", "name" to "Lynx")),
         )
         assertTrue(
-            TrailTags.relationGroups(mapOf("type" to "route", "route" to "piste", "piste:type" to "nordic", "name" to "Loop")).isEmpty()
+            TrailTags.relationGroups(mapOf("type" to "route", "route" to "piste", "piste:type" to "nordic", "name" to "Loop")).isEmpty(),
         )
     }
 

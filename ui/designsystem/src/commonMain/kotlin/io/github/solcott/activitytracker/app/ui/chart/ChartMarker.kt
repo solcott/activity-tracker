@@ -116,7 +116,7 @@ internal fun ReadoutOverlay(readout: ChartReadout, modifier: Modifier = Modifier
                 val topLeft = labelTopLeft(dots, labelSize, bounds)
                 drawRoundRect(colors.inverseSurface, topLeft, labelSize, CornerRadius(LABEL_CORNER.toPx()))
                 drawText(text, topLeft = topLeft + Offset(padX, padY))
-            }
+            },
     )
 }
 

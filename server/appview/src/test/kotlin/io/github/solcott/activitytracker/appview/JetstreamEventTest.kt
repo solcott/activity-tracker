@@ -17,7 +17,7 @@ class JetstreamEventTest {
                  "did":"did:plc:alice","time":"2026-09-30T19:46:02.329308Z","witnessedAt":"2026-09-30T19:46:02.329309Z",
                  "rev":"3l3qo2vutsw2b","operation":"create","collection":"app.activitytracker.feed.activity","rkey":"3kabc",
                  "cid":"bafyabc","record":{"${'$'}type":"app.activitytracker.feed.activity","sport":"run"}}}
-                """
+                """,
             )
         val commit = assertIs<JetstreamEvent.Commit>(event)
         assertEquals("did:plc:alice", commit.did)
@@ -35,7 +35,7 @@ class JetstreamEventTest {
                 {"${'$'}type":"message","payload":{"${'$'}type":"network.bsky.jetstream.subscribeEvents#account","seq":7,
                  "did":"did:plc:alice","time":"2026-09-30T19:46:02.000001Z",
                  "account":{"seq":99,"did":"did:plc:alice","time":"2026-09-30T19:46:01Z","active":false,"status":"deleted"}}}
-                """
+                """,
             )
         val account = assertIs<JetstreamEvent.Account>(event)
         assertEquals("deleted", account.account.status)
@@ -49,16 +49,16 @@ class JetstreamEventTest {
                 """
                 {"${'$'}type":"message","payload":{"${'$'}type":"network.bsky.jetstream.subscribeEvents#info",
                  "name":"OutdatedCursor"}}
-                """
-            )
+                """,
+            ),
         )
         assertNull(
             JetstreamEvent.decodeFrame(
                 """
                 {"${'$'}type":"message","payload":{"${'$'}type":"network.bsky.jetstream.subscribeEvents#sync",
                  "seq":1,"did":"did:plc:a","time":"2026-09-30T00:00:00Z","sync":{}}}
-                """
-            )
+                """,
+            ),
         )
     }
 

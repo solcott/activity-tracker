@@ -143,13 +143,13 @@ interface DataExportDao {
     suspend fun activityPaths(id: String): List<String>
 
     @Query(
-        "UPDATE data_export_item SET state = 'done', path = :path WHERE exportId = :id AND kind = :kind AND place = :place AND `key` = :key"
+        "UPDATE data_export_item SET state = 'done', path = :path WHERE exportId = :id AND kind = :kind AND place = :place AND `key` = :key",
     )
     suspend fun done(id: String, kind: String, place: String, key: String, path: String?)
 
     @Query(
         "UPDATE data_export_item SET state = 'skipped', reason = :reason " +
-            "WHERE exportId = :id AND kind = :kind AND place = :place AND `key` = :key"
+            "WHERE exportId = :id AND kind = :kind AND place = :place AND `key` = :key",
     )
     suspend fun skip(id: String, kind: String, place: String, key: String, reason: String)
 

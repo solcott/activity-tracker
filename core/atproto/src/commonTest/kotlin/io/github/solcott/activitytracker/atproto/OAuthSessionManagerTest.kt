@@ -75,7 +75,7 @@ class OAuthSessionManagerTest {
             issued++
             respondJson(
                 """{"access_token":"at$issued","token_type":"DPoP","refresh_token":"rt$issued","expires_in":3600,
-                   "scope":"atproto","sub":"$sub"}"""
+                   "scope":"atproto","sub":"$sub"}""",
             )
         }
 

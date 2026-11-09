@@ -414,7 +414,7 @@ class ImportSensorGearTest {
                     ${(1..5).joinToString("\n") { n -> logbookDive(n, "${8 + n}:00") }}
                   </repetitiongroup></profiledata>
                 </uddf>"""
-                    .encodeToByteArray()
+                    .encodeToByteArray(),
             )
         presenterTestOf(presenter(repos, FakeNavigator(ImportActivityScreen()))) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -542,7 +542,7 @@ private fun edgeRide(start: Instant, profile: String?): DecodedActivity {
                     avgCadence = null,
                     avgTemperatureCelsius = null,
                     sportProfileName = profile,
-                )
+                ),
             ),
         laps = emptyList(),
         records = (0L..10L).map { i -> DecodedSample(millis(i * 60), null, null, null, 140, 80, 180, null, null, null) },

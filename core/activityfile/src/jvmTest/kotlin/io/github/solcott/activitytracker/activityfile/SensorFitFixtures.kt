@@ -79,7 +79,7 @@ object SensorFitFixtures {
                     timestamp = DateTime(startedAt)
                     setEventTimestamp(0, anchor)
                     setFilteredBpm(0, readings.first().second)
-                }
+                },
             ) +
                 readings.drop(1).chunked(8).map { chunk ->
                     HrMesg().apply {

@@ -169,7 +169,7 @@ internal class GroupPairing(private val db: Database, private val blobs: SpaceBl
                     exists(
                         SegmentTrackCells.select(SegmentTrackCells.cell).where {
                             (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inSubQuery myCells)
-                        }
+                        },
                     )
             }
             .limit(MAX_CANDIDATES)

@@ -126,7 +126,7 @@ open class CombineTestBase {
                 ?.joinToString(",", prefix = ""","combined":{"members":[""", postfix = """],"sources":[]}""") { "\"${uri(it)}\"" }
                 .orEmpty()
         return AtJson.parseToJsonElement(
-                """{"sport":"ride","startedAt":"$start","elapsedTime":${minutes * 60},"createdAt":"$start"$combined}"""
+                """{"sport":"ride","startedAt":"$start","elapsedTime":${minutes * 60},"createdAt":"$start"$combined}""",
             )
             .jsonObject
     }
@@ -242,7 +242,7 @@ open class CombineTestBase {
 
                     else -> notFound()
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

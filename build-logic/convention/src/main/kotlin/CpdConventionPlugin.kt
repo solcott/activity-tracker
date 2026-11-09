@@ -36,7 +36,7 @@ class CpdConventionPlugin : Plugin<Project> {
                         include("**/src/*Main/kotlin/**/*.kt", "**/src/main/kotlin/**/*.kt")
                         // Generated sources, and other checkouts (agent worktrees) nested in this one.
                         exclude("**/build/**", ".claude/**", ".agents/**", ".gradle/**", "**/node_modules/**")
-                    }
+                    },
                 )
                 val reportsDir = layout.buildDirectory.dir("reports/cpd")
                 // Every report needs a location, required or not; the plugin's apply would otherwise set them.

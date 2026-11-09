@@ -63,7 +63,7 @@ class RecentActivityTypesTest {
             .upsert(
                 cached.mapIndexed { i, view ->
                     FeedItemEntity("author:${did.value}", view.uri.value, i, AtJson.encodeToString(ActivityView.serializer(), view))
-                }
+                },
             )
         val recent = RecentActivityTypes(db, clients, FeedRepository(db, clients, LocalLikes(), Logger))
 

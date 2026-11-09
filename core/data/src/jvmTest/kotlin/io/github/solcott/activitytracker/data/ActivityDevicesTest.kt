@@ -72,7 +72,7 @@ class ActivityDevicesTest {
 
     private suspend fun sourceFile() =
         requireNotNull(
-            SourceFile.prepare(fit, "Morning_Ride.fit", ImportedFile(ActivityFileFormat.FIT, gzipped = false, activities = emptyList()))
+            SourceFile.prepare(fit, "Morning_Ride.fit", ImportedFile(ActivityFileFormat.FIT, gzipped = false, activities = emptyList())),
         )
 
     private suspend fun draft(
@@ -191,7 +191,7 @@ class ActivityDevicesTest {
                         batteryPercent = 140,
                         batteryMillivolts = -1,
                         operatingSeconds = -5,
-                    )
+                    ),
                 ),
                 activityProfile = "P".repeat(200),
             )
@@ -248,7 +248,7 @@ class ActivityDevicesTest {
             pds.session(
                 scope =
                     "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY}" +
-                        "&collection=${Nsid.FEED_ACTIVITY_STREAMS}&collection=${Nsid.FEED_ACTIVITY_SOURCE}&collection=${Nsid.FEED_ACTIVITY_TRACK}"
+                        "&collection=${Nsid.FEED_ACTIVITY_STREAMS}&collection=${Nsid.FEED_ACTIVITY_SOURCE}&collection=${Nsid.FEED_ACTIVITY_TRACK}",
             )
         val uri = s.activities.publish(draft())
 

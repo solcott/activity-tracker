@@ -130,7 +130,7 @@ class ActivityExporterTest {
                             distance = null,
                             device = "Shearwater Perdix 2",
                             dive = ActivityDive(maxDepth = 1800, diveNumber = 7, gases = listOf(ActivityDiveGas(21, 0))),
-                        )
+                        ),
                 )
             }
 
@@ -277,7 +277,7 @@ class ActivityExporterTest {
             view(uri, Sport.RIDE).let {
                 it.copy(
                     record =
-                        it.record.copy(subSport = SubSport.ROAD, avgPower = 245, normalizedPower = 250, calories = 300, frontShifts = 2)
+                        it.record.copy(subSport = SubSport.ROAD, avgPower = 245, normalizedPower = 250, calories = 300, frontShifts = 2),
                 )
             }
 
@@ -299,7 +299,7 @@ class ActivityExporterTest {
         val dive =
             view(uri, Sport.DIVE).let {
                 it.copy(
-                    record = it.record.copy(distance = null, dive = ActivityDive(maxDepth = 1800, gases = listOf(ActivityDiveGas(21, 0))))
+                    record = it.record.copy(distance = null, dive = ActivityDive(maxDepth = 1800, gases = listOf(ActivityDiveGas(21, 0)))),
                 )
             }
 
@@ -320,7 +320,7 @@ class ActivityExporterTest {
                         it.record.copy(
                             distance = null,
                             dive = ActivityDive(maxDepth = 1800, diveNumber = 7, gases = listOf(ActivityDiveGas(32, 0))),
-                        )
+                        ),
                 )
             }
 

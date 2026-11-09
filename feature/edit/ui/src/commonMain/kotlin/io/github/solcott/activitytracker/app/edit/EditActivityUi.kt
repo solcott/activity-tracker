@@ -122,7 +122,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.edit_discard), destructive = true) {
                         state.eventSink(EditActivityEvent.Discard)
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(EditActivityEvent.KeepEditing) },
@@ -136,7 +136,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.activity_visibility_narrowing_confirm)) {
                         state.eventSink(EditActivityEvent.ConfirmNarrowing)
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(EditActivityEvent.CancelNarrowing) },
@@ -150,7 +150,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.core_charts_widening_confirm)) {
                         state.eventSink(EditActivityEvent.ConfirmCoreCharts)
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(EditActivityEvent.CancelCoreCharts) },

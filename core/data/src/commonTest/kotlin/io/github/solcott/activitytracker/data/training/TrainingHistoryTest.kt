@@ -70,7 +70,7 @@ class TrainingHistoryTest {
                 setAt = TrainingSetAt(functionalThresholdPower = day1),
                 sports =
                     listOf(
-                        SportTraining(Sport.RIDE, functionalThresholdPower = 270, setAt = TrainingSetAt(functionalThresholdPower = day2))
+                        SportTraining(Sport.RIDE, functionalThresholdPower = 270, setAt = TrainingSetAt(functionalThresholdPower = day2)),
                     ),
             )
 

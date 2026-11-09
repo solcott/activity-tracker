@@ -239,7 +239,7 @@ class CandidateCutterTest {
                         node(500, 44.5, -72.5)
                         node(501, north(44.5, 800.0), -72.5)
                         way(600, 500, 501, tags = path("Far Trail"))
-                    }
+                    },
                 )
                 .filter { it.name.startsWith("Oak") }
                 .map { it.id }
@@ -274,7 +274,7 @@ class CandidateCutterTest {
         file.writeText(
             """{"type":"Feature","properties":{"TRAIL_NAME":"Long","TRAIL_CN":"1001","BMP":0,""" +
                 """"HIKER_PEDESTRIAN_MANAGED":"01/01-12/31"},"geometry":{"type":"LineString","coordinates":[$coordinates]}}""" +
-                "\n"
+                "\n",
         )
         val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
         return candidates(data, HIKE)

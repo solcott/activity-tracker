@@ -100,7 +100,7 @@ fun ActivityCard(
                                 Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime)
                             },
                         )
-                        .toImmutableList()
+                        .toImmutableList(),
             )
             if (isOwn) CategoryLocks(remember(activity) { narrowerCategories(activity) })
             val gaps = remember(record) { record.polylineGaps?.toImmutableList() }

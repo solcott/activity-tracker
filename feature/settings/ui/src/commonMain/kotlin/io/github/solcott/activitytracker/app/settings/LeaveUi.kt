@@ -130,7 +130,7 @@ private fun Summary(state: LeaveState) {
                 stringResource(Res.string.leave_deleted_interactions),
                 stringResource(Res.string.leave_deleted_segments),
                 stringResource(Res.string.leave_deleted_settings),
-            )
+            ),
         )
     }
     AppListSection(stringResource(Res.string.leave_section_stays)) {
@@ -138,7 +138,7 @@ private fun Summary(state: LeaveState) {
             persistentListOf(
                 stringResource(Res.string.leave_stays_account, state.handle),
                 stringResource(Res.string.leave_stays_other_apps),
-            )
+            ),
         )
     }
     AppListSection(stringResource(Res.string.leave_section_places)) { Places(state.places) }
@@ -301,7 +301,7 @@ private fun stepText(step: LeaveStep?): String =
             LeaveStep.Spaces -> Res.string.leave_step_spaces
             LeaveStep.Repo -> Res.string.leave_step_repo
             LeaveStep.Local -> Res.string.leave_step_local
-        }
+        },
     )
 
 @Composable private fun timeOf(instant: Instant): String = instant.toLocalDateTime(LocalTimeZone.current).format(timeFormat())

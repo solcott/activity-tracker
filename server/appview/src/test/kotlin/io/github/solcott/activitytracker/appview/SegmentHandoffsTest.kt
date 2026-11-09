@@ -91,7 +91,7 @@ class SegmentHandoffsTest : SegmentTestBase() {
 
     private fun deleteAccount(did: String) = runBlocking {
         indexer.handle(
-            JetstreamEvent.Account(did, "2026-10-15T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, false, "deleted"))
+            JetstreamEvent.Account(did, "2026-10-15T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, false, "deleted")),
         )
     }
 
@@ -240,7 +240,7 @@ class SegmentHandoffsTest : SegmentTestBase() {
                     sport = "run",
                     segmentKind = "run",
                     line = lineOf(straight),
-                )
+                ),
             ),
             pending(),
         )

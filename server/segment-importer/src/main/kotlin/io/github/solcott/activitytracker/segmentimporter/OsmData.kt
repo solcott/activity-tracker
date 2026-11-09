@@ -134,7 +134,7 @@ internal class NodeCoords(private val ids: LongArray) {
                         addAll(ids)
                         more.keys.forEach(::add)
                     }
-                    .build()
+                    .build(),
             )
         for (i in ids.indices) if (known[i]) merged.set(ids[i], lat[i] / E7, lng[i] / E7)
         for ((id, point) in more) merged.set(id, point.lat, point.lng)

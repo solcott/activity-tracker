@@ -56,12 +56,14 @@ class CombinePresentersTest : CombineTestBase() {
         val pickerOf = picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the screen it opened while it's on the back stack.
-                if (shown) pickerOf() else CombinePickerState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the screen it opened while it's on the back stack.
+                    if (shown) pickerOf() else CombinePickerState()
+                }
+            },
+        ) {
             awaitUntil { it.content.hasLoaded && !it.content.isLoading }
             registry.saveAll()
             shown = false

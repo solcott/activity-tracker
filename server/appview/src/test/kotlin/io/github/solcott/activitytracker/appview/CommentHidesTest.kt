@@ -67,7 +67,7 @@ class CommentHidesTest {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 
@@ -194,7 +194,7 @@ class CommentHidesTest {
                     did = alice,
                     time = "2026-10-14T12:00:00.000000Z",
                     account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
-                )
+                ),
             )
         }
         assertEquals(0L, hideRows())

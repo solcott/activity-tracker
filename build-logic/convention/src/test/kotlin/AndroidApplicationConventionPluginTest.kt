@@ -15,7 +15,7 @@ class AndroidApplicationConventionPluginTest {
                     dependencyResolutionManagement { repositories { google(); mavenCentral() } }
                     include(":app")
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             File(System.getProperty("activitytracker.versionCatalog")).copyTo(resolve("gradle/libs.versions.toml"))
@@ -35,7 +35,7 @@ class AndroidApplicationConventionPluginTest {
                         onVariants { variant -> println("${'$'}{variant.name}.isMinifyEnabled=${'$'}{variant.isMinifyEnabled}") }
                     }
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
         }
 

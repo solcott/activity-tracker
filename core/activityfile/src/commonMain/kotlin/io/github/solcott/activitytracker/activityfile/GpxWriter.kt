@@ -15,7 +15,7 @@ object GpxWriter {
         appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
         appendLine(
             """<gpx version="1.1" creator="activity-tracker" xmlns="http://www.topografix.com/GPX/1/1" """ +
-                """xmlns:gpxtpx="$TRACK_POINT_EXTENSION_NS">"""
+                """xmlns:gpxtpx="$TRACK_POINT_EXTENSION_NS">""",
         )
         appendLine("  <metadata><time>${activity.startedAt}</time></metadata>")
         appendLine("  <trk>")

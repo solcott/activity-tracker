@@ -56,7 +56,7 @@ class RefineTest {
         SegmentGeometry.encodePolyline(
             TrackMath.simplify(points.map { LocationSample(it.lat, it.lng, null, null, null, Instant.DISTANT_PAST) }, tolerance).map {
                 GeoPoint(it.latitude, it.longitude)
-            }
+            },
         )
 
     private val coarse = line(trail(), 5.0)
@@ -65,7 +65,7 @@ class RefineTest {
     private fun segment(line: String, name: String = "Rush") =
         AtJson.parseToJsonElement(
                 """{"${'$'}type":"${Nsid.FEED_SEGMENT}","name":"$name","sport":"ride","line":"$line","source":"osm",""" +
-                    """"license":"ODbL-1.0","createdAt":"2026-10-21T12:00:00Z","later":1}"""
+                    """"license":"ODbL-1.0","createdAt":"2026-10-21T12:00:00Z","later":1}""",
             )
             .jsonObject
 

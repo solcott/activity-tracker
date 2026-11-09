@@ -62,7 +62,7 @@ class ExportWritersTest {
         assertTrue(
             """<trkpt lat="47.6" lon="-122.3"><ele>100</ele><time>2026-09-20T07:00:00Z</time><extensions><power>200</power>""" +
                 "<gpxtpx:TrackPointExtension><gpxtpx:atemp>18.5</gpxtpx:atemp><gpxtpx:hr>120</gpxtpx:hr><gpxtpx:cad>85</gpxtpx:cad>" +
-                "<gpxtpx:speed>11.1</gpxtpx:speed></gpxtpx:TrackPointExtension></extensions></trkpt>" in gpx
+                "<gpxtpx:speed>11.1</gpxtpx:speed></gpxtpx:TrackPointExtension></extensions></trkpt>" in gpx,
         )
         assertEquals(4, Regex("<trkpt ").findAll(gpx).count())
     }

@@ -65,7 +65,7 @@ class FeedOutcomesTest {
                     }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     private suspend fun feed(): FeedRepository {

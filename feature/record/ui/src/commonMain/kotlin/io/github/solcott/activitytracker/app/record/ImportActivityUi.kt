@@ -178,7 +178,7 @@ internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifie
             val progress = state.readProgress
             Text(
                 if (progress == null) stringResource(Res.string.import_reading)
-                else stringResource(Res.string.import_reading_progress, formatWhole(progress.files), formatWhole(progress.activities))
+                else stringResource(Res.string.import_reading_progress, formatWhole(progress.files), formatWhole(progress.activities)),
             )
             AppTextButton(onClick = { state.eventSink(ImportActivityEvent.CancelReading) }) {
                 Text(stringResource(Res.string.action_cancel))

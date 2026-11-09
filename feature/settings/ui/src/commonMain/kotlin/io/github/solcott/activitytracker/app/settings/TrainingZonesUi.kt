@@ -275,5 +275,5 @@ internal fun paceUnitLabel(unit: PaceUnit): String =
             PaceUnit.PerMile -> Res.string.zones_pace_unit_mi
             PaceUnit.Per100Meters -> Res.string.zones_pace_unit_100m
             PaceUnit.Per100Yards -> Res.string.zones_pace_unit_100yd
-        }
+        },
     )

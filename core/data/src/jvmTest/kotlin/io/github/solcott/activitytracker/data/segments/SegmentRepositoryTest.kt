@@ -142,7 +142,7 @@ class SegmentRepositoryTest {
                         else -> return@MockEngine respondError(HttpStatusCode.NotFound)
                     }
                 respond(body, headers = json)
-            }
+            },
         )
 
     @Test
@@ -217,7 +217,7 @@ class SegmentRepositoryTest {
                     if (request.url.encodedPath == "/xrpc/com.atproto.server.getServiceAuth")
                         respond("""{"token":"service-jwt"}""", headers = headersOf("Content-Type", "application/json"))
                     else respondError(HttpStatusCode.ServiceUnavailable)
-                }
+                },
             )
         val (_, _, clients) = signedInTestSession(failing, did = did)
 

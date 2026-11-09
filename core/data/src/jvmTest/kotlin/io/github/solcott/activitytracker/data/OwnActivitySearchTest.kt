@@ -79,7 +79,7 @@ class OwnActivitySearchTest {
                 val next = (offset + pageSize).takeIf { it < inRange.size }?.toString()
                 val output = GetAuthorActivitiesByStart.Output(page, next)
                 respond(AtJson.encodeToString(GetAuthorActivitiesByStart.Output.serializer(), output), headers = json)
-            }
+            },
         )
 
     private fun record(start: Instant) = ActivityRecord(Sport.RUN, start, 3600, Instant.parse("2026-10-01T00:00:00Z"))
@@ -107,7 +107,7 @@ class OwnActivitySearchTest {
                     startedAt = start.toEpochMilliseconds(),
                     queuedAt = 0,
                     recordJson = json,
-                )
+                ),
             )
     }
 

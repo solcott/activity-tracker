@@ -123,7 +123,7 @@ internal suspend fun refineFile(clients: Clients, path: File) {
     for ((id, from, to) in result.renamed) println("Renamed $id: \"${from.orEmpty()}\" -> \"$to\"")
     println(
         "Refined ${result.refined.size} segments from ${file.region}'s candidates; ${result.unchanged.size} unchanged, " +
-            "${result.moved.size} moved, ${result.missing.size} not in this file; renamed ${result.renamed.size}"
+            "${result.moved.size} moved, ${result.missing.size} not in this file; renamed ${result.renamed.size}",
     )
     result.stoppedBy?.let { throw it }
 }

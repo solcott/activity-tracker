@@ -23,7 +23,7 @@ fun combineCueLabel(cue: CombineCue): String =
             CombineCue.SwitchedDevices -> Res.string.combine_cue_switched_devices
             CombineCue.ShuttleOrLift -> Res.string.combine_cue_shuttle
             CombineCue.Break -> Res.string.combine_cue_break
-        }
+        },
     )
 
 /** [activity] as a suggestion names it: its title (or type), then when it started and how long it lasted. */

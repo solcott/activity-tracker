@@ -137,7 +137,7 @@ class ServiceAuthAuthenticatorTest {
             val payload =
                 b64.encode(
                     """{"iss":"did:plc:alice","aud":"did:web:appview.test","lxm":"${GetTimeline.method.nsid}","iat":$iat,"exp":$exp}"""
-                        .encodeToByteArray()
+                        .encodeToByteArray(),
                 )
             return "$header.$payload.c2ln"
         }

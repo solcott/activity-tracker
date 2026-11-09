@@ -72,7 +72,7 @@ class SegmentBrowseReadsTest {
                         )
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     @Test

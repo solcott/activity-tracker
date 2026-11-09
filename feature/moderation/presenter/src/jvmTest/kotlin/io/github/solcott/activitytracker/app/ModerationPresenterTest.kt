@@ -57,7 +57,7 @@ class ModerationPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

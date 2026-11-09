@@ -45,7 +45,7 @@ object XrpcParams {
                     } else {
                         JsonPrimitive(values.first())
                     }
-                }
+                },
             )
         return AtJson.decodeFromJsonElement(serializer, obj.jsonObject)
     }

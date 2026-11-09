@@ -19,8 +19,8 @@ class LoopbackRedirectServerTest {
         val page =
             redirectPage(
                 parseRedirectParams(
-                    "http://127.0.0.1/callback?error=access_denied&error_description=This+request+was+initiated+from+another+device"
-                )
+                    "http://127.0.0.1/callback?error=access_denied&error_description=This+request+was+initiated+from+another+device",
+                ),
             )
 
         assertContains(page, "Sign-in failed: This request was initiated from another device.")

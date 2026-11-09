@@ -167,7 +167,7 @@ private const val HALF_DAY = 12
 private val SLASHED =
     Regex(
         """(?<first>\d{1,2})/(?<second>\d{1,2})/(?<year>\d{4})\s+""" +
-            """(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?\s*(?<meridiem>[AaPp][Mm])?"""
+            """(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?\s*(?<meridiem>[AaPp][Mm])?""",
     )
 private val ISO_LOCAL =
     Regex("""(?<year>\d{4})-(?<month>\d{1,2})-(?<day>\d{1,2})[T ](?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?(?:\.\d+)?""")

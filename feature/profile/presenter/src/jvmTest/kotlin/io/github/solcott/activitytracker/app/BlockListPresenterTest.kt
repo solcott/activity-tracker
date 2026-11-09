@@ -92,7 +92,7 @@ class BlockListPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -221,12 +221,14 @@ class BlockListPresenterTest {
         val blocks = blocks()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) BlockListPresenter(BlockListScreen(BlockListKind.Blocked), navigator, blocks)
-                else BlockListState(BlockListKind.Blocked, pagedStateOf()) {}
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) BlockListPresenter(BlockListScreen(BlockListKind.Blocked), navigator, blocks)
+                    else BlockListState(BlockListKind.Blocked, pagedStateOf()) {}
+                }
+            },
+        ) {
             awaitUntil { it.accounts.canLoadMore }.eventSink(BlockListEvent.LoadMore)
             awaitUntil { it.dids.size == 2 && it.accounts.endReached }
             registry.saveAll()

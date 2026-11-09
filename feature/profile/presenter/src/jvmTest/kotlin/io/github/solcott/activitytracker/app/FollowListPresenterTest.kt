@@ -121,7 +121,7 @@ class FollowListPresenterTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -210,12 +210,14 @@ class FollowListPresenterTest {
         val answers = requests()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                if (shown) FollowListPresenter(screen, FakeNavigator(screen), repo, answers)
-                else FollowListState(screen.kind, pagedStateOf()) {}
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    if (shown) FollowListPresenter(screen, FakeNavigator(screen), repo, answers)
+                    else FollowListState(screen.kind, pagedStateOf()) {}
+                }
+            },
+        ) {
             awaitUntil { it.accounts.canLoadMore }.eventSink(FollowListEvent.LoadMore)
             awaitUntil { it.handles.size == 2 && it.accounts.canLoadMore }.eventSink(FollowListEvent.LoadMore)
             awaitUntil { it.handles.size == 3 }

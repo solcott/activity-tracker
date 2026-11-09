@@ -222,7 +222,7 @@ object SportCatalog {
                     sub(SubSport.POOL_APNEA),
                 ),
                 indoor = true,
-            )
+            ),
         )
 
         withSubs(SportCategory.TeamSports, RateKind.None, Sport.SOCCER, sub(SubSport.FUTSAL, indoor = true))

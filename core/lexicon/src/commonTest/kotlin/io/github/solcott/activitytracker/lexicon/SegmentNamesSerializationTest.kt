@@ -83,7 +83,7 @@ class SegmentNamesSerializationTest {
                                 up = 6,
                                 down = 1,
                                 proposer = proposer,
-                            )
+                            ),
                         ),
                     nameProposals =
                         listOf(
@@ -100,7 +100,7 @@ class SegmentNamesSerializationTest {
                                         uri = AtUri.of(Did("did:plc:bob"), Nsid.FEED_SEGMENT_NAME_VOTE, "3l2abcdefgh33"),
                                         direction = SegmentNameVoteDirection.UP,
                                     ),
-                            )
+                            ),
                         ),
                     viewer = SegmentViewerState(canProposeName = true, canVoteOnNames = true),
                 )

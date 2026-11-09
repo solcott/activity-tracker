@@ -217,7 +217,7 @@ class ActivityTrackTest {
         assertTrue(
             pds.writes.drop(beforeSplit).none {
                 "${Nsid.FEED_ACTIVITY_TRACK}/${uri.rkey}" in it || "${Nsid.FEED_ACTIVITY_TRACK}/${imported.rkey}" in it
-            }
+            },
         )
     }
 

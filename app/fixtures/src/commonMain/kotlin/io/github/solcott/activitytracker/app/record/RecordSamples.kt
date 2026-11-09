@@ -221,7 +221,7 @@ object ImportActivitySamples {
                                 TimeZoneOption("America/Denver", "UTC-06:00"),
                                 persistentListOf(TimeZoneOption("America/Denver", "UTC-06:00"), TimeZoneOption("UTC", "UTC+00:00")),
                             ),
-                    )
+                    ),
                 ),
             originalsBytes = 3_400_000,
         )
@@ -269,8 +269,8 @@ object ImportActivitySamples {
                                     elapsed = ROW_ELAPSED,
                                     distanceMeters = 42_300.0,
                                 ),
-                        )
-                )
+                        ),
+                ),
             )
 
     val all: Map<String, ImportActivityState>

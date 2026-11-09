@@ -117,7 +117,7 @@ internal object MetricCards {
             DetailSection.Laps ->
                 listOf(
                     charts.skiRuns?.let { Figure(FigureKey.Runs, FigureValue.Count(it.toLong())) }
-                        ?: Figure(FigureKey.Laps, FigureValue.Count(charts.laps.size.toLong()))
+                        ?: Figure(FigureKey.Laps, FigureValue.Count(charts.laps.size.toLong())),
                 ) to emptyList()
 
             DetailSection.Legs -> count(FigureKey.Legs, charts.legs.count { !it.transition }) to emptyList()

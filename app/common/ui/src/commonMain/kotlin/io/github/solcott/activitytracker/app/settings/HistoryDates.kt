@@ -42,5 +42,5 @@ fun monthName(month: Int): String =
             10 -> Res.string.month_short_10
             11 -> Res.string.month_short_11
             else -> Res.string.month_short_12
-        }
+        },
     )

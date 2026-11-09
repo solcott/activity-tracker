@@ -127,7 +127,7 @@ class SegmentPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -225,12 +225,14 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the screen it opened while it's on the back stack.
-                if (shown) SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) else SegmentState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the screen it opened while it's on the back stack.
+                    if (shown) SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) else SegmentState()
+                }
+            },
+        ) {
             awaitUntil { it.segment != null && !it.content.isLoading }
             // What the back stack does to a record it leaves.
             registry.saveAll()

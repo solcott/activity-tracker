@@ -49,19 +49,21 @@ class RecordPresenterTest {
         val repos = fixture.repos()
         val recorder = ActivityRecorder(tracker, Clock.System, dispatcher = StandardTestDispatcher(testScheduler))
         val navigator = FakeNavigator(RecordScreen)
-        presenterTestOf({
-            RecordPresenter(
-                navigator,
-                recorder,
-                tracker,
-                repos.activities,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-                repos.profiles,
-            )
-        }) {
+        presenterTestOf(
+            {
+                RecordPresenter(
+                    navigator,
+                    recorder,
+                    tracker,
+                    repos.activities,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                    repos.profiles,
+                )
+            },
+        ) {
             awaitItem().eventSink(RecordEvent.Start)
             awaitUntil { it.status == RecordingState.Status.Recording }.eventSink(RecordEvent.Finish)
 
@@ -77,19 +79,21 @@ class RecordPresenterTest {
     fun offersWhatARecordingHolds() = runTest {
         val repos = fixture.repos()
         val recorder = ActivityRecorder(tracker, Clock.System, dispatcher = StandardTestDispatcher(testScheduler))
-        presenterTestOf({
-            RecordPresenter(
-                FakeNavigator(RecordScreen),
-                recorder,
-                tracker,
-                repos.activities,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-                repos.profiles,
-            )
-        }) {
+        presenterTestOf(
+            {
+                RecordPresenter(
+                    FakeNavigator(RecordScreen),
+                    recorder,
+                    tracker,
+                    repos.activities,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                    repos.profiles,
+                )
+            },
+        ) {
             assertEquals(
                 listOf(DetailCategory.START_TIME, DetailCategory.SPEED, DetailCategory.MAP),
                 awaitItem().visibility.categories.map { it.category },
@@ -107,19 +111,21 @@ class RecordPresenterTest {
             ) as JsonObject
         val repos = fixture.repos()
         val recorder = ActivityRecorder(tracker, Clock.System, dispatcher = StandardTestDispatcher(testScheduler))
-        presenterTestOf({
-            RecordPresenter(
-                FakeNavigator(RecordScreen),
-                recorder,
-                tracker,
-                repos.activities,
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.defaults,
-                Clock.System,
-                repos.profiles,
-            )
-        }) {
+        presenterTestOf(
+            {
+                RecordPresenter(
+                    FakeNavigator(RecordScreen),
+                    recorder,
+                    tracker,
+                    repos.activities,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                    repos.profiles,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.gear.options.isNotEmpty() }
             assertFalse(DetailCategory.GEAR in loaded.visibility.categories.map { it.category })
             loaded.gear.eventSink(GearEvent.Toggle(loaded.gear.options.single().uri))

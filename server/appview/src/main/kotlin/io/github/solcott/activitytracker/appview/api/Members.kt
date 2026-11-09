@@ -49,7 +49,7 @@ internal fun validClaim(
                 (combined[Activities.uri] eq claimCombined) and
                     (combined[Activities.authorDid] eq memberAuthor) and
                     (combined[Activities.visibility] eq memberVisibility)
-            }
+            },
         ) and
         not(exists(nested.select(nested[ActivityMembers.memberUri]).where { nested[ActivityMembers.combinedUri] eq memberUri })) and
         not(
@@ -62,8 +62,8 @@ internal fun validClaim(
                             (earlier[ActivityMembers.combinedUri] less claimCombined) and
                             (earlierCombined[Activities.authorDid] eq memberAuthor) and
                             (earlierCombined[Activities.visibility] eq memberVisibility)
-                    }
-            )
+                    },
+            ),
         )
 }
 
@@ -79,7 +79,7 @@ internal fun isMember(): Op<Boolean> {
                 Activities.authorDid,
                 Activities.visibility,
             )
-        }
+        },
     )
 }
 

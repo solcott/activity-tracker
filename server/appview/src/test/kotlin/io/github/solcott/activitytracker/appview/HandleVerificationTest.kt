@@ -66,7 +66,7 @@ class HandleVerificationTest {
                 rkey = "self",
                 record = AtJson.parseToJsonElement("""{"displayName":"$name"}""").jsonObject,
                 cid = "bafy$name",
-            )
+            ),
         )
     }
 

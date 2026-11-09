@@ -76,7 +76,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                         Format.rateStat(state.type.selected.sport, state.distanceMeters, state.movingSeconds),
                         Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
                     )
-                    .toImmutableList()
+                    .toImmutableList(),
             )
             AppTextField(
                 state = state.title,

@@ -346,7 +346,7 @@ class WriteWorkoutSamples {
                             heartRate = heartRate,
                             cadence = s.cadence?.let { it + WOBBLE[t % WOBBLE.size] / 5 },
                             powerWatts = s.power?.let { it + WOBBLE[t % WOBBLE.size] },
-                        )
+                        ),
                     )
             }
 

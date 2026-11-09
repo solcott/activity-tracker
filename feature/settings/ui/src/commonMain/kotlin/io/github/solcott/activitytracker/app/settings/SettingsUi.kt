@@ -148,7 +148,7 @@ private fun Units(state: SettingsState, modifier: Modifier = Modifier) {
                         UnitSystem.Metric -> Res.string.settings_units_metric_example
                         UnitSystem.Imperial -> Res.string.settings_units_imperial_example
                     }
-                }
+                },
             ),
             style = MaterialTheme.typography.bodySmall,
         )

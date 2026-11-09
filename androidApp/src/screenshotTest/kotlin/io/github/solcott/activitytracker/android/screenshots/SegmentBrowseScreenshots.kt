@@ -32,5 +32,5 @@ class SegmentBrowseStates :
                 "nothingHere" to SegmentBrowseSamples.nothingHere,
                 "nowhere" to SegmentBrowseSamples.nowhere,
                 "locating" to SegmentBrowseSamples.locating,
-            )
+            ),
     )

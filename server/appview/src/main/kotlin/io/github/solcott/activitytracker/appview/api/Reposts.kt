@@ -69,7 +69,7 @@ private fun laterTimelineRepost(viewer: Did, followed: Query, sort: Column<Long>
     return exists(
         later.select(later[Reposts.uri]).where {
             (later[Reposts.subjectUri] eq Posts.uri) and timelineReposter(viewer, followed, later[Reposts.authorDid]) and after
-        }
+        },
     )
 }
 

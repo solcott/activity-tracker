@@ -54,7 +54,7 @@ class SensorDataMapperTest {
                     listOf(summary(sport).copy(totalCycles = cycles, avgStrokeDistanceMeters = strokeDistance)),
                     emptyList(),
                     emptyList(),
-                )
+                ),
             )
 
         assertEquals(8400, map("running", 4200).cycles)
@@ -77,7 +77,7 @@ class SensorDataMapperTest {
                         emptyList(),
                         activityTimestampMillis = end.toEpochMilliseconds(),
                         activityLocalTimestampSeconds = localAhead?.let { end.epochSeconds - 631_065_600L + it },
-                    )
+                    ),
                 )
                 .utcOffsetMinutes
 
@@ -113,7 +113,7 @@ class SensorDataMapperTest {
                     emptyList(),
                     listOf(record(0, lat = null, lon = null), record(5, lat = null, lon = null), record(10, lat = null, lon = null)),
                     hrMessages = hr,
-                )
+                ),
             )
 
         // Each record averages the readings since the last, a quarter-second fill of each across its 1 s gap included.

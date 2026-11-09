@@ -51,7 +51,7 @@ class ApprovesFollowersTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

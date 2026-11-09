@@ -50,13 +50,13 @@ object GearListSamples {
                                 Visibility.PUBLIC,
                                 null,
                                 totals = totals(distance = 3_200_000),
-                            )
+                            ),
                         ),
                     ),
                     GearGroup(
                         GearType.SHOES,
                         persistentListOf(
-                            GearRow("3kgear2", "Trail shoes", GearType.SHOES, null, Visibility.SELF, null, totals = totals(activities = 0))
+                            GearRow("3kgear2", "Trail shoes", GearType.SHOES, null, Visibility.SELF, null, totals = totals(activities = 0)),
                         ),
                     ),
                     GearGroup(
@@ -70,7 +70,7 @@ object GearListSamples {
                                 Visibility.PUBLIC,
                                 null,
                                 totals = totals(days = 14, vertical = 41_000),
-                            )
+                            ),
                         ),
                     ),
                     GearGroup(
@@ -84,7 +84,7 @@ object GearListSamples {
                                 Visibility.FOLLOWERS,
                                 null,
                                 totals = totals(movingTime = 432_000),
-                            )
+                            ),
                         ),
                     ),
                 ),
@@ -198,7 +198,7 @@ object GearSamples {
                             chain4,
                             Instant.parse("2026-07-01T00:00:00Z"),
                             totals.copy(activities = 1, distance = 32_400, days = 1),
-                        )
+                        ),
                     ),
                 previous =
                     persistentListOf(
@@ -207,7 +207,7 @@ object GearSamples {
                             Instant.parse("2025-03-01T00:00:00Z"),
                             totals.copy(activities = 1, distance = 32_400, days = 1),
                             to = Instant.parse("2026-07-01T00:00:00Z"),
-                        )
+                        ),
                     ),
             )
 
@@ -221,7 +221,7 @@ object GearSamples {
                 previous = persistentListOf(),
                 mounts =
                     persistentListOf(
-                        GearMountView(page.gear, Instant.parse("2025-03-01T00:00:00Z"), Instant.parse("2026-07-01T00:00:00Z"))
+                        GearMountView(page.gear, Instant.parse("2025-03-01T00:00:00Z"), Instant.parse("2026-07-01T00:00:00Z")),
                     ),
             )
 
@@ -312,7 +312,7 @@ object GearSamples {
                                 GearMountCandidate("3kmeter", "Power meter", GearType.COMPONENT, "powerMeter"),
                             ),
                             replacing = pageWithParts.components.first(),
-                        )
+                        ),
                 )
 
     /** An item the viewer may not see. */

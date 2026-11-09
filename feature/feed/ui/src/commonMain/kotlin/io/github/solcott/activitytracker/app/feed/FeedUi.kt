@@ -265,7 +265,9 @@ private fun Timeline(
                             }
                         } else {
                             Text(
-                                stringResource(if (state.canRecord) Res.string.feed_empty_can_record else Res.string.feed_empty_manual_only)
+                                stringResource(
+                                    if (state.canRecord) Res.string.feed_empty_can_record else Res.string.feed_empty_manual_only,
+                                ),
                             )
                         }
                     }

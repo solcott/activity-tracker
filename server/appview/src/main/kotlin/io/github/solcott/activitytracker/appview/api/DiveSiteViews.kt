@@ -94,7 +94,7 @@ class DiveSiteViews(
         GetDiveSite.Output(
             diveSiteViews(listOf(row), avatars)
                 .single()
-                .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state)
+                .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state),
         )
     }
 
@@ -161,7 +161,7 @@ class DiveSiteViews(
                     val uris = diveSiteDuplicatesOf(pointE7(site.lat, site.lng))
                     val served = servedSites(caller, uris).keys
                     SegmentCandidateCheck(site.id, uris.filter { it in served }.map(::AtUri))
-                }
+                },
             )
         }
     }
@@ -258,7 +258,7 @@ class DiveSiteViews(
             exists(
                 DiveSiteVisits.select(DiveSiteVisits.activityUri).where {
                     (DiveSiteVisits.siteUri eq DiveSites.uri) and (DiveSiteVisits.authorDid eq viewer.value)
-                }
+                },
             )
         return active or ((DiveSites.status eq SegmentStatus.PROPOSED) and ((DiveSites.authorDid eq viewer.value) or dived))
     }

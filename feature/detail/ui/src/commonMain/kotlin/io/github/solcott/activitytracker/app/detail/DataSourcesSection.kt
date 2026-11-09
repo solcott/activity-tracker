@@ -158,5 +158,5 @@ private fun dataKindLabel(kind: DataKind): String =
             DataKind.RunningDynamics -> Res.string.data_kind_running_dynamics
             DataKind.Laps -> Res.string.data_kind_laps
             DataKind.Dive -> Res.string.data_kind_dive
-        }
+        },
     )

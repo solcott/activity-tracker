@@ -151,7 +151,7 @@ abstract class GenerateNetworkConfig : DefaultTask() {
                 |    const val HANDLE_RESOLVER_URL = "${handleResolverUrl.get()}"
                 |}
                 |"""
-                    .trimMargin()
+                    .trimMargin(),
             )
     }
 }

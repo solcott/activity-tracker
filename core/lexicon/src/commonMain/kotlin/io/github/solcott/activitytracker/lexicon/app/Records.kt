@@ -1314,7 +1314,7 @@ object DiveAlertKind {
 @Serializable
 data class TankPressure(
     /** Millibar, lined up with [ActivityStreamData.time]; null where the tank has no reading. */
-    val pressure: List<Int?>
+    val pressure: List<Int?>,
 )
 
 /** `app.activitytracker.feed.activityStreams#lap`: a lap as the recording device split it. */

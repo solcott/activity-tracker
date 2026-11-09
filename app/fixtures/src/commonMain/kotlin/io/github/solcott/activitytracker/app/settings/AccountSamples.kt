@@ -64,7 +64,7 @@ object AccountSamples {
                                 filesTotal = 900,
                                 activitiesDone = 120,
                                 activitiesTotal = 400,
-                            )
+                            ),
                     ),
                 "exportGathering" to default.copy(export = DataExportStatus.Running(1210, 0, 0, 0, 0)),
                 "exportReady" to

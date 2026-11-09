@@ -82,7 +82,7 @@ private fun periodLabel(period: String): String =
             RegularsPeriod.THIS_YEAR -> Res.string.leaderboard_period_year
             RegularsPeriod.LAST_YEAR -> Res.string.mayor_period_last_year
             else -> Res.string.leaderboard_period_all_time
-        }
+        },
     )
 
 /** One diver's place: rank, avatar and name, the day they reached their count, and the count. */

@@ -60,7 +60,7 @@ class UnitsRepositoryTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

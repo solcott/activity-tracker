@@ -33,7 +33,7 @@ private fun Charts() {
                 ZoneBar("Z3", "Tempo", "145–160 bpm", "15:00", 0.25f),
                 ZoneBar("Z4", "Threshold", "160–175 bpm", "5:00", 0.08f),
                 ZoneBar("Z5", "Anaerobic", "> 175 bpm", "0:10", 0.003f),
-            )
+            ),
         )
     }
 }

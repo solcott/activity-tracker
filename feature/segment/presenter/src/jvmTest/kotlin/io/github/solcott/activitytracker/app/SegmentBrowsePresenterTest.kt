@@ -121,7 +121,7 @@ class SegmentBrowsePresenterTest {
                         )
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -275,7 +275,7 @@ class SegmentBrowsePresenterTest {
                     likeCount = 0,
                     commentCount = 0,
                     indexedAt = Instant.parse("2026-11-01T09:00:00Z"),
-                )
+                ),
             )
         test(AskingLocationTracker()) {
             val asking = awaitUntil { it.askLocation }

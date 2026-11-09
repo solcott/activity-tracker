@@ -49,7 +49,7 @@ private val MIGRATION_2_3 =
     Migration(2, 3) {
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `outbox_blob` (`key` TEXT NOT NULL, `did` TEXT NOT NULL, `bytes` BLOB NOT NULL, " +
-                "`mimeType` TEXT NOT NULL, `ref` TEXT, PRIMARY KEY(`key`))"
+                "`mimeType` TEXT NOT NULL, `ref` TEXT, PRIMARY KEY(`key`))",
         )
         it.runSql("ALTER TABLE outbox ADD COLUMN blobKey TEXT")
     }
@@ -59,7 +59,7 @@ private val MIGRATION_3_4 =
     Migration(3, 4) {
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `combine_dismissals` (`did` TEXT NOT NULL, `uriA` TEXT NOT NULL, `uriB` TEXT NOT NULL, " +
-                "PRIMARY KEY(`did`, `uriA`, `uriB`))"
+                "PRIMARY KEY(`did`, `uriA`, `uriB`))",
         )
     }
 
@@ -68,12 +68,12 @@ private val MIGRATION_4_5 =
     Migration(4, 5) {
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `recording` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `did` TEXT NOT NULL, " +
-                "`startedAt` INTEGER NOT NULL)"
+                "`startedAt` INTEGER NOT NULL)",
         )
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `recording_event` (`recordingId` INTEGER NOT NULL, `seq` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
                 "`at` INTEGER NOT NULL, `latitude` REAL, `longitude` REAL, `altitude` REAL, `speed` REAL, `accuracy` REAL, " +
-                "PRIMARY KEY(`recordingId`, `seq`))"
+                "PRIMARY KEY(`recordingId`, `seq`))",
         )
     }
 
@@ -102,18 +102,18 @@ private val MIGRATION_8_9 =
     Migration(8, 9) {
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `upload_batch` (`id` TEXT NOT NULL, `did` TEXT NOT NULL, `source` TEXT NOT NULL, " +
-                "`savedAt` INTEGER NOT NULL, `saved` INTEGER NOT NULL, `skipped` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                "`savedAt` INTEGER NOT NULL, `saved` INTEGER NOT NULL, `skipped` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         )
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `upload_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `did` TEXT NOT NULL, " +
                 "`rkey` TEXT, `batchId` TEXT, `kind` TEXT NOT NULL, `title` TEXT, `sport` TEXT, `subSport` TEXT, `startedAt` INTEGER, " +
-                "`queuedAt` INTEGER NOT NULL, `sentWrites` INTEGER NOT NULL, `finishedAt` INTEGER, `skipped` INTEGER NOT NULL)"
+                "`queuedAt` INTEGER NOT NULL, `sentWrites` INTEGER NOT NULL, `finishedAt` INTEGER, `skipped` INTEGER NOT NULL)",
         )
         it.runSql("CREATE INDEX IF NOT EXISTS `index_upload_item_did_rkey` ON `upload_item` (`did`, `rkey`)")
         it.runSql("CREATE INDEX IF NOT EXISTS `index_upload_item_did_batchId` ON `upload_item` (`did`, `batchId`)")
         it.runSql(
             "CREATE INDEX IF NOT EXISTS `index_outbox_did_bulk_rejectedAt_rkey_collection` ON `outbox` " +
-                "(`did`, `bulk`, `rejectedAt`, `rkey`, `collection`)"
+                "(`did`, `bulk`, `rejectedAt`, `rkey`, `collection`)",
         )
     }
 
@@ -125,20 +125,20 @@ private val MIGRATION_9_10 =
     Migration(9, 10) {
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `import_save` (`batchId` TEXT NOT NULL, `did` TEXT NOT NULL, `total` INTEGER NOT NULL, " +
-                "`createdAt` INTEGER NOT NULL, `choicesJson` TEXT NOT NULL, `state` TEXT NOT NULL, PRIMARY KEY(`batchId`))"
+                "`createdAt` INTEGER NOT NULL, `choicesJson` TEXT NOT NULL, `state` TEXT NOT NULL, PRIMARY KEY(`batchId`))",
         )
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `import_save_source` (`batchId` TEXT NOT NULL, `idx` INTEGER NOT NULL, `name` TEXT NOT NULL, " +
-                "`size` INTEGER NOT NULL, `kind` TEXT, `handle` BLOB, PRIMARY KEY(`batchId`, `idx`))"
+                "`size` INTEGER NOT NULL, `kind` TEXT, `handle` BLOB, PRIMARY KEY(`batchId`, `idx`))",
         )
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `import_save_item` (`batchId` TEXT NOT NULL, `position` INTEGER NOT NULL, " +
                 "`batchIndex` INTEGER NOT NULL, `sourceIdx` INTEGER NOT NULL, `pathJson` TEXT NOT NULL, `entry` INTEGER NOT NULL, " +
                 "`rkey` TEXT NOT NULL, `planJson` TEXT NOT NULL, `groupKey` INTEGER, `done` INTEGER NOT NULL, " +
-                "`skipped` INTEGER NOT NULL, PRIMARY KEY(`batchId`, `position`))"
+                "`skipped` INTEGER NOT NULL, PRIMARY KEY(`batchId`, `position`))",
         )
         it.runSql(
-            "CREATE INDEX IF NOT EXISTS `index_import_save_item_batchId_done_skipped` ON `import_save_item` (`batchId`, `done`, `skipped`)"
+            "CREATE INDEX IF NOT EXISTS `index_import_save_item_batchId_done_skipped` ON `import_save_item` (`batchId`, `done`, `skipped`)",
         )
         it.runSql("ALTER TABLE upload_batch ADD COLUMN total INTEGER NOT NULL DEFAULT 0")
         it.runSql("ALTER TABLE upload_item ADD COLUMN recordJson TEXT")
@@ -150,20 +150,20 @@ private val MIGRATION_10_11 =
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `data_export` (`id` TEXT NOT NULL, `did` TEXT NOT NULL, `handle` TEXT NOT NULL, " +
                 "`pdsHost` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `finishedAt` INTEGER, `state` TEXT NOT NULL, `reason` TEXT, " +
-                "`unsentChanges` INTEGER NOT NULL, `spacesIncluded` INTEGER NOT NULL, `neededBytes` INTEGER, PRIMARY KEY(`id`))"
+                "`unsentChanges` INTEGER NOT NULL, `spacesIncluded` INTEGER NOT NULL, `neededBytes` INTEGER, PRIMARY KEY(`id`))",
         )
         it.runSql("CREATE INDEX IF NOT EXISTS `index_data_export_did` ON `data_export` (`did`)")
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `data_export_list` (`exportId` TEXT NOT NULL, `place` TEXT NOT NULL, `collection` TEXT NOT NULL, " +
-                "`cursor` TEXT, `done` INTEGER NOT NULL, `records` INTEGER NOT NULL, PRIMARY KEY(`exportId`, `place`, `collection`))"
+                "`cursor` TEXT, `done` INTEGER NOT NULL, `records` INTEGER NOT NULL, PRIMARY KEY(`exportId`, `place`, `collection`))",
         )
         it.runSql(
             "CREATE TABLE IF NOT EXISTS `data_export_item` (`exportId` TEXT NOT NULL, `kind` TEXT NOT NULL, `place` TEXT NOT NULL, " +
                 "`key` TEXT NOT NULL, `size` INTEGER, `state` TEXT NOT NULL, `path` TEXT, `reason` TEXT, " +
-                "PRIMARY KEY(`exportId`, `kind`, `place`, `key`))"
+                "PRIMARY KEY(`exportId`, `kind`, `place`, `key`))",
         )
         it.runSql(
-            "CREATE INDEX IF NOT EXISTS `index_data_export_item_exportId_kind_state` ON `data_export_item` (`exportId`, `kind`, `state`)"
+            "CREATE INDEX IF NOT EXISTS `index_data_export_item_exportId_kind_state` ON `data_export_item` (`exportId`, `kind`, `state`)",
         )
     }
 
@@ -393,7 +393,7 @@ interface OutboxDao {
     /** Writes still to send: not rejected, and not held back by a rejected write with their rkey. */
     @Query(
         "SELECT COUNT(*) FROM outbox WHERE did = :did AND rejectedAt IS NULL " +
-            "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL)"
+            "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL)",
     )
     fun pendingCount(did: String): Flow<Int>
 
@@ -405,7 +405,7 @@ interface OutboxDao {
         "SELECT o.rkey, o.collection, o.operation, o.rejectedAt, " +
             "(SELECT a.recordJson FROM outbox a WHERE a.did = o.did AND a.rkey = o.rkey AND a.collection = :activityCollection " +
             "AND a.operation = 'put' ORDER BY a.id DESC LIMIT 1) AS activityJson " +
-            "FROM outbox o WHERE o.did = :did AND o.rejectedAt IS NOT NULL ORDER BY o.id"
+            "FROM outbox o WHERE o.did = :did AND o.rejectedAt IS NOT NULL ORDER BY o.id",
     )
     fun rejected(did: String, activityCollection: String): Flow<List<RejectedOutboxWrite>>
 
@@ -503,7 +503,7 @@ interface RecordingDao {
     @Query(
         "INSERT INTO recording_event (recordingId, seq, kind, at, latitude, longitude, altitude, speed, accuracy) " +
             "SELECT :recordingId, COALESCE(MAX(seq) + 1, 0), :kind, :at, :latitude, :longitude, :altitude, :speed, :accuracy " +
-            "FROM recording_event WHERE recordingId = :recordingId"
+            "FROM recording_event WHERE recordingId = :recordingId",
     )
     @Suppress("LongParameterList") // One bind parameter per column.
     suspend fun append(

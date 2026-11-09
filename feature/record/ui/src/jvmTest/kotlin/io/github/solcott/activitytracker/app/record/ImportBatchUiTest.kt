@@ -52,7 +52,7 @@ class ImportBatchUiTest {
         setContent {
             AppPreview {
                 ImportActivityUi(
-                    state.copy(batch = state.batch?.copy(exports = persistentListOf(BatchExport(ExportKind.Strava, privacy = false))))
+                    state.copy(batch = state.batch?.copy(exports = persistentListOf(BatchExport(ExportKind.Strava, privacy = false)))),
                 )
             }
         }

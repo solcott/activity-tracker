@@ -25,7 +25,7 @@ class UseAdaptiveComponents(config: Config) :
                 Entity.from(expression),
                 "$name looks like Android on every platform. " +
                     "Use $replacement (app.ui.adaptive), which follows each platform's conventions.",
-            )
+            ),
         )
     }
 

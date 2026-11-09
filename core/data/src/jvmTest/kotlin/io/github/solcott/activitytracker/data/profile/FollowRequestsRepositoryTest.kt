@@ -174,7 +174,7 @@ class FollowRequestsRepositoryTest {
 
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

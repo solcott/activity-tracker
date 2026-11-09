@@ -293,5 +293,5 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.Leave -> Res.string.error_leave
             UiError.Kind.Rejoin -> Res.string.error_rejoin
             UiError.Kind.DiscardLeftElsewhere -> Res.string.error_discard_left
-        }
+        },
     )

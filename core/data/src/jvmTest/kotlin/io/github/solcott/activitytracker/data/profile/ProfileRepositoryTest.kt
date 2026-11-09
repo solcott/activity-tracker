@@ -257,7 +257,7 @@ class ProfileRepositoryTest {
                         respond("", HttpStatusCode.NotFound)
                     }
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -322,7 +322,7 @@ class ProfileRepositoryTest {
                 description = "",
                 details = ProfileDetails(location = portland, weight = 61_500, birthDate = "1990-04-01"),
                 visibility = DetailsVisibility(Visibility.PUBLIC, Visibility.SELF, Visibility.SELF, Visibility.MUTUALS),
-            )
+            ),
         )
 
         val saved = record!!
@@ -412,7 +412,7 @@ class ProfileRepositoryTest {
                     "",
                     ProfileDetails(weight = 61_500, birthDate = "1990-04-01"),
                     DetailsVisibility(weight = Visibility.MUTUALS, birthDate = Visibility.SELF),
-                )
+                ),
             )
         }
         assertEquals(ProfileDetails(weight = 61_500, birthDate = "1990-04-01"), tiers[AthleteSpace.MUTUALS])
@@ -425,7 +425,7 @@ class ProfileRepositoryTest {
                 "",
                 ProfileDetails(weight = 61_500, birthDate = "1990-04-01"),
                 DetailsVisibility(weight = Visibility.MUTUALS, birthDate = Visibility.SELF),
-            )
+            ),
         )
         assertEquals(ProfileDetails(weight = 61_500), tiers[AthleteSpace.MUTUALS])
         assertEquals(ProfileDetails(birthDate = "1990-04-01"), tiers[AthleteSpace.SELF])
@@ -637,7 +637,7 @@ class ProfileRepositoryTest {
             repository(
                 object : Clock {
                     override fun now() = now
-                }
+                },
             )
 
         repo.updateTraining(Visibility.SELF) { it.copy(maxHeartRate = 190) }
@@ -671,7 +671,7 @@ class ProfileRepositoryTest {
             repository(
                 object : Clock {
                     override fun now() = now
-                }
+                },
             )
 
         // As the defaults editor saves: the training from its form, with only the sports carried over.

@@ -193,7 +193,7 @@ class SegmentViews(
                                 exists(
                                     SegmentCellIndex.select(SegmentCellIndex.cell).where {
                                         (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                                    }
+                                    },
                                 ) and
                                 keysetAfter(Segments.indexedAt, Segments.uri, cursor)
                         }
@@ -247,7 +247,7 @@ class SegmentViews(
                         exists(
                             SegmentCellIndex.select(SegmentCellIndex.cell).where {
                                 (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                            }
+                            },
                         )
                 } ?: Op.TRUE
             // Within a match, nearest the centre first, or by name without one.
@@ -300,7 +300,7 @@ class SegmentViews(
                     rank = if (effortId(effort) in candidates) topRank(viewer, params.activity.authority, effort, sport) else null,
                     notRanked = reasons[effortId(effort)].takeIf { ranked(effort) },
                 )
-            }
+            },
         )
     }
 
@@ -406,7 +406,7 @@ class SegmentViews(
             exists(
                 SegmentEfforts.select(SegmentEfforts.id).where {
                     (SegmentEfforts.segmentUri eq Segments.uri) and (SegmentEfforts.authorDid eq viewer.value)
-                }
+                },
             )
         return active or ((Segments.status eq SegmentStatus.PROPOSED) and ((Segments.authorDid eq viewer.value) or ridden))
     }
@@ -431,7 +431,7 @@ class SegmentViews(
             visibleEfforts()
                 .select(
                     SegmentEfforts.columns +
-                        listOf(Segments.uri, Segments.currentName, Segments.sport, Segments.kind, Segments.distanceM, Segments.status)
+                        listOf(Segments.uri, Segments.currentName, Segments.sport, Segments.kind, Segments.distanceM, Segments.status),
                 )
                 .where { where and effortsVisibleTo(viewer) }
                 .apply { order.forEach { (expression, direction) -> orderBy(expression, direction) } }
@@ -659,7 +659,7 @@ class SegmentViews(
         return exists(
             LeaderboardBrackets.select(LeaderboardBrackets.did).where {
                 filters.fold(LeaderboardBrackets.did eq SegmentEfforts.authorDid) { all, filter -> all and filter }
-            }
+            },
         )
     }
 

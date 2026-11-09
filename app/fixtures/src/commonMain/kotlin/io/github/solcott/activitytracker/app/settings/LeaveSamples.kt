@@ -45,7 +45,7 @@ object LeaveSamples {
                                 LeaveStep.Repo,
                                 recordsDeleted = 400,
                                 error = UiError(UiError.Kind.Leave, DataError.Api(listOf("Request refused"), code = "InvalidRequest")),
-                            )
+                            ),
                     ),
             )
 }

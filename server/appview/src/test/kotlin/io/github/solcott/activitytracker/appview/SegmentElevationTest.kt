@@ -57,9 +57,9 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
                 pieces =
                     data.pieces.map { piece ->
                         piece.copy(
-                            alt = piece.lat.map { lat -> ((lat / 1e7 - origin.lat) * metersPerDegreeLat * grade * 100).roundToInt() }
+                            alt = piece.lat.map { lat -> ((lat / 1e7 - origin.lat) * metersPerDegreeLat * grade * 100).roundToInt() },
                         )
-                    }
+                    },
             )
         putTrack(rkey, AtJson.encodeToString(SegmentTrackData.serializer(), withAltitude).encodeToByteArray(), did)
     }

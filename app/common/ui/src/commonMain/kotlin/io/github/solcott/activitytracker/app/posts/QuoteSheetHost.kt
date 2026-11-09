@@ -53,7 +53,7 @@ fun QuoteSheetHost(fields: QuoteFields) {
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.quote_delete_confirm), destructive = true) {
                         fields.eventSink(QuoteEvent.ConfirmDelete(true))
-                    }
+                    },
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { fields.eventSink(QuoteEvent.ConfirmDelete(false)) },

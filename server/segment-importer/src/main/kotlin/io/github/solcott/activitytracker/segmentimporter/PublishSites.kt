@@ -75,7 +75,7 @@ internal suspend fun publishSitesFile(clients: Clients, file: File) {
     for (id in result.duplicates) println("Duplicate of a live site, not published: $id")
     println(
         "Published ${result.published.size} dive sites for ${sites.region}; ${result.duplicates.size} duplicates, " +
-            "${result.present.size} already published"
+            "${result.present.size} already published",
     )
     result.stoppedBy?.let { throw it }
 }

@@ -28,14 +28,16 @@ class LeftElsewherePresenterTest {
         val repos = fixture.repos()
         before(repos)
         repos.clients.markLeft()
-        presenterTestOf({
-            LeftElsewherePresenter(
-                repos.clients,
-                repos.leaveJob,
-                SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
-                repos.recorder,
-            )
-        }) {
+        presenterTestOf(
+            {
+                LeftElsewherePresenter(
+                    repos.clients,
+                    repos.leaveJob,
+                    SignOutCheck(repos.uploads, repos.saves, repos.exports, repos.clients),
+                    repos.recorder,
+                )
+            },
+        ) {
             block(repos)
         }
     }

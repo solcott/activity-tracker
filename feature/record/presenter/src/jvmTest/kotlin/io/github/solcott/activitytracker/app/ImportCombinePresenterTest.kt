@@ -63,7 +63,7 @@ class ImportCombinePresenterTest {
                         null,
                         null,
                         null,
-                    )
+                    ),
                 ),
             laps = emptyList(),
             records =

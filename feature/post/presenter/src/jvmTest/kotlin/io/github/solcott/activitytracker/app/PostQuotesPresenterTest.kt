@@ -75,19 +75,21 @@ class PostQuotesPresenterTest : ActivityTestBase() {
             awaitUntil { it.quote.quoting == null }
             cancelAndIgnoreRemainingEvents()
         }
-        presenterTestOf({
-            PostQuotesPresenter(
-                PostQuotesScreen(postUri),
-                FakeNavigator(screen),
-                r.feed,
-                r.activities,
-                r.profiles,
-                r.names,
-                r.blocks,
-                r.reports,
-                r.quotes,
-            )
-        }) {
+        presenterTestOf(
+            {
+                PostQuotesPresenter(
+                    PostQuotesScreen(postUri),
+                    FakeNavigator(screen),
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    r.names,
+                    r.blocks,
+                    r.reports,
+                    r.quotes,
+                )
+            },
+        ) {
             val listed = awaitUntil { it.quotes.items.size == 2 }
             assertEquals(alice, listed.quotes.items.first().author.did)
             assertEquals("Mine", listed.quotes.items.first().text)

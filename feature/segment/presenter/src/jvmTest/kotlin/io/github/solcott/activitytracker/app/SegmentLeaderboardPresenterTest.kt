@@ -100,7 +100,7 @@ class SegmentLeaderboardPresenterTest {
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }
@@ -315,12 +315,14 @@ class SegmentLeaderboardPresenterTest {
         val retained = RetainedStateRegistry()
         var saveable by mutableStateOf(SaveableStateRegistry(null) { true })
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides retained, LocalSaveableStateRegistry provides saveable) {
-                // A stand-in for the activity it opened while it's on the back stack.
-                if (shown) SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) else SegmentLeaderboardState(name = "")
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides retained, LocalSaveableStateRegistry provides saveable) {
+                    // A stand-in for the activity it opened while it's on the back stack.
+                    if (shown) SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) else SegmentLeaderboardState(name = "")
+                }
+            },
+        ) {
             awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.PeriodChanged(LeaderboardPeriod.MONTH))
             awaitUntil { it.period == LeaderboardPeriod.MONTH && it.answered }.eventSink(SegmentLeaderboardEvent.LoadMore)
             awaitUntil { it.entries.items.size == 3 && it.answered }

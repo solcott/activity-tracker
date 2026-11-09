@@ -547,7 +547,7 @@ private fun executionsCounted(dataSource: DataSource, onExecute: () -> Unit): Da
                 } catch (e: InvocationTargetException) {
                     throw e.targetException
                 }
-            }
+            },
         )
     fun statement(result: Any?): Any? =
         when (result) {

@@ -55,7 +55,7 @@ object ActivityDetailSamples {
                             Figure(
                                 FigureKey.StartTime,
                                 FigureValue.StartTime(activity.record.startedAt.epochSeconds, activity.record.utcOffset, dateOnly = false),
-                            )
+                            ),
                     ),
                 route = activity.record.polyline?.let { ShownRoute(it, gaps = null, ends = null) },
                 segments = groupEfforts(listOf(fakeEffort(activity = activity.uri))),
@@ -87,7 +87,7 @@ object ActivityDetailSamples {
                     effort("3ksrushcanyon", "Rush › Exit Stage Left → Canyon Hollow", 2400, 492),
                     effort("3ksrushshore", "Rush › Exit Stage Left → Bonneville Shoreline", 2400, 574),
                     effort("3ksesl", "Rush - Exit Stage Left", 2420, 89, rank = null),
-                )
+                ),
             )
         }
 
@@ -96,7 +96,7 @@ object ActivityDetailSamples {
         get() {
             fun lift(rkey: String, name: String) =
                 fakeSegmentBasic(
-                    fakeSegment(rkey, record = fakeSegmentRecord(name = name, sport = SegmentSportGroup.ALPINE, kind = SegmentKind.LIFT))
+                    fakeSegment(rkey, record = fakeSegmentRecord(name = name, sport = SegmentSportGroup.ALPINE, kind = SegmentKind.LIFT)),
                 )
             val gondola = lift("base-gondola", "Base Gondola")
             val quad = lift("summit-quad", "Summit Quad")
@@ -106,7 +106,7 @@ object ActivityDetailSamples {
                     fakeEffort(quad, activity.uri, elapsed = 412, startOffset = 900),
                     fakeEffort(quad, activity.uri, elapsed = 430, startOffset = 1800),
                     fakeEffort(quad, activity.uri, elapsed = 405, startOffset = 2700),
-                )
+                ),
             )
         }
 
@@ -118,7 +118,7 @@ object ActivityDetailSamples {
                 listOf(
                     fakeEffort(run, activity.uri, elapsed = 212, startOffset = 600, best = true),
                     fakeEffort(run, activity.uri, elapsed = 230, startOffset = 1500),
-                )
+                ),
             )
         }
 
@@ -137,7 +137,7 @@ object ActivityDetailSamples {
 object CombinePickerSamples {
     val candidates: ImmutableList<ActivityView> =
         persistentListOf(
-            fakeActivity("3kactivity3", fakeProfileBasic(), FeedSamples.activities.first().record.copy(title = "Ride (watch)"))
+            fakeActivity("3kactivity3", fakeProfileBasic(), FeedSamples.activities.first().record.copy(title = "Ride (watch)")),
         )
 
     val all: Map<String, CombinePickerState>

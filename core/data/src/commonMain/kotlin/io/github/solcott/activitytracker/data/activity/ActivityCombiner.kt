@@ -97,7 +97,7 @@ object ActivityCombiner {
                         CombinedActivity(
                             members = sorted.map { it.uri },
                             sources = rankings.map { (channel, ranked) -> ChannelSource(channel, ranked) },
-                        )
+                        ),
                 )
         val route = CombinedRoute.build(sorted, rankings[CombinedChannel.POSITION].orEmpty(), covered)
         return CombinedBuild(record, streams, route)

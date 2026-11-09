@@ -116,5 +116,5 @@ private fun reasonLabel(reason: ReportReason): String =
             ReportReason.HARASSMENT -> Res.string.report_reason_harassment
             ReportReason.MISLEADING -> Res.string.report_reason_misleading
             ReportReason.OTHER -> Res.string.report_reason_other
-        }
+        },
     )

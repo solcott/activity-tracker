@@ -93,7 +93,7 @@ internal fun Lap.overlaid(n: Lap): Lap =
             descent = n.descent ?: descent,
             intensity = n.intensity ?: intensity,
             trigger = n.trigger ?: trigger,
-        )
+        ),
     ) { lap, f ->
         f.lapWith(lap, f.ofLap(n) ?: f.ofLap(this))
     }
@@ -107,7 +107,7 @@ internal fun Leg.overlaid(n: Leg): Leg =
             distance = n.distance ?: distance,
             ascent = n.ascent ?: ascent,
             descent = n.descent ?: descent,
-        )
+        ),
     ) { leg, f ->
         f.legWith(leg, f.ofLeg(n) ?: f.ofLeg(this))
     }

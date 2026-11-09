@@ -30,7 +30,7 @@ class UseTextFieldState(config: Config) : Rule(config, "Text fields take a TextF
                     Entity.from(expression),
                     "${expression.calleeExpression?.text} takes a value and onValueChange. Pass a TextFieldState instead " +
                         "(rememberTextFieldState(), in the presenter's State if it reads the text), and name every argument after it.",
-                )
+                ),
             )
         }
     }

@@ -200,7 +200,7 @@ private fun Conditions(conditions: DiveSiteConditions, modifier: Modifier = Modi
                         Format.temperature(median),
                         Format.temperature(conditions.minTemperature),
                         Format.temperature(conditions.maxTemperature),
-                    )
+                    ),
                 )
             }
             conditions.medianVisibility?.let {
@@ -212,7 +212,7 @@ private fun Conditions(conditions: DiveSiteConditions, modifier: Modifier = Modi
                         Res.string.dive_site_conditions_depth,
                         Format.depth(median / CM_PER_M),
                         Format.depth(conditions.maxDepth?.let { it / CM_PER_M }),
-                    )
+                    ),
                 )
             }
             if (conditions.months.size > 1) {

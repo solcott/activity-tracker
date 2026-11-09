@@ -128,7 +128,7 @@ open class SegmentTestBase(terrainDir: File? = null) {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey${record?.hashCode()}",
-            )
+            ),
         )
     }
 
@@ -226,7 +226,7 @@ open class SegmentTestBase(terrainDir: File? = null) {
                 sample(path.last().first, path.last().second)
                 clock += 60
                 SegmentTrackPiece(lat, lng, t)
-            }
+            },
         )
     }
 

@@ -60,7 +60,7 @@ class SpaceAccessTest {
                 rkey = rkey,
                 record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
                 cid = "bafy$rkey",
-            )
+            ),
         )
     }
 
@@ -152,7 +152,7 @@ class SpaceAccessTest {
     /** [did]'s hosting status, as a Jetstream `#account` event reports it. */
     private fun account(did: String, active: Boolean, status: String? = null) = runBlocking {
         indexer.handle(
-            JetstreamEvent.Account(did, "2026-10-21T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, active, status))
+            JetstreamEvent.Account(did, "2026-10-21T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, active, status)),
         )
     }
 

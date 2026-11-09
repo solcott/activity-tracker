@@ -136,7 +136,7 @@ class DataExportWorkerTest {
                     factory {
                         runs++
                         true
-                    }
+                    },
                 )
                 .build(),
         )

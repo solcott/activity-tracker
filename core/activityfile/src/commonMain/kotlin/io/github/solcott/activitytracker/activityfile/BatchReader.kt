@@ -266,7 +266,7 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
                     originalTooLarge = storedSizeExceeds(found, read),
                     size = found.size.toLong(),
                     export = export?.let { found -> FileExport(found.kind, read.activities.map { found.lookup(ref.path, it) }) },
-                )
+                ),
             )
             out.emit(ScanEvent.Progress(files, activities, ignored))
         }

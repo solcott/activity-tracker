@@ -214,7 +214,7 @@ private fun MountSheet(picker: GearMountPicker, send: (GearEvent) -> Unit) {
                 Column(
                     Modifier.fillMaxWidth()
                         .clickable(role = Role.Button) { send(GearEvent.ChooseMount(candidate.rkey)) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Text(candidate.name, style = MaterialTheme.typography.bodyLarge)
                     Text(

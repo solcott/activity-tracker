@@ -111,7 +111,7 @@ class LocalBlocks {
                 served.copy(
                     blocking = if (block == null) served.blocking else block.record,
                     muting = if (mute == null) served.muting else mute.record,
-                )
+                ),
         )
     }
 

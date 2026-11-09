@@ -140,7 +140,7 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
                         ExportKind.Strava -> Res.string.import_batch_strava_no_privacy
                         ExportKind.Garmin if export.privacy -> Res.string.import_batch_garmin
                         ExportKind.Garmin -> Res.string.import_batch_garmin_no_privacy
-                    }
+                    },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -216,8 +216,8 @@ private fun BatchFilters(state: ImportActivityState, batch: ImportBatch, enabled
                                     BatchFilter.All -> Res.string.import_filter_all
                                     BatchFilter.New -> Res.string.import_filter_new
                                     BatchFilter.Duplicates -> Res.string.import_filter_duplicates
-                                }
-                            )
+                                },
+                            ),
                         )
                     },
                     enabled = enabled,
@@ -292,7 +292,7 @@ private fun BatchRow(
                     Text(
                         stringResource(
                             if (narrowed == Visibility.SELF) Res.string.import_batch_narrowed_self
-                            else Res.string.import_batch_narrowed_followers
+                            else Res.string.import_batch_narrowed_followers,
                         ),
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -370,7 +370,7 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
                     state.saving -> stringResource(Res.string.action_saving)
                     batch.selectedCount == 0 -> stringResource(Res.string.import_dives_none)
                     else -> pluralStringResource(Res.plurals.import_batch_save, batch.selectedCount, formatWhole(batch.selectedCount))
-                }
+                },
             )
         }
     }

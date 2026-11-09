@@ -67,7 +67,7 @@ class AgencyReaderTest {
                     feature(10.0, """"TRAIL_TYPE":"SNOW","XCOUNTRY_SKI_MANAGED":"11/01-04/15"""", 0, 2),
                     feature(10.6, """"TRAIL_TYPE":"SNOW","XCOUNTRY_SKI_MANAGED":"11/01-04/15"""", 2, 4),
                 )
-                .joinToString("\n")
+                .joinToString("\n"),
         )
         val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
         val cutter = CandidateCutter(data)
@@ -153,7 +153,7 @@ class AgencyReaderTest {
         assertTrue(agency.points.keys.all { it < 0 } && agency.ways.all { it.id < 0 })
         val again =
             AgencyReader.read(
-                listOf(AgencyRules.NPS to fixture("nps-trails.geojsonl"), AgencyRules.USFS to fixture("usfs-trails.geojsonl"))
+                listOf(AgencyRules.NPS to fixture("nps-trails.geojsonl"), AgencyRules.USFS to fixture("usfs-trails.geojsonl")),
             )
         assertEquals(agency.ways.map { it.tags to it.nodes.toList() }, again.ways.map { it.tags to it.nodes.toList() })
     }

@@ -44,7 +44,7 @@ class RoomOAuthStore(
                     pending.state,
                     cipher.encrypt(pending.encode()),
                     clock.now().toEpochMilliseconds(),
-                )
+                ),
             )
 
     override suspend fun loadPending(state: String): PendingAuthorization? =

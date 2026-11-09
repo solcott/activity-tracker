@@ -48,7 +48,7 @@ class ProposePlaceNamePresenterTest {
                         respond("""{"error":"RecordNotFound","message":"none"}""", HttpStatusCode.BadRequest, json)
                     else -> respond("", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

@@ -94,7 +94,7 @@ class XrpcClientTest {
         network.on("appview.test/xrpc/com.atproto.moderation.createReport") {
             respondJson(
                 """{"id":1,"reasonType":"${ReasonType.SPAM}","reportedBy":"did:plc:alice","createdAt":"2026-10-20T10:00:00Z",
-                  "subject":{"${'$'}type":"com.atproto.admin.defs#repoRef","did":"did:plc:bob"}}"""
+                  "subject":{"${'$'}type":"com.atproto.admin.defs#repoRef","did":"did:plc:bob"}}""",
             )
         }
         val labeler = Did("did:plc:labeler")

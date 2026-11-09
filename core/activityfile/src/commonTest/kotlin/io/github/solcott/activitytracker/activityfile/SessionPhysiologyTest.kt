@@ -55,7 +55,7 @@ class SessionPhysiologyTest {
         val other = DecodedSource("activity", "wahoo_fitness", "elemnt", start.toEpochMilliseconds())
         val activity =
             DecodedActivityMapper.map(
-                DecodedActivity(other, listOf(summary().copy(physiology = physiology)), emptyList(), listOf(record(0), record(10)))
+                DecodedActivity(other, listOf(summary().copy(physiology = physiology)), emptyList(), listOf(record(0), record(10))),
             )
         assertEquals(SessionPhysiology(exerciseLoad = 187), activity.physiology)
     }

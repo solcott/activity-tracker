@@ -24,7 +24,7 @@ class HttpMessageSignatureTest {
             DpopKey.Serialized(
                 privateKeyDer = PRIVATE_DER,
                 publicKeyRaw = PUBLIC_RAW,
-            )
+            ),
         )
     }
 

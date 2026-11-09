@@ -18,7 +18,7 @@ fun sharedPlaceOf(segment: SegmentView): SharedPlace =
                 distanceMeters = segment.distanceMeters,
                 status = segment.status,
                 kind = segment.record.kind?.takeIf { it != SegmentKind.RUN },
-            )
+            ),
     )
 
 /** [site] as a post sharing a proposal for it shows it, as for a segment. */

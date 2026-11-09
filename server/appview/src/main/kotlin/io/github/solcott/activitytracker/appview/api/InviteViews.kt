@@ -109,7 +109,7 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
                     createdAt = Instant.fromEpochMilliseconds(row[ActivityInvites.createdAt]),
                     copy = copy?.let(::AtUri),
                 )
-            }
+            },
         )
     }
 

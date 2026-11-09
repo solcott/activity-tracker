@@ -104,7 +104,7 @@ private fun MoreMenu(eventSink: (GearListEvent) -> Unit) {
             onDismiss = { open = false },
             items =
                 persistentListOf(
-                    AppMenuItem(stringResource(Res.string.gear_ignored_sensors)) { eventSink(GearListEvent.OpenIgnoredSensors) }
+                    AppMenuItem(stringResource(Res.string.gear_ignored_sensors)) { eventSink(GearListEvent.OpenIgnoredSensors) },
                 ),
         )
     }
@@ -140,7 +140,7 @@ private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: 
         Column(
             Modifier.fillMaxWidth()
                 .clickable(role = Role.Button) { eventSink(GearListEvent.OpenCollection(row.rkey)) }
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text(row.name, style = MaterialTheme.typography.titleMedium)
             Text(

@@ -108,7 +108,7 @@ private fun IosNavigationBar(
         Column(
             Modifier.fillMaxWidth()
                 .then(if (backdrop == null) Modifier.background(colors.surface) else Modifier)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
         ) {
             CenteredBar(
                 leading = {
@@ -186,7 +186,7 @@ private fun BarEffect(backdrop: HazeState, material: () -> Float, barHeight: Int
             // cut-out; Compose content, already behind an opaque material there, looks the same.
             .drawBehind { drawRect(color, alpha = material()) }
             .overhang(overhang)
-            .hazeBlur(HazeInput.Sources(backdrop), style)
+            .hazeBlur(HazeInput.Sources(backdrop), style),
     )
 }
 

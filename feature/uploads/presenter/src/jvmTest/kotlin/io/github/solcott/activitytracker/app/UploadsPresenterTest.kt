@@ -65,7 +65,7 @@ class UploadsPresenterTest {
                 } else {
                     respond("{}", HttpStatusCode.OK, json)
                 }
-            }
+            },
         )
 
     /** A waiting activity at [rkey], of the import [batchId] if given, with [writes] queued. */
@@ -88,7 +88,7 @@ class UploadsPresenterTest {
                     subSport = null,
                     startedAt = 0,
                     queuedAt = 0,
-                )
+                ),
             )
         repeat(writes) {
             val id =
@@ -102,7 +102,7 @@ class UploadsPresenterTest {
                             recordJson = "{}",
                             createdAt = 0,
                             bulk = batchId != null,
-                        )
+                        ),
                     )
             if (rejected && it == 0) outbox().markRejected(id, at = 1, error = "refused")
         }
@@ -130,7 +130,7 @@ class UploadsPresenterTest {
                 waiting("3kown", "Morning run")
                 waiting("3kone", "One", batchId = "3kbatch")
                 waiting("3ktwo", "Two", batchId = "3kbatch")
-            }
+            },
         ) { _, _ ->
             val view = awaitUntil { it.content.data != null }.content.data!!
             assertEquals(listOf("Morning run"), view.own.map { it.title })
@@ -205,7 +205,7 @@ class UploadsPresenterTest {
                 uploads().putBatch(UploadBatchEntity("3kbatch", did, "export:Strava", savedAt = 0, saved = 2))
                 waiting("3kone", "One", batchId = "3kbatch")
                 waiting("3ktwo", "Two", batchId = "3kbatch")
-            }
+            },
         ) { db, _ ->
             awaitUntil { it.content.data?.imports?.size == 1 }.eventSink(UploadsEvent.CancelRest("3kbatch"))
             awaitUntil { it.confirmingCancelRest == "3kbatch" }.eventSink(UploadsEvent.ConfirmCancelRest("3kbatch"))
@@ -223,7 +223,7 @@ class UploadsPresenterTest {
                 val items = (0 until 3).map { ImportSaveItemEntity("3kbatch", it, it, 0, "[]", it, "3krkey$it", "{}", done = it == 0) }
                 importSaves().plan(ImportSaveEntity("3kbatch", did, 3, createdAt = 0, choicesJson = "{}"), emptyList(), items)
                 waiting("3kone", "One", batchId = "3kbatch")
-            }
+            },
         ) { db, _ ->
             val saving = awaitUntil { it.content.data?.imports?.singleOrNull()?.save != null }
             assertEquals(ImportSaveStatus.Saving(done = 1, total = 3), saving.content.data!!.imports.single().save)

@@ -27,7 +27,7 @@ class FeatureConventionPluginsTest {
                         ":ui-resources",
                     )
                     """
-                        .trimIndent()
+                        .trimIndent(),
                 )
             resolve("gradle").mkdirs()
             File(System.getProperty("activitytracker.versionCatalog")).copyTo(resolve("gradle/libs.versions.toml"))
@@ -105,7 +105,7 @@ class FeatureConventionPluginsTest {
                     }
                 }
                 """
-                    .trimIndent()
+                    .trimIndent(),
             )
     }
 

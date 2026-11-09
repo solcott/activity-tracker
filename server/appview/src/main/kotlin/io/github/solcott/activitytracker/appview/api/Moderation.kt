@@ -53,7 +53,7 @@ internal fun labelled(subject: Expression<String>, value: String, cid: Column<St
                 (Labels.src inList sources) and
                 (Labels.exp.isNull() or (Labels.exp greater now)) and
                 (cid?.let { Labels.cid.isNull() or (Labels.cid eq it) } ?: Op.TRUE)
-        }
+        },
     )
 }
 

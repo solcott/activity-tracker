@@ -34,7 +34,7 @@ private fun decompress(bytes: JsAny, max: Int): Promise<JsAny?> =
   let offset = 0;
   for (const part of parts) { out.set(part, offset); offset += part.length; }
   return out;
-})()"""
+})()""",
     )
 
 internal actual suspend fun gzip(bytes: ByteArray): ByteArray = uint8ArrayToByteArray(compress(bytes.toUint8Array()).await<JsAny>())

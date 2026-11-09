@@ -38,7 +38,7 @@ class OutboxQueryPlanTest {
             "SELECT o.rkey, o.collection, o.operation, o.rejectedAt, " +
                 "(SELECT a.recordJson FROM outbox a WHERE a.did = o.did AND a.rkey = o.rkey AND a.collection = 'c' " +
                 "AND a.operation = 'put' ORDER BY a.id DESC LIMIT 1) AS activityJson " +
-                "FROM outbox o WHERE o.did = 'd' AND o.rejectedAt IS NOT NULL ORDER BY o.id"
+                "FROM outbox o WHERE o.did = 'd' AND o.rejectedAt IS NOT NULL ORDER BY o.id",
         )
     }
 

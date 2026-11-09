@@ -67,7 +67,7 @@ class LatestOwnStartTest {
                             )
                     else -> respondError(HttpStatusCode.NotFound)
                 }
-            }
+            },
         )
 
     @Test
@@ -84,7 +84,7 @@ class LatestOwnStartTest {
             .upsert(
                 cached.mapIndexed { i, view ->
                     FeedItemEntity("timeline", view.uri.value, i, AtJson.encodeToString(ActivityView.serializer(), view))
-                }
+                },
             )
         served = listOf(view("3kz", "2026-10-06T08:00:00Z", nullIsland))
 

@@ -84,9 +84,9 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(fixture.did))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({
-            GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock)
-        }) {
+        presenterTestOf(
+            { GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock) },
+        ) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertTrue(page.isOwner)
@@ -106,9 +106,9 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(bob))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({
-            GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock)
-        }) {
+        presenterTestOf(
+            { GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock) },
+        ) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertFalse(page.isOwner)
@@ -123,17 +123,19 @@ class GearPresenterTest {
     fun anItemTheViewerMayNotSeeIsNotFound() = runTest {
         val uri = AtUri.of(Did("did:plc:bob"), Nsid.GEAR_ITEM, "3private").value
         val repos = fixture.repos()
-        presenterTestOf({
-            GearPresenter(
-                GearScreen(uri),
-                FakeNavigator(GearScreen(uri)),
-                repos.gear,
-                repos.gearCollections,
-                repos.gearDefaults,
-                repos.activities,
-                clock,
-            )
-        }) {
+        presenterTestOf(
+            {
+                GearPresenter(
+                    GearScreen(uri),
+                    FakeNavigator(GearScreen(uri)),
+                    repos.gear,
+                    repos.gearCollections,
+                    repos.gearDefaults,
+                    repos.activities,
+                    clock,
+                )
+            },
+        ) {
             val state = awaitUntil { it.notFound }
             assertFalse(state.content.hasLoaded)
             cancelAndIgnoreRemainingEvents()
@@ -157,17 +159,19 @@ class GearPresenterTest {
         val helmet = item(fixture.did, "3helmet")
         raceKit(tarmac)
         val repos = fixture.repos()
-        presenterTestOf({
-            GearPresenter(
-                GearScreen(helmet),
-                FakeNavigator(GearScreen(helmet)),
-                repos.gear,
-                repos.gearCollections,
-                repos.gearDefaults,
-                repos.activities,
-                clock,
-            )
-        }) {
+        presenterTestOf(
+            {
+                GearPresenter(
+                    GearScreen(helmet),
+                    FakeNavigator(GearScreen(helmet)),
+                    repos.gear,
+                    repos.gearCollections,
+                    repos.gearDefaults,
+                    repos.activities,
+                    clock,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.collections.isNotEmpty() }
             assertEquals(listOf(GearCollectionChoice("3kit", "Race kit", member = false)), loaded.collections)
             loaded.eventSink(GearEvent.ToggleCollection("3kit"))
@@ -186,17 +190,19 @@ class GearPresenterTest {
         val uri = item(bob)
         raceKit(uri)
         val repos = fixture.repos()
-        presenterTestOf({
-            GearPresenter(
-                GearScreen(uri),
-                FakeNavigator(GearScreen(uri)),
-                repos.gear,
-                repos.gearCollections,
-                repos.gearDefaults,
-                repos.activities,
-                clock,
-            )
-        }) {
+        presenterTestOf(
+            {
+                GearPresenter(
+                    GearScreen(uri),
+                    FakeNavigator(GearScreen(uri)),
+                    repos.gear,
+                    repos.gearCollections,
+                    repos.gearDefaults,
+                    repos.activities,
+                    clock,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.content.hasLoaded }
             assertTrue(loaded.collections.isEmpty())
             cancelAndIgnoreRemainingEvents()
@@ -233,7 +239,7 @@ class GearPresenterTest {
                     components =
                         components.map {
                             GearComponent(GearView(AtUri.of(fixture.did, Nsid.GEAR_ITEM, it), it, GearType.COMPONENT), march, totals)
-                        }
+                        },
                 )
         return tarmac
     }

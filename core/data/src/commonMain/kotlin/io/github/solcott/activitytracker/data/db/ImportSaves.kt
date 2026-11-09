@@ -143,7 +143,7 @@ interface ImportSaveDao {
         "SELECT s.batchId, s.did, s.total, s.state, " +
             "(SELECT COUNT(*) FROM import_save_item i WHERE i.batchId = s.batchId AND i.done = 1) AS done, " +
             "(SELECT COUNT(*) FROM import_save_item i WHERE i.batchId = s.batchId AND i.skipped = 1) AS skipped " +
-            "FROM import_save s WHERE s.did = :did ORDER BY s.createdAt"
+            "FROM import_save s WHERE s.did = :did ORDER BY s.createdAt",
     )
     fun counts(did: String): Flow<List<ImportSaveCounts>>
 
@@ -151,7 +151,7 @@ interface ImportSaveDao {
         "SELECT s.batchId, s.did, s.total, s.state, " +
             "(SELECT COUNT(*) FROM import_save_item i WHERE i.batchId = s.batchId AND i.done = 1) AS done, " +
             "(SELECT COUNT(*) FROM import_save_item i WHERE i.batchId = s.batchId AND i.skipped = 1) AS skipped " +
-            "FROM import_save s WHERE s.batchId = :batchId"
+            "FROM import_save s WHERE s.batchId = :batchId",
     )
     suspend fun countsOf(batchId: String): ImportSaveCounts?
 

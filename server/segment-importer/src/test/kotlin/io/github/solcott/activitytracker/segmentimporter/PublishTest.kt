@@ -302,7 +302,7 @@ class PublishTest {
                 "\n" +
                 """{"id":"c1","region":"us-vermont","sport":"ride","name":"Trail","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
                 """"source":"osm","license":"ODbL-1.0","osmWays":[1]}""" +
-                "\n"
+                "\n",
         )
         val refused = assertFailsWith<IllegalArgumentException> { publishRegion(clients, "us-utah", file) }
         assertEquals(true, "us-vermont" in refused.message.orEmpty())

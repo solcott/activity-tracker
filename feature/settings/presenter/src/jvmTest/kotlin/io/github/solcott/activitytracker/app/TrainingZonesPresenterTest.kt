@@ -174,12 +174,15 @@ class TrainingZonesPresenterTest {
         val repos = fixture.repos()
         val registry = RetainedStateRegistry()
         var shown by mutableStateOf(true)
-        presenterTestOf({
-            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                // A stand-in for the editor it opened while it's on the back stack.
-                if (shown) TrainingZonesPresenter(FakeNavigator(TrainingZonesScreen), repos.profiles, repos.units) else TrainingZonesState()
-            }
-        }) {
+        presenterTestOf(
+            {
+                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                    // A stand-in for the editor it opened while it's on the back stack.
+                    if (shown) TrainingZonesPresenter(FakeNavigator(TrainingZonesScreen), repos.profiles, repos.units)
+                    else TrainingZonesState()
+                }
+            },
+        ) {
             awaitUntil { it.zones != null && !it.content.isLoading }
             registry.saveAll()
             shown = false

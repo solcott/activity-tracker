@@ -143,7 +143,7 @@ private fun OthersActivityMenu(state: ActivityDetailPage) {
                 AppMenuItem(report) {
                     val target = ReportTarget.Activity(activity.uri, activity.cid, activity.author.did)
                     state.reporting.eventSink(ReportingEvent.Open(target, name))
-                }
+                },
             )
         }
     Box {
@@ -435,7 +435,7 @@ private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier)
                     stringResource(
                         if (state.activity.viewer?.like != null) Res.string.detail_liked else Res.string.detail_like,
                         count,
-                    )
+                    ),
                 )
             }
         }

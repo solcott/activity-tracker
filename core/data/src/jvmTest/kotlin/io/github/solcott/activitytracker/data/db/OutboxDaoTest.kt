@@ -62,7 +62,7 @@ class OutboxDaoTest {
         val track =
             dao.insert(
                 row(Nsid.FEED_ACTIVITY_TRACK, "3kact")
-                    .copy(blob = byteArrayOf(1, 2, 3), blobMimeType = "application/gpx+xml", blobField = "track")
+                    .copy(blob = byteArrayOf(1, 2, 3), blobMimeType = "application/gpx+xml", blobField = "track"),
             )
         dao.insert(row(Nsid.FEED_ACTIVITY, "3kact"))
         dao.insert(row(Nsid.FEED_LIKE, "3klike"))

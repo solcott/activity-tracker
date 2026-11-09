@@ -38,9 +38,9 @@ class DesktopSecretCipher(
     logger: Logger,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) :
-    SecretCipher by AesGcmSecretCipher({
-        withContext(ioDispatcher) { loadOrCreateKey(dirs.data.resolve(KEY_FILE), store, logger.withTag("DesktopSecretCipher")) }
-    })
+    SecretCipher by AesGcmSecretCipher(
+        { withContext(ioDispatcher) { loadOrCreateKey(dirs.data.resolve(KEY_FILE), store, logger.withTag("DesktopSecretCipher")) } },
+    )
 
 private const val KEY_FILE = "secret.key"
 private const val KEY_BYTES = 32

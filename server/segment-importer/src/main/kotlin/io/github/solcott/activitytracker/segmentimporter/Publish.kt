@@ -173,7 +173,7 @@ internal suspend fun publishRegion(clients: Clients, region: String, every: File
     for (id in result.duplicates) println("Duplicate of a live segment, not published: $id")
     println(
         "Published ${result.published.size} segments for $region; ${result.duplicates.size} duplicates, " +
-            "${result.present.size} already published, ${result.gone.size} no longer staged"
+            "${result.present.size} already published, ${result.gone.size} no longer staged",
     )
     result.stoppedBy?.let { throw it }
 }

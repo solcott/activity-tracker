@@ -107,7 +107,7 @@ class SegmentNamesTest {
                         val headers = headersOf("Content-Type", "application/json")
                         if (request.url.encodedPath.endsWith("getServiceAuth")) respond("""{"token":"jwt"}""", headers = headers)
                         else respond(json, headers = headers)
-                    }
+                    },
                 )
             val (_, _, clients) = signedInTestSession(http, did = alice)
             val read = SegmentRepository(clients).segment(segment)

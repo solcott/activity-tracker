@@ -82,7 +82,7 @@ private fun ActionButton(action: AppDialogAction, onDismiss: () -> Unit) {
         onClick = {
             onDismiss()
             action.onClick()
-        }
+        },
     ) {
         Text(action.label, color = if (action.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     }

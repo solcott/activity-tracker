@@ -164,7 +164,7 @@ internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
 internal fun JdbcTransaction.dropTracks(uris: List<String>) {
     if (uris.isEmpty()) return
     dropPairsOfActivities(
-        SegmentTracks.select(SegmentTracks.activityUri).where { SegmentTracks.uri inList uris }.map { it[SegmentTracks.activityUri] }
+        SegmentTracks.select(SegmentTracks.activityUri).where { SegmentTracks.uri inList uris }.map { it[SegmentTracks.activityUri] },
     )
     SegmentTracks.select(SegmentTracks.activityUri)
         .where { (SegmentTracks.uri inList uris) and leftGroup() }

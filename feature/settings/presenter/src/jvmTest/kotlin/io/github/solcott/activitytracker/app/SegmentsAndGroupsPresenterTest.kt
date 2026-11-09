@@ -35,14 +35,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun segmentMatchingStartsOffAndTurnsOnAndOff() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching != null }
             assertEquals(false, loaded.segmentMatching, "never asked: off")
             assertTrue(loaded.canUseSegments)
@@ -60,14 +62,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun theLeaderboardChoiceShowsOnlyWhileMatchingIsOnAndKeepsIt() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val off = awaitUntil { it.segmentMatching != null && it.showOnLeaderboards != null }
             assertEquals(true, off.showOnLeaderboards, "shown by default")
             off.eventSink(SegmentsAndGroupsEvent.LeaderboardsChanged(false))
@@ -97,14 +101,16 @@ class SegmentsAndGroupsPresenterTest {
         fixture.privateDetails = """{"details":{"birthDate":"1984-03-02","weight":70000,"height":1700}}"""
         fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val off = awaitUntil { it.segmentMatching == true && it.bracketBoards != null }
             assertEquals(false, off.bracketBoards, "off by default")
             assertTrue(off.canUseBracketBoards)
@@ -132,14 +138,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun bracketBoardsArentOfferedWhileMatchingIsOff() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching == false && it.bracketBoards != null }
             assertEquals(false, loaded.bracketBoards)
             // Ignored: the UI doesn't offer it, and nothing is saved.
@@ -157,14 +165,16 @@ class SegmentsAndGroupsPresenterTest {
                 "&collection=${Nsid.FEED_SEGMENT_TRACK}"
         fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching == true }
             assertFalse(loaded.canUseBracketBoards)
             assertNull(loaded.bracketBoards)
@@ -175,14 +185,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching != null }
             fixture.failWrites = true
             loaded.eventSink(SegmentsAndGroupsEvent.SegmentMatchingChanged(true))
@@ -199,14 +211,16 @@ class SegmentsAndGroupsPresenterTest {
     fun spacesThatRefuseTheSessionLeaveSegmentMatchingUnknownAndUnsaved() = runTest {
         fixture.scopeMissing = true
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val state = awaitItem()
             state.eventSink(SegmentsAndGroupsEvent.SegmentMatchingChanged(true))
             val after = awaitUntil { !it.savingSegments }
@@ -219,14 +233,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun aSegmentMatchingToggleSentTwiceSavesOnce() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching != null }
             loaded.eventSink(SegmentsAndGroupsEvent.SegmentMatchingChanged(true))
             loaded.eventSink(SegmentsAndGroupsEvent.SegmentMatchingChanged(true))
@@ -239,14 +255,16 @@ class SegmentsAndGroupsPresenterTest {
     @Test
     fun choosingGroupActivitiesSavesItInSelfAndAFailureKeepsTheEarlierChoice() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.groupActivities != null }
             assertEquals(GroupChoice.NEVER_ASKED, loaded.groupActivities)
 
@@ -275,14 +293,16 @@ class SegmentsAndGroupsPresenterTest {
             "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.ACTOR_SEGMENT_PREFS}" +
                 "&collection=${Nsid.FEED_SEGMENT_TRACK}"
         val repos = fixture.repos()
-        presenterTestOf({
-            SegmentsAndGroupsPresenter(
-                FakeNavigator(SegmentsAndGroupsScreen),
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-                repos.groupPrefs,
-            )
-        }) {
+        presenterTestOf(
+            {
+                SegmentsAndGroupsPresenter(
+                    FakeNavigator(SegmentsAndGroupsScreen),
+                    repos.segmentPrefs,
+                    repos.leaderboardBrackets,
+                    repos.groupPrefs,
+                )
+            },
+        ) {
             val loaded = awaitUntil { it.segmentMatching != null }
             assertFalse(loaded.canUseGroups)
             loaded.eventSink(SegmentsAndGroupsEvent.GroupActivitiesChanged(GroupChoice.ANYONE))

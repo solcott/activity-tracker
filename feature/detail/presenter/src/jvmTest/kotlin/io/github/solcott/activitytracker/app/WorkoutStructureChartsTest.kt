@@ -21,25 +21,27 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
     private suspend fun loaded(withCharts: Boolean = true): ActivityDetailPage {
         val r = repos()
         var result: ActivityDetailPage? = null
-        presenterTestOf({
-            ActivityDetailPresenter(
-                screen,
-                FakeNavigator(screen),
-                r.feed,
-                r.activities,
-                r.profiles,
-                localLikes,
-                r.manager,
-                r.exporter,
-                r.units,
-                r.suggestions,
-                r.blocks,
-                r.reports,
-                r.segments,
-                r.diveSites,
-                r.groups,
-            )
-        }) {
+        presenterTestOf(
+            {
+                ActivityDetailPresenter(
+                    screen,
+                    FakeNavigator(screen),
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    localLikes,
+                    r.manager,
+                    r.exporter,
+                    r.units,
+                    r.suggestions,
+                    r.blocks,
+                    r.reports,
+                    r.segments,
+                    r.diveSites,
+                    r.groups,
+                )
+            },
+        ) {
             var state = awaitLoaded()
             if (withCharts) while (state.charts == null) state = awaitLoaded()
             result = state
@@ -58,7 +60,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         recordExtra = """"poolLength":2500,"""
         streamsOf(
             """"lengths":[{"start":0,"elapsed":30,"stroke":"freestyle","strokes":15},{"start":30,"elapsed":20,"rest":true},""" +
-                """{"start":50,"elapsed":35,"stroke":"breaststroke","strokes":12}]"""
+                """{"start":50,"elapsed":35,"stroke":"breaststroke","strokes":12}]""",
         )
         val state = loaded()
         assertEquals(PoolLength(25, yards = false), state.poolLength)
@@ -85,7 +87,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         assertEquals(PoolLength(25, yards = true), state.poolLength)
         assertNull(state.charts)
         assertTrue(
-            DetailSection.Lengths !in state.sections && DetailSection.Sets !in state.sections && DetailSection.Legs !in state.sections
+            DetailSection.Lengths !in state.sections && DetailSection.Sets !in state.sections && DetailSection.Legs !in state.sections,
         )
     }
 
@@ -94,7 +96,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         sport = "strength"
         streamsOf(
             """"sets":[{"start":0,"elapsed":40,"category":"bench_press","exercise":"barbell_bench_press","reps":8,"weight":60000},""" +
-                """{"start":40,"elapsed":90,"rest":true},{"start":130,"elapsed":30,"category":"push_up","exercise":"push_up","reps":20}]"""
+                """{"start":40,"elapsed":90,"rest":true},{"start":130,"elapsed":30,"category":"push_up","exercise":"push_up","reps":20}]""",
         )
         val state = loaded()
         assertEquals(
@@ -115,7 +117,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"legs":[{"start":0,"elapsed":1800,"sport":"swim","distance":1500},""" +
                 """{"start":1800,"elapsed":120,"sport":"multisport","transition":true},""" +
-                """{"start":1920,"elapsed":3600,"moving":3550,"sport":"ride","subSport":"road","distance":40000}]"""
+                """{"start":1920,"elapsed":3600,"moving":3550,"sport":"ride","subSport":"road","distance":40000}]""",
         )
         val state = loaded()
         assertEquals(
@@ -135,7 +137,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"laps":[{"start":0,"elapsed":300,"ascent":300,"intensity":"rest"},""" +
                 """{"start":300,"elapsed":240,"descent":300,"intensity":"active"},""" +
-                """{"start":540,"elapsed":300,"ascent":300,"intensity":"rest"},{"start":840,"elapsed":240,"descent":290,"intensity":"active"}]"""
+                """{"start":540,"elapsed":300,"ascent":300,"intensity":"rest"},{"start":840,"elapsed":240,"descent":290,"intensity":"active"}]""",
         )
         val charts = loaded().charts!!
         assertEquals(2, charts.skiRuns)

@@ -47,7 +47,7 @@ class FakeIdentities {
                     url.host == "cloudflare-dns.com" -> respond("""{"Status":3}""", headers = json)
                     else -> respond("not found", HttpStatusCode.NotFound)
                 }
-            }
+            },
         ) {
             expectSuccess = false
         }

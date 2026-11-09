@@ -50,7 +50,7 @@ fun ProposePlaceNameUi(state: ProposePlaceNameState, modifier: Modifier = Modifi
         AppSheetHeader(
             title =
                 stringResource(
-                    if (state.editing) Res.string.segment_name_sheet_edit_title else Res.string.segment_name_sheet_propose_title
+                    if (state.editing) Res.string.segment_name_sheet_edit_title else Res.string.segment_name_sheet_propose_title,
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onCancel = { state.eventSink(ProposePlaceNameEvent.Cancel) },
