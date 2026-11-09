@@ -23,7 +23,7 @@ import kotlin.time.Instant
 object DecodedActivityMapper {
     fun map(fit: DecodedActivity): ImportedActivity {
         val type = fit.fileId?.type?.fitKey()
-        if (type != null && type != "activity") throw NotAnActivityFileException(fit.fileId.type.toString())
+        if (type != null && type != "activity") throw NotAnActivityFileException(fit.fileId.type)
 
         // Stryd's developer fields, then heart rate a strap stored in hr messages, fill what the records lack.
         val records =
