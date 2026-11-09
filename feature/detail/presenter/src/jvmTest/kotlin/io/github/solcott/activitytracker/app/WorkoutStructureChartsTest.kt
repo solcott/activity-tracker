@@ -137,7 +137,8 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
         streamsOf(
             """"laps":[{"start":0,"elapsed":300,"ascent":300,"intensity":"rest"},""" +
                 """{"start":300,"elapsed":240,"descent":300,"intensity":"active"},""" +
-                """{"start":540,"elapsed":300,"ascent":300,"intensity":"rest"},{"start":840,"elapsed":240,"descent":290,"intensity":"active"}]""",
+                """{"start":540,"elapsed":300,"ascent":300,"intensity":"rest"},""" +
+                """{"start":840,"elapsed":240,"descent":290,"intensity":"active"}]""",
         )
         val charts = loaded().charts!!
         assertEquals(2, charts.skiRuns)

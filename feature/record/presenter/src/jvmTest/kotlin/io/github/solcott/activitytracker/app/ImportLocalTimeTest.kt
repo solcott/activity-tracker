@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DecodedActivity
@@ -55,40 +56,34 @@ class ImportLocalTimeTest {
                 activityTimestampMillis = end.toEpochMilliseconds(),
                 activityLocalTimestampSeconds = end.epochSeconds - FIT_EPOCH_SECONDS + 3600,
             )
-        presenterTestOf(
-            {
-                ImportActivityPresenter(
-                    ImportActivityScreen(),
-                    FakeNavigator(ImportActivityScreen()),
-                    repos.activities,
-                    repos.manager,
-                    ActivityFileReader { run },
-                    repos.typeChoices,
-                    repos.gearChoices,
-                    repos.newDeviceChoices,
-                    repos.profiles,
-                    repos.feed,
-                    repos.defaults,
-                    repos.units,
-                    repos.suggestions,
-                    repos.saveStore,
-                    repos.saves,
-                    BatchSaveRunner(
-                        repos.saveStore,
-                        repos.saves,
-                        repos.clients,
-                        repos.activities,
-                        repos.manager,
-                        ActivityFileReader { run },
-                    ),
-                )
-            },
-        ) {
+        presenterTestOf(presenter(repos, ActivityFileReader { run })) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Run.fit", bytes))
             assertEquals(PartOfDay.Morning, awaitUntil { it.preview != null }.defaultTitle?.partOfDay)
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    private fun presenter(repos: SessionTestFixture.Repos, reader: ActivityFileReader) =
+        @Composable {
+            ImportActivityPresenter(
+                ImportActivityScreen(),
+                FakeNavigator(ImportActivityScreen()),
+                repos.activities,
+                repos.manager,
+                reader,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.newDeviceChoices,
+                repos.profiles,
+                repos.feed,
+                repos.defaults,
+                repos.units,
+                repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, reader),
+            )
+        }
 
     private companion object {
         /** FIT times count seconds from 1989-12-31T00:00:00Z. */

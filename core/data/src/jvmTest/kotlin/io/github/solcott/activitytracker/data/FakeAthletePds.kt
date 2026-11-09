@@ -309,7 +309,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     if (!spaceExists(tier)) return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
                                     json(
                                         """{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier",""" +
-                                            """"policy":{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:appview.test#activitytracker_space"}}""",
+                                            """"policy":{"${'$'}type":"com.atproto.managedspace.policy",""" +
+                                            """"managingApp":"did:web:appview.test#activitytracker_space"}}""",
                                     )
                                 }
                                 path == "/xrpc/com.atproto.space.deleteSpace" -> {

@@ -248,7 +248,8 @@ class ActivityDevicesTest {
             pds.session(
                 scope =
                     "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY}" +
-                        "&collection=${Nsid.FEED_ACTIVITY_STREAMS}&collection=${Nsid.FEED_ACTIVITY_SOURCE}&collection=${Nsid.FEED_ACTIVITY_TRACK}",
+                        "&collection=${Nsid.FEED_ACTIVITY_STREAMS}&collection=${Nsid.FEED_ACTIVITY_SOURCE}" +
+                        "&collection=${Nsid.FEED_ACTIVITY_TRACK}",
             )
         val uri = s.activities.publish(draft())
 
