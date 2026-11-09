@@ -43,7 +43,7 @@ fun GearListPresenter(navigator: Navigator, gear: GearRepository, collections: G
             .onSuccess { items -> totals = items.associate { it.gear.uri.value to it.totals } }
     }
     val content =
-        produceRetainedContentState(LoadedGear(), Triple(retryKey, changes, collectionChanges)) {
+        produceRetainedContentState(LoadedGear(), retryKey, changes, collectionChanges) {
             gear.gearAndCollectionsOutcome().map { outcome -> outcome.mapData { LoadedGear(it.items, it.collections) } }
         }
     val lists = remember(content, totals) { content.mapContent { listsOf(it.items, gear.did, totals, it.collections) } }

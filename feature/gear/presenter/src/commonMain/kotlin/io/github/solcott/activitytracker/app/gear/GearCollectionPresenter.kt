@@ -38,7 +38,7 @@ fun GearCollectionPresenter(
     val changes by gear.changes.collectAsState()
     val collectionChanges by collections.changes.collectAsState()
     val content =
-        produceRetainedContentState(GearCollectionDetail(), Triple(retryKey, changes, collectionChanges)) {
+        produceRetainedContentState(GearCollectionDetail(), retryKey, changes, collectionChanges) {
             gear.collectionOutcome(screen.rkey).map { outcome -> outcome.mapData(::detailOf) }
         }
     var confirmingDelete by remember { mutableStateOf(false) }
