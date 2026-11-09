@@ -11,7 +11,7 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ```bash
 ./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps
 ./gradlew format                                  # format Kotlin/scripts (ktfmt kotlinlang style) and sort dependency blocks
-./gradlew composeStabilityCheck                   # fail on unstable Compose params (and State fields in -api modules); reports in build/compose/reports
+./gradlew composeStabilityCheck                   # fail on unstable Compose params (and State fields in -api modules); reports in build/compose/stability
 ./gradlew cpdCheck                                # duplicated Kotlin across modules (PMD CPD), report-only: build/reports/cpd/cpd.txt; -Pcpd.minTokens=N, -Pcpd.fail=true
 ./gradlew checkModuleBoundaries                   # fail when a presenter and a UI module depend on each other, or a feature reaches past another's -api
 ./gradlew detektBaseline                          # regenerate each module's detekt-baseline.xml (config: config/detekt/detekt.yml)

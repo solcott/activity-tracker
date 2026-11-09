@@ -16,16 +16,22 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.withType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
+import org.jetbrains.kotlin.gradle.plugin.CompilerPluginConfig
+import org.jetbrains.kotlin.gradle.plugin.FilesSubpluginOption
+import org.jetbrains.kotlin.gradle.tasks.BaseKotlinCompile
 
 const val COMPOSE_STABILITY_CHECK_TASK_NAME = "composeStabilityCheck"
 
 /**
- * The main compilation whose reports the check reads, first match wins: a KMP module's JVM target, a JVM module, the Android app's debug
- * variant, then wasm for a module with no JVM target (`:webApp`).
+ * The main compilation that writes the reports the check reads, first match wins: a KMP module's JVM target, a JVM module, the Android
+ * app's debug variant, then wasm for a module with no JVM target (`:webApp`).
  */
 private val REPORT_COMPILE_TASKS = listOf("compileKotlinJvm", "compileKotlin", "compileDebugKotlin", "compileKotlinWasmJs")
+
+private const val COMPOSE_COMPILER_PLUGIN_ID = "androidx.compose.compiler.plugins.kotlin"
 
 /** `composeStability { }` in a module script. */
 abstract class ComposeStabilityExtension {
@@ -37,44 +43,45 @@ abstract class ComposeStabilityExtension {
 }
 
 /**
- * Turns on the Compose compiler's stability reports, points it at the repo's stability config, and fails `check` when a restartable
- * composable has a param that isn't statically stable (plus the [ComposeStabilityExtension.strictClasses] check where enabled). Applied by
- * `activitytracker.quality` to every module that applies the Compose compiler plugin.
+ * Has one main compilation write the Compose compiler's stability reports, points the compiler at the repo's stability config, and fails
+ * `check` when a restartable composable has a param that isn't statically stable (plus the [ComposeStabilityExtension.strictClasses] check
+ * where enabled). Applied by `activitytracker.quality` to every module that applies the Compose compiler plugin.
  */
 internal fun Project.configureComposeStability() {
     val extension = extensions.create<ComposeStabilityExtension>("composeStability").apply { strictClasses.convention(false) }
-    val reportsDir = layout.buildDirectory.dir("compose/reports")
+    val reportsDir = layout.buildDirectory.dir("compose/stability")
     extensions.configure<ComposeCompilerGradlePluginExtension> {
-        reportsDestination.set(reportsDir)
         metricsDestination.set(layout.buildDirectory.dir("compose/metrics"))
         // `isolated` is incubating (Isolated Projects); re-check on Gradle upgrades.
         @Suppress("UnstableApiUsage")
         stabilityConfigurationFiles.add(isolated.rootProject.projectDirectory.file("config/compose/stability.conf"))
     }
 
+    // Not the extension's reportsDestination: that has every compilation of every target write the same file names into one
+    // directory, as a side effect the compile tasks don't declare, so a compilation restored from the build cache leaves no
+    // reports and the check passes without reading any. Here the one compilation the check reads gets the option, with the
+    // directory as its output: cached and restored with its classes, and written by nothing else.
+    val taskNames = provider { tasks.names }
+    val reportTask = taskNames.map { names -> REPORT_COMPILE_TASKS.firstOrNull { it in names } ?: error("$path has no main compilation") }
+    tasks
+        .withType<BaseKotlinCompile>()
+        .named { it in REPORT_COMPILE_TASKS }
+        .configureEach {
+            if (name == reportTask.get()) {
+                val reports = FilesSubpluginOption("reportsDestination", listOf(reportsDir.get().asFile))
+                pluginOptions.add(CompilerPluginConfig().apply { addPluginArgument(COMPOSE_COMPILER_PLUGIN_ID, reports) })
+                outputs.dir(reportsDir).withPropertyName("composeStabilityReports")
+            }
+        }
+
     val stabilityCheck =
         tasks.register<ComposeStabilityCheck>(COMPOSE_STABILITY_CHECK_TASK_NAME) {
             group = JavaBasePlugin.VERIFICATION_GROUP
             description = "Fails on unstable classes or unstable restartable-composable params in the Compose compiler reports."
-            // Only the main compilation's reports. Other compilations name theirs <module>_<compilation> (_test, _hostTest) and
-            // write them whenever they happen to run, and a test's composables (members of a test class) aren't what this checks.
-            reports.from(
-                reportsDir.map { dir ->
-                    dir.asFileTree.matching {
-                        include("*-classes.txt", "*-composables.txt")
-                        exclude("*_*-classes.txt", "*_*-composables.txt")
-                    }
-                },
-            )
-            // The reports are a side effect of compiling main sources, and every target's compilation writes the same file names
-            // into reportsDir, so one compilation is enough. By name: a filtered KotlinCompilationTask collection also matches
-            // the wasm executable links, the metadata compilations and the iosArm64 one, none of which check otherwise needs.
-            val taskNames = tasks.names
-            dependsOn(
-                provider {
-                    listOf(REPORT_COMPILE_TASKS.firstOrNull { it in taskNames } ?: error("$path has no main compilation to report on"))
-                },
-            )
+            reports.from(reportsDir.map { dir -> dir.asFileTree.matching { include("*-classes.txt", "*-composables.txt") } })
+            // By name: a filtered KotlinCompilationTask collection would also match the wasm executable links, the metadata
+            // compilations and the iosArm64 one, none of which check otherwise needs.
+            dependsOn(reportTask.map { listOf(it) })
             strictClasses.set(extension.strictClasses)
             marker.set(layout.buildDirectory.file("compose/stabilityCheck.txt"))
         }
@@ -114,7 +121,7 @@ abstract class ComposeStabilityCheck : DefaultTask() {
                     violations.forEach { appendLine("  $it") }
                     append(
                         "Annotate the type @Immutable or @Stable, use ImmutableList instead of List, or (for types we don't own) " +
-                            "add it to config/compose/stability.conf. Reports: build/compose/reports.",
+                            "add it to config/compose/stability.conf. Reports: build/compose/stability.",
                     )
                 },
             )

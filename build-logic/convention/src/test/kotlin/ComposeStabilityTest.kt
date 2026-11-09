@@ -169,6 +169,20 @@ class ComposeStabilityCheckTest {
         assertEquals(TaskOutcome.SUCCESS, result.task(":$TASK")?.outcome)
     }
 
+    @Test
+    fun `the check still reads the reports of a compilation restored from the build cache`() {
+        projectDir.resolve("settings.gradle.kts").appendText("\nbuildCache { local { directory = file(\"build-cache\") } }\n")
+        writeComposable("items: List<Item>")
+        runner(TASK, "--build-cache").buildAndFail()
+        projectDir.resolve("build").deleteRecursively()
+
+        val result = runner(TASK, "--build-cache").buildAndFail()
+
+        assertEquals(TaskOutcome.FROM_CACHE, result.task(":compileKotlin")?.outcome)
+        assertEquals(TaskOutcome.FAILED, result.task(":$TASK")?.outcome)
+        assertContains(result.output, "param items: List<Item>")
+    }
+
     private fun writeComposable(params: String) {
         projectDir
             .resolve("src/main/kotlin/Feed.kt")
