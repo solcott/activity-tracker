@@ -17,6 +17,9 @@ internal fun VersionCatalog.version(alias: String): String = findVersion(alias).
 internal val Project.derivedNamespace: String
     get() = "io.github.solcott.activitytracker" + path.replace(':', '.').replace('-', '.')
 
+/** Whether the module has a `src/<sourceSet>` directory. A configuration input, so adding the directory reconfigures the build. */
+internal fun Project.hasSourceSetDir(sourceSet: String): Boolean = layout.projectDirectory.dir("src/$sourceSet").asFile.isDirectory
+
 /**
  * Compiles with the catalog's `jdk` version from Amazon (Corretto); foojay provisions it if missing. Bytecode targets are set separately.
  */

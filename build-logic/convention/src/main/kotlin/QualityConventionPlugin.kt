@@ -46,11 +46,19 @@ class QualityConventionPlugin : Plugin<Project> {
             tasks.withType<Detekt>().configureEach { exclude(generated) }
             tasks.withType<DetektCreateBaselineTask>().configureEach { exclude(generated) }
 
+            // Left out, because each would only repeat another task's analysis: the per-source-set tasks (the plain task covers
+            // the same files with the same rules and baseline), and the Android compilation's in a module with no Android-only
+            // sources (its files are a subset of detektMainJvm's). The hot-reload dev compilation has no sources of its own.
+            val hasAndroidSources = hasSourceSetDir("androidMain")
             val detektAll =
                 tasks.register("detektAll") {
                     group = "verification"
-                    description = "Runs every detekt task in this module, with and without type resolution."
-                    dependsOn(tasks.withType<Detekt>().matching { it.name != "detektDevJvm" })
+                    description = "Runs the plain detekt task and the type-resolution ones, each file once per kind of analysis."
+                    dependsOn(
+                        tasks.withType<Detekt>().named { name ->
+                            !name.endsWith("SourceSet") && name != "detektDevJvm" && (hasAndroidSources || name != "detektMainAndroid")
+                        },
+                    )
                 }
             // Detekt only wires the plain task into check; the type-resolution ones find what it can't (`!!`, unused properties).
             plugins.withType<LifecycleBasePlugin> { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(detektAll) } }

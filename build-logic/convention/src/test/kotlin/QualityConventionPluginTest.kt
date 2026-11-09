@@ -83,6 +83,14 @@ class QualityConventionPluginTest {
     }
 
     @Test
+    fun `check leaves out the per-source-set tasks, which repeat the plain one`() {
+        val result = runner("check", "--dry-run").build()
+
+        assertContains(result.output, ":detekt SKIPPED")
+        assertFalse("SourceSet SKIPPED" in result.output, result.output)
+    }
+
+    @Test
     fun `a failing test prints its message`() {
         projectDir.resolve("build.gradle.kts").appendText("\ndependencies { testImplementation(kotlin(\"test\")) }\n")
         projectDir
