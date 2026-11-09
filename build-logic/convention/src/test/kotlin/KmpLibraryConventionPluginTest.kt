@@ -45,6 +45,11 @@ class KmpLibraryConventionPluginTest {
                         val names = provider { kotlin.sourceSets.names.sorted() }
                         doLast { println("sourceSets=${'$'}{names.get()}") }
                     }
+
+                    tasks.register("printWasmTestLink") {
+                        val enabled = provider { tasks.getByName("compileTestDevelopmentExecutableKotlinWasmJs").enabled }
+                        doLast { println("wasmTestLinkEnabled=${'$'}{enabled.get()}") }
+                    }
                     """
                         .trimIndent(),
                 )
@@ -93,6 +98,13 @@ class KmpLibraryConventionPluginTest {
         projectDir.resolve("lib/src/androidMain/kotlin").mkdirs()
 
         assertContains(sourceSets(), "androidHostTest")
+    }
+
+    @Test
+    fun `the wasm test executable isn't linked for the disabled wasm tests`() {
+        val result = runner(":lib:printWasmTestLink").build()
+
+        assertContains(result.output, "wasmTestLinkEnabled=false")
     }
 
     private fun sourceSets(): List<String> =

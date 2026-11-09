@@ -36,6 +36,11 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 tasks.named { it.startsWith("lint") }.configureEach { mustRunAfter(kspTasks) }
             }
 
+            // A disabled task still runs what it depends on, so the wasm test executable's link (a whole-program link in every
+            // module with common tests) is switched off with the test task below. compileTestKotlinWasmJs stays, so commonTest
+            // keeps compiling for wasm.
+            tasks.named { it == "compileTestDevelopmentExecutableKotlinWasmJs" }.configureEach { enabled = false }
+
             // A custom source-set group is declared only where the module has sources for it. Each declared group is two more
             // source sets (Main and Test) with their configurations, metadata compilation and per-source-set tasks, and most
             // modules use none of them.
