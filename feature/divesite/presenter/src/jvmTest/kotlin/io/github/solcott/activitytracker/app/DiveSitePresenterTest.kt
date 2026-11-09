@@ -211,7 +211,7 @@ class DiveSitePresenterTest {
             first.eventSink(DiveSiteRegularsEvent.PeriodChanged(RegularsPeriod.THIS_YEAR))
             awaitUntil { it.period == RegularsPeriod.THIS_YEAR && it.entries.items.isNotEmpty() }
             first.eventSink(DiveSiteRegularsEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
-            awaitUntil { it.scope == LeaderboardScope.FOLLOWING && it.entries.items.isNotEmpty() }
+            val following = awaitUntil { it.scope == LeaderboardScope.FOLLOWING && it.entries.items.isNotEmpty() }
             assertEquals(
                 listOf(
                     RegularsPeriod.ALL_TIME to LeaderboardScope.EVERYONE,
@@ -225,7 +225,12 @@ class DiveSitePresenterTest {
             first.eventSink(DiveSiteRegularsEvent.ScopeChanged("nearby"))
             first.eventSink(DiveSiteRegularsEvent.PeriodChanged("forever"))
             testScheduler.runCurrent()
-            expectNoEvents()
+            // The load answers on a real thread, so a last recomposition from it can land after runCurrent, as a state with a new
+            // eventSink and nothing else changed. Only a different choice or board shown, or a fourth load, is the change this rules out.
+            val latest = mostRecentItemOr(following)
+            assertEquals(RegularsPeriod.THIS_YEAR, latest.period)
+            assertEquals(LeaderboardScope.FOLLOWING, latest.scope)
+            assertEquals(following.entries, latest.entries)
             assertEquals(3, regularsRequested.size)
 
             first.eventSink(DiveSiteRegularsEvent.OpenAthlete(Did("did:plc:bob")))
