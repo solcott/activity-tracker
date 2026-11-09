@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.feed.LocalPosts
+import io.github.solcott.activitytracker.data.feed.PENDING_POST_CID
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -332,7 +333,7 @@ class SegmentNames(
     private fun postView(proposal: AtUri, name: String, openedAt: Instant, up: Int, down: Int, share: PostShare, place: SharedPlace?) =
         PostView(
             uri = AtUri.of(clients.did, Nsid.FEED_POST, requireNotNull(proposal.rkey)),
-            cid = Cid(PENDING_CID),
+            cid = Cid(PENDING_POST_CID),
             author = ProfileViewBasic(clients.did, clients.handle),
             embed =
                 PostEmbedView.Proposal(

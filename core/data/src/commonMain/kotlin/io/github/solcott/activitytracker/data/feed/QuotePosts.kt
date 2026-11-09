@@ -51,12 +51,15 @@ class QuotePosts(
         get() = clients.did
 
     /**
-     * Quotes [post] with [text] for [visibility], and returns the quote's URI. Refused before anything changes for blank text, an audience
-     * wider than [post]'s as the view shows it, or a non-public audience this session can't write posts to (as a like is).
+     * Quotes [post] with [text] for [visibility], and returns the quote's URI. Refused before anything changes for blank text, a post not
+     * yet listed ([isPending]), an audience wider than [post]'s as the view shows it, or a non-public audience this session can't write
+     * posts to (as a like is).
      */
     suspend fun quote(post: PostView, text: String, visibility: String): AtUri {
         val trimmed = text.trim()
         require(trimmed.isNotEmpty()) { "A quote needs text" }
+        // A strong ref needs the post's real CID, which a post sent this session has only once the AppView lists it.
+        require(!post.isPending) { "A post can be quoted once it's listed" }
         require(visibility in Visibility.atMost(post.visibilityOrPublic) && visibility in QUOTE_VISIBILITIES) {
             "A quote of a ${post.visibilityOrPublic} post can't be $visibility"
         }
@@ -67,7 +70,7 @@ class QuotePosts(
         val view =
             PostView(
                 uri = uri,
-                cid = Cid(PENDING_CID),
+                cid = Cid(PENDING_POST_CID),
                 author = ProfileViewBasic(clients.did, clients.handle),
                 embed = PostEmbedView.Quote(post.asQuoted()),
                 createdAt = now,
@@ -119,9 +122,6 @@ class QuotePosts(
     }
 
     private companion object {
-        /** A sent quote's CID until the AppView lists it. */
-        const val PENDING_CID = "pending"
-
         /** Posts have no Only me. */
         val QUOTE_VISIBILITIES = setOf(Visibility.PUBLIC, Visibility.FOLLOWERS, Visibility.MUTUALS)
     }

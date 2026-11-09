@@ -68,6 +68,7 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_name_total
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_down
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
 import io.github.solcott.activitytracker.composeApp.resources.undo_repost_content_description
+import io.github.solcott.activitytracker.data.feed.isPending
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
@@ -171,12 +172,15 @@ private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit, o
                 tint = if (reposted) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
             )
         }
-        AppIconButton(
-            AppIcon.Quote,
-            contentDescription = stringResource(Res.string.quote_content_description),
-            onClick = { onEvent(PostEvent.Quote(post)) },
-            modifier = Modifier.testTag(TestTags.POST_QUOTE),
-        )
+        // A post sent this session can be quoted once it's listed: a quote names it by its CID (feed/quote-posts).
+        if (!post.isPending) {
+            AppIconButton(
+                AppIcon.Quote,
+                contentDescription = stringResource(Res.string.quote_content_description),
+                onClick = { onEvent(PostEvent.Quote(post)) },
+                modifier = Modifier.testTag(TestTags.POST_QUOTE),
+            )
+        }
         val quotes = pluralStringResource(Res.plurals.quote_count, post.quoteCount.toInt(), formatWhole(post.quoteCount))
         Text(
             stringResource(

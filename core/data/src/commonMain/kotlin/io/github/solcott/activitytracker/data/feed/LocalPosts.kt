@@ -67,3 +67,10 @@ private fun TimelineItem.postOrNull(): PostView? =
         is TimelineItem.Repost -> reposted.post
         else -> null
     }
+
+/** The CID a post sent this session carries until the AppView lists it with its real one (feed/posts, feed/quote-posts). */
+const val PENDING_POST_CID = "pending"
+
+/** Whether this is the athlete's post as sent this session, not yet listed: it has no real CID, so nothing may reference it yet. */
+val PostView.isPending: Boolean
+    get() = cid.value == PENDING_POST_CID

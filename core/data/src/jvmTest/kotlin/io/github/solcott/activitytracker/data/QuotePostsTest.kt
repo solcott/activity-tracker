@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.feed.QuotePosts
+import io.github.solcott.activitytracker.data.feed.isPending
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -109,6 +110,18 @@ class QuotePostsTest {
         val post = s.post(Visibility.FOLLOWERS)
         assertFailsWith<IllegalArgumentException> { s.quotes().quote(post, "Yes", Visibility.PUBLIC) }
         assertFailsWith<IllegalArgumentException> { s.quotes().quote(post, "   ", Visibility.FOLLOWERS) }
+        assertEquals(emptyList(), writes)
+    }
+
+    @Test
+    fun aPostNotYetListedCantBeQuoted() = runTest {
+        val s = pds.session()
+        val sent = s.quotes().quote(s.post(Visibility.PUBLIC), "Yes", Visibility.PUBLIC)
+        val pending = s.timeline().first { it.uri == sent }
+        assertTrue(pending.isPending)
+        writes.clear()
+        // Its strong ref would carry the placeholder CID for good.
+        assertFailsWith<IllegalArgumentException> { s.quotes().quote(pending, "And again", Visibility.PUBLIC) }
         assertEquals(emptyList(), writes)
     }
 
