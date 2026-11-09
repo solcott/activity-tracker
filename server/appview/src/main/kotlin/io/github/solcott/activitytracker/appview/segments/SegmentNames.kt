@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -26,6 +27,7 @@ import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.core.times
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -121,8 +123,11 @@ internal fun unlabelledProposal(): Op<Boolean> = notLabelled(LabelValues.HIDE) a
  * subject does for its author (moderation/labels), so they can still see and withdraw the one open proposal [mayPropose] counts. Never
  * under `!takedown`, and never counted or adopted.
  */
-internal fun listedProposal(viewer: Did?): Op<Boolean> {
-    val own = viewer?.let { SegmentNameProposals.proposerDid eq it.value } ?: Op.FALSE
+internal fun listedProposal(viewer: Did?): Op<Boolean> = listedProposalTo(viewer?.let { stringParam(it.value) })
+
+/** [listedProposal] for a [viewer] that may vary per row, such as a quote's author in the outer query. */
+internal fun listedProposalTo(viewer: Expression<String>?): Op<Boolean> {
+    val own = viewer?.let { SegmentNameProposals.proposerDid eq it } ?: Op.FALSE
     return notLabelled(LabelValues.TAKEDOWN) and (own or notLabelled(LabelValues.HIDE))
 }
 

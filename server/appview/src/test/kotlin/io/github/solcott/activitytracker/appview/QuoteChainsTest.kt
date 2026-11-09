@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.db.PostQuoteChains
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.index.dropQuoteChainsBy
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
@@ -10,6 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** Indexing quote posts and their chains (feed/quote-posts). */
@@ -131,5 +134,35 @@ class QuoteChainsTest : PostTestBase() {
         }
         assertEquals(PostQuoteChains.MAX_DEPTH, chain(postUri("3kq10", bob)).size)
         assertEquals(postUri("3kq1", bob), chain(postUri("3kq10", bob)).last())
+    }
+
+    @Test
+    fun aQuoteClosingALoopIsIgnored() {
+        aliceProposes()
+        quote(bob, "3kq1", subject = postUri("3kq2", carol))
+        quote(carol, "3kq2", subject = postUri("3kq1", bob))
+        assertNull(quoteRow(postUri("3kq2", carol)))
+        assertEquals(listOf(postUri("3kq2", carol)), chain(postUri("3kq1", bob)))
+    }
+
+    @Test
+    fun deletingAnAccountDropsOnlyItsOwnChainsWhateverItsDid() {
+        // A did:web's encoded port holds `%`, which a LIKE pattern would read as a wildcard.
+        val deleted = "did:web:host%3A8081"
+        val other = "did:web:hostX%3A8081"
+        val ownPost = "at://$deleted/${Nsid.FEED_POST}/3kq1"
+        val otherPost = "at://$other/${Nsid.FEED_POST}/3kq1"
+        runBlocking {
+            db.tx {
+                PostQuoteChains.batchInsert(listOf(ownPost, otherPost)) { post ->
+                    this[PostQuoteChains.postUri] = post
+                    this[PostQuoteChains.ancestorUri] = postUri()
+                    this[PostQuoteChains.depth] = 1
+                }
+                dropQuoteChainsBy(Did(deleted))
+            }
+        }
+        assertEquals(emptyList(), chain(ownPost))
+        assertEquals(listOf(postUri()), chain(otherPost))
     }
 }

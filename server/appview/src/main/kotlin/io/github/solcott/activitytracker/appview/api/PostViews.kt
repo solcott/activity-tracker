@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.DiveSites
-import io.github.solcott.activitytracker.appview.db.PostQuoteChains
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
@@ -9,7 +8,6 @@ import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.Tally
 import io.github.solcott.activitytracker.appview.segments.isDiveSiteUri
-import io.github.solcott.activitytracker.appview.segments.listedProposal
 import io.github.solcott.activitytracker.appview.segments.riddenBy
 import io.github.solcott.activitytracker.appview.segments.tallies
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -27,15 +25,12 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Instant
-import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -43,36 +38,6 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 // The read side of posts (feed/posts): which a viewer may see, and their views with the proposal each shares as it stands now.
-
-/**
- * The post rows [viewer] may see: at a tier that admits them with no block either way ([visibleTo]) and not hidden from them by a label,
- * and either sharing a proposal that is indexed, whose record still exists, and that a list may show them ([listedProposal]), or quoting a
- * post along a chain that passes for them ([quoteChainPasses]); never a quote too far from its first post. Every post query reads through
- * this, so a post never outlives its proposal and a quote never reaches past the posts it quotes.
- */
-internal fun postRows(viewer: Did?): Op<Boolean> =
-    visibleTo(viewer, Posts.visibility, Posts.authorDid, Posts.uri, Posts.cid) and
-        unhidden(viewer, Posts.authorDid, Posts.uri) and
-        ((Posts.proposalUri.isNotNull() and liveProposal(Posts.proposalUri, Posts.authorDid, viewer)) or
-            (Posts.quotedUri.isNotNull() and quoteChainPasses(viewer))) and
-        not(
-            exists(
-                PostQuoteChains.select(PostQuoteChains.postUri).where {
-                    (PostQuoteChains.postUri eq Posts.uri) and (PostQuoteChains.depth eq PostQuoteChains.MAX_DEPTH)
-                }
-            )
-        )
-
-/** The post's [proposal] is indexed, by its [author], its record still exists, and a list may show it to [viewer] ([listedProposal]). */
-private fun liveProposal(proposal: Column<String?>, author: Column<String>, viewer: Did?): Op<Boolean> =
-    exists(
-        SegmentNameProposals.select(SegmentNameProposals.uri).where {
-            (SegmentNameProposals.uri eq proposal) and
-                (SegmentNameProposals.proposerDid eq author) and
-                (SegmentNameProposals.recordGone eq false) and
-                listedProposal(viewer)
-        }
-    )
 
 /** The author of the post [uri]; `NotFound` when [viewer] may not see it ([postRows]), as if it didn't exist. */
 internal fun JdbcTransaction.requireVisiblePost(uri: String, viewer: Did?): String =

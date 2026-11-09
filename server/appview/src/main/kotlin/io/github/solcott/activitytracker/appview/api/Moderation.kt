@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // The label rules every read applies, each for a known viewer and for one per row.
+
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Actors
@@ -82,9 +84,13 @@ internal fun served(viewer: Did?, author: Column<String>, record: Column<String>
  * Rows a list may show [viewer]: not carrying `!hide` on the record [record] or on its [author]'s account, unless it's the viewer's own.
  * Lists and counts use it next to `notMuted` / `notBlocked`; direct lookups don't, so a hidden subject stays reachable by URI.
  */
-internal fun unhidden(viewer: Did?, author: Column<String>, record: Column<String>? = null): Op<Boolean> {
+internal fun unhidden(viewer: Did?, author: Column<String>, record: Column<String>? = null): Op<Boolean> =
+    unhiddenTo(viewer?.let { stringParam(it.value) }, author, record)
+
+/** [unhidden] for a [viewer] that may vary per row, such as a quote's author in the outer query. */
+internal fun unhiddenTo(viewer: Expression<String>?, author: Column<String>, record: Column<String>? = null): Op<Boolean> {
     val shown = not(labelled(author, LabelValues.HIDE)) and (record?.let { not(labelled(it, LabelValues.HIDE)) } ?: Op.TRUE)
-    return if (viewer == null) shown else (author eq viewer.value) or shown
+    return if (viewer == null) shown else (author eq viewer) or shown
 }
 
 /** An account a list may show [viewer]: [served] and [unhidden], for lists of accounts (likers, followers, search). */

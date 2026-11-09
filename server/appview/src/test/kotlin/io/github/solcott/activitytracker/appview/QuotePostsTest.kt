@@ -183,6 +183,18 @@ class QuotePostsTest : PostTestBase() {
         assertEquals(QuotedPost.Unavailable(AtUri(postUri())), postFor(dave).quoted())
     }
 
+    @Test
+    fun eachQuoteOnAPageShowsTheQuotedPostByItsOwnQuotersAccess() {
+        bobQuotesAlicesFollowersPost()
+        follow(carol, alice)
+        follow(dave, carol)
+        quote(carol, "3kq2", tier = Visibility.FOLLOWERS)
+        remove(bob, Nsid.GRAPH_FOLLOW, "3kfbe")
+        val page = runBlocking { views.quotes(Did(dave), GetQuotes.Params(AtUri(postUri()))) }.posts.associateBy { it.uri.value }
+        assertEquals(QuotedPost.Unavailable(AtUri(postUri())), page.getValue(bobQuote).quoted())
+        assertEquals(alice, assertIs<QuotedPost.Post>(page.getValue(postUri("3kq2", carol)).quoted()).author.did.value)
+    }
+
     // ---------------------------------------------------------------- Counts and lists
 
     @Test

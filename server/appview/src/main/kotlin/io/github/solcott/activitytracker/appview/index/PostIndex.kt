@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbed
 import io.github.solcott.activitytracker.lexicon.app.PostRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.serialization.json.JsonObject
+import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
@@ -53,6 +54,14 @@ internal fun JdbcTransaction.upsertPost(author: Did, uri: AtUri, cid: String, js
             val subject = embed.subject.uri
             requireNotNull(text) { "a quote without text" }
             require(subject.collection == Nsid.FEED_POST && subject.rkey != null && subject != uri) { "a quote of $subject" }
+            // A quote may not close a loop: a chain is a line from a quote to its first post (feed/quote-posts).
+            require(
+                PostQuoteChains.select(PostQuoteChains.postUri)
+                    .where { (PostQuoteChains.postUri eq subject.value) and (PostQuoteChains.ancestorUri eq uri.value) }
+                    .empty()
+            ) {
+                "a quote of $subject, which quotes it"
+            }
             require(subject.value.length <= MAX_URI_LENGTH && embed.subject.cid.value.length <= MAX_CID_LENGTH) {
                 "a quote's subject too long"
             }
@@ -83,7 +92,8 @@ internal fun JdbcTransaction.upsertPost(author: Did, uri: AtUri, cid: String, js
 /**
  * Rebuilds [post]'s own chain from the post it [quotes] (none for a proposal post), then every quote whose chain runs through [post]: a
  * chain is a line, so a descendant's rows deeper than [post] all come from [post]'s and are replaced by them. Capped at
- * [PostQuoteChains.MAX_DEPTH], which also ends a cycle.
+ * [PostQuoteChains.MAX_DEPTH]. [upsertPost] refuses a quote that would close a loop its chain shows; a longer loop reaches the cap, so none
+ * of its quotes is served.
  */
 internal fun JdbcTransaction.rebuildQuoteChains(post: AtUri, quotes: AtUri?) {
     PostQuoteChains.deleteWhere { postUri eq post.value }
@@ -122,7 +132,8 @@ internal fun JdbcTransaction.dropQuoteChain(post: AtUri) {
 
 /** Drops the chains of every post by [author], with their account. */
 internal fun JdbcTransaction.dropQuoteChainsBy(author: Did) {
-    PostQuoteChains.deleteWhere { postUri like "at://${author.value}/${Nsid.FEED_POST}/%" }
+    // Escaped: a DID may hold LIKE metacharacters, such as the `%` of a did:web's encoded port.
+    PostQuoteChains.deleteWhere { postUri like LikePattern.ofLiteral("at://${author.value}/${Nsid.FEED_POST}/") + "%" }
 }
 
 /** Posts have no Only me tier: a post in `self` would be seen by no one but its author. */
