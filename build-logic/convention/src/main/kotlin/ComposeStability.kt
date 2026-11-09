@@ -16,12 +16,16 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.register
-import org.gradle.kotlin.dsl.withType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 const val COMPOSE_STABILITY_CHECK_TASK_NAME = "composeStabilityCheck"
+
+/**
+ * The main compilation whose reports the check reads, first match wins: a KMP module's JVM target, a JVM module, the Android app's debug
+ * variant, then wasm for a module with no JVM target (`:webApp`).
+ */
+private val REPORT_COMPILE_TASKS = listOf("compileKotlinJvm", "compileKotlin", "compileDebugKotlin", "compileKotlinWasmJs")
 
 /** `composeStability { }` in a module script. */
 abstract class ComposeStabilityExtension {
@@ -52,9 +56,25 @@ internal fun Project.configureComposeStability() {
         tasks.register<ComposeStabilityCheck>(COMPOSE_STABILITY_CHECK_TASK_NAME) {
             group = JavaBasePlugin.VERIFICATION_GROUP
             description = "Fails on unstable classes or unstable restartable-composable params in the Compose compiler reports."
-            reports.from(reportsDir.map { dir -> dir.asFileTree.matching { include("*-classes.txt", "*-composables.txt") } })
-            // The reports are a side effect of compiling main (non-test) sources, so depend on those compilations.
-            dependsOn(tasks.withType<KotlinCompilationTask<*>>().matching { !it.name.contains("Test") })
+            // Only the main compilation's reports. Other compilations name theirs <module>_<compilation> (_test, _hostTest) and
+            // write them whenever they happen to run, and a test's composables (members of a test class) aren't what this checks.
+            reports.from(
+                reportsDir.map { dir ->
+                    dir.asFileTree.matching {
+                        include("*-classes.txt", "*-composables.txt")
+                        exclude("*_*-classes.txt", "*_*-composables.txt")
+                    }
+                },
+            )
+            // The reports are a side effect of compiling main sources, and every target's compilation writes the same file names
+            // into reportsDir, so one compilation is enough. By name: a filtered KotlinCompilationTask collection also matches
+            // the wasm executable links, the metadata compilations and the iosArm64 one, none of which check otherwise needs.
+            val taskNames = tasks.names
+            dependsOn(
+                provider {
+                    listOf(REPORT_COMPILE_TASKS.firstOrNull { it in taskNames } ?: error("$path has no main compilation to report on"))
+                },
+            )
             strictClasses.set(extension.strictClasses)
             marker.set(layout.buildDirectory.file("compose/stabilityCheck.txt"))
         }
@@ -85,7 +105,7 @@ abstract class ComposeStabilityCheck : DefaultTask() {
                         else -> emptyList()
                     }.map { "${file.name}: $it" }
                 }
-                // Each target writes its own reports, so the same finding usually appears once per target.
+                // The same finding can appear in more than one report (a main class used by the test compilation).
                 .distinctBy { it.substringAfter(": ") }
         if (violations.isNotEmpty()) {
             throw GradleException(

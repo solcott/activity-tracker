@@ -38,6 +38,12 @@ class KmpComposeConventionPluginTest {
                             (kotlin as ExtensionAware).extensions.getByType<KotlinMultiplatformAndroidLibraryTarget>().androidResources.enable
                         doLast { println("androidResources.enable=${'$'}enabled") }
                     }
+
+                    tasks.register("printStabilityCheckDependencies") {
+                        val check = tasks.named("composeStabilityCheck")
+                        val names = provider { check.get().let { t -> t.taskDependencies.getDependencies(t).map { it.name }.sorted() } }
+                        doLast { println("stabilityCheckDependsOn=${'$'}{names.get()}") }
+                    }
                     """
                         .trimIndent(),
                 )
@@ -65,6 +71,13 @@ class KmpComposeConventionPluginTest {
         val result = runner(":feature:printAndroidResources").build()
 
         assertContains(result.output, "androidResources.enable=true")
+    }
+
+    @Test
+    fun `the stability check compiles one target, not every target, the metadata and the links`() {
+        val result = runner(":feature:printStabilityCheckDependencies").build()
+
+        assertContains(result.output, "stabilityCheckDependsOn=[compileKotlinJvm]")
     }
 
     @Test

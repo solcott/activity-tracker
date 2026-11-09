@@ -146,6 +146,29 @@ class ComposeStabilityCheckTest {
         assertFalse("unstable param" in result.output, result.output)
     }
 
+    @Test
+    fun `a test compilation's composables are not checked`() {
+        writeComposable("items: kotlinx.collections.immutable.ImmutableList<Item>")
+        projectDir
+            .resolve("src/test/kotlin/FeedTest.kt")
+            .apply { parentFile.mkdirs() }
+            .writeText(
+                """
+                import androidx.compose.runtime.Composable
+
+                class FeedTest {
+                    @Composable fun Record(items: List<Item>) { items.forEach { Row(it) } }
+                }
+                """
+                    .trimIndent(),
+            )
+
+        val result = runner("compileTestKotlin", TASK).build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":compileTestKotlin")?.outcome)
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$TASK")?.outcome)
+    }
+
     private fun writeComposable(params: String) {
         projectDir
             .resolve("src/main/kotlin/Feed.kt")
@@ -164,8 +187,8 @@ class ComposeStabilityCheckTest {
             )
     }
 
-    private fun runner(): GradleRunner =
-        GradleRunner.create().withProjectDir(projectDir).withPluginClasspath().withArguments(TASK, "--configuration-cache")
+    private fun runner(vararg tasks: String = arrayOf(TASK)): GradleRunner =
+        GradleRunner.create().withProjectDir(projectDir).withPluginClasspath().withArguments(*tasks, "--configuration-cache")
 
     private companion object {
         const val COMPOSE_RULES_VERSION = "0.6.7"

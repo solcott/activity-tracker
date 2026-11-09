@@ -73,3 +73,6 @@ kotlin {
         }
     }
 }
+
+// One link of the app, so check (and CI) proves the web app still links. Nothing else in check needs the executable.
+tasks.named("check") { dependsOn("compileDevelopmentExecutableKotlinWasmJs") }
