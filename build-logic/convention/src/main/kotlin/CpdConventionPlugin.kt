@@ -14,7 +14,7 @@ import org.gradle.kotlin.dsl.register
 class CpdConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
-            val pmdClasspath = configurations.create("cpd") { isVisible = false }
+            val pmdClasspath = configurations.create("cpd") { isCanBeConsumed = false }
             dependencies.add(pmdClasspath.name, libs.findLibrary("pmd-kotlin").get())
             val fail = providers.gradleProperty("cpd.fail").map(String::toBoolean).getOrElse(false)
 

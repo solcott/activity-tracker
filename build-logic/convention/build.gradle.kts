@@ -8,7 +8,7 @@ ktfmt {
     maxWidth.set(140)
 }
 
-val testPluginClasspath: Configuration by configurations.creating
+val testPluginClasspath = configurations.create("testPluginClasspath")
 
 dependencies {
     compileOnly(libs.kotlin.gradle.plugin)

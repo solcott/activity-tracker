@@ -7,7 +7,6 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.compose.ComposeExtension
-import org.jetbrains.compose.ComposePlugin
 import org.jetbrains.compose.resources.ResourcesExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
@@ -36,7 +35,11 @@ class KmpComposeConventionPlugin : Plugin<Project> {
                     implementation(libs.findLibrary("compose-material3").get())
                     implementation(libs.findLibrary("compose-components-resources").get())
                 }
-                val uiTestLibraries = listOf(libs.findLibrary("compose-ui-test").get().get(), ComposePlugin.DesktopDependencies.currentOs)
+                val uiTestLibraries =
+                    listOf(
+                        libs.findLibrary("compose-ui-test").get().get(),
+                        project.extensions.getByType<ComposeExtension>().dependencies.desktop.currentOs,
+                    )
                 configurations.named("jvmTestImplementation") {
                     dependencies.addAllLater(
                         uiTests.jvm.map { on -> if (on) uiTestLibraries.map { project.dependencies.create(it) } else emptyList() }
