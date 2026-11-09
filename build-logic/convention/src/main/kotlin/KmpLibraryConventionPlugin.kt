@@ -36,6 +36,11 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 tasks.named { it.startsWith("lint") }.configureEach { mustRunAfter(kspTasks) }
             }
 
+            // A custom source-set group is declared only where the module has sources for it. Each declared group is two more
+            // source sets (Main and Test) with their configurations, metadata compilation and per-source-set tasks, and most
+            // modules use none of them.
+            fun hasGroup(group: String) = hasSourceSetDir("${group}Main") || hasSourceSetDir("${group}Test")
+
             extensions.configure<KotlinMultiplatformExtension> {
                 amazonJdkToolchain(target)
                 (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
@@ -43,7 +48,9 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                     compileSdk = libs.version("android-compileSdk").toInt()
                     minSdk = libs.version("android-minSdk").toInt()
                     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
-                    withHostTest {}
+                    // Host tests only where there is Android-only code for them to run against. Elsewhere they would repeat the
+                    // JVM run of commonTest over the same code, at the cost of a compilation, its lint analysis and a detekt pass.
+                    if (hasSourceSetDir("androidMain") || hasSourceSetDir("androidHostTest")) withHostTest {}
                 }
                 // Only Android needs 17; the JVM target (tests and code shared with the AppView) runs on the toolchain JDK.
                 jvm { compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.version("jdk"))) } }
@@ -59,40 +66,45 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 @OptIn(ExperimentalKotlinGradlePluginApi::class)
                 applyDefaultHierarchyTemplate {
                     common {
-                        group("commonJvm") {
-                            withJvm()
-                            @Suppress("UnstableApiUsage") withAndroid()
-                        }
-                        group("web") {
-                            withJs()
-                            withWasmJs()
+                        if (hasGroup("commonJvm")) {
+                            group("commonJvm") {
+                                withJvm()
+                                @Suppress("UnstableApiUsage") withAndroid()
+                            }
                         }
                         // group("native") rather than withNative(), so the shared nativeMain/iosMain (not just
                         // the per-target leaves) depend on these and can see their declarations.
-                        group("nonWeb") {
-                            @Suppress("UnstableApiUsage") withAndroid()
-                            group("native")
-                            withJvm()
+                        if (hasGroup("nonWeb")) {
+                            group("nonWeb") {
+                                @Suppress("UnstableApiUsage") withAndroid()
+                                group("native")
+                                withJvm()
+                            }
                         }
-                        group("nonAndroid") {
-                            group("native")
-                            withJvm()
-                            withJs()
-                            withWasmJs()
+                        if (hasGroup("nonAndroid")) {
+                            group("nonAndroid") {
+                                group("native")
+                                withJvm()
+                                withJs()
+                                withWasmJs()
+                            }
                         }
-
-                        group("nonApple") {
-                            withJvm()
-                            withJs()
-                            withWasmJs()
-                            @Suppress("UnstableApiUsage") withAndroid()
-                            // TODO add other non-Apple targets here.
+                        if (hasGroup("nonApple")) {
+                            group("nonApple") {
+                                withJvm()
+                                withJs()
+                                withWasmJs()
+                                @Suppress("UnstableApiUsage") withAndroid()
+                                // TODO add other non-Apple targets here.
+                            }
                         }
                         // Desktop and web: no GPS recording, only manual entry.
-                        group("nonMobile") {
-                            withJvm()
-                            withJs()
-                            withWasmJs()
+                        if (hasGroup("nonMobile")) {
+                            group("nonMobile") {
+                                withJvm()
+                                withJs()
+                                withWasmJs()
+                            }
                         }
                     }
                 }

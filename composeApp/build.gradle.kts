@@ -126,16 +126,21 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.browser)
+            implementation(libs.maplibre.compose)
             // Vulkan, like desktop off macOS and MapLibre Android's default. Tested on the arm64 emulator and a Pixel 9 Pro XL. It costs
             // about 3 MB more per ABI than OpenGL, mostly the glslang shader compiler (see BACKLOG.md).
             runtimeOnly(libs.maplibre.compose.runtime.vulkan.android)
         }
         // MapLibre Compose has no wasmJs target yet (maplibre/maplibre-compose#209, needs CMP 1.13), so the web app keeps the Canvas
-        // RoutePreview (see ActivityMap and BACKLOG.md).
+        // RoutePreview (see ActivityMap and BACKLOG.md). On each non-web target rather than nonWebMain: this module has no nonWebMain
+        // sources, so the convention doesn't declare that group here.
         // Desktop's native runtime is picked per OS in :desktopApp.
-        nonWebMain.dependencies { implementation(libs.maplibre.compose) }
-        // api so the framework can export it (see the framework block above).
-        iosMain.dependencies { api(projects.coreActivityfile) }
+        iosMain.dependencies {
+            // api so the framework can export it (see the framework block above).
+            api(projects.coreActivityfile)
+            implementation(libs.maplibre.compose)
+        }
+        jvmMain.dependencies { implementation(libs.maplibre.compose) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
         jvmTest.dependencies { implementation(projects.appFixtures) }
     }
