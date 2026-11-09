@@ -4,7 +4,7 @@ kotlin = "2.4.21"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
-agp = "9.5.0"
+agp = "9.5.1"
 ksp = "2.3.13"
 composeMultiplatform = "1.12.2"
 metro = "1.5.2"
@@ -93,7 +93,7 @@ bouncycastle = "1.86"
 caffeine = "3.3.1"
 # Address blocks for the AppView's outbound guard (GuardedHttp), and the IPv4 inside IPv6 forms.
 ipaddress = "5.6.2"
-jackson = "2.22.4"
+jackson = "2.23.0"
 h2 = "2.5.252"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
 osmpbf = "1.8.0"
@@ -139,6 +139,7 @@ ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref 
 
 circuit-foundation = { module = "com.slack.circuit:circuit-foundation", version.ref = "circuit" }
 circuit-runtime = { module = "com.slack.circuit:circuit-runtime", version.ref = "circuit" }
+#noinspection UnusedVersionCatalogEntry
 circuit-runtime-presenter = { module = "com.slack.circuit:circuit-runtime-presenter", version.ref = "circuit" }
 circuit-serialization = { module = "com.slack.circuit:circuit-serialization", version.ref = "circuit" }
 circuit-codegen-annotations = { module = "com.slack.circuit:circuit-codegen-annotations", version.ref = "circuit" }
@@ -223,6 +224,7 @@ compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version.ref 
 # The API :detekt-rules builds against and its test harness.
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
+#noinspection UnusedVersionCatalogEntry
 pmd-kotlin = { module = "net.sourceforge.pmd:pmd-kotlin", version.ref = "pmd" }
 
 # Plugin artifacts for build-logic.
