@@ -16,7 +16,7 @@ Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-l
 |---|---|
 | Fast compile check, client module | `:<m>:compileKotlinJvm` (Metro/Circuit codegen errors show up here) |
 | Fast tests, client module | `:<m>:jvmTest` (optionally `--tests "*.ClassName"`) |
-| Every target's tests, one module | `:<m>:allTests` (wasm tests are disabled repo-wide, so this means jvm + Android host + iOS simulator) |
+| Every target's tests, one module | `:<m>:allTests` (wasm tests are disabled repo-wide, so this means jvm + iOS simulator, plus the Android host in modules with `src/androidMain`) |
 | iOS tests only | `:<m>:iosSimulatorArm64Test` |
 | AppView | `:server-appview:test` (H2, no Docker needed) |
 | Convention plugins | `./gradlew -p build-logic :convention:test` |
