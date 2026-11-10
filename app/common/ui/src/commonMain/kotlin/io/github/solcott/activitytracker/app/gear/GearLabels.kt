@@ -34,10 +34,3 @@ fun gearMainTotalLabel(main: GearMainTotal, totals: GearTotals): String =
 
 /** [seconds] as whole hours: "120 h". */
 @Composable fun gearHoursLabel(seconds: Long): String = GearTexts.hours(seconds).string()
-
-/** A device as a file names it: "{maker} {model}", the model alone when it already names the maker ("Shearwater Perdix AI"). */
-fun deviceName(manufacturer: String?, model: String?): String =
-    when {
-        manufacturer != null && model != null && model.startsWith(manufacturer, ignoreCase = true) -> model
-        else -> listOfNotNull(manufacturer, model).joinToString(" ")
-    }

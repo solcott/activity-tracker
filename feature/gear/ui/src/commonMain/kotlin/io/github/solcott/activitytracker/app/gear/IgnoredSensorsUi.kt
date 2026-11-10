@@ -14,11 +14,11 @@ import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_empty
 import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_sensors
 import io.github.solcott.activitytracker.composeApp.resources.gear_unignore
-import io.github.solcott.activitytracker.composeApp.resources.gear_unignore_named
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
 
@@ -46,7 +46,7 @@ fun IgnoredSensorsUi(state: IgnoredSensorsState, modifier: Modifier = Modifier) 
             LinkedSensorRow(
                 sensor,
                 stringResource(Res.string.gear_unignore),
-                stringResource(Res.string.gear_unignore_named, deviceName(sensor.manufacturer, sensor.model)),
+                LinkedSensorTexts.unignore(sensor).string(),
                 { state.eventSink(IgnoredSensorsEvent.Unignore(sensor.id)) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

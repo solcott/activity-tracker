@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.gear
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.PagedStates
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.GearYearTotals
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import kotlin.time.Instant
@@ -333,6 +335,23 @@ object GearCollectionSamples {
         get() =
             contentSamples(GearCollectionDetail(), detail) { GearCollectionState(it, eventSink = {}) } +
                 (SampleKind.EMPTY to GearCollectionState(ContentStates.loaded(GearCollectionDetail("Winter training")), eventSink = {}))
+
+    /**
+     * States the native page is checked in beyond [all], kept apart so the shared screenshot set stays as it is: the collection being
+     * deleted, a delete that failed because the server couldn't be reached, and the question before deleting.
+     */
+    val variants: Map<String, GearCollectionState>
+        get() =
+            mapOf(
+                "deleting" to GearCollectionState(ContentStates.loaded(detail), deleting = true, eventSink = {}),
+                "deleteFailed" to
+                    GearCollectionState(
+                        ContentStates.loaded(detail),
+                        error = UiError(UiError.Kind.DeleteGearCollection, DataError.Network),
+                        eventSink = {},
+                    ),
+                "confirmingDelete" to GearCollectionState(ContentStates.loaded(detail), confirmingDelete = true, eventSink = {}),
+            )
 }
 
 object EditGearCollectionSamples {
@@ -376,4 +395,16 @@ object IgnoredSensorsSamples {
 
     val all: Map<String, IgnoredSensorsState>
         get() = contentSamples<ImmutableList<LinkedSensor>, IgnoredSensorsState>(persistentListOf(), ignored) { IgnoredSensorsState(it) }
+
+    /**
+     * States the native page is checked in beyond [all], kept apart so the shared screenshot set stays as it is: nothing ignored, and an
+     * un-ignore that failed because the server couldn't be reached.
+     */
+    val variants: Map<String, IgnoredSensorsState>
+        get() =
+            mapOf(
+                "nothingIgnored" to IgnoredSensorsState(ContentStates.loaded(persistentListOf())),
+                "unignoreFailed" to
+                    IgnoredSensorsState(ContentStates.loaded(ignored), error = UiError(UiError.Kind.SaveGearLinks, DataError.Network)),
+            )
 }

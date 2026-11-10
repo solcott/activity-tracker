@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_delete
@@ -27,7 +28,6 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_collection_de
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_delete_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_edit
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_empty
-import io.github.solcott.activitytracker.composeApp.resources.gear_collections
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
@@ -36,10 +36,10 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(GearCollectionScreen::class, SessionScope::class)
 @Composable
 fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) {
-    val enabled = !state.deleting
+    val enabled = state.actionsEnabled
     val retry = { state.eventSink(GearCollectionEvent.Retry) }
     ListScreen(
-        title = state.content.data.name.ifEmpty { stringResource(Res.string.gear_collections) },
+        title = state.title.string(),
         onBack = { state.eventSink(GearCollectionEvent.Back) },
         content = state.content,
         errorKind = UiError.Kind.LoadGearCollection,
@@ -47,7 +47,7 @@ fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) 
         modifier = modifier,
         edgeToEdge = true,
         actions = {
-            if (state.content.data.name.isNotEmpty()) {
+            if (state.showsActions) {
                 AppIconButton(
                     AppIcon.ManualEntry,
                     stringResource(Res.string.gear_collection_edit),

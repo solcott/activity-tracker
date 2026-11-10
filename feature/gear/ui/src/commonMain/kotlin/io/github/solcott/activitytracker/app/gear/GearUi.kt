@@ -42,6 +42,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_linked_profiles
@@ -66,7 +67,6 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_total_activities
 import io.github.solcott.activitytracker.composeApp.resources.gear_total_joined
 import io.github.solcott.activitytracker.composeApp.resources.gear_unlink
-import io.github.solcott.activitytracker.composeApp.resources.gear_unlink_named
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -146,7 +146,7 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
                     LinkedSensorRow(
                         sensor,
                         stringResource(Res.string.gear_unlink),
-                        stringResource(Res.string.gear_unlink_named, deviceName(sensor.manufacturer, sensor.model)),
+                        LinkedSensorTexts.unlink(sensor).string(),
                         { state.eventSink(GearEvent.UnlinkSensor(sensor.id)) },
                     )
                 }

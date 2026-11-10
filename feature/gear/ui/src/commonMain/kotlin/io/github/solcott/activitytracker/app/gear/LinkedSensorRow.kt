@@ -13,12 +13,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.new_device_serial
-import io.github.solcott.activitytracker.composeApp.resources.new_device_weak
-import org.jetbrains.compose.resources.stringResource
+import io.github.solcott.activitytracker.app.ui.string
 
-/** A linked or ignored device: its maker and model, the end of its serial or that it may match other units, and an [action] button. */
+/**
+ * A linked or ignored device: its maker and model, the end of its serial or that it may match other units ([LinkedSensorTexts]), and an
+ * [action] button read aloud as [actionDescription].
+ */
 @Composable
 internal fun LinkedSensorRow(
     sensor: LinkedSensor,
@@ -29,11 +29,10 @@ internal fun LinkedSensorRow(
 ) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(deviceName(sensor.manufacturer, sensor.model), style = MaterialTheme.typography.bodyLarge)
-            val detail =
-                sensor.serialTail?.let { stringResource(Res.string.new_device_serial, it) }
-                    ?: stringResource(Res.string.new_device_weak).takeIf { sensor.weak }
-            detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Text(LinkedSensorTexts.name(sensor).string(), style = MaterialTheme.typography.bodyLarge)
+            LinkedSensorTexts.detail(sensor)?.let {
+                Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         AppTextButton(onClick = onAction, Modifier.semantics { contentDescription = actionDescription }, enabled = enabled) { Text(action) }
     }

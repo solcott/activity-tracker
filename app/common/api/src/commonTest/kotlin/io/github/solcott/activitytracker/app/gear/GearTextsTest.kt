@@ -72,4 +72,13 @@ class GearTextsTest {
             AppText.named("gear_total_none"),
             GearTexts.mainTotal(GearMainTotal.DISTANCE, totals().copy(activities = 0), UnitSystem.Imperial),
         )
+
+    @Test
+    fun aDeviceIsNamedByItsMakerAndModel() {
+        assertEquals("Garmin Edge 840", deviceName("Garmin", "Edge 840"))
+        assertEquals("Shearwater Perdix AI", deviceName("Shearwater", "Shearwater Perdix AI"))
+        assertEquals("H10", deviceName(null, "H10"))
+        assertEquals("Garmin", deviceName("Garmin", null))
+        assertEquals("", deviceName(null, null))
+    }
 }

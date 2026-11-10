@@ -20,7 +20,14 @@ data class IgnoredSensorsState(
     /** Why the last un-ignore failed. */
     val error: UiError? = null,
     val eventSink: (IgnoredSensorsEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    /**
+     * The loaded devices, typed: Swift reads them here (dev/ios-swift-interop). Through [content]'s erased value a list reaches Swift as a
+     * Swift array, and an empty one can't be read at all.
+     */
+    val sensors: ImmutableList<LinkedSensor>
+        get() = content.data
+}
 
 sealed interface IgnoredSensorsEvent {
     data object Back : IgnoredSensorsEvent

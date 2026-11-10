@@ -62,3 +62,13 @@ object GearTexts {
 
     private fun Long.toPluralCount(): Int = coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
+
+/**
+ * A device as a file names it: "{maker} {model}", the model alone when it already names the maker ("Shearwater Perdix AI"). Plain text,
+ * shared by the import's new devices and the gear pages' device rows (`LinkedSensorTexts`), in both UIs.
+ */
+fun deviceName(manufacturer: String?, model: String?): String =
+    when {
+        manufacturer != null && model != null && model.startsWith(manufacturer, ignoreCase = true) -> model
+        else -> listOfNotNull(manufacturer, model).joinToString(" ")
+    }

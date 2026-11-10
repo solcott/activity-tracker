@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
@@ -25,7 +26,19 @@ data class GearCollectionState(
     val deleting: Boolean = false,
     val error: UiError? = null,
     val eventSink: (GearCollectionEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** The page's title: the collection's name, or "Collections" until it is known. */
+    val title: AppText
+        get() = content.data.name.ifEmpty { null }?.let(AppText::written) ?: AppText.named("gear_collections")
+
+    /** Whether Edit and Delete show: once the collection's name is known. */
+    val showsActions: Boolean
+        get() = content.data.name.isNotEmpty()
+
+    /** Whether Edit and Delete can be used: not while the collection is being deleted. */
+    val actionsEnabled: Boolean
+        get() = !deleting
+}
 
 sealed interface GearCollectionEvent {
     data object Back : GearCollectionEvent
