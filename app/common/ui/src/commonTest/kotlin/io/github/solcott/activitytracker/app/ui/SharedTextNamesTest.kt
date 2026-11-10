@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui
 
 import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
@@ -16,6 +17,9 @@ import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
+import io.github.solcott.activitytracker.lexicon.app.GearTotals
+import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -77,6 +81,17 @@ class SharedTextNamesTest {
                 listOf(false, true).map { VisibilityTexts.lockedNote(VisibilityFields(canChoose = false, spacesUnsupported = it)) } +
                 // The string an unknown sensor falls back to.
                 (LabelText.sensorType("unknown") as AppText.Named).fallback!!
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyGearTypeAndTotalNamesAString() {
+        val totals =
+            GearTotals(activities = 1, movingTime = 3_600, distance = 1_000, elevationGain = 0, elevationLoss = 100, days = 1, dives = 1)
+        val texts =
+            GearType.all.map(GearTexts::type) +
+                GearMainTotal.entries.flatMap { main -> UnitSystem.entries.map { GearTexts.mainTotal(main, totals, it) } } +
+                GearTexts.mainTotal(GearMainTotal.DISTANCE, totals.copy(activities = 0, movingTime = 0, distance = 0), UnitSystem.Metric)
         assertAllExist(texts)
     }
 
