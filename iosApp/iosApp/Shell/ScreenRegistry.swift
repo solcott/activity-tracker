@@ -43,6 +43,8 @@ extension ScreenRegistry {
         var registry = ScreenRegistry()
         registry.register(LoginScreen.self, LoginState.self) { state in LoginView(state: state) }
         registry.register(SettingsScreen.self, SettingsState.self) { state in SettingsView(state: state) }
+        registry.register(ActivityDefaultsScreen.self, ActivityDefaultsState.self) { state in ActivityDefaultsView(state: state) }
+        registry.register(SegmentsAndGroupsScreen.self, SegmentsAndGroupsState.self) { state in SegmentsAndGroupsView(state: state) }
         return registry
     }()
 }
