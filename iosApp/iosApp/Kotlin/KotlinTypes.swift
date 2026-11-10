@@ -67,7 +67,7 @@ typealias AuthPackage = ExportedKotlinPackages.io.github.solcott.activitytracker
 typealias GrantStatus = AuthPackage.GrantStatus
 typealias ExportArchive = ExportedKotlinPackages.io.github.solcott.activitytracker.data.export.ExportArchive
 
-// Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules.
+// Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules, and the gear pages they open.
 typealias GearPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear
 typealias GearListScreen = GearPackage.GearListScreen
 typealias GearListState = GearPackage.GearListState
@@ -78,6 +78,15 @@ typealias GearRow = GearPackage.GearRow
 typealias GearCollectionRow = GearPackage.GearCollectionRow
 typealias GearListTexts = GearPackage.GearListTexts
 typealias GearTexts = GearPackage.GearTexts
+typealias GearCollectionScreen = GearPackage.GearCollectionScreen
+typealias GearCollectionState = GearPackage.GearCollectionState
+typealias GearCollectionEvent = GearPackage.GearCollectionEvent
+typealias GearCollectionDetail = GearPackage.GearCollectionDetail
+typealias IgnoredSensorsScreen = GearPackage.IgnoredSensorsScreen
+typealias IgnoredSensorsState = GearPackage.IgnoredSensorsState
+typealias IgnoredSensorsEvent = GearPackage.IgnoredSensorsEvent
+typealias LinkedSensor = GearPackage.LinkedSensor
+typealias LinkedSensorTexts = GearPackage.LinkedSensorTexts
 typealias ProfilePackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.profile
 typealias BlockListScreen = ProfilePackage.BlockListScreen
 typealias BlockListState = ProfilePackage.BlockListState

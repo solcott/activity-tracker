@@ -11,7 +11,7 @@ struct ContentStateView<Value, Content: View>: View {
     private let state: KotlinContentState
     private let errorKind: UiError.Kind
     private let retry: () -> Void
-    private let content: (Value) -> Content
+    private let content: () -> Content?
 
     init(
         _ state: KotlinContentState, as value: Value.Type = Value.self, errorKind: UiError.Kind, retry: @escaping () -> Void,
@@ -20,7 +20,7 @@ struct ContentStateView<Value, Content: View>: View {
         self.state = state
         self.errorKind = errorKind
         self.retry = retry
-        self.content = content
+        self.content = { (state.data as? Value).map(content) }
     }
 
     var body: some View {
@@ -32,10 +32,21 @@ struct ContentStateView<Value, Content: View>: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         case .content:
-            if let value = state.data as? Value {
-                content(value)
+            if let content = content() {
+                content
             }
         }
+    }
+}
+
+extension ContentStateView where Value == Void {
+    /// Content whose value is a list, which `content` reads from a typed getter on its state: through the erased value a list arrives
+    /// as a Swift array, and an empty one can't be read at all (the roadmap's phase 4 probes, gear pages). This form never reads it.
+    init(_ state: KotlinContentState, errorKind: UiError.Kind, retry: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content) {
+        self.state = state
+        self.errorKind = errorKind
+        self.retry = retry
+        self.content = content
     }
 }
 

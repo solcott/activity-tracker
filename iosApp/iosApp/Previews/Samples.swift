@@ -18,8 +18,12 @@
         static var accountVariants: [String: AccountState] { SettingsPackage.AccountSamples.shared.variants }
         static var leave: [String: LeaveState] { SettingsPackage.LeaveSamples.shared.all }
 
-        /// Gear, and the blocked and muted lists, in each state they show; the block list's states beyond content loading apart.
+        /// Gear, a collection, Ignored devices, and the blocked and muted lists, in each state they show; states beyond content loading apart.
         static var gearList: [String: GearListState] { GearPackage.GearListSamples.shared.all }
+        static var gearCollection: [String: GearCollectionState] { GearPackage.GearCollectionSamples.shared.all }
+        static var gearCollectionVariants: [String: GearCollectionState] { GearPackage.GearCollectionSamples.shared.variants }
+        static var ignoredSensors: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.all }
+        static var ignoredSensorsVariants: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.variants }
         static var blockList: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.all }
         static var blockListVariants: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.variants }
 

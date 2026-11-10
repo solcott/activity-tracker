@@ -36,12 +36,14 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ActivityDefaultsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "SegmentsAndGroupsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "GearListScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "GearCollectionScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "IgnoredSensorsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "BlockListScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AccountScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LeaveScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
-        // What the lists open is still the shared UI's.
-        for screen in ["GearScreen", "GearCollectionScreen", "EditGearScreen", "IgnoredSensorsScreen", "ProfileScreen"] {
+        // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card.
+        for screen in ["GearScreen", "EditGearScreen", "EditGearCollectionScreen", "ProfileScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it.
@@ -57,6 +59,8 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.ActivityDefaultsScreen.self) == "ActivityDefaultsScreen")
         #expect(String(describing: ActivityTracker.SegmentsAndGroupsScreen.self) == "SegmentsAndGroupsScreen")
         #expect(String(describing: ActivityTracker.GearListScreen.self) == "GearListScreen")
+        #expect(String(describing: ActivityTracker.GearCollectionScreen.self) == "GearCollectionScreen")
+        #expect(String(describing: ActivityTracker.IgnoredSensorsScreen.self) == "IgnoredSensorsScreen")
         #expect(String(describing: ActivityTracker.BlockListScreen.self) == "BlockListScreen")
         #expect(String(describing: ActivityTracker.AccountScreen.self) == "AccountScreen")
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
