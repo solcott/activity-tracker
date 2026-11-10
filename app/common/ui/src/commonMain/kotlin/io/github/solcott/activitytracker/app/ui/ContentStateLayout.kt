@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ContentShown
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -19,7 +20,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.errorOrNull
-import io.github.solcott.uistate.hasLoaded
 import io.github.solcott.uistate.isLoading
 import org.jetbrains.compose.resources.stringResource
 
@@ -37,18 +37,18 @@ fun <T> ContentStateLayout(
     contentPadding: PaddingValues = PaddingValues(),
     content: @Composable (T) -> Unit,
 ) {
-    val error = state.errorOrNull
-    when {
-        state.hasLoaded -> content(state.data)
-        error != null ->
+    // Which of the three to show is ContentShown's rule, shared with the native iOS UI.
+    when (val shown = ContentShown.of(state, errorKind)) {
+        is ContentShown.Content -> content(state.data)
+        is ContentShown.Failure ->
             Column(
                 modifier.fillMaxSize().padding(contentPadding).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ErrorText(UiError(errorKind, error), Modifier.testTag(TestTags.LOAD_ERROR))
+                ErrorText(shown.error, Modifier.testTag(TestTags.LOAD_ERROR))
                 AppTextButton(onClick = onRetry, Modifier.testTag(TestTags.RETRY)) { Text(stringResource(Res.string.action_retry)) }
             }
-        else ->
+        ContentShown.Progress ->
             Box(modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) {
                 AppProgressIndicator(Modifier.testTag(TestTags.LOADING))
             }
