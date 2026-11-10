@@ -597,9 +597,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   on iOS 18.
 - The app turns now (portrait and both landscapes on iPhone, all four on iPad), and no screen was laid out for a phone on its
   side: each lays out by the width it gets. Only the feed, the profile, Settings, the Account page and an activity were looked at turned.
-  An activity on an iPhone on its side takes the shared UI's `Expanded` layout (874 points is over 840): a narrow column beside a
-  side pane, in 402 points of height. `WindowWidth` decides by width alone, on Android phones on their side too; whether it should
-  ask the height as the Settings rule does is a decision for the shared UI. Record, the maps and the charts want the same look.
+  An activity on an iPhone on its side took the shared UI's side-pane layout in 402 points of height; a window under 500dp tall
+  is now never `Expanded` (`short-window-layout`, ui/window-layout), on every platform. Record, the maps and the charts want the same look.
 - A native settings page will need a bar of its own in the detail column, which today only fallback pages fill (they draw their
   own). A column header in the design system, or `NavigationSplitView` after all: decide with the first native page.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List` (`ZoneSummary.kinds`,
