@@ -167,6 +167,15 @@ Each phase leaves a shippable app.
      pages say and decide is Kotlin's (`GearTexts`, which `GearLabels.kt` resolves for every gear screen, `GearListTexts`,
      `BlockListTexts`, `avatarInitial`, getters on the states). Left for later changes: the other gear screens, profiles and the
      other paged lists, which can build on `PagedList` and `AppItemRow`.
+   - **Account and Leave** (`ios-native-account`). The Account page and Leave Activity Tracker are inset grouped lists (`AccountView`,
+     `LeaveView`), with the first system alerts (ending the session with work pending, and whether a shared export was kept), the first
+     file handed to another app (`ArchiveShare`: Kotlin zips the export to a file through `IosApp.writeArchive`, a `suspend` entry Swift
+     awaits, and `UIActivityViewController` offers it), and the first time of day (`AppText.Time`, which each UI formats on the device's
+     clock). Leave opened from Account beside Settings' list is the first deeper native page in the column: `pageTitle(_:back:canGoBack:)`
+     draws a back button in `PageBar` from `HostRecord.paneRoot` (`\.paneRoot`), and a running leave has no way back, alone or beside the
+     list. What the pages say and decide is Kotlin's (`AccountTexts`, `LeaveTexts`, `offersSignInAgain`, `canLeave(typed)`,
+     `canGoBack`, `showsDeviceWork`), and an outdated grant's missing features reach Swift as text, since its set of enums can't. Left for
+     later changes: the "left on another device" screen (`LeftElsewhereScreen`), Training zones, threshold history and Privacy zones.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -546,6 +555,25 @@ with throwaway Swift tests on the iPhone 17 simulator (iOS 26.0) and by reading 
 
 Neither page needs far more than its share (both use images; only the blocked list pages), so they went in one change.
 
+### Phase 4 probes (account, `ios-native-account`, 2026-11-10)
+
+The Account and Leave pages bring the first sealed types from `:core-data` drawn natively, the first file a native page hands to another
+app, and the first time of day. Asked with throwaway Swift tests over every Account and Leave sample on the iPhone 17 simulator (iOS
+26.0), a scratch `IosApp` entry, and by reading the generated Swift:
+
+- **The sealed states cast in Swift.** `GrantStatus` (`Current`, `SpacesUnsupported`, `Outdated`), `DataExportStatus` (each case, with
+  `Running.phase` as the Swift enum), `SharedPlacesSummary` and `LeaveRun` read with `as?`. `EndingSession` and `PendingWork` read as
+  classes, `LeaveStep` and `LeaveExport` as Swift enums, and `canLeave` as the getter it is.
+- **`Outdated.missing` stops the app.** Its getter is generated as `Swift.Set<GrantFeature>` with `as!`, and reading it fails with
+  "Could not cast value of type 'Swift.AnyHashable' to 'GrantFeature'": a set of enums is the same failure as a list of them. What an
+  outdated grant is missing has to reach Swift as text.
+- **`ExportArchive` arrives as a class** with its `name`, because `DataExportStatus.Ready` names it; and its `writeTo` is generated as
+  `async throws` taking a Swift closure.
+- **`kotlin.time.Instant` arrives as a class**, with `epochSeconds`, since the standard library is exported as far as signatures name it.
+- **A `suspend` entry is an `async` call.** A scratch `suspend fun` on `IosApp` returning a `Boolean` was awaited from a Swift test and
+  returned. So the archive is written by a `suspend` entry, not the callback the design first planned.
+- **A function's `List<AppText>`** reads as `[any AppText]`, and each element resolves.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -696,6 +724,30 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **`check`'s detekt counts an object's functions.** `LabelText` was at its limit, so the avatar's initial is `avatarInitial` beside
   `shownName` in `ShownName.kt`; Swift calls it as `AppPackage.avatarInitial(name:)`.
 
+### Phase 4 findings (account, `ios-native-account`)
+
+- **A deeper page in the column sends its own way back.** `pageTitle(_:back:)` takes the page's `Back` event, as the shared top bar's
+  `onBack` does, and the header shows it only when `\.paneRoot` is false. A no-op default was rejected: it would draw a back button that
+  does nothing on a deeper page that forgot one. `canGoBack: false` hides the header's button and, alone, the stack's
+  (`navigationBarBackButtonHidden`), which takes the edge swipe with it.
+- **Swift export's concurrency meets Swift 6's.** A Kotlin class passed from the main actor into a Kotlin `async` call is "sending
+  'archive' risks causing data races": Kotlin's classes aren't `Sendable` to Swift. The archive is immutable and the write runs on
+  Kotlin's IO dispatcher, so the one hand-off is `nonisolated(unsafe)`, and `ArchiveShare`'s injected write and sheet are `@MainActor`.
+- **A `CharSequence` parameter doesn't take a Swift `String`.** `LeaveState.canLeave(typed:)` takes a `String` so the view can ask with
+  the text it holds, which reaches the state's field a keystroke later.
+- **Text the shared page put in a value's place reads badly there natively.** The Leave row's summary is a sentence; as an `AppListRow`
+  value it wrapped into a narrow column of nine lines. It sits under the title instead, as a footnote.
+- **The alerts are left to SwiftUI, and so are untested by snapshots.** `.alert` presents over the page, so the snapshots show the page
+  under it; the alerts' words are held by `AccountTextTests` against the samples that ask them.
+- **The time of day is the platform's.** Compose formats `AppText.Time` with `timeFormat()` in `LocalTimeZone` (`LocalHourClock` in
+  previews), Swift with `Date.formatted(date: .omitted, time: .shortened)`, which follows the device's 12/24-hour setting as
+  `uses24HourClock()` reads it on iOS.
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** On iPad the share
+  sheet is a popover centred over the window with no arrow, and the kept question follows it as on iPhone. Leave beside the list shows
+  the header's back chevron upright and on its side, and the list keeps Account marked. Still unseen: a running leave, Sign out's
+  question (only with work pending), cancelling a running export (a local export ends before a checked tap lands), and the pages on
+  iOS 18 signed in.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -715,8 +767,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   An activity on an iPhone on its side took the shared UI's side-pane layout in 402 points of height; a window under 500dp tall
   is now never `Expanded` (`short-window-layout`, ui/window-layout), on every platform. Record, the maps and the charts want the same look.
 - Decided (`ios-native-settings-pages`): a native page in the detail column draws a column header from the design system
-  (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Still to do: a back button in that header for a deeper native page, from
-  `HostRecord.paneRoot`, with the first native page that is opened from another settings page.
+  (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Done (`ios-native-account`): its back button for a deeper native page, from
+  `HostRecord.paneRoot`, first on Leave opened from Account.
+- `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
+  and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
   Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). `ZoneSummary.kinds` and `SportZonesState.kinds`
@@ -740,7 +794,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
 - About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
-  an `AppText` function when a native view first needs it.
+  an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); dates and
+  durations have no `AppText` yet.
 - Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
