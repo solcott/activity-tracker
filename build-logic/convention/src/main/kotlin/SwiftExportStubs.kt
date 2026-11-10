@@ -16,6 +16,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.register
+import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 const val CHECK_SWIFT_EXPORT_STUBS_TASK_NAME = "checkSwiftExportStubs"
 
@@ -207,6 +208,17 @@ class SwiftExportConventionPlugin : Plugin<Project> {
                 failOn.addAll(contracts.map { it.swiftName })
                 report.set(layout.buildDirectory.file("reports/swift-export/stubs.txt"))
             }
+            // The native views' strings against the shared UI's: two files, read on any machine, so this one is in `check`.
+            val root = isolated.rootProject.projectDirectory
+            val iosStrings =
+                tasks.register<CheckIosStrings>(CHECK_IOS_STRINGS_TASK_NAME) {
+                    group = JavaBasePlugin.VERIFICATION_GROUP
+                    description = "Fails when a string of the iOS app's String Catalog differs from the shared string of the same name."
+                    sharedStrings.set(root.file("ui/resources/src/commonMain/composeResources/values/strings.xml"))
+                    catalog.set(root.file("iosApp/iosApp/Localizable.xcstrings"))
+                    marker.set(layout.buildDirectory.file("iosStrings/check.txt"))
+                }
+            plugins.withType(LifecycleBasePlugin::class.java) { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(iosStrings) } }
         }
     }
 }
