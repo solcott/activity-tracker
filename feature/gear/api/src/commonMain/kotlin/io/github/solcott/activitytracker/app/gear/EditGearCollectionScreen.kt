@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /** Creates a gear collection ([rkey] null) or edits the athlete's collection at [rkey]: its name, notes and members in order. */
 @CircuitSerializable(SessionScope::class) data class EditGearCollectionScreen(val rkey: String? = null) : Screen
@@ -40,7 +41,10 @@ sealed interface EditGearCollectionEvent {
     data object Retry : EditGearCollectionEvent
 
     /** Adds the items at [rkeys] at the end, in the order given, while there's room. */
-    data class Add(val rkeys: ImmutableList<String>) : EditGearCollectionEvent
+    data class Add(val rkeys: ImmutableList<String>) : EditGearCollectionEvent {
+        /** For Swift, whose export gives no initialiser to a class that takes an immutable collection (dev/ios-swift-interop). */
+        constructor(rkeys: List<String>) : this(rkeys.toImmutableList())
+    }
 
     data class Remove(val rkey: String) : EditGearCollectionEvent
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.io.bytestring.ByteString
 
 /**
@@ -39,7 +40,10 @@ sealed interface EditMedia {
 
 sealed interface DetailsEvent {
     /** Photos the athlete picked, compressed; any past [ActivityDetailsFields.maxMedia] are left out. */
-    data class PhotosPicked(val photos: ImmutableList<PickedPhoto>) : DetailsEvent
+    data class PhotosPicked(val photos: ImmutableList<PickedPhoto>) : DetailsEvent {
+        /** For Swift, whose export gives no initialiser to a class that takes an immutable collection (dev/ios-swift-interop). */
+        constructor(photos: List<PickedPhoto>) : this(photos.toImmutableList())
+    }
 
     /** Removes one of [ActivityDetailsFields.media], by index. */
     data class RemoveMedia(val index: Int) : DetailsEvent

@@ -25,6 +25,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.datetime.LocalDate
 import kotlinx.io.bytestring.ByteString
 
@@ -474,7 +475,10 @@ sealed interface ImportActivityEvent {
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
 
     /** The athlete picked [sources]: activity files, gzipped or not, or zips of them, read as needed rather than held. */
-    data class FilesPicked(val sources: ImmutableList<ImportSource>) : ImportActivityEvent
+    data class FilesPicked(val sources: ImmutableList<ImportSource>) : ImportActivityEvent {
+        /** For Swift, whose export gives no initialiser to a class that takes an immutable collection (dev/ios-swift-interop). */
+        constructor(sources: List<ImportSource>) : this(sources.toImmutableList())
+    }
 
     /** Stops reading the picked files, keeping nothing of them. */
     data object CancelReading : ImportActivityEvent
@@ -497,7 +501,10 @@ sealed interface ImportActivityEvent {
     /**
      * Imports an [ImportBatch]'s selected activities. [defaultTitles] has each untitled one's [ImportRow.defaultTitle] in words, by index.
      */
-    data class SaveBatch(val defaultTitles: ImmutableMap<Int, String>) : ImportActivityEvent
+    data class SaveBatch(val defaultTitles: ImmutableMap<Int, String>) : ImportActivityEvent {
+        /** For Swift, whose export gives no initialiser to a class that takes an immutable collection (dev/ios-swift-interop). */
+        constructor(defaultTitles: Map<Int, String>) : this(defaultTitles.toImmutableMap())
+    }
 
     /** What to do with a duplicate: an [ImportRow.index], or 0 for a single [ImportPreview]. */
     data class DuplicateActionChanged(val index: Int, val action: DuplicateAction) : ImportActivityEvent
