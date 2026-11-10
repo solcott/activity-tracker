@@ -18,7 +18,9 @@ struct Following<Value, Content: View>: View {
     }
 
     var body: some View {
-        content(observed.value)
+        // The stack is what follows the flow, not the content: content that draws nothing for the first value, as a screen does until
+        // its presenter's first state, is no view at all, and a task on no view never starts. The screen would stay empty for good.
+        ZStack { content(observed.value) }
             .task { await observed.follow(flow.asAsyncSequence()) }
     }
 }
