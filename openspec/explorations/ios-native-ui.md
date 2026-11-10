@@ -176,6 +176,14 @@ Each phase leaves a shippable app.
      list. What the pages say and decide is Kotlin's (`AccountTexts`, `LeaveTexts`, `offersSignInAgain`, `canLeave(typed)`,
      `canGoBack`, `showsDeviceWork`), and an outdated grant's missing features reach Swift as text, since its set of enums can't. Left for
      later changes: the "left on another device" screen (`LeftElsewhereScreen`), Training zones, threshold history and Privacy zones.
+   - **The gear pages** (`ios-native-gear-pages`). A gear collection and Ignored devices are inset grouped lists (`GearCollectionView`,
+     `IgnoredSensorsView`), opened full width over Settings from Gear. The collection has Edit and Delete in its bar and asks before
+     deleting in the system's alert; Ignored devices is the first loaded content that is itself a list, which Swift reads from a typed
+     getter (`IgnoredSensorsState.sensors`) and `ContentStateView`'s form without a value, since the erased value can't carry a list (the
+     probe below). What the pages say and decide is Kotlin's (`LinkedSensorTexts` over `deviceName`, now in `:app-common-api`, which the
+     gear page's linked devices ask too; `GearCollectionState.title`, `showsActions`, `actionsEnabled`). Left for later changes: the gear
+     item page (`GearScreen`), with or right after the native activity card it lists its activities with, and its components, mount
+     sheet and unmount date picker; and the gear editors (`EditGearScreen`, `EditGearCollectionScreen`).
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -574,6 +582,27 @@ app, and the first time of day. Asked with throwaway Swift tests over every Acco
   returned. So the archive is written by a `suspend` entry, not the callback the design first planned.
 - **A function's `List<AppText>`** reads as `[any AppText]`, and each element resolves.
 
+### Phase 4 probes (gear pages, `ios-native-gear-pages`, 2026-11-10)
+
+A gear collection and Ignored devices are drawn natively; the gear item page isn't. It lists its counted activities as the feed's
+`ActivityCard` (author, moderation notice and blur, route map, media, likes), so it goes native with or right after the native card,
+not as iOS-only rows the other platforms don't have. Asked with throwaway Swift tests over every collection and Ignored devices sample
+on the iPhone 17 simulator (iOS 26.0), and by reading the generated Swift:
+
+- **A list as a `ContentState`'s value doesn't reach Swift as a Kotlin collection.** Ignored devices' content is
+  `ContentState<ImmutableList<LinkedSensor>>`, the first content that is itself a list. Read through the erased `data`, a list holding
+  devices arrives as a Swift `Array<Any>` (its elements cast to `LinkedSensor`), not as `KotlinCollection`, so `elements(as:)` doesn't
+  apply. And the empty `persistentListOf()` the loading sample holds can't be read at all: the bridge sends it `count` and throws
+  `NSInvalidArgumentException` (unrecognized selector). A loaded page with nothing ignored holds the same empty list, so the native page
+  must never read `data`. `IgnoredSensorsState.sensors`, a getter typed `ImmutableList<LinkedSensor>` returning the content's value,
+  reads as a Kotlin collection on every sample (empty, loading and failed included), through `elements(as:)`.
+- **`LinkedSensor.weak` reads from Swift.** `weak` is a contextual keyword, generated as `public var weak: Swift.Bool`, and
+  `sensor.weak` reads it; the contract keeps its name. `serialTail`, `manufacturer` and `model` read as Swift optionals.
+- **A collection's `notes` read as a Swift optional** ("Cold water setup", nil for the empty sample), and its `members` through
+  `elements(as: GearRow.self)` in the athlete's order, the wetsuit's `retired` true.
+- **`deviceName` is a static function on the package** once it moves to `:app-common-api` (`GearPackage.deviceName(manufacturer:model:)`).
+- **`contentSamples` has no `empty` kind.** Ignored devices' "nothing ignored" is a variant of its own.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -748,6 +777,25 @@ What building the host and the shell on Swift export showed, beyond the probes:
   question (only with work pending), cancelling a running export (a local export ends before a checked tap lands), and the pages on
   iOS 18 signed in.
 
+### Phase 4 findings (gear pages, `ios-native-gear-pages`)
+
+- **A `ContentState` of a list gets a typed getter, and the view never reads the value.** The probe above found the erased value
+  unreadable when empty, which is every account with nothing ignored. `IgnoredSensorsState.sensors` returns the content's value typed,
+  and `ContentStateView` gained a form without a value, which lays out progress and failure from `ContentShown` and leaves reading the
+  content to the view. The walk opened the real, empty Ignored devices page natively on an iPhone and an iPad without a crash.
+- **`AppItemRow` needs no change for a row without a picture.** `EmptyView()` as its leading view takes no space and no spacing in the
+  row's `HStack`; the device rows line up with the section's inset.
+- **A device's words now come from one place.** `LinkedSensorTexts` over `deviceName` (moved to `:app-common-api`, the same package, so
+  the import's new devices compile unchanged) gives the device rows on Ignored devices, on the gear page's linked devices and, once the
+  gear page is native, there too. The shared gear page's linked devices were seen on the iPhone reading "Garmin Edge 840 / Serial …2071".
+- **The delete alert is the system's, bound to the state's question.** Dismissing sends `DismissDelete` and only Delete collection sends
+  `ConfirmDelete`; the presenter pops the page once the delete lands, which the native stack follows like any pop.
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** A collection made
+  through the shared editor, opened natively, an item opened from it and back, Edit opened and left, Delete cancelled and then
+  confirmed. On the iPad the collection and Ignored devices take the whole window from Gear beside the list, upright and on its side, and
+  back returns to the list beside Gear. Still unseen: ignored devices with rows, the failure and deleting states on a device, and the
+  pages on iOS 18 signed in.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -769,6 +817,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Decided (`ios-native-settings-pages`): a native page in the detail column draws a column header from the design system
   (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Done (`ios-native-account`): its back button for a deeper native page, from
   `HostRecord.paneRoot`, first on Leave opened from Account.
+- The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`): it lists its activities as the feed's
+  `ActivityCard`, so it goes native with or right after the native activity card, with its components, mount sheet and a SwiftUI
+  unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors (`EditGearScreen`,
+  `EditGearCollectionScreen`) are still the shared UI's too.
 - `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
   and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
