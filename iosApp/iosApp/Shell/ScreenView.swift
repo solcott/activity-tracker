@@ -19,7 +19,8 @@ struct ScreenView: View {
 
     @ViewBuilder private var screen: some View {
         if ScreenRegistry.app.hasView(forScreenNamed: record.screenName) {
-            NativeScreen(record: record)
+            // A native page in a column titles itself in a header there (`pageTitle`), since the bar is the other screen's.
+            NativeScreen(record: record).environment(\.inPane, inPane)
         } else {
             // Compose lays the screen out against the whole window and pads for the bars and the keyboard itself, and draws its own
             // navigation bar. So the stack's bar is hidden, unless it belongs to the screen this one is drawn beside.

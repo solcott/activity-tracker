@@ -37,6 +37,19 @@
             }
         }
 
+        /// A page's header in a column beside another screen (`pageTitle` in a pane), with the rows that scroll under it.
+        static var pageBar: some View {
+            List {
+                Section {
+                    ForEach(1..<16) { AppListRow(Text(verbatim: "Row \($0)"), summary: Text(verbatim: "Followers")) }
+                } header: {
+                    Text(verbatim: "Who can see each detail")
+                }
+            }
+            .pageTitle(Text(verbatim: "Segments & groups"))
+            .environment(\.inPane, true)
+        }
+
         static var cards: some View {
             VStack(spacing: 16) {
                 AppCard {
@@ -138,6 +151,7 @@
     #Preview("Buttons") { DesignGallery.buttons }
     #Preview("Fields") { DesignGallery.fields }
     #Preview("Rows") { DesignGallery.rows }
+    #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Cards") { DesignGallery.cards }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
