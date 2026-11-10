@@ -47,6 +47,8 @@ extension ScreenRegistry {
         registry.register(SegmentsAndGroupsScreen.self, SegmentsAndGroupsState.self) { state in SegmentsAndGroupsView(state: state) }
         registry.register(GearListScreen.self, GearListState.self) { state in GearListView(state: state) }
         registry.register(BlockListScreen.self, BlockListState.self) { state in BlockListView(state: state) }
+        registry.register(AccountScreen.self, AccountState.self) { state in AccountView(state: state) }
+        registry.register(LeaveScreen.self, LeaveState.self) { state in LeaveView(state: state) }
         return registry
     }()
 }

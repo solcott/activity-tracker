@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
@@ -88,6 +89,21 @@ object AccountSamples {
                     default.copy(
                         grant = GrantStatus.Outdated(GrantFeature.all),
                         confirming = EndingSession(signInAgain = true, PendingWork(changes = 1, importSaving = false)),
+                    ),
+            )
+
+    /**
+     * States the native page is checked in beyond [all], kept apart so the shared screenshot set stays as it is: the session ending, with
+     * every action off, and a save of the ready export that failed.
+     */
+    val variants: Map<String, AccountState>
+        get() =
+            mapOf(
+                "ending" to default.copy(ending = true, grant = GrantStatus.Outdated(setOf(GrantFeature.Leaving))),
+                "exportSaveFailed" to
+                    default.copy(
+                        export = DataExportStatus.Ready(archive, problems = 0, unsentChanges = 0, spacesIncluded = true),
+                        exportError = UiError(UiError.Kind.SaveDataExport),
                     ),
             )
 }

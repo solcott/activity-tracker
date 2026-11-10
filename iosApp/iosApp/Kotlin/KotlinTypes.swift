@@ -50,6 +50,22 @@ typealias SegmentsAndGroupsState = SettingsPackage.SegmentsAndGroupsState
 typealias SegmentsAndGroupsEvent = SettingsPackage.SegmentsAndGroupsEvent
 typealias GroupOption = SettingsPackage.GroupOption
 typealias GroupChoice = ExportedKotlinPackages.io.github.solcott.activitytracker.data.segments.GroupChoice
+typealias AccountScreen = SettingsPackage.AccountScreen
+typealias AccountState = SettingsPackage.AccountState
+typealias AccountEvent = SettingsPackage.AccountEvent
+typealias AccountTexts = SettingsPackage.AccountTexts
+typealias DataExportStatus = SettingsPackage.DataExportStatus
+typealias EndingSession = SettingsPackage.EndingSession
+typealias LeaveScreen = SettingsPackage.LeaveScreen
+typealias LeaveState = SettingsPackage.LeaveState
+typealias LeaveEvent = SettingsPackage.LeaveEvent
+typealias LeaveTexts = SettingsPackage.LeaveTexts
+typealias LeaveRun = SettingsPackage.LeaveRun
+typealias LeaveExport = SettingsPackage.LeaveExport
+typealias SharedPlacesSummary = SettingsPackage.SharedPlacesSummary
+typealias AuthPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.data.auth
+typealias GrantStatus = AuthPackage.GrantStatus
+typealias ExportArchive = ExportedKotlinPackages.io.github.solcott.activitytracker.data.export.ExportArchive
 
 // Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules.
 typealias GearPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear

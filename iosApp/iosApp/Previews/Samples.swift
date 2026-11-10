@@ -14,6 +14,9 @@
         /// Activity defaults and Segments & groups, the settings pages drawn natively.
         static var activityDefaults: [String: ActivityDefaultsState] { SettingsPackage.ActivityDefaultsSamples.shared.all }
         static var segmentsAndGroups: [String: SegmentsAndGroupsState] { SettingsPackage.SegmentsAndGroupsSamples.shared.all }
+        static var account: [String: AccountState] { SettingsPackage.AccountSamples.shared.all }
+        static var accountVariants: [String: AccountState] { SettingsPackage.AccountSamples.shared.variants }
+        static var leave: [String: LeaveState] { SettingsPackage.LeaveSamples.shared.all }
 
         /// Gear, and the blocked and muted lists, in each state they show; the block list's states beyond content loading apart.
         static var gearList: [String: GearListState] { GearPackage.GearListSamples.shared.all }
