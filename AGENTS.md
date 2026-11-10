@@ -32,6 +32,7 @@ scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when 
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
+scripts/run-appview.sh                            # the same AppView as a plain JVM, so no Gradle daemon stays busy while it runs (scripts/dev.sh uses it)
 ./gradlew :server-segment-importer:run --args="extract region.osm.pbf --agency usfs=build/usfs.geojsonl --region us-vermont --out build/us-vermont.ndjson"   # OSM and agency trails -> candidate segments
 ./gradlew :server-segment-importer:run --args="stage build/us-vermont.ndjson"      # upload candidates to the AppView as the importer account
 ./gradlew :server-segment-importer:run --args="publish --region us-vermont"        # publish ridden candidates as feed.segment records (--all <file>: every one)

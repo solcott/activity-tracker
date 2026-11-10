@@ -557,8 +557,8 @@ ensure_device_properties() {
 
 appview_pid() { lsof -nP -tiTCP:"$APPVIEW_PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true; }
 
-# The `./gradlew :server-appview:run` client of this checkout. It outlives the AppView JVM by a few
-# seconds and then prints "BUILD FAILED" etc. into the log it was started with.
+# The `./gradlew :server-appview:run` client of this checkout, when the AppView was started that way rather than by
+# scripts/run-appview.sh. It outlives the AppView JVM by a few seconds and then prints "BUILD FAILED" etc. into its log.
 gradle_client_pids() { pgrep -f "$ROOT/gradle/wrapper/gradle-wrapper.jar :server-appview:run" || true; }
 
 # The client_id the running AppView advertises, which is derived from the URL it started with.
@@ -614,7 +614,8 @@ ensure_appview() {
   mkdir -p "$STATE_DIR"
   # A fresh file: anything still holding the old one (a lingering gradle client) writes to the .prev.
   [[ -f $STATE_DIR/appview.log ]] && mv "$STATE_DIR/appview.log" "$STATE_DIR/appview.prev.log"
-  nohup ./gradlew :server-appview:run >"$STATE_DIR/appview.log" 2>&1 &
+  # A plain JVM, not `./gradlew :server-appview:run`, which would keep a Gradle daemon busy until the AppView stops.
+  nohup scripts/run-appview.sh >"$STATE_DIR/appview.log" 2>&1 &
   echo "    starting (log: .dev/appview.log); the first build can take a minute"
   if ! wait_http "http://localhost:$APPVIEW_PORT/xrpc/_health" 300 "AppView healthy"; then
     tail -n 30 "$STATE_DIR/appview.log" >&2 || true

@@ -106,6 +106,7 @@ cp docker/.env.example docker/.env
 docker compose -f docker/compose.yaml up -d      # PLC :2582, PDS :2583, relay :2470, Jetstream :6008, Postgres :5433
 docker/scripts/create-account.sh alice          # creates alice.test (password in docker/.env)
 ./gradlew :server-appview:run                    # AppView on :8081
+scripts/run-appview.sh                           # or the same as a plain JVM: no Gradle daemon stays busy while it runs
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun       # web app on http://127.0.0.1:8080
 ./gradlew :desktopApp:hotRun --auto                  # desktop app with Compose Hot Reload
 ```
