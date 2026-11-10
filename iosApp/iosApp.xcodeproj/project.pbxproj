@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000013 /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000012 /* FITSwiftSDK */; };
+		A10000000000000000000021 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000020 /* SnapshotTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000021 /* SnapshotTesting in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +129,9 @@
 				A10000000000000000000015 /* iosAppTests */,
 			);
 			name = iosAppTests;
+			packageProductDependencies = (
+				A10000000000000000000020 /* SnapshotTesting */,
+			);
 			productName = iosAppTests;
 			productReference = A10000000000000000000014 /* iosAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -157,6 +162,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A10000000000000000000011 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */,
+				A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000005 /* Products */;
@@ -274,6 +280,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
@@ -316,6 +323,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
@@ -430,6 +438,14 @@
 				version = 21.217.0;
 			};
 		};
+		A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.19.7;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -437,6 +453,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000011 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */;
 			productName = FITSwiftSDK;
+		};
+		A10000000000000000000020 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

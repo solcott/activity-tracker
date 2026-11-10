@@ -2,26 +2,28 @@ import Testing
 
 @testable import ActivityTracker
 
-/// What sign-in says when it fails (auth/sign-in, ui/error-messages): the step that failed, and why only when that helps.
+/// What sign-in says (auth/sign-in, ui/error-messages). The wording is chosen in Kotlin (`LoginTexts`, with its own tests); these hold
+/// that the catalog reads each choice as the shared UI does.
 @MainActor
 struct LoginTextTests {
+    private func failure(_ stage: AuthStatus.Stage, _ reason: DataError? = nil) -> String {
+        AppStrings.string(LoginTexts.shared.failure(status: AuthStatus.Failed(stage: stage, reason: reason)))
+    }
+
     @Test func eachStageSaysWhatFailed() {
-        #expect(LoginText.failure(stage: .Start, reason: nil) == "Couldn't start sign-in")
-        #expect(LoginText.failure(stage: .Complete, reason: nil) == "Sign-in failed")
-        #expect(LoginText.failure(stage: .FindAccount, reason: nil) == "No account found for that handle")
+        #expect(failure(.Start) == "Couldn't start sign-in")
+        #expect(failure(.Complete) == "Sign-in failed")
+        #expect(failure(.FindAccount) == "No account found for that handle")
     }
 
     @Test func aReasonWorthSayingFollowsWhatFailed() {
-        #expect(LoginText.failure(stage: .Start, reason: .Unreachable) == "Couldn't start sign-in. Couldn't reach the server.")
-        #expect(LoginText.failure(stage: .Complete, reason: .Server) == "Sign-in failed. The server had a problem.")
-        #expect(
-            LoginText.failure(stage: .FindAccount, reason: .Unreadable)
-                == "No account found for that handle. The app couldn't read the server's reply.")
+        #expect(failure(.Start, DataError.Network.shared) == "Couldn't start sign-in. Couldn't reach the server.")
+        #expect(failure(.Complete, DataError.Serialization.shared) == "Sign-in failed. The app couldn't read the server's reply.")
     }
 
     @Test func theLeftMessageNamesTheAccount() {
         #expect(
-            LoginText.left(handle: "alice.test")
+            AppStrings.string(LoginTexts.shared.left(handle: "alice.test"))
                 == "You've left Activity Tracker. Your atproto account alice.test and its other apps are unchanged.")
     }
 

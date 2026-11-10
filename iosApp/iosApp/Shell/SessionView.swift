@@ -13,7 +13,11 @@ struct SessionView: View {
             case .Unknown: Color(.systemGroupedBackground).ignoresSafeArea()
             case .Leaving: SingleScreen(record: session.leaving)
             case .LeftElsewhere: SingleScreen(record: session.leftElsewhere)
-            case .Open: TabsView(session: session)
+            case .Open:
+                // The athlete's units, for the native views that format stats (dev/shared-display-text).
+                Following(session.shownUnits) { shown in
+                    TabsView(session: session).environment(\.stats, Stats(units: shown.units))
+                }
             }
         }
     }
@@ -29,8 +33,14 @@ private struct TabsView: View {
             // Choosing the tab already on screen reaches `select` too, which returns that tab to its first screen.
             TabView(selection: Binding(get: { shown.destination }, set: { session.select(destination: $0) })) {
                 ForEach(session.tabs, id: \.destination) { stack in
-                    Tab(stack.destination.title, systemImage: stack.destination.symbol, value: stack.destination) {
+                    Tab(value: stack.destination) {
                         StackView(stack: stack)
+                    } label: {
+                        Label {
+                            Text(stack.destination.title)
+                        } icon: {
+                            Image(stack.destination.icon)
+                        }
                     }
                 }
             }
@@ -86,21 +96,21 @@ private struct StackEntry: Hashable {
 }
 
 extension TopLevelDestination {
-    /// The tab's name: the shared UI's string of the same name (`Localizable.xcstrings`).
-    var title: LocalizedStringKey {
+    /// The tab's name, from the shared strings.
+    var title: LocalizedStringResource {
         switch self {
-        case .Feed: "nav_feed"
-        case .Search: "nav_search"
-        case .You: "nav_you"
+        case .Feed: .navFeed
+        case .Search: .navSearch
+        case .You: .navYou
         }
     }
 
-    /// The SF Symbol the shared UI's `AppIcon` names for the tab; the tab bar fills the chosen one itself.
-    var symbol: String {
+    /// The tab's icon, as the shared design system names it; the tab bar fills the chosen one itself.
+    var icon: AppIcon {
         switch self {
-        case .Feed: "house"
-        case .Search: "magnifyingglass"
-        case .You: "person"
+        case .Feed: .feed
+        case .Search: .search
+        case .You: .you
         }
     }
 }

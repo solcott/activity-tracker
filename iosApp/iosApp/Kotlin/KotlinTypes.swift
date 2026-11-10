@@ -1,8 +1,11 @@
 import ActivityTrackerCoreData
+import ActivityTrackerCoreLexicon
 import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
 import FeatureLoginApi
+import IoGithubSolcottDataresult
+import IoGithubSolcottUistate
 import PresenterHost
 
 // Swift export gives a Kotlin module top-level names only when it is exported whole with a root package. The presenter host and Circuit
@@ -27,3 +30,20 @@ typealias LoginScreen = LoginPackage.LoginScreen
 typealias LoginState = LoginPackage.LoginState
 typealias LoginEvent = LoginPackage.LoginEvent
 typealias AuthStatus = ExportedKotlinPackages.io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
+
+// Text, icons and loading rules chosen in Kotlin (dev/shared-display-text), and the types they take.
+typealias AppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app
+typealias TextPackage = AppPackage.text
+typealias AppText = TextPackage.AppText
+typealias TextSource = TextPackage.TextSource
+typealias StatText = TextPackage.StatText
+typealias LabelText = TextPackage.LabelText
+typealias ErrorTexts = TextPackage.ErrorTexts
+typealias SportIconNames = AppPackage.icon.SportIconNames
+typealias UiError = AppPackage.UiError
+typealias ContentShown = AppPackage.ContentShown
+typealias LoginTexts = LoginPackage.LoginTexts
+typealias UnitSystem = ExportedKotlinPackages.io.github.solcott.activitytracker.data.units.UnitSystem
+typealias KotlinActivityType = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.ActivityType
+typealias KotlinContentState = ExportedKotlinPackages.io.github.solcott.uistate.ContentState
+typealias DataError = ExportedKotlinPackages.io.github.solcott.dataresult.DataError

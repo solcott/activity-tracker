@@ -15,14 +15,14 @@ struct LoginView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                Text("app_name")
+                Text(.appName)
                     .font(.largeTitle.bold())
                     .foregroundStyle(.tint)
                     .accessibilityAddTraits(.isHeader)
-                Text("login_intro")
+                Text(.loginIntro)
                 notices
                 AppTextField(
-                    label: String(localized: "login_handle_label"),
+                    label: .loginHandleLabel,
                     model: handle,
                     state: state.handle,
                     options: TextFieldOptions(
@@ -35,7 +35,7 @@ struct LoginView: View {
                 if state.busy {
                     ProgressView()
                 } else {
-                    AppButton("login_sign_in", action: submit)
+                    AppButton(.loginSignIn, action: submit)
                         .disabled(!LoginText.canSubmit(handle.text))
                 }
             }
@@ -55,27 +55,26 @@ struct LoginView: View {
     /// Why the athlete is here again, when it isn't a first sign-in.
     @ViewBuilder private var notices: some View {
         if let expired = state.expired {
-            Text("login_session_expired")
+            Text(.loginSessionExpired)
             if expired.recording {
-                Text("login_session_expired_recording")
+                Text(.loginSessionExpiredRecording)
             }
         }
         if let left = state.leftHandle {
-            Text(LoginText.left(handle: left))
+            Text(LoginTexts.shared.left(handle: left))
         }
         if state.signingInAgain {
-            Text("login_sign_in_again")
+            Text(.loginSignInAgain)
         }
     }
 
     @ViewBuilder private var status: some View {
         switch state.status.sealedType() {
         case let .failed(failed):
-            Text(LoginText.failure(failed.value))
-                .foregroundStyle(.red)
+            ErrorMessage(text: AppStrings.string(LoginTexts.shared.failure(status: failed.value)))
         case .waitingForBrowser:
-            Text("login_waiting_for_browser")
-            Button("action_cancel") { state.eventSink(LoginEvent.Cancel.shared) }
+            Text(.loginWaitingForBrowser)
+            AppTextButton(.actionCancel) { state.eventSink(LoginEvent.Cancel.shared) }
         case .idle, .starting, .completing:
             EmptyView()
         }
@@ -86,30 +85,10 @@ struct LoginView: View {
     }
 }
 
-/// Sign-in's text that takes more than a name to build.
+/// Sign-in's choices that aren't layout. What its failures and notices say is Kotlin's `LoginTexts`, shared with the Compose screen.
 enum LoginText {
     /// Whether Sign in is offered: a handle of only spaces is no handle.
     static func canSubmit(_ handle: String) -> Bool {
         !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// The step of signing in that failed, and why when the reason is worth saying.
-    static func failure(_ failed: AuthStatus.Failed) -> String {
-        failure(stage: failed.stage, reason: failed.reason.flatMap { FailureReason.Companion.shared.of(error: $0) })
-    }
-
-    static func failure(stage: AuthStatus.Stage, reason: FailureReason?) -> String {
-        let what =
-            switch stage {
-            case .Start: String(localized: "error_sign_in_start")
-            case .Complete: String(localized: "error_sign_in_complete")
-            case .FindAccount: String(localized: "error_sign_in_find_account")
-            }
-        return FailureText.text(what: what, reason: reason)
-    }
-
-    /// The message after leaving Activity Tracker, naming the account that is unchanged (auth/leaving).
-    static func left(handle: String) -> String {
-        String(format: String(localized: "login_left"), handle)
     }
 }
