@@ -97,6 +97,10 @@ tasks
         maxParallelForks = 4
     }
 
+// The release variant has unit tests only so AGP can configure its Compose Preview tasks (beforeVariants above). They are the
+// debug variant's tests over the same sources, so check runs them once. Its compilation still runs: that part is cheap.
+tasks.named { it == "testReleaseUnitTest" }.configureEach { enabled = false }
+
 // Robolectric reaches into FileDescriptor (and the JDK's SharedSecrets for it), which JDK 17+ closes.
 tasks
     .withType<Test>()
