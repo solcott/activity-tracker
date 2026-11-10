@@ -134,14 +134,3 @@ The native sign-in screen SHALL show the same messages, in the same words, as th
 #### Scenario: After leaving
 - **WHEN** `alice.test` has just left Activity Tracker
 - **THEN** the screen says she left and that her atproto account `alice.test` is unchanged, with the handle field empty
-
-### Requirement: Native text matches the shared text
-A string the iOS app holds for a native view SHALL have the same text as the shared UI's string of the same name, and `./gradlew check` SHALL fail, naming the string, when they differ or the shared string no longer exists.
-
-#### Scenario: The shared string is reworded
-- **WHEN** `login_intro` is changed in the shared strings and not in the iOS app's
-- **THEN** `./gradlew check` fails and names `login_intro`
-
-#### Scenario: A placeholder
-- **WHEN** a shared string's `%1$s` is written `%1$@` in the iOS app's copy and the rest matches
-- **THEN** the check passes
