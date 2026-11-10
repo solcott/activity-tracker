@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.di
 
 import androidx.compose.runtime.Stable
+import io.github.solcott.activitytracker.app.host.AppHost
+import io.github.solcott.activitytracker.app.host.SessionHostFactory
 import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
@@ -19,6 +21,9 @@ import io.github.solcott.activitytracker.location.ActivityRecorder
 @Stable
 interface AppGraph : SessionGraph.Factory {
     val appCircuit: AppCircuit
+
+    /** The app's screens run with no UI, for a shell that draws them natively (dev/presenter-host). Unused by the Compose shell. */
+    val appHost: AppHost
     val authRepository: AuthRepository
     val authCoordinator: AuthCoordinator
     val activityRecorder: ActivityRecorder
@@ -27,3 +32,6 @@ interface AppGraph : SessionGraph.Factory {
     val recordScreenRequests: RecordScreenRequests
     val accountScreenRequests: AccountScreenRequests
 }
+
+/** Makes each signed-in account's host from its session graph, which only this module can name. */
+fun AppGraph.sessionHosts(): SessionHostFactory = SessionHostFactory { session -> createSessionGraph(session).sessionHost }

@@ -40,6 +40,20 @@ class ModuleBoundariesTest {
     }
 
     @Test
+    fun `the presenter host sees only contracts and core`() {
+        assertNull(boundaryViolation(":app-host", ":app-common-api"))
+        assertNull(boundaryViolation(":app-host", ":feature-feed-api"))
+        assertNull(boundaryViolation(":app-host", ":core-data"))
+        assertNotNull(boundaryViolation(":app-host", ":feature-feed-ui"))
+        assertNotNull(boundaryViolation(":app-host", ":ui-designsystem"))
+        assertNotNull(boundaryViolation(":app-host", ":ui-resources"))
+        assertNotNull(boundaryViolation(":app-host", ":feature-feed-presenter"))
+        assertNotNull(boundaryViolation(":app-host", ":app-common-presenter"))
+        assertNotNull(boundaryViolation(":app-host", ":app-common-presenter-testing"))
+        assertNull(boundaryViolation(":composeApp", ":app-host"))
+    }
+
+    @Test
     fun `a feature's own modules and the shared ones are allowed`() {
         assertNull(boundaryViolation(":feature-search-presenter", ":feature-search-api"))
         assertNull(boundaryViolation(":feature-search-presenter", ":app-common-presenter"))

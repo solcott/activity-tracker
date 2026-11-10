@@ -12,18 +12,15 @@ import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.nav_feed
-import io.github.solcott.activitytracker.composeApp.resources.nav_search
-import io.github.solcott.activitytracker.composeApp.resources.nav_you
-import org.jetbrains.compose.resources.StringResource
 
-/** The signed-in app's tabs (sidebar entries on wide desktop and web). Each keeps its own back stack. */
-enum class TopLevelDestination(val label: StringResource, val icon: AppIcon) {
-    Feed(Res.string.nav_feed, AppIcon.Feed),
-    Search(Res.string.nav_search, AppIcon.Search),
-    You(Res.string.nav_you, AppIcon.You);
+/**
+ * The signed-in app's tabs (sidebar entries on wide desktop and web). Each keeps its own back stack. Each shell gives them their label and
+ * icon: the Compose shell in `:composeApp`, the iOS shell in Swift.
+ */
+enum class TopLevelDestination {
+    Feed,
+    Search,
+    You;
 
     /** The root screen of this tab's back stack. */
     fun screen(viewerDid: String): Screen =

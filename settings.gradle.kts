@@ -61,6 +61,7 @@ listOf(
         "app/common/presenter-testing",
         "app/common/ui",
         "app/fixtures",
+        "app/host",
         "ui/designsystem",
         "ui/resources",
         "feature/search/api",

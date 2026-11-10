@@ -23,6 +23,7 @@ internal const val APP_COMMON_PRESENTER = ":app-common-presenter"
 internal const val APP_COMMON_PRESENTER_TESTING = ":app-common-presenter-testing"
 internal const val APP_COMMON_UI = ":app-common-ui"
 internal const val APP_FIXTURES = ":app-fixtures"
+internal const val APP_HOST = ":app-host"
 internal const val UI_DESIGNSYSTEM = ":ui-designsystem"
 internal const val UI_RESOURCES = ":ui-resources"
 
@@ -63,6 +64,9 @@ internal fun boundaryViolation(from: String, to: String): String? {
         fromKind == ModuleKind.Ui && toKind == ModuleKind.Presenter -> "UI modules never depend on presenter modules"
         fromKind == ModuleKind.Api && toKind != ModuleKind.Api && !to.startsWith(":core-") ->
             "API modules depend only on other API modules, the shared contracts and :core-*"
+        // The host runs presenters it is handed by the app's graph, so it needs no presenter module, and it draws nothing.
+        from == APP_HOST && toKind != ModuleKind.Api && !to.startsWith(":core-") ->
+            "the presenter host depends only on API modules, the shared contracts and :core-*"
         toFeature != null && fromFeature != toFeature && toKind != ModuleKind.Api && from !in APP_SHELLS ->
             "features depend on another feature only through its API module"
         else -> null

@@ -4,20 +4,16 @@ import androidx.compose.runtime.Stable
 import com.slack.circuit.subcircuit.SubCircuit
 import dev.zacsweers.metro.GraphExtension
 import dev.zacsweers.metro.Provides
+import io.github.solcott.activitytracker.app.host.SessionHost
+import io.github.solcott.activitytracker.app.host.SessionRunner
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
-import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.LegacyGroupMigration
 import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.UploadQueue
-import io.github.solcott.activitytracker.data.auth.AccountMarks
-import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.export.DataExporter
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
 import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
-import io.github.solcott.activitytracker.data.profile.ProfileSetup
-import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 /**
@@ -28,21 +24,20 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 @GraphExtension(SessionScope::class)
 interface SessionGraph {
     val sessionCircuit: SessionCircuit
+
+    /** What the session shows and its background work, shared with the presenter host (dev/presenter-host). */
+    val sessionRunner: SessionRunner
+
+    /** This account's screens run with no UI (dev/presenter-host). Unused by the Compose shell. */
+    val sessionHost: SessionHost
     val subCircuit: SubCircuit
-    val sessionClients: SessionClients
-    val activityRepository: ActivityRepository
     val outboxPacer: OutboxPacer
     val uploadQueue: UploadQueue
-    val legacyGroupMigration: LegacyGroupMigration
     val feedRepository: FeedRepository
     val unitsRepository: UnitsRepository
-    val profileSetup: ProfileSetup
-    val leaderboardBrackets: LeaderboardBracketsRepository
     val importSaveStore: ImportSaveStore
     val importSaveRunner: ImportSaveRunner
     val dataExporter: DataExporter
-    /** Whether a leave of this account is recorded on the device (auth/leaving), which turns the app over to the leave screen. */
-    val accountMarks: AccountMarks
 
     @GraphExtension.Factory
     interface Factory {

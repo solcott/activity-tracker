@@ -99,6 +99,8 @@ h2 = "2.5.252"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
 osmpbf = "1.8.0"
 
+# Runs presenters with no UI attached (:app-host). The version circuit-test already resolves, which the presenter tests run on.
+molecule = "2.2.0"
 turbine = "1.2.1"
 
 [libraries]
@@ -217,6 +219,7 @@ jackson-dataformat-cbor = { module = "com.fasterxml.jackson.dataformat:jackson-d
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
 osmpbf = { module = "org.openstreetmap.pbf:osmpbf", version.ref = "osmpbf" }
 
+molecule-runtime = { module = "app.cash.molecule:molecule-runtime", version.ref = "molecule" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }

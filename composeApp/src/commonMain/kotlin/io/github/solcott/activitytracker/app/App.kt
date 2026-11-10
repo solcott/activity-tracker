@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidedValue
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -40,9 +41,7 @@ import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
 import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.Did
-import kotlinx.coroutines.flow.map
 
 /**
  * Root: signed out → [LoginScreen] on the app-scoped Circuit; signed in → a fresh `SessionGraph` (keyed by DID) whose Circuit hosts the
@@ -66,7 +65,7 @@ fun App(
     val session by graph.authRepository.session.collectAsState()
     // Signing out, or starting signed out, drops the feed's map images (feed/feed-route-map).
     LaunchedEffect(restored, session?.did) { if (restored) onRouteImageSession(session?.did?.value) }
-    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(HeldPhotoFetcher.Factory()) }.build() }
+    UseHeldPhotoImageLoader()
 
     AppTheme(modifier) {
         if (!restored) return@AppTheme
@@ -82,24 +81,12 @@ fun App(
                     HeldPhotoFetcher.Factory.session.value = held
                     onDispose { HeldPhotoFetcher.Factory.session.compareAndSet(held, null) }
                 }
-                // Whether the athlete's PDS hosts spaces at all; until it answers, the session's scope decides.
-                LaunchedEffect(Unit) { sessionGraph.sessionClients.resolveSpacesSupport() }
-                LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
-                // A leave recorded on this device, and one on another device, each take the app over (auth/leaving).
-                val leaving by remember {
-                    sessionGraph.accountMarks.observeLeaving(current.did).map { it != null }
-                }
-                    .collectAsState(initial = null)
-                val left by sessionGraph.sessionClients.accountLeft.collectAsState()
-                // Whether the athlete left on another device is asked once at the start, before anything is sent for the account.
-                var checked by remember { mutableStateOf(false) }
-                LaunchedEffect(leaving) {
-                    if (leaving == false && !checked) {
-                        sessionGraph.sessionClients.checkStillHere()
-                        checked = true
-                    }
-                }
-                val mode = sessionModeOf(leaving, left)
+                // What the session shows, and when its background work runs, are decided by the runner both shells share
+                // (dev/presenter-host): a leave recorded on this device, and one on another device, each take the app over
+                // (auth/leaving).
+                val runner = sessionGraph.sessionRunner
+                LaunchedEffect(runner) { runner.run() }
+                val mode by runner.mode.collectAsState()
                 val units by sessionGraph.unitsRepository.units.collectAsState()
                 CompositionLocalProvider(LocalUnitSystem provides units, LocalSubCircuit provides sessionGraph.subCircuit) {
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
@@ -112,7 +99,7 @@ fun App(
                             SessionMode.LeftElsewhere ->
                                 CompositionLocalProvider(LocalIsNavRoot provides true) { CircuitContent(LeftElsewhereScreen) }
                             SessionMode.Open -> {
-                                if (checked) SessionEffects(graph, sessionGraph, current.did, onImportsActive)
+                                ImportsActive(sessionGraph, onImportsActive)
                                 SessionContent(graph, sessionGraph, current.did, onRootPop)
                             }
                         }
@@ -123,61 +110,22 @@ fun App(
     }
 }
 
-/** What a signed-in session shows (auth/leaving); see [sessionModeOf]. */
-internal enum class SessionMode {
-    /** Not yet known whether a leave is recorded on this device: nothing shows, for the moment Room takes to answer. */
-    Unknown,
-
-    /** A leave of this account is recorded on this device and hasn't finished: only its progress shows. */
-    Leaving,
-
-    /** The athlete left on another device: only the choice to discard this device's work or rejoin shows. */
-    LeftElsewhere,
-
-    /** The app. */
-    Open,
-}
-
-/**
- * The session's mode from whether a leave is recorded on this device ([leaving], null until known) and whether the athlete [left] on
- * another device. A leave here wins: its own deletion of `self` reads as having left.
- */
-internal fun sessionModeOf(leaving: Boolean?, left: Boolean): SessionMode =
-    when {
-        leaving == null -> SessionMode.Unknown
-        leaving -> SessionMode.Leaving
-        left -> SessionMode.LeftElsewhere
-        else -> SessionMode.Open
-    }
-
-/**
- * The session's background work, run only while the app is open ([SessionMode.Open]): each writes to the PDS or drains the outbox, so none
- * runs behind a leave, or after one on another device until the athlete rejoins; they start again once the mode is back to open.
- */
+/** Tells desktop and web whether an import is uploading, so they ask before closing mid-import (data/upload-queue). */
 @Composable
-private fun SessionEffects(graph: AppGraph, sessionGraph: SessionGraph, did: Did, onImportsActive: (Boolean) -> Unit) {
-    // Session-long, so a re-trim after a privacy zones save outlives the settings screen.
-    LaunchedEffect(Unit) { sessionGraph.activityRepository.repairRoutesOnSave() }
-    // Session-long too: leaderboard brackets refreshed at sign-in (a birthday) and after each profile save.
-    LaunchedEffect(Unit) { sessionGraph.leaderboardBrackets.refreshOnSave() }
-    // Session-long: queued writes go on their own, waiting out the PDS's rate limits (data/outbox).
-    LaunchedEffect(Unit) { sessionGraph.outboxPacer.run() }
-    // Finished uploads a week old leave the queue; closing mid-import asks first on desktop and web (data/upload-queue).
-    LaunchedEffect(Unit) { runSuspendCatching { sessionGraph.uploadQueue.prune() } }
-    // A batch save left unfinished (the app was killed, or quit) resumes, and what no save names any more is let go
-    // (feed/batch-import).
-    LaunchedEffect(Unit) {
-        runSuspendCatching { graph.importSaves.resume(did, sessionGraph.importSaveStore, sessionGraph.importSaveRunner) }
-    }
-    // A data export left running (the app was killed, or quit) goes on; one a week past ready is deleted (auth/data-export).
-    LaunchedEffect(Unit) { runSuspendCatching { graph.dataExports.resume(did) { sessionGraph.dataExporter.runCurrent() } } }
+private fun ImportsActive(sessionGraph: SessionGraph, onImportsActive: (Boolean) -> Unit) {
     val importsActive by rememberUpdatedState(onImportsActive)
     LaunchedEffect(Unit) { sessionGraph.uploadQueue.importsActive.collect { importsActive(it) } }
     DisposableEffect(Unit) { onDispose { importsActive(false) } }
-    // Once per account: legacy `recordingOf` groups become combined activities (retried each sign-in until all succeed).
-    LaunchedEffect(Unit) { sessionGraph.legacyGroupMigration.runOncePerSession() }
-    // So the AppView knows this athlete (and others can find them) before they post anything.
-    LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
+}
+
+/**
+ * Makes the app's image loader one that also serves `heldphoto:` URLs from the signed-in session's uploads ([HeldPhotoFetcher]). The loader
+ * is app-wide and set once; every composition that draws the app's screens calls this, since whichever draws first sets it.
+ */
+@Composable
+@ReadOnlyComposable
+internal fun UseHeldPhotoImageLoader() {
+    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(HeldPhotoFetcher.Factory()) }.build() }
 }
 
 /** The signed-in app: the navigable screens in the shell, from the feed. */

@@ -30,6 +30,10 @@ kotlin {
     sourceSets {
         commonMain { kotlin.srcDir(generateNetworkConfig) }
         commonMain.dependencies {
+            // api: AppGraph and SessionGraph name the host's types (the requests, the session runner), which the app shells that
+            // declare or use a graph then see.
+            api(projects.appHost)
+
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
             implementation(projects.appCommonUi)
@@ -129,7 +133,12 @@ kotlin {
         }
         jvmMain.dependencies { implementation(libs.maplibre.compose) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
-        jvmTest.dependencies { implementation(projects.appFixtures) }
+        jvmTest.dependencies {
+            implementation(projects.appFixtures)
+            // LoginThroughHostTest runs the real sign-in presenter through the presenter host.
+            implementation(libs.kermit)
+            implementation(libs.ktor.client.mock)
+        }
     }
 }
 
