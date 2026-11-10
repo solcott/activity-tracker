@@ -24,16 +24,12 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
-import io.github.solcott.activitytracker.app.ui.failureText
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.app_name
-import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_complete
-import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_find_account
-import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_start
 import io.github.solcott.activitytracker.composeApp.resources.login_handle_label
 import io.github.solcott.activitytracker.composeApp.resources.login_intro
-import io.github.solcott.activitytracker.composeApp.resources.login_left
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired
 import io.github.solcott.activitytracker.composeApp.resources.login_session_expired_recording
 import io.github.solcott.activitytracker.composeApp.resources.login_sign_in
@@ -65,7 +61,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
                 Text(stringResource(Res.string.login_session_expired_recording), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        state.leftHandle?.let { left -> Text(stringResource(Res.string.login_left, left), style = MaterialTheme.typography.bodyMedium) }
+        state.leftHandle?.let { left -> Text(LoginTexts.left(left).string(), style = MaterialTheme.typography.bodyMedium) }
         if (state.signingInAgain) {
             Text(stringResource(Res.string.login_sign_in_again), style = MaterialTheme.typography.bodyMedium)
         }
@@ -86,7 +82,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
         )
         when (val status = state.status) {
             is Status.Failed -> {
-                Text(failedText(status), color = MaterialTheme.colorScheme.error)
+                Text(LoginTexts.failure(status).string(), color = MaterialTheme.colorScheme.error)
             }
 
             Status.WaitingForBrowser -> {
@@ -111,16 +107,3 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
 
 /** A phone-width form, centred, on desktop and web. */
 private val LOGIN_MAX_WIDTH = 420.dp
-
-@Composable
-private fun failedText(status: Status.Failed): String =
-    failureText(
-        stringResource(
-            when (status.stage) {
-                Status.Stage.Start -> Res.string.error_sign_in_start
-                Status.Stage.Complete -> Res.string.error_sign_in_complete
-                Status.Stage.FindAccount -> Res.string.error_sign_in_find_account
-            },
-        ),
-        status.reason,
-    )
