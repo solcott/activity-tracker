@@ -44,13 +44,18 @@ object TrackMath {
                 it[0] = true
                 it[points.lastIndex] = true
             }
+        // Each point's longitude in radians and northing in meters, converted once: the loop below reads them for every point
+        // of every split, which on a long winding track is hundreds of millions of times.
+        val longitudes = DoubleArray(points.size) { points[it].longitude.toRadians() }
+        val northings = DoubleArray(points.size) { points[it].latitude.toRadians() * EARTH_RADIUS_M }
         val stack = ArrayDeque<Pair<Int, Int>>().apply { add(0 to points.lastIndex) }
         while (stack.isNotEmpty()) {
             val (start, end) = stack.removeLast()
+            val chord = Chord(longitudes, northings, start, end, cos(points[start].latitude.toRadians()))
             var maxDist = 0.0
             var index = -1
             for (i in start + 1 until end) {
-                val d = perpendicularMeters(points[i], points[start], points[end])
+                val d = chord.distanceMeters(i)
                 if (d > maxDist) {
                     maxDist = d
                     index = i
@@ -84,21 +89,34 @@ object TrackMath {
         }
     }
 
-    private fun perpendicularMeters(
-        p: LocationSample,
-        a: LocationSample,
-        b: LocationSample,
-    ): Double {
-        val lat0 = a.latitude.toRadians()
+    /**
+     * The line from point [start] to point [end], projected equirectangularly at [start]'s latitude (its cosine is [eastingScale]), and
+     * what [distanceMeters] needs of it worked out once for all the points between them.
+     */
+    private class Chord(
+        private val longitudes: DoubleArray,
+        private val northings: DoubleArray,
+        start: Int,
+        end: Int,
+        private val eastingScale: Double,
+    ) {
+        private val startX = easting(start)
+        private val startY = northings[start]
+        private val dx = easting(end) - startX
+        private val dy = northings[end] - startY
+        private val length = sqrt(dx * dx + dy * dy)
+        private val endXStartY = easting(end) * startY
+        private val endYStartX = northings[end] * startX
 
-        fun x(s: LocationSample) = s.longitude.toRadians() * cos(lat0) * EARTH_RADIUS_M
+        private fun easting(i: Int) = longitudes[i] * eastingScale * EARTH_RADIUS_M
 
-        fun y(s: LocationSample) = s.latitude.toRadians() * EARTH_RADIUS_M
-        val dx = x(b) - x(a)
-        val dy = y(b) - y(a)
-        val len = sqrt(dx * dx + dy * dy)
-        if (len == 0.0) return sqrt((x(p) - x(a)).pow(2) + (y(p) - y(a)).pow(2))
-        return abs(dy * x(p) - dx * y(p) + x(b) * y(a) - y(b) * x(a)) / len
+        /** How far point [i] is from the line, or from [start] when the line has no length. */
+        fun distanceMeters(i: Int): Double {
+            val x = easting(i)
+            val y = northings[i]
+            if (length == 0.0) return sqrt((x - startX).pow(2) + (y - startY).pow(2))
+            return abs(dy * x - dx * y + endXStartY - endYStartX) / length
+        }
     }
 
     /** Google encoded polyline, precision 5. */
