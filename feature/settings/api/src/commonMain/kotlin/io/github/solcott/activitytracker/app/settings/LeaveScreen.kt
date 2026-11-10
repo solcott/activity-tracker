@@ -41,11 +41,24 @@ data class LeaveState(
 ) : CircuitUiState {
     /** Whether the typed handle names this account: `@` and case don't matter. */
     val handleMatches: Boolean
-        get() = confirmHandle.text.trim().removePrefix("@").toString().equals(handle, ignoreCase = true)
+        get() = matches(confirmHandle.text)
 
     /** Whether the confirm action is on. */
     val canLeave: Boolean
-        get() = handleMatches && !needsSignInAgain && export != LeaveExport.Running && !starting && run == null
+        get() = canLeave(confirmHandle.text.toString())
+
+    /** Whether the confirm action is on with [typed] in the field: for a UI that holds the text as typed, ahead of [confirmHandle]. */
+    fun canLeave(typed: String): Boolean = matches(typed) && !needsSignInAgain && export != LeaveExport.Running && !starting && run == null
+
+    /** Whether the page can be left: not once the leave runs, which the app shows until it's done. */
+    val canGoBack: Boolean
+        get() = run == null
+
+    /** Whether the page lists what this device would lose: something pending, an import saving, or a recording. */
+    val showsDeviceWork: Boolean
+        get() = LeaveTexts.deviceLines(this).isNotEmpty()
+
+    private fun matches(typed: CharSequence): Boolean = typed.trim().removePrefix("@").toString().equals(handle, ignoreCase = true)
 }
 
 /** The athlete's own segments and dive sites, as leaving treats them (auth/leaving). */

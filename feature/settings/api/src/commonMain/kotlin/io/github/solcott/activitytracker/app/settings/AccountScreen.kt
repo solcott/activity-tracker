@@ -33,7 +33,11 @@ data class AccountState(
     /** Why starting, cancelling or saving the export failed, until the next try. */
     val exportError: UiError? = null,
     val eventSink: (AccountEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Whether the Sign-in section offers Sign in again: the grant lacks something signing in again would pick up. */
+    val offersSignInAgain: Boolean
+        get() = grant is GrantStatus.Outdated
+}
 
 /** Where the athlete's data export stands, as the Account page shows it (auth/account-page). */
 @Immutable

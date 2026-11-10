@@ -17,9 +17,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
-import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppListSection
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -29,6 +27,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
@@ -44,24 +43,12 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_inte
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_profile
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_segments
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_settings
-import io.github.solcott.activitytracker.composeApp.resources.leave_device_changes
-import io.github.solcott.activitytracker.composeApp.resources.leave_device_import
-import io.github.solcott.activitytracker.composeApp.resources.leave_device_recording
 import io.github.solcott.activitytracker.composeApp.resources.leave_export_none
 import io.github.solcott.activitytracker.composeApp.resources.leave_export_ready
 import io.github.solcott.activitytracker.composeApp.resources.leave_export_running
 import io.github.solcott.activitytracker.composeApp.resources.leave_export_save
 import io.github.solcott.activitytracker.composeApp.resources.leave_intro
 import io.github.solcott.activitytracker.composeApp.resources.leave_keep_open
-import io.github.solcott.activitytracker.composeApp.resources.leave_paused
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_active_segments
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_active_sites
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_loading
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_none
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_other_segments
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_other_sites
-import io.github.solcott.activitytracker.composeApp.resources.leave_places_unknown
-import io.github.solcott.activitytracker.composeApp.resources.leave_records_deleted
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_deleted
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_device
@@ -71,23 +58,12 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_section_stay
 import io.github.solcott.activitytracker.composeApp.resources.leave_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_account
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_other_apps
-import io.github.solcott.activitytracker.composeApp.resources.leave_step_discard
-import io.github.solcott.activitytracker.composeApp.resources.leave_step_local
-import io.github.solcott.activitytracker.composeApp.resources.leave_step_repo
-import io.github.solcott.activitytracker.composeApp.resources.leave_step_spaces
-import io.github.solcott.activitytracker.composeApp.resources.leave_step_starting
 import io.github.solcott.activitytracker.composeApp.resources.leave_stopped
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
-import io.github.solcott.activitytracker.data.auth.LeaveStep
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.units.formatWhole
-import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -105,7 +81,7 @@ fun LeaveUi(state: LeaveState, modifier: Modifier = Modifier) {
             AppTopBar(
                 title = stringResource(Res.string.leave_title),
                 // A leave under way can't be left: the app shows only it until it's done.
-                onBack = if (run == null) ({ state.eventSink(LeaveEvent.Back) }) else null,
+                onBack = if (state.canGoBack) ({ state.eventSink(LeaveEvent.Back) }) else null,
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -163,40 +139,22 @@ private fun Places(places: SharedPlacesSummary) {
             SharedPlacesSummary.Loading ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     AppProgressIndicator(small = true)
-                    Text(stringResource(Res.string.leave_places_loading), style = body)
+                    Text(LeaveTexts.places(places).first().string(), style = body)
                 }
             is SharedPlacesSummary.Failed -> {
                 ErrorText(places.error, style = body)
-                Text(stringResource(Res.string.leave_places_unknown), style = body)
+                LeaveTexts.places(places).forEach { Text(it.string(), style = body) }
             }
-            is SharedPlacesSummary.Loaded -> {
-                val counts =
-                    listOf(
-                        places.activeSegments to Res.plurals.leave_places_active_segments,
-                        places.activeSites to Res.plurals.leave_places_active_sites,
-                        places.otherSegments to Res.plurals.leave_places_other_segments,
-                        places.otherSites to Res.plurals.leave_places_other_sites,
-                    )
-                if (counts.all { it.first == 0 }) Text(stringResource(Res.string.leave_places_none), style = body)
-                counts.filter { it.first > 0 }.forEach { (count, text) -> Text(pluralStringResource(text, count, count), style = body) }
-            }
+            is SharedPlacesSummary.Loaded -> LeaveTexts.places(places).forEach { Text(it.string(), style = body) }
         }
     }
 }
 
 @Composable
 private fun DeviceWork(state: LeaveState) {
-    val changes = state.pending?.changes ?: 0
-    val importSaving = state.pending?.importSaving == true
-    if (changes == 0 && !importSaving && !state.recording) return
+    if (!state.showsDeviceWork) return
     AppListSection(stringResource(Res.string.leave_section_device)) {
-        val lines =
-            listOfNotNull(
-                changes.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.leave_device_changes, it, it) },
-                if (importSaving) stringResource(Res.string.leave_device_import) else null,
-                if (state.recording) stringResource(Res.string.leave_device_recording) else null,
-            )
-        Bullets(lines.toImmutableList())
+        Bullets(LeaveTexts.deviceLines(state).map { it.string() }.toImmutableList())
     }
 }
 
@@ -274,15 +232,13 @@ private fun Progress(run: LeaveRun, eventSink: (LeaveEvent) -> Unit) {
         if (error == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppProgressIndicator(small = true)
-                Text(stepText(run.step), style = MaterialTheme.typography.titleMedium)
+                Text(LeaveTexts.step(run).string(), style = MaterialTheme.typography.titleMedium)
             }
         } else {
             ErrorText(error, style = MaterialTheme.typography.titleMedium)
         }
-        if (run.recordsDeleted > 0) {
-            Text(pluralStringResource(Res.plurals.leave_records_deleted, run.recordsDeleted, formatWhole(run.recordsDeleted)), style = body)
-        }
-        run.pausedUntil?.let { Text(stringResource(Res.string.leave_paused, timeOf(it)), style = body) }
+        LeaveTexts.recordsDeleted(run)?.let { Text(it.string(), style = body) }
+        LeaveTexts.paused(run)?.let { Text(it.string(), style = body) }
         if (error == null) {
             Text(stringResource(Res.string.leave_keep_open), style = body)
         } else {
@@ -291,17 +247,3 @@ private fun Progress(run: LeaveRun, eventSink: (LeaveEvent) -> Unit) {
         }
     }
 }
-
-@Composable
-private fun stepText(step: LeaveStep?): String =
-    stringResource(
-        when (step) {
-            null -> Res.string.leave_step_starting
-            LeaveStep.Discard -> Res.string.leave_step_discard
-            LeaveStep.Spaces -> Res.string.leave_step_spaces
-            LeaveStep.Repo -> Res.string.leave_step_repo
-            LeaveStep.Local -> Res.string.leave_step_local
-        },
-    )
-
-@Composable private fun timeOf(instant: Instant): String = instant.toLocalDateTime(LocalTimeZone.current).format(timeFormat())
