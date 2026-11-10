@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.host
 
 import io.github.solcott.activitytracker.app.SessionMode
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.CompletableDeferred
@@ -133,6 +134,8 @@ private class FakeSteps : SessionSteps {
     override suspend fun resolveSpacesSupport() {
         spacesResolved++
     }
+
+    override val units = MutableStateFlow(UnitSystem.Metric)
 
     override suspend fun refreshUnits() {
         unitsRefreshed++

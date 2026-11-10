@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.LeftElsewhereScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,6 +60,15 @@ class SessionHostTest {
 
     private val TabStack.screens
         get() = records.value.map { it.screen }
+
+    @Test
+    fun theAthletesUnitsAreTheSessions() {
+        assertEquals(UnitSystem.Metric, host.shownUnits.value.units)
+
+        steps.units.value = UnitSystem.Imperial
+
+        assertEquals(UnitSystem.Imperial, host.shownUnits.value.units)
+    }
 
     @Test
     fun aShownScreenPublishesStatesAndTakesEvents() = runTest {
@@ -311,6 +321,8 @@ private class OpenSteps : SessionSteps {
         get() = leavingHere.filterNotNull()
 
     override suspend fun resolveSpacesSupport() = Unit
+
+    override val units = MutableStateFlow(UnitSystem.Metric)
 
     override suspend fun refreshUnits() = Unit
 

@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.nav.TopLevelDestination
 import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -170,6 +171,8 @@ private class NoLeaveSteps : SessionSteps {
     override val left = MutableStateFlow(false)
 
     override suspend fun resolveSpacesSupport() = Unit
+
+    override val units = MutableStateFlow(UnitSystem.Metric)
 
     override suspend fun refreshUnits() = Unit
 

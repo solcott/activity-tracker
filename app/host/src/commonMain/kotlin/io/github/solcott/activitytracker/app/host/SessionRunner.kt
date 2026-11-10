@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.data.profile.ProfileSetup
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -46,6 +47,10 @@ class SessionRunner(private val steps: SessionSteps) {
     /** [SessionMode.Unknown] until Room answers whether a leave is recorded here. */
     val mode: StateFlow<SessionMode>
         field = MutableStateFlow(SessionMode.Unknown)
+
+    /** The athlete's unit system, for a shell that formats stats outside the shared UI. */
+    val units: StateFlow<UnitSystem>
+        get() = steps.units
 
     /**
      * Runs the session until cancelled. Asking whether the PDS hosts spaces and reading the athlete's units start at once, whatever the
@@ -88,6 +93,9 @@ interface SessionSteps {
     /** Whether the athlete's PDS hosts spaces at all; until it answers, the session's scope decides. */
     suspend fun resolveSpacesSupport()
 
+    /** The athlete's unit system: the device's until [refreshUnits] has read their choice, then theirs. */
+    val units: StateFlow<UnitSystem>
+
     suspend fun refreshUnits()
 
     /** Asks, before anything is sent for the account, whether the athlete left on another device; the answer shows in [left]. */
@@ -125,6 +133,9 @@ class RepositorySessionSteps(
         get() = sessionClients.accountLeft
 
     override suspend fun resolveSpacesSupport() = sessionClients.resolveSpacesSupport()
+
+    override val units: StateFlow<UnitSystem>
+        get() = unitsRepository.units
 
     override suspend fun refreshUnits() = unitsRepository.refresh()
 

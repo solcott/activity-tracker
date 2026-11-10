@@ -63,6 +63,9 @@ internal constructor(
     /** [mode], as a Swift UI follows it (see `SwiftFlows.kt`). */
     val shownMode: StateFlow<ShownMode> = runner.mode.mapState(::ShownMode)
 
+    /** The athlete's unit system, which a native UI formats stats in (dev/shared-display-text). Wrapped for Swift, like [shownMode]. */
+    val shownUnits: StateFlow<ShownUnits> = runner.units.mapState(::ShownUnits)
+
     /** One stack per tab, in the tabs' order. */
     val tabs: List<TabStack> = TopLevelDestination.entries.map { TabStack(it, it.screen(did.value), presenters, keys) }
 

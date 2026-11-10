@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.host
 
 import io.github.solcott.activitytracker.app.SessionMode
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,9 @@ class ShownMode(val mode: SessionMode)
 
 /** The chosen tab at one moment, for `SessionHost.shownTab`. */
 class ShownTab(val destination: TopLevelDestination)
+
+/** The athlete's unit system at one moment, for `SessionHost.shownUnits`. */
+class ShownUnits(val units: UnitSystem)
 
 /**
  * This flow with each value passed through [transform], still a [StateFlow]: it has a current value, which is what a UI draws before it
