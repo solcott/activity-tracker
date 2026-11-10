@@ -50,6 +50,18 @@
             .environment(\.inPane, true)
         }
 
+        /// The same page's header with actions at its trailing end.
+        static var pageBarActions: some View {
+            List {
+                ForEach(1..<6) { AppListRow(Text(verbatim: "Row \($0)")) }
+            }
+            .pageTitle(Text(verbatim: "Gear")) {
+                AppIconButton(.add, label: .gearAdd) {}
+                AppIconButton(.more, label: .gearMore) {}
+            }
+            .environment(\.inPane, true)
+        }
+
         /// Pictures before they load, or with none: avatars with their initials, at two sizes, and a thumbnail's fill.
         static var images: some View {
             HStack(spacing: 16) {
@@ -209,6 +221,7 @@
     #Preview("Fields") { DesignGallery.fields }
     #Preview("Rows") { DesignGallery.rows }
     #Preview("Page bar") { DesignGallery.pageBar }
+    #Preview("Page bar with actions") { DesignGallery.pageBarActions }
     #Preview("Images") { DesignGallery.images }
     #Preview("Item rows") { DesignGallery.itemRows }
     #Preview("Paged list") {

@@ -17,6 +17,8 @@ struct DesignSnapshotTests {
 
     @Test func pageBar() { assertAppSnapshot(of: DesignGallery.pageBar, size: panel, named: "pageBar") }
 
+    @Test func pageBarActions() { assertAppSnapshot(of: DesignGallery.pageBarActions, size: panel, named: "pageBarActions") }
+
     @Test func images() { assertAppSnapshot(of: DesignGallery.images, size: CGSize(width: 393, height: 120), named: "images") }
 
     @Test func itemRows() { assertAppSnapshot(of: DesignGallery.itemRows, size: panel, named: "itemRows") }
