@@ -130,9 +130,14 @@ Each phase leaves a shippable app.
    `checkIosStrings`; Swift 6 mode and a Swift Testing target the `ios` CI job runs. Settings shows one page at a time on iPad until
    it is native. Left for phase 3: the generated catalog, and the design system the two pieces made here (`AppTextField`,
    `AppButton`) start.
-3. **Native foundations.** A String Catalog generated from `strings.xml` (2,026 strings, 68 plurals), so it stays the single source; SF
-   Symbols and asset-catalog sport icons; composable-free formatting and label logic moved out of `:app-common-ui` so `ui/number-format`
-   and `ui/error-messages` aren't reimplemented in Swift; the Swift design system; previews and snapshot tests from `:app-fixtures`.
+3. **Native foundations** (`ios-native-foundations`). The iOS String Catalog (2,104 entries), `AppIcon.swift` and an asset catalog
+   of the 82 vendored drawables are generated from `strings.xml`, `AppIcon.kt` and the drawables by `generateIosResources`,
+   committed, and held to their sources by `checkIosResources` in `check`; Swift names a string by Xcode's generated symbol. Text
+   that follows a rule is an `AppText` chosen in `:app-common-api` (`StatText`, `LabelText`, `ErrorTexts`, `SportIconNames`,
+   `ContentShown`, and login's `LoginTexts` in its own `-api`), which Compose resolves in a composable and Swift through a
+   `TextSource` over the catalog. The Swift design system (`iosApp/iosApp/Design`), previews and snapshot tests from `:app-fixtures`,
+   which debug builds export. Left for phase 4: the other composables that build text (dates and times, the dive and stat tables),
+   each moved onto `AppText` with the feature that shows it.
 4. **Features, one change each**, cheapest infrastructure first: lists and forms (settings with a split view on iPad, profile lists,
    gear, invites, moderation, uploads, search, post pages); the feed (card, comments, posts, the sub-screens); maps; charts; record and
    import.
@@ -243,15 +248,15 @@ How the build ended up:
 
 Size and time, debug build for the simulator on this machine:
 
-| | Objective-C framework | Swift export | Swift export with three contracts | Swift export with every contract (phase 1) | With the presenter host and the SwiftUI shell (phase 2) |
-|---|---|---|---|---|---|
-| Generated Swift | none (a header) | 5,352 lines | 42,361 lines | 91,668 lines | 94,008 lines |
-| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB | 220.2 MB | 222.1 MB |
-| Build with nothing changed | 6 s | 5 s | 5 s | 5 s | 5 s |
-| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s | 54 s | 57 s |
-| First build of the binary, other modules already compiled | 187 s | 396 s | not measured | not measured | not measured |
+| | Objective-C framework | Swift export | Swift export with three contracts | Swift export with every contract (phase 1) | With the presenter host and the SwiftUI shell (phase 2) | With generated resources, shared text and the samples (phase 3) |
+|---|---|---|---|---|---|---|
+| Generated Swift | none (a header) | 5,352 lines | 42,361 lines | 91,668 lines | 94,008 lines | 99,432 lines |
+| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB | 220.2 MB | 222.1 MB | 234.5 MB |
+| Build with nothing changed | 6 s | 5 s | 5 s | 5 s | 5 s | 5 s |
+| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s | 54 s | 57 s | 61 s |
+| First build of the binary, other modules already compiled | 187 s | 396 s | not measured | not measured | not measured | not measured |
 
-The last column has 21 contract modules exported whole and only kotlinx-serialization-core hidden. Twice the Swift of the probe costs
+The phase 3 column is a Debug build, which also exports the 2,529 lines of `:app-fixtures`; its dylib holds the 14,782 lines of string symbols Xcode generates from the catalog as well, which the Swift count leaves out. The phase 1 column has 21 contract modules exported whole and only kotlinx-serialization-core hidden. Twice the Swift of the probe costs
 nothing measurable in a rebuild, so exporting the contracts whole stands and the facade alternative isn't needed.
 
 ### Contract probe (2026-11-09)
@@ -402,6 +407,31 @@ One thing met on the way: an app built for an iOS 26 simulator does not launch o
 (`Library not loaded: @rpath/libswiftCompatibilitySpan.dylib`). Xcode embeds that library only when the build's destination needs it,
 so a build to run on iOS 18 names an iOS 18 destination, or a generic one.
 
+### Phase 3 probes (`ios-native-foundations`, 2026-11-10)
+
+Six questions asked with throwaway code before the design was built on their answers. All six came out as the design hoped, so no
+fallback applies.
+
+- **Xcode generates a typed symbol for every catalog entry** with `STRING_CATALOG_GENERATE_SYMBOLS` on. A key in snake case becomes a
+  camel-case member of `LocalizedStringResource`: `login_sign_in` is `.loginSignIn`, and an entry with placeholders is a function of
+  them, typed by specifier (`.loginLeft(_ arg1: String)`, `.errorWithReason(_:_:)`, `%lld` an `Int`). `Text(.loginIntro)` and
+  `String(localized: .loginSignIn)` both take them. No two of the 2,104 names collide in camel case.
+- **A plural can take its quantity apart from its arguments.** An entry whose text is one substitution on argument 1
+  (`%#@quantity@`, `argNum` 1, `lld`), with each form's own placeholders numbered from 2, reads "1 like" and "3 likes", and
+  "with bob and 1 other", from the symbol (`.probeWithOthers(quantity:_:_:)`: Xcode names the first argument after the substitution)
+  and by name through `String.localizedStringWithFormat`. That is Compose's `pluralStringResource(res, quantity, args…)` exactly.
+- **A percent sign** is written once in an entry without placeholders and doubled in one with them: `% of max heart rate (5)` and
+  `Battery %1$@%%` both read with one.
+- **The whole catalog costs little.** 2,104 entries (2,026 strings, 68 plurals, the ten items of the one array) are a 585 kB file
+  and 14,782 lines of generated symbols. The first build after adding them took 9 s against 4 s for no change; a build after a
+  one-line Swift edit took 5.6 s with them and 7.0 s without, which is noise; the debug app grew by 2.6 MB.
+- **A vendored drawable is a template image as an SVG.** `directions_run.xml`'s path data, unchanged, in an SVG with the drawable's
+  960 viewport, in an image set marked template and vector-preserving, draws sharp at 16, 24 and 48 points and takes a tint.
+- **The samples reach Swift, and a view snapshots under Swift Testing.** `:app-fixtures` exports as 2,529 lines of Swift with no
+  stubs once `ProfileSamples.self` is renamed, and `LoginSamples.shared.all` is a Swift dictionary of the seven states.
+  swift-snapshot-testing 1.19.7 recorded `LoginView` for the failed sample, light and dark, and a second run compared equal. Its
+  default records a missing reference and fails that run, and never rewrites one that exists.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -433,6 +463,33 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Memory with the shell on the iOS 26 simulator, signed in, with the feed, an activity with its map, the segment browser's map and
   the profile open across the three tabs: 259 MB. There is no figure for the single Compose stack in the same state to compare with.
 
+### Phase 3 findings (`ios-native-foundations`)
+
+- **Every placeholder is a string on iOS.** A `%lld` filled by `String(localized:)` is grouped by Foundation ("2,026" for a year),
+  where ui/number-format has the shared `formatWhole` decide what is a quantity. So the generator writes `%@` for `%d` too, Xcode's
+  symbols take `String` arguments, and a number goes in as text Kotlin formatted. It also lets one lookup fill any string from a
+  list of texts, which is what resolving a choice made in Kotlin needs.
+- **Kotlin resolves, Swift only looks up.** `AppText.resolve(source)` walks arguments and fallbacks in Kotlin and asks a
+  `TextSource` for each string; Swift implements those two methods over the catalog (`String(format:locale:arguments:)` with the
+  quantity first selects a plural's form by name, as the symbol does). A Kotlin interface implemented by a Swift class worked as
+  the FIT decoder's does.
+- **A library's extension properties don't reach Swift.** `ContentState` exports its three fields and no `hasLoaded`, `errorOrNull`
+  or `isLoading`, since the library comes through only as far as signatures name it. The rule those express moved into
+  `ContentShown` in `:app-common-api`, which both UIs now ask.
+- **An object's `Map` or `Regex` field fails the strict stability check** in an `-api` module, though nothing composes it. They are
+  file-level private values instead, which the check doesn't read.
+- **Names replaced typed resources in Kotlin** for what moved (112 error strings, the unit strings, the sport images). The error
+  string's name is a rule (`error_` and the kind in snake case, one exception listed), and `SharedTextNamesTest` fails for any name
+  with no resource.
+- **`Tab` with a `LocalizedStringResource` title is iOS 26 only.** The tabs use `Tab(value:content:label:)` with a `Label`, which
+  iOS 18 has.
+- **A view snapshots faithfully only in the app's window, with time stopped.** Rendered off screen, a `List`'s rows drew as separate
+  capsules; and a spinner was at a different turn on each run until the view's layer speed was zero.
+- **The test target has main-actor default isolation too**, so what a test trait reads (`Snapshots.comparesHere`) is `nonisolated`.
+- **`ProfileSamples.self` was the fixtures' one member Swift export can't carry**; it is `own`, under the same sample name.
+- Xcode's symbol for a plural names the quantity (`.likeCount(quantity: 3, "3")`), and for an array item its index
+  (`.segmentRankOrdinals2`).
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -453,4 +510,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
   rather than taking the reported text; anything else that follows a field from Swift must do the same.
 - A SwiftUI `TextField` keeps showing a refused edit until its view is redrawn. `AppTextField` redraws on a refusal, which no screen
   uses yet: the first field with digits only or a maximum length should be watched on a device.
+- The iOS `Release` configuration exports different Kotlin from `Debug` (no `:app-fixtures`). CI builds Debug only, so a break
+  that only a release build has would first show in an archive build.
+- Snapshot references are true for iOS 26.0 simulators. CI's simulator is the newest the runner has, so CI compares them only when
+  that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
+- The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
+- About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
+  an `AppText` function when a native view first needs it.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
