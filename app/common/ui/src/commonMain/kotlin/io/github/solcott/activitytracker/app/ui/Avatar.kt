@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
+import io.github.solcott.activitytracker.app.avatarInitial
 import io.github.solcott.activitytracker.data.moderation.BlurReason
 
 /**
@@ -53,7 +54,7 @@ fun AvatarFrame(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            name.trim().firstOrNull()?.uppercase().orEmpty(),
+            avatarInitial(name).string(),
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             style = if (size.value >= LARGE_AVATAR_DP) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.labelLarge,
         )
