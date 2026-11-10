@@ -150,6 +150,14 @@ Each phase leaves a shippable app.
      Swift side is two plain columns in Settings' destination (`SettingsColumns`). Settings' pages are still the shared UI's, in the
      second column when wide. Swift reads a contract's immutable collections through `elements(as:)`. Left for later changes: each
      settings page's native view, and with the first of them how a native page gets a bar of its own in the column.
+   - **The first settings pages** (`ios-native-settings-pages`). Activity defaults and Segments & groups are SwiftUI forms
+     (`ActivityDefaultsView`, `SegmentsAndGroupsView`): menu pickers of visibilities, switches and a segmented choice, in the system's
+     grouped form. A native page titles itself with `pageTitle`: the stack's bar when alone, and a column header (`PageBar`) when
+     beside the list, where a navigation title never shows (the probe below). What they say and when each choice is offered or can be
+     changed is Kotlin's (`VisibilityTexts`, `LabelText.detailCategory`, `SettingsTexts`' page notes, getters on the two states), which
+     the Compose pages ask too. A choice among an enum's values reaches Swift as a list of contract objects holding the value
+     (`GroupOption`). Left for later changes: the other settings pages (zones and threshold history with charts, privacy zones with a
+     map, Account, Leave), and a back button in `PageBar` with the first native page that is deeper than the pane's first.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -487,6 +495,26 @@ Two more things met on the way, both about a plain `List` in a contract:
 **Not probed:** whether an iPad turns the app to landscape (it declared portrait only then). The change went on to allow every
 orientation, and the iPhone was turned in its last walk.
 
+### Phase 4 probes (settings pages, `ios-native-settings-pages`, 2026-11-10)
+
+How a native settings page gets a bar of its own in the detail column, asked with throwaway code before the pages were designed: a
+scratch root view by launch argument, a tab whose stack pushes `SettingsColumns` (the shell's own two-column view) with a form page,
+on iPad Pro 13-inch simulators with iOS 26.0 and 18.4 and no session, read from screenshots.
+
+- **A page's `.navigationTitle` never shows in the column.** The page and the list are one destination of the tab's stack, and the
+  bar over both columns keeps the list's "Settings". So a native page there needs a header of its own, as the fallback pages already
+  draw (their Compose bar).
+- **A header in the column's top safe-area inset sits right under the outer bar**, centred over the column and level with the list's
+  first section, on both versions: the column's safe area ends under the bar. Before iOS 26 it takes the bar material and a hairline
+  to read as a bar; on iOS 26 `.safeAreaBar(edge: .top)` places it with the system's scroll edge effect and no fill, as the system's
+  own bars look at rest.
+- **`NavigationSplitView` with its column visibility held at `.all` and the sidebar button removed now draws two columns with a bar
+  each**, on both versions (the first probe let it choose, and on 18.4 it hid the sidebar). Not taken: the outer bar's title moves
+  into the sidebar's bar (a large title on 18.4, an inline one over a floating panel on 26.0), the list would stop being the same view
+  narrow and wide, so crossing the size would rebuild it, and every fallback page would draw its Compose bar under the split's bar.
+
+The probe pages fit an iPad's height, so content scrolling under the header was first seen in the walk.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -581,6 +609,37 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **Taps sent to the simulator right after launch arrive late.** Two were delivered seconds later to a different screen and opened an
   activity's menu. Nothing was chosen from it; the walk went one action at a time after that.
 
+### Phase 4 findings (settings pages, `ios-native-settings-pages`)
+
+- **A page's navigation title is lost in the detail column**, so a native page beside the list titles itself in a header (`PageBar`
+  through `pageTitle`), as the fallback pages' own Compose bars already do. Alone it uses the stack's bar. One modifier covers both,
+  told which by `\.inPane`, which `ScreenView(inPane:)` now sets for a native screen too.
+- **The form's own picker row moves its value under a long label.** A category with its help (Physiology, Dive data, Gear) got its
+  choice on a line of its own, left-aligned under the help. Caught by the user on the first walk; the snapshots had shown it and it
+  had been taken for the system's layout. A throwaway snapshot compared the ways out: `LabeledContent` wraps the same way; a menu
+  picker beside the label stays right but brings a button's padding, making every row 64 points tall instead of the form's 52; a
+  `Menu` holding an inline `Picker`, with the current choice and the system's up-down chevron as its label, keeps both the row
+  height and the choice on the right, and opens the same checked menu. The rows are that (`ActivityDefaultsView.picker`), with the
+  visible label hidden from VoiceOver and the menu given the row's name and value.
+- **The simulator tool's tap doesn't flip an iOS 26 switch.** A quick tap on a `Toggle` did nothing, on both switches; a tap held
+  for a quarter of a second flipped it, and the save went through. Menus and the segmented choice take the quick tap.
+- **The native header sits about 8 points higher than a fallback page's own Compose title** in the same column (iPad Air 11-inch,
+  iOS 26.0). Both are under the bar over both columns and centred over the column; the difference is the Compose bar's own top
+  padding. Left as it is: it shows only when choosing between a native and a fallback page, and goes when the pages are native.
+- **Conditions belong with the text.** The shared pages decided in composables when each switch is offered, when it can be changed
+  and which grouping choice shows as chosen. Those moved to getters on the states in `-api`, beside the text, so the two UIs can't
+  drift; getters export to Swift like fields and cost the strict stability check nothing.
+- **A list of enum values reaches Swift as a list of contract objects.** `groupOptions` holds `GroupOption`s, each with its
+  `GroupChoice` as a property, which Swift reads as its own enum and switches over, and with its label as an `AppText`. It also takes
+  the order of the choices out of both UIs.
+- **One note said once.** The shared page repeats the Followers note under each picker set to Followers; a grouped form says it once
+  under the section that has such a choice. The words and the condition are Kotlin's; only where it sits differs.
+- **A snapshot of a long form needs its whole height.** Activity defaults' failure text is at the end of the form, below a phone's
+  height, so its samples are recorded 1,500 points tall.
+- **Kotlin 2.5.0-Beta2's incremental compilation failed twice** on `:feature-settings-api` after `:app-common-api` changed
+  ("The following FqNames can't be derived from DirtyData.dirtyLookupSymbols"), on the JVM and on the Android target. Rerunning the
+  task (`--rerun`) compiles it; nothing in the code was wrong.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -599,12 +658,16 @@ What building the host and the shell on Swift export showed, beyond the probes:
   side: each lays out by the width it gets. Only the feed, the profile, Settings, the Account page and an activity were looked at turned.
   An activity on an iPhone on its side took the shared UI's side-pane layout in 402 points of height; a window under 500dp tall
   is now never `Expanded` (`short-window-layout`, ui/window-layout), on every platform. Record, the maps and the charts want the same look.
-- A native settings page will need a bar of its own in the detail column, which today only fallback pages fill (they draw their
-  own). A column header in the design system, or `NavigationSplitView` after all: decide with the first native page.
-- A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List` (`ZoneSummary.kinds`,
-  `SportZonesState.kinds`). The contract has to offer it another way; decide with the first native view that needs one.
+- Decided (`ios-native-settings-pages`): a native page in the detail column draws a column header from the design system
+  (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Still to do: a back button in that header for a deeper native page, from
+  `HostRecord.paneRoot`, with the first native page that is opened from another settings page.
+- A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
+  (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
+  Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). `ZoneSummary.kinds` and `SportZonesState.kinds`
+  (sets of `ZoneKind`) still need theirs when zones are drawn natively.
 - A class of `:core-data` or `:core-lexicon` that appears only as an immutable collection's element (`PrivacyZone`, `Zone`) has no
-  Swift type. Something exported has to name it before a native view can read the list.
+  Swift type. Something exported has to name it before a native view can read the list. Activity defaults and Segments & groups
+  hold none (their lists are of text and of `CategoryVisibility`, a contract class), so this waits for privacy zones or zones.
 - `ThresholdHistorySection.shownRows` returns its immutable `rows` as a `List` when all are shown, which stops the app in the
   generated getter when Swift reads it. Give it a copy before threshold history is drawn natively.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
