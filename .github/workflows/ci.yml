@@ -63,12 +63,18 @@ jobs:
           distribution: corretto
           java-version: "25"
 
+      # With the key, setup-gradle also saves and restores the configuration cache (it holds secrets' values, so it is only
+      # cached encrypted), and a run whose build scripts didn't change skips configuration. Without the secret, as in a
+      # fork's pull request, the step works as before.
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # gradle.properties sizes the heaps for a developer machine. With lint and the test JVMs on top they ran an 8 GB runner
       # out of memory, so CI gets smaller heaps and fewer parallel workers. User-home properties override the project's.
-      # The Kotlin daemon still needs 5 GB: linking the web app's development and production executables at once ran 3 GB
-      # out of heap on a cold build. Linux can't run the iOS tests, so CI doesn't cross-compile the iOS klibs either.
+      # The Kotlin daemon got 5 GB when check linked the web app's development and production executables at once, which
+      # ran 3 GB out of heap on a cold build. check links only the development one now, so this may be more than it needs.
+      # Linux can't run the iOS tests, so CI doesn't cross-compile the iOS klibs either.
       - name: Size Gradle for the runner
         run: |
           mkdir -p ~/.gradle
