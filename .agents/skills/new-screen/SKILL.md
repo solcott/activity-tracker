@@ -77,6 +77,12 @@ Constraints:
 
 Add an event to the screen that leads here, and handle it in that screen's presenter with `navigator.goTo(FooScreen(...))`. There is no route table to register; Metro generates the factories and the serializer registration.
 
+## 3a. iOS
+
+Nothing to do. The iOS app's shell is SwiftUI, and it draws any screen without a native view from this same `FooUi`, through the presenter host (`:app-host`) and one Compose view controller per screen (ui/ios-native-shell). The contract is exported to Swift and checked with no step: keep it free of Compose types other than `@Immutable`/`@Stable`, a member named `self`, and `Pair`/`Triple` (`checkSwiftExportSources`, in `check`). A full-screen flow joins `TopLevelDestination.FullScreenFlows`, which is what hides the tabs on iOS too.
+
+Write a native view only when asked: a `FooView(state:)` in `iosApp/iosApp/Screens/`, the aliases for `FooScreen` and `FooState` in `Kotlin/KotlinTypes.swift`, one line in `ScreenRegistry.app` (`registry.register(FooScreen.self, FooState.self) { FooView(state: $0) }`) and its strings in `Localizable.xcstrings` under their `strings.xml` names (`checkIosStrings`). `LoginView` is the model; `compose-screens.md` has the rules.
+
 ## 4. Samples
 
 Add `app/fixtures/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Samples.kt`: an `object FooSamples` with a named `FooState` per state the screen shows and an `all` map keyed by `SampleKind`, modelled on `FeedSamples` (content) or `FollowListSamples` (a paged list). Build lexicon views with the `fake…` builders, states with `contentSamples`/`pagedSamples` (or `ContentStates`/`PagedStates`), and pass `{}` sinks. Make each sample a getter, so a `TextFieldState` (built with `textFieldStateOf("text")`) is new each time. A screen that loads content covers loading, failed, loaded, refreshing and refresh failed (plus empty for a list, and the page kinds for a paged one); a form adds an invalid sample.

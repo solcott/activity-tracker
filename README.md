@@ -230,6 +230,7 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `app/common/{api,presenter,ui}` | What several features share: contracts, presenter helpers, domain widgets |
 | `ui/designsystem`, `ui/resources` | Adaptive components, theme and charts; every string and drawable |
 | `app/fixtures` | Sample states for every screen, used by UI tests, previews and screenshot tests |
+| `app/host` | The presenter host: runs screens' presenters and their navigation with no UI, for a shell that draws them natively, and holds the session logic both shells share |
 | `composeApp` | The app shell: `App`, navigation, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
 | `iosShell`, `iosExport` | The Kotlin entry points `iosApp`'s Swift calls, and the Swift export build that hands them, every feature's contracts and the text field state to Xcode |
