@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -21,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -180,10 +180,10 @@ object ThresholdHistorySamples {
 object ZonesSamples {
     private fun state(content: ContentState<Unit>, threshold: String = "170") =
         ZonesState(
-            thresholdHeartRate = TextFieldState(threshold),
-            maxHeartRate = TextFieldState("190"),
-            restingHeartRate = TextFieldState("55"),
-            functionalThresholdPower = TextFieldState("250"),
+            thresholdHeartRate = textFieldStateOf(threshold),
+            maxHeartRate = textFieldStateOf("190"),
+            restingHeartRate = textFieldStateOf("55"),
+            functionalThresholdPower = textFieldStateOf("250"),
             heartRateModel = ZoneModels.defaultHeartRate,
             heartRateModels = ZoneModels.heartRate.toImmutableList(),
             heartRateZones = heartRateZones,
@@ -212,10 +212,10 @@ object SportZonesSamples {
         SportZonesState(
             sport = Sport.RUN,
             kinds = persistentSetOf(ZoneKind.HeartRate, ZoneKind.Speed),
-            thresholdHeartRate = TextFieldState("172"),
-            maxHeartRate = TextFieldState(),
-            functionalThresholdPower = TextFieldState(),
-            thresholdPace = TextFieldState(pace),
+            thresholdHeartRate = textFieldStateOf("172"),
+            maxHeartRate = textFieldStateOf(),
+            functionalThresholdPower = textFieldStateOf(),
+            thresholdPace = textFieldStateOf(pace),
             paceUnit = PaceUnit.PerKilometer,
             defaults = training,
             heartRateModel = ZoneModels.defaultHeartRate,
@@ -259,7 +259,7 @@ object PrivacyZonesSamples {
             canUseLocation = false,
             hasLocationPermission = false,
             locating = false,
-            label = TextFieldState(),
+            label = textFieldStateOf(),
             error = null,
             eventSink = {},
         )

@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.serialization.CircuitSerializable
@@ -9,6 +8,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdInput
 import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneModel
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList

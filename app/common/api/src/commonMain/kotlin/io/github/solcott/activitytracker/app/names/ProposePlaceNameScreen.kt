@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.names
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.subcircuit.SubCircuitOuterEvent
 import com.slack.circuit.subcircuit.SubCircuitUiState
@@ -9,6 +8,8 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.segments.SharedPlace
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -61,7 +62,7 @@ data class ProposePlaceNameState(
     /** A [Visibility] among [audiences]. */
     val audience: String = Visibility.PUBLIC,
     /** Why the athlete proposes the name, shown on the post; optional. */
-    val shareText: TextFieldState = TextFieldState(),
+    val shareText: TextFieldState = textFieldStateOf(),
     /** The audiences offered: Public, Followers and Mutuals, or only Public under a [shareLimit]. */
     val audiences: ImmutableList<String> = persistentListOf(Visibility.PUBLIC),
     val shareLimit: ShareLimit = ShareLimit.None,

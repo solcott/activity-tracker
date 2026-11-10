@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.android.screenshots
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +22,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.persistentListOf
 
 @PreviewTest
@@ -49,9 +49,9 @@ private fun Buttons() {
 @Composable
 private fun TextFields() {
     ComponentPreview {
-        AppTextField(TextFieldState("Morning Ride"), label = "Title")
-        AppTextField(TextFieldState(), label = "Weight", placeholder = "70", supportingText = "Kilograms")
-        AppTextField(TextFieldState("0"), label = "Distance", isError = true, supportingText = "Enter a distance")
+        AppTextField(textFieldStateOf("Morning Ride"), label = "Title")
+        AppTextField(textFieldStateOf(), label = "Weight", placeholder = "70", supportingText = "Kilograms")
+        AppTextField(textFieldStateOf("0"), label = "Distance", isError = true, supportingText = "Enter a distance")
     }
 }
 

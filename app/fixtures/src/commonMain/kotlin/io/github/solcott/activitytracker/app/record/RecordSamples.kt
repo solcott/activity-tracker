@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
@@ -16,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.RecordingState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -37,7 +37,7 @@ object RecordSamples {
             movingSeconds = if (status == RecordingState.Status.Idle) 0 else 2_400,
             elevationGainMeters = if (status == RecordingState.Status.Idle) 0.0 else 180.0,
             type = typeField,
-            title = TextFieldState(),
+            title = textFieldStateOf(),
             hasPermission = true,
             saving = false,
             error = null,
@@ -60,10 +60,10 @@ object ManualActivitySamples {
     private fun state(duration: String, error: UiError? = null, visibility: VisibilityFields = VisibilityFields()) =
         ManualActivityState(
             type = typeField,
-            title = TextFieldState("Evening Ride"),
-            distance = TextFieldState("24.5"),
-            durationMinutes = TextFieldState(duration),
-            temperature = TextFieldState(),
+            title = textFieldStateOf("Evening Ride"),
+            distance = textFieldStateOf("24.5"),
+            durationMinutes = textFieldStateOf(duration),
+            temperature = textFieldStateOf(),
             units = UnitSystem.Metric,
             saving = false,
             error = error,
@@ -92,7 +92,7 @@ object ImportActivitySamples {
             reading = reading,
             preview = preview,
             type = typeField,
-            title = TextFieldState(),
+            title = textFieldStateOf(),
             defaultTitle = preview?.let { DefaultTitle(PartOfDay.Morning, ActivityType(Sport.RIDE)) },
             saving = false,
             error = null,
@@ -148,7 +148,7 @@ object ImportActivitySamples {
                         sensorKind = SensorType.POWER,
                         serialTail = "3426",
                         decision = NewDeviceDecision.Add,
-                        name = TextFieldState("SRAM Power meter"),
+                        name = textFieldStateOf("SRAM Power meter"),
                         type = GearType.COMPONENT,
                         kind = "powerMeter",
                         mountOn = tarmac,
@@ -255,7 +255,7 @@ object ImportActivitySamples {
                     preview =
                         ImportItemPreview(
                             index = 2,
-                            title = TextFieldState(),
+                            title = textFieldStateOf(),
                             type = typeField,
                             defaultTitle = DefaultTitle(PartOfDay.Evening, ActivityType(Sport.RIDE)),
                             preview = preview.copy(fileName = "edge.fit"),

@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -30,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.OnKeyChange
 import io.github.solcott.uistate.circuit.produceRetainedContentState

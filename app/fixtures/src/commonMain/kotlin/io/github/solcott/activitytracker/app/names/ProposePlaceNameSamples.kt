@@ -1,14 +1,14 @@
 package io.github.solcott.activitytracker.app.names
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.persistentListOf
 
 /** The name sheet (segments/segment-names), proposing a new name for a place or editing the viewer's own proposal. */
 object ProposePlaceNameSamples {
     private fun state(name: String, editing: Boolean = false, unchanged: String = "Trail 214") =
-        ProposePlaceNameState(TextFieldState(name), editing, unchanged, sending = false, error = null, eventSink = {})
+        ProposePlaceNameState(textFieldStateOf(name), editing, unchanged, sending = false, error = null, eventSink = {})
 
     val propose: ProposePlaceNameState
         get() = state("Wiggly Woods")
@@ -26,7 +26,7 @@ object ProposePlaceNameSamples {
                 .copy(
                     sharing = true,
                     audience = Visibility.FOLLOWERS,
-                    shareText = TextFieldState("Everyone at the trailhead already calls it this."),
+                    shareText = textFieldStateOf("Everyone at the trailhead already calls it this."),
                     audiences = persistentListOf(Visibility.PUBLIC, Visibility.FOLLOWERS, Visibility.MUTUALS),
                 )
 

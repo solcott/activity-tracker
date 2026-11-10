@@ -1,8 +1,5 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -29,6 +26,9 @@ import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
 import kotlin.time.Instant

@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.edit
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -16,6 +14,8 @@ import io.github.solcott.activitytracker.data.activity.photoCid
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -23,8 +23,8 @@ import kotlinx.collections.immutable.toPersistentList
 /** The [ActivityDetailsFields] a presenter owns: [seed] it with what the activity has, then read back what the athlete changed. */
 @Stable
 class DetailsForm internal constructor() {
-    val description = TextFieldState()
-    val diveSite = TextFieldState()
+    val description = textFieldStateOf()
+    val diveSite = textFieldStateOf()
     var media: PersistentList<EditMedia> by mutableStateOf(persistentListOf())
         private set
 

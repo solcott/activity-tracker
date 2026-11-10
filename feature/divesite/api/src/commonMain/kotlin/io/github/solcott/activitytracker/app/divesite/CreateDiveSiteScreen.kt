@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.divesite
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -10,6 +9,8 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -33,7 +34,7 @@ data class CreateDiveSiteState(
     val unavailable: CreateDiveSiteUnavailable? = null,
     /** The site's radius around the dive's entry as a closed precision-5 polyline, as the maps draw routes; null until it can be made. */
     val outline: String? = null,
-    val name: TextFieldState = TextFieldState(),
+    val name: TextFieldState = textFieldStateOf(),
     /** [name] has more than spaces, and isn't longer than [DiveSiteRecord.MAX_NAME_GRAPHEMES]. */
     val named: Boolean = false,
     /** Meters, [DiveSiteRecord.MIN_RADIUS] to [DiveSiteRecord.MAX_RADIUS]. */

@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.gear
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,6 +22,8 @@ import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock

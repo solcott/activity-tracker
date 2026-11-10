@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.report
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.subcircuit.SubCircuitOuterEvent
 import com.slack.circuit.subcircuit.SubCircuitUiState
@@ -9,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.moderation.ReportReason
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.textfield.TextFieldState
 
 /**
  * The report sheet (`moderation/reports`) for [target], by [authorName]. Once sent it thanks the athlete and, when [offerBlock], offers to

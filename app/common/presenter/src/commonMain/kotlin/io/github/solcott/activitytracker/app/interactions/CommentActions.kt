@@ -1,8 +1,5 @@
 package io.github.solcott.activitytracker.app.interactions
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.MutableState
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
@@ -15,6 +12,9 @@ import io.github.solcott.activitytracker.data.feed.InteractionSubject
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.clearText
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import kotlinx.coroutines.CoroutineScope
 
 /**

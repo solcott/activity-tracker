@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +30,8 @@ import io.github.solcott.activitytracker.composeApp.resources.import_time_zone
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice_file
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_option
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import org.jetbrains.compose.resources.stringResource
 
 /**

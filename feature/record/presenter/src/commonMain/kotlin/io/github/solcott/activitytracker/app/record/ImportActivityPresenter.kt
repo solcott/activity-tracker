@@ -1,8 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +58,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.textfield.clearText
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList

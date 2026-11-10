@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -26,6 +24,8 @@ import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.textfield.clearText
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList

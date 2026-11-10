@@ -1,11 +1,11 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.data.auth.LeaveStep
 import io.github.solcott.activitytracker.data.auth.PendingWork
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
 import kotlin.time.Duration.Companion.minutes
 
@@ -14,7 +14,7 @@ object LeaveSamples {
     private val places = SharedPlacesSummary.Loaded(activeSegments = 3, otherSegments = 2, activeSites = 1, otherSites = 0)
 
     private fun state(typed: String = "", places: SharedPlacesSummary = this.places) =
-        LeaveState(handle = "alice.test", confirmHandle = TextFieldState(typed), places = places, eventSink = {})
+        LeaveState(handle = "alice.test", confirmHandle = textFieldStateOf(typed), places = places, eventSink = {})
 
     val default: LeaveState
         get() = state()

@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -10,6 +9,7 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.parseDecimal
+import io.github.solcott.activitytracker.textfield.TextFieldState
 
 /** Log an activity without GPS (also handy for testing on web and simulators). */
 @CircuitSerializable(SessionScope::class) data object ManualActivityScreen : Screen

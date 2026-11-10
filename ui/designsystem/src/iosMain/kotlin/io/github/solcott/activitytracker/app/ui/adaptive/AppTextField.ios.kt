@@ -1,3 +1,6 @@
+// This file is where the app's TextFieldState meets Compose's.
+@file:Suppress("UseAppTextFieldState")
+
 package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.foundation.layout.Arrangement
@@ -9,7 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextFieldState as ComposeTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -18,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.textfield.TextFieldState
 
 @Composable
 actual fun AppTextField(
@@ -47,7 +51,8 @@ actual fun AppTextField(
             )
         }
         TextField(
-            state = state,
+            // The Compose state the app's type wraps on iOS: the field edits it directly, so typing behaves as it always has.
+            state = state.composeState as ComposeTextFieldState,
             enabled = enabled,
             readOnly = readOnly,
             isError = isError,

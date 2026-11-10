@@ -1,15 +1,15 @@
 package io.github.solcott.activitytracker.app.report
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.data.moderation.ReportReason
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 
 object ReportSamples {
     private fun state(reason: ReportReason?, sent: Boolean = false) =
         ReportState(
             authorName = "Bob",
             reason = reason,
-            note = TextFieldState(),
+            note = textFieldStateOf(),
             sending = false,
             sent = sent,
             offerBlock = true,

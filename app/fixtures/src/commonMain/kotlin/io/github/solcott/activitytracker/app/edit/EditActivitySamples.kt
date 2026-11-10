@@ -1,11 +1,11 @@
 package io.github.solcott.activitytracker.app.edit
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.persistentListOf
 
@@ -14,10 +14,10 @@ object EditActivitySamples {
         EditActivityState(
             content = content,
             type = if (loaded) ActivityType(Sport.RIDE) else null,
-            title = TextFieldState(if (loaded) "Morning Ride" else ""),
+            title = textFieldStateOf(if (loaded) "Morning Ride" else ""),
             details =
                 if (loaded) {
-                    ActivityDetailsFields(TextFieldState(), diveSite = null, media = persistentListOf(), maxMedia = 4, eventSink = {})
+                    ActivityDetailsFields(textFieldStateOf(), diveSite = null, media = persistentListOf(), maxMedia = 4, eventSink = {})
                 } else {
                     null
                 },

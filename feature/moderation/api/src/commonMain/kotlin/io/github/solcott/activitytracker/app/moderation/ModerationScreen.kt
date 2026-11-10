@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.moderation
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -9,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.textfield.TextFieldState
 
 /**
  * For the app's moderators, on desktop and web (`moderation/private-subjects`): opens a reported activity or comment by the AT-URI copied

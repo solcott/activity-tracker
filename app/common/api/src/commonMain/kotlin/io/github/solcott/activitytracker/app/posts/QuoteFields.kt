@@ -1,11 +1,12 @@
 package io.github.solcott.activitytracker.app.posts
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.lexicon.app.PostRecord
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -43,7 +44,7 @@ data class QuoteFields(
         const val MAX_TEXT_LENGTH = PostRecord.MAX_TEXT_GRAPHEMES
 
         /** The text of a closed sheet, which is never shown or edited. */
-        private val CLOSED_TEXT = TextFieldState()
+        private val CLOSED_TEXT = textFieldStateOf()
     }
 }
 

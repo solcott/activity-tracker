@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
@@ -13,6 +12,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.persistentListOf
@@ -38,7 +38,7 @@ object SegmentBrowseSamples {
     /** Browsing an area that loaded [content]; nothing typed. */
     private fun browsing(content: ContentState<AreaRuns>) =
         SegmentBrowseState(
-            query = TextFieldState(),
+            query = textFieldStateOf(),
             hasArea = true,
             start = BrowseStart.Placed,
             area = content,
@@ -51,7 +51,7 @@ object SegmentBrowseSamples {
     private fun searching(results: PagedState<SegmentView, Unit>, scope: NameScope = NameScope.ThisArea) =
         browsing(ContentStates.loaded(area))
             .copy(
-                query = TextFieldState("hog"),
+                query = textFieldStateOf("hog"),
                 scope = scope,
                 results = results,
                 mapLines = lines(results.items).toImmutableList(),

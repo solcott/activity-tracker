@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.names
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +21,8 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
 
@@ -38,8 +38,8 @@ class ProposePlaceNamePresenter(private val screen: ProposePlaceNameScreen, priv
     SubPresenter<ProposePlaceNameOuterEvent, ProposePlaceNameState> {
     @Composable
     override fun present(outerEventSink: (ProposePlaceNameOuterEvent) -> Unit): ProposePlaceNameState {
-        val name = rememberRetained { TextFieldState(screen.proposalName.orEmpty()) }
-        val shareText = rememberRetained { TextFieldState() }
+        val name = rememberRetained { textFieldStateOf(screen.proposalName.orEmpty()) }
+        val shareText = rememberRetained { textFieldStateOf() }
         var error by rememberRetained { mutableStateOf<UiError?>(null) }
         var sharing by rememberRetained { mutableStateOf(false) }
         var audience by rememberRetained { mutableStateOf(Visibility.PUBLIC) }

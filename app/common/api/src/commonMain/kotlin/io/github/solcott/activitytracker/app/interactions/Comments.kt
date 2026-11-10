@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.interactions
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.feed.SentComment
@@ -8,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf

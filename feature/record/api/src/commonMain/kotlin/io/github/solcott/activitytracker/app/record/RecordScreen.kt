@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -9,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.location.RecordingState
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlin.time.Duration
 
 @CircuitSerializable(SessionScope::class) data object RecordScreen : Screen

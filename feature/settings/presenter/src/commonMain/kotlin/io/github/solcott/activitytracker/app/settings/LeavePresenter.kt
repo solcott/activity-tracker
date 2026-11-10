@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.settings
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,6 +27,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.export.DataExporter
 import io.github.solcott.activitytracker.data.export.DataExports
 import io.github.solcott.activitytracker.location.ActivityRecorder
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 
 /** The one flight for starting the leave, so a double tap starts it once. */
 private object StartLeave

@@ -1,8 +1,9 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -52,7 +53,7 @@ data class NewDeviceCard(
     val serialTail: String? = null,
     val weak: Boolean = false,
     val decision: NewDeviceDecision = NewDeviceDecision.Later,
-    val name: TextFieldState = TextFieldState(),
+    val name: TextFieldState = textFieldStateOf(),
     val type: String,
     val kind: String? = null,
     val mountOn: AtUri? = null,

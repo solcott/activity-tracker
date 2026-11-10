@@ -4,9 +4,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.github.solcott.activitytracker.textfield.TextFieldState
 
 /**
  * A text field over a [TextFieldState]. Material platforms get an outlined field with a floating [label]. iOS gets a filled, rounded field

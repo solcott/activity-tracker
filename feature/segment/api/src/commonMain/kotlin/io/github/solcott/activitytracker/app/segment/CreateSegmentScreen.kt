@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -9,6 +8,8 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -45,7 +46,7 @@ data class CreateSegmentState(
     val selection: SelectionCheck = SelectionCheck.CrossesGap,
     /** The chosen stretch at precision 5, drawn over [route]; null when it can't be a segment. */
     val highlight: String? = null,
-    val name: TextFieldState = TextFieldState(),
+    val name: TextFieldState = textFieldStateOf(),
     /** [name] has more than spaces. */
     val named: Boolean = false,
     /** The activity's route is public, so the segment names it as its source. */

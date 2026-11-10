@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.invites
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -14,6 +13,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord
 import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -80,7 +81,7 @@ data class AcceptInviteState(
     /** The invite and what it lets the athlete copy; null when it's gone (cancelled, lapsed or accepted). */
     val content: ContentState<InviteView?> = ContentState(null),
     /** The copy's title, prefilled from the original's. */
-    val title: TextFieldState = TextFieldState(),
+    val title: TextFieldState = textFieldStateOf(),
     /** The copy's visibility and its categories', prefilled from the athlete's defaults. */
     val visibility: VisibilityFields = VisibilityFields(),
     /** The athlete already has an activity overlapping this one: they may have recorded part of it. */

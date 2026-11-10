@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,6 +51,7 @@ import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.training.ThresholdInput
 import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneKind
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(SportZonesScreen::class, SessionScope::class)

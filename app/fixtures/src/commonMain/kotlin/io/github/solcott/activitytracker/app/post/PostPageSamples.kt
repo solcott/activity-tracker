@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.post
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
@@ -15,6 +14,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentsState
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.persistentListOf
 
@@ -39,7 +39,7 @@ object PostPageSamples {
                                 endReached = true,
                             ),
                         sent = persistentListOf(),
-                        draft = TextFieldState(),
+                        draft = textFieldStateOf(),
                         replyingTo = null,
                         viewerDid = Fixed.ALICE,
                         author = post.author,

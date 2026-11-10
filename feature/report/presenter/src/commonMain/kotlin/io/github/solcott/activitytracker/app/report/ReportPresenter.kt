@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.report
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +14,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportReason
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 
 /** The report sheet: picks a reason and an optional note, sends them, then thanks the athlete and offers to block the author. */
 @SubCircuitInject(ReportScreen::class, SessionScope::class)
@@ -24,7 +24,7 @@ class ReportPresenter(private val screen: ReportScreen, private val reports: Rep
     @Composable
     override fun present(outerEventSink: (ReportOuterEvent) -> Unit): ReportState {
         var reason by rememberRetained { mutableStateOf<ReportReason?>(null) }
-        val note = rememberRetained { TextFieldState() }
+        val note = rememberRetained { textFieldStateOf() }
         var sent by rememberRetained { mutableStateOf(false) }
         var error by rememberRetained { mutableStateOf<UiError?>(null) }
         val flights = rememberSingleFlight()

@@ -15,12 +15,12 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.coreData)
+            // A State holds its text fields' state, which the presenter owns: the app's TextFieldState, which is Compose's off iOS.
+            api(projects.coreTextfield)
             // Only for Screen: the SettingsPage marker that settings' pages in several features carry.
             api(libs.circuit.runtime)
             // The place-name sheet (ProposePlaceNameScreen) is a SubCircuit screen.
             api(libs.circuitx.subcircuit)
-            // Only for TextFieldState: a State holds its text fields' state, which the presenter owns.
-            api(libs.compose.foundation)
             api(libs.kotlinx.collections.immutable)
             api(libs.kotlinx.io.bytestring)
 

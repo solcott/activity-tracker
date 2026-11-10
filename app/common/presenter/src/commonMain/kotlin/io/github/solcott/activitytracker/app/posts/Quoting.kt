@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.posts
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -16,6 +14,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.clearText
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -47,7 +47,7 @@ internal constructor(
 @Suppress("CyclomaticComplexMethod") // One branch per sheet event, each checked against the state it acts on.
 fun rememberQuoting(quotes: QuotePosts, onDelete: (PostView) -> Unit = {}, onError: (UiError) -> Unit): Quoting {
     var quoting by rememberRetained { mutableStateOf<PostView?>(null) }
-    val text = rememberRetained { TextFieldState() }
+    val text = rememberRetained { textFieldStateOf() }
     var audience by rememberRetained { mutableStateOf(Visibility.PUBLIC) }
     var error by rememberRetained { mutableStateOf<UiError?>(null) }
     var confirmDelete by rememberRetained { mutableStateOf<PostView?>(null) }

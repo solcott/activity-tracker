@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.gear
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.PagedStates
@@ -22,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.activitytracker.lexicon.app.GearYearTotals
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import kotlin.time.Instant
@@ -103,14 +103,14 @@ object EditGearSamples {
         EditGearState(
             content = content,
             isNew = isNew,
-            name = TextFieldState(name),
-            brand = TextFieldState("Rivendell"),
-            model = TextFieldState("Appaloosa"),
-            weight = TextFieldState("11.2"),
-            startingDistance = TextFieldState("2000"),
-            startingTime = TextFieldState(),
+            name = textFieldStateOf(name),
+            brand = textFieldStateOf("Rivendell"),
+            model = textFieldStateOf("Appaloosa"),
+            weight = textFieldStateOf("11.2"),
+            startingDistance = textFieldStateOf("2000"),
+            startingTime = textFieldStateOf(),
             units = UnitSystem.Metric,
-            notes = TextFieldState(),
+            notes = textFieldStateOf(),
             type = GearType.BIKE,
             types = GearType.all.toImmutableList(),
             kind = null,
@@ -348,8 +348,8 @@ object EditGearCollectionSamples {
         EditGearCollectionState(
             content = content,
             isNew = isNew,
-            name = TextFieldState(name),
-            notes = TextFieldState(),
+            name = textFieldStateOf(name),
+            notes = textFieldStateOf(),
             members = if (withMembers) members else persistentListOf(),
             others = others,
             nameMissing = name.isBlank() && withMembers,

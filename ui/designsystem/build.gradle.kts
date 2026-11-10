@@ -5,6 +5,8 @@ plugins { id("activitytracker.kmp.compose") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
+            // AppTextField takes the app's TextFieldState, as the contracts do.
+            api(projects.coreTextfield)
             api(projects.uiResources)
             // api: the adaptive wrappers take and return Calf and Haze types.
             api(libs.calf.ui)

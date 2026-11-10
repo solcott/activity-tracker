@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.detail
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
@@ -20,6 +19,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentsPaging
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -44,7 +44,7 @@ object ActivityDetailSamples {
                         endReached = true,
                     ),
                 sentComments = persistentListOf(),
-                draftComment = TextFieldState(),
+                draftComment = textFieldStateOf(),
                 viewerDid = Fixed.BOB,
                 isOwn = false,
                 likesList = null,

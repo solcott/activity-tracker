@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.app.login
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
 
 object LoginSamples {
@@ -12,7 +12,7 @@ object LoginSamples {
         expired: Expiry? = null,
         signingInAgain: Boolean = false,
         leftHandle: String? = null,
-    ) = LoginState(TextFieldState(handle), status, expired, signingInAgain, leftHandle, eventSink = {})
+    ) = LoginState(textFieldStateOf(handle), status, expired, signingInAgain, leftHandle, eventSink = {})
 
     val all: Map<String, LoginState>
         get() =

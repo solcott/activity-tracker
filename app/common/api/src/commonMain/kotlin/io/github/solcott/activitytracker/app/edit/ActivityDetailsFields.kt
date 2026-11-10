@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.app.edit
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.media.MediaItem
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.io.bytestring.ByteString
 

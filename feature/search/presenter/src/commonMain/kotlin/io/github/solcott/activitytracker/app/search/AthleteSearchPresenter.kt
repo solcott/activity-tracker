@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.search
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -12,6 +11,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AthleteSearchRepository
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.uistate.OnKeyChange
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.time.Duration.Companion.milliseconds

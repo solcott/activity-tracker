@@ -3,6 +3,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFalse
 import org.gradle.testkit.runner.GradleRunner
 
 class FeatureConventionPluginsTest {
@@ -63,6 +64,15 @@ class FeatureConventionPluginsTest {
 
         assertContains(result.output, "commonMainApi=[:app-common-api]")
         assertContains(result.output, "strictClasses=true")
+    }
+
+    @Test
+    fun `api modules get no Compose foundation, so a State can't hold a type Swift export rejects`() {
+        val result = runner(":feature-x-api:printFeatureSetup").build()
+
+        // A text field's state comes from :core-textfield through :app-common-api (dev/ios-swift-interop).
+        assertFalse("org.jetbrains.compose.foundation" in result.output, result.output)
+        assertContains(result.output, "org.jetbrains.compose.runtime:runtime")
     }
 
     @Test

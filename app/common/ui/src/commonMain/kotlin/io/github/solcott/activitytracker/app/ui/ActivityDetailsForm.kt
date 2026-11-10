@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,6 +52,7 @@ import io.github.solcott.activitytracker.composeApp.resources.details_photos_hea
 import io.github.solcott.activitytracker.composeApp.resources.details_preparing_photos
 import io.github.solcott.activitytracker.composeApp.resources.details_remove_photo
 import io.github.solcott.activitytracker.composeApp.resources.details_title_label
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher

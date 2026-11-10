@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.invites
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
@@ -13,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord
 import io.github.solcott.activitytracker.lexicon.app.InviteStatus
 import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.persistentListOf
 
 // Activity invites (feed/activity-invites): an invite from Bob to his ride, and Alice's own ride with people added.
@@ -60,7 +60,7 @@ object AcceptInviteSamples {
     private fun state(invite: InviteView?, overlaps: Boolean = false) =
         AcceptInviteState(
             content = ContentStates.loaded(invite),
-            title = TextFieldState(invite?.record?.title.orEmpty()),
+            title = textFieldStateOf(invite?.record?.title.orEmpty()),
             visibility = VisibilityFields(),
             overlaps = overlaps,
         )

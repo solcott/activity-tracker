@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -15,6 +14,7 @@ import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -113,17 +113,17 @@ object EditProfileSamples {
         weight: String = "61.5",
     ) =
         EditProfileState(
-            displayName = TextFieldState(displayName),
-            description = TextFieldState("Trail runner and weekend rider."),
+            displayName = textFieldStateOf(displayName),
+            description = textFieldStateOf("Trail runner and weekend rider."),
             avatar = null,
-            locality = TextFieldState("Boulder"),
-            region = TextFieldState("CO"),
+            locality = textFieldStateOf("Boulder"),
+            region = textFieldStateOf("CO"),
             country = "US",
             birthDate = "1990-04-12",
-            gender = TextFieldState(),
-            weight = TextFieldState(weight),
-            height = TextFieldState("168"),
-            heightInches = TextFieldState(),
+            gender = textFieldStateOf(),
+            weight = textFieldStateOf(weight),
+            height = textFieldStateOf("168"),
+            heightInches = textFieldStateOf(),
             units = UnitSystem.Metric,
             visibility = DetailsVisibility(),
             nowHidden = persistentListOf(),

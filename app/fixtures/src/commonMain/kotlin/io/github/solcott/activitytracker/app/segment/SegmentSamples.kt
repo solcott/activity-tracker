@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -30,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
@@ -286,7 +286,7 @@ object CreateSegmentSamples {
             start = 0.2f,
             end = 0.6f,
             selection = SelectionCheck.Ok(SELECTED_METERS),
-            name = TextFieldState(name),
+            name = textFieldStateOf(name),
             named = name.isNotBlank(),
         )
 

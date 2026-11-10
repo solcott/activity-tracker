@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -32,6 +31,8 @@ import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.SensorGear
 import io.github.solcott.activitytracker.lexicon.app.SensorKey
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
@@ -104,7 +105,7 @@ internal constructor(
     private fun cardOf(device: UnlinkedDevice): NewDeviceCard {
         val id = idOf(device.key)
         val edit = edits[id] ?: CardEdit.of(device)
-        val name = names.getOrPut(id) { TextFieldState(defaultName(device)) }
+        val name = names.getOrPut(id) { textFieldStateOf(defaultName(device)) }
         return NewDeviceCard(
             id = id,
             manufacturer = device.device.manufacturer,

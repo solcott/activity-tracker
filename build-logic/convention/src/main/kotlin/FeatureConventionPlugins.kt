@@ -22,8 +22,6 @@ class FeatureApiConventionPlugin : Plugin<Project> {
                     api(libs.findLibrary("circuit-runtime").get())
                     api(libs.findLibrary("circuit-serialization").get())
                     api(libs.findLibrary("circuitx-subcircuit").get())
-                    // Only for TextFieldState: a State holds its text fields' state, which the presenter owns.
-                    api(libs.findLibrary("compose-foundation").get())
                     api(libs.findLibrary("dataresult-uistate").get())
                     api(libs.findLibrary("kotlinx-collections-immutable").get())
                     implementation(libs.findLibrary("compose-runtime").get())

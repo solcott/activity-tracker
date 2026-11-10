@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.login
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.auth.EndedSession
 import io.github.solcott.activitytracker.location.ActivityRecorder
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 
 @CircuitInject(LoginScreen::class, AppScope::class)
 @Inject

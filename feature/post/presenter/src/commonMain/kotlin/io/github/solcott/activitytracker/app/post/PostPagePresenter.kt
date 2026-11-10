@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.post
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,6 +42,7 @@ import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.PostView
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState

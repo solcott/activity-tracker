@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.moderation
 
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 
 @CircuitInject(ModerationScreen::class, SessionScope::class)
 @Composable

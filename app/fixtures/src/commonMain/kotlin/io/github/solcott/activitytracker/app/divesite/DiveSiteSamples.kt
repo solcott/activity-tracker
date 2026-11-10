@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.divesite
 
-import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -22,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.siteOutline
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -112,7 +112,7 @@ object CreateDiveSiteSamples {
         CreateDiveSiteState(
             content = ContentStates.loaded(Unit),
             outline = DiveSiteSamples.site.record.let { siteOutline(it.lat, it.lng, it.radius) },
-            name = TextFieldState(name),
+            name = textFieldStateOf(name),
             named = name.isNotBlank(),
         )
 

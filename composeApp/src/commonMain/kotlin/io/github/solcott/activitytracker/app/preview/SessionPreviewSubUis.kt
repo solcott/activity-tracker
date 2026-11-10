@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.preview
 
-import androidx.compose.foundation.text.input.TextFieldState
 import com.slack.circuit.subcircuit.SubCircuitUiState
 import com.slack.circuit.subcircuit.SubScreen
 import com.slack.circuit.subcircuit.SubUi
@@ -15,6 +14,7 @@ import io.github.solcott.activitytracker.app.report.ReportState
 import io.github.solcott.activitytracker.app.report.ReportUi
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.preview.PreviewSubUis
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 
 /**
  * The session's sub-screens with their real UIs, for [AppPreview]: the feed filter, reporting and segment name proposals. A new sub-screen
@@ -36,7 +36,7 @@ object SessionPreviewSubUis : PreviewSubUis {
                 ReportState(
                     authorName = screen.authorName,
                     reason = null,
-                    note = TextFieldState(),
+                    note = textFieldStateOf(),
                     sending = false,
                     sent = false,
                     offerBlock = screen.offerBlock,
