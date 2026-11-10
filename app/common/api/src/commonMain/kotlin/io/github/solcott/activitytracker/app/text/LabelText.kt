@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Gender
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
  * The names of things the app shows by a token or a kind. Several come from open sets (a sport another client added, a sensor kind the app
@@ -37,6 +38,17 @@ object LabelText {
             Gender.NON_BINARY -> AppText.named("gender_non_binary")
             else -> AppText.written(gender)
         }
+
+    /** A [Visibility] value's name, as pickers and summaries show it. A value the app doesn't know reads as Only me, the narrowest. */
+    fun visibility(visibility: String): AppText =
+        AppText.named(
+            when (Visibility.known(visibility)) {
+                Visibility.PUBLIC -> "visibility_public"
+                Visibility.FOLLOWERS -> "visibility_followers"
+                Visibility.MUTUALS -> "visibility_mutuals"
+                else -> "visibility_self"
+            },
+        )
 
     /** The name of a profile detail group. */
     fun detailGroup(group: DetailGroup): AppText =

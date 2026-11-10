@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -64,6 +65,7 @@ class SharedTextNamesTest {
         val texts =
             DetailGroup.entries.flatMap { listOf(LabelText.detailGroup(it), LabelText.visibilityScope(it)) } +
                 listOf(Gender.FEMALE, Gender.MALE, Gender.NON_BINARY).map(LabelText::gender) +
+                Visibility.all.map(LabelText::visibility) +
                 LabelText.handle("alice.test") +
                 // The string an unknown sensor falls back to.
                 (LabelText.sensorType("unknown") as AppText.Named).fallback!!

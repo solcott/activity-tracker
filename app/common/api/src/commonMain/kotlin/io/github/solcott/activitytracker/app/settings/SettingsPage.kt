@@ -15,6 +15,9 @@ interface SettingsPage : Screen
  */
 @Immutable
 data class SettingsPane(val twoPane: Boolean, val shownPage: SettingsPage?) {
+    /** Whether the list marks the row that opens [page]: only beside the page, and only that page's row. */
+    fun marks(page: SettingsPage): Boolean = twoPane && shownPage == page
+
     companion object {
         val Single = SettingsPane(twoPane = false, shownPage = null)
     }

@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.visibility_followers
@@ -64,11 +65,4 @@ fun VisibilityPicker(
 private val ALL: ImmutableList<String> = Visibility.all.toImmutableList()
 
 /** A [Visibility] value's name, as pickers show it. */
-@Composable
-fun visibilityLabel(visibility: String): String =
-    when (Visibility.known(visibility)) {
-        Visibility.PUBLIC -> stringResource(Res.string.visibility_public)
-        Visibility.FOLLOWERS -> stringResource(Res.string.visibility_followers)
-        Visibility.MUTUALS -> stringResource(Res.string.visibility_mutuals)
-        else -> stringResource(Res.string.visibility_self)
-    }
+@Composable fun visibilityLabel(visibility: String): String = LabelText.visibility(visibility).string()

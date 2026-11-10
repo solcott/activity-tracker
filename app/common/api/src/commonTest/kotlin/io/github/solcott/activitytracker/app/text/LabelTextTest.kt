@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -67,6 +68,15 @@ class LabelTextTest {
     fun aGender() {
         assertEquals("Female", LabelText.gender(Gender.FEMALE).read())
         assertEquals("agender", LabelText.gender("agender").read())
+    }
+
+    @Test
+    fun aVisibility() {
+        assertEquals(AppText.named("visibility_public"), LabelText.visibility(Visibility.PUBLIC))
+        assertEquals(AppText.named("visibility_followers"), LabelText.visibility(Visibility.FOLLOWERS))
+        assertEquals(AppText.named("visibility_mutuals"), LabelText.visibility(Visibility.MUTUALS))
+        assertEquals(AppText.named("visibility_self"), LabelText.visibility(Visibility.SELF))
+        assertEquals(AppText.named("visibility_self"), LabelText.visibility("friendsOfFriends"), "an unknown value is never shown wider")
     }
 
     @Test
