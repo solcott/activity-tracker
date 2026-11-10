@@ -1,5 +1,7 @@
 plugins {
     id("activitytracker.kmp.library")
+    // Exported to Swift in debug builds, for the native views' previews and snapshot tests (dev/ios-snapshot-tests).
+    id("activitytracker.swift.contract")
     alias(libs.plugins.kotlin.compose)
 }
 

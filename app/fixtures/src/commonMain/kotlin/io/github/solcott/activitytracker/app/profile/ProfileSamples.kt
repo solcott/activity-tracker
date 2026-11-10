@@ -56,8 +56,8 @@ object ProfileSamples {
     val postsFailed: ProfileState
         get() = loaded.copy(tab = ProfileTab.Posts, posts = PagedStates.failed())
 
-    /** The viewer's own profile. */
-    val self: ProfileState
+    /** The viewer's own profile. Not named `self`: Swift export can't carry a member of that name (dev/ios-swift-interop). */
+    val own: ProfileState
         get() = loaded.copy(isSelf = true, viewerDid = Fixed.ALICE.value)
 
     val all: Map<String, ProfileState>
@@ -69,7 +69,7 @@ object ProfileSamples {
                 SampleKind.LOADED to loaded,
                 SampleKind.REFRESHING to refreshing,
                 SampleKind.REFRESH_FAILED to refreshFailed,
-                "self" to self,
+                "self" to own,
                 "posts" to posts,
                 "noPosts" to noPosts,
                 "postsFailed" to postsFailed,

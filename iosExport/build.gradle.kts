@@ -15,6 +15,13 @@ plugins {
     id("activitytracker.swift.export")
 }
 
+/**
+ * Whether this build exports the sample states (`:app-fixtures`), which native previews and snapshot tests render (dev/ios-snapshot-tests).
+ * Xcode names its configuration when its build phase runs the export; a release build leaves the samples out, and the Swift that names them
+ * is inside `#if DEBUG`. Outside Xcode there is no configuration and they are in.
+ */
+val exportsFixtures = providers.environmentVariable("CONFIGURATION").map { it != "Release" }.getOrElse(true)
+
 /** The Swift module the presenter host's types are generated into. */
 val presenterHostSwiftModule = "PresenterHost"
 
@@ -33,6 +40,7 @@ kotlin {
         iosMain.dependencies {
             api(projects.iosShell)
             swiftContracts.modules.forEach { api(project(it.path)) }
+            if (exportsFixtures) api(projects.appFixtures)
         }
     }
 
@@ -51,6 +59,8 @@ kotlin {
                 swiftContracts.modules.forEach { contract ->
                     configure(dependencies.project(contract.path)) { moduleName = contract.swiftName }
                 }
+                // Exported whole, like a contract, and checked like one (its sources pass checkSwiftExportSources).
+                if (exportsFixtures) configure(projects.appFixtures) { moduleName = "AppFixtures" }
                 // Only the name takes effect: a module exported through another's signatures gets no top-level names for its types,
                 // whatever its root package, so Swift spells them in full (SwiftFitDecoder aliases the package).
                 configure(projects.coreActivityfile) { moduleName = "ActivityFile" }
@@ -80,6 +90,8 @@ tasks.named<CheckSwiftExportStubs>(CHECK_SWIFT_EXPORT_STUBS_TASK_NAME) {
     failOn.add(swiftModuleName(projects.iosShell.path))
     // No source check covers the host (above), so this is what keeps a hidden module's type out of what Swift reads there.
     failOn.add(presenterHostSwiftModule)
+    // The samples are read by previews and tests, so a stub among them stops those, never the app; it still fails here.
+    if (exportsFixtures) failOn.add("AppFixtures")
     sentinelModule.set(swiftModuleName(projects.iosShell.path))
     // Not for a contract's own field or event: there, stop hiding the module or change the type (dev/ios-swift-interop).
     allowed.put(
