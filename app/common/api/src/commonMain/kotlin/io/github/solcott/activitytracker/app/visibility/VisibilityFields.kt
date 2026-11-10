@@ -28,10 +28,16 @@ data class VisibilityFields(
     val runningForm: Boolean = true,
     val eventSink: (VisibilityEvent) -> Unit = {},
 ) {
+    /** What the activity may be shown to: every visibility, widest first. */
+    val activityOptions: ImmutableList<String>
+        get() = ALL_VISIBILITIES
+
     /** What a category may be shown to: the activity's visibility or narrower, widest first. */
     val categoryOptions: ImmutableList<String>
         get() = Visibility.atMost(activity).toImmutableList()
 }
+
+private val ALL_VISIBILITIES: ImmutableList<String> = Visibility.all.toImmutableList()
 
 /** One detail category (a `DetailCategory` token) and who may see it (a `Visibility` value). */
 @Immutable data class CategoryVisibility(val category: String, val visibility: String)

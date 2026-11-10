@@ -13,28 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence_only
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_calories
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive_help
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_gear
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_gear_help
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_heartRate
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_lock_description
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_map
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_physiology
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_physiology_help
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_power
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_speed
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_startTime
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_startTime_help
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_help
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -65,15 +52,9 @@ fun DetailVisibilityPicker(
         )
         for (category in fields.categories) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                val label =
-                    if (category.category == DetailCategory.CADENCE && !fields.runningForm) {
-                        stringResource(Res.string.detail_category_cadence_only)
-                    } else {
-                        detailCategoryLabel(category.category)
-                    }
-                Text(label, style = MaterialTheme.typography.bodyMedium)
-                detailCategoryHelp(category.category)?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(VisibilityTexts.categoryName(fields, category.category).string(), style = MaterialTheme.typography.bodyMedium)
+                VisibilityTexts.categoryHelp(category.category)?.let {
+                    Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 VisibilityPicker(
                     category.visibility,
@@ -88,32 +69,8 @@ fun DetailVisibilityPicker(
     }
 }
 
-/** A detail category's name, by its `DetailCategory` token; an unknown token shows as it is. */
-@Composable
-fun detailCategoryLabel(category: String): String =
-    when (category) {
-        DetailCategory.START_TIME -> stringResource(Res.string.detail_category_startTime)
-        DetailCategory.HEART_RATE -> stringResource(Res.string.detail_category_heartRate)
-        DetailCategory.POWER -> stringResource(Res.string.detail_category_power)
-        DetailCategory.SPEED -> stringResource(Res.string.detail_category_speed)
-        DetailCategory.CALORIES -> stringResource(Res.string.detail_category_calories)
-        DetailCategory.MAP -> stringResource(Res.string.detail_category_map)
-        DetailCategory.PHYSIOLOGY -> stringResource(Res.string.detail_category_physiology)
-        DetailCategory.CADENCE -> stringResource(Res.string.detail_category_cadence)
-        DetailCategory.DIVE -> stringResource(Res.string.detail_category_dive)
-        DetailCategory.GEAR -> stringResource(Res.string.detail_category_gear)
-        else -> category
-    }
-
-@Composable
-private fun detailCategoryHelp(category: String): String? =
-    when (category) {
-        DetailCategory.START_TIME -> stringResource(Res.string.detail_category_startTime_help)
-        DetailCategory.PHYSIOLOGY -> stringResource(Res.string.detail_category_physiology_help)
-        DetailCategory.DIVE -> stringResource(Res.string.detail_category_dive_help)
-        DetailCategory.GEAR -> stringResource(Res.string.detail_category_gear_help)
-        else -> null
-    }
+/** A detail category's name, by its `DetailCategory` token; an unknown token shows as it is (`LabelText.detailCategory`). */
+@Composable fun detailCategoryLabel(category: String): String = LabelText.detailCategory(category).string()
 
 /**
  * On the owner's own activity, a lock and the tier of a detail [category] stored narrower than the activity ([visibility]), shown next to

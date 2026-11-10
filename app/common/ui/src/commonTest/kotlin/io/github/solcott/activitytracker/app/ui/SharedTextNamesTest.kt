@@ -7,12 +7,15 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allDrawableResources
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -67,6 +70,11 @@ class SharedTextNamesTest {
                 listOf(Gender.FEMALE, Gender.MALE, Gender.NON_BINARY).map(LabelText::gender) +
                 Visibility.all.map(LabelText::visibility) +
                 LabelText.handle("alice.test") +
+                DetailCategory.all.map(LabelText::detailCategory) +
+                DetailCategory.all.mapNotNull(VisibilityTexts::categoryHelp) +
+                VisibilityTexts.categoryName(VisibilityFields(runningForm = false), DetailCategory.CADENCE) +
+                listOfNotNull(VisibilityTexts.followersNote(Visibility.FOLLOWERS, approvesFollowers = false)) +
+                listOf(false, true).map { VisibilityTexts.lockedNote(VisibilityFields(canChoose = false, spacesUnsupported = it)) } +
                 // The string an unknown sensor falls back to.
                 (LabelText.sensorType("unknown") as AppText.Named).fallback!!
         assertAllExist(texts)

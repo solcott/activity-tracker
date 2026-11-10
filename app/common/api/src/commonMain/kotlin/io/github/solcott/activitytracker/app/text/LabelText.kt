@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.text
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 
@@ -49,6 +50,13 @@ object LabelText {
                 else -> "visibility_self"
             },
         )
+
+    /**
+     * A detail category's name, by its `DetailCategory` token. The set is open, so a token the app doesn't know shows as it is, and only a
+     * known token is looked up: a lookup with a fallback could pick up another string whose name happened to end in the token.
+     */
+    fun detailCategory(category: String): AppText =
+        if (category in DetailCategory.all) AppText.named("detail_category_$category") else AppText.written(category)
 
     /** The name of a profile detail group. */
     fun detailGroup(group: DetailGroup): AppText =

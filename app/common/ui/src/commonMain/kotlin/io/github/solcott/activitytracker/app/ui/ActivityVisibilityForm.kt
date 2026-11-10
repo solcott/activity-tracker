@@ -10,11 +10,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_help
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_unsupported
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -40,14 +39,10 @@ fun ActivityVisibilityForm(
             modifier = Modifier.fillMaxWidth(),
             enabled = canChoose,
         )
-        Note(stringResource(if (fields.canChoose) Res.string.activity_visibility_help else lockedVisibilityNote(fields)))
+        Note(if (fields.canChoose) stringResource(Res.string.activity_visibility_help) else VisibilityTexts.lockedNote(fields).string())
         DetailVisibilityPicker(fields, Modifier.fillMaxWidth(), enabled = enabled)
     }
 }
-
-/** Why [fields] can't be chosen: a session to sign in again, or a PDS without Spaces, where signing in again wouldn't help. */
-fun lockedVisibilityNote(fields: VisibilityFields): StringResource =
-    if (fields.spacesUnsupported) Res.string.activity_visibility_unsupported else Res.string.activity_visibility_sign_in_again
 
 @Composable
 private fun Note(text: String) {
