@@ -43,18 +43,23 @@ struct AppListRow<Trailing: View>: View {
             if let icon {
                 Image(icon).foregroundStyle(.tint).frame(minWidth: 28)
             }
-            // The title keeps its line; a long summary is what wraps.
-            title.foregroundStyle(.primary).layoutPriority(1)
+            // The title keeps its line; a long summary is what wraps, and only once it has all the room the title leaves: without a
+            // priority over the spacer it is offered half of that, and wraps beside empty space.
+            title.foregroundStyle(.primary).layoutPriority(2)
             Spacer(minLength: 8)
-            summary?.foregroundStyle(.secondary).multilineTextAlignment(.trailing)
-            if opens != nil {
-                Image(systemName: "chevron.forward")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            } else {
-                trailing
+            // The disclosure mark sits close to the summary, as the system's does.
+            HStack(spacing: 6) {
+                summary?.foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+                if opens != nil {
+                    Image(systemName: "chevron.forward")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                } else {
+                    trailing
+                }
             }
+            .layoutPriority(1)
         }
     }
 }
