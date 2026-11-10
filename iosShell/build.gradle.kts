@@ -14,6 +14,8 @@ kotlin {
 
     sourceSets {
         iosMain.dependencies {
+            // api, so Swift sees the presenter host's types, which IosApp's signatures name.
+            api(projects.appHost)
             // api, so Swift sees FitDecoder and the DTOs SwiftFitDecoder builds.
             api(projects.coreActivityfile)
 

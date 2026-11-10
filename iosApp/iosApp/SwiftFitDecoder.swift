@@ -35,7 +35,7 @@ typealias SessionPhysiology = ActivityFilePackage.SessionPhysiology
 
 /// The iOS FitDecoder: Kotlin/Native can't call Garmin's Swift FIT SDK, so this side translates its messages into the shared
 /// DecodedActivity DTO and DecodedActivityMapper (Kotlin) does the rest, as on every other platform.
-final class SwiftFitDecoder: KotlinBase, FitDecoder {
+nonisolated final class SwiftFitDecoder: KotlinBase, FitDecoder {
     func decode(bytes: KotlinByteArray) throws -> DecodedActivity {
         let input = Self.data(from: bytes)
 

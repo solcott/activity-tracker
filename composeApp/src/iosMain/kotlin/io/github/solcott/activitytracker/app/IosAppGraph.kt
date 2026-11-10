@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app
 
-import androidx.compose.ui.window.ComposeUIViewController
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.DependencyGraph
@@ -20,7 +19,6 @@ import platform.AuthenticationServices.ASWebAuthenticationPresentationContextPro
 import platform.AuthenticationServices.ASWebAuthenticationSession
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
-import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
 import platform.UIKit.UIWindowScene
 import platform.darwin.NSObject
@@ -41,13 +39,6 @@ private var graph: IosAppGraph? = null
 /** The app's one graph, created by the first caller: the UI, or a background upload when iOS launches the app for one. */
 internal fun appGraph(fitDecoder: FitDecoder): IosAppGraph =
     graph ?: createGraphFactory<IosAppGraph.Factory>().create(fitDecoder).also { graph = it }
-
-/** Entry point used by `iosApp/iosApp/ContentView.swift`. */
-@Suppress("FunctionName", "unused")
-fun MainViewController(fitDecoder: FitDecoder): UIViewController {
-    val appGraph = appGraph(fitDecoder)
-    return ComposeUIViewController { App(appGraph) }
-}
 
 /** OAuth via ASWebAuthenticationSession, which hands the redirect URL straight back to us. */
 @ContributesBinding(AppScope::class)

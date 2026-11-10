@@ -15,6 +15,9 @@ plugins {
     id("activitytracker.swift.export")
 }
 
+/** The Swift module the presenter host's types are generated into. */
+val presenterHostSwiftModule = "PresenterHost"
+
 // The one Kotlin binary iosApp links, exported to Swift with Swift export (dev/ios-swift-interop). It has no code: what it exports is its
 // api dependencies. Xcode's build phase runs :iosExport:embedSwiftExportForXcode, then :iosExport:checkSwiftExportStubs.
 kotlin {
@@ -51,6 +54,10 @@ kotlin {
                 // Only the name takes effect: a module exported through another's signatures gets no top-level names for its types,
                 // whatever its root package, so Swift spells them in full (SwiftFitDecoder aliases the package).
                 configure(projects.coreActivityfile) { moduleName = "ActivityFile" }
+                // The presenter host (dev/presenter-host), reached through IosApp's signatures like :core-activityfile. It can't be
+                // exported whole: it composes presenters, so its sources name Compose, which checkSwiftExportSources refuses in a
+                // module that is. Not "AppHost", which is also the name of its main class.
+                configure(projects.appHost) { moduleName = presenterHostSwiftModule }
                 // kotlinx-datetime is left alone on purpose. DecodedActivity's constructor takes a LocalDateTime, and a signature naming
                 // a hidden module's type is generated as a stub that stops the app, with no warning. Marking it EXPOSED instead would
                 // export all of it, four times the Swift of what the signatures reach.
@@ -71,6 +78,8 @@ kotlin {
 // body that stops the app, with no warning: in the contracts, the text field state and :iosShell that fails the build here.
 tasks.named<CheckSwiftExportStubs>(CHECK_SWIFT_EXPORT_STUBS_TASK_NAME) {
     failOn.add(swiftModuleName(projects.iosShell.path))
+    // No source check covers the host (above), so this is what keeps a hidden module's type out of what Swift reads there.
+    failOn.add(presenterHostSwiftModule)
     sentinelModule.set(swiftModuleName(projects.iosShell.path))
     // Not for a contract's own field or event: there, stop hiding the module or change the type (dev/ios-swift-interop).
     allowed.put(
