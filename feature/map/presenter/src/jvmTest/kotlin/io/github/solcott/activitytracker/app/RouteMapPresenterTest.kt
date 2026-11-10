@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.map.RouteMapState
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.hasLoaded
@@ -74,7 +75,10 @@ class RouteMapPresenterTest : ActivityTestBase() {
             val state = awaitUntil { it.route?.ends?.start != null }
             assertEquals(ActivityDraft.polylineOf(route)?.polyline, state.route?.polyline)
             assertEquals(
-                RouteEnds(route.first().let { it.latitude to it.longitude }, route.last().let { it.latitude to it.longitude }),
+                RouteEnds(
+                    route.first().let { GeoPoint(it.latitude, it.longitude) },
+                    route.last().let { GeoPoint(it.latitude, it.longitude) },
+                ),
                 state.route?.ends,
             )
             cancelAndIgnoreRemainingEvents()

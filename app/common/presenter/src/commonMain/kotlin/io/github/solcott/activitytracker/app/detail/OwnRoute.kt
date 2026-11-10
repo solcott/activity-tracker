@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
@@ -101,7 +102,7 @@ fun rememberOwnRoute(
             val track = route ?: return@remember null
             val ends =
                 settings?.shownEnds(track, combined)?.let { (start, end) ->
-                    RouteEnds(start.latitude to start.longitude, end.latitude to end.longitude)
+                    RouteEnds(GeoPoint(start.latitude, start.longitude), GeoPoint(end.latitude, end.longitude))
                 } ?: RouteEnds.HIDDEN
             line?.let { OwnMap(it, ends) }
         }

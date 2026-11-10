@@ -64,7 +64,10 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         detail(repos()) {
             val ends = awaitUntil { it.loaded()?.route?.ends?.start != null }.loaded()!!.route!!.ends!!
             assertEquals(
-                RouteEnds(route.first().let { it.latitude to it.longitude }, route.last().let { it.latitude to it.longitude }),
+                RouteEnds(
+                    route.first().let { GeoPoint(it.latitude, it.longitude) },
+                    route.last().let { GeoPoint(it.latitude, it.longitude) },
+                ),
                 ends,
             )
             cancelAndIgnoreRemainingEvents()
@@ -85,10 +88,10 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
             val last = route.last()
             assertEquals(
                 200.0,
-                TrackMath.distanceMeters(first.latitude, first.longitude, start!!.first, start.second),
+                TrackMath.distanceMeters(first.latitude, first.longitude, start!!.lat, start.lng),
                 absoluteTolerance = 8.0,
             )
-            assertEquals(200.0, TrackMath.distanceMeters(last.latitude, last.longitude, end!!.first, end.second), absoluteTolerance = 8.0)
+            assertEquals(200.0, TrackMath.distanceMeters(last.latitude, last.longitude, end!!.lat, end.lng), absoluteTolerance = 8.0)
             cancelAndIgnoreRemainingEvents()
         }
     }

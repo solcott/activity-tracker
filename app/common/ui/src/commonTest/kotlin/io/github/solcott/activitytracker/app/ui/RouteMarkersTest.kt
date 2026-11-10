@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
 import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -37,7 +38,7 @@ class RouteMarkersTest {
     @Test
     fun givenEndsReplaceTheLinesOwn() {
         val line = RouteMarkers.of(listOf(listOf(0.0 to 0.0, 0.0 to 1.0), listOf(0.0 to 2.0, 0.0 to 3.0)))!!
-        val ends = RouteEnds(0.0 to 0.2, 0.0 to 2.8)
+        val ends = RouteEnds(GeoPoint(0.0, 0.2), GeoPoint(0.0, 2.8))
         assertEquals(RouteMarkers(0.0 to 0.2, 0.0 to 2.8, line.breaks), line.shownAt(ends))
         assertEquals(RouteMarkers(null, null, line.breaks), line.shownAt(RouteEnds.HIDDEN))
         assertEquals(line, line.shownAt(null))

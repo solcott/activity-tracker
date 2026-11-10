@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.location
 
+import androidx.compose.runtime.Immutable
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -8,7 +9,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /** A position in degrees. */
-data class GeoPoint(val lat: Double, val lng: Double)
+@Immutable data class GeoPoint(val lat: Double, val lng: Double)
 
 /** A track sample: a position in degrees, [t], seconds on the track's clock, and [altM], its altitude in meters when known. */
 data class TimedPoint(val lat: Double, val lng: Double, val t: Double, val altM: Double? = null)
