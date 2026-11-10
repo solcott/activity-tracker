@@ -225,13 +225,14 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `core/data` | Room 3 cache + outbox, repositories, Metro bindings |
 | `core/location` | GPS trackers per platform, recording engine, polyline/GPX |
 | `core/activityfile` | FIT, GPX, TCX, UDDF, Subsurface and Shearwater readers and writers, per-platform FIT decoders |
+| `core/textfield` | The text field state a screen's `State` holds: Compose's own class everywhere but iOS, where Swift can read and set it |
 | `feature/<name>/{api,presenter,ui}` | One feature each: its Circuit contracts (`Screen`, `State`, `Event`), presenters (Compose runtime, no UI) and UIs |
 | `app/common/{api,presenter,ui}` | What several features share: contracts, presenter helpers, domain widgets |
 | `ui/designsystem`, `ui/resources` | Adaptive components, theme and charts; every string and drawable |
 | `app/fixtures` | Sample states for every screen, used by UI tests, previews and screenshot tests |
 | `composeApp` | The app shell: `App`, navigation, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
-| `iosShell`, `iosExport` | The Kotlin entry points `iosApp`'s Swift calls, and the Swift export build that hands them to Xcode |
+| `iosShell`, `iosExport` | The Kotlin entry points `iosApp`'s Swift calls, and the Swift export build that hands them, every feature's contracts and the text field state to Xcode |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, spaces syncer, XRPC queries, segment matcher, did:web |
 | `server/segment-importer` | CLI that turns OSM and agency trails, downhill pistes and ski lifts into candidate segments and publishes ridden ones, and publishes OSM dive sites |

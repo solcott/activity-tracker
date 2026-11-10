@@ -94,6 +94,10 @@ gradlePlugin {
             id = "activitytracker.swift.contract"
             implementationClass = "SwiftExportContractConventionPlugin"
         }
+        register("swiftExport") {
+            id = "activitytracker.swift.export"
+            implementationClass = "SwiftExportConventionPlugin"
+        }
         register("nativeOAuth") {
             id = "activitytracker.native.oauth"
             implementationClass = "NativeOAuthConventionPlugin"

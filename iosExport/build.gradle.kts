@@ -11,18 +11,27 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("activitytracker.quality")
+    // checkSwiftExportStubs, and the list of contract modules this build exports.
+    id("activitytracker.swift.export")
 }
 
 // The one Kotlin binary iosApp links, exported to Swift with Swift export (dev/ios-swift-interop). It has no code: what it exports is its
-// api dependency. Xcode's build phase runs :iosExport:embedSwiftExportForXcode.
+// api dependencies. Xcode's build phase runs :iosExport:embedSwiftExportForXcode, then :iosExport:checkSwiftExportStubs.
 kotlin {
     iosArm64()
     iosSimulatorArm64()
 
-    // :iosShell alone. A module named here is exported whole; one :iosShell reaches (:core-activityfile, kotlinx-datetime) comes through
-    // only as far as :iosShell's signatures name its types, which keeps the generated Swift small and is why :iosShell is a separate
-    // module.
-    sourceSets { iosMain.dependencies { api(projects.iosShell) } }
+    // A module named here is exported whole; one it reaches (:core-data, :core-activityfile, kotlinx-datetime) comes through only as far
+    // as the named modules' signatures name its types, which keeps the generated Swift small and is why :iosShell is a separate module.
+    //
+    // Named: :iosShell, and every screen contract (swiftContracts.modules: the text field state, :app-common-api and each feature's API
+    // module, read from the build's module list, so a new feature needs no line here).
+    sourceSets {
+        iosMain.dependencies {
+            api(projects.iosShell)
+            swiftContracts.modules.forEach { api(project(it.path)) }
+        }
+    }
 
     export {
         swift {
@@ -34,6 +43,11 @@ kotlin {
                     moduleName = "IosShell"
                     rootPackage = "io.github.solcott.activitytracker.ios"
                 }
+                // Each contract module under a name from its path (:feature-login-api is FeatureLoginApi), which checkSwiftExportStubs
+                // finds its generated Swift by. No root package: Swift spells a contract's types in full and aliases what it uses.
+                swiftContracts.modules.forEach { contract ->
+                    configure(dependencies.project(contract.path)) { moduleName = contract.swiftName }
+                }
                 // Only the name takes effect: a module exported through another's signatures gets no top-level names for its types,
                 // whatever its root package, so Swift spells them in full (SwiftFitDecoder aliases the package).
                 configure(projects.coreActivityfile) { moduleName = "ActivityFile" }
@@ -41,11 +55,27 @@ kotlin {
                 // a hidden module's type is generated as a stub that stops the app, with no warning. Marking it EXPOSED instead would
                 // export all of it, four times the Swift of what the signatures reach.
 
-                // No signature Swift calls names a type of these: :core-activityfile's other api dependency, and the serializers
-                // kotlinx-datetime's classes carry.
-                configure(projects.coreLocation, SwiftExportVisibility.HIDDEN)
+                // Hidden only when no contract signature names one of its types: a hidden module's type in a signature makes that
+                // declaration a stub. :core-location (GeoPoint, RecordingState) and kotlinx-datetime are in states, so they stay
+                // unconfigured, as do Ktor, Room and the rest of what :core-data's signatures reach.
                 configure("org.jetbrains.kotlinx:kotlinx-serialization-core", SwiftExportVisibility.HIDDEN)
+                // Exported whole, where "as far as named" brings only the ByteString class: Swift builds one from Data with the module's
+                // NSData.toByteString(), and has no other way to (Kotlin's ByteArray initialiser is itself a stub). About 900 lines.
+                configure("org.jetbrains.kotlinx:kotlinx-io-bytestring", SwiftExportVisibility.EXPOSED)
             }
         }
     }
+}
+
+// Xcode's build phase runs this after the export. A declaration whose signature names a type from a hidden module is generated with a
+// body that stops the app, with no warning: in the contracts, the text field state and :iosShell that fails the build here.
+tasks.named<CheckSwiftExportStubs>(CHECK_SWIFT_EXPORT_STUBS_TASK_NAME) {
+    failOn.add(swiftModuleName(projects.iosShell.path))
+    sentinelModule.set(swiftModuleName(projects.iosShell.path))
+    // Not for a contract's own field or event: there, stop hiding the module or change the type (dev/ios-swift-interop).
+    allowed.put(
+        "serializer",
+        "kotlinx-serialization's generated accessor on every @Serializable screen, typed with the hidden serialization-core's " +
+            "KSerializer. Only Circuit's Kotlin side restores a screen; Swift has no use for a serializer.",
+    )
 }
