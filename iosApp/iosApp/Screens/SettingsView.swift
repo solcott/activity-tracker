@@ -58,6 +58,23 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(Text(.settingsTitle))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { if layout.pane.twoPane { titleOverList } }
+    }
+
+    /// Beside a page the bar spans both columns, and its title, centred in the window, would sit over the page. So there the bar's
+    /// centre is left empty and the title goes next to the back button, over the list it names.
+    @ToolbarContentBuilder private var titleOverList: some ToolbarContent {
+        ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }
+        if #available(iOS 26.0, *) {
+            // Text, not a button: without the glass a bar item gets.
+            ToolbarItem(placement: .topBarLeading) { leadingTitle }.sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .topBarLeading) { leadingTitle }
+        }
+    }
+
+    private var leadingTitle: some View {
+        Text(.settingsTitle).font(.headline).fixedSize().accessibilityAddTraits(.isHeader)
     }
 
     /// The units choice, saved as soon as it changes, with what it means under it.
