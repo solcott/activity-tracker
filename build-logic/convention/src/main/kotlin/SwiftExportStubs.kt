@@ -208,17 +208,36 @@ class SwiftExportConventionPlugin : Plugin<Project> {
                 failOn.addAll(contracts.map { it.swiftName })
                 report.set(layout.buildDirectory.file("reports/swift-export/stubs.txt"))
             }
-            // The native views' strings against the shared UI's: two files, read on any machine, so this one is in `check`.
+            // The native UI's strings, icons and sport images, generated from the shared UI's sources (dev/ios-native-resources). Both
+            // tasks read and write text only, so the check is in `check` on every machine.
             val root = isolated.rootProject.projectDirectory
-            val iosStrings =
-                tasks.register<CheckIosStrings>(CHECK_IOS_STRINGS_TASK_NAME) {
+            fun IosResourcesTask.locations() {
+                sharedStrings.set(root.file("ui/resources/src/commonMain/composeResources/values/strings.xml"))
+                appIconSource.set(
+                    root.file("ui/designsystem/src/commonMain/kotlin/io/github/solcott/activitytracker/app/ui/adaptive/AppIcon.kt"),
+                )
+                drawables.from(root.dir("ui/resources/src/commonMain/composeResources/drawable"))
+                catalog.set(root.file("iosApp/iosApp/Localizable.xcstrings"))
+                appIconSwift.set(root.file("iosApp/iosApp/Design/Generated/AppIcon.swift"))
+                drawableCatalog.set(root.dir("iosApp/iosApp/Generated/Drawables.xcassets"))
+            }
+            tasks.register<GenerateIosResources>(GENERATE_IOS_RESOURCES_TASK_NAME) {
+                group = "build"
+                description = "Writes the iOS app's String Catalog, AppIcon and sport images from the shared UI's sources."
+                locations()
+            }
+            val iosResources =
+                tasks.register<CheckIosResources>(CHECK_IOS_RESOURCES_TASK_NAME) {
                     group = JavaBasePlugin.VERIFICATION_GROUP
-                    description = "Fails when a string of the iOS app's String Catalog differs from the shared string of the same name."
-                    sharedStrings.set(root.file("ui/resources/src/commonMain/composeResources/values/strings.xml"))
-                    catalog.set(root.file("iosApp/iosApp/Localizable.xcstrings"))
-                    marker.set(layout.buildDirectory.file("iosStrings/check.txt"))
+                    description = "Fails when the iOS app's generated resources differ from what the shared UI's sources produce."
+                    locations()
+                    committed.from(catalog, appIconSwift, drawableCatalog)
+                    marker.set(layout.buildDirectory.file("iosResources/check.txt"))
+                    mustRunAfter(GENERATE_IOS_RESOURCES_TASK_NAME)
                 }
-            plugins.withType(LifecycleBasePlugin::class.java) { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(iosStrings) } }
+            plugins.withType(LifecycleBasePlugin::class.java) {
+                tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(iosResources) }
+            }
         }
     }
 }
