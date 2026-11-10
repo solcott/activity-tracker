@@ -79,12 +79,12 @@ class SettingsListDetailDecorationTest {
     /** What a laid-out stack shows: the stack [seen] by the delegate, and text that [shows] or [hides]. */
     private class Laid(val seen: List<Screen>, val shows: (String) -> Unit, val hides: (String) -> Unit)
 
-    private fun layOut(width: Dp, args: NavStackList<Arg>, check: Laid.() -> Unit) = runComposeUiTest {
+    private fun layOut(width: Dp, args: NavStackList<Arg>, height: Dp = 800.dp, check: Laid.() -> Unit) = runComposeUiTest {
         val delegate = TopOnly()
         val circuit = Circuit.Builder().setOnUnavailableContent { screen, _ -> Text("shown $screen") }.build()
         setContent {
             CircuitCompositionLocals(circuit) {
-                Box(Modifier.requiredSize(width, 800.dp)) {
+                Box(Modifier.requiredSize(width, height)) {
                     SettingsListDetailDecoration(delegate).DecoratedContent(args, Navigator.NoOp, Modifier) { Record(it) }
                 }
             }
@@ -105,6 +105,16 @@ class SettingsListDetailDecorationTest {
             shows("record $SettingsScreen")
             shows("shown ActivityDefaultsScreen")
             shows("marks ActivityDefaultsScreen")
+        }
+
+    // ui/window-layout "A short window is never laid out as a wide one": a phone on its side.
+    @Test
+    fun wideButShortShowsOnePageAtATime() =
+        layOut(wide, stack(PrivacyZonesScreen, SettingsScreen, FeedScreen), height = 400.dp) {
+            assertEquals(listOf(PrivacyZonesScreen, SettingsScreen, FeedScreen), seen, "the delegate gets the whole stack")
+            shows("record $PrivacyZonesScreen")
+            hides("pane root")
+            hides("record $SettingsScreen")
         }
 
     @Test

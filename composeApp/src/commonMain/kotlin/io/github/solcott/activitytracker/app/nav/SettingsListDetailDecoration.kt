@@ -75,7 +75,7 @@ internal class SettingsListDetailDecoration(private val delegate: NavDecoration)
     ) {
         val movable = remember { MovableRecords(content) }.also { it.content = content }
         BoxWithConstraints(modifier) {
-            val layout = SettingsLayout.of(args.toList(), wide = WindowWidth.of(maxWidth) == WindowWidth.Expanded)
+            val layout = SettingsLayout.of(args.toList(), wide = WindowWidth.of(maxWidth, maxHeight) == WindowWidth.Expanded)
             if (layout == null) {
                 delegate.DecoratedContent(args, navigator, Modifier.fillMaxSize()) { movable.of(it)(it) }
             } else {

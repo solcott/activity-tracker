@@ -1,12 +1,16 @@
 package io.github.solcott.activitytracker.app.ui.preview
 
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitContent
 import com.slack.circuit.subcircuit.SubCircuitOuterEvent
 import com.slack.circuit.subcircuit.SubScreen
@@ -68,6 +72,26 @@ class AppPreviewUiTest {
         }
         // Expanded adds the side pane's own list beside the cards.
         assertEquals(listsAt(WindowWidth.Compact) + 1, listsAt(WindowWidth.Expanded))
+    }
+
+    // ui/window-layout "A short window is never laid out as a wide one": a phone on its side gets no side pane.
+    @Test
+    fun aShortWideWindowGetsTheActivityPagesMediumLayout() {
+        val lists = SemanticsMatcher.keyIsDefined(SemanticsProperties.CollectionInfo)
+        val state = ActivityDetailSamples.all.getValue("loaded")
+        fun listsAt(width: WindowWidth, height: Dp): Int {
+            var count = 0
+            runComposeUiTest {
+                setContent {
+                    AppPreview(Modifier.requiredHeight(height), subUis = SessionPreviewSubUis, width = width) { ActivityDetailUi(state) }
+                }
+                count = onAllNodes(lists).fetchSemanticsNodes().size
+            }
+            return count
+        }
+        val medium = listsAt(WindowWidth.Medium, 700.dp)
+        assertEquals(medium, listsAt(WindowWidth.Expanded, 400.dp), "no side pane in 400dp of height")
+        assertEquals(medium + 1, listsAt(WindowWidth.Expanded, 700.dp), "the side pane's list, with room")
     }
 
     @Test
