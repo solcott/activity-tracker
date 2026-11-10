@@ -30,6 +30,7 @@
                     AppListRow(Text(verbatim: "Units"), summary: Text(verbatim: "Imperial"), icon: .settings, opens: {})
                     AppListRow(Text(verbatim: "Hide from leaderboards")) { Toggle(isOn: .constant(true)) { EmptyView() }.labelsHidden() }
                     AppListRow(Text(verbatim: "Version"), summary: Text(verbatim: "1.0"))
+                    AppListRow(Text(verbatim: "Privacy zones"), summary: Text(verbatim: "2 zones"), selected: true, opens: {})
                 } header: {
                     Text(verbatim: "Settings")
                 }
