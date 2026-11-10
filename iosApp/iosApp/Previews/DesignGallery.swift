@@ -50,6 +50,18 @@
             .environment(\.inPane, true)
         }
 
+        /// Pictures before they load, or with none: avatars with their initials, at two sizes, and a thumbnail's fill.
+        static var images: some View {
+            HStack(spacing: 16) {
+                Avatar(url: nil, name: "Bob")
+                Avatar(url: nil, name: "carol")
+                Avatar(url: nil, name: "Dave", size: 64)
+                Thumbnail(url: nil)
+                Thumbnail(url: nil, size: 64)
+            }
+            .padding(24)
+        }
+
         static var cards: some View {
             VStack(spacing: 16) {
                 AppCard {
@@ -152,6 +164,7 @@
     #Preview("Fields") { DesignGallery.fields }
     #Preview("Rows") { DesignGallery.rows }
     #Preview("Page bar") { DesignGallery.pageBar }
+    #Preview("Images") { DesignGallery.images }
     #Preview("Cards") { DesignGallery.cards }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }

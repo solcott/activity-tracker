@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000013 /* FITSwiftSDK in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000012 /* FITSwiftSDK */; };
 		A10000000000000000000021 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000020 /* SnapshotTesting */; };
+		A10000000000000000000024 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000023 /* Nuke */; };
+		A10000000000000000000026 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000025 /* NukeUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +55,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000013 /* FITSwiftSDK in Frameworks */,
+				A10000000000000000000024 /* Nuke in Frameworks */,
+				A10000000000000000000026 /* NukeUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,6 +111,8 @@
 			name = iosApp;
 			packageProductDependencies = (
 				A10000000000000000000012 /* FITSwiftSDK */,
+				A10000000000000000000023 /* Nuke */,
+				A10000000000000000000025 /* NukeUI */,
 			);
 			productName = iosApp;
 			productReference = A10000000000000000000001 /* ActivityTracker.app */;
@@ -163,6 +169,7 @@
 			packageReferences = (
 				A10000000000000000000011 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */,
 				A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+				A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000005 /* Products */;
@@ -448,6 +455,14 @@
 				version = 1.19.7;
 			};
 		};
+		A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Nuke.git";
+			requirement = {
+				kind = exactVersion;
+				version = 13.2.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -460,6 +475,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
 			productName = SnapshotTesting;
+		};
+		A10000000000000000000023 /* Nuke */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = Nuke;
+		};
+		A10000000000000000000025 /* NukeUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = NukeUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
