@@ -62,6 +62,28 @@
             .environment(\.inPane, true)
         }
 
+        /// A deeper page's header in a column: a back button at its leading end, alone and with actions at the trailing end.
+        static var pageBarBack: some View {
+            VStack(spacing: 0) {
+                List { ForEach(1..<4) { AppListRow(Text(verbatim: "Row \($0)")) } }
+                    .pageTitle(Text(verbatim: "Leave Activity Tracker"), back: {})
+                List { ForEach(1..<4) { AppListRow(Text(verbatim: "Row \($0)")) } }
+                    .pageTitle(Text(verbatim: "Sport zones"), back: {}) {
+                        AppIconButton(.add, label: .gearAdd) {}
+                    }
+            }
+            .environment(\.inPane, true)
+            .environment(\.paneRoot, false)
+        }
+
+        /// A deeper page that can't go back right now, as a running leave: no back button.
+        static var pageBarNoBack: some View {
+            List { ForEach(1..<4) { AppListRow(Text(verbatim: "Row \($0)")) } }
+                .pageTitle(Text(verbatim: "Leave Activity Tracker"), back: {}, canGoBack: false)
+                .environment(\.inPane, true)
+                .environment(\.paneRoot, false)
+        }
+
         /// Pictures before they load, or with none: avatars with their initials, at two sizes, and a thumbnail's fill.
         static var images: some View {
             HStack(spacing: 16) {
@@ -222,6 +244,8 @@
     #Preview("Rows") { DesignGallery.rows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }
+    #Preview("Page bar with back") { DesignGallery.pageBarBack }
+    #Preview("Page bar that can't go back") { DesignGallery.pageBarNoBack }
     #Preview("Images") { DesignGallery.images }
     #Preview("Item rows") { DesignGallery.itemRows }
     #Preview("Paged list") {
