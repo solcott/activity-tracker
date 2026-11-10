@@ -138,9 +138,18 @@ Each phase leaves a shippable app.
    `TextSource` over the catalog. The Swift design system (`iosApp/iosApp/Design`), previews and snapshot tests from `:app-fixtures`,
    which debug builds export. Left for phase 4: the other composables that build text (dates and times, the dive and stat tables),
    each moved onto `AppText` with the feature that shows it.
-4. **Features, one change each**, cheapest infrastructure first: lists and forms (settings with a split view on iPad, profile lists,
-   gear, invites, moderation, uploads, search, post pages); the feed (card, comments, posts, the sub-screens); maps; charts; record and
-   import.
+4. **Features, one change each**, cheapest infrastructure first: lists and forms (settings, profile lists, gear, invites, moderation,
+   uploads, search, post pages); the feed (card, comments, posts, the sub-screens); maps; charts; record and import.
+   - **Settings' list** (`ios-native-settings`). `SettingsView` is the first native screen in a tab's stack: the system's bar and back
+     button, a grouped `List` of `AppListRow`s, row summaries and the units note chosen in Kotlin (`SettingsTexts`,
+     `LabelText.visibility`). In a window at least 700 points wide and 500 tall (every iPad at full screen, either way up; never an iPhone) the list shows
+     beside its page again, so
+     ui/settings-layout's iOS exception is gone. The presenter host decides it: a UI reports its stack's size, and `TabStack.shown`
+     carries a `SettingsSplit` (which record is Settings, which page shows beside it, which row is marked) and the shortened list of
+     records to push; the page shown until a row is chosen is a record beside the stack (`HostRecord.paneDefault`), never on it. The
+     Swift side is two plain columns in Settings' destination (`SettingsColumns`). Settings' pages are still the shared UI's, in the
+     second column when wide. Swift reads a contract's immutable collections through `elements(as:)`. Left for later changes: each
+     settings page's native view, and with the first of them how a native page gets a bar of its own in the column.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -432,6 +441,52 @@ fallback applies.
   swift-snapshot-testing 1.19.7 recorded `LoginView` for the failed sample, light and dark, and a second run compared equal. Its
   default records a missing reference and fails that run, and never rewrites one that exists.
 
+### Phase 4 probes (`ios-native-settings`, 2026-11-10)
+
+Asked with throwaway code before Settings' design was built on the answers: a scratch root view in place of `RootView`, on the iPad
+Pro 13-inch simulators with iOS 26.0 and 18.4 and no session, driven by launch arguments and read from screenshots (the simulator
+tool had no access to an iPad, so nothing was tapped or swiped).
+
+**A `NavigationStack` can't go inside another's destination.** A pushed destination that hid the outer bar and drew an `HStack` of two
+`NavigationStack`s, one per column, never showed, on either version: the outer path held the element, the destination's toolbar
+preferences reached the outer bar (its title went), and the root stayed on screen. One `NavigationStack` in a column beside a plain
+list failed the same way.
+
+**`NavigationSplitView` in a destination draws, and decides too much.** On iOS 26.0 its sidebar is a floating panel with a bar and a
+sidebar button of its own under the outer bar's back button. On iOS 18.4, upright, it shows only the detail until that button is
+tapped. It owns which column shows and when it collapses, which the Kotlin stack must own.
+
+**Two plain columns under the outer bar work.** An `HStack` of a `List` (360 points), a divider and a UIKit view controller that fills
+the rest pushes and draws on both versions. The back button is the outer stack's, over the list. The inline title sits centred under
+the tabs, which share the bar on an iPad, above both columns (`.toolbarTitleDisplayMode(.inlineLarge)` doesn't move it). The view
+controller's top safe area ends under that bar (140 points on iOS 26.0, 128 on 18.4), so a page that draws its own bar there clears it.
+A path set as the stack's first value isn't pushed; one set after the view appears is, which is how the Kotlin stack drives it.
+
+**Immutable collections from Swift**, read from the settings pages' samples through the exported Kotlin `Collection`'s iterator:
+
+| Element | What Swift gets |
+|---|---|
+| `String` | A Swift `String` |
+| `Int` | `Int32` (`as? Int` is nil) |
+| A class of a contract module, which is exported whole | The class: `ThresholdHistorySection`, and its own lists read the same way |
+| A class of `:core-lexicon` named only as the collection's type argument (`PrivacyZone`) | An opaque `_KotlinExistential`: the export erases the argument, so nothing names the class and Swift has no type for it. Once any exported signature named it, the same element cast to it |
+| A Kotlin enum (`ZoneKind`), even with its Swift type exported | An opaque `_KotlinExistential`, never the enum |
+| A null list | `nil` |
+| An empty list | No elements |
+
+Two more things met on the way, both about a plain `List` in a contract:
+
+- A `List<T>` property whose getter returns the immutable list itself stops the app in the generated getter
+  (`-[_KotlinExistential count]: unrecognized selector`): a persistent list reaches Swift as an object of its own exported class, not as
+  an array. Returning a copy (`toList()`) gives a typed Swift array, which also names `T`.
+- A `List` of a Kotlin enum stops the app in the generated getter (`Could not cast … _KotlinExistential … to …ZoneKind`). The flows
+  finding holds for collection elements: an enum is converted only as a property's own value.
+
+`ContentState<ImmutableList<T>>.data`, typed `Any?`, arrives as a Swift array and casts to `[T]`.
+
+**Not probed:** whether an iPad turns the app to landscape (it declared portrait only then). The change went on to allow every
+orientation, and the iPhone was turned in its last walk.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -490,6 +545,42 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Xcode's symbol for a plural names the quantity (`.likeCount(quantity: 3, "3")`), and for an array item its index
   (`.segmentRankOrdinals2`).
 
+### Phase 4 findings (settings, `ios-native-settings`)
+
+- **A screen pushed natively stayed blank, because of how `Following` followed its flow.** It hung the task that follows the flow on
+  its content, and content that draws nothing for the first value (a screen before its presenter's first state) is no view at all, so
+  the task never started and the state never arrived. Sign-in never met it: its presenter has always published by the time its view
+  is made. `Following` now follows from a `ZStack` around its content. Found by walking the app, not by a test: nothing in the test
+  target can make a Kotlin flow that changes.
+- **The layout that was proposed didn't survive its probe** (a `NavigationStack` per column; see the probes). What was built is
+  simpler for it: no navigation container in Settings' destination, the stack's own bar and back, and the list as one view narrow and
+  wide, which keeps its scroll position across the width without any code for it.
+- **Kotlin decides, Swift draws, again.** Whether a stack ends in "Settings and only settings pages" depends on an interface of each
+  screen, which Swift can't see without reading screen objects. So the host reports the layout as data (`shown.split`,
+  `shown.pushed`), from the one rule the Compose decoration now asks too (`settingsPagesOnTop`), and the only thing Swift reports is
+  its size. Which record gets the two-column destination is also Kotlin's fact (`paneDefault`), not a screen name in Swift.
+- **Portrait only was the Xcode template's setting, not a decision,** and it had been read as a constraint. The app now turns, and
+  iOS has its own rule for the split, a size in points (`settingsSplitFits`: 700 wide, 500 tall): 840, the other platforms' dp
+  number, told iPads apart by model for six points, and width alone would split every iPhone on its side.
+- **A record can live beside a stack.** Activity defaults beside the list isn't "a page opened", so it can't be on the stack. The
+  host keeps its retained state with its Settings record and runs it only while the UI reports it visible, which `ScreenView`
+  already did for every record it draws.
+- **A fallback page works in a column unchanged**, with two small facts fed to it: it must not hide the navigation bar, which there
+  is the stack's and not its own (`ScreenView(inPane:)`), and its Compose bar hides its back button through `LocalIsPaneRoot`, read
+  from `HostRecord.paneRoot`, since one cached view controller draws the page both beside the list and alone.
+- **Equality of screens stays in Kotlin.** The list marks a row by asking `SettingsPane.marks(page)`, so the blocked and muted lists,
+  two values of one class, are told apart by Kotlin's `equals`. Swift builds the screens it sends in `SettingsEvent.Open`, which is
+  also what links the gear and profile contract modules into the app.
+- **A Kotlin object in SwiftUI's environment needs a Sendable wrapper** (`SettingsLayout` over `SettingsPane`), as `Stats` needed
+  for the unit system.
+- **Snapshot references are the same on any iPhone of the recorded OS**: recorded on an iPhone 17 simulator and compared with the
+  ones recorded earlier on an iPhone 17 Pro. A view can be snapshotted at an iPad's size (1,032 points wide) on an iPhone simulator.
+- **A row's summary wraps under its title's priority.** A long summary ("1 zone, start and end hidden") takes two lines beside a
+  title that keeps its one. In a column much narrower than any real one the summary collapses to a letter a line: the rows haven't
+  been through a Dynamic Type audit.
+- **Taps sent to the simulator right after launch arrive late.** Two were delivered seconds later to a different screen and opened an
+  activity's menu. Nothing was chosen from it; the walk went one action at a time after that.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -501,8 +592,22 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
-- Settings shows one page at a time on iPad (ui/settings-layout says so) until it is drawn natively with a split view: the first
-  screen of phase 4.
+- Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side. Seen
+  there and left: the stack's "Settings" title is centred in the window, so it sits over the page column beside the divider.
+  Still to see: a window resized across 700 points with the list scrolled, a profile opened from the blocked list, and all of it
+  on iOS 18.
+- The app turns now (portrait and both landscapes on iPhone, all four on iPad), and no screen was laid out for a phone on its
+  side: each lays out by the width it gets. Only the feed, the profile, Settings and the Account page were looked at turned. Record,
+  the map screens and the charts want a look on a phone on its side when their features move.
+- A native settings page will need a bar of its own in the detail column, which today only fallback pages fill (they draw their
+  own). A column header in the design system, or `NavigationSplitView` after all: decide with the first native page.
+- A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List` (`ZoneSummary.kinds`,
+  `SportZonesState.kinds`). The contract has to offer it another way; decide with the first native view that needs one.
+- A class of `:core-data` or `:core-lexicon` that appears only as an immutable collection's element (`PrivacyZone`, `Zone`) has no
+  Swift type. Something exported has to name it before a native view can read the list.
+- `ThresholdHistorySection.shownRows` returns its immutable `rows` as a `List` when all are shown, which stops the app in the
+  generated getter when Swift reads it. Give it a copy before threshold history is drawn natively.
+- `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
   the browser is open was seen only behind the system's prompt.
