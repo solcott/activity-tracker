@@ -158,6 +158,15 @@ Each phase leaves a shippable app.
      the Compose pages ask too. A choice among an enum's values reaches Swift as a list of contract objects holding the value
      (`GroupOption`). Left for later changes: the other settings pages (zones and threshold history with charts, privacy zones with a
      map, Account, Leave), and a back button in `PageBar` with the first native page that is deeper than the pane's first.
+   - **The settings lists** (`ios-native-settings-lists`). Gear and the Blocked and Muted accounts lists are inset grouped lists
+     (`GearListView`, `BlockListView`), the first native pages with pictures and the first loaded page by page. The design system gained
+     `RemoteImage`, `Avatar` and `Thumbnail` over Nuke and NukeUI (Swift Package Manager, 13.2.3), which answer a `heldphoto:` URL from
+     the session's held bytes (`IosApp.heldPhoto`); `PagedList` over a `PagedState`, laid out from `PagedShown` in `:app-common-api`, the
+     rule the shared `pagedRefreshStatus` and `pagedFooter` now ask too, which asks for the next page once the last item is on screen;
+     `AppItemRow` for a thing with a picture and a trailing control; and actions beside a page's title (`pageTitle(_:actions:)`). What the
+     pages say and decide is Kotlin's (`GearTexts`, which `GearLabels.kt` resolves for every gear screen, `GearListTexts`,
+     `BlockListTexts`, `avatarInitial`, getters on the states). Left for later changes: the other gear screens, profiles and the
+     other paged lists, which can build on `PagedList` and `AppItemRow`.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -515,6 +524,28 @@ on iPad Pro 13-inch simulators with iOS 26.0 and 18.4 and no session, read from 
 
 The probe pages fit an iPad's height, so content scrolling under the header was first seen in the walk.
 
+### Phase 4 probes (settings lists, `ios-native-settings-lists`, 2026-11-10)
+
+The Gear list and the blocked and muted lists bring the first pictures from the network and the first list loaded page by page. Asked
+with throwaway Swift tests on the iPhone 17 simulator (iOS 26.0) and by reading the generated Swift, before the pages were designed:
+
+- **Nuke 13.2.3 by Swift Package Manager** (swift-tools 6.0, iOS 15 minimum, no dependencies of its own) resolves and builds in the
+  app target under Swift 6 with main-actor default isolation, with no warning from it. `ImagePipeline.shared.image(for:
+  ImageRequest(id:data:))` decoded an image from bytes a closure handed it, which is how a `heldphoto:` URL can be answered.
+- **These pages do meet held photos.** A gear item that isn't Public shows its photo as `heldphoto://blob/<cid>` (`GearRepository`),
+  which the shared UI's Coil loader answers from the session's `HeldPhotos`. A Kotlin entry returning the held bytes as a `ByteString?`
+  exports with no stub, `toNSData` (kotlinx-io-bytestring, exported whole) gives Swift the bytes, which round-tripped equal, and signed
+  out it returns nil.
+- **A `PagedState` reads in Swift.** `items` is a Swift array whose elements cast to the item's contract class (`BlockListAccount`,
+  two of two in every sample that has items; the library's list is a plain one, so the generated getter's array is safe); `refresh`
+  and `append` are `LoadStatus` with `sealedType()`; `canLoadMore` and `endReached` are typed. `hasAnswer` is the library's extension
+  and isn't exported, like `ContentState`'s: the rule of what a paged list shows has to live in an exported module.
+- **`ProfileViewBasic`, `Did` and `Handle` are classes Swift reads** (`did.value`, `handle.value`, `displayName`, `avatar`), because a
+  contract's signature names them. `shownName`, an extension property of `:app-common-api`, exports as a static function,
+  `AppPackage.getShownName(_:)`. An `ImmutableSet<Did>` reads through `elements(as: Did.self)` as Swift `Did`s.
+
+Neither page needs far more than its share (both use images; only the blocked list pages), so they went in one change.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -640,6 +671,31 @@ What building the host and the shell on Swift export showed, beyond the probes:
   ("The following FqNames can't be derived from DirtyData.dirtyLookupSymbols"), on the JVM and on the Android target. Rerunning the
   task (`--rerun`) compiles it; nothing in the code was wrong.
 
+### Phase 4 findings (settings lists, `ios-native-settings-lists`)
+
+- **A rule in a library extension moves into an exported module, again.** What a paged list shows around its items rested on
+  `hasAnswer`, which isn't exported; `PagedShown` (`:app-common-api`) now decides it for both UIs, as `ContentShown` does for loaded
+  content, and `pagedRefreshStatus` and `pagedFooter` ask it with their test tags unchanged (all 975 Android screenshots compared equal).
+- **Load more needs the last item's own visibility, not "the end appeared".** `PagedList` keeps the ids of the rows on screen and asks
+  for more while the last loaded item's id is among them and the state can load more. A flag set when the last row appeared would stay
+  set after a page lands, with the old last row still on screen, and ask again at once. `PagedListTests` draw a list in a window: two
+  items with more to come ask once, the last page asks nothing, a hundred items ask nothing until scrolled.
+- **A set the view only asks about stays in Kotlin.** `BlockListState.isRemoving(account)` answers whether an account's change is in
+  flight, so neither UI reads `removing`; Swift can read an `ImmutableSet<Did>` (the probe), but has no need to.
+- **The glass behind a bar's buttons differs a little between runs on iOS 26.** The gear list alone, with Add and More in the stack's
+  bar, failed a comparison once on 610 pixels off by at most 3 levels, all inside the buttons' glass capsule. Its snapshots allow one
+  pixel in a thousand to differ (`Snapshots.barButtons`); every other snapshot still compares every pixel.
+- **A list's totals keep their line.** The first recording wrapped "No activities yet" and "14 days · 41,000 m" into two lines beside
+  the item's name; the shared row measures the total first. `AppItemRow`'s summary is fixed to its one line and the title column takes
+  what is left.
+- **Status rows outside a section sit at a section's spacing.** A refresh's failure over the gear list, and a next page's failure under
+  the accounts, read as page-level notices rather than as part of the card; kept, since the shared UI also puts them outside its rows.
+- **The profile menu's Mute reads Mute until the profile has learned it is muted.** Seen on the walk: after muting from a profile the
+  menu kept offering Mute for a few seconds, while Muted accounts already listed the account. That is the shared profile page, not these
+  lists.
+- **`check`'s detekt counts an object's functions.** `LabelText` was at its limit, so the avatar's initial is `avatarInitial` beside
+  `shownName` in `ShownName.kt`; Swift calls it as `AppPackage.avatarInitial(name:)`.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -651,9 +707,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
-- Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side.
-  Still to see: a window resized across 700 points with the list scrolled, a profile opened from the blocked list, and all of it
-  on iOS 18.
+- Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side, and a
+  profile opened from the blocked list beside it takes the whole window and comes back to the list beside Blocked accounts
+  (`ios-native-settings-lists`). Still to see: a window resized across 700 points with the list scrolled, and all of it on iOS 18.
 - The app turns now (portrait and both landscapes on iPhone, all four on iPad), and no screen was laid out for a phone on its
   side: each lays out by the width it gets. Only the feed, the profile, Settings, the Account page and an activity were looked at turned.
   An activity on an iPhone on its side took the shared UI's side-pane layout in 402 points of height; a window under 500dp tall
@@ -685,4 +741,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
 - About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
   an `AppText` function when a native view first needs it.
+- Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
+  until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
+  the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
+- `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
