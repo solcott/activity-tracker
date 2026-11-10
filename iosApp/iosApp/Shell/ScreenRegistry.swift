@@ -45,6 +45,8 @@ extension ScreenRegistry {
         registry.register(SettingsScreen.self, SettingsState.self) { state in SettingsView(state: state) }
         registry.register(ActivityDefaultsScreen.self, ActivityDefaultsState.self) { state in ActivityDefaultsView(state: state) }
         registry.register(SegmentsAndGroupsScreen.self, SegmentsAndGroupsState.self) { state in SegmentsAndGroupsView(state: state) }
+        registry.register(GearListScreen.self, GearListState.self) { state in GearListView(state: state) }
+        registry.register(BlockListScreen.self, BlockListState.self) { state in BlockListView(state: state) }
         return registry
     }()
 }

@@ -35,7 +35,13 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "SettingsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ActivityDefaultsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "SegmentsAndGroupsScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "GearListScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "BlockListScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
+        // What the lists open is still the shared UI's.
+        for screen in ["GearScreen", "GearCollectionScreen", "EditGearScreen", "IgnoredSensorsScreen", "ProfileScreen"] {
+            #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
+        }
         // The other settings pages are still the shared UI's, beside the native list or over it.
         for page in ["AccountScreen", "PrivacyZonesScreen", "TrainingZonesScreen", "ZonesScreen", "SportZonesScreen", "LeaveScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: page))
@@ -48,5 +54,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.SettingsScreen.self) == "SettingsScreen")
         #expect(String(describing: ActivityTracker.ActivityDefaultsScreen.self) == "ActivityDefaultsScreen")
         #expect(String(describing: ActivityTracker.SegmentsAndGroupsScreen.self) == "SegmentsAndGroupsScreen")
+        #expect(String(describing: ActivityTracker.GearListScreen.self) == "GearListScreen")
+        #expect(String(describing: ActivityTracker.BlockListScreen.self) == "BlockListScreen")
     }
 }

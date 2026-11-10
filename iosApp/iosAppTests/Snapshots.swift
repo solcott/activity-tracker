@@ -20,15 +20,23 @@ nonisolated enum Snapshots {
     static let skipped: Comment =
         "Snapshot references were recorded on iOS 26.0, and compare only there: run the tests on an iOS 26.0 simulator."
 
+    /// The `precision` of a screen with buttons in its bar: all but one pixel in a thousand, which is ten times what the glass behind
+    /// them was seen to vary by.
+    static let barButtons: Float = 0.999
+
     /// An iPhone's width and height in points, for a whole screen.
     static let screen = CGSize(width: 393, height: 852)
 }
 
 /// Compares `view`, drawn at `size` in the light and the dark appearance, with its two references. A missing reference is recorded and
 /// fails the run that recorded it; one that exists is never rewritten.
+///
+/// `precision` is the share of pixels that must match. Every pixel must, except where a view draws something the system renders a
+/// little differently on each run: the glass behind a bar's buttons on iOS 26 differs by a few levels over a few hundred pixels, so a
+/// screen with buttons in its bar passes `Snapshots.barButtons`.
 @MainActor
 func assertAppSnapshot(
-    of view: some View, size: CGSize = Snapshots.screen, named name: String,
+    of view: some View, size: CGSize = Snapshots.screen, named name: String, precision: Float = 1,
     fileID: StaticString = #fileID, file filePath: StaticString = #filePath, testName: String = #function, line: UInt = #line,
     column: UInt = #column
 ) {
@@ -45,7 +53,7 @@ func assertAppSnapshot(
             of: controller,
             // Drawn in the app's window, where lists and materials look as they do on screen; off screen a list's rows draw apart.
             as: .image(
-                drawHierarchyInKeyWindow: true, perceptualPrecision: 0.98, size: size, traits: traits),
+                drawHierarchyInKeyWindow: true, precision: precision, perceptualPrecision: 0.98, size: size, traits: traits),
             named: "\(name).\(appearance)", fileID: fileID, file: filePath, testName: testName, line: line, column: column)
     }
 }
