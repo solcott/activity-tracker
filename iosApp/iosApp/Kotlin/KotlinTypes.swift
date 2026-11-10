@@ -3,7 +3,10 @@ import ActivityTrackerCoreLexicon
 import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
+import FeatureGearApi
 import FeatureLoginApi
+import FeatureProfileApi
+import FeatureSettingsApi
 import IoGithubSolcottDataresult
 import IoGithubSolcottUistate
 import PresenterHost
@@ -15,6 +18,7 @@ typealias AppHost = HostPackage.AppHost
 typealias SessionHost = HostPackage.SessionHost
 typealias TabStack = HostPackage.TabStack
 typealias HostRecord = HostPackage.HostRecord
+typealias SettingsSplit = HostPackage.SettingsSplit
 typealias RootState = HostPackage.RootState
 typealias SessionMode = ExportedKotlinPackages.io.github.solcott.activitytracker.app.SessionMode
 typealias TopLevelDestination = ExportedKotlinPackages.io.github.solcott.activitytracker.app.nav.TopLevelDestination
@@ -30,6 +34,17 @@ typealias LoginScreen = LoginPackage.LoginScreen
 typealias LoginState = LoginPackage.LoginState
 typealias LoginEvent = LoginPackage.LoginEvent
 typealias AuthStatus = ExportedKotlinPackages.io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
+
+// Settings (ui/settings-layout): its list's contract, and the pages its rows open, which live in three contract modules.
+typealias SettingsPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.settings
+typealias SettingsScreen = SettingsPackage.SettingsScreen
+typealias SettingsState = SettingsPackage.SettingsState
+typealias SettingsEvent = SettingsPackage.SettingsEvent
+typealias SettingsPage = SettingsPackage.SettingsPage
+typealias SettingsPane = SettingsPackage.SettingsPane
+typealias SettingsTexts = SettingsPackage.SettingsTexts
+typealias GearListScreen = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear.GearListScreen
+typealias BlockListScreen = ExportedKotlinPackages.io.github.solcott.activitytracker.app.profile.BlockListScreen
 
 // Text, icons and loading rules chosen in Kotlin (dev/shared-display-text), and the types they take.
 typealias AppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app

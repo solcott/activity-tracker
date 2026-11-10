@@ -8,6 +8,16 @@
         /// Sign-in in each state it shows, by the sample's name.
         static var login: [String: LoginState] { LoginPackage.LoginSamples.shared.all }
 
+        /// Settings' list in each state it shows.
+        static var settings: [String: SettingsState] { SettingsPackage.SettingsSamples.shared.all }
+
+        /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
+        static var privacyZones: [String: SettingsPackage.PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
+        static var trainingZones: [String: SettingsPackage.TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
+        static var thresholdHistory: [String: SettingsPackage.ThresholdHistoryState] {
+            SettingsPackage.ThresholdHistorySamples.shared.all
+        }
+
         /// Loaded content in each state of ui/content-loading, holding `data`.
         static let content = ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.ContentStates.shared
     }
