@@ -109,7 +109,8 @@ class SharedTextNamesTest {
     /** The names [text] and its arguments choose. */
     private fun names(text: AppText): List<String> =
         when (text) {
-            is AppText.Written -> emptyList()
+            is AppText.Written,
+            is AppText.Time -> emptyList()
             is AppText.Named -> listOf(text.name) + text.args.flatMap(::names)
             is AppText.Plural -> listOf(text.name) + text.args.flatMap(::names)
         }

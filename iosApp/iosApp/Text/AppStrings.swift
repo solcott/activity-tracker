@@ -25,6 +25,12 @@ nonisolated final class CatalogText: KotlinBase, TextSource, @unchecked Sendable
         return String(format: format, locale: .current, arguments: [Int(quantity)] + args)
     }
 
+    /// A moment as a time of day in the device's time zone, on the clock its settings choose ("7:05 PM", "19:05"), as the shared UI's
+    /// `timeFormat` reads it.
+    func time(epochSeconds: Int64) -> String {
+        Date(timeIntervalSince1970: TimeInterval(epochSeconds)).formatted(date: .omitted, time: .shortened)
+    }
+
     private static func format(named name: String) -> String? {
         let found = Bundle.main.localizedString(forKey: name, value: missing, table: nil)
         return found == missing ? nil : found

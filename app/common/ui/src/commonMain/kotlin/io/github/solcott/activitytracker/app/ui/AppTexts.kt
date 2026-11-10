@@ -1,10 +1,14 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
+import kotlin.time.Instant
+import kotlinx.datetime.format
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -27,4 +31,5 @@ fun AppText.string(): String =
             val resource = Res.allPluralStringResources[name]
             if (resource != null) pluralStringResource(resource, quantity, *args.map { it.string() }.toTypedArray()) else name
         }
+        is AppText.Time -> Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(LocalTimeZone.current).format(timeFormat())
     }

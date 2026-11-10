@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
@@ -9,14 +10,32 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.TimeZone
 
 /** The shared UI reads a choice of text from its resources (dev/shared-display-text). */
 @OptIn(ExperimentalTestApi::class)
 class AppTextStringUiTest {
-    private fun shows(text: AppText, expected: String) = runComposeUiTest {
-        setContent { AppPreview(width = null) { Text(text.string()) } }
+    private fun shows(text: AppText, expected: String, twentyFourHour: Boolean? = null) = runComposeUiTest {
+        setContent {
+            AppPreview(width = null) {
+                CompositionLocalProvider(LocalHourClock provides twentyFourHour, LocalTimeZone provides TimeZone.UTC) {
+                    Text(text.string())
+                }
+            }
+        }
         onNodeWithText(expected).assertIsDisplayed()
     }
+
+    /** 19:05 UTC on 10 November 2026. */
+    private val evening = AppText.Time(1_794_337_500)
+
+    @Test fun aTimeOnATwelveHourClock() = shows(evening, "7:05 PM", twentyFourHour = false)
+
+    @Test fun aTimeOnATwentyFourHourClock() = shows(evening, "19:05", twentyFourHour = true)
+
+    @Test
+    fun aTimeInAString() =
+        shows(AppText.named("leave_paused", evening), "Your server asked to slow down. Carrying on at 19:05.", twentyFourHour = true)
 
     @Test fun aNamedStringWithItsArgument() = shows(AppText.named("unit_distance_mi", AppText.written("3.00")), "3.00 mi")
 

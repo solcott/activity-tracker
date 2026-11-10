@@ -17,9 +17,20 @@ class AppTextTest {
             override fun plural(name: String, quantity: Int, args: List<String>): String? =
                 plurals[name]?.let { (one, other) -> fill(if (quantity == 1) one else other, args) }
 
+            override fun time(epochSeconds: Long): String = "time $epochSeconds"
+
             private fun fill(template: String, args: List<String>): String =
                 args.foldIndexed(template) { index, text, arg -> text.replace("{${index + 1}}", arg) }
         }
+
+    @Test
+    fun aTimeIsFormattedByTheSource() {
+        assertEquals("time 1700000000", AppText.Time(1_700_000_000).resolve(source))
+        assertEquals(
+            "Paused. time 1700000000",
+            AppText.named("error_with_reason", AppText.written("Paused"), AppText.Time(1_700_000_000)).resolve(source),
+        )
+    }
 
     @Test fun writtenTextReadsAsItIs() = assertEquals("alice.test", AppText.written("alice.test").resolve(source))
 

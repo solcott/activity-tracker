@@ -32,6 +32,8 @@ class LabelTextTest {
                 strings[name]?.let { args.foldIndexed(it) { index, text, arg -> text.replace("{${index + 1}}", arg) } }
 
             override fun plural(name: String, quantity: Int, args: List<String>): String? = null
+
+            override fun time(epochSeconds: Long): String = "time $epochSeconds"
         }
 
     private fun AppText.read() = resolve(source)
