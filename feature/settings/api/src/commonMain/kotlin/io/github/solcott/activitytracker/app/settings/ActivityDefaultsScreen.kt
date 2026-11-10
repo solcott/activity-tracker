@@ -17,7 +17,11 @@ data class ActivityDefaultsState(
     val saving: Boolean,
     val error: UiError?,
     val eventSink: (ActivityDefaultsEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Whether the defaults can be changed now: loaded, a session that can choose, and no save running. */
+    val canChange: Boolean
+        get() = defaults?.canChoose == true && !saving
+}
 
 sealed interface ActivityDefaultsEvent {
     data object Back : ActivityDefaultsEvent

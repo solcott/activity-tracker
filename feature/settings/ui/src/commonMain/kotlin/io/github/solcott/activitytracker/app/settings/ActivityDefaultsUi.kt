@@ -16,13 +16,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.lockedVisibilityNote
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.settings_activity_defaults
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
-import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
-import io.github.solcott.activitytracker.composeApp.resources.settings_saving
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
 
@@ -43,7 +41,7 @@ fun ActivityDefaultsUi(state: ActivityDefaultsState, modifier: Modifier = Modifi
     ) { padding ->
         ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.defaults?.let { defaults ->
-                val enabled = defaults.canChoose && !state.saving
+                val enabled = state.canChange
                 Text(stringResource(Res.string.settings_defaults_activity), style = MaterialTheme.typography.labelLarge)
                 VisibilityPicker(
                     defaults.activity,
@@ -51,18 +49,10 @@ fun ActivityDefaultsUi(state: ActivityDefaultsState, modifier: Modifier = Modifi
                     approvesFollowers = defaults.approvesFollowers,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = enabled,
+                    options = defaults.activityOptions,
                 )
                 DetailVisibilityPicker(defaults, modifier = Modifier.fillMaxWidth(), enabled = enabled)
-                Text(
-                    stringResource(
-                        when {
-                            state.saving -> Res.string.settings_saving
-                            !defaults.canChoose -> lockedVisibilityNote(defaults)
-                            else -> Res.string.settings_defaults_help
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text(SettingsTexts.defaultsNote(defaults, state.saving).string(), style = MaterialTheme.typography.bodySmall)
             }
             state.error?.let { ErrorText(it) }
         }

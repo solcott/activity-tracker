@@ -23,25 +23,17 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.settings_groups_anyone
-import io.github.solcott.activitytracker.composeApp.resources.settings_groups_connected
 import io.github.solcott.activitytracker.composeApp.resources.settings_groups_heading
-import io.github.solcott.activitytracker.composeApp.resources.settings_groups_help
-import io.github.solcott.activitytracker.composeApp.resources.settings_groups_off
-import io.github.solcott.activitytracker.composeApp.resources.settings_groups_sign_in_again
-import io.github.solcott.activitytracker.composeApp.resources.settings_saving
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_and_groups
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_brackets
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_brackets_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_heading
-import io.github.solcott.activitytracker.composeApp.resources.settings_segments_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_leaderboards
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_matching
-import io.github.solcott.activitytracker.composeApp.resources.settings_segments_sign_in_again
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.segments.GroupChoice
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /** Segment matching and its leaderboard choices, then activity grouping, each with what it shares and why. */
@@ -74,7 +66,7 @@ fun SegmentsAndGroupsUi(state: SegmentsAndGroupsState, modifier: Modifier = Modi
  */
 @Composable
 private fun SegmentMatching(state: SegmentsAndGroupsState, modifier: Modifier = Modifier) {
-    val enabled = state.canUseSegments && state.segmentMatching != null && !state.savingSegments
+    val enabled = state.canChangeMatching
     val checked = state.segmentMatching == true
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.settings_segments_heading), style = MaterialTheme.typography.titleMedium)
@@ -90,8 +82,8 @@ private fun SegmentMatching(state: SegmentsAndGroupsState, modifier: Modifier = 
             AppSwitch(checked, onCheckedChange = null, enabled = enabled)
         }
         val shown = state.showOnLeaderboards
-        if (checked && shown != null) {
-            val leaderboardsEnabled = enabled && !state.savingLeaderboards
+        if (state.offersLeaderboards && shown != null) {
+            val leaderboardsEnabled = state.canChangeLeaderboards
             Row(
                 Modifier.fillMaxWidth()
                     .toggleable(shown, enabled = leaderboardsEnabled, role = Role.Switch) {
@@ -109,8 +101,8 @@ private fun SegmentMatching(state: SegmentsAndGroupsState, modifier: Modifier = 
             }
         }
         val brackets = state.bracketBoards
-        if (checked && state.canUseBracketBoards && brackets != null) {
-            val bracketsEnabled = enabled && !state.savingBracketBoards
+        if (state.offersBracketBoards && brackets != null) {
+            val bracketsEnabled = state.canChangeBracketBoards
             Row(
                 Modifier.fillMaxWidth()
                     .toggleable(brackets, enabled = bracketsEnabled, role = Role.Switch) {
@@ -126,50 +118,25 @@ private fun SegmentMatching(state: SegmentsAndGroupsState, modifier: Modifier = 
                 AppSwitch(brackets, onCheckedChange = null, enabled = bracketsEnabled)
             }
         }
-        Text(
-            stringResource(
-                when {
-                    !state.canUseSegments -> Res.string.settings_segments_sign_in_again
-                    state.savingSegments || state.savingLeaderboards || state.savingBracketBoards -> Res.string.settings_saving
-                    else -> Res.string.settings_segments_help
-                },
-            ),
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text(SettingsTexts.segmentsNote(state).string(), style = MaterialTheme.typography.bodySmall)
     }
 }
 
 /** Whose activities the athlete's may be grouped with (feed/group-activities): off, people they follow or who follow them, or anyone. */
 @Composable
 private fun GroupActivities(state: SegmentsAndGroupsState, modifier: Modifier = Modifier) {
-    val choices = GROUP_CHOICES
-    val selected = choices.indexOf(state.groupActivities.takeUnless { it == GroupChoice.NEVER_ASKED } ?: GroupChoice.OFF)
-    val labels =
-        persistentListOf(
-            stringResource(Res.string.settings_groups_off),
-            stringResource(Res.string.settings_groups_connected),
-            stringResource(Res.string.settings_groups_anyone),
-        )
+    val options = state.groupOptions
+    val selected = options.indexOfFirst { it.choice == state.shownGroupChoice }
+    val labels = options.map { it.label.string() }.toImmutableList()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.settings_groups_heading), style = MaterialTheme.typography.titleMedium)
         AppSegmentedControl(
             labels,
             selected,
-            onSelect = { state.eventSink(SegmentsAndGroupsEvent.GroupActivitiesChanged(choices[it])) },
+            onSelect = { state.eventSink(SegmentsAndGroupsEvent.GroupActivitiesChanged(options[it].choice)) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = state.canUseGroups && state.groupActivities != null && !state.savingGroups,
+            enabled = state.canChangeGroups,
         )
-        Text(
-            stringResource(
-                when {
-                    !state.canUseGroups -> Res.string.settings_groups_sign_in_again
-                    state.savingGroups -> Res.string.settings_saving
-                    else -> Res.string.settings_groups_help
-                },
-            ),
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text(SettingsTexts.groupsNote(state).string(), style = MaterialTheme.typography.bodySmall)
     }
 }
-
-private val GROUP_CHOICES = listOf(GroupChoice.OFF, GroupChoice.CONNECTED, GroupChoice.ANYONE)
