@@ -7,8 +7,9 @@ import dev.detekt.api.Rule
 import org.jetbrains.kotlin.psi.KtCallExpression
 
 /**
- * Text fields take a `TextFieldState`, not the `value` + `onValueChange` overloads (`String` or `TextFieldValue`). The state is
- * `rememberTextFieldState()`: in the presenter, held in the screen's `State`, when the presenter needs the text, otherwise in the UI.
+ * Text fields take a `TextFieldState`, not the `value` + `onValueChange` overloads (`String` or `TextFieldValue`). The state is the app's
+ * own type (`:core-textfield`), from its `rememberTextFieldState()`: in the presenter, held in the screen's `State`, when the presenter
+ * needs the text, otherwise in the UI. [UseAppTextFieldState] keeps Compose's type of the same name out.
  *
  * Plain analysis, without types: a call to one of the foundation or Material 3 text fields (or the app's `AppTextField`) is flagged when it
  * names `value` or `onValueChange`, or passes a second positional argument that isn't a modifier (the state overloads take only the state
@@ -28,8 +29,9 @@ class UseTextFieldState(config: Config) : Rule(config, "Text fields take a TextF
             report(
                 Finding(
                     Entity.from(expression),
-                    "${expression.calleeExpression?.text} takes a value and onValueChange. Pass a TextFieldState instead " +
-                        "(rememberTextFieldState(), in the presenter's State if it reads the text), and name every argument after it.",
+                    "${expression.calleeExpression?.text} takes a value and onValueChange. Pass the app's TextFieldState instead " +
+                        "(rememberTextFieldState() from :core-textfield, in the presenter's State if it reads the text), and name " +
+                        "every argument after it.",
                 ),
             )
         }

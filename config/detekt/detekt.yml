@@ -60,6 +60,9 @@ activitytracker:
   # Text fields take a TextFieldState, not value + onValueChange.
   UseTextFieldState:
     active: true
+  # That state is the app's TextFieldState (:core-textfield), which Swift export can carry, not Compose's of the same name.
+  UseAppTextFieldState:
+    active: true
   # Presenters launch event work through rememberSingleFlight(), so a double tap can't run it twice.
   UseSingleFlight:
     active: true

@@ -9,5 +9,8 @@ class ActivityTrackerRuleSetProvider : RuleSetProvider {
     override val ruleSetId = RuleSetId("activitytracker")
 
     override fun instance() =
-        RuleSet(ruleSetId, listOf(::UseTextFieldState, ::UseSingleFlight, ::UseAdaptiveComponents, ::NoSystemClockInUi))
+        RuleSet(
+            ruleSetId,
+            listOf(::UseTextFieldState, ::UseAppTextFieldState, ::UseSingleFlight, ::UseAdaptiveComponents, ::NoSystemClockInUi),
+        )
 }

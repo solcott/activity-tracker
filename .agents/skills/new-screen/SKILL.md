@@ -24,7 +24,7 @@ Prefix each path with `src/commonMain/kotlin/io/github/solcott/activitytracker/a
 | `feature/<pkg>/presenter` | `<Name>Presenter.kt` | the `@CircuitInject` presenter |
 | `feature/<pkg>/ui` | `<Name>Ui.kt` | the `@CircuitInject` UI and its private composables |
 
-The presenter module has no ui or material3 (foundation only for `TextFieldState`), so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter, and `checkModuleBoundaries` fails the build if either module depends on the other. A text field the presenter reads is a `TextFieldState` in State from `rememberTextFieldState()` in the presenter, not a `String` plus a changed event (see `compose-screens.md`).
+The presenter module has no ui, foundation or material3, so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter, and `checkModuleBoundaries` fails the build if either module depends on the other. A text field the presenter reads is a `TextFieldState` in State from `rememberTextFieldState()` in the presenter, not a `String` plus a changed event. Both come from `io.github.solcott.activitytracker.textfield`, not from Compose (see `compose-screens.md`).
 
 ```kotlin
 // feature/<pkg>/api/.../<Name>Screen.kt
@@ -79,7 +79,7 @@ Add an event to the screen that leads here, and handle it in that screen's prese
 
 ## 4. Samples
 
-Add `app/fixtures/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Samples.kt`: an `object FooSamples` with a named `FooState` per state the screen shows and an `all` map keyed by `SampleKind`, modelled on `FeedSamples` (content) or `FollowListSamples` (a paged list). Build lexicon views with the `fake…` builders, states with `contentSamples`/`pagedSamples` (or `ContentStates`/`PagedStates`), and pass `{}` sinks. Make each sample a getter, so a `TextFieldState` is new each time. A screen that loads content covers loading, failed, loaded, refreshing and refresh failed (plus empty for a list, and the page kinds for a paged one); a form adds an invalid sample.
+Add `app/fixtures/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Samples.kt`: an `object FooSamples` with a named `FooState` per state the screen shows and an `all` map keyed by `SampleKind`, modelled on `FeedSamples` (content) or `FollowListSamples` (a paged list). Build lexicon views with the `fake…` builders, states with `contentSamples`/`pagedSamples` (or `ContentStates`/`PagedStates`), and pass `{}` sinks. Make each sample a getter, so a `TextFieldState` (built with `textFieldStateOf("text")`) is new each time. A screen that loads content covers loading, failed, loaded, refreshing and refresh failed (plus empty for a list, and the page kinds for a paged one); a form adds an invalid sample.
 
 ## 5. Test
 
