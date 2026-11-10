@@ -18,6 +18,8 @@ kotlin {
             api(projects.appHost)
             // api, so Swift sees FitDecoder and the DTOs SwiftFitDecoder builds.
             api(projects.coreActivityfile)
+            // api, so Swift sees ExportArchive, which IosApp.writeArchive takes from the Account page's state.
+            api(projects.coreData)
             // api, so Swift sees ByteString, which IosApp.heldPhoto returns and Swift turns into Data (toNSData).
             api(libs.kotlinx.io.bytestring)
 
