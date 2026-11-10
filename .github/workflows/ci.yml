@@ -94,7 +94,7 @@ jobs:
 
   # The iOS app, built for the simulator as a developer builds it (dev/ios-swift-interop). Nothing in `check` compiles iOS code, so this
   # is the only place a contract that no longer exports to Swift, a stub the stub check rejects or a broken Swift file fails. Beside
-  # `check`, not after it, and skipped with it. No simulator is booted and no test runs.
+  # `check`, not after it, and skipped with it. It then runs the app's Swift unit tests on a simulator (ui/ios-native-shell).
   ios:
     needs: preflight
     if: needs.preflight.outputs.code == 'true'
@@ -131,3 +131,17 @@ jobs:
           xcodebuild -version
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' CODE_SIGN_IDENTITY=- build
+
+      # The app's Swift unit tests (Swift Testing, in iosApp/iosAppTests), on an iPhone simulator of the newest runtime the runner has
+      # that the app supports. They run inside the app, so the app is signed as above.
+      - name: Run the iOS app's Swift tests
+        run: |
+          udid=$(xcrun simctl list devices available --json | jq -r '
+            .devices | to_entries
+            | map(select(.key | test("iOS-(1[89]|[2-9][0-9])")))
+            | map(.value |= map(select(.name | startswith("iPhone"))))
+            | map(select(.value | length > 0))
+            | sort_by(.key) | last | .value[0].udid')
+          echo "Simulator: $udid"
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$udid" CODE_SIGN_IDENTITY=- test
