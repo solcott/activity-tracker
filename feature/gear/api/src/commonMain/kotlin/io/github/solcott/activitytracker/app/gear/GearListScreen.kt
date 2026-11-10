@@ -4,7 +4,11 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.settings.SettingsPage
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -48,6 +52,14 @@ data class GearLists(
 ) {
     val isEmpty: Boolean
         get() = active.isEmpty() && retired.isEmpty() && collections.isEmpty()
+
+    /** Whether the Collections section shows, with New collection: once the athlete has any gear or collection. */
+    val showsCollections: Boolean
+        get() = !isEmpty
+
+    /** Whether the Collections section explains collections, in place of rows: while it shows and holds none. */
+    val explainsCollections: Boolean
+        get() = showsCollections && collections.isEmpty()
 }
 
 @Immutable data class GearListState(val content: ContentState<GearLists>, val eventSink: (GearListEvent) -> Unit) : CircuitUiState
@@ -69,4 +81,27 @@ sealed interface GearListEvent {
 
     /** Opens the devices the athlete marked as not gear ([IgnoredSensorsScreen]). */
     data object OpenIgnoredSensors : GearListEvent
+}
+
+/** What the gear list says that follows a rule, chosen here for the shared and the native UI (dev/shared-display-text). */
+object GearListTexts {
+    /**
+     * The line under an item's name: its kind (or its type when it has none) and who may see it, then Retired when [showRetired] and it is.
+     */
+    fun detail(row: GearRow, showRetired: Boolean): AppText {
+        val detail =
+            AppText.named(
+                "gear_total_joined",
+                row.kind?.let { GearTexts.kind(row.type, it) } ?: GearTexts.type(row.type),
+                LabelText.visibility(row.visibility),
+            )
+        return if (showRetired && row.retired) AppText.named("gear_total_joined", detail, AppText.named("gear_retired")) else detail
+    }
+
+    /** The item's one total in [units], or null while its totals are unknown, when the row shows none. */
+    fun total(row: GearRow, units: UnitSystem): AppText? = row.totals?.let { GearTexts.mainTotal(row.mainTotal, it, units) }
+
+    /** How many of a collection's items still exist: "4 items". */
+    fun collectionCount(row: GearCollectionRow): AppText =
+        AppText.Plural("gear_collection_count", row.count, persistentListOf(AppText.written(formatWhole(row.count))))
 }

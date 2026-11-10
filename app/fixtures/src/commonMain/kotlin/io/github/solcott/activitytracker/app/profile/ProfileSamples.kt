@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -12,12 +13,15 @@ import io.github.solcott.activitytracker.app.fixtures.fakeVotedPost
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 object ProfileSamples {
     val profile: ProfileView = fakeProfile()
@@ -104,6 +108,30 @@ object BlockListSamples {
 
     val all: Map<String, BlockListState>
         get() = pagedSamples(accounts, Unit) { BlockListState(BlockListKind.Blocked, it, eventSink = {}) }
+
+    /**
+     * What [all]'s content-loading states don't show: the muted list, and the blocked list with bob's unblock being written, a block made
+     * only on Bluesky (dave) and the last unblock failed. Kept apart from [all], whose keys are the content-loading conformance set.
+     */
+    val variants: Map<String, BlockListState>
+        get() =
+            mapOf(
+                "muted" to BlockListState(BlockListKind.Muted, PagedStates.end(accounts, Unit), eventSink = {}),
+                "mutedEmpty" to BlockListState(BlockListKind.Muted, PagedStates.end(emptyList(), Unit), eventSink = {}),
+                "actions" to
+                    BlockListState(
+                        BlockListKind.Blocked,
+                        PagedStates.end(
+                            accounts + BlockListAccount(fakeProfileBasic(DAVE, displayName = null), removable = false, onBluesky = true),
+                            Unit,
+                        ),
+                        removing = persistentSetOf(Fixed.BOB),
+                        actionError = UiError(UiError.Kind.UpdateBlock, DataError.Network),
+                        eventSink = {},
+                    ),
+            )
+
+    private val DAVE = Did("did:plc:dave")
 }
 
 object EditProfileSamples {

@@ -32,6 +32,7 @@ import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ListScreen
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -39,10 +40,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_add
-import io.github.solcott.activitytracker.composeApp.resources.gear_collection_count
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_new
 import io.github.solcott.activitytracker.composeApp.resources.gear_collections
 import io.github.solcott.activitytracker.composeApp.resources.gear_collections_help
@@ -53,7 +53,6 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The athlete's gear: a section per type, then Retired. Each row opens the item; Add opens a new one. */
@@ -87,7 +86,7 @@ fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
                 }
             }
         }
-        if (!lists.isEmpty) collections(lists.collections, state.eventSink)
+        if (lists.showsCollections) collections(lists, state.eventSink)
         lists.active.forEach { group -> section(group.type, group.type, group.items, state.eventSink) }
         if (lists.retired.isNotEmpty()) section("retired", null, lists.retired, state.eventSink)
     }
@@ -111,7 +110,7 @@ private fun MoreMenu(eventSink: (GearListEvent) -> Unit) {
 }
 
 /** The athlete's collections, each with its item count, and New collection. */
-private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: (GearListEvent) -> Unit) {
+private fun LazyListScope.collections(lists: GearLists, eventSink: (GearListEvent) -> Unit) {
     item(key = "header/collections") {
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp),
@@ -126,7 +125,7 @@ private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: 
             AppTextButton(onClick = { eventSink(GearListEvent.AddCollection) }) { Text(stringResource(Res.string.gear_collection_new)) }
         }
     }
-    if (rows.isEmpty()) {
+    if (lists.explainsCollections) {
         item(key = "collections/help") {
             Text(
                 stringResource(Res.string.gear_collections_help),
@@ -136,7 +135,7 @@ private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: 
             )
         }
     }
-    items(rows, key = { "collections/${it.rkey}" }) { row ->
+    items(lists.collections, key = { "collections/${it.rkey}" }) { row ->
         Column(
             Modifier.fillMaxWidth()
                 .clickable(role = Role.Button) { eventSink(GearListEvent.OpenCollection(row.rkey)) }
@@ -144,7 +143,7 @@ private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: 
         ) {
             Text(row.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                pluralStringResource(Res.plurals.gear_collection_count, row.count, row.count),
+                GearListTexts.collectionCount(row).string(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -191,14 +190,13 @@ internal fun GearRowItem(
         }
         Column(Modifier.weight(1f)) {
             Text(row.name, style = MaterialTheme.typography.titleMedium)
-            val detail = "${row.kind?.let { gearKindLabel(row.type, it) } ?: gearTypeLabel(row.type)} · ${visibilityLabel(row.visibility)}"
             Text(
-                if (showRetired && row.retired) "$detail · ${stringResource(Res.string.gear_retired)}" else detail,
+                GearListTexts.detail(row, showRetired).string(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        row.totals?.let { Text(gearMainTotalLabel(row.mainTotal, it), style = MaterialTheme.typography.bodyMedium) }
+        GearListTexts.total(row, LocalUnitSystem.current)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
         trailing()
     }
 }
