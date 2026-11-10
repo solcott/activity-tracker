@@ -40,6 +40,8 @@ struct ScreenRegistry {
 extension ScreenRegistry {
     /// The app's native screens.
     static let app: ScreenRegistry = {
-        ScreenRegistry()
+        var registry = ScreenRegistry()
+        registry.register(LoginScreen.self, LoginState.self) { state in LoginView(state: state) }
+        return registry
     }()
 }
