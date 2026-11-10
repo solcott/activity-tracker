@@ -15,12 +15,20 @@
         static var activityDefaults: [String: ActivityDefaultsState] { SettingsPackage.ActivityDefaultsSamples.shared.all }
         static var segmentsAndGroups: [String: SegmentsAndGroupsState] { SettingsPackage.SegmentsAndGroupsSamples.shared.all }
 
+        /// Gear, and the blocked and muted lists, in each state they show; the block list's states beyond content loading apart.
+        static var gearList: [String: GearListState] { GearPackage.GearListSamples.shared.all }
+        static var blockList: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.all }
+        static var blockListVariants: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.variants }
+
         /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
         static var privacyZones: [String: SettingsPackage.PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
         static var trainingZones: [String: SettingsPackage.TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
         static var thresholdHistory: [String: SettingsPackage.ThresholdHistoryState] {
             SettingsPackage.ThresholdHistorySamples.shared.all
         }
+
+        /// A paged list in each state of ui/content-loading, around items a test gives.
+        static let pagedStates = ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.PagedStates.shared
 
         /// Loaded content in each state of ui/content-loading, holding `data`.
         static let content = ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.ContentStates.shared

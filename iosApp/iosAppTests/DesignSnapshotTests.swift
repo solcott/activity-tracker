@@ -19,6 +19,13 @@ struct DesignSnapshotTests {
 
     @Test func images() { assertAppSnapshot(of: DesignGallery.images, size: CGSize(width: 393, height: 120), named: "images") }
 
+    @Test func itemRows() { assertAppSnapshot(of: DesignGallery.itemRows, size: panel, named: "itemRows") }
+
+    @Test(arguments: DesignGallery.pagedNames)
+    func pagedList(state: String) {
+        assertAppSnapshot(of: DesignGallery.paged(state), size: panel, named: state)
+    }
+
     @Test func cards() { assertAppSnapshot(of: DesignGallery.cards, size: panel, named: "cards") }
 
     @Test func icons() { assertAppSnapshot(of: DesignGallery.icons, size: panel, named: "icons") }

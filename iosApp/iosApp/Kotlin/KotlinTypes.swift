@@ -50,8 +50,27 @@ typealias SegmentsAndGroupsState = SettingsPackage.SegmentsAndGroupsState
 typealias SegmentsAndGroupsEvent = SettingsPackage.SegmentsAndGroupsEvent
 typealias GroupOption = SettingsPackage.GroupOption
 typealias GroupChoice = ExportedKotlinPackages.io.github.solcott.activitytracker.data.segments.GroupChoice
-typealias GearListScreen = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear.GearListScreen
-typealias BlockListScreen = ExportedKotlinPackages.io.github.solcott.activitytracker.app.profile.BlockListScreen
+
+// Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules.
+typealias GearPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear
+typealias GearListScreen = GearPackage.GearListScreen
+typealias GearListState = GearPackage.GearListState
+typealias GearListEvent = GearPackage.GearListEvent
+typealias GearLists = GearPackage.GearLists
+typealias GearGroup = GearPackage.GearGroup
+typealias GearRow = GearPackage.GearRow
+typealias GearCollectionRow = GearPackage.GearCollectionRow
+typealias GearListTexts = GearPackage.GearListTexts
+typealias GearTexts = GearPackage.GearTexts
+typealias ProfilePackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.profile
+typealias BlockListScreen = ProfilePackage.BlockListScreen
+typealias BlockListState = ProfilePackage.BlockListState
+typealias BlockListEvent = ProfilePackage.BlockListEvent
+typealias BlockListAccount = ProfilePackage.BlockListAccount
+typealias BlockListKind = ProfilePackage.BlockListKind
+typealias BlockListTexts = ProfilePackage.BlockListTexts
+typealias ProfileViewBasic = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+typealias Did = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.Did
 
 // Text, icons and loading rules chosen in Kotlin (dev/shared-display-text), and the types they take.
 typealias AppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app
@@ -68,8 +87,11 @@ typealias VisibilityEvent = AppPackage.visibility.VisibilityEvent
 typealias CategoryVisibility = AppPackage.visibility.CategoryVisibility
 typealias VisibilityTexts = AppPackage.visibility.VisibilityTexts
 typealias ContentShown = AppPackage.ContentShown
+typealias PagedShown = AppPackage.PagedShown
 typealias LoginTexts = LoginPackage.LoginTexts
 typealias UnitSystem = ExportedKotlinPackages.io.github.solcott.activitytracker.data.units.UnitSystem
 typealias KotlinActivityType = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.ActivityType
 typealias KotlinContentState = ExportedKotlinPackages.io.github.solcott.uistate.ContentState
+typealias KotlinPagedState = ExportedKotlinPackages.io.github.solcott.uistate.PagedState
+typealias LoadStatus = ExportedKotlinPackages.io.github.solcott.uistate.LoadStatus
 typealias DataError = ExportedKotlinPackages.io.github.solcott.dataresult.DataError

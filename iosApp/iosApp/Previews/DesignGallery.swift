@@ -62,6 +62,51 @@
             .padding(24)
         }
 
+        /// Rows of things: one that opens with a summary, one with a control at its end, the control unavailable, and a row with no
+        /// control and a note.
+        static var itemRows: some View {
+            List {
+                Section {
+                    AppItemRow(
+                        Text(verbatim: "Gravel bike"), lines: [Text(verbatim: "Bike · Public")], summary: Text(verbatim: "3,200 km"),
+                        opens: {}
+                    ) { Thumbnail(url: nil) }
+                    AppItemRow(Text(verbatim: "Bob"), lines: [Text(verbatim: "@bob.test")], opens: {}) {
+                        Avatar(url: nil, name: "Bob")
+                    } trailing: {
+                        AppSecondaryButton(.actionUnblock, small: true) {}
+                    }
+                    AppItemRow(Text(verbatim: "Carol"), lines: [Text(verbatim: "@carol.test")], opens: {}) {
+                        Avatar(url: nil, name: "Carol")
+                    } trailing: {
+                        AppSecondaryButton(.actionUnblock, small: true) {}.disabled(true)
+                    }
+                    AppItemRow(
+                        Text(verbatim: "dave.test"), lines: [Text(verbatim: "@dave.test"), Text(.blockedOnBluesky)], opens: {}
+                    ) { Avatar(url: nil, name: "dave.test") } trailing: { EmptyView() }
+                }
+            }
+        }
+
+        /// A paged list in the state the block list's sample `name` is in (`PagedStates`: loading, failed, empty, loaded, refreshing,
+        /// refreshFailed, loadingMore, pageFailed, end), with plain rows.
+        static func paged(_ name: String) -> some View {
+            PagedList(
+                Samples.blockList[name]!.accounts, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value },
+                retry: {}, loadMore: {}
+            ) {
+                EmptyView()
+            } row: { account in
+                Text(verbatim: account.profile.handle.value)
+            } empty: {
+                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            }
+        }
+
+        nonisolated static let pagedNames = [
+            "loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "loadingMore", "pageFailed", "end",
+        ]
+
         static var cards: some View {
             VStack(spacing: 16) {
                 AppCard {
@@ -165,6 +210,13 @@
     #Preview("Rows") { DesignGallery.rows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Images") { DesignGallery.images }
+    #Preview("Item rows") { DesignGallery.itemRows }
+    #Preview("Paged list") {
+        TabView {
+            ForEach(DesignGallery.pagedNames, id: \.self) { DesignGallery.paged($0) }
+        }
+        .tabViewStyle(.page)
+    }
     #Preview("Cards") { DesignGallery.cards }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }

@@ -36,18 +36,30 @@ private struct AppButtonLabel: View {
 
 /// An action beside the main one, or a screen's only action when it isn't the point of the screen: tinted, not filled.
 struct AppSecondaryButton: View {
-    private let title: LocalizedStringResource
+    private let title: Text
+    private let small: Bool
     private let action: () -> Void
 
-    init(_ title: LocalizedStringResource, action: @escaping () -> Void) {
-        self.title = title
+    /// `small` is the size for a list row's trailing end (Unblock), and the default the size of a screen's own buttons.
+    init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
+        self.init(text: Text(title), small: small, action: action)
+    }
+
+    /// A button whose label Kotlin chose.
+    init(_ title: any AppText, small: Bool = false, action: @escaping () -> Void) {
+        self.init(text: Text(title), small: small, action: action)
+    }
+
+    private init(text: Text, small: Bool, action: @escaping () -> Void) {
+        title = text
+        self.small = small
         self.action = action
     }
 
     var body: some View {
-        Button(action: action) { Text(title) }
+        Button(action: action) { title }
             .buttonStyle(.bordered)
-            .controlSize(.large)
+            .controlSize(small ? .small : .large)
     }
 }
 
