@@ -113,7 +113,7 @@ When the view says the viewer may vote (the proposal is open and they have an ef
 - **WHEN** a client from before this change reads a timeline holding a post
 - **THEN** it skips the post and shows the other items
 
-### Requirement: A post card opens its segment
+### Requirement: A post card shows the post and its counts
 The post card SHALL show:
 - the author and the text;
 - for a post sharing a proposal, the segment or site, with its current name, and the proposal's name, status and totals;
@@ -121,7 +121,12 @@ The post card SHALL show:
 - the post's like, comment, repost and quote counts, with like, repost and quote buttons;
 - "Reposted by" and the reposter, when it's in the timeline through a repost.
 
-Tapping the segment or site SHALL open that segment or site screen, tapping the author or the reposter SHALL open their profile, and tapping the quoted post SHALL open it. Tapping anywhere else on the card SHALL open the post page.
+#### Scenario: Counts on the card
+- **WHEN** alice's post has two likes, three comments, one repost and one quote bob is shown
+- **THEN** its card in bob's timeline shows 2 likes, 3 comments, 1 repost and 1 quote
+
+### Requirement: A post card opens its segment
+Tapping the segment or site on a post card SHALL open that segment or site screen, tapping the author or the reposter SHALL open their profile, and tapping the quoted post SHALL open it. Tapping anywhere else on the card SHALL open the post page.
 
 #### Scenario: Open from the card
 - **WHEN** bob taps the segment named on alice's post card
@@ -130,10 +135,6 @@ Tapping the segment or site SHALL open that segment or site screen, tapping the 
 #### Scenario: Open the post page
 - **WHEN** bob taps alice's post card anywhere but the segment, the author, the reposter, the quoted post, a vote, or the like, repost or quote button
 - **THEN** the post page opens on that post
-
-#### Scenario: Counts on the card
-- **WHEN** alice's post has two likes, three comments, one repost and one quote bob is shown
-- **THEN** its card in bob's timeline shows 2 likes, 3 comments, 1 repost and 1 quote
 
 #### Scenario: Open the reposter
 - **WHEN** carol taps "Reposted by bob" on a card in her timeline
