@@ -85,19 +85,25 @@ around.
 
 ## TextFieldState
 
-`TextFieldState` cannot stay in exported contracts. The recommended handling keeps the presenters' code as it is:
+`TextFieldState` could not stay in exported contracts. What phase 1 built keeps the presenters' code as it was:
 
-- An app-owned type with the same simple name in `:app-common-api`: an `expect class TextFieldState`, with `expect` versions of
-  `rememberTextFieldState`, `setTextAndPlaceCursorAtEnd` and `clearText`, and a `textFieldStateOf(initial)` factory.
-- On Android, desktop and web it is an `actual typealias` to Compose's `TextFieldState`. Behaviour is unchanged and `AppTextField` takes
-  it as before.
-- On iOS it is an `actual class` over snapshot state with a `String` value, a setter and a flow of programmatic changes (a seed, a
-  clear, a restore after a failed send). Swift wraps it in an `@Observable` model behind a `TextField` binding. Reads and writes are
-  synchronous, so the cursor doesn't jump; the flow only carries Kotlin-side changes back.
-- Presenters, contracts, fixtures and tests change imports only, plus `TextFieldState()` to `textFieldStateOf()` in the few `State`
-  defaults. `compose-foundation` leaves the iOS side of the `feature.api` convention.
-- While Compose screens remain on iOS, the iOS `AppTextField` actual adapts the app type to a local Compose `TextFieldState`.
-- Rules that live only in Compose UI today (`DigitsOnly`, maximum length, keyboard type) get SwiftUI equivalents in the Swift field.
+- An app-owned type with the same simple name, in its own module `:core-textfield` (package `textfield`): an `expect class
+  TextFieldState`, with `expect` versions of `rememberTextFieldState`, `setTextAndPlaceCursorAtEnd` and `clearText`, and a
+  `textFieldStateOf(initial)` factory. Its own module because both the contracts and the design system's `AppTextField` take it, and
+  neither may depend on the other.
+- On Android, desktop and web it is an `actual typealias` to Compose's `TextFieldState`. Behaviour is unchanged, `AppTextField` takes it
+  as before, and JVM tests keep editing it with Compose's API.
+- On iOS it is an `actual class` that wraps a Compose `TextFieldState` until Compose leaves iOS, not a second copy of the text: the
+  Compose field on iOS edits the same object as before, so typing, the cursor, selection and restoring behave as they did. Swift reads
+  and sets `value`, a `String`. `composeState`, typed `Any`, is what the iOS `AppTextField` casts back; it goes in phase 5, when the
+  class's inside becomes plain snapshot state. A two-way copy between two text states on every keystroke, the first idea, is how
+  characters get dropped and cursors jump.
+- Presenters, contracts and fixtures changed imports only, plus `TextFieldState()` to `textFieldStateOf()`. Compose foundation left the
+  contract modules. detekt's `UseAppTextFieldState` refuses Compose's four names outside test files, since a missed import compiles
+  everywhere but iOS.
+- Still to do in phase 2: what Swift needs to observe a field (a flow of Kotlin-side changes such as a seed, a clear or a restore after a
+  failed send, behind an `@Observable` model and a `TextField` binding), and SwiftUI equivalents of the rules that live only in
+  Compose UI today (`DigitsOnly`, maximum length, keyboard type).
 
 Rejected: an `XChanged(String)` event per field (51 fields, new presenter logic, and the reason the `UseTextFieldState` rule exists),
 and hiding the Compose type behind per-field accessor functions (51 shims, and it depends on hidden-type behaviour that fails silently).
@@ -110,9 +116,12 @@ Each phase leaves a shippable app.
    existing three Swift files with the UI unchanged; three real contracts are probed from Swift. The exit is a running app and a written
    list of which contract constructs must change. If Swift export fails the gate, the fallback is SKIE on Kotlin 2.4.20, and everything
    from phase 2 on is unchanged.
-1. **Swift-clean contracts.** The `TextFieldState` type; `PlaceNameFields.self` renamed; `ImmutableList` to `List` where Swift reads a
-   list (sealed interfaces stay, see the spike findings); `LocalSettingsPane` out of `:app-common-api`; model types the contracts take from `:core-data` moved somewhere
-   exportable; a `checkSwiftExport` guard on every exported module; a macOS CI job. No visible change.
+1. **Swift-clean contracts** (`ios-swift-clean-contracts`). The `TextFieldState` type in `:core-textfield`; `PlaceNameFields.self`
+   renamed; `LocalSettingsPane` out of `:app-common-api`; every contract module exported to Swift, with a second constructor on the four
+   events that took an immutable collection; two guards, `checkSwiftExportSources` in `check` and `checkSwiftExportStubs` in Xcode's
+   build; a macOS CI job. No visible change. Left for the phase that needs them: `ImmutableList` and `ImmutableSet` fields, which Swift
+   reads as Kotlin collection protocols with untyped elements, become `List` and `Set` or get one Swift wrapper (decide on the first
+   native list screen); and moving model types out of `:core-data`, which is about the size of the export, not about making it work.
 2. **Headless host, native shell, first native screen.** `:app-host`; the UI-free parts of `App.kt` shared by both shells; the SwiftUI
    root, tabs, navigation stacks, screen registry and Compose fallback. Login is the first native screen.
 3. **Native foundations.** A String Catalog generated from `strings.xml` (2,026 strings, 68 plurals), so it stays the single source; SF
@@ -228,13 +237,16 @@ How the build ended up:
 
 Size and time, debug build for the simulator on this machine:
 
-| | Objective-C framework | Swift export | Swift export with three contracts |
-|---|---|---|---|
-| Generated Swift | none (a header) | 5,352 lines | 42,361 lines |
-| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB |
-| Build with nothing changed | 6 s | 5 s | 5 s |
-| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s |
-| First build of the binary, other modules already compiled | 187 s | 396 s | not measured |
+| | Objective-C framework | Swift export | Swift export with three contracts | Swift export with every contract (phase 1) |
+|---|---|---|---|---|
+| Generated Swift | none (a header) | 5,352 lines | 42,361 lines | 91,668 lines |
+| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB | 220.2 MB |
+| Build with nothing changed | 6 s | 5 s | 5 s | 5 s |
+| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s | 54 s |
+| First build of the binary, other modules already compiled | 187 s | 396 s | not measured | not measured |
+
+The last column has 21 contract modules exported whole and only kotlinx-serialization-core hidden. Twice the Swift of the probe costs
+nothing measurable in a rebuild, so exporting the contracts whole stands and the facade alternative isn't needed.
 
 ### Contract probe (2026-11-09)
 
@@ -284,11 +296,52 @@ What phase 1 has to do is smaller than planned:
 - The guard checks exported modules for Compose types, properties named `self`, and a hidden module's type in a signature Swift calls.
 - Sealed interfaces, value classes and the Circuit supertypes need nothing.
 
+### Phase 1 findings (`ios-swift-clean-contracts`)
+
+The text field module, `:core-textfield`, exported whole as the Swift module `CoreTextfield`:
+
+- `TextFieldState` is a Swift class. `value` is a `Swift.String` property with a getter and a setter, which is what a Swift field binds.
+- `text`, a Kotlin `CharSequence`, is exported as `any ExportedKotlinPackages.kotlin.CharSequence`: usable (`state.text.length`), not a
+  stub, and not a Swift `String`. Swift reads `value`.
+- `rememberTextFieldState` is not in the generated Swift at all. A `@Composable` function is left out of the export, not stubbed, so it
+  needs no exception in the stub check.
+- `textFieldStateOf(initialText:)` is a function of the module's package (`ExportedKotlinPackages.….textfield.textFieldStateOf`; a
+  top-level one when the module is given its package as root package, which the contract modules are not), and
+  `setTextAndPlaceCursorAtEnd(text:)` and `clearText()` are methods on the class. A Kotlin default argument is not exported: Swift
+  always passes `initialText`.
+- `composeState`, typed `Any`, is `any _KotlinBridgeable`. Nothing in the module is a stub.
+- An `expect class` whose actual is a class on iOS and a type alias to Compose's class in `nonAppleMain` compiles on every target and
+  resolves from other modules' common code with no compiler warning.
+
+Every contract module exported (`:app-common-api` and the 19 feature API modules, beside `:core-textfield` and `:iosShell`). A
+throwaway Swift file, since removed, read a state and sent an event for each construct the probe had left open. It compiled without an
+error or a warning; nothing ran it.
+
+| Construct | Result | What it means |
+|---|---|---|
+| `Duration`, `Instant` (`UploadsState`) | Exported standard-library classes: `timeLeft?.inWholeSeconds`, `serverPausedUntil?.epochSeconds` | No change |
+| `LocalDate` (`EditGearState`, `EditGearEvent.AcquiredChanged`) | An exported class Swift reads (`year`, `day`) and builds: `LocalDate(year:month:day:)` | No change |
+| `ByteString` (`ImportActivityEvent.FilePicked`) | Readable as far as named, but Swift can't make one: Kotlin's `ByteArray` initialiser is a stub. With kotlinx-io-bytestring marked `EXPOSED` (about 900 lines), `toByteString(data as NSData)` builds it | The module is exposed |
+| `ImmutableMap` (`ImportActivityEvent.SaveBatch`) | The getter is exported as the Kotlin map protocol (`size`, `_get`). The class had no initialiser at all | See the next row |
+| A constructor taking `ImmutableList`, `ImmutableSet` or `ImmutableMap` | The class is exported with its getters and **no initialiser or `copy`**, with no warning. 100 contract classes, nearly all states, which Swift never builds. Four were events Swift could not send | Those four have a second constructor taking `List` or `Map`, which exports as an initialiser taking a Swift array or dictionary. The stub check fails on an event with no initialiser |
+| `SubScreen` (`ReportScreen`) | Built and read in Swift like any class. The class has no `SubScreen` conformance in Swift: the generic interface isn't exported | Phase 2's host matches sub-screens in Kotlin |
+| `GeoPoint` in `RouteEnds` | `ends.start?.lat`, `RouteEnds(start:end:)`, `RouteEnds.Companion.shared.HIDDEN` | No change |
+| A text field in a state (`LoginState.handle`) | `state.handle.value`, read and set | As designed |
+| A `@Serializable` screen | Its `serializer()` is a stub, typed with the hidden serialization-core: 55 in the contracts | Allowed by name in the stub check; Swift has no use for it |
+| A type from a module that is neither named nor hidden (`:composeApp`) | Exported as far as named, under a generated module name. Not a stub | Only a hidden module's type makes a stub |
+| An object extending an exported class; a declaration deprecated as an error | `private init()` without `override`; `@available(*, unavailable)` over a stubbed body | The stub check knows both |
+
+Hidden modules: only kotlinx-serialization-core. The probe hid Ktor, Room, SQLite, Kermit, kotlinx-io and kotlinx-serialization-json
+too, but with no Compose type left in the contracts the export builds without hiding them, and each comes through only as far as
+`:core-data`'s signatures name it.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
   whose HTTP/3 works or a tunnel without it.
-- How Swift export treats `Duration`, `Instant`, `LocalDate`, `ByteString`, `ImmutableMap` and `SubScreen`, which the probe didn't reach.
+- The macOS CI job has not run: it needs the branch pushed. Its runner label and the memory it gives Gradle are untested.
+- A class whose constructor takes an immutable collection has no Swift initialiser. The stub check catches that on events; a payload
+  class an event takes (`FeedFilter`, `CategorySelection`) shows up only when Swift tries to build one.
 - Whether the erased `List<Pair<…>>` bridge and the `self` clash are reported upstream, and fixed before Kotlin 2.5.0.
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.

@@ -69,7 +69,9 @@ Instead the iOS `actual class TextFieldState` holds a Compose `TextFieldState` p
 
 Contracts, presenters, `:app-fixtures`, the feature UIs, `:app-common-ui` and the design system import the four names from `:core-textfield`. `TextFieldState(...)` in common code (60 calls in fixtures and contracts, 7 in presenters, a few in UI) becomes `textFieldStateOf(...)`. `TextFieldLineLimits`, `InputTransformation`, `KeyboardActionHandler` and `maxLength` are UI-only parameters and stay Compose's.
 
-A missed import compiles on the JVM, where the two types are one, and fails only in an iOS compile, which CI's Linux job doesn't run. So detekt's stock `ForbiddenImport` rule forbids Compose's `TextFieldState`, `rememberTextFieldState`, `setTextAndPlaceCursorAtEnd` and `clearText` everywhere except `:core-textfield`, the design system's field actuals and JVM tests. That is in `check` on every platform.
+A missed import compiles on the JVM, where the two types are one, and fails only in an iOS compile, which CI's Linux job doesn't run. So a detekt rule, `UseAppTextFieldState` in `:detekt-rules`, forbids importing Compose's `TextFieldState`, `rememberTextFieldState`, `setTextAndPlaceCursorAtEnd` and `clearText` everywhere except test files, `:core-textfield`'s two actuals and the design system's iOS field. That is in `check` on every platform.
+
+It is the repo's own rule and not detekt's stock `ForbiddenImport`, as first planned, because the exceptions can't be written as paths: each detekt task matches `excludes` against a path relative to its own source set, so `**/jvmTest/**` matches in one task and not in another (the reason `UseSingleFlight` checks the file name). The rule skips files named `*Test.kt`, and the three bridging files suppress it by name.
 
 `compose-foundation` comes off `FeatureApiConventionPlugin` and `:app-common-api`.
 
@@ -81,9 +83,13 @@ A missed import compiles on the JVM, where the two types are one, and fails only
 
 ### 6. `:iosExport` names every contract module, from the build's module list
 
-`:iosExport` gains an `api` dependency on `:core-textfield`, `:app-common-api` and every project whose path ends in `-api`, read from the root project's module names so a new feature needs no step. Each gets an explicit Swift module name derived from its path (`:feature-login-api` is `FeatureLoginApi`), which the stub check also uses.
+`:iosExport` gains an `api` dependency on `:core-textfield`, `:app-common-api` and every project whose path ends in `-api`, read from the root project's module names so a new feature needs no step. Each gets an explicit Swift module name derived from its path (`:feature-login-api` is `FeatureLoginApi`, `:core-textfield` is `CoreTextfield`), which the stub check also uses. The text field module isn't named `TextField`: a Swift module with the name of SwiftUI's own type can't be told from it in a file that imports both.
 
-Hidden modules start from the probe's list (Ktor, Room, SQLite, Kermit, kotlinx-serialization-json and core, the Compose modules) and follow one rule: hide a module only when no contract signature names one of its types. `kotlinx-io-bytestring`, kotlinx-datetime and `:core-location` stay unconfigured, because states hold `ByteString`, `LocalDate`, `GeoPoint` and `RecordingState`. `:core-location` is hidden today, so its line in `iosExport/build.gradle.kts` goes.
+Hidden modules follow one rule: hide a module only when no contract signature names one of its types. kotlinx-datetime and `:core-location` stay unconfigured, because states hold `LocalDate`, `GeoPoint` and `RecordingState`. `:core-location` was hidden, so its line in `iosExport/build.gradle.kts` goes.
+
+As built, only kotlinx-serialization-core is hidden, where the plan was to start from the probe's longer list (Ktor, Room, SQLite, Kermit, kotlinx-serialization-json, the Compose modules). With `TextFieldState` out of the contracts nothing reaches Compose, and the export builds with the rest left unconfigured: they come through only as far as `:core-data`'s signatures name them, about 12,000 of the 90,000 generated lines. Leaving them costs that Swift; hiding them would turn every `:core-data` member that names one of their types into a stub the check doesn't fail on, a silent runtime failure in place of a slightly larger build. The measurements decide whether that holds.
+
+`kotlinx-io-bytestring` is marked `EXPOSED`. Unconfigured, only the `ByteString` class is exported, and Swift has no way to make one: Kotlin's `ByteArray` initialiser is itself a stub. Whole, the module adds about 900 lines and `NSData.toByteString()`, which is how Swift turns a picked file's `Data` into the `ByteString` of `ImportActivityEvent.FilePicked`.
 
 Rejected: reaching the contracts only through `:iosShell`'s signatures, to keep the surface small. Nothing in `:iosShell` names them until phase 2's host exists, and "as far as named" would leave most of each contract unexported and unchecked.
 
@@ -91,11 +97,15 @@ Rejected: reaching the contracts only through `:iosShell`'s signatures, to keep 
 
 The open constructs are settled by building. For each that fails or stubs: first try leaving its module unconfigured rather than hidden; then change the contract's type to one that exports (a data class in place of a tuple, as `RouteEnds` now has), keeping presenters' edits to renamed calls. A construct that can't be fixed that way stops the work for a decision; it is not allow-listed to get past the check.
 
+Building found one more kind of failure, which is neither a build error nor a stub. A class whose constructor takes an `ImmutableList`, `ImmutableSet` or `ImmutableMap` is exported with its getters and no initialiser, with no warning. For a state that costs nothing: Swift reads states and never builds one. Four events were affected (`DetailsEvent.PhotosPicked`, `EditGearCollectionEvent.Add`, `ImportActivityEvent.FilesPicked` and `SaveBatch`), which Swift could then not send. Each gets a second constructor taking the plain `List` or `Map`, which Swift export turns into an initialiser taking a Swift array or dictionary. The field keeps its immutable type, so the presenters, the Compose UIs and the stability check see no change. The stub check fails on an event with no initialiser (decision 8).
+
 ### 8. Two guards, because the two failures show up in different places
 
 **`checkSwiftExportSources`**, a text scan modelled on kmp-dataresult's `CheckSwiftExport`, registered by the feature API convention and applied to `:app-common-api` and `:iosShell`, and part of `check`. It fails on an `androidx.compose.` import other than `runtime.Immutable` and `runtime.Stable`, on a property or parameter named `self`, and on `Pair` or `Triple` in a declaration, which a contract names with a data class instead. It is cheap, runs on Linux and catches the mistakes that are easy to make. `sealed interface` and the immutable collections are allowed here, unlike in kmp-dataresult: the spike showed they export.
 
-**`checkSwiftExportStubs`**, on `:iosExport`, reads the generated Swift under `build/SwiftExport`. A stub is a `fatalError()` body whose declaration isn't `private override init()` and that isn't an enum initialiser's `default:`. It fails on a stub in the Swift modules of the contracts, `:core-textfield` and `:iosShell`, except declarations matching an allow-list kept in `iosExport/build.gradle.kts` with a reason each. The list is expected to hold `serializer()` (every `@Serializable` screen gets one, typed with a hidden class) and `rememberTextFieldState` (composable). Stubs in every other project module are written to `build/reports/swift-export/stubs.txt` without failing.
+**`checkSwiftExportStubs`**, on `:iosExport`, reads the generated Swift under `build/SwiftExport`. A stub is a `fatalError()` body whose declaration isn't `private override init()` and that isn't an enum initialiser's `default:`. It fails on a stub in the Swift modules of the contracts, `:core-textfield` and `:iosShell`, except declarations matching an allow-list kept in `iosExport/build.gradle.kts` with a reason each. The list holds `serializer()` alone (every `@Serializable` screen gets one, typed with a hidden class); `rememberTextFieldState` needs no entry, because a composable is left out of the export, not stubbed. A declaration Swift marks unavailable (a Kotlin function deprecated as an error) isn't counted: nothing can call it. Stubs in every other module are written to `build/reports/swift-export/stubs.txt` without failing.
+
+The same task fails on an event Swift can't build: a class named for a case of a sealed `…Event` interface that has neither a public initialiser nor a `shared` instance (decision 7). It can't see a dropped initialiser on any other class, since a state legitimately has none.
 
 The Xcode build phase runs `./gradlew :iosExport:embedSwiftExportForXcode :iosExport:checkSwiftExportStubs`, with the check ordered after the export, so a local build and CI's both stop on a stub. Its parsing is a plain class with unit tests in `build-logic`, fed snippets of real generated Swift.
 
@@ -121,5 +131,5 @@ Each task group leaves the app building on every platform, so the change can lan
 
 ## Open Questions
 
-- Whether `TextFieldState.text`, a `CharSequence`, exports as something Swift can use or needs an allow-list entry. Swift uses `value` either way.
-- Which runner label is newest when the job is written, if `macos-26` has been superseded.
+- Settled: `TextFieldState.text` exports as `any kotlin.CharSequence`, usable and not a stub. Swift uses `value`.
+- Which runner label is newest when the job runs, if `macos-26` has been superseded, and whether the sizes given to Gradle there fit the runner's memory: the job can't be run before the branch is pushed.

@@ -13,6 +13,10 @@ The Swift export build SHALL include every screen contract: the shared contracts
 - **WHEN** a new feature's API module is added to the build
 - **THEN** its screens, states and events are in the next Swift export build with no change to the export configuration
 
+#### Scenario: An event Swift can't build
+- **WHEN** an event's only constructor takes an immutable collection, so the export gives it no Swift initialiser
+- **THEN** the iOS build fails and names the event
+
 #### Scenario: Nothing changes for the athlete
 - **WHEN** the app is built with every contract exported and run on any platform
 - **THEN** every screen looks and behaves as it did before
