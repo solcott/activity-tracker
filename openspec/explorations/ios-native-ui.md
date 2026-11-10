@@ -592,13 +592,14 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
-- Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side. Seen
-  there and left: the stack's "Settings" title is centred in the window, so it sits over the page column beside the divider.
+- Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side.
   Still to see: a window resized across 700 points with the list scrolled, a profile opened from the blocked list, and all of it
   on iOS 18.
 - The app turns now (portrait and both landscapes on iPhone, all four on iPad), and no screen was laid out for a phone on its
-  side: each lays out by the width it gets. Only the feed, the profile, Settings and the Account page were looked at turned. Record,
-  the map screens and the charts want a look on a phone on its side when their features move.
+  side: each lays out by the width it gets. Only the feed, the profile, Settings, the Account page and an activity were looked at turned.
+  An activity on an iPhone on its side takes the shared UI's `Expanded` layout (874 points is over 840): a narrow column beside a
+  side pane, in 402 points of height. `WindowWidth` decides by width alone, on Android phones on their side too; whether it should
+  ask the height as the Settings rule does is a decision for the shared UI. Record, the maps and the charts want the same look.
 - A native settings page will need a bar of its own in the detail column, which today only fallback pages fill (they draw their
   own). A column header in the design system, or `NavigationSplitView` after all: decide with the first native page.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List` (`ZoneSummary.kinds`,

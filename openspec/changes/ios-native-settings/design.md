@@ -165,7 +165,7 @@ Asked for after the first apply, when the walk showed that portrait only left ev
 ## Risks / Trade-offs
 
 - [A stack inside a stack's destination doesn't display] → Found by the probe before anything was built on it; the layout has no navigation container inside the destination.
-- [The outer bar's title sits centred over both columns on iPad] → It is the system's placement for any native screen there, and it names the whole destination. Revisit with the first native page.
+- [The outer bar's title sits centred over both columns on iPad] → Seen on an iPad: centred in the window it lands over the page column, above the page's own title. Beside a page `SettingsView` now leaves the bar's centre empty and puts its title next to the back button, over the list (task 9.1).
 - [A deeper page opens in the column without a push transition] → As on the other platforms' detail pane; its back button is its own bar's.
 - [The split can't be seen signed in on an iPad] → Kotlin's rule is JVM-tested, the mechanics are walked on the iPhone with the width lowered, the look is snapshotted; the rest is in "Not verified".
 - [Every screen now turns, and none was laid out for a phone on its side] → Each already lays out by the width it gets (`WindowWidth` in the shared UI, the system's list and bars natively). The feed, the profile, Settings and the Account page were looked at on their side; the rest are in "Not verified".

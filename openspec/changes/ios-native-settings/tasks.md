@@ -56,11 +56,11 @@
 - [x] 8.4 Rerun `./gradlew check` and the iOS `xcodebuild test`, update the roadmap, `adaptive-ui.md` and the shared notes. Verify all pass and `openspec validate ios-native-settings --strict`.
 - [x] 8.5 Walk the split on an iPad with an account (iPad Air 11-inch, iOS 26.0, signed in by the user). Seen, on its side (1,180 by 820 points): the list beside Activity defaults with its row marked; Training zones replacing it with no back button and its row marked; Default zones opened from it with its own back button, Training zones still marked. Turned upright (820 by 1,180) with Default zones open: the list and the same page stay, nothing loads again. Its back button returns to Training zones; Muted accounts shows beside the list with only its row marked, not Blocked accounts; a swipe from the leading edge leaves Settings, page and all, for the profile.
 
-## Seen on the iPad and not fixed here
+## 9. What the iPad walk showed (added after 8.5)
 
-- **The stack's "Settings" title sits over the page column, not the list.** It is centred in the window, so upright it lands just right of the divider, above the page's own title, and the tabs overlap the divider. The risk design.md lists, now seen: decide with the first native page (a title per column, or none while the list is beside a page).
-- **"Matching on" wraps to two lines** in the 360-point list beside "Segments & groups".
-- **Back on the profile after the walk, it showed "Couldn't load profile. The server had a problem."** and Retry didn't clear it. The local AppView had stopped answering queries (a direct `getProfile` to it timed out), so this is the stack, not the layout; not looked into further.
+- [x] 9.1 Beside a page, Settings' title goes next to the back button, over the list, and the bar's centre is left empty: centred in the window it sat over the page column, above the page's own title. Verify on the signed-in iPad, upright and on its side, and on the rerecorded snapshot of the list beside a page.
+- [x] 9.2 A row's summary gets all the room its title leaves, and its disclosure mark sits 6 points from it: "Matching on" wrapped beside "Segments & groups" in the 360-point list, a point short. Verify on the iPad and that the rows and Settings snapshots are rerecorded, pass on a second run and were looked at.
+- [x] 9.3 Look at an activity on its side on the iPad and the iPhone. Seen: on the iPad it lays out as on any wide window. On the iPhone (874 by 402 points) the shared UI takes its `Expanded` layout, a 244-point column beside a pane that is empty for an activity with no map, so the page is cramped. Not fixed here: it is `WindowWidth`'s rule, by width alone, on every platform (see the roadmap's open items).
 
 ## Not verified
 
@@ -71,8 +71,8 @@
   page keeps its place on the fallback screens' cached view controllers; neither was seen. In the walk, a screen pushed over the
   split and popped again left the list at another offset, because at the scratch width its rows change height between the two
   layouts.
-- **Most screens on a phone on its side.** Only the feed, the profile, Settings and the Account page were looked at turned. An
-  activity, its map and charts, Record, the forms and sign-in were not; nor was any screen on iOS 18.
+- **Most screens on a phone on its side.** Only the feed, the profile, Settings, the Account page and an activity with no map
+  were looked at turned. A map, the charts, Record, the forms and sign-in were not; nor was any screen on iOS 18.
 - **1.1's back swipe and taps on the iPad probes:** the simulator tool had no access to an iPad, so the probes were driven by launch
   arguments and read from screenshots. The edge swipe and the back button were exercised on the iPhone in 6.4 instead.
 - **A profile opened from the blocked list** (the spec's example of a screen that opens full width): the test account has blocked
