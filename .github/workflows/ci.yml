@@ -91,3 +91,43 @@ jobs:
       # fonts differently.
       - name: Check
         run: ./gradlew check -x :androidApp:testDebugScreenshotTestDefaultTestSuite --continue
+
+  # The iOS app, built for the simulator as a developer builds it (dev/ios-swift-interop). Nothing in `check` compiles iOS code, so this
+  # is the only place a contract that no longer exports to Swift, a stub the stub check rejects or a broken Swift file fails. Beside
+  # `check`, not after it, and skipped with it. No simulator is booted and no test runs.
+  ios:
+    needs: preflight
+    if: needs.preflight.outputs.code == 'true'
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # As in `check`: gradle.properties sizes the heaps for a developer machine. Kotlin/Native compiles and links inside the Gradle
+      # daemon, so the daemon keeps most of the runner's memory and the Kotlin daemon, which only the build logic uses here, little.
+      - name: Size Gradle for the runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx2g
+          org.gradle.workers.max=2
+          EOF
+          sysctl -n hw.memsize hw.ncpu
+
+      # Its build phase runs :iosExport:embedSwiftExportForXcode and :iosExport:checkSwiftExportStubs, then Xcode compiles the generated
+      # Swift and the app's own. The ad-hoc signature needs no team and no secret.
+      - name: Build the iOS app
+        run: |
+          xcodebuild -version
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGN_IDENTITY=- build
