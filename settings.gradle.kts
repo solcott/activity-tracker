@@ -55,6 +55,7 @@ listOf(
         "core/location",
         "core/activityfile",
         "core/data",
+        "core/textfield",
         "app/common/api",
         "app/common/presenter",
         "app/common/presenter-testing",
