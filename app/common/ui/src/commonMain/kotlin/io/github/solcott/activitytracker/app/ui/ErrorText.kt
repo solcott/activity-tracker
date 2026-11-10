@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -160,21 +161,17 @@ fun ErrorRetryRow(error: UiError, onRetry: () -> Unit, modifier: Modifier = Modi
 fun failureText(what: String, reason: DataError?): String =
     reason?.let(::errorReason)?.let { stringResource(Res.string.error_with_reason, what, stringResource(it)) } ?: what
 
-/** Why something failed, for the failures the athlete can act on or wait out; null for the rest, which say only what failed. */
+/**
+ * The text for why something failed, for the failures the athlete can act on or wait out; null for the rest, which say only what failed.
+ * Which failures those are is [FailureReason]'s rule, shared with the native UIs.
+ */
 internal fun errorReason(error: DataError): StringResource? =
-    when (error) {
-        DataError.Network -> Res.string.error_reason_unreachable
-        is DataError.Http if error.code >= SERVER_ERROR -> Res.string.error_reason_server
-        is DataError.Api if error.code == INTERNAL_SERVER_ERROR -> Res.string.error_reason_server
-        DataError.Serialization -> Res.string.error_reason_unreadable
-        else -> null
+    when (FailureReason.of(error)) {
+        FailureReason.Unreachable -> Res.string.error_reason_unreachable
+        FailureReason.Server -> Res.string.error_reason_server
+        FailureReason.Unreadable -> Res.string.error_reason_unreadable
+        null -> null
     }
-
-/** The lowest HTTP status that means the server failed. */
-private const val SERVER_ERROR = 500
-
-/** The XRPC error name for a failure on the server. */
-private const val INTERNAL_SERVER_ERROR = "InternalServerError"
 
 /** Localized text for what failed. */
 @Composable

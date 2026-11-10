@@ -12,7 +12,12 @@ kotlin {
         commonMain.dependencies { api(libs.compose.runtime) }
         // api: off iOS the type is Compose's TextFieldState, which callers edit and pass to Compose fields.
         nonAppleMain.dependencies { api(libs.compose.foundation) }
-        // implementation: the iOS class wraps Compose's state and shows Swift none of it.
-        iosMain.dependencies { implementation(libs.compose.foundation) }
+        iosMain.dependencies {
+            // api: the iOS class publishes its text as a Flow, which Swift iterates.
+            api(libs.kotlinx.coroutines.core)
+
+            // implementation: the iOS class wraps Compose's state and shows Swift none of it.
+            implementation(libs.compose.foundation)
+        }
     }
 }

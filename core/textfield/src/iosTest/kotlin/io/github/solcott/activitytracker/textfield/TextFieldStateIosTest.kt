@@ -1,10 +1,16 @@
 package io.github.solcott.activitytracker.textfield
 
 import androidx.compose.foundation.text.input.TextFieldState as ComposeTextFieldState
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.text.TextRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TextFieldStateIosTest {
     @Test
     fun `setting value changes the text`() {
@@ -52,5 +58,24 @@ class TextFieldStateIosTest {
         (state.composeState as ComposeTextFieldState).edit { append("ice") }
 
         assertEquals("alice", state.value)
+    }
+
+    @Test
+    fun `values follows every change and says nothing when the text is set to itself`() = runTest {
+        val state = textFieldStateOf("a")
+        val seen = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { state.values.collect { seen += it } }
+
+        // Each write is applied as the app's running composition applies it.
+        state.value = "b"
+        Snapshot.sendApplyNotifications()
+        state.clearText()
+        Snapshot.sendApplyNotifications()
+        state.setTextAndPlaceCursorAtEnd("c")
+        Snapshot.sendApplyNotifications()
+        state.value = "c"
+        Snapshot.sendApplyNotifications()
+
+        assertEquals(listOf("a", "b", "", "c"), seen)
     }
 }
