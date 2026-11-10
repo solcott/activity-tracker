@@ -102,7 +102,7 @@ object SegmentSamples {
                         ),
                     viewer = SegmentViewerState(canProposeName = false, canVoteOnNames = true),
                 )
-            return state(ContentStates.loaded(named)).copy(names = PlaceNameFields(self = alice.did.value))
+            return state(ContentStates.loaded(named)).copy(names = PlaceNameFields(viewerDid = alice.did.value))
         }
 
     /** [renamed], for a viewer who may propose and whose session can't vote. */
@@ -111,7 +111,7 @@ object SegmentSamples {
             val segment = checkNotNull(it.segment)
             it.copy(
                 content = ContentStates.loaded(segment.copy(viewer = segment.viewer?.copy(canProposeName = true))),
-                names = PlaceNameFields(canVoteHere = false, self = Fixed.CAROL.value),
+                names = PlaceNameFields(canVoteHere = false, viewerDid = Fixed.CAROL.value),
             )
         }
 

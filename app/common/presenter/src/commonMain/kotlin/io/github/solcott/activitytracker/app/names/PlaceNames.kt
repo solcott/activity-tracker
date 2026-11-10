@@ -43,7 +43,7 @@ fun rememberPlaceNames(
         sheet = sheet,
         confirmDelete = confirmDelete,
         error = error,
-        self = names.self.value,
+        viewerDid = names.self.value,
     ) { event ->
         when (event) {
             PlaceNameEvent.ProposeName ->

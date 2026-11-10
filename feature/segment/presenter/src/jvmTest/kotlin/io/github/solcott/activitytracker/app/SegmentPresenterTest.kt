@@ -592,7 +592,7 @@ class SegmentPresenterTest {
             assertEquals("Wiggly Woods", state.segment?.currentName)
             assertEquals("Hill", state.originalName)
             assertEquals(listOf("Wiggly Woods"), state.segment?.nameHistory?.map { it.name })
-            assertEquals(alice.value, state.names.self)
+            assertEquals(alice.value, state.names.viewerDid)
             cancelAndIgnoreRemainingEvents()
         }
     }

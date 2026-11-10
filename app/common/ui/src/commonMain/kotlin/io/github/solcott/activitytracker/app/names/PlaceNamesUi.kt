@@ -106,7 +106,7 @@ fun PlaceNames(
             proposals.forEach { proposal ->
                 Proposal(
                     proposal,
-                    own = proposal.proposer.did.value == fields.self,
+                    own = proposal.proposer.did.value == fields.viewerDid,
                     canVote = canVote,
                     canVoteHere = canVoteHere,
                     onEdit = { send(PlaceNameEvent.EditProposal(it)) },

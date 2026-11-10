@@ -19,7 +19,7 @@ data class PlaceNameFields(
     /** Why the last vote or deletion failed. */
     val error: UiError? = null,
     /** The signed-in viewer's DID: the proposals they made are offered Edit and Delete, not votes. */
-    val self: String? = null,
+    val viewerDid: String? = null,
     val eventSink: (PlaceNameEvent) -> Unit = {},
 )
 
