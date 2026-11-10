@@ -33,6 +33,7 @@ import com.slack.circuit.runtime.navigation.NavStackList
 import com.slack.circuit.runtime.navigation.navStackListOf
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuitx.gesturenavigation.GestureNavigationDecorationFactory
+import io.github.solcott.activitytracker.app.host.settingsPagesOnTop
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
 import io.github.solcott.activitytracker.app.settings.LocalSettingsPane
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen
@@ -121,11 +122,9 @@ private class SettingsLayout<T : NavArgument>(val settings: T, val pages: List<T
 
     companion object {
         /** The layout for a stack listed top first, or null to pass it through. */
-        fun <T : NavArgument> of(stack: List<T>, wide: Boolean): SettingsLayout<T>? {
-            val pages = stack.takeWhile { it.screen is SettingsPage }
-            val settings = stack.getOrNull(pages.size)?.takeIf { wide && it.screen is SettingsScreen }
-            return settings?.let { SettingsLayout(it, pages) }
-        }
+        fun <T : NavArgument> of(stack: List<T>, wide: Boolean): SettingsLayout<T>? =
+            // The rule the presenter host asks too, so the two shells can't disagree about when Settings shows beside a page.
+            settingsPagesOnTop(stack) { it.screen }?.takeIf { wide }?.let { pages -> SettingsLayout(stack[pages], stack.take(pages)) }
     }
 }
 

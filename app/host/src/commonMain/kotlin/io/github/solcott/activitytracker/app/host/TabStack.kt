@@ -6,6 +6,8 @@ import com.slack.circuit.runtime.navigation.NavStackList
 import com.slack.circuit.runtime.screen.PopResult
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
+import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
+import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Main thread only, like the presenters that call it.
  */
 @Stable
+@Suppress("TooManyFunctions") // Navigator's nine, and beside them what a UI reports (going back, its width) and how a record is made.
 class TabStack
 internal constructor(
     val destination: TopLevelDestination,
@@ -27,22 +30,70 @@ internal constructor(
     val records: StateFlow<List<HostRecord>>
         field = MutableStateFlow(listOf(record(root, isRoot = true)))
 
-    /** [records], as a Swift UI follows them (see `SwiftFlows.kt`). */
-    val shown: StateFlow<ShownRecords> = records.mapState(::ShownRecords)
+    /** Whether the UI has room to show Settings' list beside a page; see [setSize]. */
+    private val wide = MutableStateFlow(false)
 
-    private fun record(screen: Screen, isRoot: Boolean): HostRecord =
-        HostRecord(
-            key = keys.next(),
+    /**
+     * What a UI shows: [records], and, for one that reported itself wide enough, Settings laid out beside its page when that is the top of
+     * the stack (ui/settings-layout). Wrapped in an object for Swift (see `SwiftFlows.kt`).
+     */
+    val shown: StateFlow<ShownRecords>
+        field = MutableStateFlow(shownNow())
+
+    private fun shownNow(): ShownRecords = ShownRecords(records.value, if (wide.value) SettingsSplit.of(records.value) else null)
+
+    /** Replaces the stack, and with it what a UI shows. */
+    private fun show(records: List<HostRecord>) {
+        this.records.value = records
+        shown.value = shownNow()
+    }
+
+    /**
+     * Tells the stack the size of the UI showing it, in points: with room for it ([settingsSplitFits]), [shown] lays Settings out beside
+     * its page. The records never change with it.
+     */
+    fun setSize(width: Double, height: Double) {
+        val wide = settingsSplitFits(width, height)
+        if (wide != this.wide.value) {
+            this.wide.value = wide
+            shown.value = shownNow()
+        }
+    }
+
+    private fun record(screen: Screen, isRoot: Boolean): HostRecord {
+        val key = keys.next()
+        return HostRecord(
+            key = key,
             screen = screen,
             isRoot = isRoot,
             showsTabs = TopLevelDestination.showsNavigation(screen),
             presenter = presenters.create(screen, this),
+            // Settings shows Activity defaults beside its list until a row is chosen, without it being on the stack.
+            paneDefault = if (screen is SettingsScreen) beside(ActivityDefaultsScreen) else null,
+            paneRoot = paneRoot(key),
         )
+    }
+
+    /** A record shown beside one of the stack's, never in it; it navigates this stack like any other. */
+    private fun beside(screen: Screen): HostRecord {
+        val key = keys.next()
+        return HostRecord(
+            key,
+            screen,
+            isRoot = false,
+            showsTabs = true,
+            presenter = presenters.create(screen, this),
+            paneRoot = paneRoot(key),
+        )
+    }
+
+    /** Whether the record with [key] is the first page beside Settings' list. Asks [shown] late: the first record is made before it. */
+    private fun paneRoot(key: String): StateFlow<Boolean> = mapState({ shown }) { it.split?.first?.key == key }
 
     /** Puts [screen] on top, unless the screen on top equals it (Circuit's rule, which makes a double tap open one screen). */
     override fun goTo(screen: Screen): Boolean {
         if (records.value.last().screen == screen) return false
-        records.value += record(screen, isRoot = false)
+        show(records.value + record(screen, isRoot = false))
         return true
     }
 
@@ -52,7 +103,7 @@ internal constructor(
     override fun pop(result: PopResult?): Screen? {
         val current = records.value
         if (current.size == 1) return null
-        records.value = current.dropLast(1)
+        show(current.dropLast(1))
         return current.last().screen
     }
 
@@ -63,7 +114,7 @@ internal constructor(
     fun popTo(size: Int) {
         val current = records.value
         val keep = size.coerceIn(1, current.size)
-        if (keep < current.size) records.value = current.take(keep)
+        if (keep < current.size) show(current.take(keep))
     }
 
     override fun peek(): Screen? = records.value.last().screen
@@ -84,7 +135,7 @@ internal constructor(
      */
     override fun resetRoot(newRoot: Screen, options: Navigator.StateOptions): List<Screen> {
         val old = peekBackStack()
-        records.value = listOf(record(newRoot, isRoot = true))
+        show(listOf(record(newRoot, isRoot = true)))
         return old
     }
 

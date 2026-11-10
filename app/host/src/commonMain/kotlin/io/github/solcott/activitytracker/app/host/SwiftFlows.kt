@@ -12,8 +12,17 @@ import kotlinx.coroutines.flow.StateFlow
 // cast fails and stops the app. A property of an object is converted properly, so each such flow has a twin here whose elements are
 // objects holding the value. Kotlin code reads the plain flows; Swift follows these.
 
-/** A stack's records at one moment, for `TabStack.shown`. */
-class ShownRecords(val records: List<HostRecord>)
+/**
+ * A stack at one moment, for `TabStack.shown`: its [records], and how a UI that reported itself wide enough lays out Settings on top of it
+ * ([split]; null one screen at a time).
+ */
+class ShownRecords(val records: List<HostRecord>, val split: SettingsSplit? = null) {
+    /**
+     * The records a UI puts in its navigation stack: all of them, or with a [split] only those up to Settings, whose own screen then draws
+     * the page beside its list.
+     */
+    val pushed: List<HostRecord> = split?.let { records.take(records.indexOf(it.settings) + 1) } ?: records
+}
 
 /** The session's mode at one moment, for `SessionHost.shownMode`. */
 class ShownMode(val mode: SessionMode)
@@ -28,16 +37,20 @@ class ShownUnits(val units: UnitSystem)
  * This flow with each value passed through [transform], still a [StateFlow]: it has a current value, which is what a UI draws before it
  * starts following. It holds nothing of its own, so it can never differ from its source.
  */
+internal fun <T, R> StateFlow<T>.mapState(transform: (T) -> R): StateFlow<R> = mapState({ this }, transform)
+
+/**
+ * [mapState] over a flow asked for only when the result is first read or followed: for a value derived from a flow its owner hasn't made
+ * yet, as a stack's first record is made before the stack's own flows.
+ */
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-internal fun <T, R> StateFlow<T>.mapState(transform: (T) -> R): StateFlow<R> {
-    val source = this
-    return object : StateFlow<R> {
+internal fun <T, R> mapState(source: () -> StateFlow<T>, transform: (T) -> R): StateFlow<R> =
+    object : StateFlow<R> {
         override val value: R
-            get() = transform(source.value)
+            get() = transform(source().value)
 
         override val replayCache: List<R>
             get() = listOf(value)
 
-        override suspend fun collect(collector: FlowCollector<R>): Nothing = source.collect { collector.emit(transform(it)) }
+        override suspend fun collect(collector: FlowCollector<R>): Nothing = source().collect { collector.emit(transform(it)) }
     }
-}

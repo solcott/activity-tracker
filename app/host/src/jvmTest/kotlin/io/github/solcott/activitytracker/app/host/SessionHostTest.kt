@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
+import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.LeftElsewhereScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
@@ -184,6 +185,73 @@ class SessionHostTest {
         root.setVisible(false)
         runCurrent()
         assertEquals(listOf<Any>(activity), fakes.running)
+    }
+
+    // "The page shown before a row is chosen is not on the stack".
+
+    @Test
+    fun thePageBesideSettingsRunsOnlyWhileTheUiShowsIt() = runTest {
+        start()
+        feed.setSize(1_032.0, TALL)
+        feed.goTo(SettingsScreen)
+        runCurrent()
+        val beside = assertNotNull(feed.top.paneDefault)
+
+        assertEquals(listOf<Any>(SettingsScreen), fakes.running, "nothing draws it yet")
+        assertNull(beside.state.value)
+
+        beside.setVisible(true)
+        runCurrent()
+        assertEquals(setOf<Any>(SettingsScreen, ActivityDefaultsScreen), fakes.running.toSet())
+        assertEquals(ActivityDefaultsScreen, beside.test.screen)
+        assertEquals(listOf(FeedScreen, SettingsScreen), feed.screens, "it is not on the stack")
+
+        beside.setVisible(false)
+        runCurrent()
+        assertEquals(listOf<Any>(SettingsScreen), fakes.running)
+    }
+
+    @Test
+    fun thePageBesideSettingsKeepsItsStateWhileSettingsIsOnTheStack() = runTest {
+        start()
+        feed.setSize(1_032.0, TALL)
+        feed.goTo(SettingsScreen)
+        val beside = assertNotNull(feed.top.paneDefault)
+        beside.setVisible(true)
+        runCurrent()
+        val first = beside.test
+
+        // A row opens its page in place of it, and going back to the list shows it again.
+        beside.setVisible(false)
+        feed.goTo(AccountScreen)
+        runCurrent()
+        feed.pop()
+        beside.setVisible(true)
+        runCurrent()
+
+        assertEquals(first.retained, beside.test.retained)
+        assertEquals(first.saved, beside.test.saved)
+    }
+
+    @Test
+    fun settingsOpenedAgainGetsANewPageBesideIt() = runTest {
+        start()
+        feed.goTo(SettingsScreen)
+        val first = assertNotNull(feed.top.paneDefault)
+        first.setVisible(true)
+        runCurrent()
+        val retained = first.test.retained
+
+        feed.pop()
+        runCurrent()
+        assertEquals(listOf<Any>(FeedScreen), fakes.running, "it left with Settings, though the UI never said it was hidden")
+        feed.goTo(SettingsScreen)
+        val second = assertNotNull(feed.top.paneDefault)
+        second.setVisible(true)
+        runCurrent()
+
+        assertNotEquals(first.key, second.key)
+        assertNotEquals(retained, second.test.retained)
     }
 
     @Test

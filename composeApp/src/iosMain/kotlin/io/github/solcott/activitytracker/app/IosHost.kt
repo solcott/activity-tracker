@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.app.host.startOnMain
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
+import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsPaneRoot
 import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
 import kotlinx.coroutines.MainScope
@@ -94,9 +95,12 @@ private fun Screen(record: HostRecord, graph: AppGraph, session: SessionGraph?) 
     val circuit = session?.sessionCircuit?.circuit ?: graph.appCircuit.circuit
     val ui = remember(record, circuit) { uiFor(record, circuit) }
     val state by record.state.collectAsState()
+    // The first page beside Settings' list draws no back button: the list is where to go back to (ui/settings-layout). The same view
+    // controller draws the page when the window narrows and it has the screen to itself, so this follows the host.
+    val paneRoot by record.paneRoot.collectAsState()
     AppTheme {
         CircuitCompositionLocals(circuit) {
-            CompositionLocalProvider(LocalIsNavRoot provides record.isRoot) {
+            CompositionLocalProvider(LocalIsNavRoot provides record.isRoot, LocalIsPaneRoot provides paneRoot) {
                 if (session == null) {
                     state?.let { ui.Content(it, Modifier) }
                 } else {

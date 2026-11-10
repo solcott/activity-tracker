@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 @Stable
 class HostRecord
+@Suppress("LongParameterList") // What its stack knows about a screen when it makes the record; only the host's own code calls this.
 internal constructor(
     /** Unique among the host's records for as long as the app runs: what a UI keys the screen's view on. */
     val key: String,
@@ -29,6 +30,17 @@ internal constructor(
     /** Whether the tabs show over this screen. False for a flow that takes the whole window (`TopLevelDestination.showsNavigation`). */
     val showsTabs: Boolean,
     internal val presenter: Presenter<*>,
+    /**
+     * The page a wide UI shows beside this screen until it opens one: Activity defaults, for Settings (ui/settings-layout). It is not in
+     * the stack, so going back never returns to it; its presenter runs while the UI reports it visible, and what it retained is kept for as
+     * long as this record is in its stack. Null for every screen that lays out no page beside it.
+     */
+    val paneDefault: HostRecord? = null,
+    /**
+     * Whether this screen is the first page shown beside Settings' list right now (`SettingsSplit`). The list is then where to go back to,
+     * so a UI that draws the screen gives it no back button; the same screen shown on its own has one.
+     */
+    val paneRoot: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     /**
      * The screen's latest state: null until its presenter first runs, and kept, unchanged, while the presenter is stopped (the screen is

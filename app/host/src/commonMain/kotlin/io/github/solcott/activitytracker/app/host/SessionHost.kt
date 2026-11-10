@@ -157,7 +157,8 @@ internal constructor(
 
     /**
      * The open app's records: the top screen of the chosen tab runs, and so does any screen the UI reports visible. The rest are stopped
-     * with their state kept.
+     * with their state kept. A page shown beside a record without being on the stack ([HostRecord.paneDefault]) is kept with that record
+     * and runs only while reported visible.
      */
     @Composable
     private fun Tabs() {
@@ -166,11 +167,15 @@ internal constructor(
         val running = mutableListOf<HostRecord>()
         tabs.forEach { stack ->
             val records by stack.records.collectAsState()
-            all += records
             records.forEachIndexed { index, record ->
+                all += record
                 val top = stack.destination == chosen && index == records.lastIndex
                 val visible = key(record.key) { isReportedVisible(record) }
                 if (visible || top) running += record
+                record.paneDefault?.let { beside ->
+                    all += beside
+                    if (key(beside.key) { isReportedVisible(beside) }) running += beside
+                }
             }
         }
         RunRecords(all.toImmutableList(), running.toImmutableList())
