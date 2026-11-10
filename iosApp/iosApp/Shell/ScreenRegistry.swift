@@ -42,6 +42,7 @@ extension ScreenRegistry {
     static let app: ScreenRegistry = {
         var registry = ScreenRegistry()
         registry.register(LoginScreen.self, LoginState.self) { state in LoginView(state: state) }
+        registry.register(SettingsScreen.self, SettingsState.self) { state in SettingsView(state: state) }
         return registry
     }()
 }

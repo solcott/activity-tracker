@@ -35,6 +35,17 @@ struct FallbackControllersTests {
 
         #expect(controllers.controller(forKey: "feed") { UIViewController() } === feed)
     }
+
+    @Test func thePageBesideARecordKeepsItsControllerWhileThatRecordIsInTheStack() {
+        // Activity defaults shows beside Settings without being on the stack, so the stack's own keys don't name it.
+        let defaults = controllers.controller(forKey: "defaults") { UIViewController() }
+
+        controllers.keep(only: StackPath.drawable([("profile", nil), ("settings", "defaults")]))
+        #expect(controllers.controller(forKey: "defaults") { UIViewController() } === defaults)
+
+        controllers.keep(only: StackPath.drawable([("profile", nil)]))
+        #expect(controllers.controller(forKey: "defaults") { UIViewController() } !== defaults)
+    }
 }
 
 /// When a back swipe may begin on a screen whose navigation bar is hidden.

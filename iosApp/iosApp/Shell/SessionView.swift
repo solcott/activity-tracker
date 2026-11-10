@@ -48,24 +48,27 @@ private struct TabsView: View {
     }
 }
 
-/// One tab's screens, in a navigation stack whose path follows the Kotlin stack (see `StackPath`).
+/// One tab's screens, in a navigation stack whose path follows the Kotlin stack (see `StackPath`). The stack tells Kotlin how wide it is,
+/// and Kotlin says when Settings shows beside its page (`shown.split`): the path then ends at Settings, whose destination draws the page
+/// in a second column (ui/settings-layout).
 private struct StackView: View {
     let stack: TabStack
     @State private var controllers = FallbackControllers()
 
     var body: some View {
         Following(stack.shown) { shown in
-            let records = shown.records
-            let keys = records.map(\.key)
-            NavigationStack(path: path(of: records)) {
+            let pushed = shown.pushed
+            let drawable = StackPath.drawable(shown.records.map { ($0.key, $0.paneDefault?.key) })
+            NavigationStack(path: path(of: pushed)) {
                 // The first record is the stack's root. It changes only when the stack is replaced, and then the view is new too.
-                ScreenView(record: records[0], controllers: controllers)
-                    .id(records[0].key)
+                ScreenView(record: pushed[0], controllers: controllers)
+                    .id(pushed[0].key)
                     .navigationDestination(for: StackEntry.self) { entry in
-                        ScreenView(record: entry.record, controllers: controllers)
+                        StackDestination(record: entry.record, stack: stack, controllers: controllers)
                     }
             }
-            .onChange(of: keys) { _, keys in controllers.keep(only: keys) }
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { stack.setSize(width: Double($0.width), height: Double($0.height)) }
+            .onChange(of: drawable) { _, keys in controllers.keep(only: keys) }
         }
     }
 
@@ -73,11 +76,38 @@ private struct StackView: View {
         Binding(
             get: { records.dropFirst().map(StackEntry.init) },
             set: { newPath in
+                // Shortening to a record also closes the pages drawn beside it, which Kotlin holds above it.
                 if let size = StackPath.size(afterWriting: newPath.map(\.record.key), over: records.map(\.key)) {
                     stack.popTo(size: Int32(size))
                 }
             }
         )
+    }
+}
+
+/// A pushed record's screen. A record that can show a page beside it (Settings, which Kotlin marks with a `paneDefault`) is laid out
+/// in columns, and follows the stack itself to know which page: a destination already pushed isn't rebuilt when the stack changes.
+private struct StackDestination: View {
+    let record: HostRecord
+    let stack: TabStack
+    let controllers: FallbackControllers
+
+    var body: some View {
+        if record.paneDefault == nil {
+            ScreenView(record: record, controllers: controllers)
+        } else {
+            Following(stack.shown) { shown in
+                // Only the Settings on top of the stack is beside a page; one further down is covered and draws as a list.
+                let split = shown.split.flatMap { $0.settings.key == record.key ? $0 : nil }
+                SettingsColumns(
+                    list: {
+                        ScreenView(record: record, controllers: controllers)
+                            .environment(\.settingsLayout, split.map { SettingsLayout(pane: $0.pane) } ?? .single)
+                    },
+                    // A page replaces the one before it: each record's screen is its own view.
+                    page: split.map { ScreenView(record: $0.page, controllers: controllers, inPane: true).id($0.page.key) })
+            }
+        }
     }
 }
 

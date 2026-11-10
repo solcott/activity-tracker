@@ -30,13 +30,18 @@ struct ScreenRegistryTests {
         #expect(registry.view(forScreenNamed: "LoginScreen", state: OtherState()) == nil)
     }
 
-    @Test func theAppDrawsSignInNativelyAndTheRestThroughTheSharedUi() {
+    @Test func theAppDrawsSignInAndSettingsNativelyAndTheRestThroughTheSharedUi() {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LoginScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "SettingsScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
+        // Settings' pages are still the shared UI's, beside the native list or over it.
+        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "PrivacyZonesScreen"))
+        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ActivityDefaultsScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
         // The registry takes a screen's name from its Swift type, and the host gives the Kotlin class's.
         #expect(String(describing: ActivityTracker.LoginScreen.self) == "LoginScreen")
+        #expect(String(describing: ActivityTracker.SettingsScreen.self) == "SettingsScreen")
     }
 }

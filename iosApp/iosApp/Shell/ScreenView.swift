@@ -4,6 +4,8 @@ import SwiftUI
 struct ScreenView: View {
     let record: HostRecord
     let controllers: FallbackControllers
+    /// Drawn in a column beside another screen, under a navigation bar that isn't its own (`SettingsColumns`).
+    var inPane = false
 
     var body: some View {
         screen
@@ -20,10 +22,10 @@ struct ScreenView: View {
             NativeScreen(record: record)
         } else {
             // Compose lays the screen out against the whole window and pads for the bars and the keyboard itself, and draws its own
-            // navigation bar.
+            // navigation bar. So the stack's bar is hidden, unless it belongs to the screen this one is drawn beside.
             FallbackScreen(record: record, controllers: controllers)
                 .ignoresSafeArea()
-                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(inPane ? .automatic : .hidden, for: .navigationBar)
         }
     }
 }
