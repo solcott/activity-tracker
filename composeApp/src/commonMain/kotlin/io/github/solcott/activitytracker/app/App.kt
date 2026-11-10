@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ProvidedValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -226,8 +227,16 @@ private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did
 }
 
 /** Tells each screen whether it's the root of the stack ([LocalIsNavRoot]), which drops its back button. */
-@Composable
 private fun rootFlags(backStack: SaveableBackStack): Map<SaveableBackStack.Record, ProvidedValues> {
     val root = backStack.rootRecord
-    return backStack.associateWith { record -> ProvidedValues { listOf(LocalIsNavRoot provides (record == root)) } }
+    return backStack.associateWith { record -> RootFlag(isRoot = record == root) }
+}
+
+/**
+ * A class, not a `ProvidedValues { }` lambda: on Kotlin 2.5.0-Beta2 a lambda converted to a library's `fun interface` with a composable
+ * method links against the method's signature from before the Compose compiler adds its parameters, so on iOS the first signed-in frame
+ * died with `IrLinkageError: No function found for symbol …ProvidedValues.provideValues`. The JVM targets and the build don't notice.
+ */
+private class RootFlag(private val isRoot: Boolean) : ProvidedValues {
+    @Composable override fun provideValues(): List<ProvidedValue<*>> = listOf(LocalIsNavRoot provides isRoot)
 }

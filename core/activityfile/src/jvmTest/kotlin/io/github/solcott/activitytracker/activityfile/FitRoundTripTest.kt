@@ -101,7 +101,8 @@ class FitRoundTripTest {
         val streams = read.streams!!
         assertEquals(decoDive.gasSwitches, streams.gasSwitches)
         assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0), DiveGas(100, 0)), read.dive!!.header.gases)
-        assertEquals(
+        // The type argument is spelled out because Kotlin 2.5 no longer infers it from the two nested lambdas.
+        assertEquals<List<List<Int?>>>(
             decoDive.points.map { p -> p.tankPressuresBar.map { it?.let { bar -> (bar * 1000).toInt() } } },
             streams.tankPressures!!.let { tanks -> streams.time.indices.map { i -> tanks.map { it.pressure[i] } } },
         )
