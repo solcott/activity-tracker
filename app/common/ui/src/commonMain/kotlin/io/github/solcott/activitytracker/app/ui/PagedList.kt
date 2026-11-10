@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.PagedShown
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -69,11 +70,11 @@ fun LazyListScope.pagedRefreshStatus(state: PagedState<*, *>, errorKind: UiError
  * why that failed with [onRetry]. Nothing before the first answer, which [pagedFooter] shows.
  */
 fun LazyListScope.pagedRefreshStatus(hasAnswer: Boolean, refresh: LoadStatus, errorKind: UiError.Kind, onRetry: () -> Unit) {
-    if (!hasAnswer) return
-    when (refresh) {
-        is LoadStatus.Failed -> item(key = "paged-refresh") { FailedRow(UiError(errorKind, refresh.error), onRetry) }
-        LoadStatus.Loading -> item(key = "paged-refresh") { Spinner(small = true, TestTags.REFRESHING) }
-        LoadStatus.Idle -> Unit
+    // What shows is PagedShown's rule, shared with the native iOS UI.
+    when (val above = PagedShown.of(hasAnswer, false, refresh, LoadStatus.Idle, false, errorKind).above) {
+        is PagedShown.Status.Failure -> item(key = "paged-refresh") { FailedRow(above.error, onRetry) }
+        PagedShown.Status.Progress -> item(key = "paged-refresh") { Spinner(small = true, TestTags.REFRESHING) }
+        null -> Unit
     }
 }
 
@@ -97,20 +98,16 @@ fun LazyListScope.pagedFooter(
     empty: @Composable () -> Unit,
     endReached: Boolean = false,
 ) {
-    if (!hasAnswer) {
-        when (refresh) {
-            is LoadStatus.Failed ->
-                item(key = "paged-footer") { FailedColumn(UiError(errorKind, refresh.error), onRetry, firstPage = true) }
-            LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = false, TestTags.LOADING) }
-            LoadStatus.Idle -> Unit
-        }
-        return
-    }
-    if (isEmpty && refresh !is LoadStatus.Loading) item(key = "paged-empty") { empty() }
-    when (append) {
-        is LoadStatus.Failed -> item(key = "paged-footer") { FailedColumn(UiError(errorKind, append.error), onRetry, firstPage = false) }
-        LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = true, TestTags.PAGE_LOADING) }
-        LoadStatus.Idle -> if (endReached && !isEmpty) item(key = "paged-end") { Spacer(Modifier.testTag(TestTags.LIST_END)) }
+    // What shows is PagedShown's rule, shared with the native iOS UI.
+    val shown = PagedShown.of(hasAnswer, isEmpty, refresh, append, endReached, errorKind)
+    if (shown.showsEmpty) item(key = "paged-empty") { empty() }
+    when (val below = shown.below) {
+        is PagedShown.Status.Failure -> item(key = "paged-footer") { FailedColumn(below.error, onRetry, firstPage = shown.firstPage) }
+        PagedShown.Status.Progress ->
+            item(key = "paged-footer") {
+                if (shown.firstPage) Spinner(small = false, TestTags.LOADING) else Spinner(small = true, TestTags.PAGE_LOADING)
+            }
+        null -> if (shown.atEnd) item(key = "paged-end") { Spacer(Modifier.testTag(TestTags.LIST_END)) }
     }
 }
 
