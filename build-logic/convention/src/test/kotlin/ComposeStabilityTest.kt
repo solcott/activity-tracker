@@ -183,6 +183,32 @@ class ComposeStabilityCheckTest {
         assertContains(result.output, "param items: List<Item>")
     }
 
+    @Test
+    fun `an iOS-only module's check reads its simulator compilation`() {
+        projectDir
+            .resolve("build.gradle.kts")
+            .writeText(
+                """
+                plugins {
+                    kotlin("multiplatform")
+                    id("org.jetbrains.kotlin.plugin.compose")
+                    id("activitytracker.quality")
+                }
+
+                kotlin {
+                    iosArm64()
+                    iosSimulatorArm64()
+                }
+                """
+                    .trimIndent(),
+            )
+
+        val result = runner(TASK, "--dry-run").build()
+
+        assertContains(result.output, ":compileKotlinIosSimulatorArm64 SKIPPED")
+        assertFalse(":compileKotlinIosArm64 SKIPPED" in result.output, result.output)
+    }
+
     private fun writeComposable(params: String) {
         projectDir
             .resolve("src/main/kotlin/Feed.kt")

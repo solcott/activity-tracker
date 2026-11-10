@@ -110,8 +110,8 @@ Each phase leaves a shippable app.
    existing three Swift files with the UI unchanged; three real contracts are probed from Swift. The exit is a running app and a written
    list of which contract constructs must change. If Swift export fails the gate, the fallback is SKIE on Kotlin 2.4.20, and everything
    from phase 2 on is unchanged.
-1. **Swift-clean contracts.** The `TextFieldState` type; whichever of `sealed interface` to `sealed class` and `ImmutableList` to `List`
-   the spike requires; `LocalSettingsPane` out of `:app-common-api`; model types the contracts take from `:core-data` moved somewhere
+1. **Swift-clean contracts.** The `TextFieldState` type; `PlaceNameFields.self` renamed; `ImmutableList` to `List` where Swift reads a
+   list (sealed interfaces stay, see the spike findings); `LocalSettingsPane` out of `:app-common-api`; model types the contracts take from `:core-data` moved somewhere
    exportable; a `checkSwiftExport` guard on every exported module; a macOS CI job. No visible change.
 2. **Headless host, native shell, first native screen.** `:app-host`; the UI-free parts of `App.kt` shared by both shells; the SwiftUI
    root, tabs, navigation stacks, screen registry and Compose fallback. Login is the first native screen.
@@ -144,12 +144,154 @@ Each phase leaves a shippable app.
 
 MapKit was set aside for maps because it can't render the OpenFreeMap styles the other platforms use.
 
+## Spike findings
+
+Filled in by `ios-swift-export-spike` as it runs.
+
+### Toolchain for Kotlin 2.5.0-Beta2 (2026-11-09)
+
+2.5.0-Beta2 is the newest Kotlin on Maven Central; there is no RC yet.
+
+| Dependency | Version | Why it works with the beta |
+|---|---|---|
+| Metro | 1.5.2 (unchanged) | Its compatibility table lists 2.5.0-Beta2 for Metro 1.5.0 and later |
+| KSP | 2.3.13 (unchanged) | KSP2 runs on its own Analysis API, not on the build's compiler, so it has no per-Kotlin release |
+| Room's processor | 3.0.3 (unchanged) | A KSP processor, so the same applies |
+| Compose compiler, serialization | 2.5.0-Beta2 | Both ship with Kotlin and take `version.ref = "kotlin"` |
+| Compose Multiplatform | 1.12.2 (unchanged) | Its plugin accepts the beta |
+
+### What the beta broke (2026-11-09)
+
+`./gradlew check` passes on every target with one source change, and running the app found a second break that `check` can't see:
+
+- `FitRoundTripTest` (`:core-activityfile` jvmTest) no longer compiled: an `assertEquals` over two nested lambdas failed with "the
+  value of the type parameter 'T' must be mentioned in input types". The type argument is now written out. Nothing else needed a change:
+  explicit backing fields, Metro's generated graphs, Room's KSP output and the Compose compiler all build as before.
+- The signed-in app died on its first frame on iOS with `IrLinkageError: No function found for symbol
+  'com.slack.circuit.foundation.navstack/ProvidedValues.provideValues|provideValues(){}[0]'`. `App.kt` passed Circuit a
+  `ProvidedValues { … }` lambda: a lambda converted to a library's `fun interface` whose method is composable. The beta links it against
+  the method's signature from before the Compose compiler adds its parameters. Nothing warns at build or link time, the JVM targets are
+  unaffected, and no iOS test draws the signed-in shell. The lambda is now a small class. `SessionPreviewSubUis` and `AppPreview` convert
+  lambdas to SubCircuit's `SubUi` the same way; they run only on the JVM (tests and screenshots), so they are left alone. The web app
+  shares `App.kt` and so had the same break; it wasn't run to confirm.
+- The wasm yarn lock is unchanged, and the web app's development bundle builds.
+- Detekt's type-resolution tasks print "compiler errors found during analysis" in a dozen modules. That isn't the beta: detekt reads
+  every source set of a module as one module and runs no compiler plugins, so it reports expect and actual declared together and every
+  serialization `serializer()` as unresolved. Neither error comes from the compiler the build uses (not compared with a 2.4.21 run,
+  since CI's detekt tasks came from the build cache).
+
+### The app on Swift export (2026-11-09)
+
+The app runs on Swift export. On an iOS 18.4 simulator it installs, launches and shows the sign-in screen with its strings, the handle
+field takes text, and Sign in reaches the system's web sign-in prompt. The signed-in pass was done on an iOS 26.0 simulator, for the
+reason below:
+
+| Check | Result |
+|---|---|
+| Sign in and see the feed | Signed in as `alice.test`; the feed, a profile and an activity page load |
+| Import a FIT file | `mtb-ride.fit` from `WriteWorkoutSamples` shows 7.83 mi, 45:00, 886 ft, 193 W and 152/167 bpm, the figures the file was written with (12.6 km, 2,700 s, 270 m, 193 W, a 140 to 168 bpm ramp), with its map and chart |
+| Import a truncated file | The first half of the same file gives "Couldn't read that file" and the app carries on: the exception the Swift decoder throws reaches Kotlin |
+| Background and return | Going to the background calls all three schedule functions; the same process comes back. The simulator refuses every `BGTaskScheduler` request (error 1), so no background task ran |
+| Calf's native pieces | The tab bar switches tabs, the activity-type sheet opens with its grabber, the delete alert shows and cancels, the date wheels turn; so do the native menus |
+
+Not checked: a background task actually running (it needs a device), and the signed-in app on iOS 18.
+
+The iOS 18.4 simulator can't be used for the signed-in pass against the tunnel. Its first requests go over HTTP/2 and work; once it has
+learned the host speaks HTTP/3, each QUIC connection is closed as soon as it is established (`quic_conn_retire_dcid unable to find
+DCID` in the system log) and the request hangs for its 60 s timeout, which the app shows as "Couldn't reach the server". That is the
+simulator's network stack, not the app: the same host answers `curl` in 0.2 s and the iOS 26.0 simulator reaches it.
+
+How the build ended up:
+
+- `:iosExport` names one `api` dependency, `:iosShell`. A module the umbrella names is exported whole. A module reached through
+  another's signatures (`:core-activityfile`, kotlinx-datetime) is exported only as far as those signatures name its types. That is what
+  keeps the surface small, so the two modules stay two.
+- Exporting `:core-activityfile` whole doesn't build. `PerSecond.hold(samples: List<Pair<Double, Int>>)` becomes a Kotlin bridge that
+  reads the argument as `List<Pair<Any?, Any?>>`, which the compiler rejects. So `:iosShell` has a `FitSupport` object that repeats the
+  seven helper calls the Swift decoder makes on `FitDives`, `FitHeart` and `FitUnits`, and makes the exception it throws.
+- Hiding a dependency is not safe by default. With kotlinx-datetime hidden, `DecodedActivity`'s constructor (it takes a
+  `LocalDateTime?`) was generated as `fatalError()`, with no warning. Left unconfigured it exports as far as it is named (1,892 lines);
+  marked `EXPOSED` it exports whole (8,250 lines). Only `:core-location` and kotlinx-serialization-core are hidden.
+- The Compose Multiplatform plugin copies resources into the app from the module Xcode's task runs in. Without it on `:iosExport` the
+  build succeeds and the app bundle has no `compose-resources`. It needs the Compose compiler plugin beside it, which is why the
+  stability check gained an iOS-only fallback.
+- A Swift class implements a Kotlin interface by extending `KotlinBase` (`final class SwiftFitDecoder: KotlinBase, FitDecoder`). A
+  Kotlin exception is a Swift `Error`: the decoder throws an `ActivityFileException` and Kotlin receives that same object, so
+  `FitDecoder.decode` keeps throwing (design decision 4's first option).
+- Nullable numbers are native optionals (`Int64?`, `Int32?`, `Double?`, `Bool?`) and lists of them are Swift arrays, which took the
+  boxing (`KotlinLong(value:)` and the like) out of about 200 lines of `SwiftFitDecoder`. A `ByteArray` is a Kotlin class read one element at a time, as before.
+- A module exported through another's signatures gets no short names: Swift writes
+  `ExportedKotlinPackages.io.github.solcott.activitytracker.activityfile.DecodedActivity`, so `SwiftFitDecoder` declares type aliases.
+  `:iosShell`, named by the umbrella with its package as the root package, gets `IosApp` and `FitSupport` as top-level names.
+- Calf needed nothing: the framework's `export(libs.calf.ui)` has no counterpart, the app links without one and its native pieces
+  work (the table above).
+
+Size and time, debug build for the simulator on this machine:
+
+| | Objective-C framework | Swift export | Swift export with three contracts |
+|---|---|---|---|
+| Generated Swift | none (a header) | 5,352 lines | 42,361 lines |
+| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB |
+| Build with nothing changed | 6 s | 5 s | 5 s |
+| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s |
+| First build of the binary, other modules already compiled | 187 s | 396 s | not measured |
+
+### Contract probe (2026-11-09)
+
+`:feature-login-api`, `:feature-segment-api` and `:feature-detail-api` were added to the umbrella on uncommitted changes, since removed.
+A throwaway Swift file read `LoginState`, `StarredSegmentsState` and `ActivityDetailState`, called each `eventSink` and switched over
+their sealed types. It compiled without an error or a warning. Nothing ran it, so every "works" below means "compiles".
+
+What it took to get there:
+
+1. As added, the export generated 71,192 lines of Swift and didn't build. The contracts name `TextFieldState`, which pulled in Compose
+   foundation, ui-text and ui-graphics. Their generated Kotlin bridge doesn't compile (an `AnnotatedString` constructor taking a
+   `List<Range<Any?>>`) and neither does their Swift (a nested type named `Type`).
+2. `PlaceNameFields` (`:app-common-api`) has a property named `self`. The bridge of its `copy` then has two parameters named `self` and
+   doesn't compile. Renaming the property fixed it.
+3. With Compose (foundation, ui, ui-text, ui-graphics, ui-geometry, ui-unit, runtime, runtime-saveable), Ktor, Room, SQLite, Kermit,
+   kotlinx-io and kotlinx-serialization-json hidden, and that property renamed, everything built.
+4. Exposing Compose foundation alone, to see whether `TextFieldState` could stay, doesn't build either: its Swift names
+   `AnnotatedString.Range` from the hidden ui-text.
+
+| Construct | Result | What it means for the contracts |
+|---|---|---|
+| `sealed interface` events and sub-states | A Swift protocol with `sealedType()`, an enum Swift switches over exhaustively with no `default`. Works for the contracts' own, for `AuthCoordinator.Status` in `:core-data` and for `LoadStatus` in the uistate library | No change. They stay `sealed interface` |
+| `data object` and `data class` cases | `LoginEvent.Submit.shared`; `StarredSegmentsEvent.Open(uri:)`. A case's payload is `case let .open(open)` then `open.value.uri` | No change |
+| `eventSink: (Event) -> Unit` | A Swift closure, `state.eventSink(event)` | No change |
+| `ImmutableList`, `ImmutableSet` fields | Exported, but as the Kotlin collection protocols: `size`, `_get(index:)`, `iterator()`, with untyped elements to cast. A plain `List<T>` field is a typed Swift array | Change to `List` and `Set` where Swift reads them, or wrap them once in Swift. `ImmutableMap` wasn't in the three contracts |
+| `ContentState<T>`, `PagedState<T, M>` | Exported classes. `data` is `(any _KotlinBridgeable)?`, `items` is `[(any _KotlinBridgeable)?]`, cast with `as? T`. Status, `canLoadMore` and the rest are typed | No change. The Swift design system needs typed wrappers, as planned |
+| `TextFieldState` field | With Compose exposed, a build failure. With Compose hidden, the field's getter and the state's constructor and `copy` are `fatalError()` stubs and the rest of the state works | The app-owned type goes ahead as designed |
+| `Did`, `AtUri` value classes | Ordinary classes: `AtUri(value:)`, `.value`, and the companion's `of` and `parseOrNull` | No change |
+| `Duration`, `Instant`, `LocalDate`, `ByteString` | The three contracts hold none of the first three. `LocalDateTime` (from `:core-activityfile`) is an exported class. `ByteString` (`PickedPhoto.bytes`) wasn't read | Still open for `Duration` and `Instant`; check them on the first contract that has one |
+| `Screen`, `CircuitUiState`, `SubScreen` supertypes | Circuit's runtime modules export as far as named: `LoginState` is an `any CircuitUiState`, `LoginScreen.shared` an `any Screen`. `SubScreen` wasn't touched | No change |
+| A property named `self` | Build failure in the generated bridge | Rename `PlaceNameFields.self`; the guard should refuse the name |
+| `:core-data` and `:core-lexicon` types | 10,258 and 7,303 lines of Swift for what three contracts reach, a quarter and a sixth of everything generated | Moving model types out of `:core-data` is about size and about not needing Ktor and Room hidden, not about making the export work |
+| Size and time | In the table above | Fine at three contracts; measure again at ten |
+
+### Go or no-go
+
+Go on Swift export. The app passes the simulator pass on it, the export carries every construct the contracts use except Compose types,
+and the failures it has are build failures or, for a hidden type, a stub found by reading the generated Swift. The one runtime failure
+the spike met came from the Kotlin beta, not from the export (the composable `fun interface` lambda above): it is in how the beta
+compiles `:composeApp` against Circuit's klib, which the Objective-C framework linked too. That build wasn't run signed in to confirm.
+
+What phase 1 has to do is smaller than planned:
+
+- `TextFieldState` leaves the contracts (the app-owned type).
+- `PlaceNameFields.self` is renamed.
+- Collections the Swift UI reads become `List` and `Set`, or get one Swift wrapper. Decide per the first native list screen.
+- The guard checks exported modules for Compose types, properties named `self`, and a hidden module's type in a signature Swift calls.
+- Sealed interfaces, value classes and the Circuit supertypes need nothing.
+
 ## Open items
 
-- Kotlin 2.5.0-Beta2 with Metro 1.5.2 is unverified. Metro is a compiler plugin.
-- How Swift export treats `Did` and `AtUri` value classes, `Duration`, `Instant`, `LocalDate` and `ByteString`, and Circuit supertypes
-  (`Screen`, `CircuitUiState`, `SubScreen`) from modules that aren't exported.
-- How much of `:core-data` and `:core-lexicon` the contracts drag into the exported surface.
+- A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
+  whose HTTP/3 works or a tunnel without it.
+- How Swift export treats `Duration`, `Instant`, `LocalDate`, `ByteString`, `ImmutableMap` and `SubScreen`, which the probe didn't reach.
+- Whether the erased `List<Pair<…>>` bridge and the `self` clash are reported upstream, and fixed before Kotlin 2.5.0.
+- Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
+  missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
 - Swipe back on a Compose fallback screen, whose native navigation bar is hidden.
 - Settings' list beside its page on iPad regresses between phase 2 and the settings migration unless settings goes first.

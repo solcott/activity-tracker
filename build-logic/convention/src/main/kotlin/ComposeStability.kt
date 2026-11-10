@@ -27,9 +27,10 @@ const val COMPOSE_STABILITY_CHECK_TASK_NAME = "composeStabilityCheck"
 
 /**
  * The main compilation that writes the reports the check reads, first match wins: a KMP module's JVM target, a JVM module, the Android
- * app's debug variant, then wasm for a module with no JVM target (`:webApp`).
+ * app's debug variant, then wasm for a module with no JVM target (`:webApp`), then the iOS simulator for an iOS-only one (`:iosExport`).
  */
-private val REPORT_COMPILE_TASKS = listOf("compileKotlinJvm", "compileKotlin", "compileDebugKotlin", "compileKotlinWasmJs")
+private val REPORT_COMPILE_TASKS =
+    listOf("compileKotlinJvm", "compileKotlin", "compileDebugKotlin", "compileKotlinWasmJs", "compileKotlinIosSimulatorArm64")
 
 private const val COMPOSE_COMPILER_PLUGIN_ID = "androidx.compose.compiler.plugins.kotlin"
 

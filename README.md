@@ -231,6 +231,7 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `app/fixtures` | Sample states for every screen, used by UI tests, previews and screenshot tests |
 | `composeApp` | The app shell: `App`, navigation, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
+| `iosShell`, `iosExport` | The Kotlin entry points `iosApp`'s Swift calls, and the Swift export build that hands them to Xcode |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, spaces syncer, XRPC queries, segment matcher, did:web |
 | `server/segment-importer` | CLI that turns OSM and agency trails, downhill pistes and ski lifts into candidate segments and publishes ridden ones, and publishes OSM dive sites |

@@ -27,23 +27,9 @@ composeUiTests { jvm = true }
 kotlin {
     // SubCircuit is experimental. Opted in module-wide so Metro's generated sub-factories compile too.
     compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
-    listOf(iosArm64(), iosSimulatorArm64()).forEach {
-        it.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-            // So iosApp's SwiftFitDecoder sees FitDecoder and its DTOs under their own names.
-            export(projects.coreActivityfile)
-            // Calf's UIKit components need it exported to work on iOS.
-            export(libs.calf.ui)
-        }
-    }
-
     sourceSets {
         commonMain { kotlin.srcDir(generateNetworkConfig) }
         commonMain.dependencies {
-            // api so the framework can export it (see the framework block above).
-            api(libs.calf.ui)
-
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
             implementation(projects.appCommonUi)
@@ -108,6 +94,7 @@ kotlin {
             implementation(projects.featureUploadsUi)
             implementation(projects.uiDesignsystem)
             implementation(projects.uiResources)
+            implementation(libs.calf.ui)
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)
@@ -136,8 +123,8 @@ kotlin {
         // sources, so the convention doesn't declare that group here.
         // Desktop's native runtime is picked per OS in :desktopApp.
         iosMain.dependencies {
-            // api so the framework can export it (see the framework block above).
-            api(projects.coreActivityfile)
+            // FitDecoder, which iosApp's Swift implements and hands to the iOS graph (see :iosShell).
+            implementation(projects.coreActivityfile)
             implementation(libs.maplibre.compose)
         }
         jvmMain.dependencies { implementation(libs.maplibre.compose) }
