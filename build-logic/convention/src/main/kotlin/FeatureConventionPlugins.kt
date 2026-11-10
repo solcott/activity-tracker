@@ -5,7 +5,8 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 /**
  * A feature's contracts (`feature/<name>/api`, `:feature-<name>-api`): its Screens, States and Events, which its presenter and UI modules
- * both depend on and other features navigate to. States are what UIs take as params, so every class must be statically stable.
+ * both depend on and other features navigate to. States are what UIs take as params, so every class must be statically stable. The iOS app
+ * exports them to Swift, so they hold nothing Swift export rejects (`checkSwiftExportSources`).
  */
 class FeatureApiConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
@@ -14,6 +15,8 @@ class FeatureApiConventionPlugin : Plugin<Project> {
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
             pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
             pluginManager.apply("dev.zacsweers.metro")
+            // Every contract module is exported to Swift whole (dev/ios-swift-interop).
+            pluginManager.apply("activitytracker.swift.contract")
             extensions.configure<ComposeStabilityExtension> { strictClasses.set(true) }
             extensions.configure<KotlinMultiplatformExtension> {
                 optInSubCircuit()

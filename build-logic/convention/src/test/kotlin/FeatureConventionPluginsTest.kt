@@ -76,6 +76,14 @@ class FeatureConventionPluginsTest {
     }
 
     @Test
+    fun `api modules are checked for what Swift export can't carry`() {
+        // The task existing is the convention's part; that check runs it is SwiftExportSourcesTest's.
+        val result = runner(":feature-x-api:$CHECK_SWIFT_EXPORT_SOURCES_TASK_NAME", "--dry-run").build()
+
+        assertContains(result.output, ":feature-x-api:$CHECK_SWIFT_EXPORT_SOURCES_TASK_NAME SKIPPED")
+    }
+
+    @Test
     fun `presenter modules get their own api module, the presenter helpers and the test fixtures`() {
         val result = runner(":feature-x-presenter:printFeatureSetup").build()
 

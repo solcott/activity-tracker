@@ -1,6 +1,8 @@
 plugins {
     kotlin("multiplatform")
     id("activitytracker.quality")
+    // Exported to Swift whole: checkSwiftExportSources keeps its sources to what the export can carry.
+    id("activitytracker.swift.contract")
 }
 
 // The Kotlin entry points iosApp's Swift calls, in signatures Swift export can carry: a UIViewController, FitDecoder with its DTOs, and

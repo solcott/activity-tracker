@@ -90,6 +90,10 @@ gradlePlugin {
             id = "activitytracker.feature.ui"
             implementationClass = "FeatureUiConventionPlugin"
         }
+        register("swiftContract") {
+            id = "activitytracker.swift.contract"
+            implementationClass = "SwiftExportContractConventionPlugin"
+        }
         register("nativeOAuth") {
             id = "activitytracker.native.oauth"
             implementationClass = "NativeOAuthConventionPlugin"

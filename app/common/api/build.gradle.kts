@@ -1,5 +1,7 @@
 plugins {
     id("activitytracker.kmp.library")
+    // Exported to Swift whole, like every feature's API module (dev/ios-swift-interop).
+    id("activitytracker.swift.contract")
     alias(libs.plugins.kotlin.compose)
 }
 
