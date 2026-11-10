@@ -122,8 +122,14 @@ Each phase leaves a shippable app.
    build; a macOS CI job. No visible change. Left for the phase that needs them: `ImmutableList` and `ImmutableSet` fields, which Swift
    reads as Kotlin collection protocols with untyped elements, become `List` and `Set` or get one Swift wrapper (decide on the first
    native list screen); and moving model types out of `:core-data`, which is about the size of the export, not about making it work.
-2. **Headless host, native shell, first native screen.** `:app-host`; the UI-free parts of `App.kt` shared by both shells; the SwiftUI
-   root, tabs, navigation stacks, screen registry and Compose fallback. Login is the first native screen.
+2. **Headless host, native shell, first native screen** (`ios-native-shell`). `:app-host` runs presenters in Molecule with no UI and
+   owns a `Navigator` stack per tab; `SessionRunner` holds what a session shows and its background work for both shells; the iOS app's
+   root is SwiftUI (`RootView`, a `TabView`, a `NavigationStack` per tab bound to the Kotlin stack), with a screen registry keyed by
+   screen name and every unregistered screen drawn by its Compose UI in a view controller of its own; `BackSwipe` keeps the edge swipe
+   on those; Login is native, over a Swift `AppTextField` and `TextFieldModel`; a 20-string catalog held to `strings.xml` by
+   `checkIosStrings`; Swift 6 mode and a Swift Testing target the `ios` CI job runs. Settings shows one page at a time on iPad until
+   it is native. Left for phase 3: the generated catalog, and the design system the two pieces made here (`AppTextField`,
+   `AppButton`) start.
 3. **Native foundations.** A String Catalog generated from `strings.xml` (2,026 strings, 68 plurals), so it stays the single source; SF
    Symbols and asset-catalog sport icons; composable-free formatting and label logic moved out of `:app-common-ui` so `ui/number-format`
    and `ui/error-messages` aren't reimplemented in Swift; the Swift design system; previews and snapshot tests from `:app-fixtures`.
@@ -237,13 +243,13 @@ How the build ended up:
 
 Size and time, debug build for the simulator on this machine:
 
-| | Objective-C framework | Swift export | Swift export with three contracts | Swift export with every contract (phase 1) |
-|---|---|---|---|---|
-| Generated Swift | none (a header) | 5,352 lines | 42,361 lines | 91,668 lines |
-| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB | 220.2 MB |
-| Build with nothing changed | 6 s | 5 s | 5 s | 5 s |
-| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s | 54 s |
-| First build of the binary, other modules already compiled | 187 s | 396 s | not measured | not measured |
+| | Objective-C framework | Swift export | Swift export with three contracts | Swift export with every contract (phase 1) | With the presenter host and the SwiftUI shell (phase 2) |
+|---|---|---|---|---|---|
+| Generated Swift | none (a header) | 5,352 lines | 42,361 lines | 91,668 lines | 94,008 lines |
+| App's debug dylib | 213.9 MB | 198.3 MB | 218.6 MB | 220.2 MB | 222.1 MB |
+| Build with nothing changed | 6 s | 5 s | 5 s | 5 s | 5 s |
+| Build after a one-line Kotlin change in `:iosShell` | not measured | 50 s | 57 s | 54 s | 57 s |
+| First build of the binary, other modules already compiled | 187 s | 396 s | not measured | not measured | not measured |
 
 The last column has 21 contract modules exported whole and only kotlinx-serialization-core hidden. Twice the Swift of the probe costs
 nothing measurable in a rebuild, so exporting the contracts whole stands and the facade alternative isn't needed.
@@ -335,6 +341,98 @@ Hidden modules: only kotlinx-serialization-core. The probe hid Ktor, Room, SQLit
 too, but with no Compose type left in the contracts the export builds without hiding them, and each comes through only as far as
 `:core-data`'s signatures name it.
 
+### Phase 2 probes (`ios-native-shell`, 2026-11-09)
+
+Four things phase 2's design rests on, each tried on throwaway code (a probe object in `:iosShell`, a Swift file and a Compose screen
+with a list and a horizontal pager), since removed. Run on the iPhone 16 Pro simulator with iOS 18.4 and the iPhone 17 Pro one with
+iOS 26.0.
+
+**Flows and suspend functions reach Swift, typed.**
+
+- A `StateFlow<Int>` property is `any KotlinCoroutineSupport.KotlinTypedStateFlow<Swift.Int32>`, and a
+  `StateFlow<CircuitUiState?>` is `KotlinTypedStateFlow<Optional<any …CircuitUiState>>`: the element type survives, and a view casts
+  an element to its screen's state with `as?`. A `Flow` is `KotlinTypedFlow<Element>`.
+- A typed state flow has a typed `value`. `asAsyncSequence()` on any of them gives a `KotlinFlowSequence<Element>`, an `AsyncSequence`
+  to iterate with `for try await`.
+- Cancelling the Swift task ends the Kotlin collector: its `onCompletion` ran with a `CancellationException`, and the Swift loop threw
+  `CancellationError`.
+- A `suspend fun` is `async throws` in Swift, and returned its value.
+- Elements arrive on whatever executor the iterating task runs on. In a nonisolated function that was a background thread; under
+  main-actor default isolation (below) it was the main thread. The wrapper that feeds views iterates on the main actor.
+- Nothing needed configuring: the export brought `KotlinCoroutineSupport` in by itself once a signature named a flow.
+
+**Identity holds.** Reading the same Kotlin object twice through a getter gave the same Swift object (`===` true), so Swift can tell
+a replaced text field state from the same one without an id.
+
+**Compose view controllers stack in a `NavigationStack`.**
+
+- A pushed `ComposeUIViewController` is drawn from its first visible frame on both versions (a recording of the push, frame by frame):
+  no blank first frame.
+- With the navigation bar hidden, the edge swipe does nothing (iOS 18.4, without the delegate). With a delegate on
+  `interactivePopGestureRecognizer` that allows it when the stack has more than one controller, it goes back, follows the finger and
+  can be cancelled, over a list and over a horizontal pager, and SwiftUI's path loses its last element. At the root the delegate
+  refuses and the app keeps responding.
+- **On iOS 18.4 Compose keeps following the touch while UIKit drives the pop.** A cancelled back swipe that began over the pager
+  turned its page. Making other recognisers wait for the edge pan (`shouldBeRequiredToFailBy`) did not stop it. Switching the screen's
+  own gesture recognisers off when the pop gesture begins and on again when it ends does: the pager stays where it was, the swipe
+  still cancels or completes, and the screen scrolls again afterwards. iOS 26.0 does not have the problem, and the same code is
+  harmless there.
+- iOS 26 has a second recogniser, `interactiveContentPopGestureRecognizer`. On a screen with the bar hidden a swipe from the middle
+  of the content does not go back, with or without the delegate, so it is left alone.
+- A swipe sent while the push is still animating is ignored, as in any UIKit app.
+- Memory (physical footprint of the simulator process, a simple screen):
+
+  | Compose controllers stacked | iOS 18.4 | iOS 26.0 |
+  |---|---|---|
+  | 1 | 59 MB | 63 MB |
+  | 2 | 66 MB | 66 MB |
+  | 8 | 79 MB | 74 MB |
+
+  About 2 to 3 MB a screen, far under the limits the design set (40 MB a screen, 400 MB at eight). Real screens add their own
+  content (images, a map), and a covered fallback screen keeps it in memory where the single Compose stack let a covered screen's
+  UI go. That is measured on real screens when the shell exists.
+
+**Swift 6 language mode with main-actor default isolation works.** The app's Swift, the generated Swift it imports and the probe
+(flows iterated in tasks, Kotlin objects captured in them) compile with no error or warning. One change was needed:
+`SwiftFitDecoder` is `nonisolated`, because Kotlin calls it from its own threads and a class that extends `KotlinBase` can't change
+the isolation of the initialisers it overrides. A FIT import in the simulator still shows the spike's figures (7.83 mi, 45:00, 886 ft,
+193 W, 152/167 bpm). The project stays in this mode.
+
+One thing met on the way: an app built for an iOS 26 simulator does not launch on the iOS 18.4 one
+(`Library not loaded: @rpath/libswiftCompatibilitySpan.dylib`). Xcode embeds that library only when the build's destination needs it,
+so a build to run on iOS 18 names an iOS 18 destination, or a generic one.
+
+### Phase 2 findings (`ios-native-shell`)
+
+What building the host and the shell on Swift export showed, beyond the probes:
+
+- **A flow's elements reach Swift only as objects.** The generated flow support turns each element into a Swift value with a cast
+  (`__createBridgeable(...) as! Element`). That works for an object, a number and a string. A Kotlin enum is not converted into its
+  Swift enum and the cast stops the app (`Could not cast value of type '_KotlinExistential<…>' to '…SessionMode'`); a list is not
+  relied on either. A property of an object is converted properly, so each such flow in the host has a twin whose elements are small
+  objects holding the value (`SwiftFlows.kt`: `shown`, `shownMode`, `shownTab`).
+- **An interface-typed value needs its Kotlin class's generated Swift class in the binary, and Xcode links only the generated modules
+  the app's Swift refers to.** The generated modules are objects in one static library, and an object nothing references is left out.
+  Reading `HostRecord.screen` (an `any Screen`) for the feed's screen, whose module no Swift code named, stopped the app inside the
+  runtime's fallback (`_kotlinGetExistentialType`). `-ObjC` does not pull the modules in, and `-force_load` of the whole library fails
+  to link, because the library also holds stale objects from earlier exports. So Swift never reads a screen object: a record carries
+  its screen's class name (`screenName`), the registry of native screens is keyed by it, and registering a screen names its Swift
+  types, which is what links their modules. A state is read only for a native screen, by a view that names its type.
+- **A public constructor is exported and followed.** The hosts took `Set<Presenter.Factory>` in public constructors, which led the
+  export to Circuit's `CircuitContext`, whose generated Kotlin bridge doesn't compile (a `MutableMap<KClass<*>, Any>` read as
+  `MutableMap<Any?, Any?>`, the erased-generic problem again). Their constructors are `internal`. A top-level function of a module
+  reached only through signatures is not exported, so the factory other modules' tests use (`appHostOf`) costs nothing.
+- **The host's types export as designed**: `RootState` with `sealedType()`, `KotlinTypedStateFlow<any RootState>`, a typed flow of
+  each screen's `CircuitUiState?`, Kotlin enums as Swift enums when they are properties, `[TabStack]` from a `List` property.
+- **Stale generated modules stay in the build products.** A `CoreLocation.swiftmodule` left by an earlier export, when `:core-location`
+  was generated under that name, shadowed Apple's CoreLocation for the new test target (`compiling for iOS 17.0, but module
+  'CoreLocation' has a minimum deployment target of iOS 18.0`). Deleting it from Xcode's build products and
+  `iosExport/build/SPMBuild` fixed it; a clean checkout never has it.
+- **Hiding the tab bar.** A screen that keeps the tabs says nothing about them. Asking for them to be visible on every other screen
+  kept them over a whole-window flow pushed on top.
+- Memory with the shell on the iOS 26 simulator, signed in, with the feed, an activity with its map, the segment browser's map and
+  the profile open across the three tabs: 259 MB. There is no figure for the single Compose stack in the same state to compare with.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -346,6 +444,13 @@ too, but with no Compose type left in the contracts the export builds without hi
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
-- Swipe back on a Compose fallback screen, whose native navigation bar is hidden.
-- Settings' list beside its page on iPad regresses between phase 2 and the settings migration unless settings goes first.
+- Settings shows one page at a time on iPad (ui/settings-layout says so) until it is drawn natively with a split view: the first
+  screen of phase 4.
+- Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
+  sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
+  the browser is open was seen only behind the system's prompt.
+- The `values` flow of a text field state reaches Swift a keystroke at a time, late. `TextFieldModel` reads the state on each report
+  rather than taking the reported text; anything else that follows a field from Swift must do the same.
+- A SwiftUI `TextField` keeps showing a refused edit until its view is redrawn. `AppTextField` redraws on a refusal, which no screen
+  uses yet: the first field with digits only or a maximum length should be watched on a device.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
