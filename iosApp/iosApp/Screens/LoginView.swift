@@ -92,3 +92,9 @@ enum LoginText {
         !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
+
+#if DEBUG
+    #Preview("Sign in") {
+        SamplePages(Samples.login) { LoginView(state: $0) }
+    }
+#endif
