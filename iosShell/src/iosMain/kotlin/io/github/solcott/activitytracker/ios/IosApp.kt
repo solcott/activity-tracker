@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.ios
 
 import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.app.HeldPhotoBytes
 import io.github.solcott.activitytracker.app.IosAppHost
 import io.github.solcott.activitytracker.app.ScreenViewController
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
@@ -8,12 +9,14 @@ import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
 import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.HostRecord
+import kotlinx.io.bytestring.ByteString
 import platform.UIKit.UIViewController
 
 /**
  * Everything `iosApp`'s Swift calls in Kotlin. Swift export turns this into Swift, so a signature here uses only types it can carry: a
- * `UIViewController`, the presenter host's types, [FitDecoder] with its DTOs, and plain values. A type from a module that isn't exported
- * (Compose, Circuit, Metro, `:composeApp` itself) would compile to a stub that stops the app when called (dev/ios-swift-interop).
+ * `UIViewController`, the presenter host's types, [FitDecoder] with its DTOs, a `ByteString`, and plain values. A type from a module that
+ * isn't exported (Compose, Circuit, Metro, `:composeApp` itself) would compile to a stub that stops the app when called
+ * (dev/ios-swift-interop).
  *
  * Each function takes the app's `SwiftFitDecoder`, because whichever runs first creates the app's graph: the UI, or a background task when
  * iOS launches the app for one.
@@ -24,6 +27,12 @@ object IosApp {
      * screen's states. The SwiftUI shell follows it and draws each screen. Started by the first call.
      */
     fun host(fitDecoder: FitDecoder): AppHost = IosAppHost(fitDecoder)
+
+    /**
+     * The bytes of the photo a `heldphoto:` URL names (one this device uploaded and the session holds, such as a non-public gear photo),
+     * for the native image loader; null for any other URL, when signed out, or when the session doesn't hold it.
+     */
+    fun heldPhoto(url: String): ByteString? = HeldPhotoBytes(url)
 
     /** A screen drawn by the shared Compose UI, for one the shell has no native view for. Call [host] first. */
     fun screenViewController(record: HostRecord): UIViewController = ScreenViewController(record)

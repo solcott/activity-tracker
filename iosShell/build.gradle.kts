@@ -18,6 +18,8 @@ kotlin {
             api(projects.appHost)
             // api, so Swift sees FitDecoder and the DTOs SwiftFitDecoder builds.
             api(projects.coreActivityfile)
+            // api, so Swift sees ByteString, which IosApp.heldPhoto returns and Swift turns into Data (toNSData).
+            api(libs.kotlinx.io.bytestring)
 
             implementation(projects.composeApp)
         }

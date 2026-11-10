@@ -25,8 +25,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsPaneRoot
 import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
+import io.github.solcott.activitytracker.data.activity.HeldPhotos
+import io.github.solcott.activitytracker.data.activity.photoCid
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.io.bytestring.ByteString
 import platform.UIKit.UIViewController
 
 /**
@@ -85,6 +88,14 @@ fun ScreenViewController(record: HostRecord): UIViewController {
     val session = IosHost.session
     return ComposeUIViewController { Screen(record, graph, session) }
 }
+
+/**
+ * Entry point for `:iosShell`: the bytes of the photo a `heldphoto:` URL names, from the signed-in session's uploads, as the shared UI's
+ * image loader serves them ([HeldPhotoFetcher]); null when signed out or when the session doesn't hold it.
+ */
+@Suppress("FunctionName")
+fun HeldPhotoBytes(url: String): ByteString? =
+    if (HeldPhotos.isHeld(url)) IosHost.session?.feedRepository?.heldPhotos?.get(photoCid(url))?.bytes?.let(::ByteString) else null
 
 /**
  * What `App` gives a screen's UI on the other platforms: the theme, Circuit's locals, and the signed-in session's units and sub-screens.
