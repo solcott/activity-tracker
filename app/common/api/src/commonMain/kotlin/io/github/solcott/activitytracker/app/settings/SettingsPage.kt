@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.compositionLocalOf
 import com.slack.circuit.runtime.screen.Screen
 
 /**
@@ -20,6 +19,3 @@ data class SettingsPane(val twoPane: Boolean, val shownPage: SettingsPage?) {
         val Single = SettingsPane(twoPane = false, shownPage = null)
     }
 }
-
-/** The layout around Settings, which the navigation shell provides; the list marks [SettingsPane.shownPage]'s row. */
-val LocalSettingsPane = compositionLocalOf { SettingsPane.Single }
