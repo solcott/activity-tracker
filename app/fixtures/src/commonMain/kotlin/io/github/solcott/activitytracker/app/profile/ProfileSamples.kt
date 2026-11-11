@@ -11,18 +11,22 @@ import io.github.solcott.activitytracker.app.fixtures.fakeProfile
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeVotedPost
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
+import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
+import kotlin.io.encoding.Base64
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.io.bytestring.ByteString
 
 object ProfileSamples {
     val profile: ProfileView = fakeProfile()
@@ -201,6 +205,15 @@ object BlockListSamples {
 }
 
 object EditProfileSamples {
+    /** Who may see each group, as the presenter always fills it: the location public, the birthdate hidden, gender to followers. */
+    private val visibility =
+        DetailsVisibility(
+            location = Visibility.PUBLIC,
+            birthDate = Visibility.SELF,
+            gender = Visibility.FOLLOWERS,
+            weight = Visibility.MUTUALS,
+        )
+
     private fun state(
         content: ContentState<Unit>,
         displayName: String = "Alice",
@@ -219,7 +232,7 @@ object EditProfileSamples {
             height = textFieldStateOf("168"),
             heightInches = textFieldStateOf(),
             units = UnitSystem.Metric,
-            visibility = DetailsVisibility(),
+            visibility = visibility,
             nowHidden = persistentListOf(),
             content = content,
             saving = false,
@@ -227,12 +240,50 @@ object EditProfileSamples {
             eventSink = {},
         )
 
+    private val loaded: EditProfileState
+        get() = state(ContentStates.loaded(Unit))
+
     val all: Map<String, EditProfileState>
         get() =
             mapOf(
                 SampleKind.LOADING to state(ContentStates.loading(Unit), displayName = "", weight = ""),
                 SampleKind.FAILED to state(ContentStates.failed(Unit), displayName = "", weight = ""),
-                SampleKind.LOADED to state(ContentStates.loaded(Unit)),
+                SampleKind.LOADED to loaded,
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), weight = "heavy"),
             )
+
+    /**
+     * What [all]'s content-loading states don't show: imperial units with a self-described gender and no country or birthdate; a saved
+     * photo and a picked one; the location public until now and set to Followers; approving followers with gender to Followers (so no
+     * note); saving; a failed save; and a session that must sign in again. Kept apart from [all], whose keys are the content-loading
+     * conformance set.
+     */
+    val variants: Map<String, EditProfileState>
+        get() =
+            mapOf(
+                "imperial" to
+                    loaded.copy(
+                        units = UnitSystem.Imperial,
+                        weight = textFieldStateOf("135"),
+                        height = textFieldStateOf("5"),
+                        heightInches = textFieldStateOf("6"),
+                        gender = textFieldStateOf("Agender"),
+                        country = "",
+                        birthDate = "",
+                    ),
+                "savedPhoto" to loaded.copy(avatar = AvatarImage.Saved("https://example.test/alice.jpg")),
+                "pickedPhoto" to loaded.copy(avatar = AvatarImage.Picked(ByteString(Base64.decode(PICKED_PNG)))),
+                "nowHidden" to
+                    loaded.copy(
+                        visibility = visibility.copy(location = Visibility.FOLLOWERS),
+                        nowHidden = persistentListOf(DetailGroup.Location),
+                    ),
+                "approving" to loaded.copy(approveFollowers = true),
+                "saving" to loaded.copy(saving = true),
+                "saveFailed" to loaded.copy(error = UiError(UiError.Kind.SaveProfile, DataError.Network)),
+                "needsSignIn" to loaded.copy(needsSignIn = true),
+            )
+
+    /** An 8 × 8 teal PNG, standing in for a picked photo's bytes. */
+    private const val PICKED_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPQmtuPFTEMLQkAT3dVgRdrT9YAAAAASUVORK5CYII="
 }
