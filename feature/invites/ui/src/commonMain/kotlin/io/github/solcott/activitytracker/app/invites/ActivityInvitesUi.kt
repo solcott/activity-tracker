@@ -25,18 +25,15 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.signInAgainItem
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_invites_decline
 import io.github.solcott.activitytracker.composeApp.resources.activity_invites_declined_help
-import io.github.solcott.activitytracker.composeApp.resources.activity_invites_none
-import io.github.solcott.activitytracker.composeApp.resources.activity_invites_none_declined
-import io.github.solcott.activitytracker.composeApp.resources.activity_invites_tab_declined
-import io.github.solcott.activitytracker.composeApp.resources.activity_invites_tab_pending
 import io.github.solcott.activitytracker.composeApp.resources.activity_invites_title
 import io.github.solcott.activitytracker.composeApp.resources.activity_invites_view
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.InviteView
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ActivityInvitesScreen::class, SessionScope::class)
@@ -53,15 +50,11 @@ fun ActivityInvitesUi(state: ActivityInvitesState, modifier: Modifier = Modifier
         modifier = modifier,
         listState = listState,
         edgeToEdge = true,
-    ) { content ->
+    ) { _ ->
         item(key = "tabs") {
             val tabs = ActivityInvitesTab.entries
             AppSegmentedControl(
-                labels =
-                    persistentListOf(
-                        stringResource(Res.string.activity_invites_tab_pending),
-                        stringResource(Res.string.activity_invites_tab_declined),
-                    ),
+                labels = tabs.map { ActivityInvitesTexts.tab(it).string() }.toImmutableList(),
                 selected = tabs.indexOf(state.tab),
                 onSelect = { state.eventSink(ActivityInvitesEvent.SelectTab(tabs[it])) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -71,8 +64,8 @@ fun ActivityInvitesUi(state: ActivityInvitesState, modifier: Modifier = Modifier
             RefreshStatus(state.content, UiError.Kind.LoadActivityInvites, retry, Modifier.padding(horizontal = 16.dp))
         }
         signInAgainItem(state.error, state.needsSignIn) { state.eventSink(ActivityInvitesEvent.SignInAgain) }
-        val invites = if (state.tab == ActivityInvitesTab.Pending) content.pending else content.declined
-        if (state.tab == ActivityInvitesTab.Declined && invites.isNotEmpty()) {
+        val invites = state.invites
+        if (state.showsDeclinedNote) {
             item(key = "declinedHelp") { ListNote(stringResource(Res.string.activity_invites_declined_help)) }
         }
         items(invites, key = { it.uri.value }) { invite ->
@@ -86,11 +79,11 @@ fun ActivityInvitesUi(state: ActivityInvitesState, modifier: Modifier = Modifier
 /** An invite: the activity and who added the athlete, with View, and Decline while it's pending. */
 @Composable
 private fun InviteRow(invite: InviteView, state: ActivityInvitesState) {
-    val enabled = invite.uri !in state.answering
+    val enabled = state.canAnswer(invite)
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         InviteSummary(invite, Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state.tab == ActivityInvitesTab.Pending && !state.needsSignIn) {
+            if (state.offersDecline) {
                 AppSecondaryButton(onClick = { state.eventSink(ActivityInvitesEvent.Decline(invite.uri)) }, enabled = enabled) {
                     Text(stringResource(Res.string.activity_invites_decline))
                 }
@@ -103,8 +96,5 @@ private fun InviteRow(invite: InviteView, state: ActivityInvitesState) {
 }
 
 private fun LazyListScope.emptyItem(tab: ActivityInvitesTab) {
-    item(key = "empty") {
-        val text = if (tab == ActivityInvitesTab.Pending) Res.string.activity_invites_none else Res.string.activity_invites_none_declined
-        EmptyListText(stringResource(text))
-    }
+    item(key = "empty") { EmptyListText(ActivityInvitesTexts.empty(tab).string()) }
 }

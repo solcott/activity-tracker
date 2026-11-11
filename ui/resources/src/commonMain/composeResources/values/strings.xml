@@ -60,6 +60,7 @@
     <string name="activity_invites_tab_pending">Invites</string>
     <string name="activity_invites_tab_declined">Declined</string>
     <string name="activity_invites_from">%1$s added you</string>
+    <string name="activity_invites_summary">%1$s · %2$s</string>
     <string name="activity_invites_none">No invites</string>
     <string name="activity_invites_none_declined">No declined invites</string>
     <string name="activity_invites_declined_help">Only you know you declined these. You can still accept them.</string>
