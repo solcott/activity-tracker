@@ -352,9 +352,12 @@ How the build ended up:
 - `:iosExport` names one `api` dependency, `:iosShell`. A module the umbrella names is exported whole. A module reached through
   another's signatures (`:core-activityfile`, kotlinx-datetime) is exported only as far as those signatures name its types. That is what
   keeps the surface small, so the two modules stay two.
-- Exporting `:core-activityfile` whole doesn't build. `PerSecond.hold(samples: List<Pair<Double, Int>>)` becomes a Kotlin bridge that
-  reads the argument as `List<Pair<Any?, Any?>>`, which the compiler rejects. So `:iosShell` has a `FitSupport` object that repeats the
-  seven helper calls the Swift decoder makes on `FitDives`, `FitHeart` and `FitUnits`, and makes the exception it throws.
+- Exporting `:core-activityfile` whole didn't build. `PerSecond.hold(samples: List<Pair<Double, Int>>)` became a Kotlin bridge that
+  read the argument as `List<Pair<Any?, Any?>>`, which the compiler rejects. So `:iosShell` has a `FitSupport` object that repeats the
+  seven helper calls the Swift decoder makes on `FitDives`, `FitHeart` and `FitUnits`, and makes the exception it throws. That was our
+  API, not a Swift export bug to wait out: `Pair` and `Triple` say nothing about what their values are, and no non-private signature
+  in any module may name one now (detekt's `NoPairInApi`, in `:detekt-rules`; `hold` takes `List<TimedValue>`). That removes the one
+  known reason `:core-activityfile` can't be exported whole. Exporting it whole, and dropping `FitSupport`, hasn't been tried.
 - Hiding a dependency is not safe by default. With kotlinx-datetime hidden, `DecodedActivity`'s constructor (it takes a
   `LocalDateTime?`) was generated as `fatalError()`, with no warning. Left unconfigured it exports as far as it is named (1,892 lines);
   marked `EXPOSED` it exports whole (8,250 lines). Only `:core-location` and kotlinx-serialization-core are hidden.
@@ -1272,7 +1275,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The macOS CI job has not run: it needs the branch pushed. Its runner label and the memory it gives Gradle are untested.
 - A class whose constructor takes an immutable collection has no Swift initialiser. The stub check catches that on events; a payload
   class an event takes (`FeedFilter`, `CategorySelection`) shows up only when Swift tries to build one.
-- Whether the erased `List<Pair<…>>` bridge and the `self` clash are reported upstream, and fixed before Kotlin 2.5.0.
+- Whether the `self` clash is reported upstream, and fixed before Kotlin 2.5.0. The erased `List<Pair<…>>` bridge needs no upstream
+  fix: `Pair` and `Triple` are kept out of every non-private signature by detekt's `NoPairInApi`, so Swift export never meets one.
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder. A native pick goes through the same compression
