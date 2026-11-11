@@ -167,6 +167,21 @@
             }
         }
 
+        /// Filter menus over a list: one narrowing it (filled), one showing everything, and a choice with nothing to choose, as its label.
+        static var menuChips: some View {
+            List {
+                HStack(spacing: 8) {
+                    AppMenuChip(
+                        nil, filled: true, selection: .constant("45–54"), options: ["All ages", "45–54"], optionLabel: { $0 })
+                    AppMenuChip(
+                        "Gender", filled: false, selection: .constant("All genders"), options: ["All genders", "Women"],
+                        optionLabel: { $0 })
+                    Text(verbatim: "Run").font(.subheadline.weight(.medium))
+                }
+                .listStatusRow()
+            }
+        }
+
         /// A paged list in the state the block list's sample `name` is in (`PagedStates`: loading, failed, empty, loaded, refreshing,
         /// refreshFailed, loadingMore, pageFailed, end), with plain rows.
         static func paged(_ name: String) -> some View {
@@ -181,6 +196,26 @@
                 Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
             }
         }
+
+        /// A paged list with rows of its own around the items: "Choices" over them and "Your place" after them, loaded (`after`), and
+        /// while a first page loads with the top kept (`keepsTop`).
+        static func pagedWithRows(_ name: String) -> some View {
+            let state = Samples.blockList[name == "keepsTop" ? "loading" : "loadingMore"]!.accounts
+            return PagedList(
+                state, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value }, keepsTop: name == "keepsTop",
+                retry: {}, loadMore: {}
+            ) {
+                Text(verbatim: "Choices").listStatusRow()
+            } row: { account in
+                Text(verbatim: account.profile.handle.value)
+            } after: {
+                Section { Text(verbatim: "carol.test") } header: { Text(.leaderboardYourPlace) }
+            } empty: {
+                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            }
+        }
+
+        nonisolated static let pagedWithRowsNames = ["after", "keepsTop"]
 
         nonisolated static let pagedNames = [
             "loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "loadingMore", "pageFailed", "end",
@@ -305,9 +340,16 @@
     #Preview("Page bar that can't go back") { DesignGallery.pageBarNoBack }
     #Preview("Images") { DesignGallery.images }
     #Preview("Item rows") { DesignGallery.itemRows }
+    #Preview("Filter menus") { DesignGallery.menuChips }
     #Preview("Paged list") {
         TabView {
             ForEach(DesignGallery.pagedNames, id: \.self) { DesignGallery.paged($0) }
+        }
+        .tabViewStyle(.page)
+    }
+    #Preview("Paged list with rows around") {
+        TabView {
+            ForEach(DesignGallery.pagedWithRowsNames, id: \.self) { DesignGallery.pagedWithRows($0) }
         }
         .tabViewStyle(.page)
     }

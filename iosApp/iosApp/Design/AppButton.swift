@@ -82,20 +82,23 @@ struct AppTextButton: View {
     }
 }
 
-/// A button that shows only an icon. VoiceOver reads `label`, which every icon button must have.
+/// A button that shows only an icon. VoiceOver reads `label`, which every icon button must have. `filled` draws the icon's selected
+/// or active form (a starred segment's star).
 struct AppIconButton: View {
     private let icon: AppIcon
     private let label: LocalizedStringResource
+    private let filled: Bool
     private let action: () -> Void
 
-    init(_ icon: AppIcon, label: LocalizedStringResource, action: @escaping () -> Void) {
+    init(_ icon: AppIcon, label: LocalizedStringResource, filled: Bool = false, action: @escaping () -> Void) {
         self.icon = icon
         self.label = label
+        self.filled = filled
         self.action = action
     }
 
     var body: some View {
-        Button(action: action) { Image(icon) }
+        Button(action: action) { Image(icon, filled: filled) }
             .buttonStyle(.borderless)
             // The system's smallest comfortable target, whatever the symbol's own size.
             .frame(minWidth: 44, minHeight: 44)

@@ -31,9 +31,18 @@ struct DesignSnapshotTests {
 
     @Test func itemRows() { assertAppSnapshot(of: DesignGallery.itemRows, size: panel, named: "itemRows") }
 
+    @Test func menuChips() {
+        assertAppSnapshot(of: DesignGallery.menuChips, size: CGSize(width: 393, height: 160), named: "menuChips")
+    }
+
     @Test(arguments: DesignGallery.pagedNames)
     func pagedList(state: String) {
         assertAppSnapshot(of: DesignGallery.paged(state), size: panel, named: state)
+    }
+
+    @Test(arguments: DesignGallery.pagedWithRowsNames)
+    func pagedListWithRows(state: String) {
+        assertAppSnapshot(of: DesignGallery.pagedWithRows(state), size: panel, named: state)
     }
 
     @Test func cards() { assertAppSnapshot(of: DesignGallery.cards, size: panel, named: "cards") }

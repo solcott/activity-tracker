@@ -7,10 +7,15 @@ import SwiftUI
 /// screen's own rows), a refresh's progress or failure, the items, `empty` when it lists nothing, and the next page's progress or
 /// failure with Retry. What shows is Kotlin's `PagedShown`, the rule the shared paged list follows too.
 ///
+/// Rows of the screen's own can follow the items (`after`: the viewer's own place on a board), above the empty message and the next
+/// page's status, as the shared board orders them. A screen whose `top` rows must stay while a first page loads (a board's choices,
+/// since a new choice starts its list again; a notice that explains why nothing loads) sets `keepsTop`: the list is then drawn with
+/// `top` before the first answer too, and the first page's progress or failure follows it as a row.
+///
 /// It asks for the next page (`loadMore`) once the last item loaded is on screen and the state can load more, as the shared
 /// `LoadMoreAtEnd` does. The items reach Swift untyped, since Swift export erases the state's type parameters, so the view names
 /// their type, and `id` gives each one's identity.
-struct PagedList<Item, Top: View, Row: View, Empty: View>: View {
+struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     private let state: KotlinPagedState
     private let errorKind: UiError.Kind
     private let id: (Item) -> String
@@ -18,30 +23,43 @@ struct PagedList<Item, Top: View, Row: View, Empty: View>: View {
     private let loadMore: () -> Void
     private let top: Top
     private let row: (Item) -> Row
+    private let after: After
     private let empty: Empty
+    private let keepsTop: Bool
 
     /// The ids of the items on screen, which tell when the last one is.
     @State private var onScreen: Set<String> = []
 
     init(
         _ state: KotlinPagedState, of item: Item.Type = Item.self, errorKind: UiError.Kind, id: @escaping (Item) -> String,
-        retry: @escaping () -> Void, loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top,
-        @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder empty: () -> Empty
+        keepsTop: Bool = false, retry: @escaping () -> Void, loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top,
+        @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder after: () -> After, @ViewBuilder empty: () -> Empty
     ) {
         self.state = state
         self.errorKind = errorKind
         self.id = id
+        self.keepsTop = keepsTop
         self.retry = retry
         self.loadMore = loadMore
         self.top = top()
         self.row = row
+        self.after = after()
         self.empty = empty()
     }
 
     var body: some View {
         let shown = PagedShown.Companion.shared.of(state: state, errorKind: errorKind)
-        if shown.firstPage {
+        if shown.firstPage && !keepsTop {
             firstPage(shown.below)
+        } else if shown.firstPage {
+            // The screen's own rows stay, and the first page's progress or failure follows them.
+            List {
+                top
+                if let below = shown.below {
+                    status(below, layout: .stacked, firstPage: true)
+                }
+            }
+            .listStyle(.insetGrouped)
         } else {
             list(shown)
         }
@@ -77,6 +95,7 @@ struct PagedList<Item, Top: View, Row: View, Empty: View>: View {
                         .onDisappear { onScreen.remove(identified.id) }
                 }
             }
+            after
             if shown.showsEmpty {
                 empty.listStatusRow()
             }
@@ -96,13 +115,26 @@ struct PagedList<Item, Top: View, Row: View, Empty: View>: View {
         let item: Item
     }
 
-    @ViewBuilder private func status(_ status: PagedShown.Status, layout: ErrorMessage.Layout) -> some View {
+    @ViewBuilder private func status(_ status: PagedShown.Status, layout: ErrorMessage.Layout, firstPage: Bool = false) -> some View {
         switch status.sealedType() {
         case .progress:
-            AppProgress(small: true).frame(maxWidth: .infinity).listStatusRow()
+            AppProgress(small: !firstPage).frame(maxWidth: .infinity).padding(.vertical, firstPage ? 24 : 0).listStatusRow()
         case let .failure(failure):
             ErrorMessage(failure.value.error, layout: layout, retry: retry).frame(maxWidth: .infinity).listStatusRow()
         }
+    }
+}
+
+extension PagedList where After == EmptyView {
+    /// A paged list with no rows after its items.
+    init(
+        _ state: KotlinPagedState, of item: Item.Type = Item.self, errorKind: UiError.Kind, id: @escaping (Item) -> String,
+        keepsTop: Bool = false, retry: @escaping () -> Void, loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top,
+        @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder empty: () -> Empty
+    ) {
+        self.init(
+            state, of: item, errorKind: errorKind, id: id, keepsTop: keepsTop, retry: retry, loadMore: loadMore, top: top, row: row,
+            after: { EmptyView() }, empty: empty)
     }
 }
 
