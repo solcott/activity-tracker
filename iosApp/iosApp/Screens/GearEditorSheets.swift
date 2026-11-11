@@ -136,25 +136,33 @@ extension KotlinByteString {
     var data: Data { ExportedKotlinPackages.kotlinx.io.bytestring.toNSData(self) as Data }
 }
 
-/// The gear form's photo pick (dev/ios-swift-interop): the picked image's bytes, re-encoded, scaled and stripped by Kotlin's
-/// `compressPhoto` as the shared pick is, then sent in the form's event. Kotlin's decoder can't read a HEIC, so bytes it can't read are
-/// tried once more as a JPEG UIKit re-encodes; bytes that aren't a picture at all send nothing.
-struct PhotoPick {
-    let compress: (Data) async -> PickedPhoto?
-
-    /// Compresses with `IosApp.compressPhoto`.
-    static let app = PhotoPick { data in
-        nonisolated(unsafe) let bytes = ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
-        return try? await IosApp.shared.compressPhoto(image: bytes)
-    }
+/// A native form's photo pick (dev/ios-swift-interop): the picked image's bytes, re-encoded, scaled and stripped by Kotlin as the shared
+/// pick is, then sent in the form's event. Kotlin's decoder for activity and gear photos can't read a HEIC, so bytes it can't read are
+/// tried once more as a JPEG UIKit re-encodes; bytes that aren't a picture at all send nothing. `Photo` is what the compression gives: a
+/// gear photo (`PhotoPick`) or a profile photo's JPEG (`AvatarPick`).
+struct PhotoPickOf<Photo> {
+    let compress: (Data) async -> Photo?
 
     /// Loads the picked image with `load`, compresses it, and sends it with `send`; nothing when there is none or it isn't a picture.
-    func pick(_ load: () async throws -> Data?, send: (PickedPhoto) -> Void) async {
+    func pick(_ load: () async throws -> Data?, send: (Photo) -> Void) async {
         guard let data = try? await load() else { return }
         if let photo = await compress(data) {
             send(photo)
         } else if let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.95), let photo = await compress(jpeg) {
             send(photo)
+        }
+    }
+}
+
+/// The gear form's photo pick, compressed by `compressPhoto`.
+typealias PhotoPick = PhotoPickOf<PickedPhoto>
+
+extension PhotoPickOf where Photo == PickedPhoto {
+    /// Compresses with `IosApp.compressPhoto`.
+    static var app: PhotoPick {
+        PhotoPick { data in
+            nonisolated(unsafe) let bytes = ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
+            return try? await IosApp.shared.compressPhoto(image: bytes)
         }
     }
 }

@@ -207,3 +207,15 @@ typealias DurationText = TextPackage.DurationText
 typealias DayText = TextPackage.DayText
 typealias KotlinInstant = ExportedKotlinPackages.kotlin.time.Instant
 typealias KotlinTimeZone = ExportedKotlinPackages.kotlinx.datetime.TimeZone
+
+// Edit profile (profile/private-details): its contract, what it says, limits and offers, and the detail groups its sections are for.
+typealias EditProfileScreen = ProfilePackage.EditProfileScreen
+typealias EditProfileState = ProfilePackage.EditProfileState
+typealias EditProfileEvent = ProfilePackage.EditProfileEvent
+typealias EditProfileTexts = ProfilePackage.EditProfileTexts
+typealias EditProfileLimits = ProfilePackage.EditProfileLimits
+typealias AvatarImage = ProfilePackage.AvatarImage
+typealias GenderChoices = ProfilePackage.GenderChoices
+typealias CountrySearch = ProfilePackage.CountrySearch
+typealias CountryName = ProfilePackage.CountryName
+typealias DetailGroup = ExportedKotlinPackages.io.github.solcott.activitytracker.data.profile.DetailGroup

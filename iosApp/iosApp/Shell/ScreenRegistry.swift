@@ -62,6 +62,8 @@ extension ScreenRegistry {
         }
         // The upload queue (data/upload-queue), pushed over the feed.
         registry.register(UploadsScreen.self, UploadsState.self) { state in UploadsView(state: state) }
+        // Edit profile (profile/private-details), pushed over the athlete's own profile.
+        registry.register(EditProfileScreen.self, EditProfileState.self) { state in EditProfileView(state: state) }
         return registry
     }()
 }
