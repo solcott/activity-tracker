@@ -279,6 +279,13 @@ Each phase leaves a shippable app.
      feed itself isn't native: its filter bar is a SubCircuit, whose presenter the presenter host can't run, and its posts, import cards,
      upload rows, prompts and sheets aren't native either. Left for later changes: the feed (with SubCircuits in the host), and the
      profile, the gear item page, a dive site's page and Moderation, which can list activities with this card now.
+   - **The profile** (`ios-native-profile`). The profile (`ProfilePage`, over `ProfileScreen`'s state) is a grouped list: the header
+     (avatar blurred under its label until tapped, handle, the labels' notices, bio, the location and facts lines, the counts opening
+     the follow lists), one row of actions (the own entries as navigation rows, Follow, Following or Requested with progress while
+     written, Unblock, or the Bluesky note), Settings or a menu with Mute and Block (after the shared confirmation) in the bar, and the
+     activities as native cards. What it says and decides is Kotlin's (`ProfileTexts`, getters on `ProfileState`), which `ProfileUi`
+     asks too. Left out natively until the host and a post card allow them: Report (its sheet is a SubCircuit) and the Posts tab
+     (posts have no native card).
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -880,6 +887,21 @@ written:
 - **Not probed with throwaway code**: a route's nested lists and a time of day in an offset, both this change's own Kotlin, checked by its
   tests instead.
 
+### Phase 4 probes (profile, `ios-native-profile`, 2026-11-11)
+
+The profile is the last shared page between the You tab and the native pages it opens. Asked by reading the generated Swift for
+`:feature-profile-api` and `:core-lexicon` (the migration branch's Debug export), before the texts or the view were written:
+
+- **`ProfileState.profile` is typed** (`ProfileView?`), as are `viewerDid`, `revealed`, `reporting`, `error` and the counts
+  (`followRequestCount` an `Int32?`). `activities` and `posts` are the erased `ContentState` and `PagedState`, so the activities need a
+  typed getter, as every list so far has.
+- **`ProfileView.description` never reaches Swift.** The bio is dropped like `EditProfileState.description`; every other field is there
+  (`details`, `viewer`, `followPolicy`, the counts as `Int64?`, `labels` as a typed array). The page reads the bio through a getter of
+  another name.
+- **Report and Posts can't be drawn natively.** Report's sheet is `SubCircuitContent(ReportScreen)` and a post is the shared `PostCard`
+  (with the quote sheet and Report), so neither has a native form; a native page can't host part of the Compose page, since
+  `IosApp.screenViewController(record:)` draws the whole screen.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1326,6 +1348,24 @@ What building the host and the shell on Swift export showed, beyond the probes:
   page until it is reopened, as on the shared page. Still unseen on a device: Like (the batch was her own), photos and their labels, a
   group, a dive, locks, a second page, VoiceOver, and the page on iOS 18 signed in or on an iPad.
 
+### Phase 4 findings (profile, `ios-native-profile`)
+
+- **Report and Posts can't ride along as fallbacks.** A native page can't host part of the Compose page, and swapping the whole page to
+  the fallback while Posts is chosen or the report sheet opens would change it under the athlete's finger. So the native menu has Mute
+  and Block only and the page lists activities with no Activities and Posts choice; both wait for SubCircuits in the host and a native
+  post card, and the spec deltas (`moderation/reports`, `feed/posts`) say so. The Compose page keeps both.
+- **`description` again, on a lexicon view.** `ProfileView.description` (the bio) has no Swift getter, like
+  `EditProfileState.description`; `ProfileState.bio` reads it. A lexicon view's field named `description` needs a contract getter.
+- **A count's plural takes formatted text.** The plurals' `%1$d` become `%2$@` in the catalog, so `ProfileTexts` passes
+  `formatWhole` text for the counts, and `"N+"` for the requests, as every Kotlin count does.
+- **A media label says nothing more to others.** On someone else's profile a media label only blurs the avatar; the notices are for a
+  warning, the athlete's own note or a takedown. The first `labeled` sample expected a notice from a spam label beside it, which the
+  shared profile never showed either (it passes no `warn`); a `warned` sample covers the warning.
+- **The own entries are navigation rows.** The shared page lays Edit profile, Starred segments, invites and requests out as a row of
+  buttons; natively they are a section of rows with chevrons, which is how iOS lists pages to open. Follow stays a button.
+- **The page's name can't be `ProfileView`**: that is the lexicon's alias, so the view is `ProfilePage`.
+- **`AppButton` takes Kotlin's text** now (`init(_: any AppText)`), as `AppSecondaryButton` already did.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1353,8 +1393,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`): it lists its activities as the feed's
   `ActivityCard`, which has a native twin now (`ActivityCardView`, `ios-native-activity-card`), so it can go native next, with its components, mount sheet and a SwiftUI
   unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`).
-- The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its activity cards can be the native card now
-  (`ios-native-activity-card`); its header and tabs are still to do. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
+- ~~The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`)~~: native (`ios-native-profile`), with the
+  native activity card. Still left out of it natively: Report on someone else's profile (its sheet is the `ReportScreen` SubCircuit,
+  which the presenter host can't run yet) and the Posts tab (posts need a native post card, with the quote sheet and Report). Until
+  then iOS offers neither on a profile; the Compose page keeps both. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
   (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
   and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
