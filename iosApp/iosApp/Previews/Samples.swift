@@ -11,6 +11,10 @@
         /// The feed's filter bar (ios-host-subcircuits): the shared samples, its picker open, and its longest words.
         static var feedFilter: [String: FeedFilterState] { FeedFilterPackage.FeedFilterSamples.shared.variants }
 
+        /// The report sheet and the place-name sheet (ios-native-report-sheet): every step each draws, and a failure.
+        static var report: [String: ReportState] { ReportPackage.ReportSamples.shared.variants }
+        static var proposePlaceName: [String: ProposePlaceNameState] { NamesPackage.ProposePlaceNameSamples.shared.variants }
+
         /// Settings' list in each state it shows.
         static var settings: [String: SettingsState] { SettingsPackage.SettingsSamples.shared.all }
 

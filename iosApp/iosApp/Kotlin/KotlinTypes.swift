@@ -11,6 +11,7 @@ import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureProfileApi
+import FeatureReportApi
 import FeatureSegmentApi
 import FeatureSettingsApi
 import FeatureUploadsApi
@@ -341,3 +342,26 @@ typealias ProfileView = LexiconAppPackage.ProfileView
 typealias ProfileDetails = LexiconAppPackage.ProfileDetails
 typealias BlurReason = ExportedKotlinPackages.io.github.solcott.activitytracker.data.moderation.BlurReason
 typealias ModerationTexts = AppPackage.moderation.ModerationTexts
+
+// The report sheet and the place-name sheet (ios-native-report-sheet): sheet sub-screens a native page shows (`reporting(_:)`,
+// `placeNames(_:)`), their carriers, and what they say.
+typealias ReportPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.report
+typealias ReportScreen = ReportPackage.ReportScreen
+typealias ReportState = ReportPackage.ReportState
+typealias ReportEvent = ReportPackage.ReportEvent
+typealias ReportOuterEvent = ReportPackage.ReportOuterEvent
+typealias ReportTexts = ReportPackage.ReportTexts
+typealias ReportReasonChoice = ReportPackage.ReportReasonChoice
+typealias Reporting = ReportPackage.Reporting
+typealias ReportingEvent = ReportPackage.ReportingEvent
+typealias BlockOffer = ReportPackage.BlockOffer
+typealias ReportReason = ExportedKotlinPackages.io.github.solcott.activitytracker.data.moderation.ReportReason
+typealias NamesPackage = AppPackage.names
+typealias ProposePlaceNameScreen = NamesPackage.ProposePlaceNameScreen
+typealias ProposePlaceNameState = NamesPackage.ProposePlaceNameState
+typealias ProposePlaceNameEvent = NamesPackage.ProposePlaceNameEvent
+typealias ProposePlaceNameOuterEvent = NamesPackage.ProposePlaceNameOuterEvent
+typealias ProposePlaceNameTexts = NamesPackage.ProposePlaceNameTexts
+typealias PlaceNameFields = NamesPackage.PlaceNameFields
+typealias PlaceNameEvent = NamesPackage.PlaceNameEvent
+typealias ShareLimit = NamesPackage.ShareLimit
