@@ -8,6 +8,9 @@
         /// Sign-in in each state it shows, by the sample's name.
         static var login: [String: LoginState] { LoginPackage.LoginSamples.shared.all }
 
+        /// The feed's filter bar (ios-host-subcircuits): the shared samples, its picker open, and its longest words.
+        static var feedFilter: [String: FeedFilterState] { FeedFilterPackage.FeedFilterSamples.shared.variants }
+
         /// Settings' list in each state it shows.
         static var settings: [String: SettingsState] { SettingsPackage.SettingsSamples.shared.all }
 

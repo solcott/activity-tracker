@@ -2,9 +2,11 @@ import ActivityTrackerCoreData
 import ActivityTrackerCoreLexicon
 import AppCommonApi
 import ComSlackCircuitCircuitRuntime
+import ComSlackCircuitCircuitxSubcircuit
 import CoreTextfield
 import FeatureDivesiteApi
 import FeatureFeedApi
+import FeatureFeedfilterApi
 import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
@@ -291,3 +293,23 @@ typealias ImportBatchState = FeedPackage.ImportBatchState
 typealias ImportBatchEvent = FeedPackage.ImportBatchEvent
 typealias ImportBatchTexts = FeedPackage.ImportBatchTexts
 typealias ImportBatchMonth = FeedPackage.ImportBatchMonth
+
+// The presenter host's sub-screens (ios-host-subcircuits): a record's SubCircuit, its state and outer events, and the feed's filter bar,
+// the first drawn from one (`FeedFilterBar`).
+typealias HostSubRecord = HostPackage.HostSubRecord
+typealias SubCircuitUiState = ExportedKotlinPackages.com.slack.circuit.subcircuit.SubCircuitUiState
+typealias SubCircuitOuterEvent = ExportedKotlinPackages.com.slack.circuit.subcircuit.SubCircuitOuterEvent
+typealias FeedFilterPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.feedfilter
+typealias FeedFilterScreen = FeedFilterPackage.FeedFilterScreen
+typealias FeedFilterState = FeedFilterPackage.FeedFilterState
+typealias FeedFilterEvent = FeedFilterPackage.FeedFilterEvent
+typealias FeedFilterOuterEvent = FeedFilterPackage.FeedFilterOuterEvent
+typealias FeedFilter = FeedFilterPackage.FeedFilter
+typealias FeedFilterTexts = FeedFilterPackage.FeedFilterTexts
+typealias DateRange = FeedFilterPackage.DateRange
+typealias DateRangeChoice = FeedFilterPackage.DateRangeChoice
+typealias TypePickerState = FeedFilterPackage.TypePickerState
+typealias CategorySelection = FeedFilterPackage.CategorySelection
+typealias CustomRangeState = FeedFilterPackage.CustomRangeState
+typealias FeedFilterSelection = FeedFilterPackage.Selection
+typealias SportCategory = ExportedKotlinPackages.io.github.solcott.activitytracker.data.sport.SportCategory
