@@ -305,6 +305,12 @@ Each phase leaves a shippable app.
      activities as native cards. What it says and decides is Kotlin's (`ProfileTexts`, getters on `ProfileState`), which `ProfileUi`
      asks too. Left out natively until the host and a post card allow them: Report (its sheet is a SubCircuit) and the Posts tab
      (posts have no native card).
+   - **The report sheet** (`ios-native-report-sheet`). The first sheet run through the host's sub-screens: `ReportSheet`, a form in
+     its own stack (the reasons as checked rows, the note, what moderators may see, Cancel and Send, the failure; then the thanks,
+     Block and Done), shown from any page's `Reporting` by the `reporting(_:)` modifier, which reads the page's record from the
+     environment (`\.hostRecord`) and closes the sub-record once the sheet has gone. The profile's menu offers Report
+     (`ProfileState.reportEvent`). The place-name sheet (`ProposePlaceNameSheet`, `placeNames(_:)`) is native the same way and placed
+     in no page yet. Their words are Kotlin's (`ReportTexts`, `ProposePlaceNameTexts`), which the Compose sheets ask too.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1473,6 +1479,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   confirmation and Unblock, unfollow and follow, and a card opening the shared activity page; every write put back. Still unseen on a
   device: Requested, the own requests and invites entries, labels, the Bluesky note, an iPhone, and iOS 18 signed in.
 
+### Phase 4 findings (report sheet, `ios-native-report-sheet`)
+
+- **A page's record reaches a sheet through the environment.** The registry hands a native page only its state, so a sheet modifier
+  deep in the page couldn't ask the host for its sub-screen. `NativeScreen` sets `\.hostRecord`; outside the host (previews,
+  snapshots) it is nil and the modifier shows nothing, so a snapshot draws the sheet's view from a sample instead.
+- **The modifier keeps the screen it opened with.** The carrier clears `sheet` on the same state that closes it, but SwiftUI is still
+  sliding the sheet away, so the content draws the kept screen until `onDismiss`, which closes that screen's sub-record (asking the
+  record for it again returns the held one). The Block confirmation, set in the same state, shows once the sheet has gone.
+- **Swift builds no moderation target.** `ReportingEvent.Open` takes a `:core-data` `ReportTarget`; the profile's is built in Kotlin
+  (`ProfileState.reportEvent(authorName)`), which the Compose menu asks too. A post's menu will want the same kind of getter.
+- **The reasons are objects.** `ReportTexts.reasons` is a list of `ReportReasonChoice`s, each holding one `ReportReason`, since a
+  collection of enums can't reach Swift; `ReportState.chose(choice)` and `noteRequired` decide the marks and the note's label.
+- **The shared card offers no Report.** The task asked for Report in the native card's menu wherever the shared card offers it; the
+  shared `ActivityCard` has no menu at all (an activity is reported from its page, still the shared UI's), so neither card has one.
+- **Native layout differs where iOS has its own idiom.** The reasons are checked rows rather than chips, and the name sheet's name is
+  a form row with what proposing shows in its footer, the shared sheet's line above the field.
+- **A field a getter reads live must be read in the presenter's composition too.** `ReportState.canSend` read the note live, which
+  Compose follows, but SwiftUI redraws only on a new state, and the presenter never read the note, so typing a required note left the
+  native Send off (found on the iPad walk). `ReportState.noteWritten` is read there now, as `EditGearPresenter` reads its name. Any
+  getter over a `TextFieldState` that a native control's enabled state follows needs the same.
+- **The note limit is 1900**, not the spec's 2000 (`ReportRepository.MAX_NOTE_LENGTH`, which leaves room for a photo's note); both
+  sheets refuse an edit past it.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1501,8 +1530,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   activities as native cards, its components, mount sheet and a SwiftUI unmount calendar, and its linked devices asking
   `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`). Its mount dates are still ISO dates on every platform.
 - ~~The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`)~~: native (`ios-native-profile`), with the
-  native activity card. Still left out of it natively: Report on someone else's profile (its sheet is the `ReportScreen` SubCircuit,
-  which the presenter host runs since `ios-host-subcircuits`, so it can follow) and the Posts tab (posts need a native post card, with the quote sheet and Report). Until
+  native activity card. ~~Report on someone else's profile~~: done (`ios-native-report-sheet`), the native report sheet. Still left
+  out of it natively: the Posts tab (posts need a native post card, with the quote sheet and Report). Until
   then iOS offers neither on a profile; the Compose page keeps both. ~~A native tab root (the profile in the You tab) shows no title on an iPad with its
   tabs at the top~~: a tab's first page now titles itself large (`\.tabRoot`, set by `StackView` on the stack's root), as the shared
   root did; the pages pushed over it keep inline titles. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
@@ -1559,6 +1588,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   can't run~~: done (`ios-host-subcircuits`), the host runs sub-screens and `FeedFilterBar` draws the bar from one. Its posts, import
   cards, upload rows, prompts and sheets aren't native. The native bar's type sheet has no search and no collapsed sports yet, and the
   outside Clear may leave the bar's chips as they were (Phase 4 findings, host sub-screens).
-- The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now
-  (`ios-host-subcircuits`); each native page that shows one draws it in `SubScreenView` and closes its sub-record when dismissed.
+- ~~The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now~~: both native
+  (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. The native post card (`ios-native-post-card`) wires
+  Report in its menu with `reporting(_:)` once the two merge, with a Kotlin getter building its `ReportingEvent.Open` as the profile's
+  does. The name sheet waits for a native segment or dive site page to place it; it was seen in snapshots only.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
