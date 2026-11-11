@@ -16,10 +16,12 @@ struct PagedListTests {
     private func dids(_ count: Int) -> [Did] { (0..<count).map { Did(value: "did:plc:\($0)") } }
 
     /// `state` drawn as a phone-sized list until `until` holds or a second passes; what the list asked for by then.
-    private func asked(_ state: KotlinPagedState, until: (Asked) -> Bool = { _ in false }) async throws -> Asked {
+    private func asked(
+        _ state: KotlinPagedState, until: (Asked) -> Bool = { _ in false }, sections: (([Did]) -> [PagedSection<Did>])? = nil
+    ) async throws -> Asked {
         let asked = Asked()
         let list = PagedList(
-            state, of: Did.self, errorKind: .LoadBlocks, id: \.value, retry: {}, loadMore: { asked.count += 1 }
+            state, of: Did.self, errorKind: .LoadBlocks, id: \.value, sections: sections, retry: {}, loadMore: { asked.count += 1 }
         ) {
             EmptyView()
         } row: { did in
@@ -53,6 +55,21 @@ struct PagedListTests {
 
     @Test func aLongListWaitsUntilItsEndIsOnScreen() async throws {
         let asked = try await asked(Samples.pagedStates.loaded(items: dids(100), next: Samples.pagedStates.NEXT))
+        #expect(asked.count == 0)
+    }
+
+    /// Two sections of one item each, the second headed: the end of the last one asks for more, as one section's does.
+    @Test func theEndOfTheLastSectionAsksForTheNextPage() async throws {
+        let state = Samples.pagedStates.loaded(items: dids(2), next: Samples.pagedStates.NEXT)
+        let asked = try await asked(state, until: { $0.count > 0 }) { dids in
+            dids.enumerated().map { index, did in PagedSection(id: did.value, header: index == 0 ? nil : "Later", items: [did]) }
+        }
+        #expect(asked.count == 1)
+    }
+
+    @Test func aLongSectionedListWaitsUntilItsEndIsOnScreen() async throws {
+        let state = Samples.pagedStates.loaded(items: dids(100), next: Samples.pagedStates.NEXT)
+        let asked = try await asked(state, sections: { dids in [PagedSection(id: "a", header: "All", items: dids)] })
         #expect(asked.count == 0)
     }
 }
