@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.invites
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
@@ -13,7 +14,10 @@ import io.github.solcott.activitytracker.lexicon.app.InviteStatus
 import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import io.github.solcott.dataresult.DataError
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 
 // Activity invites (feed/activity-invites): an invite from Bob to his ride, and Alice's own ride with people added.
 
@@ -53,6 +57,47 @@ object ActivityInvitesSamples {
                 SampleKind.LOADED to ActivityInvitesState(content = ContentStates.loaded(content)),
                 SampleKind.REFRESHING to ActivityInvitesState(content = ContentStates.refreshing(content)),
                 SampleKind.REFRESH_FAILED to ActivityInvitesState(content = ContentStates.refreshFailed(content)),
+            )
+
+    /**
+     * What [all]'s content-loading states don't show: the Declined tab, listing bob's invite or nothing; bob's decline being written and
+     * the last one failed; a session that must sign in again to decline; and an activity with no distance. Kept apart from [all], whose
+     * keys are the content-loading conformance set.
+     */
+    val variants: Map<String, ActivityInvitesState>
+        get() =
+            mapOf(
+                "declined" to
+                    ActivityInvitesState(
+                        tab = ActivityInvitesTab.Declined,
+                        content =
+                            ContentStates.loaded(
+                                ActivityInvitesContent(
+                                    content.pending.drop(1).toImmutableList(),
+                                    content.pending.take(1).toImmutableList(),
+                                ),
+                            ),
+                    ),
+                "declinedEmpty" to ActivityInvitesState(tab = ActivityInvitesTab.Declined, content = ContentStates.loaded(content)),
+                "answering" to
+                    ActivityInvitesState(
+                        content = ContentStates.loaded(content),
+                        answering = persistentSetOf(content.pending.first().uri),
+                        error = UiError(UiError.Kind.AnswerActivityInvite, DataError.Network),
+                    ),
+                "needsSignIn" to ActivityInvitesState(content = ContentStates.loaded(content), needsSignIn = true),
+                "noDistance" to
+                    ActivityInvitesState(
+                        content =
+                            ContentStates.loaded(
+                                ActivityInvitesContent(
+                                    pending =
+                                        persistentListOf(
+                                            fakeInvite().copy(record = fakeActivityRecord(title = "Trainer ride", distance = null)),
+                                        ),
+                                ),
+                            ),
+                    ),
             )
 }
 
@@ -99,4 +144,39 @@ object AddPeopleSamples {
                 SampleKind.REFRESHING to AddPeopleState(content = ContentStates.refreshing(content)),
                 SampleKind.REFRESH_FAILED to AddPeopleState(content = ContentStates.refreshFailed(content)),
             )
+
+    /**
+     * What [all]'s content-loading states don't show: bob pending while carol is being added and the last add failed; bob joined and being
+     * removed; a full activity, with a follower who can't be added; no followers; and a session that must sign in again to add people. Kept
+     * apart from [all], whose keys are the content-loading conformance set.
+     */
+    val variants: Map<String, AddPeopleState>
+        get() =
+            mapOf(
+                "pending" to
+                    AddPeopleState(
+                        content =
+                            ContentStates.loaded(content.copy(invitees = persistentListOf(fakeInvitee(Fixed.BOB, InviteStatus.PENDING)))),
+                        busy = persistentSetOf(Fixed.CAROL),
+                        error = UiError(UiError.Kind.UpdateInvitees, DataError.Network),
+                    ),
+                "removing" to AddPeopleState(content = ContentStates.loaded(content), busy = persistentSetOf(Fixed.BOB)),
+                "full" to
+                    AddPeopleState(
+                        content =
+                            ContentStates.loaded(
+                                AddPeopleContent(
+                                    invitees =
+                                        (listOf(fakeInvitee(Fixed.BOB, InviteStatus.JOINED), fakeInvitee(Fixed.CAROL)) +
+                                                (3..ActivityInviteRecord.MAX).map { fakeInvitee(Did("did:plc:rider$it")) })
+                                            .toImmutableList(),
+                                    followers = persistentListOf(fakeProfileBasic(DAVE)),
+                                ),
+                            ),
+                    ),
+                "noFollowers" to AddPeopleState(content = ContentStates.loaded(content.copy(followers = persistentListOf()))),
+                "needsSignIn" to AddPeopleState(content = ContentStates.loaded(content), canInvite = false),
+            )
+
+    private val DAVE = Did("did:plc:dave")
 }
