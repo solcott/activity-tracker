@@ -63,6 +63,10 @@ struct ScreenRegistryTests {
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The profile (ios-native-profile), which opens the native follow lists, requests and edit profile.
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ProfileScreen"))
+        // A post's page and its quotes, with the native post card (ios-native-post-card).
+        for screen in ["PostPageScreen", "PostQuotesScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
+        }
         // The rest of what the lists open is still the shared UI's: the feed, which can place its native filter bar now
         // (ios-host-subcircuits), waits for its posts and sheets.
         // Accepting an invite waits for the native route preview and visibility form.
@@ -87,6 +91,8 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.SegmentsAndGroupsScreen.self) == "SegmentsAndGroupsScreen")
         #expect(String(describing: ActivityTracker.GearListScreen.self) == "GearListScreen")
         #expect(String(describing: ActivityTracker.GearScreen.self) == "GearScreen")
+        #expect(String(describing: ActivityTracker.PostPageScreen.self) == "PostPageScreen")
+        #expect(String(describing: ActivityTracker.PostQuotesScreen.self) == "PostQuotesScreen")
         #expect(String(describing: ActivityTracker.GearCollectionScreen.self) == "GearCollectionScreen")
         #expect(String(describing: ActivityTracker.IgnoredSensorsScreen.self) == "IgnoredSensorsScreen")
         #expect(String(describing: ActivityTracker.BlockListScreen.self) == "BlockListScreen")

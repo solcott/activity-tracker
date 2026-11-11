@@ -10,6 +10,7 @@ import FeatureFeedfilterApi
 import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
+import FeaturePostApi
 import FeatureProfileApi
 import FeatureSegmentApi
 import FeatureSettingsApi
@@ -341,3 +342,35 @@ typealias ProfileView = LexiconAppPackage.ProfileView
 typealias ProfileDetails = LexiconAppPackage.ProfileDetails
 typealias BlurReason = ExportedKotlinPackages.io.github.solcott.activitytracker.data.moderation.BlurReason
 typealias ModerationTexts = AppPackage.moderation.ModerationTexts
+
+// Posts (ios-native-post-card): the post card's content and events, the quote sheet, the comment list, the post page and the quotes
+// list, and the profile's Posts tab. Kotlin's loaded `PostPage` is `LoadedPostPage` here, beside the native `PostPage` view.
+typealias PostsPackage = AppPackage.posts
+typealias PostPackage = AppPackage.post
+typealias InteractionsPackage = AppPackage.interactions
+typealias PostView = LexiconAppPackage.PostView
+typealias RepostedPostView = LexiconAppPackage.RepostedPostView
+typealias ReasonRepost = LexiconAppPackage.ReasonRepost
+typealias CommentView = LexiconAppPackage.CommentView
+typealias PostCardContent = PostsPackage.PostCardContent
+typealias PostEvent = PostsPackage.PostEvent
+typealias QuoteFields = PostsPackage.QuoteFields
+typealias QuoteEvent = PostsPackage.QuoteEvent
+typealias QuoteSheetTexts = PostsPackage.QuoteSheetTexts
+typealias CommentsState = InteractionsPackage.CommentsState
+typealias CommentEvent = InteractionsPackage.CommentEvent
+typealias CommentsTexts = InteractionsPackage.CommentsTexts
+typealias CommentRow = InteractionsPackage.CommentRow
+typealias CommentRowKind = InteractionsPackage.CommentRowKind
+typealias CommentMenuItem = InteractionsPackage.CommentMenuItem
+typealias CommentAction = InteractionsPackage.CommentAction
+typealias LikesList = InteractionsPackage.LikesList
+typealias PostPageScreen = PostPackage.PostPageScreen
+typealias PostPageState = PostPackage.PostPageState
+typealias PostPageEvent = PostPackage.PostPageEvent
+typealias LoadedPostPage = PostPackage.PostPage
+typealias PostPageTexts = PostPackage.PostPageTexts
+typealias PostQuotesScreen = PostPackage.PostQuotesScreen
+typealias PostQuotesState = PostPackage.PostQuotesState
+typealias PostQuotesEvent = PostPackage.PostQuotesEvent
+typealias ProfileTab = ProfilePackage.ProfileTab
