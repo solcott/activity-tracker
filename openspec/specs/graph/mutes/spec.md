@@ -95,3 +95,10 @@ A repost by an athlete the viewer mutes, and a repost of a post by an athlete th
 #### Scenario: Muted author
 - **WHEN** carol mutes alice, and bob, whom carol follows, reposts alice's Public post
 - **THEN** carol's timeline doesn't show the post
+
+### Requirement: Muting from a native profile
+On iOS someone else's profile SHALL offer Mute, or Unmute on a profile the viewer mutes, in its navigation bar's menu, with no confirmation, as the shared profile does.
+
+#### Scenario: Mute from a native profile
+- **WHEN** alice chooses Mute in bob's profile menu on iOS
+- **THEN** the mute is written and the menu offers Unmute
