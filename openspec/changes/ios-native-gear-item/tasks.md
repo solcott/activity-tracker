@@ -8,7 +8,7 @@
 
 ## 2. Samples
 
-- [ ] 2.1 Add `GearSamples.variants` (linked, follower, components, components for a follower, chain, replacing, unmounting, a failed mount, mount saving, not found, loading more) and keep `GearPagesSamplesTest` passing (`:app-fixtures:jvmTest`)
+- [x] 2.1 Add `GearSamples.variants` (linked, follower, components, components for a follower, chain, replacing, unmounting, a failed mount, mount saving, not found, loading more) and keep `GearPagesSamplesTest` passing (`:app-fixtures:jvmTest`)
 
 ## 3. Native page
 

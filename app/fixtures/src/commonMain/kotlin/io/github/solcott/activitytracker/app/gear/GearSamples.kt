@@ -341,6 +341,40 @@ object GearSamples {
     /** An item the viewer may not see. */
     val notFound: GearState
         get() = GearState(notFound = true, activities = PagedStates.loading(), viewerDid = Fixed.BOB.value)
+
+    /** The owner choosing the day Chain #4 came off. */
+    val unmounting: GearState
+        get() = state(ContentStates.loaded(pageWithParts)).copy(unmounting = pageWithParts.components.first())
+
+    /** A mount change that would have made a loop, shown by Components. */
+    val mountFailed: GearState
+        get() = state(ContentStates.loaded(pageWithParts)).copy(error = UiError(UiError.Kind.MountLoop))
+
+    /** A mount change saving: Mount a component and each component's actions wait. */
+    val mountSaving: GearState
+        get() = state(ContentStates.loaded(pageWithParts)).copy(mountSaving = true)
+
+    /** The owner choosing a component to mount, with none of their other gear mountable. */
+    val mountingNone: GearState
+        get() = state(ContentStates.loaded(page)).copy(picker = GearMountPicker(persistentListOf()))
+
+    /** The states [all] leaves out, by name: what the owner and others see beyond loading, for previews and snapshots. */
+    val variants: Map<String, GearState>
+        get() =
+            mapOf(
+                "linked" to linked,
+                "loadingMore" to loadingMore,
+                "follower" to follower,
+                "components" to components,
+                "componentsFollower" to componentsFollower,
+                "chain" to chain,
+                "replacing" to replacing,
+                "mountingNone" to mountingNone,
+                "unmounting" to unmounting,
+                "mountFailed" to mountFailed,
+                "mountSaving" to mountSaving,
+                "notFound" to notFound,
+            )
 }
 
 object GearCollectionSamples {
