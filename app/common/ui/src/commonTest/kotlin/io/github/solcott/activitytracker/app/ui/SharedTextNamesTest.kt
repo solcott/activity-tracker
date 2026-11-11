@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
+import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.DurationText
@@ -100,6 +101,14 @@ class SharedTextNamesTest {
             GearType.all.map(GearTexts::type) +
                 GearMainTotal.entries.flatMap { main -> UnitSystem.entries.map { GearTexts.mainTotal(main, totals, it) } } +
                 GearTexts.mainTotal(GearMainTotal.DISTANCE, totals.copy(activities = 0, movingTime = 0, distance = 0), UnitSystem.Metric)
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyTypePickerHeadingAndAJoinedListNameAString() {
+        val texts =
+            (SportTypeGroups.allTypes + SportTypeGroups.gearSports).map { it.label } +
+                listOfNotNull(AppText.joined(listOf(AppText.written("Ride"), AppText.written("Run"))))
         assertAllExist(texts)
     }
 

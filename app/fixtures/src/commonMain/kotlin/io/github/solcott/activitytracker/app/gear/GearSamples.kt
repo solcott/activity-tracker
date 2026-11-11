@@ -156,6 +156,27 @@ object EditGearSamples {
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), name = ""),
                 "new" to state(ContentStates.loaded(Unit), name = "", isNew = true).copy(nameMissing = false),
             )
+
+    /**
+     * States the native form is checked in beyond [all], kept apart so the shared screenshot set stays as it is: [mounted] retired with a
+     * saved photo, an athlete on imperial units, saving, a save that failed because the server couldn't be reached, and the question before
+     * deleting.
+     */
+    val variants: Map<String, EditGearState>
+        get() =
+            mapOf(
+                "mountedRetired" to
+                    mounted.copy(
+                        retiredOn = LocalDate(2026, 9, 1),
+                        acquiredOn = LocalDate(2026, 6, 20),
+                        photo = GearPhoto.Saved("https://example.com/chain.webp"),
+                        visibility = Visibility.FOLLOWERS,
+                    ),
+                "imperial" to state(ContentStates.loaded(Unit)).copy(units = UnitSystem.Imperial),
+                "saving" to state(ContentStates.loaded(Unit)).copy(saving = true),
+                "saveFailed" to state(ContentStates.loaded(Unit)).copy(error = UiError(UiError.Kind.SaveGear, DataError.Network)),
+                "confirmingDelete" to state(ContentStates.loaded(Unit)).copy(confirmingDelete = true),
+            )
 }
 
 object GearSamples {
@@ -383,6 +404,19 @@ object EditGearCollectionSamples {
                 SampleKind.LOADED to state(ContentStates.loaded(Unit)),
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), name = ""),
                 "new" to state(ContentStates.loaded(Unit), name = "", withMembers = false, isNew = true),
+            )
+
+    /**
+     * States the native form is checked in beyond [all], kept apart so the shared screenshot set stays as it is: a collection at its limit,
+     * one holding every item the athlete has, saving, and a save that failed because the server couldn't be reached.
+     */
+    val variants: Map<String, EditGearCollectionState>
+        get() =
+            mapOf(
+                "full" to state(ContentStates.loaded(Unit)).copy(full = true),
+                "nothingToAdd" to state(ContentStates.loaded(Unit)).copy(others = persistentListOf()),
+                "saving" to state(ContentStates.loaded(Unit)).copy(saving = true),
+                "saveFailed" to state(ContentStates.loaded(Unit)).copy(error = UiError(UiError.Kind.SaveGearCollection, DataError.Network)),
             )
 }
 

@@ -7,8 +7,11 @@ import io.github.solcott.activitytracker.app.ScreenViewController
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
 import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
+import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.HostRecord
+import io.github.solcott.activitytracker.app.ui.compressPhoto as compressForUpload
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.export.ExportArchive
 import io.github.solcott.activitytracker.data.export.writeToPath
 import kotlinx.io.bytestring.ByteString
@@ -41,6 +44,17 @@ object IosApp {
      * sheet (auth/data-export). Whether it was written; a failed write leaves no file. Swift awaits it.
      */
     suspend fun writeArchive(archive: ExportArchive, path: String): Boolean = archive.writeToPath(path)
+
+    /**
+     * A photo a native form picked, ready to attach: [image] (any format the platform decodes) re-encoded, scaled and stripped of its
+     * metadata by the same `compressPhoto` the shared UI's pick runs, so the photo saved is the same on every platform. Null when [image]
+     * can't be read as a picture. Swift awaits it and sends the result in the form's own event (`EditGearEvent.PhotoPicked`).
+     */
+    suspend fun compressPhoto(image: ByteString): PickedPhoto? = runSuspendCatching {
+        compressForUpload(image.toByteArray())
+    }
+        .map { PickedPhoto(ByteString(it.bytes), it.mimeType, it.width, it.height) }
+        .getOrNull()
 
     /** A screen drawn by the shared Compose UI, for one the shell has no native view for. Call [host] first. */
     fun screenViewController(record: HostRecord): UIViewController = ScreenViewController(record)

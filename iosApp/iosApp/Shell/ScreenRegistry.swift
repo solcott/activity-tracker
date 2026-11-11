@@ -51,8 +51,15 @@ extension ScreenRegistry {
         registry.register(BlockListScreen.self, BlockListState.self) { state in BlockListView(state: state) }
         registry.register(FollowListScreen.self, FollowListState.self) { state in FollowListView(state: state) }
         registry.register(FollowRequestsScreen.self, FollowRequestsState.self) { state in FollowRequestsView(state: state) }
+        registry.register(ActivityInvitesScreen.self, ActivityInvitesState.self) { state in ActivityInvitesView(state: state) }
+        registry.register(AddPeopleScreen.self, AddPeopleState.self) { state in AddPeopleView(state: state) }
         registry.register(AccountScreen.self, AccountState.self) { state in AccountView(state: state) }
         registry.register(LeaveScreen.self, LeaveState.self) { state in LeaveView(state: state) }
+        // The gear editors (ios-native-gear-editors).
+        registry.register(EditGearScreen.self, EditGearState.self) { state in EditGearView(state: state) }
+        registry.register(EditGearCollectionScreen.self, EditGearCollectionState.self) { state in
+            EditGearCollectionView(state: state)
+        }
         // The upload queue (data/upload-queue), pushed over the feed.
         registry.register(UploadsScreen.self, UploadsState.self) { state in UploadsView(state: state) }
         return registry

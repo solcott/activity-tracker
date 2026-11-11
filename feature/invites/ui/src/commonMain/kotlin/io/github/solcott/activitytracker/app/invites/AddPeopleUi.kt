@@ -19,20 +19,16 @@ import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.signInAgainItem
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.add_people_add
 import io.github.solcott.activitytracker.composeApp.resources.add_people_added
-import io.github.solcott.activitytracker.composeApp.resources.add_people_cancel
 import io.github.solcott.activitytracker.composeApp.resources.add_people_followers
 import io.github.solcott.activitytracker.composeApp.resources.add_people_full
-import io.github.solcott.activitytracker.composeApp.resources.add_people_joined
 import io.github.solcott.activitytracker.composeApp.resources.add_people_no_followers
 import io.github.solcott.activitytracker.composeApp.resources.add_people_notice
-import io.github.solcott.activitytracker.composeApp.resources.add_people_pending
-import io.github.solcott.activitytracker.composeApp.resources.add_people_remove
 import io.github.solcott.activitytracker.composeApp.resources.add_people_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.InviteStatus
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(AddPeopleScreen::class, SessionScope::class)
@@ -55,25 +51,21 @@ fun AddPeopleUi(state: AddPeopleState, modifier: Modifier = Modifier) {
         signInAgainItem(state.error, needsSignIn = !state.canInvite) { state.eventSink(AddPeopleEvent.SignInAgain) }
         if (content.invitees.isNotEmpty()) item(key = "addedHeading") { Heading(stringResource(Res.string.add_people_added)) }
         items(content.invitees, key = { "invitee:" + it.invitee.did.value }) { invitee ->
-            val joined = invitee.status == InviteStatus.JOINED
             AccountActionRow(invitee.invitee, onClick = {}) {
-                Status(stringResource(if (joined) Res.string.add_people_joined else Res.string.add_people_pending))
-                AppSecondaryButton(
-                    onClick = { state.eventSink(AddPeopleEvent.Remove(invitee)) },
-                    enabled = state.canInvite && invitee.invitee.did !in state.busy,
-                ) {
-                    Text(stringResource(if (joined) Res.string.add_people_remove else Res.string.add_people_cancel))
+                Status(AddPeopleTexts.status(invitee).string())
+                AppSecondaryButton(onClick = { state.eventSink(AddPeopleEvent.Remove(invitee)) }, enabled = state.canRemove(invitee)) {
+                    Text(AddPeopleTexts.remove(invitee).string())
                 }
             }
         }
         item(key = "followersHeading") { Heading(stringResource(Res.string.add_people_followers)) }
-        if (content.full) item(key = "full") { ListNote(stringResource(Res.string.add_people_full)) }
+        if (state.full) item(key = "full") { ListNote(stringResource(Res.string.add_people_full)) }
         if (content.followers.isEmpty()) item(key = "noFollowers") { ListNote(stringResource(Res.string.add_people_no_followers)) }
         items(content.followers, key = { "follower:" + it.did.value }) { follower ->
             AccountActionRow(follower, onClick = {}) {
                 AppButton(
                     onClick = { state.eventSink(AddPeopleEvent.Add(follower.did)) },
-                    enabled = state.canInvite && !content.full && follower.did !in state.busy,
+                    enabled = state.canAdd(follower),
                 ) {
                     Text(stringResource(Res.string.add_people_add))
                 }

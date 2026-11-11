@@ -23,6 +23,8 @@ kotlin {
             // api, so Swift sees ByteString, which IosApp.heldPhoto returns and Swift turns into Data (toNSData).
             api(libs.kotlinx.io.bytestring)
 
+            // compressPhoto, which IosApp.compressPhoto runs for a photo the native gear form picks.
+            implementation(projects.appCommonUi)
             implementation(projects.composeApp)
         }
     }

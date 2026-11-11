@@ -4,6 +4,7 @@ import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
 import FeatureGearApi
+import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureProfileApi
 import FeatureSettingsApi
@@ -11,6 +12,7 @@ import FeatureUploadsApi
 import IoGithubSolcottDataresult
 import IoGithubSolcottUistate
 import OrgJetbrainsKotlinxKotlinxDatetime
+import OrgJetbrainsKotlinxKotlinxIoBytestring
 import PresenterHost
 
 // Swift export gives a Kotlin module top-level names only when it is exported whole with a root package. The presenter host and Circuit
@@ -127,6 +129,20 @@ typealias FollowRequestsTexts = ProfilePackage.FollowRequestsTexts
 typealias ProfileViewBasic = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 typealias Did = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.Did
 
+// Activity invites (feed/activity-invites): the invitee's list and the owner's Add people, and the lexicon views they list.
+typealias InvitesPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.invites
+typealias ActivityInvitesScreen = InvitesPackage.ActivityInvitesScreen
+typealias ActivityInvitesState = InvitesPackage.ActivityInvitesState
+typealias ActivityInvitesEvent = InvitesPackage.ActivityInvitesEvent
+typealias ActivityInvitesTab = InvitesPackage.ActivityInvitesTab
+typealias ActivityInvitesTexts = InvitesPackage.ActivityInvitesTexts
+typealias AddPeopleScreen = InvitesPackage.AddPeopleScreen
+typealias AddPeopleState = InvitesPackage.AddPeopleState
+typealias AddPeopleEvent = InvitesPackage.AddPeopleEvent
+typealias AddPeopleTexts = InvitesPackage.AddPeopleTexts
+typealias InviteView = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.InviteView
+typealias InviteeView = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.InviteeView
+
 // Text, icons and loading rules chosen in Kotlin (dev/shared-display-text), and the types they take.
 typealias AppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app
 typealias TextPackage = AppPackage.text
@@ -151,6 +167,27 @@ typealias KotlinContentState = ExportedKotlinPackages.io.github.solcott.uistate.
 typealias KotlinPagedState = ExportedKotlinPackages.io.github.solcott.uistate.PagedState
 typealias LoadStatus = ExportedKotlinPackages.io.github.solcott.uistate.LoadStatus
 typealias DataError = ExportedKotlinPackages.io.github.solcott.dataresult.DataError
+
+// The gear editors (ios-native-gear-editors): the item and collection forms, what they say and limit, the type sheets' groups, and the
+// photo and date types their events carry.
+typealias EditGearScreen = GearPackage.EditGearScreen
+typealias EditGearState = GearPackage.EditGearState
+typealias EditGearEvent = GearPackage.EditGearEvent
+typealias EditGearCollectionScreen = GearPackage.EditGearCollectionScreen
+typealias EditGearCollectionState = GearPackage.EditGearCollectionState
+typealias EditGearCollectionEvent = GearPackage.EditGearCollectionEvent
+typealias EditGearTexts = GearPackage.EditGearTexts
+typealias EditGearLimits = GearPackage.EditGearLimits
+typealias GearKindOption = GearPackage.GearKindOption
+typealias GearPhoto = GearPackage.GearPhoto
+typealias GearMountedOn = GearPackage.GearMountedOn
+typealias GearCollectionChoice = GearPackage.GearCollectionChoice
+typealias PickedPhoto = AppPackage.edit.PickedPhoto
+typealias SportTypeGroups = AppPackage.sport.SportTypeGroups
+typealias SportTypeGroup = AppPackage.sport.SportTypeGroup
+typealias SportTypeRow = AppPackage.sport.SportTypeRow
+typealias KotlinLocalDate = ExportedKotlinPackages.kotlinx.datetime.LocalDate
+typealias KotlinByteString = ExportedKotlinPackages.kotlinx.io.bytestring.ByteString
 
 // The upload queue (data/upload-queue): its contract, the queue model from `:core-data` it shows, the shared length of time and day
 // words, and the Kotlin clock types a `ShownClock` gives them.

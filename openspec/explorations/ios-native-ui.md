@@ -200,6 +200,26 @@ Each phase leaves a shippable app.
      functions name them (a zone's label and a privacy zone's name, which the shared pages ask too), and `shownRows` is a copy.
      `ZonesContractsTests` reads every blocker typed over the samples. Left for later changes: the pages themselves, and with them a
      zone row's name and range as `AppText`.
+   - **The gear editors** (`ios-native-gear-editors`). The gear and collection forms are grouped `Form`s (`EditGearView`,
+     `EditGearCollectionView`), the first native forms built on text fields: `AppTextField` gained a row layout (label leading, text
+     trailing) and a several-line one, with each field's limits from Kotlin (`EditGearLimits`); menu choices are `AppPickerRow`, Activity
+     defaults' row moved into the design system. Save is in the bar and a failed save at the top. The first native photo pick is
+     `PhotosPicker` with a compatible encoding: Swift hands the bytes to `IosApp.compressPhoto`, the shared `compressPhoto`, and sends the
+     result in the form's own `PhotoPicked` (a HEIC Skia can't read is tried again as UIKit's JPEG). The first native date is a calendar
+     of past days in a popover, over `CalendarDay`. Sports and default-for are chosen in sheets with a stack of their own, by Kotlin's
+     groups (`SportTypeGroups`, whose nesting rule `sportTypeList` now asks too), collections are ticked in place, and a collection's items
+     are reordered by dragging with the form held in edit mode, VoiceOver keeping the shared Move up, Move down and Remove. What the forms
+     say and decide is Kotlin's (`EditGearTexts`, getters on both states, a joined list as `AppText.joined`). Left for later changes: the
+     gear item page, the profile editor and the activity forms, which can reuse the photo pick, the form rows and the type sheets.
+   - **The invite lists** (`ios-native-invite-lists`). Activity invites and Add people are inset grouped lists (`ActivityInvitesView`,
+     pushed over the shared profile, and `AddPeopleView`, pushed over the shared activity page), built as Follow requests is: a
+     segmented choice over the contract enum's `allCases`, `SignInAgainNotice` over the rows, `AppItemRow`s with two small buttons, the
+     Declined note as the section's footer, and Add people's two lists as headed sections. The first native row to show an activity's
+     distance and time, from the environment's units. What the pages say and decide is Kotlin's (`ActivityInvitesTexts`: an invite's
+     title or type, who added the athlete, its distance and time joined by a shared string; `AddPeopleTexts`; typed `invites`,
+     `invitees` and `followers` and `canAnswer`, `offersDecline`, `canAdd`, `canRemove` and `full` on the states), which the shared
+     pages and `InviteSummary` ask too. Left for later changes: accepting an invite (`AcceptInviteScreen`), which waits for the native
+     route preview and visibility form, and the profile and activity page that open these.
    - **The upload queue** (`ios-native-uploads`). Uploads is an inset grouped list (`UploadsView`) pushed over the feed, the first native
      page whose loaded content is a `:core-data` model of plain lists (read directly: an empty `emptyList()` is safe, probe below), with
      two system alerts bound to the state's questions (cancel, cancel the rest of an import). The first shared length of time:
@@ -670,6 +690,46 @@ simulator (iOS 26.0), before the fix, and by reading the generated Swift:
   an immutable list, which has no Swift initialiser, so the all-rows case needed a sample: `ThresholdHistorySamples.variants["allRows"]`,
   a section of five rows with every one shown.
 
+### Phase 4 probes (gear editors, `ios-native-gear-editors`, 2026-11-10)
+
+The gear and collection forms bring the first native photo pick, date choice, sheets and reordering. Asked with throwaway Swift tests
+on an iPhone 17 simulator (iOS 26.0), a window snapshot of two scratch views, and by reading the generated Swift:
+
+- **A `LocalDate` reads and builds in Swift.** `year` and `day` are `Int32`; `month` is kotlinx-datetime's `Month` as a Swift enum
+  (`.JULY`) whose `rawValue` is its ordinal, so the month's number is `rawValue + 1` (`monthNumber` is there too, deprecated in Kotlin and
+  so in Swift). `LocalDate(year:month:day:)` with a month number builds one (2026-07-02), which `AcquiredChanged(date:)` took.
+- **`GearPhoto` casts.** `GearPhoto.Saved(url:)` built in Swift reads back through `as? GearPhoto.Saved`.
+- **Swift's `==` on two equal Kotlin data objects is Kotlin's `equals`** (two `ActivityType(sport: "ride")`: `==` and `isEqual` true,
+  `===` false). The forms still ask the state for membership, which keeps the rule in Kotlin.
+- **`IosApp.compressPhoto` works from Swift, but Skia can't read a HEIC.** A 4,032 × 3,024 JPEG that UIKit wrote came back as WebP at
+  2,048 × 1,536; a HEIC of the same picture and four bytes of junk both came back nil. So a picked photo is asked for in a compatible
+  encoding (JPEG for a HEIC), and Swift re-encodes it as JPEG with UIKit before a second try when Kotlin can't read it, keeping the
+  scaling, the format and the metadata stripping Kotlin's.
+- **A sheet with its own `NavigationStack`, presented from a pushed destination, shows its bar**: its inline title and a Done in the
+  confirmation place, unlike a stack inside a destination.
+- **Edit mode held on for a whole `Form` marks only the section that can move.** The section with `onMove` and `onDelete` shows its delete
+  controls and drag handles; a text field row and a button row above it are drawn as before. Whether they still take typing and taps is
+  for the walk.
+
+### Phase 4 probes (invite lists, `ios-native-invite-lists`, 2026-11-10)
+
+Activity invites is opened from the own profile and Add people from the own activity, both still the shared UI's. Asked with a
+throwaway Swift test over every `ActivityInvitesSamples` and `AddPeopleSamples` state on a cloned iPhone 17 simulator (iOS 26.0), and by
+reading the generated Swift, before the getters or views were written:
+
+- **`InviteeView` has a Swift type, and `InviteView` only in Debug.** Both are generated in `ActivityTrackerCoreLexicon.swift`, but
+  the one exported signature naming `InviteView` is `:app-fixtures`' `fakeInvite`, which Release builds don't export (the contract names
+  it only as a collection's element or inside an erased `ContentState`); `InviteeView` is named by `AddPeopleEvent.Remove(invitee:)`.
+  So `ActivityInvitesTexts`' functions taking an `InviteView` are what give it a type in every build, as `ZoneTexts` did for `Zone`.
+- **A content that is a class reads through the erased value.** `ActivityInvitesState.content.data` casts to `ActivityInvitesContent`
+  and `AddPeopleState.content.data` to `AddPeopleContent` on every sample, the loading and failed defaults included; their lists read
+  through the iterator as `InviteView` and `InviteeView` (two invites and one invitee loaded, none while loading, failed or empty), and
+  `AddPeopleContent.full` reads as `Bool`. Only a content that is itself a list can't cross the erased value (the gear probe); the views
+  still read typed getters on the state, so neither UI asks what the content holds.
+- **`ActivityInvitesTab` is `CaseIterable`**, `allCases` `[Pending, Declined]` in Kotlin's order, as `FollowRequestsTab` is.
+- **The events take what Swift holds.** `ActivityInvitesEvent.Open(invite:)` and `Decline(invite:)` take the `AtUri` an `InviteView.uri`
+  is, and `AddPeopleEvent.Remove(invitee:)` the Swift `InviteeView`, read from the generated initialisers.
+
 ### Phase 4 probes (uploads, `ios-native-uploads`, 2026-11-10)
 
 The upload queue is the first native page whose loaded content is a `:core-data` model holding plain Kotlin lists, and the first with a
@@ -908,6 +968,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   requests and Remove on a device (the test account doesn't approve followers, and the walk didn't turn that on), a second page, and
   the pages on iOS 18 signed in.
 
+### Phase 4 findings (invite lists, `ios-native-invite-lists`)
+
+- **Follow requests' shape carries over whole.** Activity invites is `FollowRequestsView` with other rows: the segmented choice over
+  the enum's `allCases`, `RefreshStatusView`, the `SignInAgainNotice` row and the Declined note as the section's footer needed nothing
+  new, and neither did Add people's two headed sections of `AppItemRow`s.
+- **A row with two buttons has no room for a picture.** The first recording led each invite with its inviter's `Avatar`; beside Decline
+  and View that left the text about 130 points on an iPhone 17, and "32.40 km · 1:05:00" broke after the dot. Without the picture, as
+  the shared row is, it stays on one line. No string uses a no-break space, and one around the dot would only move the break into
+  "32.40 km".
+- **A joined line is a shared string, not Kotlin's `" · "`.** `InviteSummary` joined the distance and time with `joinToString(" · ")`;
+  `ActivityInvitesTexts.summary` names `activity_invites_summary` instead, so the separator is the catalog's like every other word.
+- **A feature's own text names need their own check.** `SharedTextNamesTest` lives in `:app-common-ui` and can't see a feature's
+  `-api`, so `InvitesTextNamesTest` (`:feature-invites-ui`) checks every name `ActivityInvitesTexts` and `AddPeopleTexts` choose.
+- **A long list's snapshot is drawn tall.** The full activity's 20 people push its note below an iPhone's height, so its snapshot is
+  2,000 points tall (`assertAppSnapshot(size:)`); every other sample is the screen's size.
+- **A worktree's build needs the checkout's `local.properties` to walk.** Without `activitytracker.deviceHost` the build isn't in device
+  mode and calls the local hosts, while the signed-in simulators' session belongs to the public dev ones: every AppView call failed
+  until the file was copied in and the app rebuilt. And a build for the iOS 26.0 destination doesn't run on 18.4
+  (`libswiftCompatibilitySpan.dylib` isn't embedded), so the 18.4 launch takes a build made for that destination.
+- **Walked** (see the change's tasks): Add people from an activity on the signed-in iPhone 17 Pro and iPad Air 11-inch (iOS 26.0),
+  upright and on its side, back by the swipe and the button, and launched to sign-in on iOS 18.4. Still unseen: Activity invites on a device (the local network has no invites, and making one writes records),
+  Add people with followers, and the pages on iOS 18 signed in.
+
 ### Phase 4 findings (zones contracts, `ios-zones-contracts`)
 
 - **A kind list of objects reads in order, and a function taking the enum works.** `ZoneSummary.kinds` and `SportZonesState.kinds`
@@ -925,6 +1008,34 @@ What building the host and the shell on Swift export showed, beyond the probes:
   immutable list has none at all, so a state a test needs is a fixture variant (`ThresholdHistorySamples.variants["allRows"]`).
 - **No visible change.** The shared pages keep their words and layout; nothing was walked on a device, since nothing native reads these
   contracts yet.
+
+### Phase 4 findings (gear editors, `ios-native-gear-editors`)
+
+- **A form's Save in the bar needs its own condition.** The shared form's Save is the form's last row, so it isn't there before the item
+  loads. Moved to the bar, it showed over the spinner and the load failure in the first snapshots. `showsSave` (the content has loaded)
+  on both states decides it now, for both UIs' sake.
+- **A rule in a Compose constant moved to the contract.** The weight's seven digits and the starting values' nine characters were private
+  constants of `EditGearUi`; they are `EditGearLimits`, which the Compose fields and `TextFieldRules` both read, beside the records' own
+  maximums. Swift counts what the athlete sees and Compose counts UTF-16 units, so text with emoji can stop at different lengths; every
+  limit here is far above what a name or note reaches.
+- **A joined list is text with a rule.** "Ride, Run" was `joinToString(", ")` over resolved labels in a composable; it is `AppText.joined`
+  over a pair string (`text_list_pair`), which keeps the order and the separator in the catalog.
+- **The type pickers' nesting was already a rule.** `sportTypeList` decided which sub-sport shows under its sport inline; `nestsIn` in
+  `:app-common-api` is that rule, which it and `SportTypeGroup.rows` ask, so the native sheet nests exactly as the shared one (Gravel Ride
+  under Ride; Indoor Row, filed under Gym, on a row of its own).
+- **A sheet's Cancel that undoes nothing is left out.** The shared sports and default-for sheets send each tick at once and have a Cancel
+  that does what Done does; the native sheets have Done only. Add items keeps Cancel, since its ticks are sent only by Add.
+- **Edit mode for a whole form is the native reorder.** Held on for the collection form, it gives the items their handles and delete
+  controls and leaves the name and notes alone (the probe). SwiftUI reports a move as the old index and the index to insert before;
+  `MemberMove` turns that into Kotlin's final index (one less when moving down) and ignores a drop where the row was.
+- **A view asks the state, not its lists.** Which sports and types are ticked are `isForSport(sport)` and `isDefaultFor(type)`, which
+  the Compose sheets ask too, so neither UI reads `sports` or `defaultFor` to answer a membership question.
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** An item and a
+  collection were made, edited, retired and put back, reordered and cut, and deleted again, through the native forms; the photo picker
+  needed no permission, and a picked photo shown on Gear afterwards came from the session's held bytes. A refused letter took the digit
+  typed straight after it with it (open items). On iPad the calendar's popover points at the middle of its row rather than at the button;
+  it is the row the popover is attached to. After Retire and Put back in use the shared gear page and the Gear list showed the change
+  some seconds late, as the AppView caught up; the form itself had saved.
 
 ### Phase 4 findings (uploads, `ios-native-uploads`)
 
@@ -968,7 +1079,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Whether the erased `List<Pair<…>>` bridge and the `self` clash are reported upstream, and fixed before Kotlin 2.5.0.
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
-- Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder.
+- Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder. A native pick goes through the same compression
+  (`IosApp.compressPhoto`); Skia can't read a HEIC, so the picker asks for a compatible encoding and `PhotoPick` retries what Kotlin
+  can't read as UIKit's JPEG. Phase 5, which drops Skia from iOS, needs another WebP encoder or a JPEG fallback for every photo.
 - Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side, and a
   profile opened from the blocked list beside it takes the whole window and comes back to the list beside Blocked accounts
   (`ios-native-settings-lists`). Still to see: a window resized across 700 points with the list scrolled, and all of it on iOS 18.
@@ -981,11 +1094,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `HostRecord.paneRoot`, first on Leave opened from Account.
 - The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`): it lists its activities as the feed's
   `ActivityCard`, so it goes native with or right after the native activity card, with its components, mount sheet and a SwiftUI
-  unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors (`EditGearScreen`,
-  `EditGearCollectionScreen`) are still the shared UI's too.
+  unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`).
 - The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its header, tabs and activity cards are the
   feed's work. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
-  followers. Activity invites and Add people can build on `SignInAgainNotice` when they go native.
+  followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
+  (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
+  and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
 - `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
   and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
@@ -1005,9 +1119,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
   the browser is open was seen only behind the system's prompt.
 - The `values` flow of a text field state reaches Swift a keystroke at a time, late. `TextFieldModel` reads the state on each report
-  rather than taking the reported text; anything else that follows a field from Swift must do the same.
-- A SwiftUI `TextField` keeps showing a refused edit until its view is redrawn. `AppTextField` redraws on a refusal, which no screen
-  uses yet: the first field with digits only or a maximum length should be watched on a device.
+  rather than taking the reported text; anything else that follows a field from Swift must do the same. The gear editor's fields, seeded by the presenter after the item
+  loads, showed every saved value on a device (`ios-native-gear-editors`).
+- A SwiftUI `TextField` keeps showing a refused edit until its view is redrawn. `AppTextField` redraws on a refusal; on the gear form's
+  weight (digits only, `ios-native-gear-editors`) a refused letter is put back, but a digit typed in the same burst right after it was lost
+  too, since it arrived as part of the refused text. Typed alone it is taken. Accepting the edit with the refused characters taken out
+  would keep it, at the cost of the rule that a refusal never rewrites what was typed; decide with the next digits-only field.
 - The iOS `Release` configuration exports different Kotlin from `Debug` (no `:app-fixtures`). CI builds Debug only, so a break
   that only a release build has would first show in an archive build.
 - Snapshot references are true for iOS 26.0 simulators. CI's simulator is the newest the runner has, so CI compares them only when

@@ -38,13 +38,13 @@ import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.PastDateField
 import io.github.solcott.activitytracker.app.ui.TapField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -64,8 +64,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.compressPhoto
 import io.github.solcott.activitytracker.app.ui.pickedDate
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
-import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.sportTypeList
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -76,32 +76,21 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_acquired_clea
 import io.github.solcott.activitytracker.composeApp.resources.gear_brand
 import io.github.solcott.activitytracker.composeApp.resources.gear_default_for
 import io.github.solcott.activitytracker.composeApp.resources.gear_default_for_hint
-import io.github.solcott.activitytracker.composeApp.resources.gear_default_for_none
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete_message
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete_title
-import io.github.solcott.activitytracker.composeApp.resources.gear_edit_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_kind
-import io.github.solcott.activitytracker.composeApp.resources.gear_kind_none
 import io.github.solcott.activitytracker.composeApp.resources.gear_model
-import io.github.solcott.activitytracker.composeApp.resources.gear_mounted_on_since
 import io.github.solcott.activitytracker.composeApp.resources.gear_name
 import io.github.solcott.activitytracker.composeApp.resources.gear_name_required
-import io.github.solcott.activitytracker.composeApp.resources.gear_new_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_notes
 import io.github.solcott.activitytracker.composeApp.resources.gear_photo
-import io.github.solcott.activitytracker.composeApp.resources.gear_photo_add
-import io.github.solcott.activitytracker.composeApp.resources.gear_photo_change
 import io.github.solcott.activitytracker.composeApp.resources.gear_photo_remove
 import io.github.solcott.activitytracker.composeApp.resources.gear_retire
-import io.github.solcott.activitytracker.composeApp.resources.gear_retired_on
 import io.github.solcott.activitytracker.composeApp.resources.gear_save
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports_choose
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports_done
-import io.github.solcott.activitytracker.composeApp.resources.gear_sports_none
-import io.github.solcott.activitytracker.composeApp.resources.gear_starting_distance_km
-import io.github.solcott.activitytracker.composeApp.resources.gear_starting_distance_mi
 import io.github.solcott.activitytracker.composeApp.resources.gear_starting_help
 import io.github.solcott.activitytracker.composeApp.resources.gear_starting_time
 import io.github.solcott.activitytracker.composeApp.resources.gear_type
@@ -109,14 +98,10 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_unretire
 import io.github.solcott.activitytracker.composeApp.resources.gear_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.gear_weight
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.sport.SportCatalog
-import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
-import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -133,7 +118,7 @@ fun EditGearUi(state: EditGearState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(if (state.isNew) Res.string.gear_new_title else Res.string.gear_edit_title),
+                title = state.title.string(),
                 onBack = { state.eventSink(EditGearEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -165,7 +150,7 @@ fun EditGearUi(state: EditGearState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
-    val enabled = !state.saving
+    val enabled = state.enabled
     val send = state.eventSink
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AppTextField(
@@ -176,7 +161,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             isError = state.nameMissing,
             supportingText = if (state.nameMissing) stringResource(Res.string.gear_name_required) else null,
             lineLimits = TextFieldLineLimits.SingleLine,
-            inputTransformation = InputTransformation.maxLength(GearItemRecord.MAX_NAME),
+            inputTransformation = InputTransformation.maxLength(EditGearLimits.name),
         )
         MenuField(
             shown = gearTypeLabel(state.type),
@@ -190,18 +175,17 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )
-        if (state.kinds.isNotEmpty()) {
-            val none = stringResource(Res.string.gear_kind_none)
+        if (state.showsKind) {
             MenuField(
-                shown = state.kind?.let { gearKindLabel(state.type, it) } ?: none,
+                shown = state.kindLabel.string(),
                 label = stringResource(Res.string.gear_kind),
                 items =
-                    (listOf(AppMenuItem(none, checked = state.kind == null) { send(EditGearEvent.KindChanged(null)) }) +
-                            state.kinds.map { kind ->
-                                AppMenuItem(gearKindLabel(state.type, kind), checked = kind == state.kind) {
-                                    send(EditGearEvent.KindChanged(kind))
-                                }
-                            })
+                    state.kindOptions
+                        .map { option ->
+                            AppMenuItem(option.label.string(), checked = option.kind == state.kind) {
+                                send(EditGearEvent.KindChanged(option.kind))
+                            }
+                        }
                         .toImmutableList(),
                 modifier = Modifier.fillMaxWidth(),
                 enabled = enabled,
@@ -214,7 +198,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
                 label = stringResource(Res.string.gear_brand),
                 enabled = enabled,
                 lineLimits = TextFieldLineLimits.SingleLine,
-                inputTransformation = InputTransformation.maxLength(GearItemRecord.MAX_BRAND),
+                inputTransformation = InputTransformation.maxLength(EditGearLimits.brand),
             )
             AppTextField(
                 state.model,
@@ -222,11 +206,11 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
                 label = stringResource(Res.string.gear_model),
                 enabled = enabled,
                 lineLimits = TextFieldLineLimits.SingleLine,
-                inputTransformation = InputTransformation.maxLength(GearItemRecord.MAX_BRAND),
+                inputTransformation = InputTransformation.maxLength(EditGearLimits.brand),
             )
         }
-        SportsField(state.sports, enabled, onToggle = { send(EditGearEvent.ToggleSport(it)) })
-        DefaultForField(state.defaultFor, enabled, onToggle = { send(EditGearEvent.ToggleDefault(it)) })
+        SportsField(state, enabled, onToggle = { send(EditGearEvent.ToggleSport(it)) })
+        DefaultForField(state, enabled, onToggle = { send(EditGearEvent.ToggleDefault(it)) })
         GearCollectionsField(state.collections, enabled, onToggle = { send(EditGearEvent.ToggleCollection(it)) })
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppTextField(
@@ -236,7 +220,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 lineLimits = TextFieldLineLimits.SingleLine,
-                inputTransformation = DigitsOnly.then(InputTransformation.maxLength(MAX_WEIGHT_DIGITS)),
+                inputTransformation = DigitsOnly.then(InputTransformation.maxLength(EditGearLimits.weightDigits)),
             )
             AcquiredField(state.acquiredOn, enabled, onChange = { send(EditGearEvent.AcquiredChanged(it)) }, Modifier.weight(1f))
         }
@@ -244,17 +228,11 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             AppTextField(
                 state.startingDistance,
                 Modifier.weight(1f),
-                label =
-                    stringResource(
-                        when (state.units) {
-                            UnitSystem.Metric -> Res.string.gear_starting_distance_km
-                            UnitSystem.Imperial -> Res.string.gear_starting_distance_mi
-                        },
-                    ),
+                label = state.startingDistanceLabel.string(),
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 lineLimits = TextFieldLineLimits.SingleLine,
-                inputTransformation = InputTransformation.maxLength(MAX_STARTING_CHARS),
+                inputTransformation = InputTransformation.maxLength(EditGearLimits.starting),
             )
             AppTextField(
                 state.startingTime,
@@ -263,7 +241,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
                 enabled = enabled,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 lineLimits = TextFieldLineLimits.SingleLine,
-                inputTransformation = InputTransformation.maxLength(MAX_STARTING_CHARS),
+                inputTransformation = InputTransformation.maxLength(EditGearLimits.starting),
             )
         }
         Text(
@@ -271,13 +249,13 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PhotoRow(state.photo, enabled, send)
+        PhotoRow(state, enabled, send)
         AppTextField(
             state.notes,
             Modifier.fillMaxWidth(),
             label = stringResource(Res.string.gear_notes),
             enabled = enabled,
-            inputTransformation = InputTransformation.maxLength(GearItemRecord.MAX_NOTES),
+            inputTransformation = InputTransformation.maxLength(EditGearLimits.notes),
         )
         VisibilityPicker(state.visibility, { send(EditGearEvent.VisibilityChanged(it)) }, state.approvesFollowers, enabled = enabled)
         Text(
@@ -289,18 +267,14 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
         AppButton(onClick = { send(EditGearEvent.Save) }, Modifier.fillMaxWidth(), enabled = enabled) {
             Text(stringResource(Res.string.gear_save))
         }
-        if (!state.isNew) {
+        if (state.showsManagement) {
             HorizontalDivider()
-            state.mountedOn?.let { mounted ->
-                AppTextButton(onClick = { send(EditGearEvent.OpenMountedOn) }) {
-                    Text(stringResource(Res.string.gear_mounted_on_since, mounted.name, mounted.since.toString()))
-                }
+            state.mountedOnLabel?.let { mounted ->
+                AppTextButton(onClick = { send(EditGearEvent.OpenMountedOn) }) { Text(mounted.string()) }
             }
-            state.retiredOn?.let {
-                Text(stringResource(Res.string.gear_retired_on, it.toString()), style = MaterialTheme.typography.bodyMedium)
-            }
+            state.retiredOnLabel?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (state.retiredOn == null) {
+                if (!state.isRetired) {
                     AppSecondaryButton(onClick = { send(EditGearEvent.Retire) }, enabled = enabled) {
                         Text(stringResource(Res.string.gear_retire))
                     }
@@ -319,10 +293,15 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
 
 /** The sports the item is for, as a field that opens a sheet of every sport to tick. */
 @Composable
-private fun SportsField(sports: ImmutableList<String>, enabled: Boolean, onToggle: (String) -> Unit) {
+private fun SportsField(state: EditGearState, enabled: Boolean, onToggle: (String) -> Unit) {
     var choosing by remember { mutableStateOf(false) }
-    val shown = if (sports.isEmpty()) stringResource(Res.string.gear_sports_none) else sports.map { sportLabel(it) }.joinToString(", ")
-    TapField(shown, stringResource(Res.string.gear_sports), onClick = { choosing = true }, Modifier.fillMaxWidth(), enabled)
+    TapField(
+        state.sportsLabel.string(),
+        stringResource(Res.string.gear_sports),
+        onClick = { choosing = true },
+        Modifier.fillMaxWidth(),
+        enabled,
+    )
     if (choosing) {
         val done = stringResource(Res.string.gear_sports_done)
         AppBottomSheet(onDismiss = { choosing = false }, sheetState = rememberAppSheetState()) {
@@ -341,7 +320,7 @@ private fun SportsField(sports: ImmutableList<String>, enabled: Boolean, onToggl
                     onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
                     onClick = { onToggle(it.sport) },
                 ) { type ->
-                    AppCheckbox(type.sport in sports, onCheckedChange = null)
+                    AppCheckbox(state.isForSport(type.sport), onCheckedChange = null)
                 }
             }
         }
@@ -353,12 +332,16 @@ private fun SportsField(sports: ImmutableList<String>, enabled: Boolean, onToggl
  * included, to tick.
  */
 @Composable
-private fun DefaultForField(types: ImmutableList<ActivityType>, enabled: Boolean, onToggle: (ActivityType) -> Unit) {
+private fun DefaultForField(state: EditGearState, enabled: Boolean, onToggle: (ActivityType) -> Unit) {
     var choosing by remember { mutableStateOf(false) }
-    val shown =
-        if (types.isEmpty()) stringResource(Res.string.gear_default_for_none) else types.map { activityTypeLabel(it) }.joinToString(", ")
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        TapField(shown, stringResource(Res.string.gear_default_for), onClick = { choosing = true }, Modifier.fillMaxWidth(), enabled)
+        TapField(
+            state.defaultForLabel.string(),
+            stringResource(Res.string.gear_default_for),
+            onClick = { choosing = true },
+            Modifier.fillMaxWidth(),
+            enabled,
+        )
         Text(
             stringResource(Res.string.gear_default_for_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -382,29 +365,24 @@ private fun DefaultForField(types: ImmutableList<ActivityType>, enabled: Boolean
                     onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
                     onClick = onToggle,
                 ) { type ->
-                    AppCheckbox(type in types, onCheckedChange = null)
+                    AppCheckbox(state.isDefaultFor(type), onCheckedChange = null)
                 }
             }
         }
     }
 }
 
-/** Every activity type by category, sub-sports included: a default can be for a sport or for one of its sub-sports. */
-private val TYPE_GROUPS =
-    SportCatalog.categories.map { group -> group.category to group.types.distinct().toImmutableList<ActivityType>() }.toImmutableList()
+/** The groups the default-for sheet lists, chosen for both UIs (`SportTypeGroups.allTypes`). */
+private val TYPE_GROUPS = SportTypeGroups.allTypes.map { it.category to it.types }.toImmutableList()
 
-/** Each category's bare sports: gear is for a sport, not a sub-sport. */
-private val SPORT_GROUPS =
-    SportCatalog.categories
-        .map { group -> group.category to group.types.filter { it.subSport == null }.distinct().toImmutableList<ActivityType>() }
-        .filter { it.second.isNotEmpty() }
-        .toImmutableList()
+/** The groups the sports sheet lists (`SportTypeGroups.gearSports`). */
+private val SPORT_GROUPS = SportTypeGroups.gearSports.map { it.category to it.types }.toImmutableList()
 
 /** The date the athlete got the item, picked from a calendar, with a button to clear it. */
 @Composable
 private fun AcquiredField(date: LocalDate?, enabled: Boolean, onChange: (LocalDate?) -> Unit, modifier: Modifier = Modifier) {
     PastDateField(
-        shown = date?.toString().orEmpty(),
+        shown = date?.let { EditGearTexts.date(it).string() }.orEmpty(),
         label = stringResource(Res.string.gear_acquired),
         chooseLabel = stringResource(Res.string.gear_acquired_choose),
         clearLabel = stringResource(Res.string.gear_acquired_clear),
@@ -418,7 +396,8 @@ private fun AcquiredField(date: LocalDate?, enabled: Boolean, onChange: (LocalDa
 
 /** The item's photo, with buttons to pick one (compressed here, which drops its metadata) or remove it. */
 @Composable
-private fun PhotoRow(photo: GearPhoto?, enabled: Boolean, send: (EditGearEvent) -> Unit) {
+private fun PhotoRow(state: EditGearState, enabled: Boolean, send: (EditGearEvent) -> Unit) {
+    val photo = state.photo
     val scope = rememberCoroutineScope()
     val pick =
         rememberFilePickerLauncher(type = FileKitType.Image) { file ->
@@ -441,9 +420,7 @@ private fun PhotoRow(photo: GearPhoto?, enabled: Boolean, send: (EditGearEvent) 
             }
         }
         Column {
-            AppTextButton(onClick = { pick.launch() }, enabled = enabled) {
-                Text(stringResource(if (photo == null) Res.string.gear_photo_add else Res.string.gear_photo_change))
-            }
+            AppTextButton(onClick = { pick.launch() }, enabled = enabled) { Text(state.photoAction.string()) }
             if (photo != null) {
                 AppTextButton(onClick = { send(EditGearEvent.RemovePhoto) }, enabled = enabled) {
                     Text(stringResource(Res.string.gear_photo_remove))
@@ -456,8 +433,4 @@ private fun PhotoRow(photo: GearPhoto?, enabled: Boolean, send: (EditGearEvent) 
 /** Keeps only digits as the athlete types. */
 private val DigitsOnly = InputTransformation { if (asCharSequence().any { !it.isDigit() }) revertAllChanges() }
 
-private const val MAX_WEIGHT_DIGITS = 7
-
-/** Room for a used bike's 100,000 km, or a helmet's thousands of hours, to a decimal. */
-private const val MAX_STARTING_CHARS = 9
 private val PHOTO_SIZE = 72.dp

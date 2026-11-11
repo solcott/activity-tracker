@@ -24,6 +24,13 @@
         static var gearCollectionVariants: [String: GearCollectionState] { GearPackage.GearCollectionSamples.shared.variants }
         static var ignoredSensors: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.all }
         static var ignoredSensorsVariants: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.variants }
+        /// The gear and collection forms in each state they show; states beyond content loading apart.
+        static var editGear: [String: EditGearState] { GearPackage.EditGearSamples.shared.all }
+        static var editGearVariants: [String: EditGearState] { GearPackage.EditGearSamples.shared.variants }
+        static var editGearCollection: [String: EditGearCollectionState] { GearPackage.EditGearCollectionSamples.shared.all }
+        static var editGearCollectionVariants: [String: EditGearCollectionState] {
+            GearPackage.EditGearCollectionSamples.shared.variants
+        }
         static var blockList: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.all }
         static var blockListVariants: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.variants }
 
@@ -32,6 +39,12 @@
         static var followListVariants: [String: FollowListState] { ProfilePackage.FollowListSamples.shared.variants }
         static var followRequests: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.all }
         static var followRequestsVariants: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.variants }
+
+        /// The invites list a profile opens and Add people an activity opens; states beyond content loading apart.
+        static var activityInvites: [String: ActivityInvitesState] { InvitesPackage.ActivityInvitesSamples.shared.all }
+        static var activityInvitesVariants: [String: ActivityInvitesState] { InvitesPackage.ActivityInvitesSamples.shared.variants }
+        static var addPeople: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.all }
+        static var addPeopleVariants: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.variants }
 
         /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
         static var privacyZones: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }

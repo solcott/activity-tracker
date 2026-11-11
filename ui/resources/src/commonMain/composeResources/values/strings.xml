@@ -60,6 +60,7 @@
     <string name="activity_invites_tab_pending">Invites</string>
     <string name="activity_invites_tab_declined">Declined</string>
     <string name="activity_invites_from">%1$s added you</string>
+    <string name="activity_invites_summary">%1$s · %2$s</string>
     <string name="activity_invites_none">No invites</string>
     <string name="activity_invites_none_declined">No declined invites</string>
     <string name="activity_invites_declined_help">Only you know you declined these. You can still accept them.</string>
@@ -2081,6 +2082,8 @@
     <string name="gear_total_none">No activities yet</string>
     <string name="gear_total_hours">%1$d h</string>
     <string name="gear_total_joined">%1$s · %2$s</string>
+    <!-- A list of names, each next one joined on: "Ride, Run". -->
+    <string name="text_list_pair">%1$s, %2$s</string>
     <plurals name="gear_total_days">
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>
