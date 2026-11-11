@@ -8,7 +8,15 @@ import KotlinRuntime
 ///
 /// It holds nothing, so it is safe to use from anywhere Kotlin calls it.
 nonisolated final class CatalogText: KotlinBase, TextSource, @unchecked Sendable {
-    static let shared = CatalogText()
+    static let shared = CatalogText(zone: .autoupdatingCurrent)
+
+    /// The time zone a time of day is formatted in: the device's for `shared`, or a clock's (`ShownClock`).
+    private let zone: TimeZone
+
+    init(zone: TimeZone) {
+        self.zone = zone
+        super.init()
+    }
 
     /// What a lookup returns for a name the catalog doesn't have: no real string is this.
     private static let missing = "\u{1}"
@@ -25,10 +33,10 @@ nonisolated final class CatalogText: KotlinBase, TextSource, @unchecked Sendable
         return String(format: format, locale: .current, arguments: [Int(quantity)] + args)
     }
 
-    /// A moment as a time of day in the device's time zone, on the clock its settings choose ("7:05 PM", "19:05"), as the shared UI's
-    /// `timeFormat` reads it.
+    /// A moment as a time of day in this source's time zone, on the clock the device's settings choose ("7:05 PM", "19:05"), as the
+    /// shared UI's `timeFormat` reads it.
     func time(epochSeconds: Int64) -> String {
-        Date(timeIntervalSince1970: TimeInterval(epochSeconds)).formatted(date: .omitted, time: .shortened)
+        Date(timeIntervalSince1970: TimeInterval(epochSeconds)).formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
     }
 
     private static func format(named name: String) -> String? {

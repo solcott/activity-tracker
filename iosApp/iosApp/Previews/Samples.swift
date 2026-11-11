@@ -40,6 +40,15 @@
         static var thresholdHistoryVariants: [String: ThresholdHistoryState] { SettingsPackage.ThresholdHistorySamples.shared.variants }
         static var sportZones: [String: SportZonesState] { SettingsPackage.SportZonesSamples.shared.all }
 
+        static var uploads: [String: UploadsState] { UploadsPackage.UploadsSamples.shared.all }
+
+        /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
+        static var clock: ShownClock {
+            ShownClock.fixed(
+                atEpochSeconds: ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.Fixed.shared.NOW.epochSeconds,
+                zone: TimeZone(identifier: "UTC")!)
+        }
+
         /// A paged list in each state of ui/content-loading, around items a test gives.
         static let pagedStates = ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.PagedStates.shared
 

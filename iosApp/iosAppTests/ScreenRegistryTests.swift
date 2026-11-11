@@ -43,6 +43,7 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "FollowRequestsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AccountScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LeaveScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "UploadsScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card, and a
         // profile, which opens the follow lists, for the feed's.
@@ -69,5 +70,6 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.FollowRequestsScreen.self) == "FollowRequestsScreen")
         #expect(String(describing: ActivityTracker.AccountScreen.self) == "AccountScreen")
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
+        #expect(String(describing: ActivityTracker.UploadsScreen.self) == "UploadsScreen")
     }
 }

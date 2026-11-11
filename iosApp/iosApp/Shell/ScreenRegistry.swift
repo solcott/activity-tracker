@@ -53,6 +53,8 @@ extension ScreenRegistry {
         registry.register(FollowRequestsScreen.self, FollowRequestsState.self) { state in FollowRequestsView(state: state) }
         registry.register(AccountScreen.self, AccountState.self) { state in AccountView(state: state) }
         registry.register(LeaveScreen.self, LeaveState.self) { state in LeaveView(state: state) }
+        // The upload queue (data/upload-queue), pushed over the feed.
+        registry.register(UploadsScreen.self, UploadsState.self) { state in UploadsView(state: state) }
         return registry
     }()
 }

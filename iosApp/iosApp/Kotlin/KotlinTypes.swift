@@ -7,8 +7,10 @@ import FeatureGearApi
 import FeatureLoginApi
 import FeatureProfileApi
 import FeatureSettingsApi
+import FeatureUploadsApi
 import IoGithubSolcottDataresult
 import IoGithubSolcottUistate
+import OrgJetbrainsKotlinxKotlinxDatetime
 import PresenterHost
 
 // Swift export gives a Kotlin module top-level names only when it is exported whole with a root package. The presenter host and Circuit
@@ -149,3 +151,22 @@ typealias KotlinContentState = ExportedKotlinPackages.io.github.solcott.uistate.
 typealias KotlinPagedState = ExportedKotlinPackages.io.github.solcott.uistate.PagedState
 typealias LoadStatus = ExportedKotlinPackages.io.github.solcott.uistate.LoadStatus
 typealias DataError = ExportedKotlinPackages.io.github.solcott.dataresult.DataError
+
+// The upload queue (data/upload-queue): its contract, the queue model from `:core-data` it shows, the shared length of time and day
+// words, and the Kotlin clock types a `ShownClock` gives them.
+typealias UploadsPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.uploads
+typealias UploadsScreen = UploadsPackage.UploadsScreen
+typealias UploadsState = UploadsPackage.UploadsState
+typealias UploadsEvent = UploadsPackage.UploadsEvent
+typealias UploadsTexts = UploadsPackage.UploadsTexts
+typealias UploadImportTexts = UploadsPackage.UploadImportTexts
+typealias UploadActivityPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.data.activity
+typealias UploadQueueView = UploadActivityPackage.UploadQueueView
+typealias UploadImport = UploadActivityPackage.UploadImport
+typealias UploadItem = UploadActivityPackage.UploadItem
+typealias RejectedChange = UploadActivityPackage.RejectedChange
+typealias ImportSaveStopped = UploadActivityPackage.ImportSaveStatus.Stopped
+typealias DurationText = TextPackage.DurationText
+typealias DayText = TextPackage.DayText
+typealias KotlinInstant = ExportedKotlinPackages.kotlin.time.Instant
+typealias KotlinTimeZone = ExportedKotlinPackages.kotlinx.datetime.TimeZone
