@@ -184,6 +184,16 @@ Each phase leaves a shippable app.
      gear page's linked devices ask too; `GearCollectionState.title`, `showsActions`, `actionsEnabled`). Left for later changes: the gear
      item page (`GearScreen`), with or right after the native activity card it lists its activities with, and its components, mount
      sheet and unmount date picker; and the gear editors (`EditGearScreen`, `EditGearCollectionScreen`).
+   - **The follow lists** (`ios-native-follow-lists`). Followers, Following and Follow requests are inset grouped lists
+     (`FollowListView`, `FollowRequestsView`), the first native pages pushed over a shared page that isn't Settings (the profile, still
+     the shared UI's) and the first with a subtitle under the title (`pageTitle(_:subtitle:)`: the system's navigation subtitle on iOS
+     26, a two-line principal title before it, a second line in `PageBar`), a segmented choice (SwiftUI's `Picker` over the contract
+     enum's `allCases`) and a row with two answers (`AppButton(small:)` beside `AppSecondaryButton(small:)`). What the pages say and
+     decide is Kotlin's (`FollowListTexts`, `FollowRequestsTexts`, `FollowListState.isRemoving`, `FollowRequestsState.accounts`,
+     `canAnswer`, `offersDecline`, the notes' `shows…`), and so is the notice over a list that its action failed or the session must
+     sign in again (`SignInAgainNotice` in `:app-common-api`, which the shared `signInAgainItem` asks for Follow requests, Activity
+     invites and Add people). Left for later changes: the profile itself, Search with the segment browse screen, and the invites pages,
+     which can build on `SignInAgainNotice`.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -603,6 +613,25 @@ on the iPhone 17 simulator (iOS 26.0), and by reading the generated Swift:
 - **`deviceName` is a static function on the package** once it moves to `:app-common-api` (`GearPackage.deviceName(manufacturer:model:)`).
 - **`contentSamples` has no `empty` kind.** Ignored devices' "nothing ignored" is a variant of its own.
 
+### Phase 4 probes (follow lists, `ios-native-follow-lists`, 2026-11-10)
+
+Followers, Following and Follow requests are opened from the profile, which is still the shared UI's. Asked with throwaway Swift tests
+over every `FollowListSamples` and `FollowRequestsSamples` state on the iPhone 17 simulator (iOS 26.0), and by reading the generated
+Swift, before the views were written:
+
+- **A paged list's meta reads through the state's typed getter.** `FollowListState.subject` (the `PagedState`'s `meta`, erased in the
+  state itself) is generated as `ProfileViewBasic?`: alice once a page has answered (empty, loaded, refreshing, refresh failed,
+  loading more, page failed, end), nil while loading and after a failed first page.
+- **A content holding lists is read through its typed getters.** `FollowRequestsState.requests` and `declined` read through
+  `elements(as: ProfileViewBasic.self)` on every sample, the loading and failed defaults included (empty), so the page never reads the
+  content's erased value; a getter for the tab's own list (`accounts`) is the same kind of getter.
+- **A contract enum is `CaseIterable` in Swift.** Swift export generates `FollowRequestsTab` (and `FollowListKind`) as a Swift enum
+  conforming to `CaseIterable`, `RawRepresentable` and `LosslessStringConvertible`: `allCases` is `[Requests, Declined]` in Kotlin's
+  order, so a segmented choice needs no order written in Swift. `FollowRequestsEvent.SelectTab(tab: .Declined)` builds and reads back.
+- **`.navigationSubtitle` sits under an inline title on iOS 26.0**, centred, and shrinks the title: about the subheadline's size, semibold,
+  over the subtitle at the caption's size in the secondary colour. It has no counterpart before iOS 26, so the earlier form and a column
+  header draw two lines in those sizes.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -796,6 +825,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   back returns to the list beside Gear. Still unseen: ignored devices with rows, the failure and deleting states on a device, and the
   pages on iOS 18 signed in.
 
+### Phase 4 findings (follow lists, `ios-native-follow-lists`)
+
+- **A native page pushed over a shared one needs nothing new.** Followers and Following push from the shared profile in the You
+  tab's stack (and from another athlete's profile pushed from them), take the system's bar and back button, and a profile opened from
+  them is the shared one again; the edge swipe and both back buttons go back through the mixed stack as it was left.
+- **The system's navigation subtitle shrinks the title.** On iOS 26 `.navigationSubtitle` draws the title a size smaller (about the
+  subheadline's, semibold) over the subtitle at the caption's size. `pageTitle(_:subtitle:)` uses it in the stack's bar, and draws the
+  same two lines itself before iOS 26 (a principal toolbar item, the navigation title kept for the back button) and in a column header.
+  A first recording in the header's usual 17-point headline read larger than the bar beside it; the gallery's `pageBarSubtitle` holds
+  both together. The pre-26 form was drawn once on an iOS 18.4 simulator (a throwaway image, since references are 26.0's): two
+  centred lines in the bar and in the header.
+- **A contract enum's cases are Swift's `allCases`.** Swift export makes a Kotlin enum `CaseIterable`, so the segmented choice of
+  Requests and Declined iterates it in Kotlin's order with no order written in Swift; the event takes the Swift case.
+- **A notice that two features share is a rule in `:app-common-api`.** Whether a list shows its failed action or that the session must
+  sign in again, and whether it offers Sign in again, was decided in `signInAgainItem`; `SignInAgainNotice` decides it for Follow
+  requests, Activity invites and Add people in both UIs, with no visible change.
+- **A list's explanation is its section's footer.** The Declined note sits above the rows in the shared page; natively it is the
+  section's footer, where iOS explains a list, and the truncated note too (each is one tab's, so they never meet).
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** Following,
+  another athlete's Followers and an empty Followers list, opened from profiles, upright and on its side. Still unseen: Follow
+  requests and Remove on a device (the test account doesn't approve followers, and the walk didn't turn that on), a second page, and
+  the pages on iOS 18 signed in.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -821,6 +873,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `ActivityCard`, so it goes native with or right after the native activity card, with its components, mount sheet and a SwiftUI
   unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors (`EditGearScreen`,
   `EditGearCollectionScreen`) are still the shared UI's too.
+- The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its header, tabs and activity cards are the
+  feed's work. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
+  followers. Activity invites and Add people can build on `SignInAgainNotice` when they go native.
 - `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
   and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
