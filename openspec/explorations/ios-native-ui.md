@@ -1365,6 +1365,13 @@ What building the host and the shell on Swift export showed, beyond the probes:
   buttons; natively they are a section of rows with chevrons, which is how iOS lists pages to open. Follow stays a button.
 - **The page's name can't be `ProfileView`**: that is the lexicon's alias, so the view is `ProfilePage`.
 - **`AppButton` takes Kotlin's text** now (`init(_: any AppText)`), as `AppSecondaryButton` already did.
+- **The first native tab root has no title on an iPad.** The profile is the You tab's root, the first native page to be one. With the
+  tabs at the top on an iPad (iOS 26.0) its inline title doesn't show, where the shared page drew the athlete's name as a large title;
+  pushed (bob's profile) the title shows. The shell has no notion of a native tab root yet (`LocalIsNavRoot` is Compose's).
+- **Walked signed in on an iPad Air 11-inch (iOS 26.0)**, since the signed-in iPhone was another session's: alice's own profile with its
+  entries and cards, Edit profile and Following pushed natively from it, bob's profile from Following, Mute and Unmute, Block after the
+  confirmation and Unblock, unfollow and follow, and a card opening the shared activity page; every write put back. Still unseen on a
+  device: Requested, the own requests and invites entries, labels, the Bluesky note, an iPhone, and iOS 18 signed in.
 
 ## Open items
 
@@ -1396,7 +1403,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`)~~: native (`ios-native-profile`), with the
   native activity card. Still left out of it natively: Report on someone else's profile (its sheet is the `ReportScreen` SubCircuit,
   which the presenter host can't run yet) and the Posts tab (posts need a native post card, with the quote sheet and Report). Until
-  then iOS offers neither on a profile; the Compose page keeps both. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
+  then iOS offers neither on a profile; the Compose page keeps both. A native tab root (the profile in the You tab) shows no title on an iPad with its
+  tabs at the top; the shell needs a tab-root rule (a large title, as the shared root had) for native roots. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
   (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
   and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
