@@ -29,7 +29,6 @@ import com.slack.circuit.subcircuit.SubCircuitInject
 import io.github.solcott.activitytracker.app.sport.SportTypeGroup
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
@@ -47,28 +46,20 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.pickedDate
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
 import io.github.solcott.activitytracker.app.ui.sportTypeList
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_all_types
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_any_time
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_apply
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_clear
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_custom
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_custom_range
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_last_days
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_this_year
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_types_more
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_types_title
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_no_matches
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_quick
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_search
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -87,7 +78,7 @@ fun FeedFilterUi(state: FeedFilterState, modifier: Modifier = Modifier) {
         AppFilterChip(
             selected = filter.types.isNotEmpty(),
             onClick = { state.eventSink(FeedFilterEvent.OpenTypes) },
-            label = { Text(typesLabel(filter.types)) },
+            label = { Text(typesLabel(filter)) },
             trailingIcon = { PlatformIcon(AppIcon.DropDown, null, size = AppFilterChipIconSize) },
         )
         DateChip(filter.range, state.eventSink)
@@ -99,38 +90,23 @@ fun FeedFilterUi(state: FeedFilterState, modifier: Modifier = Modifier) {
     state.customRange?.let { CustomRangeDialog(it, state.eventSink) }
 }
 
-@Composable
-private fun typesLabel(types: ImmutableSet<ActivityType>): String {
-    val sorted = types.sortedBy { it.sport + it.subSport.orEmpty() }
-    return when (sorted.size) {
-        0 -> stringResource(Res.string.feed_filter_all_types)
-        1 -> activityTypeLabel(sorted.single())
-        else ->
-            pluralStringResource(Res.plurals.feed_filter_types_more, sorted.size - 1, activityTypeLabel(sorted.first()), sorted.size - 1)
-    }
-}
+@Composable private fun typesLabel(filter: FeedFilter): String = FeedFilterTexts.types(filter).string()
 
-@Composable
-private fun rangeLabel(range: DateRange?): String =
-    when (range) {
-        null -> stringResource(Res.string.feed_filter_any_time)
-        is DateRange.LastDays -> pluralStringResource(Res.plurals.feed_filter_last_days, range.days, range.days)
-        DateRange.ThisYear -> stringResource(Res.string.feed_filter_this_year)
-        is DateRange.Custom -> stringResource(Res.string.feed_filter_custom_range, range.start.toString(), range.endInclusive.toString())
-    }
+@Composable private fun rangeLabel(range: DateRange?): String = FeedFilterTexts.range(range).string()
 
 @Composable
 private fun DateChip(range: DateRange?, eventSink: (FeedFilterEvent) -> Unit) {
     var menuOpen by rememberSaveable { mutableStateOf(false) }
-    val choices = listOf<DateRange?>(null) + DateRange.Presets
+    val choices = FeedFilterTexts.rangeChoices()
+    val chosen = FeedFilterTexts.chosenRange(range)
     val items =
-        choices.map { choice ->
-            AppMenuItem(rangeLabel(choice), checked = choice == range) {
+        choices.mapIndexed { index, choice ->
+            AppMenuItem(rangeLabel(choice.range), checked = index == chosen) {
                 menuOpen = false
-                eventSink(FeedFilterEvent.SetRange(choice))
+                eventSink(FeedFilterEvent.SetRange(choice.range))
             }
         } +
-            AppMenuItem(stringResource(Res.string.feed_filter_custom), checked = range is DateRange.Custom) {
+            AppMenuItem(stringResource(Res.string.feed_filter_custom), checked = chosen == choices.size) {
                 menuOpen = false
                 eventSink(FeedFilterEvent.OpenCustomRange)
             }
@@ -199,7 +175,7 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
                 Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
                 QuickTypeChips(
                     picker.quickTypes,
-                    isSelected = { picker.draft.covers(it) },
+                    isSelected = { picker.selectionOf(it) == Selection.All },
                     onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
                 )
             }
@@ -219,29 +195,20 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
                 onCategoryClick = if (searching) null else { category -> eventSink(FeedFilterEvent.ToggleCategory(category)) },
                 categoryTrailing = { category ->
                     if (!searching) {
-                        val state =
-                            when (picker.categories.first { it.category == category }.selection) {
-                                Selection.All -> ToggleableState.On
-                                Selection.Partial -> ToggleableState.Indeterminate
-                                Selection.None -> ToggleableState.Off
-                            }
-                        AppTriStateCheckbox(state, onClick = null)
+                        AppTriStateCheckbox(picker.categories.first { it.category == category }.selection.toggleable(), onClick = null)
                     }
                 },
             ) { type ->
                 // A sport with only some of its sub-sports selected shows the mixed mark, as a category does.
-                val state =
-                    when {
-                        picker.draft.covers(type) -> ToggleableState.On
-                        type.subSport == null && picker.draft.any { it.sport == type.sport } -> ToggleableState.Indeterminate
-                        else -> ToggleableState.Off
-                    }
-                AppTriStateCheckbox(state, onClick = null)
+                AppTriStateCheckbox(picker.selectionOf(type).toggleable(), onClick = null)
             }
         }
     }
 }
 
-/** Whether [type] is selected, directly or through its bare sport (as the presenter's selection rules count it). */
-private fun Set<ActivityType>.covers(type: ActivityType): Boolean =
-    type in this || (type.subSport != null && ActivityType(type.sport) in this)
+private fun Selection.toggleable(): ToggleableState =
+    when (this) {
+        Selection.All -> ToggleableState.On
+        Selection.Partial -> ToggleableState.Indeterminate
+        Selection.None -> ToggleableState.Off
+    }

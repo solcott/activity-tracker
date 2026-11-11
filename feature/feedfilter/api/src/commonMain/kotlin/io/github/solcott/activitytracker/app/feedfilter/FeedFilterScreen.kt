@@ -72,7 +72,18 @@ data class TypePickerState(
     /** The athlete's recent types, then the common ones. */
     val quickTypes: ImmutableList<ActivityType>,
     val categories: ImmutableList<CategorySelection>,
-)
+) {
+    /**
+     * How much of [type] the draft holds, which both UIs mark it with: all of it when it or its bare sport is picked, part when it is a
+     * bare sport some of whose sub-sports are, else none.
+     */
+    fun selectionOf(type: ActivityType): Selection =
+        when {
+            type in draft || (type.subSport != null && ActivityType(type.sport) in draft) -> Selection.All
+            type.subSport == null && draft.any { it.sport == type.sport } -> Selection.Partial
+            else -> Selection.None
+        }
+}
 
 /** One catalog category in the picker, with how much of it [TypePickerState.draft] covers. */
 @Immutable data class CategorySelection(val category: SportCategory, val types: ImmutableList<ActivityType>, val selection: Selection)
