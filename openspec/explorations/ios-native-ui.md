@@ -267,6 +267,18 @@ Each phase leaves a shippable app.
      (`ZoneTexts`' name, range, heading, model, basis and missing input, `TrainingZonesTexts` with its `ZoneThresholdLine`s,
      `SportZonesTexts`, `PrivacyZonesTexts`, `ZoneNameText` in `:app-common-api`, which the activity charts' time in zone asks too, and
      getters on the four states), which the Compose pages ask too. Left for later changes: threshold history, with the native charts.
+   - **The activity card** (`ios-native-activity-card`). A native card (`ActivityCardView`, a list row in a section of its own) draws
+     an activity as the shared `ActivityCard` does: the author line with a non-public tier's badge, the start on the activity's own
+     clock and whom it was done with, the labels' notices, the icon and title, a dive's site, two lines of description, the figures, the
+     owner's locks, the route and photos in one sideways row (`MediaStrip`: blurred under a label until revealed, placeholders when taken
+     down) and Like with the counts. Its route is a line on a `Canvas` (`RouteSketch`), placed by Kotlin (`RouteShape`: the served line
+     smoothed and fitted to the tile, with its breaks and markers), never a map. What the card says and decides is Kotlin's
+     (`ActivityCardContent`, over `StartText`, an `AppText.Time` that can carry a UTC offset, `CardStatsText`, `ModerationTexts`,
+     `VisibilityTexts.badge` and `lock`), which the Compose card asks too. The first page drawn with it is a batch import's
+     (`ImportBatchView`, over the shared feed), its months Kotlin's (`ImportBatchTexts`), laid out by `PagedList`'s new `sections:`. The
+     feed itself isn't native: its filter bar is a SubCircuit, whose presenter the presenter host can't run, and its posts, import cards,
+     upload rows, prompts and sheets aren't native either. Left for later changes: the feed (with SubCircuits in the host), and the
+     profile, the gear item page, a dive site's page and Moderation, which can list activities with this card now.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -849,6 +861,22 @@ fields. Asked with a throwaway Swift test on a simulator made for the change (iP
   the refusal's redraw (`"9"`, `"9a"`, then `"9a5"`) under digits only leaves `"9"` with two refusals: the second edit holds the refused
   letter too, so the 5 goes with it. This is the gear weight's open item; this change makes digits only keep an edit's digits.
 
+### Phase 4 probes (activity card, `ios-native-activity-card`, 2026-11-11)
+
+The card is the first native piece every page listing activities shares, and the batch import's page the first drawn with it. Asked with
+a throwaway Swift test over the shared samples on a simulator made for the change (iPhone 17, iOS 26.0), before the texts or views were
+written:
+
+- **`ActivityView` already has a Swift type**, because `ActivityListEvent`'s cases name it: `ImportBatchSamples`' erased page items (2 of
+  2) cast to it, and `likeCount` and `commentCount` read as `Int64`, `viewer?.like`, `author.avatar`, `labels` and `media` typed (nil on
+  these samples), `visibility` as `"public"` and `record.utcOffset` as `-360`. `FeedSamples.activities` read through
+  `elements(as: ActivityView.self)`, and the first one's `group` as one partner, Carol.
+- **The shared list events build from Swift**: `ImportBatchEvent.Activity(event: ActivityListEvent.ToggleLike(activity:))`, so a native
+  card sends what the shared one does, wrapped by its host.
+- **`Revealed` reads and reveals**: `contains(key:)` and `eventSink` are callable, so a page's revealed photos need nothing new.
+- **Not probed with throwaway code**: a route's nested lists and a time of day in an offset, both this change's own Kotlin, checked by its
+  tests instead.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1265,6 +1293,31 @@ What building the host and the shell on Swift export showed, beyond the probes:
   zones keeps offering visibility and history until they are removed there. A privacy zone was added at the simulator's location
   (set with `simctl location`, since a simulator has none by default), its radius changed and put back, and removed by its swipe.
 
+### Phase 4 findings (activity card, `ios-native-activity-card`)
+
+- **The feed can't be first.** Its filter bar is `SubCircuitContent(state.filterScreen)`, and a SubCircuit's presenter runs only inside
+  Compose's `SubCircuitContent`: the presenter host runs screens, not sub-screens. With posts, import cards, upload rows, two prompts and
+  the report and quote sheets also shared, the feed is its own change, which starts with SubCircuits in the host. A batch import's page
+  lists nothing but cards, so it is the card's first page, reached from the feed's import card.
+- **A start time needs the activity's clock in both UIs.** `AppText.Time` formatted only in the device's zone; the card's start is on
+  the activity's own offset. `Time` gained `utcOffsetMinutes` and `TextSource.time` takes it, so one `AppText` case still serves every
+  time of day, and `StartText` holds the rule `startTime` had (the detail page's start line resolves it too). This closes the open item
+  about the feed's start times.
+- **A rule that needs geometry moves as placed points.** The line preview's decoding, smoothing and fit stay Kotlin's: `RouteShape`
+  returns each piece's points on the tile, the ends and the breaks, and Swift only strokes them. Its fit repeats `canvasFit` (in
+  `:app-common-ui`, which Swift can't reach), since the Pair branch was reshaping that file; once both are merged, `canvasFit` can ask
+  `RouteShape`'s fit. `RouteShape`'s body names `RouteCurve.smooth`'s `Pair`s through `to`, which the source scan allows (it refuses
+  only a `Pair<` type), and changes in one line when that branch's `GeoPoint` signatures land.
+- **A contract's list fields are `ImmutableList`s, a function's results plain `List`s.** `RouteShape`'s and `ImportBatchMonth`'s list
+  fields first failed the strict stability check as `List`; as `ImmutableList`s Swift reads them with `elements(as:)`. Text functions
+  (`stats(units)`, `notices()`, `locks()`) return plain lists, which arrive as typed arrays.
+- **`description` again.** `ActivityCardContent.description()` and `LockLine.description` would have been dropped by Swift export like
+  `EditProfileState.description`; they are `descriptionText()` and `spoken`.
+- **A list row's buttons need styles.** A `.borderless` author button tinted the whole line in the accent colour; `.plain` keeps the
+  line's colours and still takes only its own tap, while the row's tap gesture opens the activity. A long notice in a `FlowRow` ran off
+  the card (the layout proposes no width to a chip), so the notices stack and wrap.
+- **No gear line.** The task named the card's gear line, but the shared card has none: gear shows on the activity page only.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1289,10 +1342,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Done (`ios-native-account`): its back button for a deeper native page, from
   `HostRecord.paneRoot`, first on Leave opened from Account.
 - The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`): it lists its activities as the feed's
-  `ActivityCard`, so it goes native with or right after the native activity card, with its components, mount sheet and a SwiftUI
+  `ActivityCard`, which has a native twin now (`ActivityCardView`, `ios-native-activity-card`), so it can go native next, with its components, mount sheet and a SwiftUI
   unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`).
-- The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its header, tabs and activity cards are the
-  feed's work. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
+- The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its activity cards can be the native card now
+  (`ios-native-activity-card`); its header and tabs are still to do. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
   (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
   and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
@@ -1333,8 +1386,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
   an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); a rough length of
   time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A calendar date written out is
-  `DateText`, and a segment's type `SegmentTexts` (`ios-native-segment-lists`). The feed's start times, which read on the activity's
-  own UTC offset (`startTime`), and the short date (`shortDate`) are still the shared UI's.
+  `DateText`, and a segment's type `SegmentTexts` (`ios-native-segment-lists`). ~~The feed's start times, which read on the activity's own UTC offset~~: done (`StartText`, `ios-native-activity-card`). The
+  short date (`shortDate`) is still the shared UI's.
 - Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
@@ -1342,4 +1395,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The segment page (`SegmentScreen`), its map, segment browse and the dive site page are still the shared UI's, waiting for native maps
   and charts; the lists they open are native (`ios-native-segment-lists`). Their Mayor and Regulars cards already ask
   `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
+- The feed (`FeedScreen`) is still the shared UI's (`ios-native-activity-card`): its filter bar is a SubCircuit the presenter host
+  can't run, and its posts, import cards, upload rows, prompts and sheets aren't native. Its change starts with SubCircuits in the host.
+- `RouteShape` (`:app-common-api`) repeats `canvasFit`'s fit for the native route tile; once the Pair branch and this change are
+  merged, `canvasFit` and `RoutePreview` can ask it, and `RouteShape`'s call to `RouteCurve.smooth` takes `GeoPoint`s.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.

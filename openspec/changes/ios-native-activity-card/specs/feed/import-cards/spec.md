@@ -7,7 +7,7 @@ On iOS the batch screen SHALL be drawn with the system's list and navigation bar
 
 #### Scenario: Two months
 - **WHEN** the viewer opens Bob's batch holding a ride from November 2025 and a run from October 2025
-- **THEN** the native page is titled "Imported by Bob" and lists "November 2025" over the ride's card and "October 2025" over the run's
+- **THEN** the native page is titled "Imported by Bob" and lists "Nov 2025" over the ride's card and "Oct 2025" over the run's
 
 #### Scenario: Opening an activity
 - **WHEN** the viewer taps a card on the native batch page

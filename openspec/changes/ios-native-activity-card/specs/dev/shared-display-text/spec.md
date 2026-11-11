@@ -33,4 +33,4 @@ The batch page's month headings SHALL be chosen by shared code, from each activi
 
 #### Scenario: A month heading
 - **WHEN** a batch's newest activity started on November 5, 2025 in the viewer's zone
-- **THEN** both UIs head it "November 2025"
+- **THEN** both UIs head it "Nov 2025"
