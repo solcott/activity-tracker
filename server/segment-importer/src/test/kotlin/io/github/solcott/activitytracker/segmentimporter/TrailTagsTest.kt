@@ -86,10 +86,10 @@ class TrailTagsTest {
 
     @Test
     fun onewayTagsLimitDirections() {
-        assertEquals(true to false, TrailTags.directions(mapOf("oneway" to "yes"), RIDE))
-        assertEquals(false to true, TrailTags.directions(mapOf("oneway" to "-1"), RUN))
-        assertEquals(true to true, TrailTags.directions(mapOf("oneway" to "yes", "oneway:bicycle" to "no"), RIDE))
-        assertEquals(true to false, TrailTags.directions(mapOf("oneway" to "yes", "oneway:bicycle" to "no"), HIKE))
-        assertEquals(true to true, TrailTags.directions(emptyMap(), HIKE))
+        assertEquals(Directions.FORWARD, TrailTags.directions(mapOf("oneway" to "yes"), RIDE))
+        assertEquals(Directions.BACKWARD, TrailTags.directions(mapOf("oneway" to "-1"), RUN))
+        assertEquals(Directions.BOTH, TrailTags.directions(mapOf("oneway" to "yes", "oneway:bicycle" to "no"), RIDE))
+        assertEquals(Directions.FORWARD, TrailTags.directions(mapOf("oneway" to "yes", "oneway:bicycle" to "no"), HIKE))
+        assertEquals(Directions.BOTH, TrailTags.directions(emptyMap(), HIKE))
     }
 }

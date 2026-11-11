@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.DateWindow
 import io.github.solcott.activitytracker.appview.api.mayorWindow
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
@@ -249,23 +250,23 @@ class SegmentMayorsTest : SegmentTestBase() {
         fun window(period: String, on: String) = mayorWindow(period, LocalDate.parse(on))
 
         // Thursday 22 October 2026.
-        assertEquals("2026-07-25" to null, window(MayorPeriod.LAST_90_DAYS, "2026-10-22"))
-        assertEquals(null to null, window(MayorPeriod.ALL_TIME, "2026-10-22"))
-        assertEquals("2026-01-01" to null, window(MayorPeriod.THIS_YEAR, "2026-10-22"))
-        assertEquals("2025-01-01" to "2026-01-01", window(MayorPeriod.LAST_YEAR, "2026-10-22"))
-        assertEquals("2026-10-01" to null, window(MayorPeriod.THIS_MONTH, "2026-10-22"))
-        assertEquals("2026-09-01" to "2026-10-01", window(MayorPeriod.LAST_MONTH, "2026-10-22"))
-        assertEquals("2026-10-19" to null, window(MayorPeriod.THIS_WEEK, "2026-10-22"))
-        assertEquals("2026-10-12" to "2026-10-19", window(MayorPeriod.LAST_WEEK, "2026-10-22"))
+        assertEquals(DateWindow("2026-07-25", null), window(MayorPeriod.LAST_90_DAYS, "2026-10-22"))
+        assertEquals(DateWindow(null, null), window(MayorPeriod.ALL_TIME, "2026-10-22"))
+        assertEquals(DateWindow("2026-01-01", null), window(MayorPeriod.THIS_YEAR, "2026-10-22"))
+        assertEquals(DateWindow("2025-01-01", "2026-01-01"), window(MayorPeriod.LAST_YEAR, "2026-10-22"))
+        assertEquals(DateWindow("2026-10-01", null), window(MayorPeriod.THIS_MONTH, "2026-10-22"))
+        assertEquals(DateWindow("2026-09-01", "2026-10-01"), window(MayorPeriod.LAST_MONTH, "2026-10-22"))
+        assertEquals(DateWindow("2026-10-19", null), window(MayorPeriod.THIS_WEEK, "2026-10-22"))
+        assertEquals(DateWindow("2026-10-12", "2026-10-19"), window(MayorPeriod.LAST_WEEK, "2026-10-22"))
         // A Monday starts its own week.
-        assertEquals("2026-10-19" to null, window(MayorPeriod.THIS_WEEK, "2026-10-19"))
-        assertEquals("2026-10-12" to "2026-10-19", window(MayorPeriod.LAST_WEEK, "2026-10-19"))
+        assertEquals(DateWindow("2026-10-19", null), window(MayorPeriod.THIS_WEEK, "2026-10-19"))
+        assertEquals(DateWindow("2026-10-12", "2026-10-19"), window(MayorPeriod.LAST_WEEK, "2026-10-19"))
         // 1 January: last month and last week reach into last year.
-        assertEquals("2025-12-01" to "2026-01-01", window(MayorPeriod.LAST_MONTH, "2026-01-01"))
-        assertEquals("2025-12-22" to "2025-12-29", window(MayorPeriod.LAST_WEEK, "2026-01-01"))
-        assertEquals("2026-01-01" to null, window(MayorPeriod.THIS_YEAR, "2026-01-01"))
+        assertEquals(DateWindow("2025-12-01", "2026-01-01"), window(MayorPeriod.LAST_MONTH, "2026-01-01"))
+        assertEquals(DateWindow("2025-12-22", "2025-12-29"), window(MayorPeriod.LAST_WEEK, "2026-01-01"))
+        assertEquals(DateWindow("2026-01-01", null), window(MayorPeriod.THIS_YEAR, "2026-01-01"))
         // A leap year: 1 March 2028 less 89 days is 3 December 2027.
-        assertEquals("2027-12-03" to null, window(MayorPeriod.LAST_90_DAYS, "2028-03-01"))
-        assertEquals("2028-02-01" to "2028-03-01", window(MayorPeriod.LAST_MONTH, "2028-03-01"))
+        assertEquals(DateWindow("2027-12-03", null), window(MayorPeriod.LAST_90_DAYS, "2028-03-01"))
+        assertEquals(DateWindow("2028-02-01", "2028-03-01"), window(MayorPeriod.LAST_MONTH, "2028-03-01"))
     }
 }

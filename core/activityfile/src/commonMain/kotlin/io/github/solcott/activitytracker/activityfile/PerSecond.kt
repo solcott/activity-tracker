@@ -3,6 +3,9 @@ package io.github.solcott.activitytracker.activityfile
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
+/** A sample of an integer stream: [value] at [seconds] on the recording's clock. A candidate for a value class once those are stable. */
+data class TimedValue(val seconds: Double, val value: Int)
+
 /** Resampling of irregular samples (smart recording, dropouts) to one value per second. */
 object PerSecond {
     /**
@@ -21,21 +24,21 @@ object PerSecond {
     private const val MIN_GAPS_FOR_INTERVAL = 3
 
     /**
-     * One value for each second the athlete was recording, from (seconds, value) pairs in time order: each holds until the next, but a gap
-     * longer than [MAX_HOLD_SECONDS] or [HOLD_INTERVALS] median gaps, whichever is longer, counts once. One-second and smart recording
-     * (median 1–2 s) keep the 5 s limit; a file logged every 30 s holds across 60 s.
+     * One value for each second the athlete was recording, from samples in time order: each holds until the next, but a gap longer than
+     * [MAX_HOLD_SECONDS] or [HOLD_INTERVALS] median gaps, whichever is longer, counts once. One-second and smart recording (median 1–2 s)
+     * keep the 5 s limit; a file logged every 30 s holds across 60 s.
      */
-    fun hold(samples: List<Pair<Double, Int>>): List<Int> = resample(samples, pauseValue = null)
+    fun hold(samples: List<TimedValue>): List<Int> = resample(samples, pauseValue = null)
 
     /**
      * One value for each second of clock time from the first sample to the last, as [hold] but with a pause counting its real length at 0:
      * what a power curve reads, so no window joins efforts from either side of a stop.
      */
-    fun clock(samples: List<Pair<Double, Int>>): List<Int> = resample(samples, pauseValue = 0)
+    fun clock(samples: List<TimedValue>): List<Int> = resample(samples, pauseValue = 0)
 
     /** [hold] when [pauseValue] is null; otherwise a pause's seconds after its first take [pauseValue]. */
-    private fun resample(samples: List<Pair<Double, Int>>, pauseValue: Int?): List<Int> {
-        val gaps = samples.zipWithNext { (at), (nextAt) -> (nextAt - at).roundToInt() }
+    private fun resample(samples: List<TimedValue>, pauseValue: Int?): List<Int> {
+        val gaps = samples.zipWithNext { a, b -> (b.seconds - a.seconds).roundToInt() }
         val positive = gaps.filter { it > 0 }
         val interval = if (positive.size >= MIN_GAPS_FOR_INTERVAL) median(positive) else 0
         val limit = maxOf(MAX_HOLD_SECONDS, HOLD_INTERVALS * interval)
@@ -44,7 +47,7 @@ object PerSecond {
         fun add(count: Int, value: Int) = repeat(minOf(count, MAX_SECONDS - seconds.size)) { seconds += value }
         for ((i, sample) in samples.withIndex()) {
             if (seconds.size >= MAX_SECONDS) break
-            val value = sample.second
+            val value = sample.value
             val gap = gaps.getOrNull(i) ?: 1
             when {
                 gap in 1..limit -> add(gap, value)

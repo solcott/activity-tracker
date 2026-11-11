@@ -416,7 +416,7 @@ internal fun applyNameChanges(
     canPropose: Boolean?,
     changes: SegmentNameChanges,
     self: String,
-): Pair<List<SegmentNameProposalView>, Boolean?> {
+): ShownNameProposals {
     val shown = listed.mapNotNull { proposal ->
         val change = changes.proposals[proposal.uri.value] ?: return@mapNotNull proposal
         if (change.deleted) return@mapNotNull null
@@ -437,7 +437,7 @@ internal fun applyNameChanges(
             else -> it
         }
     }
-    return (shown + listOfNotNull(sent)) to flag
+    return ShownNameProposals(shown + listOfNotNull(sent), flag)
 }
 
 private fun SegmentNameProposalView.withVote(change: VoteChange): SegmentNameProposalView {
@@ -451,3 +451,6 @@ private fun SegmentNameProposalView.withVote(change: VoteChange): SegmentNamePro
         viewerVote = after?.let { SegmentNameViewerVote(change.uri, it) },
     )
 }
+
+/** A named place's [proposals] with the athlete's changes laid over them, and its [canPropose] flag (null without viewer state). */
+internal data class ShownNameProposals(val proposals: List<SegmentNameProposalView>, val canPropose: Boolean?)

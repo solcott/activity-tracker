@@ -44,6 +44,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TierChannels
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.location.GainLoss
@@ -792,7 +793,10 @@ internal fun JdbcTransaction.narrowestOf(activity: ResultRow, vararg categories:
         ActivityStreams.select(ActivityStreams.visibility, ActivityStreams.channels)
             .where { ActivityStreams.activityUri eq uri }
             .map {
-                it[ActivityStreams.visibility] to AtJson.decodeFromString(ListSerializer(String.serializer()), it[ActivityStreams.channels])
+                TierChannels(
+                    it[ActivityStreams.visibility],
+                    AtJson.decodeFromString(ListSerializer(String.serializer()), it[ActivityStreams.channels]),
+                )
             }
     val tiers = DetailCategory.currentTiersOfChannels(tier, record, details, parts)
     return categories.map { tiers[it] ?: tier }.fold(tier, Visibility::narrower)

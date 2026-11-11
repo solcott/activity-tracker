@@ -276,7 +276,8 @@ class CandidateCutterTest {
                 """"HIKER_PEDESTRIAN_MANAGED":"01/01-12/31"},"geometry":{"type":"LineString","coordinates":[$coordinates]}}""" +
                 "\n",
         )
-        val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
+        val data =
+            OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyDataset(AgencyRules.USFS, file)))
         return candidates(data, HIKE)
     }
 

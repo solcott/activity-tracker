@@ -762,7 +762,7 @@ class SegmentViews(
  * `YYYY-MM-DD`, each null when unbounded. "This" windows have no end, so an effort dated ahead of the UTC date still counts, and weeks
  * start on Monday.
  */
-internal fun mayorWindow(period: String, today: LocalDate): Pair<String?, String?> {
+internal fun mayorWindow(period: String, today: LocalDate): DateWindow {
     val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val window: Pair<LocalDate?, LocalDate?> =
         when (period) {
@@ -775,8 +775,11 @@ internal fun mayorWindow(period: String, today: LocalDate): Pair<String?, String
             MayorPeriod.LAST_WEEK -> monday.minusWeeks(1) to monday
             else -> today.minusDays(LAST_DAYS - 1) to null
         }
-    return window.first?.toString() to window.second?.toString()
+    return DateWindow(window.first?.toString(), window.second?.toString())
 }
+
+/** A board's window: its first local date [since] and the first one after it, [until], as `YYYY-MM-DD`, each null when unbounded. */
+internal data class DateWindow(val since: String?, val until: String?)
 
 /** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
 private const val LAST_DAYS = 90L

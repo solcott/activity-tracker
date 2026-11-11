@@ -73,7 +73,7 @@ internal fun JdbcTransaction.upsertDiveSite(
     val moved = old == null || old[DiveSites.latE7] != record.lat || old[DiveSites.lngE7] != record.lng
     val resized = moved || old[DiveSites.radiusM] != record.radius
     val firstIndexed = old?.get(DiveSites.firstIndexedAt) ?: now
-    val original = if (moved) diveSiteDuplicatesOf(centre, before = firstIndexed to uri.value).firstOrNull() else null
+    val original = if (moved) diveSiteDuplicatesOf(centre, before = IndexOrder(firstIndexed, uri.value)).firstOrNull() else null
     val (status, duplicate) = siteStatusAfter(old, moved, original, republished = isHandoffRecord(uri, author, importer))
     DiveSites.upsert {
         it[DiveSites.uri] = uri.value
@@ -147,7 +147,7 @@ internal fun JdbcTransaction.diveSitesCreatedSince(author: Did, now: Long): Long
  * first. With [before], a site's own first-indexed time and URI, only those that came before it, so a site never duplicates itself or a
  * later one.
  */
-internal fun JdbcTransaction.diveSiteDuplicatesOf(centre: GeoPoint, before: Pair<Long, String>? = null): List<String> {
+internal fun JdbcTransaction.diveSiteDuplicatesOf(centre: GeoPoint, before: IndexOrder? = null): List<String> {
     val near = SegmentCells.cellsOf(centre, CheckDiveSite.DUPLICATE_METERS.toDouble())
     val inCells =
         DiveSiteCells.select(DiveSiteCells.siteUri).where { DiveSiteCells.cell inList near }.map { it[DiveSiteCells.siteUri] }.toSet()
@@ -155,7 +155,7 @@ internal fun JdbcTransaction.diveSiteDuplicatesOf(centre: GeoPoint, before: Pair
     return DiveSites.selectAll()
         .where { (DiveSites.uri inList inCells) and (DiveSites.status inList LIVE_STATUSES) }
         .orderBy(DiveSites.firstIndexedAt to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
-        .filter { row -> before == null || earlier(row[DiveSites.firstIndexedAt] to row[DiveSites.uri], before) }
+        .filter { row -> before == null || earlier(IndexOrder(row[DiveSites.firstIndexedAt], row[DiveSites.uri]), before) }
         .filter { SegmentGeometry.distanceMeters(it.siteCentre(), centre) <= CheckDiveSite.DUPLICATE_METERS }
         .map { it[DiveSites.uri] }
 }
@@ -175,7 +175,7 @@ internal fun JdbcTransaction.recheckDiveSiteDuplicatesOf(originals: List<String>
             .toList()
     for (row in duplicates) {
         val uri = row[DiveSites.uri]
-        val original = diveSiteDuplicatesOf(row.siteCentre(), before = row[DiveSites.firstIndexedAt] to uri).firstOrNull()
+        val original = diveSiteDuplicatesOf(row.siteCentre(), before = IndexOrder(row[DiveSites.firstIndexedAt], uri)).firstOrNull()
         DiveSites.update({ DiveSites.uri eq uri }) {
             it[status] = if (original != null) SegmentStatus.DUPLICATE else SegmentStatus.PROPOSED
             it[duplicateOf] = original

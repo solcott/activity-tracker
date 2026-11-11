@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.sport.SportTypeGroup
 import io.github.solcott.activitytracker.app.sport.nestsIn
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
@@ -56,7 +57,7 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Suppress("LongParameterList") // Slots, as a composable takes them; detekt only exempts @Composable functions.
 fun LazyListScope.sportTypeList(
-    groups: ImmutableList<Pair<SportCategory, ImmutableList<ActivityType>>>,
+    groups: ImmutableList<SportTypeGroup>,
     expanded: Set<String>,
     onToggleExpanded: (sport: String) -> Unit,
     onClick: (ActivityType) -> Unit,

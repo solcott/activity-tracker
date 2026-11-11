@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.streams
 
 import io.github.solcott.activitytracker.activityfile.PerSecond
+import io.github.solcott.activitytracker.activityfile.TimedValue
 import io.github.solcott.activitytracker.data.activity.CombinedRoute
 import kotlin.math.roundToInt
 
@@ -16,7 +17,7 @@ object StreamAnalytics {
     fun clockSeconds(time: List<Int>, values: List<Int?>): List<Int> = PerSecond.clock(samples(time, values))
 
     private fun samples(time: List<Int>, values: List<Int?>) =
-        time.indices.mapNotNull { i -> values.getOrNull(i)?.let { time[i].toDouble() to it } }
+        time.indices.mapNotNull { i -> values.getOrNull(i)?.let { TimedValue(time[i].toDouble(), it) } }
 
     /**
      * Seconds spent in each zone, lowest first, for zones starting at [lows] (ascending; each ends where the next begins). A value below
@@ -30,10 +31,10 @@ object StreamAnalytics {
     }
 
     /**
-     * The best average of [perSecond] over each of [durations] it's long enough for, as (seconds, average). A power curve passes
-     * [clockSeconds], so no window joins efforts from either side of a pause.
+     * The best average of [perSecond] over each of [durations] it's long enough for. A power curve passes [clockSeconds], so no window
+     * joins efforts from either side of a pause.
      */
-    fun meanMax(perSecond: List<Int>, durations: List<Int> = CURVE_SECONDS): List<Pair<Int, Int>> =
+    fun meanMax(perSecond: List<Int>, durations: List<Int> = CURVE_SECONDS): List<BestAverage> =
         durations
             .filter { it in 1..perSecond.size }
             .map { d ->
@@ -44,7 +45,7 @@ object StreamAnalytics {
                     window += perSecond[i] - perSecond[i - d]
                     if (window > best) best = window
                 }
-                d to (best / d).toInt()
+                BestAverage(d, (best / d).toInt())
             }
 
     /**
@@ -140,3 +141,6 @@ object StreamAnalytics {
 
 /** A point of a line chart: the mean [value] of a run of samples at the mean of their [seconds]; [gapBefore] when a gap precedes it. */
 data class ChartPoint(val seconds: Int, val value: Double, val gapBefore: Boolean = false)
+
+/** A point of a mean-max curve: the best [average] over any window of [seconds]. */
+data class BestAverage(val seconds: Int, val average: Int)

@@ -65,7 +65,15 @@ class SpaceSerializationTest {
     @Test
     fun spaceUriIsAPlainStringParam() {
         val params = XrpcParams.encode(Space.GetRecord.Params.serializer(), Space.GetRecord.Params(space, alice, "c", "self"))
-        assertEquals(listOf("space" to space.value, "repo" to "did:plc:alice", "collection" to "c", "rkey" to "self"), params)
+        assertEquals(
+            listOf(
+                QueryParam("space", space.value),
+                QueryParam("repo", "did:plc:alice"),
+                QueryParam("collection", "c"),
+                QueryParam("rkey", "self"),
+            ),
+            params,
+        )
     }
 
     @Test

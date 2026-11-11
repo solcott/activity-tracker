@@ -122,7 +122,7 @@ class ModeratorSubjectsTest : ModerationTestBase() {
 
     /** The path of a photo URL signed for [viewer] to bob's [cid], as views build it. */
     private fun signedPath(cid: String, viewer: String) =
-        "${MediaUrls.PATH}/$bob/$cid?" + mediaTokens.params(bob, cid, Did(viewer)).formUrlEncode()
+        "${MediaUrls.PATH}/$bob/$cid?" + mediaTokens.params(bob, cid, Did(viewer)).map { it.name to it.value }.formUrlEncode()
 
     private fun io.ktor.server.testing.ApplicationTestBuilder.startModerated() =
         start(ozone = ozone, spaceBlobs = spaceBlobs, mediaTokens = mediaTokens)

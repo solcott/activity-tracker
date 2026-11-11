@@ -24,12 +24,12 @@ class TrackMathTest {
         val points = listOf(sample(38.5, -120.2), sample(40.7, -120.95), sample(43.252, -126.453))
         val encoded = TrackMath.encodePolyline(points)
         assertEquals("_p~iF~ps|U_ulLnnqC_mqNvxq`@", encoded)
-        assertEquals(38.5 to -120.2, TrackMath.decodePolyline(encoded).first())
+        assertEquals(GeoPoint(38.5, -120.2), TrackMath.decodePolyline(encoded).first())
     }
 
     @Test
     fun aMalformedPolylineDecodesToNull() {
-        assertEquals(38.5 to -120.2, TrackMath.decodePolylineOrNull("_p~iF~ps|U_ulLnnqC_mqNvxq`@")?.first())
+        assertEquals(GeoPoint(38.5, -120.2), TrackMath.decodePolylineOrNull("_p~iF~ps|U_ulLnnqC_mqNvxq`@")?.first())
         assertNull(TrackMath.decodePolylineOrNull("_p~iF~ps|U_"), "cut off mid-value")
         assertNull(TrackMath.decodePolylineOrNull("_p~iF~ps|U _"), "a character outside the format")
         assertFailsWith<IllegalStateException> { TrackMath.decodePolyline("_p~iF~ps|U_") }

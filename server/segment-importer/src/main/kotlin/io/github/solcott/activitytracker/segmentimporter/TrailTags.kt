@@ -110,15 +110,15 @@ internal object TrailTags : TrailRules {
      * only, `-1` backward only; for rides `oneway:bicycle` overrides `oneway`. An alpine trail goes only the way its ways are drawn, top to
      * bottom by OSM's convention, whatever its tags.
      */
-    override fun directions(tags: Map<String, String>, group: String): Pair<Boolean, Boolean> {
-        if (group == SegmentSportGroup.ALPINE) return true to false
+    override fun directions(tags: Map<String, String>, group: String): Directions {
+        if (group == SegmentSportGroup.ALPINE) return Directions.FORWARD
         val oneway = (if (group == SegmentSportGroup.RIDE) tags["oneway:bicycle"] else null) ?: tags["oneway"]
         return when (oneway) {
             "yes",
             "true",
-            "1" -> true to false
-            "-1" -> false to true
-            else -> true to true
+            "1" -> Directions.FORWARD
+            "-1" -> Directions.BACKWARD
+            else -> Directions.BOTH
         }
     }
 }

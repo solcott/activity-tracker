@@ -9,6 +9,9 @@ import androidx.compose.ui.graphics.luminance
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
+/** Where a grade band starts along a chart: [at], from 0 (its left edge) to 1 (its right), and the [band] from there. */
+data class BandStop(val at: Float, val band: Int)
+
 /**
  * The colours an elevation profile is tinted by, one per grade band from flattest to steepest (green, yellow-green, yellow, orange, red),
  * and the hard-stop brushes that draw them along a chart. Darker shades on a light surface and lighter ones on a dark surface, so each band
@@ -26,7 +29,7 @@ object GradeBands {
      * band. A run of fewer than [minPoints] points in one band joins the run before it, so terrain hovering at a band's edge doesn't
      * flicker between two colours. Empty when there are no points.
      */
-    fun stops(xFractions: List<Float>, bands: List<Int>, minPoints: Int = MIN_RUN_POINTS): List<Pair<Float, Int>> {
+    fun stops(xFractions: List<Float>, bands: List<Int>, minPoints: Int = MIN_RUN_POINTS): List<BandStop> {
         require(xFractions.size == bands.size) { "one band per point" }
         if (bands.isEmpty()) return emptyList()
         // Runs of one band as (first point, band), short ones folded into the run before.
@@ -37,23 +40,23 @@ object GradeBands {
             val length = (runs.getOrNull(r + 1)?.first ?: bands.size) - runs[r].first
             if (length >= minPoints && runs[r].second != kept.last().second) kept += runs[r]
         }
-        return kept.mapIndexed { r, (first, band) -> (if (r == 0) 0f else (xFractions[first - 1] + xFractions[first]) / 2) to band }
+        return kept.mapIndexed { r, (first, band) -> BandStop(if (r == 0) 0f else (xFractions[first - 1] + xFractions[first]) / 2, band) }
     }
 
     /**
      * A horizontal brush across the chart in [colors] by [stops], each band's colour held to the next stop and switching sharply there, at
      * [alpha]. A chart with no stops gets the first colour.
      */
-    fun brush(stops: List<Pair<Float, Int>>, colors: List<Color>, alpha: Float = 1f): Brush {
+    fun brush(stops: List<BandStop>, colors: List<Color>, alpha: Float = 1f): Brush {
         fun color(band: Int) = colors[band.coerceIn(0, colors.lastIndex)].copy(alpha = alpha)
         if (stops.isEmpty()) return Brush.horizontalGradient(listOf(color(0), color(0)))
         // Each change repeats its position, ending one colour and starting the next exactly there.
         val colorStops = buildList {
             stops.forEachIndexed { i, (at, band) ->
-                if (i > 0) add(at to color(stops[i - 1].second))
+                if (i > 0) add(at to color(stops[i - 1].band))
                 add(at to color(band))
             }
-            add(1f to color(stops.last().second))
+            add(1f to color(stops.last().band))
         }
         @Suppress("SpreadOperator") // Compose takes stops only as varargs; one small array per chart.
         return Brush.horizontalGradient(*colorStops.toTypedArray())

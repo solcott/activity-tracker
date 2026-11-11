@@ -111,17 +111,19 @@ class ImportSaveStore(
     suspend fun settledIndices(batchId: String): Set<Int> = db.importSaves().settledIndices(batchId).toSet()
 
     /** What import [batchId] saved and skipped, as its upload queue entry counts them. */
-    suspend fun importCounts(batchId: String): Pair<Int, Int>? = db.uploads().batch(batchId)?.let { it.saved to it.skipped }
+    suspend fun importCounts(batchId: String): ImportCounts? = db.uploads().batch(batchId)?.let { ImportCounts(it.saved, it.skipped) }
 
     /** The activities import [batchId] saved. */
     suspend fun savedUris(batchId: String): List<AtUri> =
         db.uploads().rkeysOfBatch(did, batchId).map { AtUri.of(clients.did, Nsid.FEED_ACTIVITY, it) }
 
     /** The activities import [batchId] saved, with their records as queued, in the order saved. */
-    suspend fun savedRecords(batchId: String): List<Pair<AtUri, ActivityRecord>> =
+    suspend fun savedRecords(batchId: String): List<SavedActivity> =
         db.uploads().recordsOfBatch(did, batchId).map { logged ->
-            AtUri.of(clients.did, Nsid.FEED_ACTIVITY, logged.rkey) to
-                AtJson.decodeFromString(ActivityRecord.serializer(), logged.recordJson)
+            SavedActivity(
+                AtUri.of(clients.did, Nsid.FEED_ACTIVITY, logged.rkey),
+                AtJson.decodeFromString(ActivityRecord.serializer(), logged.recordJson),
+            )
         }
 
     /** The athlete's saves still to run, oldest first. */
@@ -212,3 +214,9 @@ class ImportSaveStore(
 
     private suspend fun release(batchId: String) = saves.release(batchId)
 }
+
+/** How many of an import's activities were [saved] and how many [skipped]. */
+data class ImportCounts(val saved: Int, val skipped: Int)
+
+/** An activity an import saved: its [uri] and its [record] as queued. */
+data class SavedActivity(val uri: AtUri, val record: ActivityRecord)

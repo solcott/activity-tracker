@@ -373,10 +373,10 @@ private fun DefaultForField(state: EditGearState, enabled: Boolean, onToggle: (A
 }
 
 /** The groups the default-for sheet lists, chosen for both UIs (`SportTypeGroups.allTypes`). */
-private val TYPE_GROUPS = SportTypeGroups.allTypes.map { it.category to it.types }.toImmutableList()
+private val TYPE_GROUPS = SportTypeGroups.allTypes
 
 /** The groups the sports sheet lists (`SportTypeGroups.gearSports`). */
-private val SPORT_GROUPS = SportTypeGroups.gearSports.map { it.category to it.types }.toImmutableList()
+private val SPORT_GROUPS = SportTypeGroups.gearSports
 
 /** The date the athlete got the item, picked from a calendar, with a button to clear it. */
 @Composable

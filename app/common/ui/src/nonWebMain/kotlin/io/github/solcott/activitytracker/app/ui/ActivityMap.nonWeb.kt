@@ -73,10 +73,10 @@ actual fun ActivityMap(
     val bounds =
         remember(points) {
             BoundingBox(
-                west = points.minOf { it.second },
-                south = points.minOf { it.first },
-                east = points.maxOf { it.second },
-                north = points.maxOf { it.first },
+                west = points.minOf { it.lng },
+                south = points.minOf { it.lat },
+                east = points.maxOf { it.lng },
+                north = points.maxOf { it.lat },
             )
         }
     val color = MaterialTheme.colorScheme.primary

@@ -22,7 +22,7 @@ class PrivateMediaTokensTest {
     private val did = "did:plc:alice"
     private val cid = "bafkphoto"
 
-    private fun params() = tokens.params(did, cid, viewer).toMap()
+    private fun params() = tokens.params(did, cid, viewer).associate { it.name to it.value }
 
     private fun validFor(): Duration = (params().getValue(PrivateMediaTokens.EXPIRES).toLong() - clock.now.epochSeconds).seconds
 

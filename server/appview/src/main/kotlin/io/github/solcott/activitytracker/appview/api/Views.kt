@@ -133,7 +133,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .toList()
         val postRows = postPage(posts.rows and notRepostedLater(viewer, posts.followed), pageSize, cursor)
         val repostRows = timelineRepostPage(viewer, posts.followed, posts.authors, pageSize, cursor)
-        val cards = batches.filter { after == null || it.postedAt < after.first || (it.postedAt == after.first && it.key < after.second) }
+        val cards = batches.filter { after == null || it.postedAt < after.sort || (it.postedAt == after.sort && it.key < after.key) }
         val entries =
             (activityRows.map { Triple(it[Activities.sortAt], it[Activities.uri], it) } +
                     postRows.map { Triple(it[Posts.sortAt], it[Posts.uri], PostRow(it)) } +

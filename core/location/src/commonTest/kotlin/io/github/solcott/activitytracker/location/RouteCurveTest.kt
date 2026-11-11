@@ -11,10 +11,8 @@ import kotlin.test.assertTrue
 class RouteCurveTest {
     private val metersPerLng = 111_195.0 * cos(LAT * PI / 180)
 
-    /** [x] meters east and [y] north of a point on the trail, as a (lat, lng) pair. */
-    private fun at(x: Double, y: Double) = (LAT + y / 111_195.0) to (LNG + x / metersPerLng)
-
-    private fun geo(p: Pair<Double, Double>) = GeoPoint(p.first, p.second)
+    /** [x] meters east and [y] north of a point on the trail. */
+    private fun at(x: Double, y: Double) = GeoPoint(LAT + y / 111_195.0, LNG + x / metersPerLng)
 
     /** A switchback as a 1 m simplification keeps it: 40 m up, a hairpin 10 m across in a handful of points, 40 m back down. */
     private val hairpin =
@@ -22,23 +20,22 @@ class RouteCurveTest {
             (1..4).map { k -> at(5 - 5 * cos(PI * k / 5), 40 + 5 * sin(PI * k / 5)) } +
             listOf(at(10.0, 40.0), at(10.0, 0.0))
 
-    private val tomSawyer = TrackMath.simplify(TomSawyer.samples, 1.0).map { it.latitude to it.longitude }
+    private val tomSawyer = TrackMath.simplify(TomSawyer.samples, 1.0).map { GeoPoint(it.latitude, it.longitude) }
 
     /** Whether [points] appear in [curve] in order. */
-    private fun keepsInOrder(points: List<Pair<Double, Double>>, curve: List<Pair<Double, Double>>): Boolean {
+    private fun keepsInOrder(points: List<GeoPoint>, curve: List<GeoPoint>): Boolean {
         var next = 0
         for (p in curve) if (next < points.size && p == points[next]) next++
         return next == points.size
     }
 
     /** Each drawn point's distance from the straight stretch between the stored points either side of it. */
-    private fun bulges(points: List<Pair<Double, Double>>, curve: List<Pair<Double, Double>>): List<Double> {
+    private fun bulges(points: List<GeoPoint>, curve: List<GeoPoint>): List<Double> {
         val result = mutableListOf<Double>()
         var stretch = 0
         for (p in curve) {
             if (stretch < points.lastIndex && p == points[stretch + 1]) stretch++
-            else if (p != points[stretch])
-                result += SegmentGeometry.distanceToLineMeters(geo(p), listOf(geo(points[stretch]), geo(points[stretch + 1])))
+            else if (p != points[stretch]) result += SegmentGeometry.distanceToLineMeters(p, listOf(points[stretch], points[stretch + 1]))
         }
         return result
     }
@@ -82,9 +79,9 @@ class RouteCurveTest {
         var stretch = 0
         var drawn = 0.0
         for ((a, b) in curve.zipWithNext()) {
-            drawn += SegmentGeometry.distanceMeters(geo(a), geo(b))
+            drawn += SegmentGeometry.distanceMeters(a, b)
             if (b == tomSawyer[stretch + 1]) {
-                val chord = SegmentGeometry.distanceMeters(geo(tomSawyer[stretch]), geo(b))
+                val chord = SegmentGeometry.distanceMeters(tomSawyer[stretch], b)
                 assertTrue(drawn <= chord + 2 * RouteCurve.MAX_BULGE_M, "stretch $stretch: $drawn m for a $chord m chord")
                 stretch++
                 drawn = 0.0

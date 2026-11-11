@@ -201,8 +201,8 @@ class BatchSaveRunner(
      */
     private suspend fun saveGroup(batchId: String, drafting: PlanDrafting, group: List<ImportSaveItemEntity>) {
         val read = drafting.draftsOf(group)
-        val drafts = read.mapNotNull { it.second }
-        skip(batchId, read.filter { it.second == null }.map { it.first })
+        val drafts = read.mapNotNull { it.draft }
+        skip(batchId, read.filter { it.draft == null }.map { it.item })
         val plan = PlannedActivity.decode(group.first().planJson)
         val into = plan.into?.own()
         if (into != null) {
@@ -215,7 +215,7 @@ class BatchSaveRunner(
         } else if (drafts.size == 1) {
             activities.publishAll(drafts)
         }
-        store.markDone(batchId, read.filter { it.second != null }.map { it.first.position })
+        store.markDone(batchId, read.filter { it.draft != null }.map { it.item.position })
         store.counted(batchId)
     }
 
@@ -276,10 +276,10 @@ internal class PlanDrafting(
         get() = EntryRef(sourceIdx, decodePath(pathJson))
 
     /** [items]' drafts, in order; null for one whose file can't be read again. */
-    suspend fun draftsOf(items: List<ImportSaveItemEntity>): List<Pair<ImportSaveItemEntity, ActivityDraft?>> {
+    suspend fun draftsOf(items: List<ImportSaveItemEntity>): List<ItemDraft> {
         val drafts = mutableMapOf<Int, ActivityDraft?>()
         each(items) { item, draft -> drafts[item.position] = draft }
-        return items.map { it to drafts[it.position] }
+        return items.map { ItemDraft(it, drafts[it.position]) }
     }
 
     /**
@@ -351,3 +351,6 @@ private inline fun <T> runCatchingRead(block: () -> T): T? =
     } catch (_: Exception) {
         null
     }
+
+/** A saved batch's [item], and its [draft], or null when its file can't be read again. */
+internal data class ItemDraft(val item: ImportSaveItemEntity, val draft: ActivityDraft?)
