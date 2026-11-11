@@ -49,6 +49,8 @@ extension ScreenRegistry {
         registry.register(GearCollectionScreen.self, GearCollectionState.self) { state in GearCollectionView(state: state) }
         registry.register(IgnoredSensorsScreen.self, IgnoredSensorsState.self) { state in IgnoredSensorsView(state: state) }
         registry.register(BlockListScreen.self, BlockListState.self) { state in BlockListView(state: state) }
+        registry.register(FollowListScreen.self, FollowListState.self) { state in FollowListView(state: state) }
+        registry.register(FollowRequestsScreen.self, FollowRequestsState.self) { state in FollowRequestsView(state: state) }
         registry.register(AccountScreen.self, AccountState.self) { state in AccountView(state: state) }
         registry.register(LeaveScreen.self, LeaveState.self) { state in LeaveView(state: state) }
         return registry

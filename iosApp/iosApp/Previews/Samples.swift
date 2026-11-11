@@ -27,6 +27,12 @@
         static var blockList: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.all }
         static var blockListVariants: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.variants }
 
+        /// The follow lists and follow requests a profile opens; states beyond content loading apart.
+        static var followList: [String: FollowListState] { ProfilePackage.FollowListSamples.shared.all }
+        static var followListVariants: [String: FollowListState] { ProfilePackage.FollowListSamples.shared.variants }
+        static var followRequests: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.all }
+        static var followRequestsVariants: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.variants }
+
         /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
         static var privacyZones: [String: SettingsPackage.PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
         static var trainingZones: [String: SettingsPackage.TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }

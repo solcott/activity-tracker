@@ -39,10 +39,13 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "GearCollectionScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "IgnoredSensorsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "BlockListScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "FollowListScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "FollowRequestsScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AccountScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LeaveScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
-        // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card.
+        // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card, and a
+        // profile, which opens the follow lists, for the feed's.
         for screen in ["GearScreen", "EditGearScreen", "EditGearCollectionScreen", "ProfileScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
@@ -62,6 +65,8 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.GearCollectionScreen.self) == "GearCollectionScreen")
         #expect(String(describing: ActivityTracker.IgnoredSensorsScreen.self) == "IgnoredSensorsScreen")
         #expect(String(describing: ActivityTracker.BlockListScreen.self) == "BlockListScreen")
+        #expect(String(describing: ActivityTracker.FollowListScreen.self) == "FollowListScreen")
+        #expect(String(describing: ActivityTracker.FollowRequestsScreen.self) == "FollowRequestsScreen")
         #expect(String(describing: ActivityTracker.AccountScreen.self) == "AccountScreen")
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
     }
