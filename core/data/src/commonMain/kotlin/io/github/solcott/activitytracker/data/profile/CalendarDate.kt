@@ -22,6 +22,12 @@ object CalendarDate {
 
     fun toPickerMillis(date: String): Long? = toEpochDay(date)?.let { it * MILLIS_PER_DAY }
 
+    /** [date] as a calendar day, for a date control that takes one (the native iOS form's); null when it isn't a real `YYYY-MM-DD` date. */
+    fun toLocalDate(date: String): LocalDate? = parse(date)
+
+    /** [date] as `YYYY-MM-DD`, or empty for none. */
+    fun fromLocalDate(date: LocalDate?): String = date?.toString().orEmpty()
+
     /** Whole years from [birthDate] to [now] (in UTC); null for an invalid or future date. */
     fun age(birthDate: String, now: Instant): Int? {
         val birth = parse(birthDate) ?: return null
