@@ -230,6 +230,18 @@ Each phase leaves a shippable app.
      snapshots fix both (`Samples.clock`). What the page says and decides is Kotlin's (`UploadsTexts`, `UploadImportTexts`, getters on
      `UploadsState`), which the Compose page asks. Left for later changes: the feed's upload row, and a general date `AppText` with the
      feed's start times, which read on the activity's own UTC offset.
+   - **Edit profile** (`ios-native-edit-profile`). Edit profile is a grouped `Form` (`EditProfileView`) pushed over the shared profile,
+     the largest native form yet: the photo, the display name and bio with the shared counters, Approve followers, and a section per
+     detail group ending in who may see it (`AppPickerRow` labelled with what the group covers), its Followers note and, under the group
+     it is about, the now-hidden warning. Save is in the bar and the shared `SignInAgainNotice` at the top. The photo pick is the gear
+     form's, made generic (`PhotoPickOf`): `AvatarPick` hands the bytes to `IosApp.compressAvatar`, the shared 512 px JPEG. The country is
+     chosen in a searchable sheet whose order and match are Kotlin's (`CountrySearch`, the codes moved into `:feature-profile-api`), over
+     names and folded keys each UI makes with its platform; the birthdate's text reaches the gear form's calendar popover as a `LocalDate`
+     (`birthDay`, `BirthDateChanged(date:)`); gender is a menu over `GenderChoices`' tokens, Self-describe showing the athlete's words.
+     `nowHidden`, an enum list, is asked per group (`isNowHidden(group)`), and `description`, which Swift export leaves out, is also
+     `bio`. Limits count and hold Save back without refusing typing, as shared. What the form says and decides is Kotlin's
+     (`EditProfileTexts`, `EditProfileLimits`, getters on the state), which the Compose form asks. Left for later changes: the profile
+     itself, with the feed's card.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -752,6 +764,32 @@ reading the generated Swift:
   `Instant.Companion.shared.fromEpochMilliseconds(epochMilliseconds:)`, exported because other signatures name them. `fromEpochSeconds`
   is ambiguous from Swift (an `Int64` and an `Int32` overload of its adjustment), so Swift goes through milliseconds.
 
+### Phase 4 probes (edit profile, `ios-native-edit-profile`, 2026-11-10)
+
+Edit profile is the largest native form yet, and the first whose contract holds an enum list, a date as text and a second photo
+compression. Asked with throwaway Swift tests and scratch `IosApp` entries on a cloned iPhone 17 simulator (iOS 26.0), and by reading the
+generated Swift, before the getters or the view were written:
+
+- **`nowHidden` is an untyped `ImmutableList` of an enum.** Its generated getter names no element type, and its elements are
+  `DetailGroup`s, which no collection can carry to Swift (`ios-native-settings-pages`), so it wasn't read; the view asks a getter per
+  group (`isNowHidden(group)`) instead.
+- **`DetailGroup` itself crosses fine.** It is a Swift enum (`.Location`, raw value its ordinal) with `visibility(visibility:)`, which
+  read `DetailsVisibility`'s fields as `String?` (nil for a group not set); `VisibilityChanged(group: .Body, visibility:)` builds with a
+  case. So a contract function taking a group is the way to ask about one.
+- **Every `EditProfileSamples` state reads**, and their visibilities are all nil: the samples never fill them, though the presenter
+  always does. The native picker needs a value, so the samples now carry one per group and `visibilityOf(group)` reads a missing one as
+  Only me.
+- **`AvatarImage` casts both ways**: `Saved(url:)` and `Picked(jpeg:)` built in Swift read back through `as?`, the bytes as a
+  `ByteString`. The companion's limits read as `Int32`.
+- **The avatar's compression reads a HEIC.** `compressAvatar` (FileKit's JPEG over UIKit) turned a 2,000 × 1,500 JPEG and a HEIC of it
+  into 512 × 384 JPEGs of about 4 KB, and four bytes of junk into nil (a throw, caught). So the gear form's JPEG retry is never needed for
+  it, and stays harmless.
+- **`EditProfileState.description` never reaches Swift.** The generated Swift has every field but that one: Swift export leaves out a
+  member named `description`, which every Swift object already has, with no warning. Found reading the generated Swift for the bio's
+  field; the contract gains `bio`, a getter for the same `TextFieldState`.
+- **A plain `List` of a class crosses both ways.** A Kotlin function taking and returning `List<PickedPhoto>` took a Swift array and
+  returned a typed `Array<PickedPhoto>`, reversed; an empty one came back empty. So the country search takes and returns arrays.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1068,6 +1106,42 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Only me and deleted afterwards. A deleted activity's finished item stays in the upload log until the week's prune or Clear. In
   passing: after Save on the shared Add activity and single-file import forms, the fallback screen kept its last frame ("Saving…")
   under the returned tab bar until a tab was tapped.
+
+### Phase 4 findings (edit profile, `ios-native-edit-profile`)
+
+- **Swift export drops a member named `description` without a word.** `EditProfileState.description` had no Swift getter at all; the
+  bio's field is `bio` in Swift, a getter for the same `TextFieldState`. Any contract field named like an `NSObject` member needs the
+  same; only reading the generated Swift shows it.
+- **A limit the shared form counts isn't a refusal natively.** The gear form refuses typing past a field's maximum; edit profile's
+  shared form lets it through, turns the counter red and holds Save back. A refusing rule would also refuse every edit of a value
+  already too long (saved by another app), even one that shortens it, so the native form counts as the shared one does.
+- **Enum lists are asked per member.** `nowHidden` (`ImmutableList<DetailGroup>`) can't reach Swift, but `DetailGroup` itself can, so
+  each section asks `isNowHidden(group)`, `visibilityOf(group)` and `followersNote(group)` of the state; the Compose form asks the same.
+- **A date held as text crosses as a `LocalDate`.** The birthdate is `YYYY-MM-DD` text; a getter parses it (`birthDay`, malformed text
+  no date) and the event gains a constructor taking a `LocalDate?`, so the gear form's `CalendarDay` and popover serve it unchanged.
+- **A search rule can take what each platform makes.** The country order and match (a typed code first, then names containing the
+  text) are Kotlin's (`CountrySearch`), while the names and the folding of case and accents are each platform's (`countryName` and
+  `stripDiacritics` in Compose, `Locale` and `folding` in Swift); Swift passes and gets back plain arrays (the probe). The codes moved
+  from `:app-common-ui` into `:feature-profile-api`, the one feature that offers them.
+- **A UI-held choice stays the UI's.** Self-describe before any words are typed is a view state in both UIs (nothing is sent until then);
+  what it means, what shows as chosen and what a choice sends are `GenderChoices`' functions, which take it as `chose`.
+- **Samples with blank choices hide differences.** The samples left every group's visibility null, which the shared picker showed blank
+  and a native menu can't; they now carry what the presenter always fills, and the Android Edit profile references show "Public" where
+  they were blank.
+- **The shell reaches a feature only through its `-api`.** `IosApp.compressAvatar` first pulled in `:feature-profile-ui`, which
+  `checkModuleBoundaries` refuses; `compressAvatar` moved to `:app-common-ui` beside `compressPhoto`, and `:iosShell` takes only
+  `:feature-profile-api` (for `EditProfileLimits`). A platform helper a native view needs from a feature's UI moves to a shared module.
+- **A hidden field's model misses what the presenter seeds.** A `TextFieldModel` follows its `TextFieldState` only while its
+  `AppTextField` is on screen (the field's task binds it). The gender words field shows only after Self-describe, so after the
+  presenter filled the saved words its model was still empty, and a reopened form read "Not set" over a saved "Walk test". A
+  condition that decides whether a field shows reads the Kotlin state (`state.gender.value`), never the model of a field not shown.
+  The snapshots and previews didn't catch it because a sample's state is filled before the view is made; the walk did.
+- **Walked on an iPhone 17 Pro (iOS 26.0), signed in as alice.test on the local stack.** Opened natively from the profile, filled
+  from the saved profile; back kept nothing; the counter followed typing; the weight turned red and held Save back; the birthdate
+  popover greyed out future days; the gender menu offered five choices and Self-describe its field; the photo picker opened with no
+  permission prompt and showed the compressed photo; "us" listed United States first; a save updated the profile and a reopened form
+  showed the saved photo from its URL; the public-until-now warning showed beside the Followers note and went once the country was
+  unset. Every value was put back and saved, and the profile read as before.
 
 ## Open items
 
