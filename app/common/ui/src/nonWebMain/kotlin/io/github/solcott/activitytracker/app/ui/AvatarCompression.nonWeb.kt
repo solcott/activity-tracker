@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.profile
+package io.github.solcott.activitytracker.app.ui
 
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.ImageFormat

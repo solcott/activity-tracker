@@ -1,4 +1,4 @@
-package io.github.solcott.activitytracker.app.profile
+package io.github.solcott.activitytracker.app.ui
 
 import kotlin.math.max
 import kotlin.math.roundToInt
