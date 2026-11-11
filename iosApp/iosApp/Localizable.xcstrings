@@ -15797,6 +15797,17 @@
         }
       }
     },
+    "profile_facts_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "profile_follow" : {
       "extractionState" : "manual",
       "localizations" : {

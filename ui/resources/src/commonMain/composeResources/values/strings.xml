@@ -914,6 +914,8 @@
     <string name="unit_weight_lb">%1$s lb</string>
     <string name="unit_height_cm">%1$s cm</string>
     <string name="unit_height_ft_in">%1$s′ %2$s″</string>
+    <!-- Two of a profile's facts (age, gender, height, weight) side by side; more are chained. -->
+    <string name="profile_facts_pair">%1$s · %2$s</string>
 
     <!-- Edit profile -->
     <string name="edit_profile_title">Edit profile</string>

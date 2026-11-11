@@ -79,6 +79,9 @@ extension ScreenRegistry {
         registry.register(ImportBatchScreen.self, ImportBatchState.self) { state in ImportBatchView(state: state) }
         // The gear item page (ios-native-gear-item), opened from Gear, a collection or an activity's gear.
         registry.register(GearScreen.self, GearState.self) { state in GearItemView(state: state) }
+
+        // The profile (ios-native-profile), drawn with the native activity card; Report and Posts wait.
+        registry.register(ProfileScreen.self, ProfileState.self) { state in ProfilePage(state: state) }
         return registry
     }()
 }

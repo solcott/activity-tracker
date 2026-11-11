@@ -6,16 +6,21 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
+import io.github.solcott.activitytracker.app.moderation.ModerationTexts
+import io.github.solcott.activitytracker.app.moderation.NoticeText
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.moderation.BlurReason
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
+import io.github.solcott.uistate.hasLoaded
 import io.github.solcott.uistate.pagedStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -62,6 +67,71 @@ data class ProfileState(
 ) : CircuitUiState {
     val profile: ProfileView?
         get() = content.data
+
+    /** The athlete's bio. `ProfileView.description` under another name, since Swift export drops a member named `description`. */
+    val bio: String?
+        get() = profile?.description
+
+    /** The athlete's activities as loaded so far, typed for Swift, which can't read the erased [activities]' value. */
+    val activityList: ImmutableList<ActivityView>
+        get() = activities.data
+
+    /** Which row of actions shows under the header: the athlete's own entries, the Bluesky note, Unblock, or the follow button. */
+    val actions: ProfileActions
+        get() =
+            when {
+                isSelf -> ProfileActions.Own
+                blockedOnBluesky -> ProfileActions.BlockedOnBluesky
+                blocking -> ProfileActions.Unblock
+                else -> ProfileActions.Follow
+            }
+
+    /** What the follow button says: Requested while the follow waits for approval, Following once it counts, Follow otherwise. */
+    val followLabel: FollowLabel
+        get() =
+            when {
+                profile?.viewer?.followRequested == true -> FollowLabel.Requested
+                profile?.viewer?.following != null -> FollowLabel.Following
+                else -> FollowLabel.Follow
+            }
+
+    /** The follow button is the filled one: the viewer has no follow record yet. Following (and a request on record) is secondary. */
+    val followPrimary: Boolean
+        get() = profile?.viewer?.following == null
+
+    /** The menu offers Block or Unblock: not for a block held only on Bluesky, which only Bluesky can remove. */
+    val offersBlock: Boolean
+        get() = !blockedOnBluesky
+
+    /** The activities (and the list below the header) show: not while the viewer blocks the athlete. */
+    val showsActivities: Boolean
+        get() = !blocking
+
+    /** The key that reveals a hidden athlete's activities ([Revealed.hiddenKey]). */
+    val hiddenKey: String
+        get() = Revealed.hiddenKey(profile?.did?.value.orEmpty())
+
+    /** The athlete is hidden by a label and reached by link only: their activities wait behind a warning until revealed. */
+    val activitiesHidden: Boolean
+        get() {
+            val shown = profile ?: return false
+            return ModerationDecision.of(shown.labels, null, isSelf) == ModerationDecision.Hidden && hiddenKey !in revealed
+        }
+
+    /** The athlete has no activities the viewer may see, once they have loaded. */
+    val activitiesEmpty: Boolean
+        get() = activities.hasLoaded && activities.data.isEmpty()
+
+    /** Why the avatar is blurred, until the viewer reveals it (by the athlete's DID); null when it shows as it is. */
+    val avatarBlur: BlurReason?
+        get() {
+            val shown = profile ?: return null
+            return ModerationDecision.mediaOf(shown.labels, null)?.takeUnless { shown.did.value in revealed }
+        }
+
+    /** The labels' notices over the header: a warning, the athlete's own note that their media is blurred, or a takedown. */
+    fun notices(): List<NoticeText> =
+        profile?.let { ModerationTexts.notices(ModerationDecision.of(it.labels, null, isSelf), isSelf) }.orEmpty()
 }
 
 /** The lists a profile switches between below its header. */
@@ -70,6 +140,8 @@ enum class ProfileTab {
     Posts,
 }
 
+/** Immutable, so a [ProfileEntry] carrying one is stable. */
+@Immutable
 sealed interface ProfileEvent {
     data object Back : ProfileEvent
 
