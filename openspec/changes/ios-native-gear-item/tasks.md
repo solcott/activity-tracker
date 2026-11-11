@@ -23,12 +23,16 @@
 - [x] 4.1 `./gradlew check` passes
 - [x] 4.2 The Debug and Release iOS builds succeed (`CONFIGURATION=Release` exports no fixtures)
 - [x] 4.3 The Swift tests pass on an iOS 26.0 and an iOS 18.4 simulator of this change's own
-- [ ] 4.4 The page is seen on a device (the shared signed-in simulator when free, on the local stack, anything created Only me and deleted afterwards) or, failing that, in the snapshots; what couldn't be seen is listed under "Not verified" below
-- [ ] 4.5 The roadmap records the probes and findings for this change, its Phases bullet, and the updated open items (`GearScreen` closed)
+- [x] 4.4 The page is seen on a device (the shared signed-in simulator when free, on the local stack, anything created Only me and deleted afterwards) or, failing that, in the snapshots; what couldn't be seen is listed under "Not verified" below
+- [x] 4.5 The roadmap records the probes and findings for this change, its Phases bullet, and the updated open items (`GearScreen` closed)
 
 ## Not verified
 
-(Filled in during verification.)
+- On a device: a component's menu, Replace and the unmount calendar (alice's gear has no components, and mounting one would have
+  changed her existing items), the collections (she has none), Previous and Mounted on, the breakdowns (her items have one sport and
+  one year each), linked profiles, a follower's view and a photo. The snapshots cover each.
+- The page signed in on iOS 18 (no working signed-in iOS 18 simulator) and on an iPad.
+- VoiceOver on the component menu and the Unlink buttons.
 
 ## Workflow follow-up
 

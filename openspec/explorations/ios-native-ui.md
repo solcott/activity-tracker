@@ -279,6 +279,16 @@ Each phase leaves a shippable app.
      feed itself isn't native: its filter bar is a SubCircuit, whose presenter the presenter host can't run, and its posts, import cards,
      upload rows, prompts and sheets aren't native either. Left for later changes: the feed (with SubCircuits in the host), and the
      profile, the gear item page, a dive site's page and Moderation, which can list activities with this card now.
+   - **The gear item page** (`ios-native-gear-item`). The gear item page is an inset grouped list (`GearItemView`): the photo beside the
+     name, kind, brand and model and the owner's notes; the owner's collections ticked in place (the shared page's chips and Add menu);
+     Components with each component's line and since when, the owner's Replace and Unmount in a `Menu` on its row and Mount a component
+     under them, Previous and Mounted on; the linked devices and profiles with Unlink; the totals with the starting usage as the
+     section's footer; the breakdowns; then the activities as native cards through `PagedList` with `keepsTop`, so the item stays while
+     its first page of activities loads. Edit is in the bar. The mount sheet and the unmount calendar are sheets with stacks of their own
+     (`MountSheet`, `UnmountSheet`, a graphical `DatePicker` from the day after the mount). What the page says and decides is Kotlin's
+     (`GearPageTexts` with its `GearFigure` rows, getters on `GearState`: `showsEdit`, `showsCollections`, `showsComponents`,
+     `managesComponents`, `mountEnabled`, `componentsError`, `activitiesError`, `authorClickable`, `unmountFirstDay`,
+     `unmountInitialDay`), which the Compose page asks too.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -880,6 +890,21 @@ written:
 - **Not probed with throwaway code**: a route's nested lists and a time of day in an offset, both this change's own Kotlin, checked by its
   tests instead.
 
+### Phase 4 probes (gear item, `ios-native-gear-item`, 2026-11-11)
+
+The gear item page lists activities with the native card and shows lexicon views no native page had read. Asked through the text tests
+over the shared samples on a simulator made for the change (iPhone 17, iOS 26.0), and by reading the generated Swift:
+
+- **`GearPage` gives its lexicon views Swift types.** `GearView`, `GearComponent` and `GearMountView` read typed (aliased as
+  `LexiconGearView`, since the page's view needed the name), `components`, `previous` and `mounts` through `elements(as:)`, a
+  component's `from` and `to` as `Instant`s. `GearUsage.bySport` and `byYear` are plain lists of classes nothing exported names, so the
+  page never reads them: `GearPageTexts.bySport` and `byYear` give `GearFigure` rows instead.
+- **A content of a nullable value reads through its typed getter.** `ContentState<GearPage?>` is read from `state.page` inside
+  `ContentStateView`'s form without a value, as Ignored devices reads its list.
+- **`linkedProfiles`, an immutable list of `String`, reads as `[String]`** through `elements(as: String.self)`.
+- **A `GearState` function taking a `TimeZone` and an `Instant` is callable from Swift** with `clock.kotlinZone` and `clock.now`, and
+  its `LocalDate?` result turns into a `CalendarDay`.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1326,6 +1351,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   page until it is reopened, as on the shared page. Still unseen on a device: Like (the batch was her own), photos and their labels, a
   group, a dive, locks, a second page, VoiceOver, and the page on iOS 18 signed in or on an iPad.
 
+### Phase 4 findings (gear item, `ios-native-gear-item`)
+
+- **A rule over a list of totals is one function returning rows.** Which totals apply to a type (distance where it counts or matters,
+  vertical for skis), the dives and bottom time, and when a breakdown shows at all were conditions inside composables; they are
+  `GearPageTexts.figures`, `bySport` and `byYear`, lists of `GearFigure(label, value)` both UIs lay out in order, rather than a getter
+  per total each UI would have to order alike.
+- **Which error shows where is a getter.** The shared page split `error` by a private set of mount kinds; `componentsError` and
+  `activitiesError` on the state say it once.
+- **The unmount date's bounds are days, not picker millis.** `unmountFirstDay(zone)` and `unmountInitialDay(now, zone)` give
+  `LocalDate`s, which Compose turns into its picker's millis and Swift into `CalendarDay`s. A `DatePicker` shows days in the
+  environment's time zone, so a snapshot that sets only a UTC calendar showed the day before; the sheet reads the device's calendar,
+  as the gear form's date does.
+- **Mount dates stay ISO** ("Since 2026-07-01"), as the shared page writes them; `DateText` would be a visible change on every platform.
+- **The collections are ticked rows natively**, as on the native gear form, not the shared page's chips and Add menu.
+- **Walked signed in on an iPhone 17 Pro (iOS 26.0), as alice on the local stack, and tested on iOS 18.4.** Gear opened the native page for
+  her Garmin Edge 840 and SRAM X0 derailleur (Only me, imported gear): the header with its brand and model, Mount a component, a
+  linked device with its serial, the totals in her imperial units, and the activities counted as native cards with their routes and the
+  owner's Gear lock; a card opened its activity and back returned to the page where it was scrolled. Mount a component opened the sheet
+  over her four mountable items, and Cancel closed it. Nothing was saved: mounting would have changed her existing items. Still unseen
+  on a device: a component's menu, Replace and the unmount calendar (her gear has no components), the collections (she has none),
+  Previous and Mounted on, the breakdowns (one sport and one year each), linked profiles, a follower's view, a photo, and the page on
+  iOS 18 signed in or on an iPad. The snapshots cover each of them.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1350,9 +1398,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Decided (`ios-native-settings-pages`): a native page in the detail column draws a column header from the design system
   (`pageTitle`, `PageBar`), not a `NavigationSplitView`. Done (`ios-native-account`): its back button for a deeper native page, from
   `HostRecord.paneRoot`, first on Leave opened from Account.
-- The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`): it lists its activities as the feed's
-  `ActivityCard`, which has a native twin now (`ActivityCardView`, `ios-native-activity-card`), so it can go native next, with its components, mount sheet and a SwiftUI
-  unmount date picker; its linked devices already ask `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`).
+- ~~The gear item page (`GearScreen`) is still the shared UI's (`ios-native-gear-pages`)~~: done (`ios-native-gear-item`), with its
+  activities as native cards, its components, mount sheet and a SwiftUI unmount calendar, and its linked devices asking
+  `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`). Its mount dates are still ISO dates on every platform.
 - The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its activity cards can be the native card now
   (`ios-native-activity-card`); its header and tabs are still to do. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
