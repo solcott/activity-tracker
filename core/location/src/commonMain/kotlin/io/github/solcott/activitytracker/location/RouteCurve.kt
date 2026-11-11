@@ -32,16 +32,16 @@ object RouteCurve {
     private const val METERS_PER_DEGREE = 111_195.0
 
     /**
-     * [points] (lat, lng pairs, one unbroken piece of a line) with points added along each stretch that bends, on a centripetal Catmull-Rom
-     * curve through them, each stretch's offsets from its chord scaled down until none exceeds [MAX_BULGE_M]. Every point of [points]
-     * stays, in order; straight stretches gain nothing.
+     * [points] (one unbroken piece of a line) with points added along each stretch that bends, on a centripetal Catmull-Rom curve through
+     * them, each stretch's offsets from its chord scaled down until none exceeds [MAX_BULGE_M]. Every point of [points] stays, in order;
+     * straight stretches gain nothing.
      */
-    fun smooth(points: List<Pair<Double, Double>>): List<Pair<Double, Double>> {
+    fun smooth(points: List<GeoPoint>): List<GeoPoint> {
         if (points.size < MIN_POINTS) return points
         val (lat0, lng0) = points.first()
         val east = cos(lat0 * PI / 180) * METERS_PER_DEGREE
         val xy = points.map { (lat, lng) -> Xy((lng - lng0) * east, (lat - lat0) * METERS_PER_DEGREE) }
-        val out = ArrayList<Pair<Double, Double>>(points.size * 2)
+        val out = ArrayList<GeoPoint>(points.size * 2)
         out += points.first()
         for (i in 0 until xy.lastIndex) {
             val p1 = xy[i]
@@ -49,7 +49,7 @@ object RouteCurve {
             // The line's ends carry on straight, so its first and last stretches curve only into the turn at their inner end.
             val p0 = xy.getOrNull(i - 1) ?: (p1 * 2.0 - p2)
             val p3 = xy.getOrNull(i + 2) ?: (p2 * 2.0 - p1)
-            for (q in between(p0, p1, p2, p3)) out += (lat0 + q.y / METERS_PER_DEGREE) to (lng0 + q.x / east)
+            for (q in between(p0, p1, p2, p3)) out += GeoPoint(lat0 + q.y / METERS_PER_DEGREE, lng0 + q.x / east)
             out += points[i + 1]
         }
         return out

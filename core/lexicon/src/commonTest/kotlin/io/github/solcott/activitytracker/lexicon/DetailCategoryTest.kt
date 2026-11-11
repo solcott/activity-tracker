@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Leg
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.TierStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.lexicon.app.mergeStreams
@@ -211,7 +212,7 @@ class DetailCategoryTest {
                 Visibility.PUBLIC,
                 RIDE,
                 details = emptyList(),
-                parts = listOf(Visibility.SELF to STREAMS),
+                parts = listOf(TierStreams(Visibility.SELF, STREAMS)),
             )
         assertEquals(Visibility.SELF, tiers[DetailCategory.HEART_RATE])
         assertEquals(Visibility.SELF, tiers[DetailCategory.SPEED])
@@ -224,7 +225,7 @@ class DetailCategoryTest {
     fun currentTiersOfASplitActivity() {
         val categories = mapOf(DetailCategory.HEART_RATE to Visibility.SELF, DetailCategory.START_TIME to Visibility.MUTUALS)
         val details = DetailCategory.detailsFor(RIDE, URI, Visibility.PUBLIC, categories).map { (tier, d) -> DetailsView(tier, d) }
-        val parts = DetailCategory.streamsFor(STREAMS, Visibility.PUBLIC, categories).toList()
+        val parts = DetailCategory.streamsFor(STREAMS, Visibility.PUBLIC, categories).map { (tier, data) -> TierStreams(tier, data) }
         val tiers =
             DetailCategory.currentTiers(Visibility.PUBLIC, DetailCategory.recordFor(RIDE, Visibility.PUBLIC, categories), details, parts)
         assertEquals(Visibility.SELF, tiers[DetailCategory.HEART_RATE])

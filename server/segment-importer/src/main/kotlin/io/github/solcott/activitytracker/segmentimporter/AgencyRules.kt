@@ -124,7 +124,7 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
 
     override fun marksJunctions(tags: Map<String, String>): Boolean = wayGroups(tags).isNotEmpty()
 
-    override fun directions(tags: Map<String, String>, group: String): Pair<Boolean, Boolean> = true to true
+    override fun directions(tags: Map<String, String>, group: String): Directions = Directions.BOTH
 
     companion object {
         /** The tags [AgencyReader] gives an agency way. */

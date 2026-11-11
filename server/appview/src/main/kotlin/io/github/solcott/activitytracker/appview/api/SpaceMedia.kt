@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.QueryParam
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -82,10 +83,14 @@ class PrivateMediaTokens(
     }
 
     /** Query parameters for [viewer]'s URL to [cid] of [did]. */
-    fun params(did: String, cid: String, viewer: Did): List<Pair<String, String>> {
+    fun params(did: String, cid: String, viewer: Did): List<QueryParam> {
         val stepSeconds = step.inWholeSeconds
         val exp = Math.ceilDiv((clock.now() + ttl).epochSeconds, stepSeconds) * stepSeconds
-        return listOf(VIEWER to viewer.value, EXPIRES to exp.toString(), SIGNATURE to sign(did, cid, viewer.value, exp))
+        return listOf(
+            QueryParam(VIEWER, viewer.value),
+            QueryParam(EXPIRES, exp.toString()),
+            QueryParam(SIGNATURE, sign(did, cid, viewer.value, exp)),
+        )
     }
 
     /** The viewer a URL with [viewer], [exp] and [sig] was signed for, and how long it stays valid, if it's genuine and current. */

@@ -60,9 +60,9 @@ data class PrivacySettings(val zones: List<PrivacyZone> = emptyList(), val hideE
      * The first and last positions of [route] that these settings leave shown, trimmed as it's published (a [combined] route per member, as
      * [RouteTrim.segmentedPolylineOf] does): where its map's start and end markers go. Null when everything is hidden.
      */
-    fun shownEnds(route: List<LocationSample>, combined: Boolean = false): Pair<LocationSample, LocationSample>? {
+    fun shownEnds(route: List<LocationSample>, combined: Boolean = false): ShownEnds? {
         val shown = (if (combined) CombinedRoute.segments(route) else listOf(route)).map { trim(it) }.filter { it.isNotEmpty() }
-        return if (shown.isEmpty()) null else shown.first().first() to shown.last().last()
+        return if (shown.isEmpty()) null else ShownEnds(shown.first().first(), shown.last().last())
     }
 
     /** These settings within the lexicon's bounds: radii and hidden ends clamped, at most [PrivacyZonesRecord.MAX_ZONES] zones. */
@@ -337,3 +337,6 @@ fun PrivacyZones.zonesOutcome(): Flow<Outcome<PrivacySettings>> = flow {
         },
     )
 }
+
+/** The first ([start]) and last ([end]) positions of a route that privacy settings leave shown. */
+data class ShownEnds(val start: LocationSample, val end: LocationSample)

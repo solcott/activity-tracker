@@ -257,11 +257,11 @@ class RecordSerializationTest {
     fun paramsRoundTripThroughQueryString() {
         val params = GetTimeline.Params(limit = 25, cursor = "abc")
         val encoded = XrpcParams.encode(GetTimeline.Params.serializer(), params)
-        assertEquals(listOf("limit" to "25", "cursor" to "abc"), encoded)
+        assertEquals(listOf(QueryParam("limit", "25"), QueryParam("cursor", "abc")), encoded)
         val decoded =
             XrpcParams.decode(
                 GetTimeline.Params.serializer(),
-                encoded.groupBy({ it.first }, { it.second }),
+                encoded.groupBy({ it.name }, { it.value }),
             )
         assertEquals(params, decoded)
         assertTrue(XrpcParams.encode(GetTimeline.Params.serializer(), GetTimeline.Params()).isEmpty())
@@ -275,15 +275,15 @@ class RecordSerializationTest {
         val encoded = XrpcParams.encode(GetAuthorActivities.Params.serializer(), params)
         assertEquals(
             listOf(
-                "actor" to "alice.test",
-                "type" to "ride",
-                "type" to "run:trail",
-                "since" to "2026-03-01T07:00:00Z",
-                "until" to "2026-04-01T06:00:00Z",
+                QueryParam("actor", "alice.test"),
+                QueryParam("type", "ride"),
+                QueryParam("type", "run:trail"),
+                QueryParam("since", "2026-03-01T07:00:00Z"),
+                QueryParam("until", "2026-04-01T06:00:00Z"),
             ),
             encoded,
         )
-        assertEquals(params, XrpcParams.decode(GetAuthorActivities.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+        assertEquals(params, XrpcParams.decode(GetAuthorActivities.Params.serializer(), encoded.groupBy({ it.name }, { it.value })))
     }
 
     @Test
@@ -617,8 +617,8 @@ class RecordSerializationTest {
         val second = AtUri("at://did:plc:carol/${Nsid.FEED_COMMENT}/3kb")
         val params = GetComments.Params(activity, uris = listOf(first, second))
         val encoded = XrpcParams.encode(GetComments.Params.serializer(), params)
-        assertEquals(listOf("uri" to activity.value, "uris" to first.value, "uris" to second.value), encoded)
-        assertEquals(params, XrpcParams.decode(GetComments.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+        assertEquals(listOf(QueryParam("uri", activity.value), QueryParam("uris", first.value), QueryParam("uris", second.value)), encoded)
+        assertEquals(params, XrpcParams.decode(GetComments.Params.serializer(), encoded.groupBy({ it.name }, { it.value })))
         // A single URI still decodes to a list.
         val one = XrpcParams.decode(GetComments.Params.serializer(), mapOf("uri" to listOf(activity.value), "uris" to listOf(first.value)))
         assertEquals(listOf(first), one.uris)
@@ -627,7 +627,7 @@ class RecordSerializationTest {
             page,
             XrpcParams.decode(
                 GetComments.Params.serializer(),
-                XrpcParams.encode(GetComments.Params.serializer(), page).groupBy({ it.first }, { it.second }),
+                XrpcParams.encode(GetComments.Params.serializer(), page).groupBy({ it.name }, { it.value }),
             ),
         )
     }

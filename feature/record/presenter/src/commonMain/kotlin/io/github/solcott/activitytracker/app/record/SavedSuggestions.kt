@@ -5,8 +5,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
-import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.data.importsave.SavedActivity
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -24,7 +23,7 @@ internal fun Navigator.openSaved(saved: SavedSingle, adding: AddingRecording) {
  * failed lookup suggests nothing.
  */
 internal suspend fun savedSuggestionsFor(
-    saved: List<Pair<AtUri, ActivityRecord>>,
+    saved: List<SavedActivity>,
     suggestions: CombineSuggestions,
 ): ImmutableList<SavedSuggestion> =
     saved

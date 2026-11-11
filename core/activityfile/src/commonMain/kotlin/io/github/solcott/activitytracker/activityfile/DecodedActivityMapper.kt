@@ -140,7 +140,7 @@ object DecodedActivityMapper {
         if (isDive) return summary ?: records.mapNotNull { it.temperatureCelsius }.takeIf { it.isNotEmpty() }?.average()
         val samples = records.mapNotNull { r ->
             val millis = r.timestampMillis ?: return@mapNotNull null
-            r.temperatureCelsius?.let { millis / MILLIS_PER_SECOND to (it * CENTI).roundToInt() }
+            r.temperatureCelsius?.let { TimedValue(millis / MILLIS_PER_SECOND, (it * CENTI).roundToInt()) }
         }
         val seconds = PerSecond.hold(samples)
         return if (seconds.isEmpty()) summary else seconds.average() / CENTI

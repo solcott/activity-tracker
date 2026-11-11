@@ -31,7 +31,7 @@ import kotlinx.datetime.toLocalDateTime
  */
 internal class AddingRecording(val requested: Boolean, val target: OwnActivity?, private val file: ImportFile?, val entry: Int?) {
     /** The file as the screen offers it: a logbook narrowed to [entry]. */
-    val offered: ImportFile? = entry?.let { index -> file?.let { (name, read) -> name to persistentListOf(read[index]) } } ?: file
+    val offered: ImportFile? = entry?.let { index -> file?.let { (name, read) -> ImportFile(name, persistentListOf(read[index])) } } ?: file
 
     /** Saving waits for the target to load. */
     val waiting: Boolean
@@ -49,7 +49,7 @@ internal class AddingRecording(val requested: Boolean, val target: OwnActivity?,
 
     /** [source] as the saved recording's: naming [entry] when it's one of several in a logbook, else as a single file's. */
     fun sourceOf(source: SourceFile?): DraftSource? {
-        val several = (file?.second?.size ?: 0) > 1
+        val several = (file?.activities?.size ?: 0) > 1
         return source?.let { if (several && entry != null) DraftSource(it, entry = entry) else it.single() }
     }
 
@@ -73,8 +73,8 @@ internal class AddingRecording(val requested: Boolean, val target: OwnActivity?,
     }
 }
 
-/** A picked file by its name: one activity, or a logbook's several. */
-internal typealias ImportFile = Pair<String, ImmutableList<ImportedActivity>>
+/** A picked file by its [name], and its [activities]: one, or a logbook's several. */
+internal data class ImportFile(val name: String, val activities: ImmutableList<ImportedActivity>)
 
 /** [AddingRecording] for [screen], once its target loads; a failure to load it goes to [onError]. */
 @Composable
@@ -95,7 +95,7 @@ internal fun rememberAddingRecording(
             .onFailure { reportError(UiError.of(UiError.Kind.LoadActivity, it)) }
     }
     return remember(uri, target, file, zone) {
-        AddingRecording(uri != null, target, file, target?.let { nearestEntry(file?.second, it, zone) })
+        AddingRecording(uri != null, target, file, target?.let { nearestEntry(file?.activities, it, zone) })
     }
 }
 

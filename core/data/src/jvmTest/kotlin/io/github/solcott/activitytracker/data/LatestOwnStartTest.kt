@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -88,7 +89,7 @@ class LatestOwnStartTest {
             )
         served = listOf(view("3kz", "2026-10-06T08:00:00Z", nullIsland))
 
-        assertEquals(38.5 to -120.2, FeedRepository(db, clients, LocalLikes(), Logger).latestOwnStart())
+        assertEquals(GeoPoint(38.5, -120.2), FeedRepository(db, clients, LocalLikes(), Logger).latestOwnStart())
     }
 
     @Test
@@ -96,7 +97,7 @@ class LatestOwnStartTest {
         val (db, _, clients) = signedInTestSession(http, did = did)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         served = listOf(view("3ka", "2026-10-01T08:00:00Z", null), view("3kb", "2026-09-01T08:00:00Z", sierra))
-        assertEquals(38.5 to -120.2, feed.latestOwnStart())
+        assertEquals(GeoPoint(38.5, -120.2), feed.latestOwnStart())
 
         served = listOf(view("3ka", "2026-10-01T08:00:00Z", null))
         assertNull(feed.latestOwnStart(), "no activity with a line")

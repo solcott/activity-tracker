@@ -48,6 +48,7 @@ import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
@@ -464,9 +465,9 @@ class FeedRepository(
      * degrees: from the cached feeds, else the first page of their activities from the AppView. Null when none has a line or neither can be
      * read. Segment browse opens there when it has no location (segments/segment-browse).
      */
-    suspend fun latestOwnStart(): Pair<Double, Double>? {
+    suspend fun latestOwnStart(): GeoPoint? {
         val did = clients.did
-        fun startOf(views: List<ActivityView>): Pair<Double, Double>? =
+        fun startOf(views: List<ActivityView>): GeoPoint? =
             views
                 .filter { it.author.did == did && it.uri !in deletes }
                 .map { it.effectiveRecord() }

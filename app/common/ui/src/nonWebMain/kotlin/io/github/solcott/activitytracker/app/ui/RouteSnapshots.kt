@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -28,7 +29,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @OptIn(ExperimentalAtomicApi::class)
 internal object RouteSnapshots {
     /** A route ready to draw: the line, its markers, the colour and where it lies. */
-    private class Route(val routeJson: String, val markers: RouteMarkers<Pair<Double, Double>>?, val color: Color, val bounds: BoundingBox)
+    private class Route(val routeJson: String, val markers: RouteMarkers<GeoPoint>?, val color: Color, val bounds: BoundingBox)
 
     private class Themed(style: String) {
         val route = mutableStateOf<Route?>(null)
@@ -65,10 +66,10 @@ internal object RouteSnapshots {
                 color = Color(snapshot.routeColor),
                 bounds =
                     BoundingBox(
-                        west = points.minOf { it.second },
-                        south = points.minOf { it.first },
-                        east = points.maxOf { it.second },
-                        north = points.maxOf { it.first },
+                        west = points.minOf { it.lng },
+                        south = points.minOf { it.lat },
+                        east = points.maxOf { it.lng },
+                        north = points.maxOf { it.lat },
                     ),
             )
         val density = Density(snapshot.density)

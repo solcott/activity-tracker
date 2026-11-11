@@ -378,11 +378,11 @@ class SegmentRecordsTest {
                 limit = 30,
             )
         val encoded = XrpcParams.encode(GetSegmentLeaderboard.Params.serializer(), params)
-        assertTrue("board" to "eBike" in encoded)
-        assertTrue("ageGroup" to "75+" in encoded)
+        assertTrue(QueryParam("board", "eBike") in encoded)
+        assertTrue(QueryParam("ageGroup", "75+") in encoded)
         assertEquals(
             params,
-            XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
+            XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.name }, { it.value })),
         )
     }
 
@@ -390,7 +390,7 @@ class SegmentRecordsTest {
     fun nameSearchParamsRoundTrip() {
         val everywhere = SearchSegmentNames.Params(q = "hogback")
         val bare = XrpcParams.encode(SearchSegmentNames.Params.serializer(), everywhere)
-        assertEquals(listOf("q" to "hogback"), bare)
+        assertEquals(listOf(QueryParam("q", "hogback")), bare)
         val inArea =
             SearchSegmentNames.Params(
                 q = "hog",
@@ -404,10 +404,10 @@ class SegmentRecordsTest {
                 limit = 30,
             )
         val encoded = XrpcParams.encode(SearchSegmentNames.Params.serializer(), inArea)
-        assertTrue("nearLat" to "443500000" in encoded)
+        assertTrue(QueryParam("nearLat", "443500000") in encoded)
         assertEquals(
             inArea,
-            XrpcParams.decode(SearchSegmentNames.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
+            XrpcParams.decode(SearchSegmentNames.Params.serializer(), encoded.groupBy({ it.name }, { it.value })),
         )
         val output = AtJson.decodeFromString(SearchSegmentNames.Output.serializer(), """{"segments":[]}""")
         assertEquals(SearchSegmentNames.Output(emptyList()), output)
@@ -418,8 +418,8 @@ class SegmentRecordsTest {
         val segment = AtUri.of(Did("did:plc:alice"), Nsid.FEED_SEGMENT, "3l2abcdefgh44")
         val params = GetSegmentMayors.Params(segment, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, board = Sport.CANOE, limit = 1)
         val encoded = XrpcParams.encode(GetSegmentMayors.Params.serializer(), params)
-        assertTrue("period" to "lastWeek" in encoded)
-        assertEquals(params, XrpcParams.decode(GetSegmentMayors.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+        assertTrue(QueryParam("period", "lastWeek") in encoded)
+        assertEquals(params, XrpcParams.decode(GetSegmentMayors.Params.serializer(), encoded.groupBy({ it.name }, { it.value })))
 
         val alice = Did("did:plc:alice")
         val entry = MayorEntry(rank = 1, athlete = ProfileViewBasic(alice, Handle("alice.test")), efforts = 14, reachedOn = "2026-10-18")

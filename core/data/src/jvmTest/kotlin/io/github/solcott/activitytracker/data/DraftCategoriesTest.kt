@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TierStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
@@ -115,7 +116,8 @@ class DraftCategoriesTest {
     @Test
     fun agreesWithWhatPublishingWillRead() {
         val record = mtbRide.toRecord(start, polyline = SegmentedPolyline("_p~iF~ps|U_ulLnnqC", null))
-        val read = DetailCategory.currentTiers(Visibility.PUBLIC, record, emptyList(), listOf(Visibility.PUBLIC to mtbRide.streams!!))
+        val read =
+            DetailCategory.currentTiers(Visibility.PUBLIC, record, emptyList(), listOf(TierStreams(Visibility.PUBLIC, mtbRide.streams!!)))
         assertEquals(read.keys, mtbRide.heldCategories())
     }
 }

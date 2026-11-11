@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
+import io.github.solcott.activitytracker.lexicon.app.DefaultVisibilities
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailVisibilities
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -29,17 +30,20 @@ class DetailRecordsSerializationTest {
         assertEquals(Visibility.SELF, categories[DetailCategory.GEAR], "gear never set starts at Only me")
         assertEquals(
             Visibility.PUBLIC,
-            ActivityDefaultsRecord(details = DetailVisibilities(gear = Visibility.PUBLIC)).resolved().second[DetailCategory.GEAR],
+            ActivityDefaultsRecord(details = DetailVisibilities(gear = Visibility.PUBLIC)).resolved().details[DetailCategory.GEAR],
         )
 
         val empty = AtJson.decodeFromString(ActivityDefaultsRecord.serializer(), """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}"}""")
         assertEquals(
-            Visibility.PUBLIC to DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            DefaultVisibilities(
+                Visibility.PUBLIC,
+                DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            ),
             empty.resolved(),
         )
         val wide = ActivityDefaultsRecord(visibility = Visibility.FOLLOWERS, details = DetailVisibilities(calories = Visibility.PUBLIC))
-        assertEquals(Visibility.FOLLOWERS, wide.resolved().second[DetailCategory.CALORIES])
-        assertEquals(Visibility.SELF, ActivityDefaultsRecord(visibility = "friends").resolved().first)
+        assertEquals(Visibility.FOLLOWERS, wide.resolved().details[DetailCategory.CALORIES])
+        assertEquals(Visibility.SELF, ActivityDefaultsRecord(visibility = "friends").resolved().activity)
     }
 
     @Test
@@ -50,7 +54,10 @@ class DetailRecordsSerializationTest {
                 """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}","visibility":"public","chartsVisibility":"self"}""",
             )
         assertEquals(
-            Visibility.PUBLIC to DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            DefaultVisibilities(
+                Visibility.PUBLIC,
+                DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            ),
             old.resolved(),
         )
     }

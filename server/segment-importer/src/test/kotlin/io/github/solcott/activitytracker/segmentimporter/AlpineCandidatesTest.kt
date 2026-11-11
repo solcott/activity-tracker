@@ -60,8 +60,8 @@ class AlpineCandidatesTest {
 
     @Test
     fun alpineTrailsGoOnlyTheWayTheyreDrawn() {
-        assertEquals(true to false, TrailTags.directions(piste("Lynx"), ALPINE))
-        assertEquals(true to false, TrailTags.directions(piste("Lynx", "oneway" to "-1"), ALPINE))
+        assertEquals(Directions.FORWARD, TrailTags.directions(piste("Lynx"), ALPINE))
+        assertEquals(Directions.FORWARD, TrailTags.directions(piste("Lynx", "oneway" to "-1"), ALPINE))
         val data = osm {
             column()
             way(10, 1, 2, 3, tags = piste("Lynx"))

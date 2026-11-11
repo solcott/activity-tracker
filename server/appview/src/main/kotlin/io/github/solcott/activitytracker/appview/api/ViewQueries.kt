@@ -54,10 +54,13 @@ internal fun keysetAfter(sort: Column<Long>, uri: Column<String>, cursor: String
 }
 
 /** Splits a `"<sort>::<key>"` cursor; null when it is malformed. */
-internal fun parseCursor(cursor: String): Pair<Long, String>? {
+internal fun parseCursor(cursor: String): SortCursor? {
     val (sortAt, uri) = cursorParts(cursor, 2) ?: return null
-    return sortAt.toLongOrNull()?.let { it to uri }
+    return sortAt.toLongOrNull()?.let { SortCursor(it, uri) }
 }
+
+/** A `"<sort>::<key>"` keyset cursor: the [sort] value of the last row served, and its [key] (a URI or DID) breaking ties. */
+internal data class SortCursor(val sort: Long, val key: String)
 
 /** A keyset cursor of [parts], each written as a string and joined by `::`, as [cursorParts] reads it back. */
 internal fun cursorOf(vararg parts: Any?): String = parts.joinToString(CURSOR_SEPARATOR)

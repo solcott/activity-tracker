@@ -26,12 +26,12 @@ data class PrivacyCircle(val latitude: Double, val longitude: Double, val radius
          * A point uniformly random in the disk of radius [radiusMeters] / 2 around ([latitude], [longitude]): a new zone's stored center,
          * so the hole repeated activities leave doesn't center on the place chosen, which stays at least half the radius inside the zone.
          */
-        fun offsetCenter(latitude: Double, longitude: Double, radiusMeters: Double, random: Random = Random.Default): Pair<Double, Double> {
+        fun offsetCenter(latitude: Double, longitude: Double, radiusMeters: Double, random: Random = Random.Default): GeoPoint {
             val distance = radiusMeters / 2 * sqrt(random.nextDouble())
             val bearing = 2 * PI * random.nextDouble()
             val dLat = distance * cos(bearing) / EARTH_RADIUS_M
             val dLon = distance * sin(bearing) / (EARTH_RADIUS_M * cos(latitude * PI / DEGREES_PER_HALF_TURN))
-            return latitude + dLat.toDegrees() to longitude + dLon.toDegrees()
+            return GeoPoint(latitude + dLat.toDegrees(), longitude + dLon.toDegrees())
         }
 
         private fun Double.toDegrees() = this * DEGREES_PER_HALF_TURN / PI

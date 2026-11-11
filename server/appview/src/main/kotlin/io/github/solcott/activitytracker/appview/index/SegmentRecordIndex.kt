@@ -105,7 +105,7 @@ internal fun JdbcTransaction.upsertSegment(
     }
     val changed = relined || old[Segments.sport] != record.sport || old[Segments.kind] != kind
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
-    val original = if (changed) duplicatesOf(record.sport, kind, line, before = firstIndexed to uri.value).firstOrNull() else null
+    val original = if (changed) duplicatesOf(record.sport, kind, line, before = IndexOrder(firstIndexed, uri.value)).firstOrNull() else null
     val newStatus =
         if (changed) (if (original != null) SegmentStatus.DUPLICATE else liveStatus(author.value, importer)) else old[Segments.status]
     val newDuplicateOf = if (changed) original else old[Segments.duplicateOf]
@@ -210,7 +210,7 @@ internal fun JdbcTransaction.duplicatesOf(
     sport: String,
     kind: String,
     line: List<GeoPoint>,
-    before: Pair<Long, String>? = null,
+    before: IndexOrder? = null,
 ): List<String> {
     fun near(point: GeoPoint) =
         SegmentCellIndex.select(SegmentCellIndex.segmentUri)
@@ -227,13 +227,17 @@ internal fun JdbcTransaction.duplicatesOf(
                 (Segments.status inList LIVE_STATUSES)
         }
         .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
-        .filter { row -> before == null || (row[Segments.firstIndexedAt] to row[Segments.uri]).let { earlier(it, before) } }
+        .filter { row -> before == null || earlier(IndexOrder(row[Segments.firstIndexedAt], row[Segments.uri]), before) }
         .filter { row -> SegmentGeometry.decodePolyline(row[Segments.line])?.let { SegmentGeometry.duplicates(line, it) } == true }
         .map { it[Segments.uri] }
 }
 
-/** Whether [a], a first-indexed time and URI, came before [b]: the order duplicate checks settle ties by. */
-internal fun earlier(a: Pair<Long, String>, b: Pair<Long, String>) = a.first < b.first || (a.first == b.first && a.second < b.second)
+/** Where a segment or dive site comes in the order duplicate checks settle ties by: when it was [firstIndexedAt], then its [uri]. */
+internal data class IndexOrder(val firstIndexedAt: Long, val uri: String)
+
+/** Whether [a] came before [b] in [IndexOrder]. */
+internal fun earlier(a: IndexOrder, b: IndexOrder) =
+    a.firstIndexedAt < b.firstIndexedAt || (a.firstIndexedAt == b.firstIndexedAt && a.uri < b.uri)
 
 /**
  * Checks again each segment marked duplicate of one of [originals], which was deleted, archived or changed, earliest first indexed first,
@@ -258,7 +262,8 @@ internal fun JdbcTransaction.recheckDuplicatesOf(
         val uri = row[Segments.uri]
         val line = SegmentGeometry.decodePolyline(row[Segments.line]) ?: continue
         val original =
-            duplicatesOf(row[Segments.sport], row[Segments.kind], line, before = row[Segments.firstIndexedAt] to uri).firstOrNull()
+            duplicatesOf(row[Segments.sport], row[Segments.kind], line, before = IndexOrder(row[Segments.firstIndexedAt], uri))
+                .firstOrNull()
         Segments.update({ Segments.uri eq uri }) {
             it[status] = if (original != null) SegmentStatus.DUPLICATE else liveStatus(row[Segments.authorDid], importer)
             it[duplicateOf] = original

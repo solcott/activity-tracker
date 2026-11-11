@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PlanDrafting
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
+import io.github.solcott.activitytracker.data.importsave.ImportCounts
 import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
 import io.github.solcott.activitytracker.data.importsave.PlannedActivity
 import io.github.solcott.activitytracker.data.importsave.PlannedChoices
@@ -131,7 +132,7 @@ class ImportSaveFlowTest {
             cancelAndIgnoreRemainingEvents()
         }
         withContext(Dispatchers.Default) { repos.saveStore.counts.first { it.isEmpty() } }
-        assertEquals(4 to 0, repos.saveStore.importCounts(lastBatch(repos)))
+        assertEquals(ImportCounts(4, 0), repos.saveStore.importCounts(lastBatch(repos)))
     }
 
     private suspend fun lastBatch(repos: SessionTestFixture.Repos): String = repos.uploads.queue.first().imports.single().id

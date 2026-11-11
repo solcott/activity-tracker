@@ -61,7 +61,7 @@ class StreamAnalyticsTest {
     @Test
     fun meanMaxFindsTheBestWindowForEachDurationItFits() {
         val seconds = listOf(100, 100, 400, 300, 100, 100)
-        assertEquals(listOf(1 to 400, 5 to 200), StreamAnalytics.meanMax(seconds, durations = listOf(1, 5, 10)))
+        assertEquals(listOf(BestAverage(1, 400), BestAverage(5, 200)), StreamAnalytics.meanMax(seconds, durations = listOf(1, 5, 10)))
     }
 
     @Test

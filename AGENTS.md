@@ -20,7 +20,7 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ./gradlew :server-appview:test                    # AppView tests (H2 in PostgreSQL mode, no Docker needed)
 ./gradlew -p build-logic :convention:test         # convention plugin TestKit tests
 ./gradlew generateIosResources                    # rewrite the iOS String Catalog, AppIcon.swift and sport images from strings.xml, AppIcon.kt and the drawables (check fails when they differ)
-./gradlew :detekt-rules:test                      # the repo's own detekt rules (UseTextFieldState, UseAppTextFieldState, UseSingleFlight, NoSystemClockInUi)
+./gradlew :detekt-rules:test                      # the repo's own detekt rules (UseTextFieldState, UseAppTextFieldState, UseSingleFlight, NoSystemClockInUi, NoPairInApi)
 ./gradlew :composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"   # every content-loading screen's samples against ui/content-loading
 ./gradlew :androidApp:testDebugScreenshotTestDefaultTestSuite     # screenshots vs references (part of check); report in androidApp/build/reports/tests/
 ./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite   # rewrite references in androidApp/src/screenshotTestDefaultDebug/reference after an intended UI change

@@ -211,7 +211,7 @@ class DiveSiteViews(
     }
 
     /** [period]'s first local date and the first after it (each null when unbounded); `InvalidRequest` when unknown. */
-    private fun regularsWindow(period: String?): Pair<String?, String?> {
+    private fun regularsWindow(period: String?): DateWindow {
         val chosen = period ?: RegularsPeriod.ALL_TIME
         if (chosen !in RegularsPeriod.all) invalidRequest("Unknown period $chosen")
         return mayorWindow(chosen, today())

@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.maplibre.compose.expressions.dsl.const
@@ -22,7 +23,7 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 @Composable
 internal fun RouteLayers(
     routeJson: String,
-    markers: RouteMarkers<Pair<Double, Double>>?,
+    markers: RouteMarkers<GeoPoint>?,
     color: Color,
     above: @Composable () -> Unit = {},
 ) {
@@ -52,7 +53,7 @@ internal fun RouteLayers(
  * the end on top.
  */
 @Composable
-private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>) {
+private fun RouteMarkerLayers(markers: RouteMarkers<GeoPoint>) {
     val connectorJson = remember(markers.breaks) { lineJson(markers.breaks.map { listOf(it.stop, it.resume) }) }
     val connectors = rememberGeoJsonSource(GeoJsonData.JsonString(connectorJson))
     LineLayer(
@@ -92,7 +93,7 @@ private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>) {
 @Composable
 private fun MarkerLayer(
     id: String,
-    at: ImmutableList<Pair<Double, Double>>,
+    at: ImmutableList<GeoPoint>,
     radius: Dp,
     fill: Color,
     ring: Color,
@@ -110,11 +111,11 @@ private fun MarkerLayer(
 }
 
 /** A GeoJSON MultiPoint of [points], longitude first. */
-internal fun pointsJson(points: List<Pair<Double, Double>>): String =
+internal fun pointsJson(points: List<GeoPoint>): String =
     points.joinToString(",", prefix = """{"type":"MultiPoint","coordinates":[""", postfix = "]}") { (lat, lng) -> "[$lng,$lat]" }
 
 /** A GeoJSON MultiLineString of [pieces]; GeoJSON orders each position longitude first. */
-internal fun lineJson(pieces: List<List<Pair<Double, Double>>>): String =
+internal fun lineJson(pieces: List<List<GeoPoint>>): String =
     pieces.joinToString(",", prefix = """{"type":"MultiLineString","coordinates":[""", postfix = "]}") { piece ->
         piece.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
     }

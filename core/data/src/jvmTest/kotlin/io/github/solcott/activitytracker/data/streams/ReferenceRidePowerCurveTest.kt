@@ -15,7 +15,7 @@ class ReferenceRidePowerCurveTest {
         lines.map { it.substringBefore(',').toInt() } to lines.map { it.substringAfter(',').toIntOrNull() }
     }
 
-    private fun curve(seconds: List<Int>) = StreamAnalytics.meanMax(seconds).toMap()
+    private fun curve(seconds: List<Int>) = StreamAnalytics.meanMax(seconds).associate { it.seconds to it.average }
 
     @Test
     fun theBest20MinutesMatchGarmin() {

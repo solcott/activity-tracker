@@ -12,7 +12,10 @@ class GradeBandsTest {
     @Test
     fun aStopWhereverTheBandChangesHalfwayBetweenPoints() {
         val at = listOf(0f, 0.25f, 0.5f, 0.75f, 1f)
-        assertEquals(listOf(0f to 0, 0.375f to 2, 0.875f to 4), GradeBands.stops(at, listOf(0, 0, 2, 2, 4), minPoints = 1))
+        assertEquals(
+            listOf(BandStop(0f, 0), BandStop(0.375f, 2), BandStop(0.875f, 4)),
+            GradeBands.stops(at, listOf(0, 0, 2, 2, 4), minPoints = 1),
+        )
     }
 
     @Test
@@ -20,12 +23,12 @@ class GradeBandsTest {
         val at = List(12) { it / 11f }
         // Alternating 0 and 1 points stay 0; the steady run of 3s later is kept.
         val bands = listOf(0, 1, 0, 1, 0, 1, 0, 3, 3, 3, 3, 3)
-        assertEquals(listOf(0f to 0, (at[6] + at[7]) / 2 to 3), GradeBands.stops(at, bands))
+        assertEquals(listOf(BandStop(0f, 0), BandStop((at[6] + at[7]) / 2, 3)), GradeBands.stops(at, bands))
     }
 
     @Test
     fun oneBandIsOneStop() {
-        assertEquals(listOf(0f to 1), GradeBands.stops(listOf(0f, 0.5f, 1f), listOf(1, 1, 1)))
+        assertEquals(listOf(BandStop(0f, 1)), GradeBands.stops(listOf(0f, 0.5f, 1f), listOf(1, 1, 1)))
         assertEquals(emptyList(), GradeBands.stops(emptyList(), emptyList()))
     }
 

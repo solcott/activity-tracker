@@ -25,7 +25,7 @@ class PrivacySettingsTest {
 
     @Test
     fun noZonesShowTheRoutesOwnEnds() {
-        assertEquals(route.first() to route.last(), PrivacySettings.NONE.shownEnds(route))
+        assertEquals(ShownEnds(route.first(), route.last()), PrivacySettings.NONE.shownEnds(route))
     }
 
     @Test
@@ -71,12 +71,12 @@ class PrivacySettingsTest {
         assertTrue(TrackMath.distanceMeters(center, pieces[1].first()) in 199.0..201.0)
     }
 
-    private fun assertSameEnds(published: SegmentedPolyline?, ends: Pair<LocationSample, LocationSample>?) {
+    private fun assertSameEnds(published: SegmentedPolyline?, ends: ShownEnds?) {
         val line = TrackMath.decodePolyline(published!!.polyline)
         val (first, last) = ends!!
         for ((point, end) in listOf(line.first() to first, line.last() to last)) {
-            assertEquals(point.first, end.latitude, absoluteTolerance = 1e-5)
-            assertEquals(point.second, end.longitude, absoluteTolerance = 1e-5)
+            assertEquals(point.lat, end.latitude, absoluteTolerance = 1e-5)
+            assertEquals(point.lng, end.longitude, absoluteTolerance = 1e-5)
         }
     }
 }

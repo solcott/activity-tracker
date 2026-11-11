@@ -260,6 +260,6 @@ class AgencyRulesTest {
         assertEquals(AgencyRules.BLM, AgencyRules.ofKind("blm"))
         assertNull(AgencyRules.ofKind("fws"))
         assertFalse(AgencyRules.USFS.excluded(emptyMap()))
-        assertEquals(true to true, AgencyRules.USFS.directions(mapOf("oneway" to "yes"), RIDE))
+        assertEquals(Directions.BOTH, AgencyRules.USFS.directions(mapOf("oneway" to "yes"), RIDE))
     }
 }

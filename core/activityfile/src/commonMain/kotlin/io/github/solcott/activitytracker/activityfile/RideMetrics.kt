@@ -29,11 +29,11 @@ internal object RideMetrics {
     }
 
     /** Average and max; the average leaves out zeros (coasting), as the device's own average does. */
-    fun cadence(sessions: List<DecodedSummary>, records: List<DecodedSample>): Pair<Int?, Int?> {
+    fun cadence(sessions: List<DecodedSummary>, records: List<DecodedSample>): CadenceRange {
         val samples = records.mapNotNull { it.cadence }.filter { it > 0 }
         val avg = sessions.weightedAverage { it.avgCadence?.toDouble() }?.roundToInt()?.takeIf { it > 0 } ?: samples.averageOrNull()
         val max = sessions.mapNotNull { it.maxCadence }.maxOrNull()?.takeIf { it > 0 } ?: samples.maxOrNull()
-        return avg to max
+        return CadenceRange(avg, max)
     }
 
     fun descentMeters(sessions: List<DecodedSummary>, records: List<DecodedSample>): Double? =
@@ -87,7 +87,9 @@ internal object RideMetrics {
     /** Power for each second the athlete was recording (see [PerSecond.hold]). */
     private fun List<DecodedSample>.powerBySecond(): List<Int> =
         PerSecond.hold(
-            mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it / MILLIS_PER_SECOND to watts } } },
+            mapNotNull { sample ->
+                sample.powerWatts?.let { watts -> sample.timestampMillis?.let { TimedValue(it / MILLIS_PER_SECOND, watts) } }
+            },
         )
 
     /** Null unless at least one session has the count. */
@@ -98,3 +100,6 @@ internal object RideMetrics {
 
     private const val MILLIS_PER_SECOND = 1000.0
 }
+
+/** A ride's [avg] and [max] cadence, in rpm, each null when unknown. */
+internal data class CadenceRange(val avg: Int?, val max: Int?)
