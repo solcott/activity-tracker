@@ -40,7 +40,7 @@ object FeedFilterSamples {
                                     Selection.None,
                                 ),
                             ),
-                    )
+                    ),
             )
         }
 
@@ -52,7 +52,7 @@ object FeedFilterSamples {
                     FeedFilter(
                         types = persistentSetOf(ActivityType(Sport.RIDE), ActivityType(Sport.RUN, "trail"), ActivityType(Sport.WALK)),
                         range = DateRange.Custom(LocalDate(2026, 3, 1), LocalDate(2026, 3, 15)),
-                    )
+                    ),
             )
 
     /** Beyond [all], which the shared screenshots render: what the native bar draws too. */

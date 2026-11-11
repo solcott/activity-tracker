@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 @Inject
 class SessionHost
 // Internal for the same reason as AppHost's.
+@Suppress("LongParameterList") // What the session graph injects: the presenters, the sub-screens', and one piece per request it follows.
 internal constructor(
     session: OAuthSession,
     factories: Set<Presenter.Factory>,
