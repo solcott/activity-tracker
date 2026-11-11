@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import io.github.solcott.activitytracker.app.text.DateText
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.month_short_1
 import io.github.solcott.activitytracker.composeApp.resources.month_short_10
@@ -16,12 +18,11 @@ import io.github.solcott.activitytracker.composeApp.resources.month_short_6
 import io.github.solcott.activitytracker.composeApp.resources.month_short_7
 import io.github.solcott.activitytracker.composeApp.resources.month_short_8
 import io.github.solcott.activitytracker.composeApp.resources.month_short_9
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_date
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_date_short
 import org.jetbrains.compose.resources.stringResource
 
-@Composable
-fun longDate(date: HistoryDate): String = stringResource(Res.string.zones_history_date, monthName(date.month), date.day, date.year)
+/** [date] written out ("Jan 5, 2026"), as `DateText` chooses it. */
+@Composable fun longDate(date: HistoryDate): String = DateText.date(date.year, date.month, date.day).string()
 
 @Composable fun shortDate(date: HistoryDate): String = stringResource(Res.string.zones_history_date_short, monthName(date.month), date.day)
 

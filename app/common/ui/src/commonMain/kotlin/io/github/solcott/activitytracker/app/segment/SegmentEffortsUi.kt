@@ -15,26 +15,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.settings.HistoryDate
-import io.github.solcott.activitytracker.app.settings.longDate
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.downhill_skiing
 import io.github.solcott.activitytracker.composeApp.resources.segment_ebike
-import io.github.solcott.activitytracker.composeApp.resources.segment_kind_ski_lift
-import io.github.solcott.activitytracker.composeApp.resources.segment_kind_ski_run
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_excluded
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_hidden
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_implausible
 import io.github.solcott.activitytracker.composeApp.resources.segment_pr
 import io.github.solcott.activitytracker.composeApp.resources.segment_rank_ordinals
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_alpine
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_hike
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_paddle
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ride
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_run
-import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ski
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_duplicate
 import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed
@@ -120,12 +112,8 @@ private fun notRankedLabel(reason: String?): String? =
         else -> null
     }
 
-/** An effort's `YYYY-MM-DD` date, written out; the string itself when it doesn't parse. */
-@Composable
-fun effortDateLabel(startedOn: String): String {
-    val parts = startedOn.split('-').mapNotNull { it.toIntOrNull() }
-    return if (parts.size == 3) longDate(HistoryDate(parts[0], parts[1], parts[2])) else startedOn
-}
+/** An effort's `YYYY-MM-DD` date, written out; the string itself when it doesn't parse. `DateText` chooses it. */
+@Composable fun effortDateLabel(startedOn: String): String = DateText.isoDate(startedOn).string()
 
 /** A segment's [status] as a label; null for an active one, or one with no status. */
 @Composable
@@ -141,13 +129,7 @@ fun segmentStatusLabel(status: String?): String? =
  * What a segment of [sport] and [kind] is, as a label: a ski lift or a ski run for `alpine` ones (segments/segment-lifts), else its sport
  * group ([segmentSportLabel]).
  */
-@Composable
-fun segmentTypeLabel(sport: String, kind: String?): String =
-    when {
-        SegmentKind.of(kind) == SegmentKind.LIFT -> stringResource(Res.string.segment_kind_ski_lift)
-        sport == SegmentSportGroup.ALPINE -> stringResource(Res.string.segment_kind_ski_run)
-        else -> segmentSportLabel(sport)
-    }
+@Composable fun segmentTypeLabel(sport: String, kind: String?): String = SegmentTexts.type(sport, kind).string()
 
 /** The icon that tells a ski lift from a ski run; null for every other segment, which needs none. */
 fun segmentKindIcon(sport: String, kind: String?): DrawableResource? =
@@ -170,14 +152,4 @@ fun SegmentKindIcon(sport: String, kind: String?, modifier: Modifier = Modifier)
 }
 
 /** A segment's sport group as a label; the token itself for one this app doesn't know. */
-@Composable
-fun segmentSportLabel(sport: String): String =
-    when (sport) {
-        SegmentSportGroup.RIDE -> stringResource(Res.string.segment_sport_ride)
-        SegmentSportGroup.RUN -> stringResource(Res.string.segment_sport_run)
-        SegmentSportGroup.HIKE -> stringResource(Res.string.segment_sport_hike)
-        SegmentSportGroup.SKI -> stringResource(Res.string.segment_sport_ski)
-        SegmentSportGroup.ALPINE -> stringResource(Res.string.segment_sport_alpine)
-        SegmentSportGroup.PADDLE -> stringResource(Res.string.segment_sport_paddle)
-        else -> sport
-    }
+@Composable fun segmentSportLabel(sport: String): String = SegmentTexts.sportGroup(sport).string()
