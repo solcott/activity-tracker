@@ -200,6 +200,16 @@ Each phase leaves a shippable app.
      functions name them (a zone's label and a privacy zone's name, which the shared pages ask too), and `shownRows` is a copy.
      `ZonesContractsTests` reads every blocker typed over the samples. Left for later changes: the pages themselves, and with them a
      zone row's name and range as `AppText`.
+   - **The upload queue** (`ios-native-uploads`). Uploads is an inset grouped list (`UploadsView`) pushed over the feed, the first native
+     page whose loaded content is a `:core-data` model of plain lists (read directly: an empty `emptyList()` is safe, probe below), with
+     two system alerts bound to the state's questions (cancel, cancel the rest of an import). The first shared length of time:
+     `DurationText.approximate` in `:app-common-api`, a plural rounded to the largest unit ("40 min", "3 h", "1 day"), not a new
+     `AppText` case, since no device setting changes it. The first day words a native page shows ("Today at 7:00 AM", "until tomorrow
+     at"): `DayText`, which `startTime` and `untilText` now ask too, decides them from the current time and zone each UI passes, and
+     Swift's are a `ShownClock` in the environment (`\.clock`), which also formats the time of day in its zone, so previews and
+     snapshots fix both (`Samples.clock`). What the page says and decides is Kotlin's (`UploadsTexts`, `UploadImportTexts`, getters on
+     `UploadsState`), which the Compose page asks. Left for later changes: the feed's upload row, and a general date `AppText` with the
+     feed's start times, which read on the activity's own UTC offset.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -660,6 +670,28 @@ simulator (iOS 26.0), before the fix, and by reading the generated Swift:
   an immutable list, which has no Swift initialiser, so the all-rows case needed a sample: `ThresholdHistorySamples.variants["allRows"]`,
   a section of five rows with every one shown.
 
+### Phase 4 probes (uploads, `ios-native-uploads`, 2026-11-10)
+
+The upload queue is the first native page whose loaded content is a `:core-data` model holding plain Kotlin lists, and the first with a
+length of time. Asked with a throwaway Swift test over every `UploadsSamples` sample on a cloned iPhone 17 simulator (iOS 26.0), and by
+reading the generated Swift:
+
+- **`UploadQueueView`, `UploadImport`, `UploadItem` and `RejectedChange` already had Swift types**, because the samples name them, and
+  their `List` fields are generated as typed arrays (`[UploadItem]`, `[UploadImport]`, `[RejectedChange]`; `UploadSource.Export.kinds`
+  as `[String]`).
+- **An empty plain list reads.** The empty queue's five fields are `emptyList()`, and each read as an empty Swift array without stopping
+  the app. So the `List`-getter crash is the immutable library's shared empty instance alone; Kotlin's `EmptyList` and a `take`'s copy
+  are safe, and the native page reads the model's fields directly.
+- **`kotlin.time.Duration` arrives as a class**, boxed from the value class, with `inWholeSeconds` and the other whole-unit getters:
+  the part-way sample's `timeLeft` read 93,600 seconds. An `#expect` comparing that `Int64?` with the literal `26 * 3600` failed while
+  printing 93600 on both sides, so a test compares with a typed value.
+- **The rest cast as expected**: `content.data as? UploadQueueView`, `UploadSource.Export` and `.Files`, `ImportSaveStatus.Saving`,
+  `UploadState` and `RejectedChange.Kind` as Swift enums, `AtUri.rkey`, `savedAt` and `serverPausedUntil` as `Instant`s, and
+  `expandedImports` through `elements(as: String.self)`, empty and not.
+- **Swift can make a Kotlin `TimeZone` and `Instant`**: `TimeZone.Companion.shared.of(zoneId:)` and `currentSystemDefault()`, and
+  `Instant.Companion.shared.fromEpochMilliseconds(epochMilliseconds:)`, exported because other signatures name them. `fromEpochSeconds`
+  is ambiguous from Swift (an `Int64` and an `Int32` overload of its adjustment), so Swift goes through milliseconds.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -894,6 +926,38 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **No visible change.** The shared pages keep their words and layout; nothing was walked on a device, since nothing native reads these
   contracts yet.
 
+### Phase 4 findings (uploads, `ios-native-uploads`)
+
+- **A length of time is a plural, not an `AppText` case.** `AppText.Time` exists because the 12- or 24-hour clock is a device setting;
+  nothing about "About 3 h left" is, so its unit, rounding and words are `DurationText.approximate`'s, and neither resolver changed.
+  The three `uploads_time_left_*` plurals became `duration_minutes`, `duration_hours`, `duration_days` inside `uploads_time_left`, with
+  the same words. `StatText.duration` ("1:23:45") stays the clock form; another form joins `DurationText` when a screen needs it.
+- **Day words need the UI's clock, so Kotlin takes it as arguments.** "Today", "Yesterday" and "tomorrow at" depend on the current
+  date in a zone that previews and tests fix, so `DayText` and the queue's text functions take `now` and `zone`. Compose passes
+  `LocalClock` and `LocalTimeZone`; Swift a `ShownClock` from the environment, whose text source also formats `AppText.Time` in its
+  zone, so a day and a time of day are never read on two clocks. Without it the snapshots would read the machine's day and zone.
+  `startTime` and `untilText` now resolve `DayText`, so the feed's day words are written once.
+- **A list joined by a translated separator becomes a nested pair.** `uploads_list_separator` (", ") was joined in a composable; an
+  `AppText` can't join, so it is `uploads_list_pair` ("%1$s, %2$s") folded over the names, and the refused and skipped counts a new
+  `uploads_import_counts` ("%1$s · %2$s").
+- **A row with its own colours stays the view's.** `AppItemRow` draws every line secondary, and a refused item's state is red, so the
+  queue's rows are a small `UploadRow` beside the view, its actions outside the row's button as `AppItemRow` keeps them. No
+  design-system piece changed.
+- **Two alerts on one view, each bound to its own question.** `confirmingCancel` and `confirmingCancelRest` each drive an
+  `.alert(_:isPresented:presenting:)`; closing either sends `Dismiss`. The presenter clears the question on confirming too, so the
+  order SwiftUI calls the action and the binding's setter in doesn't matter.
+- **Swift's `Duration` comparison trap.** `state.timeLeft?.inWholeSeconds == 26 * 3600` failed in a Swift test while printing 93600
+  on both sides; `Int64(26 * 3600)` passes.
+- **Reaching the queue on the local stack takes a batch import.** Uploads opens only from the feed's upload row (while something
+  uploads or is refused) or an import's "View uploads", and local uploads finish in a second or two, so the row is gone before it can
+  be tapped; a single-file import opens its activity instead. Two GPX files copied into the simulator's On My iPhone storage
+  (`…/Containers/Shared/AppGroup/<id>/File Provider Storage`) and imported together end on "Import saved" with View uploads, which
+  stays useful after they upload. Walked that way on an iPhone 17 Pro (iOS 26.0), signed in: the native page drew the import's group,
+  its items and Finished, an item opened its activity, and back and the activity's delete returned to it. Every walk-test activity was
+  Only me and deleted afterwards. A deleted activity's finished item stays in the upload log until the week's prune or Clear. In
+  passing: after Save on the shared Add activity and single-file import forms, the fallback screen kept its last frame ("Saving…")
+  under the returned tab bar until a tab was tapped.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -950,8 +1014,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
 - About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
-  an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); dates and
-  durations have no `AppText` yet.
+  an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); a rough length of
+  time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A date in general, and the feed's start
+  times, which read on the activity's own UTC offset (`startTime`), are still the shared UI's.
 - Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
