@@ -8,15 +8,18 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
-/** Encodes/decodes XRPC query params (flat primitives and arrays) to/from query-string pairs. */
+/** One query-string parameter: its [name] and one [value] (a list param repeats its name once per item). */
+data class QueryParam(val name: String, val value: String)
+
+/** Encodes/decodes XRPC query params (flat primitives and arrays) to/from query-string parameters. */
 object XrpcParams {
-    fun <P> encode(serializer: KSerializer<P>, params: P): List<Pair<String, String>> {
+    fun <P> encode(serializer: KSerializer<P>, params: P): List<QueryParam> {
         val obj = AtJson.encodeToJsonElement(serializer, params) as? JsonObject ?: return emptyList()
         return obj.flatMap { (key, value) ->
             when (value) {
                 is JsonNull -> emptyList()
-                is JsonPrimitive -> listOf(key to value.content)
-                is JsonArray -> value.map { key to (it as JsonPrimitive).content }
+                is JsonPrimitive -> listOf(QueryParam(key, value.content))
+                is JsonArray -> value.map { QueryParam(key, (it as JsonPrimitive).content) }
                 is JsonObject -> error("XRPC params must be flat; '$key' is an object")
             }
         }

@@ -76,7 +76,7 @@ object GearMounts {
     /**
      * Each of [component]'s [mounts], oldest first, with the reason it's refused or null; a mount is checked against the earlier ones kept.
      */
-    fun review(component: AtUri, mounts: List<GearMount>, graph: MountGraph): List<Pair<GearMount, MountProblem?>> {
+    fun review(component: AtUri, mounts: List<GearMount>, graph: MountGraph): List<MountReview> {
         val kept = mutableListOf<GearMount>()
         // The most mount levels below the component: 0 when nothing is mounted on it.
         val height = longest(component, graph.childrenOf)
@@ -91,17 +91,17 @@ object GearMounts {
                     else -> null
                 }
             if (problem == null) kept += mount
-            mount to problem
+            MountReview(mount, problem)
         }
     }
 
     /** The first reason [component]'s [mounts] are refused, or null when they're all valid. */
     fun problem(component: AtUri, mounts: List<GearMount>, graph: MountGraph): MountProblem? =
-        review(component, mounts, graph).firstNotNullOfOrNull { it.second }
+        review(component, mounts, graph).firstNotNullOfOrNull { it.problem }
 
     /** The valid [mounts] of [component], oldest first. */
     fun kept(component: AtUri, mounts: List<GearMount>, graph: MountGraph): List<GearMount> =
-        review(component, mounts, graph).filter { it.second == null }.map { it.first }
+        review(component, mounts, graph).filter { it.problem == null }.map { it.mount }
 
     private fun isSibling(component: AtUri, parent: AtUri) =
         parent != component &&
@@ -135,3 +135,6 @@ object GearMounts {
         return depth
     }
 }
+
+/** One of a component's mounts as [GearMounts.review] checks it: the [mount], and why it's refused, or null when it's kept. */
+data class MountReview(val mount: GearMount, val problem: MountProblem?)

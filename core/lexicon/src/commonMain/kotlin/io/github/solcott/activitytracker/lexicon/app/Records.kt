@@ -1833,6 +1833,9 @@ data class PrivateDetailsRecord(
     }
 }
 
+/** What [ActivityDefaultsRecord.resolved] reads: the [activity]'s [Visibility] value, and each [DetailCategory]'s in [details]. */
+data class DefaultVisibilities(val activity: String, val details: Map<String, String>)
+
 /**
  * `app.activitytracker.actor.activityDefaults`: the [Visibility] values an athlete's new activities and their [DetailCategory]s start with.
  * It lives only in their [AthleteSpace.SELF] space. A missing record or [visibility] means [Visibility.PUBLIC], and a category with no
@@ -1845,16 +1848,18 @@ data class ActivityDefaultsRecord(
     val details: DetailVisibilities? = null,
     @SerialName($$"$type") val type: String = Nsid.ACTOR_ACTIVITY_DEFAULTS,
 ) {
-    /** (activity, each [DetailCategory.all] to its visibility), each a known [Visibility] value, no category wider than the activity. */
-    fun resolved(): Pair<String, Map<String, String>> {
+    /** The activity's and each [DetailCategory.all]'s visibility, each a known [Visibility] value, no category wider than the activity. */
+    fun resolved(): DefaultVisibilities {
         val activity = Visibility.known(visibility)
-        return activity to
+        return DefaultVisibilities(
+            activity,
             DetailCategory.all.associateWith { category ->
                 Visibility.capped(
                     details?.get(category)?.let { Visibility.known(it) } ?: DetailCategory.defaultWhenUnset(category, activity),
                     activity,
                 )
-            }
+            },
+        )
     }
 
     companion object {

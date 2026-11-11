@@ -380,7 +380,7 @@ object DetailCategory {
         activity: String,
         record: ActivityRecord,
         details: List<DetailsView>,
-        parts: List<Pair<String, ActivityStreamData>>,
+        parts: List<TierStreams>,
     ): Map<String, String> = currentTiersOf(activity, record, details, parts.map { (tier, data) -> tier to data.heldCategories() })
 
     /**
@@ -405,7 +405,7 @@ object DetailCategory {
         activity: String,
         record: ActivityRecord,
         details: List<DetailsView>,
-        parts: List<Pair<String, List<String>>>,
+        parts: List<TierChannels>,
     ): Map<String, String> =
         currentTiersOf(activity, record, details, parts.map { (tier, channels) -> tier to channels.mapNotNull { ofChannel(it) }.toSet() })
 
@@ -436,3 +436,9 @@ fun effectiveRecord(record: ActivityRecord, details: List<ActivityDetailsRecord>
 
 /** The activity as this viewer may see it: [ActivityView.record] with [ActivityView.details] laid over it. */
 fun ActivityView.effectiveRecord(): ActivityRecord = effectiveRecord(record, details.orEmpty().map { it.record })
+
+/** A streams part as [DetailCategory.currentTiers] reads it: the [Visibility] [tier] it's stored at, and its [data]. */
+data class TierStreams(val tier: String, val data: ActivityStreamData)
+
+/** A streams part as the AppView indexes it: the [Visibility] [tier] it's stored at, and its [channels]' tokens. */
+data class TierChannels(val tier: String, val channels: List<String>)
