@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.composeApp.resources.allDrawableResourc
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
@@ -122,6 +124,11 @@ class SharedTextNamesTest {
                 DayText.day(LocalDate(2026, 5, 31), today) +
                 DayText.dayAndTime(Instant.parse("2026-06-01T07:00:00Z"), Instant.parse("2026-06-01T12:00:00Z"), TimeZone.UTC)
         assertAllExist(texts)
+    }
+
+    @Test
+    fun everyZoneNameNamesAString() {
+        assertAllExist(ZoneName.entries.map(ZoneNameText::of))
     }
 
     @Test

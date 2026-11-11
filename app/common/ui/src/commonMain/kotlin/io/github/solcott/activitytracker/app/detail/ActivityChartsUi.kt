@@ -300,7 +300,7 @@ private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: S
     val bars = zones.map { zone ->
         ZoneBar(
             label = stringResource(Res.string.chart_zone_label, zone.label),
-            name = stringResource(zoneName(zone.name)),
+            name = zoneName(zone.name),
             range =
                 stringResource(
                     unit,
