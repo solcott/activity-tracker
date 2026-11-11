@@ -4,7 +4,7 @@
 
 - [x] 1.1 Add `GearPageTexts` and `GearFigure` to `:feature-gear-api` (kind line, maker, notes, figures, starting usage, breakdowns, component line and dates, mount dates, actions label, picker title, candidate line), with `commonTest` tests for skis, a dive item, one activity type, starting usage and past component dates (`./gradlew :feature-gear-api:jvmTest`)
 - [x] 1.2 Add getters to `GearState` (title, `showsEdit`, `showsCollections`, `showsComponents`, `managesComponents`, `mountEnabled`, `componentsError`, `activitiesError`, `authorClickable`, `unmountFirstDay`, `unmountInitialDay`) with `MOUNT_ERRORS` moved into the contract, and tests for each (`:feature-gear-api:jvmTest`)
-- [ ] 1.3 Make `GearUi.kt` and `GearComponentsUi.kt` resolve them; the existing gear UI and presenter tests and the content-loading conformance test still pass (`:feature-gear-ui:jvmTest`, `:composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"`), and the Android screenshot references are unchanged
+- [x] 1.3 Make `GearUi.kt` and `GearComponentsUi.kt` resolve them; the existing gear UI and presenter tests and the content-loading conformance test still pass (`:feature-gear-ui:jvmTest`, `:composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"`), and the Android screenshot references are unchanged
 
 ## 2. Samples
 
@@ -12,15 +12,15 @@
 
 ## 3. Native page
 
-- [ ] 3.1 Type aliases in `KotlinTypes.swift` and `Samples.gear`/`Samples.gearVariants` in `Samples.swift` (additions only)
-- [ ] 3.2 `GearItemView`: header, collections, components, previous, mounted on, linked devices and profiles, totals, breakdowns, activities as `ActivityCardView`s through `PagedList`, Edit in the bar, not found; previews over both sample maps
-- [ ] 3.3 The mount sheet and the unmount calendar (`GearItemSheets.swift`), bound to the state's picker and unmounting component; previews
-- [ ] 3.4 Register `GearScreen` in `ScreenRegistry` and update `ScreenRegistryTests` (it no longer lists `GearScreen` as shared)
+- [x] 3.1 Type aliases in `KotlinTypes.swift` and `Samples.gear`/`Samples.gearVariants` in `Samples.swift` (additions only)
+- [x] 3.2 `GearItemView`: header, collections, components, previous, mounted on, linked devices and profiles, totals, breakdowns, activities as `ActivityCardView`s through `PagedList`, Edit in the bar, not found; previews over both sample maps
+- [x] 3.3 The mount sheet and the unmount calendar (`GearItemSheets.swift`), bound to the state's picker and unmounting component; previews
+- [x] 3.4 Register `GearScreen` in `ScreenRegistry` and update `ScreenRegistryTests` (it no longer lists `GearScreen` as shared)
 - [ ] 3.5 Text tests (`GearItemTextTests`) reading the samples' lines and conditions through Swift, and snapshot tests (`GearItemSnapshotTests`) of every sample and variant, the sheets included, recorded on iOS 26.0
 
 ## 4. Verification
 
-- [ ] 4.1 `./gradlew check` passes
+- [x] 4.1 `./gradlew check` passes
 - [ ] 4.2 The Debug and Release iOS builds succeed (`CONFIGURATION=Release` exports no fixtures)
 - [ ] 4.3 The Swift tests pass on an iOS 26.0 and an iOS 18.4 simulator of this change's own
 - [ ] 4.4 The page is seen on a device (the shared signed-in simulator when free, on the local stack, anything created Only me and deleted afterwards) or, failing that, in the snapshots; what couldn't be seen is listed under "Not verified" below

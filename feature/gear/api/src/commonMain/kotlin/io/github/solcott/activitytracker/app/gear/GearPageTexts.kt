@@ -25,7 +25,10 @@ import kotlinx.datetime.toLocalDateTime
 /**
  * What the gear item page says that follows a rule, chosen here for the shared and the native UI (dev/shared-display-text, gear/gear-usage,
  * gear/gear-components). Numbers are formatted here, so ui/number-format holds wherever the text is shown.
+ *
+ * One function per line the page shows, so both UIs ask the same one: splitting it would only split the page.
  */
+@Suppress("TooManyFunctions")
 object GearPageTexts {
     /** An item's kind within its type, or its type when it has none: "Gravel", "Chain", "Helmet". */
     fun kindLine(gear: GearView): AppText = kindOrType(gear.type, gear.kind)
