@@ -2079,11 +2079,11 @@
     <string name="gear_page_bottom_time">Bottom time</string>
     <string name="gear_page_activity_count">Activities</string>
     <string name="gear_total_none">No activities yet</string>
-    <string name="gear_total_hours">%1$s h</string>
+    <string name="gear_total_hours">%1$d h</string>
     <string name="gear_total_joined">%1$s · %2$s</string>
     <plurals name="gear_total_days">
-        <item quantity="one">%1$s day</item>
-        <item quantity="other">%1$s days</item>
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
     </plurals>
     <plurals name="gear_total_dives">
         <item quantity="one">%1$s dive</item>
@@ -2322,18 +2322,7 @@
     <string name="uploads_imports_paused">Imports paused by you</string>
     <string name="uploads_server_paused">Uploads paused by the server until %1$s</string>
     <string name="uploads_server_paused_tomorrow">Uploads paused by the server until tomorrow at %1$s</string>
-    <plurals name="uploads_time_left_minutes">
-        <item quantity="one">About %1$d min left</item>
-        <item quantity="other">About %1$d min left</item>
-    </plurals>
-    <plurals name="uploads_time_left_hours">
-        <item quantity="one">About %1$d h left</item>
-        <item quantity="other">About %1$d h left</item>
-    </plurals>
-    <plurals name="uploads_time_left_days">
-        <item quantity="one">About %1$d day left</item>
-        <item quantity="other">About %1$d days left</item>
-    </plurals>
+    <string name="uploads_time_left">About %1$s left</string>
     <string name="uploads_open_only">Uploads continue only while the app is open.</string>
     <string name="uploads_uploading_now">Uploading now</string>
     <string name="uploads_yours">Your activities</string>
@@ -2357,6 +2346,7 @@
         <item quantity="one">%1$d refused</item>
         <item quantity="other">%1$d refused</item>
     </plurals>
+    <string name="uploads_import_counts">%1$s · %2$s</string>
     <plurals name="uploads_import_skipped">
         <item quantity="one">%1$d skipped</item>
         <item quantity="other">%1$d skipped</item>
@@ -2375,7 +2365,7 @@
     <string name="uploads_source_export">%1$s export</string>
     <string name="uploads_source_exports">%1$s exports</string>
     <string name="uploads_source_exports_unknown">Account export</string>
-    <string name="uploads_list_separator">, </string>
+    <string name="uploads_list_pair">%1$s, %2$s</string>
     <string name="uploads_list_last">%1$s and %2$s</string>
     <plurals name="uploads_source_files">
         <item quantity="one">%1$s and %2$d more</item>

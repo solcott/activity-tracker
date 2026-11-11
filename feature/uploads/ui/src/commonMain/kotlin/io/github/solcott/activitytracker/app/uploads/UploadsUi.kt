@@ -17,14 +17,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.detail.FigureValue
-import io.github.solcott.activitytracker.app.detail.startTime
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -37,32 +36,23 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_confirm
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_message
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest
-import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_message
-import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_message_saving
-import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_named
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_title
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_title
 import io.github.solcott.activitytracker.composeApp.resources.uploads_clear
 import io.github.solcott.activitytracker.composeApp.resources.uploads_clear_description
 import io.github.solcott.activitytracker.composeApp.resources.uploads_empty
 import io.github.solcott.activitytracker.composeApp.resources.uploads_finished
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_progress
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_refused
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_saved
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_saving
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_skipped
-import io.github.solcott.activitytracker.composeApp.resources.uploads_import_stopped
 import io.github.solcott.activitytracker.composeApp.resources.uploads_imports_paused
 import io.github.solcott.activitytracker.composeApp.resources.uploads_keep
 import io.github.solcott.activitytracker.composeApp.resources.uploads_open_only
 import io.github.solcott.activitytracker.composeApp.resources.uploads_pause_imports
 import io.github.solcott.activitytracker.composeApp.resources.uploads_refused_other
 import io.github.solcott.activitytracker.composeApp.resources.uploads_resume_imports
-import io.github.solcott.activitytracker.composeApp.resources.uploads_show_all
 import io.github.solcott.activitytracker.composeApp.resources.uploads_title
 import io.github.solcott.activitytracker.composeApp.resources.uploads_uploading_now
 import io.github.solcott.activitytracker.composeApp.resources.uploads_yours
@@ -72,7 +62,6 @@ import io.github.solcott.activitytracker.data.activity.UploadQueueView
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.StringResource
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -83,7 +72,6 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun UploadsUi(state: UploadsState, modifier: Modifier = Modifier) {
     val scrollBehavior = rememberAppTopBarScrollBehavior()
-    val view = state.content.data
     AppScaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -92,12 +80,12 @@ fun UploadsUi(state: UploadsState, modifier: Modifier = Modifier) {
                 onBack = { state.eventSink(UploadsEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    if (view != null) {
+                    if (state.showsClear) {
                         val description = stringResource(Res.string.uploads_clear_description)
                         AppTextButton(
                             onClick = { state.eventSink(UploadsEvent.ClearFinished) },
                             Modifier.semantics { contentDescription = description },
-                            enabled = view.hasFinished && !state.clearing,
+                            enabled = state.canClear,
                         ) {
                             Text(stringResource(Res.string.uploads_clear))
                         }
@@ -126,7 +114,7 @@ private fun QueueList(state: UploadsState, view: UploadQueueView, padding: Paddi
             item(key = "refresh") {
                 RefreshStatus(state.content, UiError.Kind.LoadUploads, onRetry = { state.eventSink(UploadsEvent.Retry) })
             }
-            banners(state, view)
+            banners(state)
             view.current?.let { current ->
                 header("current", Res.string.uploads_uploading_now)
                 item(key = "current:${current.id}") { ItemRow(current, state) }
@@ -154,9 +142,8 @@ private fun QueueList(state: UploadsState, view: UploadQueueView, padding: Paddi
 }
 
 /** The pauses, the time left, where uploads go on, and why the last action failed. */
-private fun LazyListScope.banners(state: UploadsState, view: UploadQueueView) {
+private fun LazyListScope.banners(state: UploadsState) {
     state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
-    val importing = view.imports.any { it.live.isNotEmpty() }
     if (state.importsPaused) {
         item(key = "paused") {
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -166,7 +153,7 @@ private fun LazyListScope.banners(state: UploadsState, view: UploadQueueView) {
                 }
             }
         }
-    } else if (importing) {
+    } else if (state.showsPauseImports) {
         item(key = "pause") {
             AppSecondaryButton(
                 onClick = { state.eventSink(UploadsEvent.PauseImports) },
@@ -177,8 +164,8 @@ private fun LazyListScope.banners(state: UploadsState, view: UploadQueueView) {
             }
         }
     }
-    state.serverPausedUntil?.let { until -> item(key = "serverPaused") { Note(serverPausedUntil(until)) } }
-    state.timeLeft?.let { left -> item(key = "timeLeft") { Note(timeLeft(left)) } }
+    if (state.serverPausedUntil != null) item(key = "serverPaused") { serverPaused(state)?.let { Note(it) } }
+    UploadsTexts.timeLeft(state)?.let { left -> item(key = "timeLeft") { Note(left.string()) } }
     if (state.isOpenOnly) item(key = "openOnly") { Note(stringResource(Res.string.uploads_open_only)) }
 }
 
@@ -189,14 +176,10 @@ private fun LazyListScope.header(key: String, title: StringResource) {
 /** An import's header, its live items (the first [UploadsState.IMPORT_PREVIEW] until Show all), then its finished ones. */
 private fun LazyListScope.importGroup(group: UploadImport, state: UploadsState) {
     item(key = "import:${group.id}") { ImportHeader(group, state) }
-    val expanded = group.id in state.expandedImports
-    val live = if (expanded) group.live else group.live.take(UploadsState.IMPORT_PREVIEW)
-    items(live, key = { "import:${group.id}:${it.id}" }) { ItemRow(it, state) }
-    if (!expanded && group.live.size > UploadsState.IMPORT_PREVIEW) {
+    items(state.shownLive(group), key = { "import:${group.id}:${it.id}" }) { ItemRow(it, state) }
+    if (state.showsShowAll(group)) {
         item(key = "import:${group.id}:showAll") {
-            AppTextButton(onClick = { state.eventSink(UploadsEvent.ShowAll(group.id)) }) {
-                Text(stringResource(Res.string.uploads_show_all, grouped(group.live.size)))
-            }
+            AppTextButton(onClick = { state.eventSink(UploadsEvent.ShowAll(group.id)) }) { Text(UploadImportTexts.showAll(group).string()) }
         }
     }
     items(group.finished, key = { "import:${group.id}:finished:${it.id}" }) { ItemRow(it, state) }
@@ -206,36 +189,27 @@ private fun LazyListScope.importGroup(group: UploadImport, state: UploadsState) 
 private fun ImportHeader(group: UploadImport, state: UploadsState) {
     Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val source = sourceName(group.source)
-            Text(source, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            if (group.save is ImportSaveStatus.Saving || group.live.any { it.cancellable }) {
-                val description = stringResource(Res.string.uploads_cancel_rest_named, source)
+            Text(UploadImportTexts.source(group.source).string(), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            if (state.offersCancelRest(group)) {
+                val description = UploadImportTexts.cancelRest(group).string()
                 AppTextButton(
                     onClick = { state.eventSink(UploadsEvent.CancelRest(group.id)) },
                     Modifier.semantics { contentDescription = description },
-                    enabled = group.id !in state.busy,
+                    enabled = !state.isBusy(group.id),
                 ) {
                     Text(stringResource(Res.string.uploads_cancel_rest))
                 }
             }
         }
-        Detail(stringResource(Res.string.uploads_import_saved, startTime(FigureValue.StartTime(group.savedAt.epochSeconds, null, false))))
-        when (val save = group.save) {
-            is ImportSaveStatus.Saving -> Text(stringResource(Res.string.uploads_import_saving, grouped(save.done), grouped(save.total)))
-            is ImportSaveStatus.Stopped ->
-                Text(
-                    stringResource(Res.string.uploads_import_stopped, grouped(save.saved), grouped(save.total)),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            null -> Unit
-        }
-        Text(stringResource(Res.string.uploads_import_progress, grouped(group.uploaded), grouped(group.saved)))
-        val counts =
-            listOfNotNull(
-                group.refused.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.uploads_import_refused, it, it) },
-                group.skipped.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.uploads_import_skipped, it, it) },
+        Detail(saved(group))
+        UploadImportTexts.saveStatus(group)?.let { save ->
+            Text(
+                save.string(),
+                color = if (group.save is ImportSaveStatus.Stopped) MaterialTheme.colorScheme.error else Color.Unspecified,
             )
-        if (counts.isNotEmpty()) Detail(counts.joinToString(" · "))
+        }
+        Text(UploadImportTexts.progress(group).string())
+        UploadImportTexts.counts(group)?.let { Detail(it.string()) }
     }
 }
 
@@ -256,10 +230,9 @@ private fun Confirmations(state: UploadsState) {
         )
     }
     state.confirmingCancelRest?.let { batchId ->
-        val saving = state.content.data?.imports?.find { it.id == batchId }?.save is ImportSaveStatus.Saving
         AppAlertDialog(
             title = stringResource(Res.string.uploads_cancel_rest_title),
-            message = stringResource(if (saving) Res.string.uploads_cancel_rest_message_saving else Res.string.uploads_cancel_rest_message),
+            message = UploadsTexts.cancelRestMessage(state).string(),
             actions =
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.uploads_cancel_rest), destructive = true) {

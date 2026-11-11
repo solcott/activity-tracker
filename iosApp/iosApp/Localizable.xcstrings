@@ -22760,6 +22760,17 @@
         }
       }
     },
+    "uploads_import_counts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "uploads_import_progress" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -22903,13 +22914,13 @@
         }
       }
     },
-    "uploads_list_separator" : {
+    "uploads_list_pair" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ", "
+            "value" : "%1$@, %2$@"
           }
         }
       }
@@ -23134,101 +23145,13 @@
         }
       }
     },
-    "uploads_time_left_days" : {
+    "uploads_time_left" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%#@quantity@"
-          },
-          "substitutions" : {
-            "quantity" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ day left"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ days left"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "uploads_time_left_hours" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@quantity@"
-          },
-          "substitutions" : {
-            "quantity" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ h left"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ h left"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "uploads_time_left_minutes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@quantity@"
-          },
-          "substitutions" : {
-            "quantity" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ min left"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "About %2$@ min left"
-                    }
-                  }
-                }
-              }
-            }
+            "value" : "About %1$@ left"
           }
         }
       }
