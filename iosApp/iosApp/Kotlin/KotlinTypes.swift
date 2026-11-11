@@ -67,6 +67,23 @@ typealias AuthPackage = ExportedKotlinPackages.io.github.solcott.activitytracker
 typealias GrantStatus = AuthPackage.GrantStatus
 typealias ExportArchive = ExportedKotlinPackages.io.github.solcott.activitytracker.data.export.ExportArchive
 
+// Training zones, threshold history and Privacy zones, still the shared UI's: what a native page will read, which `ZonesContractsTests`
+// reads now. `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`' functions name them (dev/ios-swift-interop).
+typealias TrainingZonesState = SettingsPackage.TrainingZonesState
+typealias TrainingZones = SettingsPackage.TrainingZones
+typealias ZoneSummary = SettingsPackage.ZoneSummary
+typealias SportZonesState = SettingsPackage.SportZonesState
+typealias ZoneKindOption = SettingsPackage.ZoneKindOption
+typealias ZoneTexts = SettingsPackage.ZoneTexts
+typealias ThresholdHistoryState = SettingsPackage.ThresholdHistoryState
+typealias ThresholdHistoryGroup = SettingsPackage.ThresholdHistoryGroup
+typealias ThresholdHistorySection = SettingsPackage.ThresholdHistorySection
+typealias PrivacyZonesState = SettingsPackage.PrivacyZonesState
+typealias TrainingPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.data.training
+typealias ZoneKind = TrainingPackage.ZoneKind
+typealias Zone = TrainingPackage.Zone
+typealias PrivacyZone = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.PrivacyZone
+
 // Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules, the gear pages they open, and the
 // follow lists and requests a profile opens.
 typealias GearPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.gear

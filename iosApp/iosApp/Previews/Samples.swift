@@ -34,11 +34,11 @@
         static var followRequestsVariants: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.variants }
 
         /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
-        static var privacyZones: [String: SettingsPackage.PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
-        static var trainingZones: [String: SettingsPackage.TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
-        static var thresholdHistory: [String: SettingsPackage.ThresholdHistoryState] {
-            SettingsPackage.ThresholdHistorySamples.shared.all
-        }
+        static var privacyZones: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
+        static var trainingZones: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
+        static var thresholdHistory: [String: ThresholdHistoryState] { SettingsPackage.ThresholdHistorySamples.shared.all }
+        static var thresholdHistoryVariants: [String: ThresholdHistoryState] { SettingsPackage.ThresholdHistorySamples.shared.variants }
+        static var sportZones: [String: SportZonesState] { SettingsPackage.SportZonesSamples.shared.all }
 
         /// A paged list in each state of ui/content-loading, around items a test gives.
         static let pagedStates = ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.PagedStates.shared
