@@ -11,6 +11,13 @@ class ActivityTrackerRuleSetProvider : RuleSetProvider {
     override fun instance() =
         RuleSet(
             ruleSetId,
-            listOf(::UseTextFieldState, ::UseAppTextFieldState, ::UseSingleFlight, ::UseAdaptiveComponents, ::NoSystemClockInUi),
+            listOf(
+                ::UseTextFieldState,
+                ::UseAppTextFieldState,
+                ::UseSingleFlight,
+                ::UseAdaptiveComponents,
+                ::NoSystemClockInUi,
+                ::NoPairInApi,
+            ),
         )
 }

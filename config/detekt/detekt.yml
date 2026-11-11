@@ -72,3 +72,6 @@ activitytracker:
   # UIs (*Ui.kt) read LocalClock and LocalTimeZone, not the system clock or time zone, so previews and tests can fix them.
   NoSystemClockInUi:
     active: true
+  # Pair and Triple stay out of non-private signatures: a data class names what the values are, and Swift export can bridge it.
+  NoPairInApi:
+    active: true
