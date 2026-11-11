@@ -70,6 +70,11 @@ extension ScreenRegistry {
         registry.register(DiveSiteRegularsScreen.self, DiveSiteRegularsState.self) { state in DiveSiteRegularsView(state: state) }
         // Edit profile (profile/private-details), pushed over the athlete's own profile.
         registry.register(EditProfileScreen.self, EditProfileState.self) { state in EditProfileView(state: state) }
+        // The zones pages (ios-native-zones-pages).
+        registry.register(TrainingZonesScreen.self, TrainingZonesState.self) { state in TrainingZonesView(state: state) }
+        registry.register(ZonesScreen.self, ZonesState.self) { state in ZonesView(state: state) }
+        registry.register(SportZonesScreen.self, SportZonesState.self) { state in SportZonesView(state: state) }
+        registry.register(PrivacyZonesScreen.self, PrivacyZonesState.self) { state in PrivacyZonesView(state: state) }
         return registry
     }()
 }

@@ -24,32 +24,15 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
-import io.github.solcott.activitytracker.composeApp.resources.sport_zones_default
-import io.github.solcott.activitytracker.composeApp.resources.sport_zones_help
-import io.github.solcott.activitytracker.composeApp.resources.sport_zones_remove
-import io.github.solcott.activitytracker.composeApp.resources.sport_zones_threshold_pace
 import io.github.solcott.activitytracker.composeApp.resources.sport_zones_threshold_power
-import io.github.solcott.activitytracker.composeApp.resources.sport_zones_title
-import io.github.solcott.activitytracker.composeApp.resources.zones_heart_rate_heading
 import io.github.solcott.activitytracker.composeApp.resources.zones_max_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.zones_pace_faster
-import io.github.solcott.activitytracker.composeApp.resources.zones_pace_range
-import io.github.solcott.activitytracker.composeApp.resources.zones_pace_slower
-import io.github.solcott.activitytracker.composeApp.resources.zones_power_heading
-import io.github.solcott.activitytracker.composeApp.resources.zones_speed_heading
 import io.github.solcott.activitytracker.composeApp.resources.zones_threshold_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_thresholds_heading
-import io.github.solcott.activitytracker.composeApp.resources.zones_unit_bpm
-import io.github.solcott.activitytracker.composeApp.resources.zones_unit_watts
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.training.PaceText
-import io.github.solcott.activitytracker.data.training.PaceUnit
-import io.github.solcott.activitytracker.data.training.ThresholdInput
-import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneKind
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import org.jetbrains.compose.resources.stringResource
@@ -58,12 +41,11 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
     val scrollBehavior = rememberAppTopBarScrollBehavior()
-    val sport = sportLabel(state.sport)
     AppScaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(Res.string.sport_zones_title, sport),
+                title = SportZonesTexts.title(state.sport).string(),
                 onBack = { state.eventSink(SportZonesEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -72,88 +54,70 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
         ContentStateLayout(state.content, UiError.Kind.LoadProfile, { state.eventSink(SportZonesEvent.Retry) }, contentPadding = padding) {
             ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(Res.string.sport_zones_help, sport), style = MaterialTheme.typography.bodySmall)
-                val paceUnit = paceUnitLabel(state.paceUnit)
+                Text(SportZonesTexts.help(state.sport).string(), style = MaterialTheme.typography.bodySmall)
                 if (state.offers(ZoneKind.Speed)) {
                     SportThresholdField(
                         state,
                         state.thresholdPace,
-                        stringResource(Res.string.sport_zones_threshold_pace, paceUnit),
-                        default = null,
-                        valid = ThresholdInput.isValidPace(state.thresholdPace.text.toString(), state.paceUnit),
+                        ZoneThreshold.Pace,
+                        SportZonesTexts.paceLabel(state.paceUnit).string(),
                         keyboard = KeyboardType.Text,
                     )
                 }
                 SportThresholdField(
                     state,
                     state.thresholdHeartRate,
+                    ZoneThreshold.ThresholdHeartRate,
                     stringResource(Res.string.zones_threshold_heart_rate),
-                    state.defaults.thresholdHeartRate,
-                    ThresholdInput.isValidHeartRate(state.thresholdHeartRate.text.toString()),
                 )
-                SportThresholdField(
-                    state,
-                    state.maxHeartRate,
-                    stringResource(Res.string.zones_max_heart_rate),
-                    state.defaults.maxHeartRate,
-                    ThresholdInput.isValidHeartRate(state.maxHeartRate.text.toString()),
-                )
+                SportThresholdField(state, state.maxHeartRate, ZoneThreshold.MaxHeartRate, stringResource(Res.string.zones_max_heart_rate))
                 if (state.offers(ZoneKind.Power)) {
                     SportThresholdField(
                         state,
                         state.functionalThresholdPower,
+                        ZoneThreshold.Power,
                         stringResource(Res.string.sport_zones_threshold_power),
-                        state.defaults.functionalThresholdPower,
-                        ThresholdInput.isValidPower(state.functionalThresholdPower.text.toString()),
                     )
                 }
                 if (state.offers(ZoneKind.Speed)) {
                     HorizontalDivider()
                     ZoneSection(
-                        heading = stringResource(Res.string.zones_speed_heading),
+                        kind = ZoneKind.Speed,
                         model = state.speedModel,
                         models = state.speedModels,
                         zones = state.speedZones,
                         enabled = state.loaded,
                         onPick = { state.eventSink(SportZonesEvent.SpeedModelChanged(it)) },
-                    ) {
-                        paceRange(it, state.paceUnit, paceUnit)
-                    }
+                        paceUnit = state.paceUnit,
+                    )
                 }
                 HorizontalDivider()
                 ZoneSection(
-                    heading = stringResource(Res.string.zones_heart_rate_heading),
+                    kind = ZoneKind.HeartRate,
                     model = state.heartRateModel,
                     models = state.heartRateModels,
                     zones = state.heartRateZones,
                     enabled = state.loaded,
                     onPick = { state.eventSink(SportZonesEvent.HeartRateModelChanged(it)) },
-                ) {
-                    numberRange(it, stringResource(Res.string.zones_unit_bpm))
-                }
+                )
                 if (state.offers(ZoneKind.Power)) {
                     HorizontalDivider()
                     ZoneSection(
-                        heading = stringResource(Res.string.zones_power_heading),
+                        kind = ZoneKind.Power,
                         model = state.powerModel,
                         models = state.powerModels,
                         zones = state.powerZones,
                         enabled = state.loaded,
                         onPick = { state.eventSink(SportZonesEvent.PowerModelChanged(it)) },
-                    ) {
-                        numberRange(it, stringResource(Res.string.zones_unit_watts))
-                    }
+                    )
                 }
                 state.error?.let { ErrorText(it) }
-                AppButton(
-                    onClick = { state.eventSink(SportZonesEvent.Save) },
-                    enabled = state.loaded && state.valid && !state.saving,
-                ) {
+                AppButton(onClick = { state.eventSink(SportZonesEvent.Save) }, enabled = state.canSave) {
                     Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                 }
                 if (state.saved) {
                     AppSecondaryButton(onClick = { state.eventSink(SportZonesEvent.Remove) }, enabled = !state.saving) {
-                        Text(stringResource(Res.string.sport_zones_remove, sport))
+                        Text(SportZonesTexts.remove(state.sport).string())
                     }
                 }
             }
@@ -161,14 +125,13 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
     }
 }
 
-/** A threshold field; blank, it shows the [default] it falls back to. */
+/** A threshold field; blank, it shows the default it falls back to. */
 @Composable
 private fun SportThresholdField(
     state: SportZonesState,
     field: TextFieldState,
+    threshold: ZoneThreshold,
     label: String,
-    default: Long?,
-    valid: Boolean,
     modifier: Modifier = Modifier,
     keyboard: KeyboardType = KeyboardType.Number,
 ) {
@@ -177,26 +140,9 @@ private fun SportThresholdField(
         modifier = modifier.fillMaxWidth(),
         enabled = state.loaded,
         label = label,
-        placeholder = default?.let { stringResource(Res.string.sport_zones_default, it.toString()) },
-        isError = !valid,
+        placeholder = SportZonesTexts.defaultHint(state, threshold)?.string(),
+        isError = !state.isValid(threshold, field.text.toString()),
         keyboardOptions = KeyboardOptions(keyboardType = keyboard),
         lineLimits = TextFieldLineLimits.SingleLine,
     )
-}
-
-/** A speed zone as paces, slowest first: "10:35–9:21 /mi", with open ends for the first and last zones. */
-@Composable
-internal fun paceRange(zone: Zone, unit: PaceUnit, unitLabel: String): String {
-    val high = zone.high
-    return when {
-        zone.low == 0 && high != null -> stringResource(Res.string.zones_pace_slower, PaceText.format(high + 1L, unit), unitLabel)
-        high == null -> stringResource(Res.string.zones_pace_faster, PaceText.format(zone.low.toLong(), unit), unitLabel)
-        else ->
-            stringResource(
-                Res.string.zones_pace_range,
-                PaceText.format(zone.low.toLong(), unit),
-                PaceText.format(high + 1L, unit),
-                unitLabel,
-            )
-    }
 }

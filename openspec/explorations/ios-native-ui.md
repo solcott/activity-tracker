@@ -194,8 +194,8 @@ Each phase leaves a shippable app.
      sign in again (`SignInAgainNotice` in `:app-common-api`, which the shared `signInAgainItem` asks for Follow requests, Activity
      invites and Add people). Left for later changes: the profile itself, Search with the segment browse screen, and the invites pages,
      which can build on `SignInAgainNotice`.
-   - **The zones contracts** (`ios-zones-contracts`). No page goes native: Training zones, threshold history and Privacy zones wait for
-     native charts and a map. Their contracts now read from Swift without a crash or an opaque element: the zone kinds are a list of
+   - **The zones contracts** (`ios-zones-contracts`). No page goes native. (It said Training zones and Privacy zones wait for native
+     charts and a map; they don't, and are native since `ios-native-zones-pages`: only threshold history draws a chart.) Their contracts now read from Swift without a crash or an opaque element: the zone kinds are a list of
      `ZoneKindOption` (with `offers(kind)`, which the shared pages ask), `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`'
      functions name them (a zone's label and a privacy zone's name, which the shared pages ask too), and `shownRows` is a copy.
      `ZonesContractsTests` reads every blocker typed over the samples. Left for later changes: the pages themselves, and with them a
@@ -255,6 +255,18 @@ Each phase leaves a shippable app.
      `bio`. Limits count and hold Save back without refusing typing, as shared. What the form says and decides is Kotlin's
      (`EditProfileTexts`, `EditProfileLimits`, getters on the state), which the Compose form asks. Left for later changes: the profile
      itself, with the feed's card.
+   - **The zones pages** (`ios-native-zones-pages`). Training zones is an inset grouped list (`TrainingZonesView`): who sees the zones,
+     threshold history (still the shared page, the only one of them with a chart), each set of zones under its heading with Edit, its
+     threshold lines and its zones, and Add a sport as a menu. The default and a sport's zones are grouped forms (`ZonesView`,
+     `SportZonesView`) with Save in the bar, each threshold a form row from the `ZoneThreshold` enum (its token, digits-only rule and
+     length), a sport's blank one hinting its default (`AppTextField`'s new `hint`), each model an `AppPickerRow` over its zones; beside
+     Settings' list they are the column's second page, with a back button to Training zones. Privacy zones is a grouped form
+     (`PrivacyZonesView`): each zone's radius as a menu labelled by its name, removed by a swipe, a zone added where a phone is, and the
+     hidden start and end; no centre is shown, so no map is needed. A digits-only field now keeps an edit's digits rather than refusing
+     it whole, so a digit typed right after a letter is kept (the gear weight's open item). What the pages say and decide is Kotlin's
+     (`ZoneTexts`' name, range, heading, model, basis and missing input, `TrainingZonesTexts` with its `ZoneThresholdLine`s,
+     `SportZonesTexts`, `PrivacyZonesTexts`, `ZoneNameText` in `:app-common-api`, which the activity charts' time in zone asks too, and
+     getters on the four states), which the Compose pages ask too. Left for later changes: threshold history, with the native charts.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -823,6 +835,20 @@ generated Swift, before the getters or the view were written:
 - **A plain `List` of a class crosses both ways.** A Kotlin function taking and returning `List<PickedPhoto>` took a Swift array and
   returned a typed `Array<PickedPhoto>`, reversed; an empty one came back empty. So the country search takes and returns arrays.
 
+### Phase 4 probes (zones pages, `ios-native-zones-pages`, 2026-11-10)
+
+Training zones, the default and sport zones forms and Privacy zones need no chart or map: their pages are lists, menus and number
+fields. Asked with a throwaway Swift test on a simulator made for the change (iPhone 17, iOS 26.0), over the shared samples:
+
+- **The zone models read typed.** `ZonesState.heartRateModels.elements(as: ZoneModel.self)` gives the five heart rate models with their
+  tokens, and `basis` reads as Swift's enum (`.ThresholdHeartRate`), since the states' own `heartRateModel` property names the class.
+  `Zone.name` already read as its enum (`ios-zones-contracts`).
+- **A `:core-data` enum with a property reads whole.** `SportZonesState.paceUnit` is `.PerKilometer` with `meters` 1000.0, and
+  `defaults.maxHeartRate` an `Int64?` (190): a contract enum carrying a token and limits can name a field for Swift.
+- **A digit typed in a burst after a refused letter is lost.** Driving `TextFieldModel` as the field does when keystrokes arrive before
+  the refusal's redraw (`"9"`, `"9a"`, then `"9a5"`) under digits only leaves `"9"` with two refusals: the second edit holds the refused
+  letter too, so the 5 goes with it. This is the gear weight's open item; this change makes digits only keep an edit's digits.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1210,6 +1236,33 @@ What building the host and the shell on Swift export showed, beyond the probes:
   showed the saved photo from its URL; the public-until-now warning showed beside the Followers note and went once the country was
   unset. Every value was put back and saved, and the profile read as before.
 
+### Phase 4 findings (zones pages, `ios-native-zones-pages`)
+
+- **None of the four pages needed a chart or a map.** Training zones lists numbers and zones, the two forms are number rows and menus,
+  and Privacy zones names each zone with a radius menu and never shows its centre (the shared page doesn't either). Only threshold
+  history draws a chart; it stays the shared UI's, opened from the native Training zones.
+- **A contract enum names a field for Swift.** `ZoneThreshold` (each zones field's `Threshold` token, digits rule and length, and
+  `isValid(text, paceUnit)`) is a parameter and property Swift reads as its own enum, so no view needs `Threshold`'s strings or
+  `ThresholdInput`, which Swift has no type for. The pace's length is the longest pace `PaceText` writes at the lexicon's slowest speed
+  (6 characters), the heart rates' and power's the digits of their maxima.
+- **A text function returning a plain `List` of a contract class reads as a typed array** (`TrainingZonesTexts.thresholds`, a list of
+  `ZoneThresholdLine`): the rule that only an empty persistent list fails holds for function results too.
+- **Save over Kotlin fields needs the view to read the models.** `canSave` reads the Kotlin text states, which SwiftUI doesn't observe;
+  the forms read each `TextFieldModel`'s text in their body first, and validity is asked with the text the view holds
+  (`isValid(threshold, text)`), as Leave asks `canLeave(typed)`.
+- **A snapshot is at most 2,730 points tall.** At three pixels a point an image of 3,500 points (10,500 pixels) came back blank; the
+  renderer's limit is 8,192 pixels. A sample whose whole page is longer is split (Training zones: one sport per variant).
+- **A section header's text is bold on iOS 26.** A help paragraph placed as a header, as the zones forms and Privacy zones open with
+  theirs, needs the subheadline in regular weight, or it reads as a heading.
+- **A row of three texts wraps the wrong one.** With the range kept on its line, a long zone name broke mid-word ("Recov-ery") on a
+  phone; `ZoneRows.ZoneRow` draws one line when everything fits (`ViewThatFits`) and puts the range under the name otherwise.
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** A burst "17a0" read
+  "170"; an out-of-range max turned red and greyed Save as typed; a Run override was saved, seen, given and taken back a visibility, and
+  removed; beside Settings' list the default zones were the column's second page with a back button; Privacy zones changed its hidden
+  distance and put it back. Removing a sport leaves its values in the threshold history (shared data, not this change), so Training
+  zones keeps offering visibility and history until they are removed there. A privacy zone was added at the simulator's location
+  (set with `simctl location`, since a simulator has none by default), its radius changed and put back, and removed by its swipe.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1252,9 +1305,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   needs anyway. A new contract with such a list needs the same.
 - ~~`ThresholdHistorySection.shownRows` returns its immutable `rows` as a `List` when all are shown~~: done (`ios-zones-contracts`), a
   copy. Only an empty persistent list stops the app through a `List` getter, and a threshold always has a row, so it never could have.
-- Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map. Their contracts
-  are ready (`ZonesContractsTests`); a zone row's name (`zoneName`, shared with the activity charts' time in zone) and its range (units
-  and paces) are still chosen in composables and move to `AppText` with the native page.
+- ~~Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map~~: neither
+  needed (`ios-native-zones-pages`). Training zones, the default and sport zones and Privacy zones are native, and a zone row's name and
+  range are `AppText` (`ZoneNameText`, `ZoneTexts.range`). Threshold history is still the shared UI's: it draws a chart per threshold.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
@@ -1264,10 +1317,13 @@ What building the host and the shell on Swift export showed, beyond the probes:
   loads, showed every saved value on a device (`ios-native-gear-editors`).
 - A SwiftUI `TextField` keeps showing a refused edit until its view is redrawn. `AppTextField` redraws on a refusal; on the gear form's
   weight (digits only, `ios-native-gear-editors`) a refused letter is put back, but a digit typed in the same burst right after it was lost
-  too, since it arrived as part of the refused text. Typed alone it is taken. Accepting the edit with the refused characters taken out
-  would keep it, at the cost of the rule that a refusal never rewrites what was typed; decide with the next digits-only field.
+  too, since it arrived as part of the refused text. Decided (`ios-native-zones-pages`): a digits-only field keeps an edit's digits and
+  drops the rest, so that digit is kept; an edit over the maximum length is still refused whole, since cutting it would make another
+  number.
 - The iOS `Release` configuration exports different Kotlin from `Debug` (no `:app-fixtures`). CI builds Debug only, so a break
-  that only a release build has would first show in an archive build.
+  that only a release build has would first show in an archive build. It has: since `ios-native-uploads`, `KotlinTypes.swift`'s
+  `UploadQueueView` alias doesn't compile in Release, since only the samples name that `:core-data` class (found by
+  `ios-native-zones-pages`); an `-api` signature naming it would fix it, as `ActivityInvitesTexts` does for `InviteView`.
 - Snapshot references are true for iOS 26.0 simulators. CI's simulator is the newest the runner has, so CI compares them only when
   that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.

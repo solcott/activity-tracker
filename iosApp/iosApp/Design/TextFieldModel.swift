@@ -8,7 +8,9 @@ protocol FieldText: AnyObject {
 
 extension KotlinTextFieldState: FieldText {}
 
-/// What a field refuses. An edit that breaks a rule leaves the text as it was, so a rule never rewrites what was typed.
+/// What a field takes of an edit (ui/ios-design-system). A digits-only field keeps an edit's digits and drops the rest, so a digit typed
+/// right after a refused character is kept with the edit that carries both; an edit longer than the maximum, digits or not, leaves the
+/// text as it was, since cutting it short would make another value.
 struct TextFieldRules: Equatable {
     /// Only the digits 0 to 9, as a count or a year takes.
     var digitsOnly = false
@@ -16,11 +18,15 @@ struct TextFieldRules: Equatable {
     /// The most characters the field holds, counted as the athlete sees them.
     var maxLength: Int?
 
-    func accepts(_ text: String) -> Bool {
-        if digitsOnly, !text.allSatisfy({ $0.isASCII && $0.isNumber }) { return false }
-        if let maxLength, text.count > maxLength { return false }
-        return true
+    /// What the field keeps of `text`: the text itself, its digits alone for a digits-only field, or nil when the edit is refused.
+    func taken(_ text: String) -> String? {
+        let kept = digitsOnly ? String(text.filter { $0.isASCII && $0.isNumber }) : text
+        if let maxLength, kept.count > maxLength { return nil }
+        return kept
     }
+
+    /// Whether `text` is taken as it is.
+    func accepts(_ text: String) -> Bool { taken(text) == text }
 }
 
 /// The text a SwiftUI field shows, kept the same as a Kotlin text field state in both directions.
@@ -32,7 +38,8 @@ struct TextFieldRules: Equatable {
 final class TextFieldModel {
     private(set) var text: String
 
-    /// Counts refused edits. A view reads it so that a refusal, which leaves `text` as it was, still redraws the field over what was typed.
+    /// Counts edits the rules refused or cut. A view reads it so that one, which leaves `text` other than what was typed, still redraws the
+    /// field over it.
     private(set) var refusals = 0
 
     var rules: TextFieldRules
@@ -45,15 +52,18 @@ final class TextFieldModel {
         text = state.value
     }
 
-    /// The field's edit: taken and written to the state, or refused by a rule.
+    /// The field's edit: taken and written to the state, what the rules keep of it, or refused. Whenever the rules drop or refuse
+    /// something the field shows, it counts a refusal, so the field is redrawn over what was typed.
     func edit(_ edited: String) {
         guard edited != text else { return }
-        guard rules.accepts(edited) else {
+        guard let taken = rules.taken(edited) else {
             refusals += 1
             return
         }
-        text = edited
-        state.value = edited
+        if taken != edited { refusals += 1 }
+        guard taken != text else { return }
+        text = taken
+        state.value = taken
     }
 
     /// Shows what the state holds now, when that isn't what the field shows: a presenter seeded, cleared or restored it.

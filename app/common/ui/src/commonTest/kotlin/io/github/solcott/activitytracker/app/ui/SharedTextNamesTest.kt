@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -21,6 +22,7 @@ import io.github.solcott.activitytracker.composeApp.resources.allDrawableResourc
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
@@ -146,6 +148,11 @@ class SharedTextNamesTest {
                 RankBoardTexts.scope(LeaderboardScope.EVERYONE).options.map { it.label } +
                 RankBoardTexts.reached(DateText.isoDate("2026-10-26"))
         assertAllExist(texts)
+    }
+
+    @Test
+    fun everyZoneNameNamesAString() {
+        assertAllExist(ZoneName.entries.map(ZoneNameText::of))
     }
 
     @Test

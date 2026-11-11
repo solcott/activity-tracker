@@ -73,21 +73,39 @@ typealias AuthPackage = ExportedKotlinPackages.io.github.solcott.activitytracker
 typealias GrantStatus = AuthPackage.GrantStatus
 typealias ExportArchive = ExportedKotlinPackages.io.github.solcott.activitytracker.data.export.ExportArchive
 
-// Training zones, threshold history and Privacy zones, still the shared UI's: what a native page will read, which `ZonesContractsTests`
-// reads now. `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`' functions name them (dev/ios-swift-interop).
+// Training zones, the default and sport zones forms and Privacy zones (ios-native-zones-pages), what they say and limit, and the
+// training types they read; threshold history, still the shared UI's. `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`'
+// functions name them (dev/ios-swift-interop).
+typealias TrainingZonesScreen = SettingsPackage.TrainingZonesScreen
 typealias TrainingZonesState = SettingsPackage.TrainingZonesState
+typealias TrainingZonesEvent = SettingsPackage.TrainingZonesEvent
 typealias TrainingZones = SettingsPackage.TrainingZones
 typealias ZoneSummary = SettingsPackage.ZoneSummary
+typealias ZonesScreen = SettingsPackage.ZonesScreen
+typealias ZonesState = SettingsPackage.ZonesState
+typealias ZonesEvent = SettingsPackage.ZonesEvent
+typealias SportZonesScreen = SettingsPackage.SportZonesScreen
 typealias SportZonesState = SettingsPackage.SportZonesState
+typealias SportZonesEvent = SettingsPackage.SportZonesEvent
+typealias PrivacyZonesScreen = SettingsPackage.PrivacyZonesScreen
+typealias PrivacyZonesState = SettingsPackage.PrivacyZonesState
+typealias PrivacyZonesEvent = SettingsPackage.PrivacyZonesEvent
 typealias ZoneKindOption = SettingsPackage.ZoneKindOption
+typealias ZoneThreshold = SettingsPackage.ZoneThreshold
+typealias ZoneThresholdLine = SettingsPackage.ZoneThresholdLine
 typealias ZoneTexts = SettingsPackage.ZoneTexts
+typealias TrainingZonesTexts = SettingsPackage.TrainingZonesTexts
+typealias SportZonesTexts = SettingsPackage.SportZonesTexts
+typealias PrivacyZonesTexts = SettingsPackage.PrivacyZonesTexts
 typealias ThresholdHistoryState = SettingsPackage.ThresholdHistoryState
 typealias ThresholdHistoryGroup = SettingsPackage.ThresholdHistoryGroup
 typealias ThresholdHistorySection = SettingsPackage.ThresholdHistorySection
-typealias PrivacyZonesState = SettingsPackage.PrivacyZonesState
 typealias TrainingPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.data.training
 typealias ZoneKind = TrainingPackage.ZoneKind
 typealias Zone = TrainingPackage.Zone
+typealias ZoneModel = TrainingPackage.ZoneModel
+typealias ZoneBasis = TrainingPackage.ZoneBasis
+typealias PaceUnit = TrainingPackage.PaceUnit
 typealias PrivacyZone = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 
 // Gear and the blocked and muted lists, Settings' pages in the gear and profile contract modules, the gear pages they open, and the

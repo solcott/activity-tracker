@@ -46,12 +46,18 @@
         static var addPeople: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.all }
         static var addPeopleVariants: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.variants }
 
-        /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
-        static var privacyZones: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
+        /// Training zones, the default and sport zones forms and Privacy zones (ios-native-zones-pages), with their states beyond the
+        /// shared samples; and threshold history, which the shared UI still draws.
         static var trainingZones: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
+        static var trainingZonesVariants: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.variants }
+        static var zones: [String: ZonesState] { SettingsPackage.ZonesSamples.shared.all }
+        static var zonesVariants: [String: ZonesState] { SettingsPackage.ZonesSamples.shared.variants }
+        static var sportZones: [String: SportZonesState] { SettingsPackage.SportZonesSamples.shared.all }
+        static var sportZonesVariants: [String: SportZonesState] { SettingsPackage.SportZonesSamples.shared.variants }
+        static var privacyZones: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
+        static var privacyZonesVariants: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.variants }
         static var thresholdHistory: [String: ThresholdHistoryState] { SettingsPackage.ThresholdHistorySamples.shared.all }
         static var thresholdHistoryVariants: [String: ThresholdHistoryState] { SettingsPackage.ThresholdHistorySamples.shared.variants }
-        static var sportZones: [String: SportZonesState] { SettingsPackage.SportZonesSamples.shared.all }
 
         static var uploads: [String: UploadsState] { UploadsPackage.UploadsSamples.shared.all }
 

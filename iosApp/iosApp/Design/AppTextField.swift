@@ -15,6 +15,9 @@ struct TextFieldOptions {
 /// `layout` says where it sits: on its own, with its label above a filled box (sign-in); as a row of the system's grouped form, its label
 /// leading and its text trailing on one line; or in a form with its label above text that grows to several lines (notes).
 ///
+/// `hint` shows where the text goes while there is none, in the placeholder's colour (a sport's threshold: the default a blank one
+/// falls back to), and VoiceOver reads it with the label.
+///
 /// The screen holds the model, so the rest of it can read the text as it is typed (a button enabled only once there is some). The
 /// field keeps the model on the state it is given: when a presenter replaces the state object, the model moves to the new one.
 struct AppTextField: View {
@@ -32,36 +35,38 @@ struct AppTextField: View {
     private let state: KotlinTextFieldState
     private let layout: Layout
     private let options: TextFieldOptions
+    private let hint: Text?
     private let supportingText: String?
     private let isError: Bool
     private let onSubmit: () -> Void
 
     init(
         label: LocalizedStringResource, model: TextFieldModel, state: KotlinTextFieldState, layout: Layout = .stacked,
-        options: TextFieldOptions = TextFieldOptions(), supportingText: String? = nil, isError: Bool = false,
+        options: TextFieldOptions = TextFieldOptions(), hint: Text? = nil, supportingText: String? = nil, isError: Bool = false,
         onSubmit: @escaping () -> Void = {}
     ) {
         self.init(
-            labelText: Text(label), model: model, state: state, layout: layout, options: options, supportingText: supportingText,
-            isError: isError, onSubmit: onSubmit)
+            labelText: Text(label), model: model, state: state, layout: layout, options: options, hint: hint,
+            supportingText: supportingText, isError: isError, onSubmit: onSubmit)
     }
 
     /// A field whose label Kotlin chooses (the starting distance's, by the athlete's units).
     init(
         label: any AppText, model: TextFieldModel, state: KotlinTextFieldState, layout: Layout = .stacked,
-        options: TextFieldOptions = TextFieldOptions(), supportingText: String? = nil, isError: Bool = false,
+        options: TextFieldOptions = TextFieldOptions(), hint: Text? = nil, supportingText: String? = nil, isError: Bool = false,
         onSubmit: @escaping () -> Void = {}
     ) {
         self.init(
-            labelText: Text(label), model: model, state: state, layout: layout, options: options, supportingText: supportingText,
-            isError: isError, onSubmit: onSubmit)
+            labelText: Text(label), model: model, state: state, layout: layout, options: options, hint: hint,
+            supportingText: supportingText, isError: isError, onSubmit: onSubmit)
     }
 
     private init(
-        labelText: Text, model: TextFieldModel, state: KotlinTextFieldState, layout: Layout, options: TextFieldOptions,
+        labelText: Text, model: TextFieldModel, state: KotlinTextFieldState, layout: Layout, options: TextFieldOptions, hint: Text?,
         supportingText: String?, isError: Bool, onSubmit: @escaping () -> Void
     ) {
         label = labelText
+        self.hint = hint
         self.model = model
         self.state = state
         self.layout = layout
@@ -124,7 +129,7 @@ struct AppTextField: View {
     }
 
     private func field(axis: Axis) -> some View {
-        TextField(text: Binding(get: { model.text }, set: { model.edit($0) }), prompt: Text(verbatim: ""), axis: axis) { label }
+        TextField(text: Binding(get: { model.text }, set: { model.edit($0) }), prompt: hint ?? Text(verbatim: ""), axis: axis) { label }
             .keyboardType(options.keyboard)
             .textInputAutocapitalization(options.capitalization)
             .autocorrectionDisabled(!options.autocorrection)

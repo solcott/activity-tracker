@@ -29,13 +29,14 @@
             .padding(24)
         }
 
-        /// Form rows: text fields as rows (one marked wrong) and as several lines, and menu choices, one beside a label too long
-        /// for its line.
+        /// Form rows: text fields as rows (one marked wrong, one blank with a hint) and as several lines, and menu choices, one
+        /// beside a label too long for its line.
         static var formRows: some View {
             Form {
                 Section {
                     GalleryField(text: "Gravel bike", layout: .row)
                     GalleryField(text: "", layout: .row, supportingText: "Give your gear a name", isError: true)
+                    GalleryField(text: "", layout: .row, hint: Text(.sportZonesDefault("190")))
                     AppPickerRow(
                         "Type", selection: .constant("bike"), options: ["bike", "shoes"],
                         optionLabel: { $0 == "bike" ? "Bike" : "Shoes" })
@@ -305,12 +306,16 @@
         private let layout: AppTextField.Layout
         private let supportingText: String?
         private let isError: Bool
+        private let hint: Text?
         @State private var model: TextFieldModel
 
-        init(text: String, layout: AppTextField.Layout = .stacked, supportingText: String? = nil, isError: Bool = false) {
+        init(
+            text: String, layout: AppTextField.Layout = .stacked, hint: Text? = nil, supportingText: String? = nil, isError: Bool = false
+        ) {
             let state = TextFieldPackage.textFieldStateOf(initialText: text)
             self.state = state
             self.layout = layout
+            self.hint = hint
             self.supportingText = supportingText
             self.isError = isError
             _model = State(initialValue: TextFieldModel(state))
@@ -322,7 +327,8 @@
                 AppTextField(label: .loginHandleLabel, model: model, state: state, supportingText: supportingText, isError: isError)
             case .row:
                 AppTextField(
-                    label: .gearName, model: model, state: state, layout: .row, supportingText: supportingText, isError: isError)
+                    label: .gearName, model: model, state: state, layout: .row, hint: hint, supportingText: supportingText,
+                    isError: isError)
             case .multiline:
                 AppTextField(label: .gearNotes, model: model, state: state, layout: .multiline)
             }
