@@ -230,6 +230,19 @@ Each phase leaves a shippable app.
      snapshots fix both (`Samples.clock`). What the page says and decides is Kotlin's (`UploadsTexts`, `UploadImportTexts`, getters on
      `UploadsState`), which the Compose page asks. Left for later changes: the feed's upload row, and a general date `AppText` with the
      feed's start times, which read on the activity's own UTC offset.
+   - **The segment lists** (`ios-native-segment-lists`). Starred segments, a segment's leaderboard and Mayors board and a dive site's
+     Regulars are inset grouped lists (`StarredSegmentsView`, over the profile; `SegmentLeaderboardView` and `SegmentMayorsView`, over the
+     segment page; `DiveSiteRegularsView`, over the site page; all three of whose own pages, with their maps and charts, stay the shared
+     UI's), the first native pages with filters over a list: segmented choices and filter menus (`AppMenuChip`, a capsule opening an
+     inline picker, filled while it narrows the list) that wrap onto lines (`FlowRow`, a small `Layout`, as a list cell clips a row that
+     scrolls sideways). A new choice starts its board again, so `PagedList` keeps a screen's top rows over a first page (`keepsTop:`) and
+     shows the viewer's own place after the items (`after:`). A board's choices are Kotlin's `BoardChoice` (options with labels, which is
+     chosen, `offersMenu`, `narrows`; `RankBoardTexts`, `SegmentBoardTexts`, `LeaderboardBracketTexts` with the weight classes in the viewer's units,
+     `DiveSiteRegularsTexts`), and so are an entry's rank, accent, day and count, a starred segment's line, and two shared texts the
+     composables built: a calendar date written out (`DateText`, which `longDate` and `effortDateLabel` now resolve) and a segment's type
+     (`SegmentTexts`, which `segmentTypeLabel` resolves). The leaderboard's time is `Stats.duration`, StatText's clock form, so no new
+     length of time was needed. Left for later changes: the segment page, its map, segment browse and the dive site page, which wait for
+     native maps and charts.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -752,6 +765,26 @@ reading the generated Swift:
   `Instant.Companion.shared.fromEpochMilliseconds(epochMilliseconds:)`, exported because other signatures name them. `fromEpochSeconds`
   is ambiguous from Swift (an `Int64` and an `Int32` overload of its adjustment), so Swift goes through milliseconds.
 
+### Phase 4 probes (segment lists, `ios-native-segment-lists`, 2026-11-10)
+
+Starred segments, a segment's leaderboard and Mayors, and a dive site's Regulars are opened from the own profile, the segment page and
+the site page, all still the shared UI's. Asked with a throwaway Swift test over every `StarredSegmentsSamples`,
+`SegmentLeaderboardSamples`, `SegmentMayorsSamples` and `DiveSiteRegularsSamples` state on a cloned iPhone 17 simulator (iOS 26.0), and
+by reading the generated Swift, before the texts or views were written:
+
+- **Every entry type already has a Swift type.** `LeaderboardEntry`, `EffortView`, `MayorEntry`, `DiveSiteRegularEntry`, `SegmentView`
+  and `SegmentRecord` are generated in `ActivityTrackerCoreLexicon.swift`, since each state's `viewerEntry` names its entry (and
+  `StarredSegment`, a contract class, names `SegmentView`). The erased items cast to them on every sample (three leaderboard entries,
+  two Mayors, two regulars, two stars once loaded; none while loading, failed or empty), and `rank`, `elapsed`, `startedOn`,
+  `activity`, `efforts`, `visits`, `reachedOn`, `currentName`, `distanceMeters`, `record.sport` and `record.kind` (nil) read typed.
+- **The boards' empty lists read.** `boards` (the default `persistentListOf()`) reads as `[]` through `elements(as: String.self)`, and
+  Starred segments' `removing` (`persistentSetOf()`) through `elements(as: AtUri.self)`; no sample lists types or a viewer entry.
+- **An event takes a nil choice.** `SegmentLeaderboardEvent.AgeGroupChanged(ageGroup: nil)` builds and reads back nil, and `"45-54"`
+  as itself, so "All ages" needs nothing of its own.
+- **A new choice is a first page.** The loading and failed samples are `PagedShown.firstPage` (no answer yet), and the presenters key
+  their paging on the filters, so a choice shows a list that hasn't answered: the shared screen keeps its filters over that first
+  page's spinner, and a native board must too, as must Starred segments over its sign-in row (its paging is disabled then).
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1069,6 +1102,40 @@ What building the host and the shell on Swift export showed, beyond the probes:
   passing: after Save on the shared Add activity and single-file import forms, the fallback screen kept its last frame ("Saving…")
   under the returned tab bar until a tab was tapped.
 
+### Phase 4 findings (segment lists, `ios-native-segment-lists`)
+
+- **A board's filters are one shared shape.** Every choice on the three boards (period or window, scope, type, age, weight, gender) is
+  a `BoardChoice` that both UIs draw: Compose as `BoardSegments` and `BoardChoiceChip` (replacing `ScopeControl` and `ChoiceChip`),
+  Swift as `BoardSegments` and `BoardMenu`. The options reach Swift as an immutable list of `BoardOption` through `elements(as:)`, and
+  `BoardChoice.isChosen(option)` is what gives `BoardOption` a Swift type. Swift binds a picker to an option's index, so no Kotlin class
+  needs to be `Hashable`.
+- **A list cell clips a row that scrolls sideways.** The first recording put the menus in a horizontal `ScrollView` from edge to edge;
+  the inset grouped cell clipped it 16 points short of the screen's edge, and `scrollClipDisabled()` doesn't reach past the cell. The
+  menus now wrap onto lines (`FlowRow`), as the shared filters' `FlowRow` does.
+- **A new choice is a first page, so the choices must stay.** The board presenters key their paging on the filters, so choosing one
+  shows a list that hasn't answered; `PagedList` drew a first page alone, centred, which would have hidden the choices just made.
+  `keepsTop:` keeps the top rows and puts the first page's progress or failure under them. Starred segments doesn't need it: while it
+  must sign in again its paging is disabled, and the page is the notice alone.
+- **A day line beside a count is tight on an iPhone.** Inset margins, the disclosure mark and a 40-point avatar left "Reached May 20,
+  2026" two lines beside "9 efforts". The row takes the shared row's 36-point avatar, a rank column that grows only for a long rank,
+  and the footnote's size for the day, so it keeps to one line beside a usual count and wraps (rather than shrinking) beside a long one
+  or at large text sizes.
+- **Moving text to Kotlin grouped two counts.** The Mayors and Regulars counts were fed the raw `Int` in Compose; through `formatWhole`
+  a thousand or more is now grouped on every platform ("1,204 efforts"), as ui/number-format says. Nothing else visible changed, and no
+  Android reference moved.
+- **A calendar date written out is shared now.** `DateText.date` ("Jan 5, 2026") is what the threshold history, effort lists and
+  boards show; `DayText` keeps the day beside today. A date in the activity's own UTC offset (`startTime`) is still the shared UI's.
+- **The Release build was already broken, before this change.** `UploadQueueView` has a Swift type only through `:app-fixtures`, which a
+  Release build leaves out, so `KotlinTypes.swift`'s upload queue alias doesn't compile there (`ios-native-uploads` never built
+  Release). This change's own Swift compiles there, and the stub report adds only allowed serializers; the fix is an exported
+  function in `feature/uploads` naming the class, as `ActivityInvitesTexts` names `InviteView`.
+- **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** Starred segments
+  with the account's one star in its units, its segment's leaderboard (a period restarting the board under the choices, the weight
+  menu in pounds, a chosen class filling its chip) and Mayors (the eight windows, an entry opening the shared profile and back), by the
+  swipe and the buttons, the iPad upright and on its side. Nothing was written. Still unseen: Regulars on a device (a dive site opens
+  only from a dive activity, and the account has none), unstarring, a gone star, the viewer's own place apart, a type menu, and the
+  pages on iOS 18 signed in.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1132,10 +1199,14 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
 - About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
   an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); a rough length of
-  time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A date in general, and the feed's start
-  times, which read on the activity's own UTC offset (`startTime`), are still the shared UI's.
+  time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A calendar date written out is
+  `DateText`, and a segment's type `SegmentTexts` (`ios-native-segment-lists`). The feed's start times, which read on the activity's
+  own UTC offset (`startTime`), and the short date (`shortDate`) are still the shared UI's.
 - Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
 - `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
+- The segment page (`SegmentScreen`), its map, segment browse and the dive site page are still the shared UI's, waiting for native maps
+  and charts; the lists they open are native (`ios-native-segment-lists`). Their Mayor and Regulars cards already ask
+  `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
