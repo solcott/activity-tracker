@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.divesites.RegularsMeta
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -105,6 +106,19 @@ object DiveSiteRegularsSamples {
 
     val all: Map<String, DiveSiteRegularsState>
         get() = pagedSamples(entries, meta) { DiveSiteRegularsState(DiveSiteSamples.site.currentName, entries = it) }
+
+    /** Last year's board with the viewer's own place at 12 (`lastYear`). Kept apart from [all], whose keys are the content-loading set. */
+    val variants: Map<String, DiveSiteRegularsState>
+        get() =
+            mapOf(
+                "lastYear" to
+                    DiveSiteRegularsState(
+                        DiveSiteSamples.site.currentName,
+                        period = RegularsPeriod.LAST_YEAR,
+                        entries = PagedStates.end(entries, meta),
+                        viewerEntry = fakeRegularEntry(rank = 12, athlete = fakeProfileBasic(Fixed.ALICE), visits = 4),
+                    ),
+            )
 }
 
 object CreateDiveSiteSamples {

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.segment
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.fixtures.PagedStates
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakeEffort
@@ -15,9 +16,14 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.segments.BoardMeta
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
@@ -29,11 +35,14 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
 import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 
 object SegmentSamples {
@@ -253,6 +262,35 @@ object SegmentLeaderboardSamples {
 
     val all: Map<String, SegmentLeaderboardState>
         get() = pagedSamples(entries, meta) { SegmentLeaderboardState(name, entries = it) }
+
+    /**
+     * States beyond content loading: a ride board with its e-bike type, an age group and a weight class chosen, four entries and the
+     * viewer's own place at 140 (`filtered`), and the same choices while their first page loads (`firstPage`). Kept apart from [all], whose
+     * keys are the content-loading conformance set.
+     */
+    val variants: Map<String, SegmentLeaderboardState>
+        get() {
+            val filtered =
+                SegmentLeaderboardState(
+                    name,
+                    board = SegmentSportGroup.RIDE,
+                    boards = persistentListOf(SegmentSportGroup.RIDE, SegmentBoard.E_BIKE),
+                    ageGroup = LeaderboardAgeGroup.FROM_45,
+                    weightClass = LeaderboardWeightClass.FROM_55,
+                    entries =
+                        PagedStates.end(
+                            listOf(
+                                fakeLeaderboardEntry(1, fakeProfileBasic(Fixed.BOB), elapsed = 230),
+                                fakeLeaderboardEntry(2, fakeProfileBasic(Fixed.CAROL), elapsed = 262),
+                                fakeLeaderboardEntry(3, fakeProfileBasic(DAVE, displayName = "Dave"), elapsed = 271),
+                                fakeLeaderboardEntry(4, fakeProfileBasic(ERIN, displayName = "Erin"), elapsed = 3_725),
+                            ),
+                            meta,
+                        ),
+                    viewerEntry = fakeLeaderboardEntry(140, fakeProfileBasic(Fixed.ALICE), elapsed = 402),
+                )
+            return mapOf("filtered" to filtered, "firstPage" to filtered.copy(entries = PagedStates.loading(), viewerEntry = null))
+        }
 }
 
 object SegmentMayorsSamples {
@@ -263,6 +301,31 @@ object SegmentMayorsSamples {
 
     val all: Map<String, SegmentMayorsState>
         get() = pagedSamples(entries, meta) { SegmentMayorsState(name, entries = it) }
+
+    /**
+     * A hike segment's board for this week, with a walk type to choose and the viewer's own place at 58 (`filtered`). Kept apart from
+     * [all], whose keys are the content-loading conformance set.
+     */
+    val variants: Map<String, SegmentMayorsState>
+        get() =
+            mapOf(
+                "filtered" to
+                    SegmentMayorsState(
+                        name,
+                        period = MayorPeriod.THIS_WEEK,
+                        board = SegmentSportGroup.HIKE,
+                        boards = persistentListOf(SegmentSportGroup.HIKE, Sport.WALK),
+                        entries =
+                            PagedStates.end(
+                                listOf(
+                                    fakeMayorEntry(1, fakeProfileBasic(Fixed.BOB), 1_204),
+                                    fakeMayorEntry(2, fakeProfileBasic(Fixed.CAROL), 9),
+                                ),
+                                meta,
+                            ),
+                        viewerEntry = fakeMayorEntry(58, fakeProfileBasic(Fixed.ALICE), 1),
+                    ),
+            )
 }
 
 object StarredSegmentsSamples {
@@ -274,7 +337,41 @@ object StarredSegmentsSamples {
 
     val all: Map<String, StarredSegmentsState>
         get() = pagedSamples(segments, Unit) { StarredSegmentsState(it, eventSink = {}) }
+
+    /** A star whose segment is gone and one being unstarred, beside a ski lift. */
+    private val mixed: ImmutableList<StarredSegment>
+        get() {
+            val gone = fakeSegment("3kgone").uri
+            val lift =
+                fakeSegment(
+                    "3klift",
+                    record = fakeSegmentRecord(name = "Summit Express", sport = SegmentSportGroup.ALPINE, kind = SegmentKind.LIFT),
+                )
+            return persistentListOf(segments.first(), StarredSegment(gone, null), StarredSegment(lift.uri, lift))
+        }
+
+    /**
+     * States beyond content loading: a gone star being unstarred beside a ski lift (`unavailable`), a failed unstar over the stars
+     * (`unstarFailed`), and a session that must sign in again (`needsSignIn`). Kept apart from [all], whose keys are the content-loading
+     * conformance set.
+     */
+    val variants: Map<String, StarredSegmentsState>
+        get() =
+            mapOf(
+                "unavailable" to
+                    StarredSegmentsState(PagedStates.end(mixed, Unit), removing = persistentSetOf(mixed[1].uri), eventSink = {}),
+                "unstarFailed" to
+                    StarredSegmentsState(
+                        PagedStates.end(segments, Unit),
+                        actionError = UiError(UiError.Kind.UpdateStar, DataError.Network),
+                        eventSink = {},
+                    ),
+                "needsSignIn" to StarredSegmentsState(PagedStates.loading(), needsSignIn = true, eventSink = {}),
+            )
 }
+
+private val DAVE = Did("did:plc:dave")
+private val ERIN = Did("did:plc:erin")
 
 object CreateSegmentSamples {
     private fun loadedState(name: String = "Ridge climb") =
