@@ -194,6 +194,12 @@ Each phase leaves a shippable app.
      sign in again (`SignInAgainNotice` in `:app-common-api`, which the shared `signInAgainItem` asks for Follow requests, Activity
      invites and Add people). Left for later changes: the profile itself, Search with the segment browse screen, and the invites pages,
      which can build on `SignInAgainNotice`.
+   - **The zones contracts** (`ios-zones-contracts`). No page goes native: Training zones, threshold history and Privacy zones wait for
+     native charts and a map. Their contracts now read from Swift without a crash or an opaque element: the zone kinds are a list of
+     `ZoneKindOption` (with `offers(kind)`, which the shared pages ask), `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`'
+     functions name them (a zone's label and a privacy zone's name, which the shared pages ask too), and `shownRows` is a copy.
+     `ZonesContractsTests` reads every blocker typed over the samples. Left for later changes: the pages themselves, and with them a
+     zone row's name and range as `AppText`.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -632,6 +638,28 @@ Swift, before the views were written:
   over the subtitle at the caption's size in the secondary colour. It has no counterpart before iOS 26, so the earlier form and a column
   header draw two lines in those sizes.
 
+### Phase 4 probes (zones contracts, `ios-zones-contracts`, 2026-11-10)
+
+Training zones, threshold history and Privacy zones wait for native charts and a map, but their contracts held three things Swift can't
+read. Asked with a throwaway Swift test over the zones, sport zones, privacy zones and threshold history samples on a fresh iPhone 17
+simulator (iOS 26.0), before the fix, and by reading the generated Swift:
+
+- **Nothing in the export named `ZoneKind`, `Zone` or `PrivacyZone`.** The generated `ActivityTrackerCoreData.swift` and
+  `ActivityTrackerCoreLexicon.swift` had no type for any of them, and `ZoneSummary.kinds` and `SportZonesState.kinds` are generated as
+  `any ImmutableSet`.
+- **Every element read as an opaque `_KotlinExistential`**: both kinds sets (two each, heart rate and power, heart rate and speed), both
+  heart rate zone lists (five each), and the one privacy zone. `elements(as:)` couldn't have cast any of them, since Swift had no type to
+  cast to.
+- **`shownRows` with every row shown read as a typed array** on a five-row section, without stopping the app, and so did the collapsed
+  read (`take` already copies). Only an **empty** persistent list stopped it: a section with no rows and every row shown failed in the
+  generated getter with `-[_KotlinExistential count]: unrecognized selector`, the failure the settings probe met and the gear probe found
+  for an erased empty value. So the bridge carries a non-empty persistent list as an array and sends the empty one (the library's shared
+  instance) `count`. A threshold's section always has a row, so this one could never have stopped the app, but a copy costs nothing and
+  holds whatever the list is.
+- **Swift can't build the state it needs to read.** A data class has no `copy` in Swift and `ThresholdHistorySection`'s constructor takes
+  an immutable list, which has no Swift initialiser, so the all-rows case needed a sample: `ThresholdHistorySamples.variants["allRows"]`,
+  a section of five rows with every one shown.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -848,6 +876,24 @@ What building the host and the shell on Swift export showed, beyond the probes:
   requests and Remove on a device (the test account doesn't approve followers, and the walk didn't turn that on), a second page, and
   the pages on iOS 18 signed in.
 
+### Phase 4 findings (zones contracts, `ios-zones-contracts`)
+
+- **A kind list of objects reads in order, and a function taking the enum works.** `ZoneSummary.kinds` and `SportZonesState.kinds`
+  read through `elements(as: ZoneKindOption.self).map(\.kind)` as `[.HeartRate, .Power]` and `[.HeartRate, .Speed]`, and
+  `offers(kind: .Power)` is generated as a method taking the Swift enum and answers as the Kotlin one does. `ZoneKindOption.forSport`
+  takes the sport rather than the set, so no exported signature holds a set of enums.
+- **A text function is enough to give an element type a Swift type.** Once `ZoneTexts.label(zone:)` and `privacyZoneName(zone:index:)`
+  named them, `Zone` (with `name` as the Swift `ZoneName`, `low` and `high` as `Int32`, the last `high` nil) and `PrivacyZone` (label,
+  radius, centre) were generated, and the same lists' elements cast to them. The only stub it brought is `PrivacyZone.Companion.serializer`
+  in `:core-lexicon`, the allowed serializer kind, in a module the check lists but doesn't fail on.
+- **The `List` rule is about an empty persistent list.** Corrected from the settings probe: a `List` getter returning a non-empty
+  persistent list reads as a typed array; the bridge stops the app only on the empty one. `shownRows` copies anyway, and the rules now say
+  why.
+- **Swift can't build a state to read, so the samples carry it.** Data classes have no `copy` in Swift and a constructor taking an
+  immutable list has none at all, so a state a test needs is a fixture variant (`ThresholdHistorySamples.variants["allRows"]`).
+- **No visible change.** The shared pages keep their words and layout; nothing was walked on a device, since nothing native reads these
+  contracts yet.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -880,13 +926,16 @@ What building the host and the shell on Swift export showed, beyond the probes:
   and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
-  Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). `ZoneSummary.kinds` and `SportZonesState.kinds`
-  (sets of `ZoneKind`) still need theirs when zones are drawn natively.
-- A class of `:core-data` or `:core-lexicon` that appears only as an immutable collection's element (`PrivacyZone`, `Zone`) has no
-  Swift type. Something exported has to name it before a native view can read the list. Activity defaults and Segments & groups
-  hold none (their lists are of text and of `CategoryVisibility`, a contract class), so this waits for privacy zones or zones.
-- `ThresholdHistorySection.shownRows` returns its immutable `rows` as a `List` when all are shown, which stops the app in the
-  generated getter when Swift reads it. Give it a copy before threshold history is drawn natively.
+  Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). ~~`ZoneSummary.kinds` and `SportZonesState.kinds`
+  (sets of `ZoneKind`) still need theirs~~: done (`ios-zones-contracts`), a list of `ZoneKindOption` with `offers(kind)`.
+- A class of `:core-data` or `:core-lexicon` that appears only as an immutable collection's element has no Swift type until something
+  exported names it. ~~`PrivacyZone` and `Zone`~~: done (`ios-zones-contracts`), named by `ZoneTexts`' functions, which a native row
+  needs anyway. A new contract with such a list needs the same.
+- ~~`ThresholdHistorySection.shownRows` returns its immutable `rows` as a `List` when all are shown~~: done (`ios-zones-contracts`), a
+  copy. Only an empty persistent list stops the app through a `List` getter, and a threshold always has a row, so it never could have.
+- Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map. Their contracts
+  are ready (`ZonesContractsTests`); a zone row's name (`zoneName`, shared with the activity charts' time in zone) and its range (units
+  and paces) are still chosen in composables and move to `AppText` with the native page.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
