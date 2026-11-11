@@ -104,6 +104,8 @@ class ReportPresenterTest {
             state.note.setTextAndPlaceCursorAtEnd("Stolen route")
             assertTrue(sent.isEmpty())
             assertTrue(state.canSend)
+            // Typing publishes a new state, which a native sheet's Send follows.
+            assertTrue(awaitItem().noteWritten)
             state.eventSink(ReportEvent.Send)
             while (!state.sent) state = awaitItem()
             assertTrue(sent.single().contains("Stolen route"))

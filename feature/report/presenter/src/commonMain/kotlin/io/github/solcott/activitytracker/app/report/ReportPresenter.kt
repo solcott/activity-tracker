@@ -36,6 +36,8 @@ class ReportPresenter(private val screen: ReportScreen, private val reports: Rep
             sent = sent,
             offerBlock = screen.offerBlock,
             error = error,
+            // Read here, in composition, so a note typed in a native field publishes a new state (Send follows it there).
+            noteWritten = note.text.isNotBlank(),
         ) { event ->
             when (event) {
                 is ReportEvent.PickReason -> if (!sent) reason = event.reason

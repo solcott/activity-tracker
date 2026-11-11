@@ -39,6 +39,11 @@ data class ReportState(
     val offerBlock: Boolean,
     /** Why the last send failed; the reason and note stay for a retry. */
     val error: UiError?,
+    /**
+     * The note has text, as the presenter read it when it made this state. Reading it there makes typing that fills or empties the note
+     * publish a new state, which is how a native sheet's Send follows [canSend]; [canSend] itself reads the note live.
+     */
+    val noteWritten: Boolean = note.text.isNotBlank(),
     val eventSink: (ReportEvent) -> Unit,
 ) : SubCircuitUiState {
     val canSend: Boolean
