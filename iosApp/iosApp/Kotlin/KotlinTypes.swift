@@ -291,3 +291,17 @@ typealias ImportBatchState = FeedPackage.ImportBatchState
 typealias ImportBatchEvent = FeedPackage.ImportBatchEvent
 typealias ImportBatchTexts = FeedPackage.ImportBatchTexts
 typealias ImportBatchMonth = FeedPackage.ImportBatchMonth
+
+// The gear item page (gear/gear-usage, gear/gear-components): its contract, what it says, and the lexicon views it shows. The lexicon's
+// `GearView` is `LexiconGearView` here, beside the page's `GearItemView`.
+typealias GearScreen = GearPackage.GearScreen
+typealias GearState = GearPackage.GearState
+typealias GearEvent = GearPackage.GearEvent
+typealias GearPage = GearPackage.GearPage
+typealias GearPageTexts = GearPackage.GearPageTexts
+typealias GearFigure = GearPackage.GearFigure
+typealias GearMountPicker = GearPackage.GearMountPicker
+typealias GearMountCandidate = GearPackage.GearMountCandidate
+typealias LexiconGearView = LexiconAppPackage.GearView
+typealias GearComponent = LexiconAppPackage.GearComponent
+typealias GearMountView = LexiconAppPackage.GearMountView
