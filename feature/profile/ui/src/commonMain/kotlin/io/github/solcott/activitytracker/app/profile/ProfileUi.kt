@@ -63,7 +63,6 @@ import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
-import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -211,7 +210,7 @@ private fun ProfileBarActions(state: ProfileState) {
     if (state.isSelf) {
         AppIconButton(AppIcon.Settings, ProfileTexts.settings.string(), { state.eventSink(ProfileEvent.OpenSettings) })
     } else if (profile != null) {
-        val name = shownNameLabel(profile)
+        val name = ProfileTexts.name(profile).string()
         val reporting = state.reporting
         BlockMuteMenu(
             name = name,

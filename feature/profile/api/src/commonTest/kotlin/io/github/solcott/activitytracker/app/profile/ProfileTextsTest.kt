@@ -64,6 +64,8 @@ class ProfileTextsTest {
         assertEquals("Bob", ProfileTexts.title(bob).read())
         assertEquals("bob.test", ProfileTexts.title(bob.copy(displayName = null)).read())
         assertEquals("profile_title", ProfileTexts.title(null).read())
+        assertEquals("Bob", ProfileTexts.name(bob).read())
+        assertEquals("handle_format bob.test", ProfileTexts.name(bob.copy(displayName = null)).read())
     }
 
     @Test

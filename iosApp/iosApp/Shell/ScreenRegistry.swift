@@ -77,6 +77,8 @@ extension ScreenRegistry {
         registry.register(PrivacyZonesScreen.self, PrivacyZonesState.self) { state in PrivacyZonesView(state: state) }
         // A batch import's page (feed/import-cards), pushed over the feed: the first drawn with the native activity card.
         registry.register(ImportBatchScreen.self, ImportBatchState.self) { state in ImportBatchView(state: state) }
+        // The profile (ios-native-profile), drawn with the native activity card; Report and Posts wait.
+        registry.register(ProfileScreen.self, ProfileState.self) { state in ProfilePage(state: state) }
         return registry
     }()
 }

@@ -97,7 +97,7 @@ object ProfileSamples {
     /**
      * What [all]'s content-loading states don't show: Following and Requested, a follow being written, a muted athlete, a block (and one
      * held only on Bluesky), the athlete's own profile while they approve followers with more requests than counted and two invites, every
-     * detail, a labelled avatar with a warning, a hidden athlete reached by link, and a failed action. Kept apart from [all], whose keys
+     * detail, a labelled avatar, a warned athlete, a hidden athlete reached by link, and a failed action. Kept apart from [all], whose keys
      * are the content-loading conformance set.
      */
     val variants: Map<String, ProfileState>
@@ -148,10 +148,11 @@ object ProfileSamples {
                         ContentStates.loaded(
                             profile.copy(
                                 avatar = "https://example.test/alice.jpg",
-                                labels = listOf(LabelView(labeler, "porn"), LabelView(labeler, "spam")),
+                                labels = listOf(LabelView(labeler, "porn")),
                             ),
                         ),
                     ),
+                "warned" to state(ContentStates.loaded(profile.copy(labels = listOf(LabelView(labeler, "!warn"))))),
                 "hidden" to state(ContentStates.loaded(profile.copy(labels = listOf(LabelView(labeler, "!hide"))))),
                 "actionFailed" to loaded.copy(error = UiError(UiError.Kind.UpdateFollow, DataError.Network)),
             )

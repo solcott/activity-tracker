@@ -59,12 +59,14 @@ struct ScreenRegistryTests {
         // A batch import's page, with the native activity card (ios-native-activity-card).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ImportBatchScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
+        // The profile (ios-native-profile), which opens the native follow lists, requests and edit profile.
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ProfileScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page and a profile, which opens the follow lists,
         // can build on the native activity card now; the feed waits for its filter bar, posts and sheets.
         // Accepting an invite waits for the native route preview and visibility form.
         // The segment and dive site pages, their map and segment browse draw maps or charts, so they wait for native ones.
         for screen in [
-            "GearScreen", "ProfileScreen", "AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen",
+            "GearScreen", "AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen",
             "DiveSiteScreen",
         ] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))

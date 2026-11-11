@@ -291,3 +291,17 @@ typealias ImportBatchState = FeedPackage.ImportBatchState
 typealias ImportBatchEvent = FeedPackage.ImportBatchEvent
 typealias ImportBatchTexts = FeedPackage.ImportBatchTexts
 typealias ImportBatchMonth = FeedPackage.ImportBatchMonth
+
+// The profile (ios-native-profile): its contract, what it says and which actions it shows, and the lexicon and moderation types its
+// header reads.
+typealias ProfileScreen = ProfilePackage.ProfileScreen
+typealias ProfileState = ProfilePackage.ProfileState
+typealias ProfileEvent = ProfilePackage.ProfileEvent
+typealias ProfileTexts = ProfilePackage.ProfileTexts
+typealias ProfileActions = ProfilePackage.ProfileActions
+typealias FollowLabel = ProfilePackage.FollowLabel
+typealias ProfileEntry = ProfilePackage.ProfileEntry
+typealias ProfileView = LexiconAppPackage.ProfileView
+typealias ProfileDetails = LexiconAppPackage.ProfileDetails
+typealias BlurReason = ExportedKotlinPackages.io.github.solcott.activitytracker.data.moderation.BlurReason
+typealias ModerationTexts = AppPackage.moderation.ModerationTexts
