@@ -6,13 +6,18 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 
 /**
@@ -83,7 +88,80 @@ data class EditGearState(
     val approvesFollowers: Boolean,
     val error: UiError?,
     val eventSink: (EditGearEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    // What both UIs show and decide, from the fields above (dev/shared-display-text).
+
+    /** "Add gear" or "Edit gear". */
+    val title: AppText
+        get() = EditGearTexts.title(isNew)
+
+    /** Whether the form's fields, choices and buttons can be used: not while it saves. */
+    val enabled: Boolean
+        get() = !saving
+
+    /** Whether Save is offered: once what the form edits has loaded, as the shared form shows its Save only with the form. */
+    val showsSave: Boolean
+        get() = content.hasLoaded
+
+    /** Whether the type has kinds to choose from. */
+    val showsKind: Boolean
+        get() = kinds.isNotEmpty()
+
+    /** The Kind menu's choices: None, then each of the type's kinds. */
+    val kindOptions: ImmutableList<GearKindOption>
+        get() =
+            (listOf(GearKindOption(null, EditGearTexts.kind(type, null))) + kinds.map { GearKindOption(it, EditGearTexts.kind(type, it)) })
+                .toImmutableList()
+
+    /** The kind shown, or None. */
+    val kindLabel: AppText
+        get() = EditGearTexts.kind(type, kind)
+
+    /** The sports it is for, joined, or "Any sport". */
+    val sportsLabel: AppText
+        get() = EditGearTexts.sports(sports)
+
+    /** The types it is the default for, joined, or "No activity types". */
+    val defaultForLabel: AppText
+        get() = EditGearTexts.defaultFor(defaultFor)
+
+    /** The starting distance's label in the athlete's [units]. */
+    val startingDistanceLabel: AppText
+        get() = EditGearTexts.startingDistance(units)
+
+    /** "Add photo" or "Change photo". */
+    val photoAction: AppText
+        get() = EditGearTexts.photoAction(photo)
+
+    /** Who may see it: all four visibilities. */
+    val visibilityOptions: ImmutableList<String>
+        get() = Visibility.all.toImmutableList()
+
+    /** What choosing Followers means when anyone can follow the athlete; null otherwise. */
+    val followersNote: AppText?
+        get() = VisibilityTexts.followersNote(visibility, approvesFollowers)
+
+    /** Whether the form is a saved item's, with what it is mounted on, retiring and deleting. */
+    val showsManagement: Boolean
+        get() = !isNew
+
+    val isRetired: Boolean
+        get() = retiredOn != null
+
+    /** "Mounted on Gravel bike since 2026-07-01"; null when it isn't mounted. */
+    val mountedOnLabel: AppText?
+        get() = mountedOn?.let(EditGearTexts::mountedOn)
+
+    /** "Retired 2026-08-01"; null while in use. */
+    val retiredOnLabel: AppText?
+        get() = retiredOn?.let(EditGearTexts::retiredOn)
+
+    /** Whether the item is for [sport], as the sports sheet ticks it. */
+    fun isForSport(sport: String): Boolean = sport in sports
+
+    /** Whether new activities of [type] start with the item, as the default-for sheet ticks it. */
+    fun isDefaultFor(type: ActivityType): Boolean = type in defaultFor
+}
 
 sealed interface EditGearEvent {
     data object Back : EditGearEvent

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.sport.nestsIn
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -69,7 +70,7 @@ fun LazyListScope.sportTypeList(
         stickyHeader(key = category.name) {
             CompositionLocalProvider(LocalPinnedOverContent provides true) { CategoryHeader(category, onCategoryClick, categoryTrailing) }
         }
-        val nested = { type: ActivityType -> type.subSport != null && ActivityType(type.sport) in types }
+        val nested = { type: ActivityType -> type.nestsIn(types) }
         val collapsible = types.filter(nested).mapTo(mutableSetOf()) { it.sport }
         val visible = types.filter { !nested(it) || expandAll || it.sport in expanded }
         items(visible, key = { "${category.name}/${it.sport}/${it.subSport}" }) { type ->

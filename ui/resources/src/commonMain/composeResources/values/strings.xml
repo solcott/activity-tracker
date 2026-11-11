@@ -2069,6 +2069,8 @@
     <string name="gear_total_none">No activities yet</string>
     <string name="gear_total_hours">%1$s h</string>
     <string name="gear_total_joined">%1$s · %2$s</string>
+    <!-- A list of names, each next one joined on: "Ride, Run". -->
+    <string name="text_list_pair">%1$s, %2$s</string>
     <plurals name="gear_total_days">
         <item quantity="one">%1$s day</item>
         <item quantity="other">%1$s days</item>
