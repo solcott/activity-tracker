@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,10 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
-import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -36,30 +35,21 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.pickedDate
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.toPickerMillis
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.gear_component_actions
-import io.github.solcott.activitytracker.composeApp.resources.gear_component_between
 import io.github.solcott.activitytracker.composeApp.resources.gear_component_replace
-import io.github.solcott.activitytracker.composeApp.resources.gear_component_since
 import io.github.solcott.activitytracker.composeApp.resources.gear_component_unmount
 import io.github.solcott.activitytracker.composeApp.resources.gear_components
 import io.github.solcott.activitytracker.composeApp.resources.gear_components_mount
 import io.github.solcott.activitytracker.composeApp.resources.gear_components_previous
 import io.github.solcott.activitytracker.composeApp.resources.gear_mount_new
 import io.github.solcott.activitytracker.composeApp.resources.gear_mount_none
-import io.github.solcott.activitytracker.composeApp.resources.gear_mount_pick_title
-import io.github.solcott.activitytracker.composeApp.resources.gear_mount_replace_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_mounted_on
 import io.github.solcott.activitytracker.lexicon.app.GearComponent
-import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.GearView
-import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
 // The gear page's Components section, its mount history, and the owner's mount picker and unmount date (gear/gear-components).
@@ -69,23 +59,23 @@ import org.jetbrains.compose.resources.stringResource
  * or replace each one and mount another. Then what the item itself was mounted on, oldest first.
  */
 internal fun LazyListScope.componentItems(state: GearState, page: GearPage, section: @Composable (String) -> Unit) {
-    if (page.components.isNotEmpty() || page.previous.isNotEmpty() || page.isOwner) {
+    if (state.showsComponents) {
         item(key = "components-header") { section(stringResource(Res.string.gear_components)) }
         items(page.components, key = { "component/${it.gear.uri.value}" }) { component ->
             ComponentRow(
                 component.gear,
-                detail = gearMainTotalLabel(GearType.mainTotal(component.gear.type), component.totals),
-                dates = stringResource(Res.string.gear_component_since, dateOf(component.from)),
+                line = GearPageTexts.componentLine(component, LocalUnitSystem.current).string(),
+                dates = GearPageTexts.componentDates(component, LocalTimeZone.current).string(),
                 onClick = { state.eventSink(GearEvent.OpenGear(component.gear.uri.value)) },
-                actions = if (page.isOwner) ({ ComponentMenu(component, enabled = !state.mountSaving, send = state.eventSink) }) else null,
+                actions =
+                    if (state.managesComponents) ({ ComponentMenu(component, enabled = state.mountEnabled, send = state.eventSink) })
+                    else null,
             )
         }
-        state.error
-            ?.takeIf { it.kind in MOUNT_ERRORS }
-            ?.let { error -> item(key = "components-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
-        if (page.isOwner) {
+        state.componentsError?.let { error -> item(key = "components-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+        if (state.managesComponents) {
             item(key = "components-mount") {
-                AppTextButton(onClick = { state.eventSink(GearEvent.Mount) }, enabled = !state.mountSaving) {
+                AppTextButton(onClick = { state.eventSink(GearEvent.Mount) }, enabled = state.mountEnabled) {
                     Text(stringResource(Res.string.gear_components_mount))
                 }
             }
@@ -101,8 +91,8 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
             items(page.previous, key = { "previous/${it.gear.uri.value}/${it.from}" }) { component ->
                 ComponentRow(
                     component.gear,
-                    detail = gearMainTotalLabel(GearType.mainTotal(component.gear.type), component.totals),
-                    dates = datesOf(component.from, component.to),
+                    line = GearPageTexts.componentLine(component, LocalUnitSystem.current).string(),
+                    dates = GearPageTexts.componentDates(component, LocalTimeZone.current).string(),
                     onClick = { state.eventSink(GearEvent.OpenGear(component.gear.uri.value)) },
                 )
             }
@@ -113,8 +103,8 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
         items(page.mounts, key = { "mount/${it.parent.uri.value}/${it.from}" }) { mount ->
             ComponentRow(
                 mount.parent,
-                detail = null,
-                dates = datesOf(mount.from, mount.to),
+                line = GearPageTexts.kindLine(mount.parent).string(),
+                dates = GearPageTexts.mountDates(mount, LocalTimeZone.current).string(),
                 onClick = { state.eventSink(GearEvent.OpenGear(mount.parent.uri.value)) },
             )
         }
@@ -125,13 +115,13 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
 @Composable
 internal fun MountDialogs(state: GearState) {
     state.picker?.let { MountSheet(it, state.eventSink) }
-    state.unmounting?.let { UnmountDatePicker(it, state.eventSink) }
+    if (state.unmounting != null) UnmountDatePicker(state)
 }
 
 @Composable
 private fun ComponentRow(
     gear: GearView,
-    detail: String?,
+    line: String,
     dates: String,
     onClick: () -> Unit,
     actions: (@Composable () -> Unit)? = null,
@@ -143,8 +133,7 @@ private fun ComponentRow(
         Column(Modifier.weight(1f)) {
             Text(gear.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                listOfNotNull(gear.kind?.let { gearKindLabel(GearType.known(gear.type), it) } ?: gearTypeLabel(gear.type), detail)
-                    .joinToString(" · "),
+                line,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -164,7 +153,7 @@ private fun ComponentMenu(component: GearComponent, enabled: Boolean, send: (Gea
     Box {
         AppIconButton(
             AppIcon.More,
-            stringResource(Res.string.gear_component_actions, component.gear.name),
+            GearPageTexts.componentActions(component).string(),
             { open = true },
             enabled = enabled,
         )
@@ -192,9 +181,7 @@ private fun MountSheet(picker: GearMountPicker, send: (GearEvent) -> Unit) {
     val dismiss = { send(GearEvent.DismissMount) }
     AppBottomSheet(onDismiss = dismiss, sheetState = rememberAppSheetState()) {
         AppSheetHeader(
-            title =
-                picker.replacing?.let { stringResource(Res.string.gear_mount_replace_title, it.gear.name) }
-                    ?: stringResource(Res.string.gear_mount_pick_title),
+            title = GearPageTexts.pickerTitle(picker).string(),
             cancelLabel = stringResource(Res.string.action_cancel),
             onCancel = dismiss,
             confirmLabel = stringResource(Res.string.gear_mount_new),
@@ -218,7 +205,7 @@ private fun MountSheet(picker: GearMountPicker, send: (GearEvent) -> Unit) {
                 ) {
                     Text(candidate.name, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        candidate.kind?.let { gearKindLabel(GearType.known(candidate.type), it) } ?: gearTypeLabel(candidate.type),
+                        GearPageTexts.candidateLine(candidate).string(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -228,39 +215,21 @@ private fun MountSheet(picker: GearMountPicker, send: (GearEvent) -> Unit) {
     }
 }
 
-/** The date to unmount [component] on: after the day it was mounted, today by default. */
+/** The date to unmount the component on: from the day after it was mounted, today by default ([GearState.unmountFirstDay]). */
 @Composable
-private fun UnmountDatePicker(component: GearComponent, send: (GearEvent) -> Unit) {
+private fun UnmountDatePicker(state: GearState) {
     val zone = LocalTimeZone.current
     val clock = LocalClock.current
-    val today = remember { clock.now().toEpochMilliseconds() }
-    val firstDay = remember(component) { component.from.toLocalDateTime(zone).date.plus(1, DateTimeUnit.DAY).toPickerMillis() }
-    val bounds = remember(firstDay) { DateBounds(minDateMillis = firstDay) }
+    val firstDay = remember(state.unmounting, zone) { state.unmountFirstDay(zone) } ?: return
+    val initialDay = remember(state.unmounting, zone) { state.unmountInitialDay(clock.now(), zone) } ?: firstDay
+    val firstMillis = firstDay.toPickerMillis()
+    val bounds = remember(firstMillis) { DateBounds(minDateMillis = firstMillis) }
     AppDatePickerDialog(
-        initialSelectedDateMillis = maxOf(today, firstDay),
+        initialSelectedDateMillis = initialDay.toPickerMillis(),
         selectableDates = bounds,
         onConfirm = { millis ->
-            if (millis == null) send(GearEvent.DismissUnmount) else send(GearEvent.ConfirmUnmount(pickedDate(millis)))
+            if (millis == null) state.eventSink(GearEvent.DismissUnmount) else state.eventSink(GearEvent.ConfirmUnmount(pickedDate(millis)))
         },
-        onDismiss = { send(GearEvent.DismissUnmount) },
+        onDismiss = { state.eventSink(GearEvent.DismissUnmount) },
     )
 }
-
-@Composable
-@ReadOnlyComposable
-private fun dateOf(instant: Instant): String = instant.toLocalDateTime(LocalTimeZone.current).date.toString()
-
-@Composable
-private fun datesOf(from: Instant, to: Instant?): String =
-    if (to == null) stringResource(Res.string.gear_component_since, dateOf(from))
-    else stringResource(Res.string.gear_component_between, dateOf(from), dateOf(to))
-
-/** The errors a mount, unmount or replace shows by the Components section rather than above the activities. */
-internal val MOUNT_ERRORS =
-    setOf(
-        UiError.Kind.SaveMount,
-        UiError.Kind.MountOverlap,
-        UiError.Kind.MountLoop,
-        UiError.Kind.MountTooDeep,
-        UiError.Kind.MountEndsBeforeStart,
-    )

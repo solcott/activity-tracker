@@ -77,6 +77,8 @@ extension ScreenRegistry {
         registry.register(PrivacyZonesScreen.self, PrivacyZonesState.self) { state in PrivacyZonesView(state: state) }
         // A batch import's page (feed/import-cards), pushed over the feed: the first drawn with the native activity card.
         registry.register(ImportBatchScreen.self, ImportBatchState.self) { state in ImportBatchView(state: state) }
+        // The gear item page (ios-native-gear-item), opened from Gear, a collection or an activity's gear.
+        registry.register(GearScreen.self, GearState.self) { state in GearItemView(state: state) }
         return registry
     }()
 }

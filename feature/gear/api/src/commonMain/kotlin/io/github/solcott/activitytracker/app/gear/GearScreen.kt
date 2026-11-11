@@ -15,9 +15,14 @@ import io.github.solcott.activitytracker.lexicon.app.GearUsage
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * The gear item at [uri], its canonical AT-URI (gear/gear-usage): its photo and details, its usage as the viewer may see it, and the
@@ -91,6 +96,63 @@ data class GearState(
     /** [content]'s item: the last loaded, or null before the first. */
     val page: GearPage?
         get() = content.data
+
+    /** The page's title: the item's name, empty until it loads. */
+    val title: String
+        get() = page?.gear?.name.orEmpty()
+
+    /** Whether Edit shows in the bar: on the owner's page. */
+    val showsEdit: Boolean
+        get() = page?.isOwner == true
+
+    /** Whether the collections show: on the owner's page, when they have any. */
+    val showsCollections: Boolean
+        get() = page?.isOwner == true && collections.isNotEmpty()
+
+    /** Whether the Components section shows: when anything is or was mounted on the item, or on the owner's page, to mount one. */
+    val showsComponents: Boolean
+        get() = page?.let { it.components.isNotEmpty() || it.previous.isNotEmpty() || it.isOwner } == true
+
+    /** Whether components can be mounted, replaced and unmounted here: on the owner's page. */
+    val managesComponents: Boolean
+        get() = page?.isOwner == true
+
+    /** Whether Mount a component and each component's actions can be used: not while a mount change saves. */
+    val mountEnabled: Boolean
+        get() = !mountSaving
+
+    /** A failed mount, unmount or replace, shown by the Components section. */
+    val componentsError: UiError?
+        get() = error?.takeIf { it.kind in MOUNT_ERRORS }
+
+    /** Any other failed action (a like, a collection change, an unlink), shown over the activities. */
+    val activitiesError: UiError?
+        get() = error?.takeIf { it.kind !in MOUNT_ERRORS }
+
+    /** Whether a card's author opens their profile: not on the owner's own page, where every card is theirs. */
+    val authorClickable: Boolean
+        get() = page?.isOwner != true
+
+    /** The first day [unmounting]'s mount can end on: the day after it began, in [zone]; null when nothing is being unmounted. */
+    fun unmountFirstDay(zone: TimeZone): LocalDate? = unmounting?.from?.toLocalDateTime(zone)?.date?.plus(1, DateTimeUnit.DAY)
+
+    /** The day the unmount date picker shows first: today in [zone], or [unmountFirstDay] when that is later. */
+    fun unmountInitialDay(now: Instant, zone: TimeZone): LocalDate? {
+        val first = unmountFirstDay(zone) ?: return null
+        return maxOf(now.toLocalDateTime(zone).date, first)
+    }
+
+    private companion object {
+        /** The errors a mount, unmount or replace shows by the Components section rather than above the activities. */
+        val MOUNT_ERRORS =
+            setOf(
+                UiError.Kind.SaveMount,
+                UiError.Kind.MountOverlap,
+                UiError.Kind.MountLoop,
+                UiError.Kind.MountTooDeep,
+                UiError.Kind.MountEndsBeforeStart,
+            )
+    }
 }
 
 sealed interface GearEvent {

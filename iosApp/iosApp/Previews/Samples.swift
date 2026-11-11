@@ -84,6 +84,9 @@
         static var cardViewer: String { ActivityListPackage.ActivityCardSamples.shared.viewer }
         static var importBatch: [String: ImportBatchState] { FeedPackage.ImportBatchSamples.shared.all }
         static var importBatchVariants: [String: ImportBatchState] { FeedPackage.ImportBatchSamples.shared.variants }
+        /// The gear item page in each state it shows; states beyond content loading apart.
+        static var gear: [String: GearState] { GearPackage.GearSamples.shared.all }
+        static var gearVariants: [String: GearState] { GearPackage.GearSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
