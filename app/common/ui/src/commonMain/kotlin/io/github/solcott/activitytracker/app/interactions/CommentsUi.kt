@@ -40,10 +40,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_reply
-import io.github.solcott.activitytracker.composeApp.resources.comment_hidden
-import io.github.solcott.activitytracker.composeApp.resources.comment_hidden_by
 import io.github.solcott.activitytracker.composeApp.resources.comment_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_replying_to
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_count
@@ -103,10 +102,11 @@ fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizonta
         val prefix = THREAD_KEY + thread.uri.value
         item(key = "$prefix|root") {
             val root = thread.root
-            if (root == null) CommentUnavailable(top) else CommentRow(root, commentActions(root, state, reporting), state, reporting, top)
+            if (root == null) CommentUnavailable(top)
+            else CommentRow(root, CommentsTexts.actions(root, state, reporting.available), state, reporting, top)
         }
         items(thread.replies, key = { "$prefix|r|${it.uri.value}" }) {
-            CommentRow(it, commentActions(it, state, reporting), state, reporting, reply)
+            CommentRow(it, CommentsTexts.actions(it, state, reporting.available), state, reporting, reply)
         }
         items(thread.sentReplies, key = { "$prefix|s|${it.uri.value}" }) { SentCommentRow(it, state, reply) }
         if (thread.moreReplies > 0 || thread.repliesState is RepliesState.Failed) {
@@ -187,9 +187,8 @@ private fun CommentRow(
             ModerationNotice(decision, isOwn = false)
             Text(text, style = MaterialTheme.typography.bodyMedium)
             if (hidden) {
-                val athlete = state.author.shownName
                 Text(
-                    if (state.isOwn) stringResource(Res.string.comment_hidden) else stringResource(Res.string.comment_hidden_by, athlete),
+                    CommentsTexts.hiddenNote(state).string(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -276,30 +275,6 @@ private val TAIL_KEYS = listOf("comments/loading", "comments/field")
 
 /** How many threads short of the last one listed the next page starts loading. */
 private const val LOAD_MORE_AHEAD = 5
-
-/**
- * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own subject,
- * and mutes, blocks or reports the author of anyone else's. A placeholder and a just-sent comment never come here.
- */
-private fun commentActions(comment: CommentView, state: CommentsState, reporting: Reporting): ImmutableSet<CommentAction> {
-    val hidden = comment.hidden == true
-    val manage =
-        when {
-            comment.author.did == state.viewerDid -> CommentAction.Delete
-            !state.isOwn -> null
-            hidden -> CommentAction.Unhide
-            else -> CommentAction.Hide
-        }
-    val others = comment.author.did != state.viewerDid
-    return listOfNotNull(
-            CommentAction.Reply.takeIf { !hidden },
-            manage,
-            CommentAction.MuteAuthor.takeIf { others },
-            CommentAction.BlockAuthor.takeIf { others },
-            CommentAction.Report.takeIf { others && reporting.available },
-        )
-        .toImmutableSet()
-}
 
 /** How strongly a hidden comment shows, to the only two who see it. */
 private const val HIDDEN_ALPHA = 0.55f
