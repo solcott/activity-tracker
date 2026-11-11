@@ -180,10 +180,9 @@ object PostPageSamples {
                     ),
                 "quoting" to loaded(base.copy(quote = QuoteSheetSamples.open)),
                 "confirmDelete" to
-                    PostPageState(
-                        ContentStates.loaded(ownQuote.page!!.copy(quote = QuoteFields(confirmDelete = ownQuote.page!!.post))),
-                        eventSink = {},
-                    ),
+                    fakeQuote(author = Fixed.ALICE, quoteCount = 1).let { quote ->
+                        loaded(base.copy(post = quote, quote = QuoteFields(confirmDelete = quote)))
+                    },
             )
         }
 }

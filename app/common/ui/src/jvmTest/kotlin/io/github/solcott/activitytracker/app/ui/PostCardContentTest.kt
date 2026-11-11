@@ -225,27 +225,7 @@ class PostCardContentTest {
             PostCardSamples.all.values.map(::card) +
                 PostCardSamples.reposts.values.map { PostCardContent.of(it.post, PostCardSamples.viewer, it.reason) }
         val texts =
-            cards.flatMap { card ->
-                listOfNotNull(
-                    card.author(),
-                    card.audience(),
-                    card.repostedBy(),
-                    card.place(),
-                    card.proposes(),
-                    card.proposalStatus(),
-                    card.voteUp(),
-                    card.voteDown(),
-                    card.quotedUnavailableText(),
-                    card.quotedHeader(),
-                    card.quotedProposes(),
-                    card.quotedLinkText(),
-                    card.quotedOpen(),
-                    card.embedUnknownText(),
-                    card.repostLabel(),
-                    card.counts(),
-                    card.menuItem(),
-                )
-            } +
+            cards.flatMap(::cardTexts) +
                 listOf(
                     PostCardContent.more(),
                     PostCardContent.open(),
@@ -290,6 +270,27 @@ class PostCardContentTest {
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources || it in Res.allPluralStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }
+
+    private fun cardTexts(card: PostCardContent): List<AppText> =
+        listOfNotNull(
+            card.author(),
+            card.audience(),
+            card.repostedBy(),
+            card.place(),
+            card.proposes(),
+            card.proposalStatus(),
+            card.voteUp(),
+            card.voteDown(),
+            card.quotedUnavailableText(),
+            card.quotedHeader(),
+            card.quotedProposes(),
+            card.quotedLinkText(),
+            card.quotedOpen(),
+            card.embedUnknownText(),
+            card.repostLabel(),
+            card.counts(),
+            card.menuItem(),
+        )
 
     private fun names(text: AppText): List<String> =
         when (text) {
