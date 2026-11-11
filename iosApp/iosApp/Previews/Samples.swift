@@ -55,6 +55,18 @@
 
         static var uploads: [String: UploadsState] { UploadsPackage.UploadsSamples.shared.all }
 
+        /// Starred segments, a segment's leaderboard and Mayors, and a dive site's Regulars; states beyond content loading apart.
+        static var starredSegments: [String: StarredSegmentsState] { SegmentPackage.StarredSegmentsSamples.shared.all }
+        static var segmentLeaderboard: [String: SegmentLeaderboardState] { SegmentPackage.SegmentLeaderboardSamples.shared.all }
+        static var segmentMayors: [String: SegmentMayorsState] { SegmentPackage.SegmentMayorsSamples.shared.all }
+        static var diveSiteRegulars: [String: DiveSiteRegularsState] { DiveSitePackage.DiveSiteRegularsSamples.shared.all }
+        static var starredSegmentsVariants: [String: StarredSegmentsState] { SegmentPackage.StarredSegmentsSamples.shared.variants }
+        static var segmentLeaderboardVariants: [String: SegmentLeaderboardState] {
+            SegmentPackage.SegmentLeaderboardSamples.shared.variants
+        }
+        static var segmentMayorsVariants: [String: SegmentMayorsState] { SegmentPackage.SegmentMayorsSamples.shared.variants }
+        static var diveSiteRegularsVariants: [String: DiveSiteRegularsState] { DiveSitePackage.DiveSiteRegularsSamples.shared.variants }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(

@@ -62,6 +62,12 @@ extension ScreenRegistry {
         }
         // The upload queue (data/upload-queue), pushed over the feed.
         registry.register(UploadsScreen.self, UploadsState.self) { state in UploadsView(state: state) }
+        // The segment lists (ios-native-segment-lists): Starred segments over the profile, a segment's leaderboard and Mayors over its
+        // page, and a dive site's Regulars over its page.
+        registry.register(StarredSegmentsScreen.self, StarredSegmentsState.self) { state in StarredSegmentsView(state: state) }
+        registry.register(SegmentLeaderboardScreen.self, SegmentLeaderboardState.self) { state in SegmentLeaderboardView(state: state) }
+        registry.register(SegmentMayorsScreen.self, SegmentMayorsState.self) { state in SegmentMayorsView(state: state) }
+        registry.register(DiveSiteRegularsScreen.self, DiveSiteRegularsState.self) { state in DiveSiteRegularsView(state: state) }
         return registry
     }()
 }

@@ -48,11 +48,18 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearCollectionScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "UploadsScreen"))
+        for screen in ["StarredSegmentsScreen", "SegmentLeaderboardScreen", "SegmentMayorsScreen", "DiveSiteRegularsScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
+        }
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card, and a
         // profile, which opens the follow lists, for the feed's.
         // Accepting an invite waits for the native route preview and visibility form.
-        for screen in ["GearScreen", "ProfileScreen", "AcceptInviteScreen"] {
+        // The segment and dive site pages, their map and segment browse draw maps or charts, so they wait for native ones.
+        for screen in [
+            "GearScreen", "ProfileScreen", "AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen",
+            "DiveSiteScreen",
+        ] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it.
@@ -80,5 +87,9 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
         #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
         #expect(String(describing: ActivityTracker.UploadsScreen.self) == "UploadsScreen")
+        #expect(String(describing: ActivityTracker.StarredSegmentsScreen.self) == "StarredSegmentsScreen")
+        #expect(String(describing: ActivityTracker.SegmentLeaderboardScreen.self) == "SegmentLeaderboardScreen")
+        #expect(String(describing: ActivityTracker.SegmentMayorsScreen.self) == "SegmentMayorsScreen")
+        #expect(String(describing: ActivityTracker.DiveSiteRegularsScreen.self) == "DiveSiteRegularsScreen")
     }
 }

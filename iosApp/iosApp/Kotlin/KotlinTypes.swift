@@ -3,10 +3,12 @@ import ActivityTrackerCoreLexicon
 import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
+import FeatureDivesiteApi
 import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureProfileApi
+import FeatureSegmentApi
 import FeatureSettingsApi
 import FeatureUploadsApi
 import IoGithubSolcottDataresult
@@ -207,3 +209,33 @@ typealias DurationText = TextPackage.DurationText
 typealias DayText = TextPackage.DayText
 typealias KotlinInstant = ExportedKotlinPackages.kotlin.time.Instant
 typealias KotlinTimeZone = ExportedKotlinPackages.kotlinx.datetime.TimeZone
+
+// The segment lists (ios-native-segment-lists): Starred segments, a segment's leaderboard and Mayors, a dive site's Regulars, the lexicon
+// entries they list, and the board choices and texts both UIs ask.
+typealias SegmentPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.segment
+typealias StarredSegmentsScreen = SegmentPackage.StarredSegmentsScreen
+typealias StarredSegmentsState = SegmentPackage.StarredSegmentsState
+typealias StarredSegmentsEvent = SegmentPackage.StarredSegmentsEvent
+typealias StarredSegment = SegmentPackage.StarredSegment
+typealias SegmentLeaderboardScreen = SegmentPackage.SegmentLeaderboardScreen
+typealias SegmentLeaderboardState = SegmentPackage.SegmentLeaderboardState
+typealias SegmentLeaderboardEvent = SegmentPackage.SegmentLeaderboardEvent
+typealias SegmentMayorsScreen = SegmentPackage.SegmentMayorsScreen
+typealias SegmentMayorsState = SegmentPackage.SegmentMayorsState
+typealias SegmentMayorsEvent = SegmentPackage.SegmentMayorsEvent
+typealias DiveSitePackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.divesite
+typealias DiveSiteRegularsScreen = DiveSitePackage.DiveSiteRegularsScreen
+typealias DiveSiteRegularsState = DiveSitePackage.DiveSiteRegularsState
+typealias DiveSiteRegularsEvent = DiveSitePackage.DiveSiteRegularsEvent
+typealias LexiconAppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app
+typealias SegmentView = LexiconAppPackage.SegmentView
+typealias LeaderboardEntry = LexiconAppPackage.LeaderboardEntry
+typealias MayorEntry = LexiconAppPackage.MayorEntry
+typealias DiveSiteRegularEntry = LexiconAppPackage.DiveSiteRegularEntry
+typealias AtUri = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.AtUri
+typealias SegmentBoardTexts = SegmentPackage.SegmentBoardTexts
+typealias StarredSegmentsTexts = SegmentPackage.StarredSegmentsTexts
+typealias DiveSiteRegularsTexts = DiveSitePackage.DiveSiteRegularsTexts
+typealias BoardChoice = AppPackage.boards.BoardChoice
+typealias BoardOption = AppPackage.boards.BoardOption
+typealias RankBoardTexts = AppPackage.boards.RankBoardTexts
