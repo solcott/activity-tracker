@@ -93,7 +93,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
             }
             page.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(horizontal = CARD_PADDING)) } }
             item(key = "likes") {
-                if (page.post.likeCount > 0 || page.likesList != null) {
+                if (page.showsLikesToggle) {
                     AppTextButton(
                         onClick = { state.eventSink(PostPageEvent.ToggleLikesList) },
                         modifier = Modifier.padding(horizontal = CARD_PADDING),
@@ -108,7 +108,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                 }
             }
             item(key = "reposts") {
-                if (page.post.repostCount > 0 || page.repostsList != null) {
+                if (page.showsRepostsToggle) {
                     AppTextButton(
                         onClick = { state.eventSink(PostPageEvent.ToggleRepostsList) },
                         modifier = Modifier.padding(horizontal = CARD_PADDING),
@@ -123,7 +123,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                 }
             }
             item(key = "quotes") {
-                if (page.post.quoteCount > 0) {
+                if (page.showsQuotes) {
                     AppTextButton(
                         onClick = { state.eventSink(PostPageEvent.OpenQuotes) },
                         modifier = Modifier.padding(horizontal = CARD_PADDING),
