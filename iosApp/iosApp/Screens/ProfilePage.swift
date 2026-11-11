@@ -6,8 +6,9 @@ import SwiftUI
 /// sits in the bar on the athlete's own profile, and a menu with Mute and Block on anyone else's. Every word and condition is Kotlin's
 /// (`ProfileTexts`, `ProfileState`), shared with the Compose page.
 ///
-/// Report and the Posts tab wait (ios-native-profile): Report's sheet is a sub-screen the presenter host can't run yet, and posts have no
-/// native card, so the menu has no Report and the page lists activities alone. Named `ProfilePage` because `ProfileView` is the lexicon's.
+/// The Activities and Posts choice sits under the actions, and Posts lists native post cards (`ProfilePosts`, ios-native-post-card), with
+/// the quote sheet. Report waits (ios-native-profile): its sheet is a sub-screen, so the menu has no Report yet. Named `ProfilePage`
+/// because `ProfileView` is the lexicon's.
 struct ProfilePage: View {
     let state: ProfileState
     @Environment(\.clock) private var clock
@@ -30,6 +31,7 @@ struct ProfilePage: View {
         } message: {
             Text(ProfileTexts.shared.blockConfirmMessage)
         }
+        .quoteSheet(state.quote)
     }
 
     private func list(_ profile: ProfileView) -> some View {
@@ -44,7 +46,12 @@ struct ProfilePage: View {
                 ProfileHeader(state: state, profile: profile, send: send)
             }
             actions
-            activities
+            ProfileTabPicker(state: state, send: send)
+            if state.tab == .Posts {
+                ProfilePosts(state: state, send: send)
+            } else {
+                activities
+            }
         }
         .listStyle(.insetGrouped)
     }
