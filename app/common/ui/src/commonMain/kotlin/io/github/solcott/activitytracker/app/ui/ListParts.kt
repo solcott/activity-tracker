@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.SignInAgainNotice
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -37,15 +38,14 @@ fun EmptyListText(text: String, modifier: Modifier = Modifier, color: Color = Co
 
 /**
  * Why a list's action failed, or that the session must sign in again ([needsSignIn]) when there's no [error], with Sign in again
- * ([onSignInAgain]) for either. Nothing when there's neither.
+ * ([onSignInAgain]) where [SignInAgainNotice] offers it. Nothing when there's neither.
  */
 fun LazyListScope.signInAgainItem(error: UiError?, needsSignIn: Boolean, onSignInAgain: () -> Unit) {
-    if (!needsSignIn && error == null) return
+    val notice = SignInAgainNotice.of(error, needsSignIn) ?: return
     item(key = "error") {
-        val shown = error ?: UiError(UiError.Kind.SignInAgain)
         Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            ErrorText(shown)
-            if (needsSignIn || shown.kind == UiError.Kind.SignInAgain) {
+            ErrorText(notice.error)
+            if (notice.offersSignInAgain) {
                 AppSecondaryButton(onClick = onSignInAgain) { Text(stringResource(Res.string.action_sign_in_again)) }
             }
         }
