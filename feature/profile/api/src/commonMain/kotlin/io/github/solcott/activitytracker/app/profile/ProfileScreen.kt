@@ -140,6 +140,8 @@ enum class ProfileTab {
     Posts,
 }
 
+/** Immutable, so a [ProfileEntry] carrying one is stable. */
+@Immutable
 sealed interface ProfileEvent {
     data object Back : ProfileEvent
 

@@ -23,7 +23,7 @@ class ProfileTextNamesTest {
         val details = ProfileDetails(birthDate = "1990-04-12", gender = "female", height = 1803, weight = 61_500)
         val own = ProfileState(isSelf = true, activityInviteCount = 2, followRequestCount = 3)
         val texts =
-            listOfNotNull(
+            listOf(
                 ProfileTexts.title(null),
                 ProfileTexts.title(ProfileView(Did("did:plc:bob"), Handle("bob.test"))),
                 ProfileTexts.activities(1),

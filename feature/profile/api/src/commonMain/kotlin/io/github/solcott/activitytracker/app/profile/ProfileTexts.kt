@@ -43,6 +43,7 @@ enum class FollowLabel {
 @Immutable data class ProfileEntry(val label: AppText, val event: ProfileEvent)
 
 /** What the profile says, chosen here for the shared and the native UI (dev/shared-display-text). */
+@Suppress("TooManyFunctions") // One function per thing the page says, as the shared and the native page ask them.
 object ProfileTexts {
     /** The page's title: the athlete's shown name, or "Profile" until it loads. */
     fun title(profile: ProfileView?): AppText = profile?.let { AppText.written(it.shownName) } ?: AppText.named("profile_title")
