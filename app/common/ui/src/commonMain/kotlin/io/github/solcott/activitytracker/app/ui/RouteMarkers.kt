@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -49,5 +50,5 @@ internal data class RouteMarkers<T>(val start: T?, val end: T?, val breaks: Immu
 }
 
 /** These markers with the start and end at [ends] when given: the owner's untrimmed line marks the ends of the route others see. */
-internal fun RouteMarkers<Pair<Double, Double>>.shownAt(ends: RouteEnds?): RouteMarkers<Pair<Double, Double>> =
-    if (ends == null) this else copy(start = ends.start?.let { it.lat to it.lng }, end = ends.end?.let { it.lat to it.lng })
+internal fun RouteMarkers<GeoPoint>.shownAt(ends: RouteEnds?): RouteMarkers<GeoPoint> =
+    if (ends == null) this else copy(start = ends.start, end = ends.end)

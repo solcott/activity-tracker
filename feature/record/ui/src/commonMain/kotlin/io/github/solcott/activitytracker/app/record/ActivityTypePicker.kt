@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.sport.SportTypeGroup
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.TapField
@@ -113,8 +114,8 @@ private fun ActivityTypeSheet(
     val matches = activityTypeMatcher(needle)
     val groups =
         SportCatalog.categories
-            .map { group -> group.category to group.types.filter { offered(it) && matches(it) }.toImmutableList() }
-            .filter { it.second.isNotEmpty() }
+            .map { group -> SportTypeGroup(group.category, group.types.filter { offered(it) && matches(it) }.toImmutableList()) }
+            .filter { it.types.isNotEmpty() }
             .toImmutableList()
     var expanded by rememberExpandedSports()
 

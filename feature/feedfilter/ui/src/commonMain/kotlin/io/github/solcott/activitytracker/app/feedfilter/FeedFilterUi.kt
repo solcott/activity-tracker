@@ -26,6 +26,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
+import io.github.solcott.activitytracker.app.sport.SportTypeGroup
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
@@ -183,8 +184,8 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
         val matches = activityTypeMatcher(needle)
         val groups =
             picker.categories
-                .map { it.category to it.types.filter(matches).toImmutableList() }
-                .filter { it.second.isNotEmpty() }
+                .map { SportTypeGroup(it.category, it.types.filter(matches).toImmutableList()) }
+                .filter { it.types.isNotEmpty() }
                 .toImmutableList()
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AppTextField(
