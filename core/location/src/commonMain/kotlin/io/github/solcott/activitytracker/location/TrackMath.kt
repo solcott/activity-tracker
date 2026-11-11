@@ -120,19 +120,20 @@ object TrackMath {
     }
 
     /** Google encoded polyline, precision 5. */
-    fun encodePolyline(points: List<LocationSample>): String = encodePolyline(points.map { it.latitude to it.longitude }, POLYLINE_SCALE)
+    fun encodePolyline(points: List<LocationSample>): String =
+        encodePolyline(points.map { GeoPoint(it.latitude, it.longitude) }, POLYLINE_SCALE)
 
-    /** [encoded]'s lat/lon pairs at precision 5; throws on a malformed one, which [decodePolylineOrNull] answers with null. */
-    fun decodePolyline(encoded: String): List<Pair<Double, Double>> = checkNotNull(decodePolylineOrNull(encoded)) { "malformed polyline" }
+    /** [encoded]'s points at precision 5; throws on a malformed one, which [decodePolylineOrNull] answers with null. */
+    fun decodePolyline(encoded: String): List<GeoPoint> = checkNotNull(decodePolylineOrNull(encoded)) { "malformed polyline" }
 
     /**
-     * [encoded]'s lat/lon pairs at precision 5, or null when it's malformed (cut off mid-value, or a character outside the format): for
-     * polylines from records, which are untrusted.
+     * [encoded]'s points at precision 5, or null when it's malformed (cut off mid-value, or a character outside the format): for polylines
+     * from records, which are untrusted.
      */
-    fun decodePolylineOrNull(encoded: String): List<Pair<Double, Double>>? = decodePolyline(encoded, POLYLINE_SCALE)
+    fun decodePolylineOrNull(encoded: String): List<GeoPoint>? = decodePolyline(encoded, POLYLINE_SCALE)
 
-    /** An encoded polyline of lat/lon pairs at [scale] (1e5 for precision 5, 1e6 for 6). */
-    internal fun encodePolyline(points: List<Pair<Double, Double>>, scale: Double): String = buildString {
+    /** An encoded polyline of [points] at [scale] (1e5 for precision 5, 1e6 for 6). */
+    internal fun encodePolyline(points: List<GeoPoint>, scale: Double): String = buildString {
         var lastLat = 0L
         var lastLon = 0L
         for ((latitude, longitude) in points) {
@@ -145,10 +146,10 @@ object TrackMath {
         }
     }
 
-    /** [encoded]'s lat/lon pairs at [scale], or null when it's malformed: cut off mid-value, or with a character outside the format. */
-    internal fun decodePolyline(encoded: String, scale: Double): List<Pair<Double, Double>>? {
+    /** [encoded]'s points at [scale], or null when it's malformed: cut off mid-value, or with a character outside the format. */
+    internal fun decodePolyline(encoded: String, scale: Double): List<GeoPoint>? {
         if (!wellFormed(encoded)) return null
-        val result = mutableListOf<Pair<Double, Double>>()
+        val result = mutableListOf<GeoPoint>()
         var index = 0
         var lat = 0L
         var lon = 0L
@@ -167,7 +168,7 @@ object TrackMath {
         while (index < encoded.length) {
             lat += next()
             lon += next()
-            result += lat / scale to lon / scale
+            result += GeoPoint(lat / scale, lon / scale)
         }
         return result
     }

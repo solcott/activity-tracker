@@ -55,14 +55,13 @@ object SegmentGeometry {
     private const val DEGREES_PER_HALF_TURN = 180.0
 
     /** [line] as an encoded polyline at precision 6, the form `feed.segment#line` stores. */
-    fun encodePolyline(line: List<GeoPoint>): String = TrackMath.encodePolyline(line.map { it.lat to it.lng }, POLYLINE_SCALE)
+    fun encodePolyline(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, POLYLINE_SCALE)
 
     /** A precision-6 encoded polyline's points, or null when it's malformed. */
-    fun decodePolyline(encoded: String): List<GeoPoint>? =
-        TrackMath.decodePolyline(encoded, POLYLINE_SCALE)?.map { (lat, lng) -> GeoPoint(lat, lng) }
+    fun decodePolyline(encoded: String): List<GeoPoint>? = TrackMath.decodePolyline(encoded, POLYLINE_SCALE)
 
     /** [line] at precision 5, for the maps that draw `feed.activity` polylines. */
-    fun toPrecision5(line: List<GeoPoint>): String = TrackMath.encodePolyline(line.map { it.lat to it.lng }, PRECISION_5_SCALE)
+    fun toPrecision5(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, PRECISION_5_SCALE)
 
     fun distanceMeters(a: GeoPoint, b: GeoPoint): Double = TrackMath.distanceMeters(a.lat, a.lng, b.lat, b.lng)
 
