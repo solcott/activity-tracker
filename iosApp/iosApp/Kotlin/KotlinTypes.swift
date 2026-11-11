@@ -4,6 +4,7 @@ import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
 import FeatureDivesiteApi
+import FeatureFeedApi
 import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
@@ -268,3 +269,25 @@ typealias GenderChoices = ProfilePackage.GenderChoices
 typealias CountrySearch = ProfilePackage.CountrySearch
 typealias CountryName = ProfilePackage.CountryName
 typealias DetailGroup = ExportedKotlinPackages.io.github.solcott.activitytracker.data.profile.DetailGroup
+
+// The activity card (ui/ios-design-system) and the first page drawn with it, a batch import's (feed/import-cards): what a card shows,
+// the lexicon view it shows, the route it places and the shared list events it sends.
+typealias ActivityListPackage = AppPackage.activitylist
+typealias ActivityCardContent = ActivityListPackage.ActivityCardContent
+typealias ActivityListEvent = ActivityListPackage.ActivityListEvent
+typealias LockLine = ActivityListPackage.LockLine
+typealias NoticeText = AppPackage.moderation.NoticeText
+typealias Revealed = AppPackage.moderation.Revealed
+typealias LabeledText = TextPackage.LabeledText
+typealias MediaPhoto = AppPackage.media.MediaItem.Photo
+typealias RouteShape = AppPackage.RouteShape
+typealias RoutePiece = AppPackage.RoutePiece
+typealias RouteBreak = AppPackage.RouteBreak
+typealias ShapePoint = AppPackage.ShapePoint
+typealias ActivityView = LexiconAppPackage.ActivityView
+typealias FeedPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.feed
+typealias ImportBatchScreen = FeedPackage.ImportBatchScreen
+typealias ImportBatchState = FeedPackage.ImportBatchState
+typealias ImportBatchEvent = FeedPackage.ImportBatchEvent
+typealias ImportBatchTexts = FeedPackage.ImportBatchTexts
+typealias ImportBatchMonth = FeedPackage.ImportBatchMonth
