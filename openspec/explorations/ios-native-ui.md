@@ -1503,8 +1503,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`)~~: native (`ios-native-profile`), with the
   native activity card. Still left out of it natively: Report on someone else's profile (its sheet is the `ReportScreen` SubCircuit,
   which the presenter host runs since `ios-host-subcircuits`, so it can follow) and the Posts tab (posts need a native post card, with the quote sheet and Report). Until
-  then iOS offers neither on a profile; the Compose page keeps both. A native tab root (the profile in the You tab) shows no title on an iPad with its
-  tabs at the top; the shell needs a tab-root rule (a large title, as the shared root had) for native roots. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
+  then iOS offers neither on a profile; the Compose page keeps both. ~~A native tab root (the profile in the You tab) shows no title on an iPad with its
+  tabs at the top~~: a tab's first page now titles itself large (`\.tabRoot`, set by `StackView` on the stack's root), as the shared
+  root did; the pages pushed over it keep inline titles. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
   (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
   and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
