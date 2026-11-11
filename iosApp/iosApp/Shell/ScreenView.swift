@@ -42,7 +42,8 @@ private struct NativeScreen: View {
         Following(record.state) { state in
             // Nothing until the presenter's first state, which arrives within a frame.
             if let state, let view = ScreenRegistry.app.view(forScreenNamed: record.screenName, state: state) {
-                view
+                // A sheet in the page asks the host for its sub-screen through the record (`reporting(_:)`, `SubScreenView`).
+                view.environment(\.hostRecord, record)
             }
         }
     }
@@ -56,4 +57,10 @@ struct SingleScreen: View {
     var body: some View {
         ScreenView(record: record, controllers: controllers)
     }
+}
+
+extension EnvironmentValues {
+    /// The host record of the native page a view is drawn in, for a sheet that asks it for a sub-screen; nil outside the host, as in a
+    /// preview or a snapshot.
+    @Entry var hostRecord: HostRecord?
 }

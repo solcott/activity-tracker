@@ -12,9 +12,11 @@ import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.report.Reporting
+import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.BlurReason
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -128,6 +130,16 @@ data class ProfileState(
             val shown = profile ?: return null
             return ModerationDecision.mediaOf(shown.labels, null)?.takeUnless { shown.did.value in revealed }
         }
+
+    /**
+     * What Report in the menu sends to [reporting], naming the athlete [authorName] as the sheet shows them: their account, with Block
+     * offered once sent unless the viewer blocks them already. Null where Report isn't offered: the athlete's own profile, one not loaded
+     * yet, or no labeler. Kept on a profile the viewer blocks, which has nothing else to report from.
+     */
+    fun reportEvent(authorName: String): ReportingEvent.Open? =
+        profile
+            ?.takeUnless { isSelf || !reporting.available }
+            ?.let { ReportingEvent.Open(ReportTarget.Account(it.did), authorName, offerBlock = !blocking) }
 
     /** The labels' notices over the header: a warning, the athlete's own note that their media is blurred, or a takedown. */
     fun notices(): List<NoticeText> =

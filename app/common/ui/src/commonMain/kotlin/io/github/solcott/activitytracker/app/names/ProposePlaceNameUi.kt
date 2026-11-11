@@ -20,58 +20,40 @@ import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.post_share_public_only_sign_in
-import io.github.solcott.activitytracker.composeApp.resources.post_share_public_only_unsupported
-import io.github.solcott.activitytracker.composeApp.resources.post_share_text_field
-import io.github.solcott.activitytracker.composeApp.resources.post_share_text_too_long
-import io.github.solcott.activitytracker.composeApp.resources.post_share_to_feed
-import io.github.solcott.activitytracker.composeApp.resources.post_share_to_feed_detail
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_disclosure
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_edit_warning
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_field
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_invalid
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_sheet_edit_title
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_sheet_propose_title
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_sheet_save
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_sheet_send
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * The name sheet's content: the name, and before it's sent what proposing shows others (a new proposal) or that saving clears the votes (an
- * edit), then Share to feed (feed/posts).
+ * edit), then Share to feed (feed/posts). Its words and conditions are Kotlin's (`ProposePlaceNameTexts`, `ProposePlaceNameState`), shared
+ * with the native sheet.
  */
 @SubCircuitInject(ProposePlaceNameScreen::class, SessionScope::class)
 @Composable
 fun ProposePlaceNameUi(state: ProposePlaceNameState, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         AppSheetHeader(
-            title =
-                stringResource(
-                    if (state.editing) Res.string.segment_name_sheet_edit_title else Res.string.segment_name_sheet_propose_title,
-                ),
+            title = ProposePlaceNameTexts.title(state).string(),
             cancelLabel = stringResource(Res.string.action_cancel),
             onCancel = { state.eventSink(ProposePlaceNameEvent.Cancel) },
-            confirmLabel = stringResource(if (state.editing) Res.string.segment_name_sheet_save else Res.string.segment_name_sheet_send),
+            confirmLabel = ProposePlaceNameTexts.confirm(state).string(),
             onConfirm = { if (state.canSend) state.eventSink(ProposePlaceNameEvent.Send) },
         )
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                stringResource(if (state.editing) Res.string.segment_name_edit_warning else Res.string.segment_name_disclosure),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(ProposePlaceNameTexts.lead(state).string(), style = MaterialTheme.typography.bodyMedium)
             AppTextField(
                 state = state.name,
                 modifier = Modifier.fillMaxWidth(),
-                label = stringResource(Res.string.segment_name_field),
+                label = ProposePlaceNameTexts.field.string(),
                 enabled = !state.sending,
                 lineLimits = TextFieldLineLimits.SingleLine,
             )
-            if (state.name.text.isNotEmpty() && !state.valid) {
+            if (state.showsInvalid) {
                 Text(
-                    stringResource(Res.string.segment_name_invalid),
+                    ProposePlaceNameTexts.invalid.string(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -85,13 +67,13 @@ fun ProposePlaceNameUi(state: ProposePlaceNameState, modifier: Modifier = Modifi
 /** Share to feed (feed/posts): the switch, then with it on the audience, why only Public may be offered, and the optional text. */
 @Composable
 private fun ShareToFeed(state: ProposePlaceNameState) {
-    val enabled = !state.sending && !state.shareLoading
+    val enabled = state.shareEnabled
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.post_share_to_feed), style = MaterialTheme.typography.bodyLarge)
+                Text(ProposePlaceNameTexts.shareToFeed.string(), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    stringResource(Res.string.post_share_to_feed_detail),
+                    ProposePlaceNameTexts.shareToFeedDetail.string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -111,28 +93,22 @@ private fun ShareToFeed(state: ProposePlaceNameState) {
             enabled = enabled,
             options = state.audiences,
         )
-        when (state.shareLimit) {
-            ShareLimit.None -> Unit
-            ShareLimit.SignInAgain -> LimitNote(stringResource(Res.string.post_share_public_only_sign_in))
-            ShareLimit.SpacesUnsupported -> LimitNote(stringResource(Res.string.post_share_public_only_unsupported))
+        ProposePlaceNameTexts.shareLimit(state)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         AppTextField(
             state = state.shareText,
             modifier = Modifier.fillMaxWidth(),
-            label = stringResource(Res.string.post_share_text_field),
+            label = ProposePlaceNameTexts.shareText.string(),
             enabled = enabled,
             lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 2, maxHeightInLines = 6),
         )
         if (!state.shareTextValid) {
             Text(
-                stringResource(Res.string.post_share_text_too_long, ProposePlaceNameState.MAX_SHARE_TEXT_LENGTH),
+                ProposePlaceNameTexts.shareTextTooLong.string(),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
 }
-
-@Composable
-private fun LimitNote(text: String) =
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -28,11 +28,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_delete
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_delete_confirm_message
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_delete_confirm_title
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_edit
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_history
 import io.github.solcott.activitytracker.composeApp.resources.segment_name_history_by
@@ -206,10 +205,10 @@ fun PlaceNameDialogs(fields: PlaceNameFields) {
         }
     }
     if (fields.confirmDelete != null) {
-        val delete = stringResource(Res.string.segment_name_delete)
+        val delete = ProposePlaceNameTexts.delete.string()
         AppAlertDialog(
-            title = stringResource(Res.string.segment_name_delete_confirm_title),
-            message = stringResource(Res.string.segment_name_delete_confirm_message),
+            title = ProposePlaceNameTexts.deleteConfirmTitle.string(),
+            message = ProposePlaceNameTexts.deleteConfirmMessage.string(),
             actions = persistentListOf(AppDialogAction(delete, destructive = true) { onConfirmDelete(true) }),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { onConfirmDelete(false) },

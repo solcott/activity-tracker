@@ -7,7 +7,7 @@ import SwiftUI
 /// (`ProfileTexts`, `ProfileState`), shared with the Compose page.
 ///
 /// The Activities and Posts choice sits under the actions, and Posts lists native post cards (`ProfilePosts`, ios-native-post-card), with
-/// the quote sheet. Report waits (ios-native-profile): its sheet is a sub-screen, so the menu has no Report yet. Named `ProfilePage`
+/// the quote sheet. The menu's Report opens the native report sheet (`reporting(_:)`, ios-native-report-sheet). Named `ProfilePage`
 /// because `ProfileView` is the lexicon's.
 struct ProfilePage: View {
     let state: ProfileState
@@ -32,6 +32,7 @@ struct ProfilePage: View {
             Text(ProfileTexts.shared.blockConfirmMessage)
         }
         .quoteSheet(state.quote)
+        .reporting(state.reporting)
     }
 
     private func list(_ profile: ProfileView) -> some View {
@@ -111,6 +112,10 @@ struct ProfilePage: View {
                         // Blocking asks first, saying they won't be told; unblocking doesn't.
                         Button(role: .destructive) { confirmingBlock = true } label: { Text(ProfileTexts.shared.block(blocking: false)) }
                     }
+                }
+                // Kept on a profile the viewer blocks, which has nothing else to report from (moderation/reports).
+                if let report = state.reportEvent(authorName: AppStrings.string(blockName)) {
+                    Button { state.reporting.eventSink(report) } label: { Text(ReportTexts.shared.menuEntry) }
                 }
             } label: {
                 Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())

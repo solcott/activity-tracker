@@ -30,7 +30,6 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
-import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
@@ -69,7 +68,6 @@ import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_report
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
-import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -212,12 +210,7 @@ private fun ProfileBarActions(state: ProfileState) {
             muting = state.muting,
             eventSink = state.eventSink,
             // Kept on a profile the viewer blocks, which has nothing else to report from.
-            onReport =
-                if (reporting.available) {
-                    { reporting.eventSink(ReportingEvent.Open(ReportTarget.Account(profile.did), name, offerBlock = !state.blocking)) }
-                } else {
-                    null
-                },
+            onReport = state.reportEvent(name)?.let { open -> { reporting.eventSink(open) } },
         )
         ReportingHost(reporting)
         QuoteSheetHost(state.quote)

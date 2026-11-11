@@ -7,7 +7,7 @@ Lets athletes report activities, photos, comments and accounts to the app's mode
 ## Requirements
 
 ### Requirement: Report entry points
-Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer. The native profile on iOS SHALL NOT offer Report until the report sheet can be shown from a native page; it offers Mute and Block alone.
+Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer. The native profile on iOS SHALL offer Report in its menu beside Mute and Block, and show the report sheet natively.
 
 #### Scenario: Report a comment
 - **WHEN** alice opens the menu on bob's comment
@@ -27,7 +27,11 @@ Clients SHALL offer Report on any activity, on each photo in the media gallery, 
 
 #### Scenario: A profile on iOS
 - **WHEN** alice opens the menu on bob's profile on iOS
-- **THEN** it offers Mute and Block, and not Report
+- **THEN** it offers Mute, Block and Report, and Report opens the native report sheet for bob's account
+
+#### Scenario: Own profile on iOS
+- **WHEN** alice opens her own profile on iOS
+- **THEN** Report is not offered
 
 ### Requirement: Report reasons
 The report sheet SHALL ask for a reason: spam, sexual content, violence or graphic content, harassment or rude behavior, misleading or impersonation, or other. It SHALL offer an optional note of at most 2000 characters. Each reason SHALL map to its `com.atproto.moderation.defs#reasonType`, and "other" SHALL require the note.
