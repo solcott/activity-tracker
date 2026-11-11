@@ -62,6 +62,7 @@ private struct StackView: View {
             NavigationStack(path: path(of: pushed)) {
                 // The first record is the stack's root. It changes only when the stack is replaced, and then the view is new too.
                 ScreenView(record: pushed[0], controllers: controllers)
+                    .environment(\.tabRoot, true)
                     .id(pushed[0].key)
                     .navigationDestination(for: StackEntry.self) { entry in
                         StackDestination(record: entry.record, stack: stack, controllers: controllers)

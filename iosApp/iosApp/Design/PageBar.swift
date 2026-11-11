@@ -35,6 +35,7 @@ private struct PageTitle: ViewModifier {
     let actions: AnyView?
     @Environment(\.inPane) private var inPane
     @Environment(\.paneRoot) private var paneRoot
+    @Environment(\.tabRoot) private var tabRoot
 
     func body(content: Content) -> some View {
         if inPane {
@@ -44,7 +45,9 @@ private struct PageTitle: ViewModifier {
             content
                 .navigationTitle(title)
                 .pageSubtitle(subtitle, under: title)
-                .navigationBarTitleDisplayMode(.inline)
+                // A tab's first page has a large title, as iOS titles a tab's root and the shared page does: an inline one at a tab
+                // root doesn't show on an iPad, whose tabs share the bar.
+                .navigationBarTitleDisplayMode(tabRoot ? .large : .inline)
                 // The stack's back button pops the Kotlin stack itself; a page that can't go back hides it, and its edge swipe with it.
                 .navigationBarBackButtonHidden(!canGoBack)
                 .toolbar {
@@ -152,4 +155,8 @@ extension EnvironmentValues {
     /// Whether the screen is the first page in its column beside another (`HostRecord.paneRoot`), which has no back button: the screen
     /// beside it is where to go back to. Only read in a column.
     @Entry var paneRoot = true
+
+    /// Whether the screen is the first page of a tab's stack, which titles itself large (`pageTitle`). The pages pushed over it don't
+    /// see it: the stack's destinations take their environment from the stack, not from its root.
+    @Entry var tabRoot = false
 }

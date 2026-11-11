@@ -130,6 +130,17 @@ A native page's title SHALL be able to carry a second, smaller line under it, su
 - **WHEN** the page's subtitle isn't known yet
 - **THEN** the bar shows the title alone, at its usual place
 
+### Requirement: A tab's first page has a large title
+A native page that is the first page of a tab's stack SHALL show its title large in the stack's bar, as iOS titles a tab's root and the shared UI titles its tab roots, on an iPhone and on an iPad with its tabs at the top. A page pushed over it, and a page drawn in a column beside another, SHALL keep the inline title or the column header.
+
+#### Scenario: The You tab on an iPad
+- **WHEN** alice opens the You tab on an iPad
+- **THEN** her profile's title, her name, shows large under the tabs
+
+#### Scenario: A profile pushed over it
+- **WHEN** alice opens Following from her profile and then bob's profile
+- **THEN** Following and bob's profile each show an inline title
+
 ### Requirement: Native form text fields sit in the form's rows
 A native form's text field SHALL be able to show as a row of the system's grouped form, its label leading and its text trailing on one line, or as its label above several lines of text. The text that explains it, or its error, SHALL show under the row, and VoiceOver SHALL read the label with the text.
 
