@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.app.background.IosImportSaves
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.HostRecord
+import io.github.solcott.activitytracker.app.profile.EditProfileLimits
+import io.github.solcott.activitytracker.app.ui.compressAvatar as compressForAvatar
 import io.github.solcott.activitytracker.app.ui.compressPhoto as compressForUpload
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.export.ExportArchive
@@ -54,6 +56,17 @@ object IosApp {
         compressForUpload(image.toByteArray())
     }
         .map { PickedPhoto(ByteString(it.bytes), it.mimeType, it.width, it.height) }
+        .getOrNull()
+
+    /**
+     * A profile photo the native edit profile picked, ready to attach: [image] (any format the platform decodes, a HEIC included) as a JPEG
+     * scaled and re-encoded by the same `compressAvatar` the shared UI's pick runs, at [EditProfileLimits]' size and quality, so the photo
+     * saved is the same on every platform. Null when [image] can't be read as a picture. Swift awaits it and sends the result in
+     * `EditProfileEvent.AvatarPicked`.
+     */
+    suspend fun compressAvatar(image: ByteString): ByteString? = runSuspendCatching {
+        ByteString(compressForAvatar(image.toByteArray(), EditProfileLimits.avatarPixels, EditProfileLimits.avatarQuality))
+    }
         .getOrNull()
 
     /** A screen drawn by the shared Compose UI, for one the shell has no native view for. Call [host] first. */
