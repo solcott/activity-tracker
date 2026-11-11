@@ -22,6 +22,7 @@ import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 
 object ProfileSamples {
     val profile: ProfileView = fakeProfile()
@@ -93,6 +94,43 @@ object FollowRequestsSamples {
                 SampleKind.REFRESHING to FollowRequestsState(content = ContentStates.refreshing(content)),
                 SampleKind.REFRESH_FAILED to FollowRequestsState(content = ContentStates.refreshFailed(content)),
             )
+
+    /**
+     * What [all]'s content-loading states don't show: the Declined tab, listing dave or no one; bob's answer being written, an account
+     * whose DID isn't a valid record key and the last answer failed; a session that must sign in again to decline; and more requests than
+     * were read. Kept apart from [all], whose keys are the content-loading conformance set.
+     */
+    val variants: Map<String, FollowRequestsState>
+        get() =
+            mapOf(
+                "declined" to
+                    FollowRequestsState(
+                        tab = FollowRequestsTab.Declined,
+                        content = ContentStates.loaded(content.copy(declined = persistentListOf(fakeProfileBasic(DAVE)))),
+                    ),
+                "declinedEmpty" to FollowRequestsState(tab = FollowRequestsTab.Declined, content = ContentStates.loaded(content)),
+                "answering" to
+                    FollowRequestsState(
+                        content =
+                            ContentStates.loaded(
+                                content.copy(
+                                    requests =
+                                        (content.requests + fakeProfileBasic(ODD, handle = "dev.test", displayName = null))
+                                            .toImmutableList(),
+                                ),
+                            ),
+                        answering = persistentSetOf(Fixed.BOB),
+                        unanswerable = persistentSetOf(ODD),
+                        error = UiError(UiError.Kind.AnswerFollowRequest, DataError.Network),
+                    ),
+                "needsSignIn" to FollowRequestsState(content = ContentStates.loaded(content), needsSignIn = true),
+                "truncated" to FollowRequestsState(content = ContentStates.loaded(content.copy(truncated = true))),
+            )
+
+    private val DAVE = Did("did:plc:dave")
+
+    /** An account whose DID isn't a valid record key (`%` isn't allowed in one), so it can't be answered. */
+    private val ODD = Did("did:web:localhost%3A3000")
 }
 
 object FollowListSamples {
@@ -100,6 +138,34 @@ object FollowListSamples {
 
     val all: Map<String, FollowListState>
         get() = pagedSamples(accounts, fakeProfileBasic()) { FollowListState(FollowListKind.Followers, it, eventSink = {}) }
+
+    /**
+     * What [all]'s content-loading states don't show: bob's Following list, listing alice and carol or no one, and alice's own followers
+     * while she approves followers, with bob's removal being written and the last removal failed. Kept apart from [all], whose keys are the
+     * content-loading conformance set.
+     */
+    val variants: Map<String, FollowListState>
+        get() {
+            val bob = fakeProfileBasic(Fixed.BOB)
+            return mapOf(
+                "following" to
+                    FollowListState(
+                        FollowListKind.Following,
+                        PagedStates.end(listOf(fakeProfileBasic(), fakeProfileBasic(Fixed.CAROL)), bob),
+                        eventSink = {},
+                    ),
+                "followingEmpty" to FollowListState(FollowListKind.Following, PagedStates.end(emptyList(), bob), eventSink = {}),
+                "removable" to
+                    FollowListState(
+                        FollowListKind.Followers,
+                        PagedStates.end(accounts, fakeProfileBasic()),
+                        canRemove = true,
+                        removing = persistentSetOf(Fixed.BOB),
+                        actionError = UiError(UiError.Kind.RemoveFollower, DataError.Network),
+                        eventSink = {},
+                    ),
+            )
+        }
 }
 
 object BlockListSamples {
