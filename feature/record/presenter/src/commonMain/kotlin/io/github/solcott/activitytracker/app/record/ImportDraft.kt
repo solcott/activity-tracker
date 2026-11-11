@@ -38,10 +38,13 @@ internal fun importDraft(
 }
 
 /** Reads the picked file [name] and prepares it to be kept with what's saved from it; null for one too large to keep. */
-internal suspend fun ActivityFileReader.readKeeping(name: String, bytes: ByteArray): Pair<ImportedFile, SourceFile?> {
+internal suspend fun ActivityFileReader.readKeeping(name: String, bytes: ByteArray): KeptFile {
     val read = readFile(bytes)
-    return read to SourceFile.prepare(bytes, name, read)
+    return KeptFile(read, SourceFile.prepare(bytes, name, read))
 }
+
+/** A picked file as [read], and the [source] kept with what's saved from it; null for one too large to keep. */
+internal data class KeptFile(val read: ImportedFile, val source: SourceFile?)
 
 /** This file as a single activity's source; a logbook of one dive still names its entry. */
 internal fun SourceFile.single(): DraftSource = DraftSource(this, entry = if (format.isLogbook) 0 else null)

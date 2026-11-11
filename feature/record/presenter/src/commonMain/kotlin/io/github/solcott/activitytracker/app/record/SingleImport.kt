@@ -17,7 +17,7 @@ import kotlinx.datetime.format
 
 /** The file's only activity ([placed] in [zone]), and whether it's already in the athlete's log. */
 internal fun singlePreview(
-    placed: Pair<String, ImportedActivity>?,
+    placed: NamedActivity?,
     zone: TimeZone,
     zones: ImmutableList<TimeZoneOption>?,
     matches: List<ActivityMatch?>,
@@ -34,9 +34,12 @@ internal fun importClock(start: LocalDateTime, zone: TimeZone, zones: ImmutableL
     ImportClock(start.format(LOCAL_START), zones?.find { it.id == zone.id } ?: zoneOption(zone, start), zones ?: persistentListOf())
 
 /** The file's only activity, by its name; null for a file of several. */
-internal fun singleActivity(file: Pair<String, List<ImportedActivity>>?): Pair<String, ImportedActivity>? = file?.let { (name, read) ->
-    read.singleOrNull()?.let { name to it }
+internal fun singleActivity(file: ImportFile?): NamedActivity? = file?.let { (name, read) ->
+    read.singleOrNull()?.let { NamedActivity(name, it) }
 }
+
+/** A file's only activity, and the file's [name]. */
+internal data class NamedActivity(val name: String, val activity: ImportedActivity)
 
 /** What saving a single file did: published it as [uri], or [combined] it into an activity at [uri]. */
 internal data class SavedSingle(val uri: AtUri, val combined: Boolean)

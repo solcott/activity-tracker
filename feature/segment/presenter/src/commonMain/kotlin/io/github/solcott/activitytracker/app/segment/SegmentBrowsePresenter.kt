@@ -190,16 +190,16 @@ internal class BrowseControls(permission: Boolean?) {
         if (start != BrowseStart.Locating) return
         val here =
             if (granted) withTimeoutOrNull(LOCATION_TIMEOUT) { runSuspendCatching { tracker.updates().first() }.getOrNull() } else null
-        val at = here?.let { it.latitude to it.longitude } ?: feed.latestOwnStart()
+        val at = here?.let { GeoPoint(it.latitude, it.longitude) } ?: feed.latestOwnStart()
         // The athlete may have moved the map meanwhile.
         if (start == BrowseStart.Locating) placeAt(at)
     }
 
-    private fun placeAt(at: Pair<Double, Double>?) {
+    private fun placeAt(at: GeoPoint?) {
         if (at == null) {
             start = BrowseStart.Nowhere
         } else {
-            camera = MapCameraRequest(id = (camera?.id ?: 0) + 1, lat = at.first, lng = at.second)
+            camera = MapCameraRequest(id = (camera?.id ?: 0) + 1, lat = at.lat, lng = at.lng)
             start = BrowseStart.Placed
         }
     }

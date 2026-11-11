@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
+import io.github.solcott.activitytracker.data.importsave.ImportCounts
 import io.github.solcott.activitytracker.data.importsave.NewImportSave
 import io.github.solcott.activitytracker.data.importsave.PlannedActivity
 import io.github.solcott.activitytracker.data.importsave.PlannedChoices
@@ -122,7 +123,7 @@ class ImportSaveRunnerTest {
         withContext(Dispatchers.Default) { repos.runner().runAll() }
 
         assertNull(repos.saveStore.save("3kbatch"), "a finished save is dropped")
-        assertEquals(setOf(8 to 0), setOfNotNull(repos.saveStore.importCounts("3kbatch")))
+        assertEquals(setOf(ImportCounts(8, 0)), setOfNotNull(repos.saveStore.importCounts("3kbatch")))
         val rkeys = repos.saveStore.savedUris("3kbatch").map { it.rkey }
         assertEquals(save.items.map { it.rkey }.toSet(), rkeys.toSet(), "each activity under its planned key, once")
         assertEquals(8, rkeys.size)

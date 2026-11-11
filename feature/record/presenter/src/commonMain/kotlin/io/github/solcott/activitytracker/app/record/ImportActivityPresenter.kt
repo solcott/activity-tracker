@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.data.activity.matchSpan
 import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.importsave.ImportCounts
 import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
 import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
@@ -155,19 +156,19 @@ fun ImportActivityPresenter(
     val adding = rememberAddingRecording(feed, screen, file, zone) { error = it }
     val picked = adding.offered
     val imported = singleActivity(picked)
-    val placed = remember(imported, zone) { imported?.let { (name, activity) -> name to activity.inZone(zone) } }
+    val placed = remember(imported, zone) { imported?.let { (name, activity) -> NamedActivity(name, activity.inZone(zone)) } }
     val placedBatch = remember(scanned, zoneOf) { scanned?.placed(zoneOf) }
-    val zones = remember(file) { file?.second?.firstNotNullOfOrNull { it.localStart }?.let(::zoneOptions) }
+    val zones = remember(file) { file?.activities?.firstNotNullOfOrNull { it.localStart }?.let(::zoneOptions) }
     // Searched around the activities as read: the search's margin covers any zone the athlete places them in.
     val spans =
-        remember(picked, scanned) { (scanned?.items?.map { it.summary } ?: picked?.second)?.map { it.matchSpan() }?.toImmutableList() }
+        remember(picked, scanned) { (scanned?.items?.map { it.summary } ?: picked?.activities)?.map { it.matchSpan() }?.toImmutableList() }
     val own = rememberOwnActivities(feed, spans, search = !adding.requested)
     // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
     val matches =
         remember(placed, placedBatch, own) {
-            importMatches(placedBatch?.let { scanned?.spans(it) } ?: listOfNotNull(placed?.second).spans(), own)
+            importMatches(placedBatch?.let { scanned?.spans(it) } ?: listOfNotNull(placed?.activity).spans(), own)
         }
-    val tooFar = adding.tooFar(placed?.second)
+    val tooFar = adding.tooFar(placed?.activity)
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val athlete = rememberOwnProfile(profiles)
@@ -178,7 +179,7 @@ fun ImportActivityPresenter(
     // What each activity's file says about its gear: a batch's selected activities share the gear, which starts from the first one's.
     val gearSources =
         remember(placed, placedBatch, batchSelected) {
-            placed?.second?.let { persistentListOf(GearSource.of(it)) }
+            placed?.activity?.let { persistentListOf(GearSource.of(it)) }
                 ?: batchSelected.mapNotNull { placedBatch?.getOrNull(it)?.let(GearSource::of) }.toImmutableList()
         }
     // A batch's gear starts from the defaults for its first selected activity's type.
@@ -190,16 +191,16 @@ fun ImportActivityPresenter(
             scanned?.let { batch ->
                 val items = batchSelected.map { batch.items[it] }
                 ImportCategories(items.flatMap { it.categories }.toImmutableSet(), items.any { it.runningForm })
-            } ?: importCategories(placed?.second, type, null) { false }
+            } ?: importCategories(placed?.activity, type, null) { false }
         }
     val offered = gear.offering(held.categories)
     val visibility =
         rememberNewActivityVisibility(defaults, offered, runningForm = held.runningForm) { athlete?.followPolicy == FollowPolicy.APPROVE }
     val training = athlete?.details?.training
-    val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
+    val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.activity, type.sport) }
     val defaultTitle =
         placed
-            ?.second
+            ?.activity
             ?.takeIf { it.title == null }
             ?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(it.localZone(zone)).hour), type) }
     val unitSystem by units.units.collectAsState()
@@ -274,7 +275,7 @@ fun ImportActivityPresenter(
         savingDevices = null
         // Its own flight: clearing the save just restarts this effect.
         flights.launch(ImportActivityEvent.Saved::class) {
-            val (saved, skipped) = saveStore.importCounts(id) ?: (0 to 0)
+            val (saved, skipped) = saveStore.importCounts(id) ?: ImportCounts(0, 0)
             val small = saved <= MAX_SUGGESTED
             val next: suspend () -> Unit = {
                 // A small batch is sent before it's summed up, as a single save is; a large one is the session's pacer's to send, waiting
@@ -318,7 +319,7 @@ fun ImportActivityPresenter(
 
     /** Takes in a single file's activities, read whole, as the single-file form shows them. */
     fun takeSingle(name: String, read: List<ImportedActivity>, prepared: SourceFile?) {
-        file = name to read.toImmutableList()
+        file = ImportFile(name, read.toImmutableList())
         source = prepared
         originalTooLarge = prepared == null
         val first = read.first()
@@ -552,7 +553,7 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.Save -> {
                 val match = matches.firstOrNull()
-                val activity = adding.saved(placed?.second, selection.isSelected(0, match)) ?: return@ImportActivityState
+                val activity = adding.saved(placed?.activity, selection.isSelected(0, match)) ?: return@ImportActivityState
                 flights.launch(ImportActivityEvent.Save::class) {
                     // New gear, its mounts and collections go first: a failure keeps the preview, with nothing published.
                     val linked = runSuspendCatching {

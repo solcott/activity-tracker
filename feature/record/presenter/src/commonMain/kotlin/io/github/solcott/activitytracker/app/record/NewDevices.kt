@@ -39,12 +39,15 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 
+/** A device the athlete added as gear: its [key], and the new [item]. */
+internal data class AddedDevice(val key: SensorKey, val item: GearItem)
+
 /** What a save of the new devices did: the gear the import is saved with, and the links it made. */
 internal class NewDevicesSaved(
     /** The import's gear: the untouched picker re-resolved with the new links, plus each new item or what it's mounted on. */
     val gear: List<AtUri>,
     /** Each device added as gear, with its new item. */
-    val added: List<Pair<SensorKey, GearItem>>,
+    val added: List<AddedDevice>,
     /** The links couldn't be written; the items were. */
     val linksFailed: Boolean,
 )
@@ -183,7 +186,7 @@ internal constructor(
                 collections.setMembership(item.uri(repository.did), edit.collections)
                 joined += id
             }
-            device.key to item
+            AddedDevice(device.key, item)
         }
         val profile = sources().firstNotNullOfOrNull { it.profile }
         val edit =
@@ -195,8 +198,8 @@ internal constructor(
         val saved = if (edit.isEmpty) null else runSuspendCatching { defaults.editLinks(edit) }.getOrNull()
         val linksFailed = !edit.isEmpty && saved == null
         // The untouched picker resolves with the links even if they weren't saved: this import was answered either way.
-        val items = gear.itemsNow.filter { item -> added.none { it.second.rkey == item.rkey } } + added.map { it.second }
-        gear.updated(saved ?: gear.rulesNow?.let(edit::applyTo), added.map { it.second })
+        val items = gear.itemsNow.filter { item -> added.none { it.item.rkey == item.rkey } } + added.map { it.item }
+        gear.updated(saved ?: gear.rulesNow?.let(edit::applyTo), added.map { it.item })
         val all = items.associateBy { it.uri(repository.did) }
         val roots = added.map { (_, item) -> GearMounts.rootAt(item.uri(repository.did), startedAt) { all[it]?.record?.mounts } }
         return NewDevicesSaved((gear.selected + roots).distinct().take(ActivityRecord.MAX_GEAR), added, linksFailed)
