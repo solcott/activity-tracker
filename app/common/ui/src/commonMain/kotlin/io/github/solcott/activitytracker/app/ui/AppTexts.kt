@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import kotlin.time.Instant
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.asTimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
@@ -31,5 +33,10 @@ fun AppText.string(): String =
             val resource = Res.allPluralStringResources[name]
             if (resource != null) pluralStringResource(resource, quantity, *args.map { it.string() }.toTypedArray()) else name
         }
-        is AppText.Time -> Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(LocalTimeZone.current).format(timeFormat())
+        is AppText.Time -> {
+            val zone = utcOffsetMinutes?.let { UtcOffset(seconds = it * SECONDS_PER_MINUTE).asTimeZone() } ?: LocalTimeZone.current
+            Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(zone).format(timeFormat())
+        }
     }
+
+private const val SECONDS_PER_MINUTE = 60

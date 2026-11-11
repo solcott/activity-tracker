@@ -33,7 +33,8 @@ class LabelTextTest {
 
             override fun plural(name: String, quantity: Int, args: List<String>): String? = null
 
-            override fun time(epochSeconds: Long): String = "time $epochSeconds"
+            override fun time(epochSeconds: Long, utcOffsetMinutes: Int?): String =
+                "time $epochSeconds" + (utcOffsetMinutes?.let { " $it" } ?: "")
         }
 
     private fun AppText.read() = resolve(source)

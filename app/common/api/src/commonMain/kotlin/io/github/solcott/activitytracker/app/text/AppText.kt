@@ -27,10 +27,11 @@ sealed interface AppText {
     @Immutable data class Written(val text: String) : AppText
 
     /**
-     * The moment [epochSeconds] as a time of day in the device's time zone, on its 12- or 24-hour clock ("7:05 AM", "19:05"). Each UI
-     * formats it, since the clock is the device's setting.
+     * The moment [epochSeconds] as a time of day on the device's 12- or 24-hour clock ("7:05 AM", "19:05"): in the UTC offset
+     * [utcOffsetMinutes] when given (an activity's own clock, feed/activity-start-time), else in the device's time zone. Each UI formats
+     * it, since the clock is the device's setting.
      */
-    @Immutable data class Time(val epochSeconds: Long) : AppText
+    @Immutable data class Time(val epochSeconds: Long, val utcOffsetMinutes: Int? = null) : AppText
 
     companion object {
         /** The shared string named [name] with [args] in its placeholders. */
@@ -55,8 +56,11 @@ interface TextSource {
     /** The plural named [name] in the form [quantity] selects, with [args] in its placeholders, or null when no plural has that name. */
     fun plural(name: String, quantity: Int, args: List<String>): String?
 
-    /** The moment [epochSeconds] as a time of day in the device's time zone, on its 12- or 24-hour clock. */
-    fun time(epochSeconds: Long): String
+    /**
+     * The moment [epochSeconds] as a time of day on the device's 12- or 24-hour clock, in the UTC offset [utcOffsetMinutes] when given,
+     * else in the device's time zone.
+     */
+    fun time(epochSeconds: Long, utcOffsetMinutes: Int?): String
 }
 
 /** This text as [source]'s strings read it. A name [source] doesn't have reads as its fallback, or as the name. */
@@ -65,5 +69,5 @@ fun AppText.resolve(source: TextSource): String =
         is AppText.Written -> text
         is AppText.Named -> source.string(name, args.map { it.resolve(source) }) ?: fallback?.resolve(source) ?: name
         is AppText.Plural -> source.plural(name, quantity, args.map { it.resolve(source) }) ?: name
-        is AppText.Time -> source.time(epochSeconds)
+        is AppText.Time -> source.time(epochSeconds, utcOffsetMinutes)
     }
