@@ -1319,6 +1319,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   line's colours and still takes only its own tap, while the row's tap gesture opens the activity. A long notice in a `FlowRow` ran off
   the card (the layout proposes no width to a chip), so the notices stack and wrap.
 - **No gear line.** The task named the card's gear line, but the shared card has none: gear shows on the activity page only.
+- **Walked on an iPhone 17 Pro (iOS 26.0), signed in as alice on the local stack, and launched to sign-in on iOS 18.4.** A batch of five
+  Only me GPX runs (one zip, since the document picker offers no multi-select of loose files in On My iPhone) made an import card on the
+  shared feed, which pushed the native page: month headings, and cards whose start, figures and route read as the shared activity page
+  did; a card opened its activity and back returned to the page. The five were deleted afterwards. A deleted activity stays on the batch
+  page until it is reopened, as on the shared page. Still unseen on a device: Like (the batch was her own), photos and their labels, a
+  group, a dive, locks, a second page, VoiceOver, and the page on iOS 18 signed in or on an iPad.
 
 ## Open items
 
