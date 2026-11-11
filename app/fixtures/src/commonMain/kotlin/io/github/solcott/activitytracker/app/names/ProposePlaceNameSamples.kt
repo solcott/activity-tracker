@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.app.names
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import io.github.solcott.dataresult.DataError
 import kotlinx.collections.immutable.persistentListOf
 
 /** The name sheet (segments/segment-names), proposing a new name for a place or editing the viewer's own proposal. */
@@ -33,6 +35,15 @@ object ProposePlaceNameSamples {
     /** Sharing on a session whose grant predates posts in spaces: only Public, and why. */
     val sharingPublicOnly: ProposePlaceNameState
         get() = state("Wiggly Woods").copy(sharing = true, shareLimit = ShareLimit.SignInAgain)
+
+    /** Beyond [all], which the shared screenshots render: sending, and a failure that kept the name. */
+    val variants: Map<String, ProposePlaceNameState>
+        get() =
+            all +
+                mapOf(
+                    "sending" to propose.copy(sending = true),
+                    "failed" to propose.copy(error = UiError(UiError.Kind.ProposeSegmentName, DataError.Network)),
+                )
 
     val all: Map<String, ProposePlaceNameState>
         get() =
