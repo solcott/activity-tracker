@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -137,7 +138,63 @@ object TrainingZonesSamples {
 
     val all: Map<String, TrainingZonesState>
         get() = contentSamples(null, zones) { TrainingZonesState(it) }
+
+    /** Swimming's own threshold heart rate and pace, with its pace zones per 100 m; its max heart rate is the defaults'. */
+    private val swim: ZoneSummary
+        get() {
+            val override = SportTraining(sport = Sport.SWIM, thresholdHeartRate = 165, thresholdSpeed = SWIM_THRESHOLD_SPEED)
+            val effective = training.copy(functionalThresholdPower = null, thresholdHeartRate = 165, thresholdSpeed = SWIM_THRESHOLD_SPEED)
+            return summary.copy(
+                sport = Sport.SWIM,
+                kinds = ZoneKindOption.forSport(Sport.SWIM),
+                training = effective,
+                override = override,
+                paceUnit = PaceUnit.Per100Meters,
+                heartRateZones = Zones.compute(ZoneModels.defaultHeartRate, effective)?.toImmutableList(),
+                speedModel = ZoneModels.frielSwimmingPace,
+                speedZones = Zones.compute(ZoneModels.frielSwimmingPace, effective)?.toImmutableList(),
+            )
+        }
+
+    /** Running with nothing of its own: the defaults' heart rate and power, and no threshold pace yet. */
+    private val run: ZoneSummary
+        get() = summary.copy(sport = Sport.RUN, kinds = ZoneKindOption.forSport(Sport.RUN))
+
+    /**
+     * States beside [all], whose keys the content-loading conformance and the Android screenshot set use: swimming with its own zones
+     * (`sports`), running with nothing of its own and no sport left to add (`runDefaults`), nothing saved yet (`noZones`), and a visibility
+     * that failed to save (`saveFailed`).
+     */
+    val variants: Map<String, TrainingZonesState>
+        get() {
+            val loaded = ContentStates.loaded<TrainingZones?>(zones)
+            return mapOf(
+                "sports" to
+                    TrainingZonesState(
+                        ContentStates.loaded(zones.copy(sports = persistentListOf(swim), addableSports = persistentListOf(Sport.RIDE))),
+                        visibility = Visibility.FOLLOWERS,
+                    ),
+                "runDefaults" to
+                    TrainingZonesState(
+                        ContentStates.loaded(zones.copy(sports = persistentListOf(run), addableSports = persistentListOf())),
+                    ),
+                "noZones" to
+                    TrainingZonesState(
+                        ContentStates.loaded(
+                            zones.copy(
+                                defaults = summary.copy(training = EffectiveTraining(), heartRateZones = null, powerZones = null),
+                                hasZones = false,
+                                hasHistory = false,
+                            ),
+                        ),
+                    ),
+                "saveFailed" to TrainingZonesState(loaded, visibility = Visibility.PUBLIC, error = UiError(UiError.Kind.SaveZones)),
+            )
+        }
 }
+
+/** A 4:30 per kilometer threshold pace, in mm/s. */
+private const val RUN_THRESHOLD_SPEED = 3_704L
 
 object ThresholdHistorySamples {
     private val groups: ImmutableList<ThresholdHistoryGroup> =
@@ -241,6 +298,21 @@ object ZonesSamples {
                 SampleKind.LOADED to state(ContentStates.loaded(Unit)),
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), threshold = "fast"),
             )
+
+    /**
+     * States beside [all]: saving (`saving`), a failed save (`saveFailed`), imports updating the max heart rate (`autoUpdate`), and no
+     * threshold power, so no power zones (`missing`).
+     */
+    val variants: Map<String, ZonesState>
+        get() {
+            val loaded = state(ContentStates.loaded(Unit))
+            return mapOf(
+                "saving" to loaded.copy(saving = true),
+                "saveFailed" to loaded.copy(error = UiError(UiError.Kind.SaveZones)),
+                "autoUpdate" to loaded.copy(autoUpdate = persistentSetOf(Threshold.MAX_HEART_RATE)),
+                "missing" to loaded.copy(functionalThresholdPower = textFieldStateOf(), powerZones = null),
+            )
+        }
 }
 
 object SportZonesSamples {
@@ -278,10 +350,45 @@ object SportZonesSamples {
                 SampleKind.LOADED to state(ContentStates.loaded(Unit)),
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), pace = "soon"),
             )
+
+    /**
+     * States beside [all]: running saved with its own pace zones and max heart rate, so it can be removed (`saved`), swimming per 100 m
+     * (`swim`), saving (`saving`) and a failed save (`saveFailed`).
+     */
+    val variants: Map<String, SportZonesState>
+        get() {
+            val loaded = state(ContentStates.loaded(Unit))
+            val run = training.copy(thresholdHeartRate = 172, maxHeartRate = 188, thresholdSpeed = RUN_THRESHOLD_SPEED)
+            val swimming = training.copy(thresholdSpeed = SWIM_THRESHOLD_SPEED)
+            return mapOf(
+                "saved" to
+                    loaded.copy(
+                        maxHeartRate = textFieldStateOf("188"),
+                        heartRateZones = Zones.compute(ZoneModels.defaultHeartRate, run)?.toImmutableList(),
+                        speedZones = Zones.compute(ZoneModels.frielRunningPace, run)?.toImmutableList(),
+                        saved = true,
+                    ),
+                "swim" to
+                    loaded.copy(
+                        sport = Sport.SWIM,
+                        kinds = ZoneKindOption.forSport(Sport.SWIM),
+                        thresholdHeartRate = textFieldStateOf(),
+                        thresholdPace = textFieldStateOf("1:45"),
+                        paceUnit = PaceUnit.Per100Meters,
+                        speedModel = ZoneModels.frielSwimmingPace,
+                        speedZones = Zones.compute(ZoneModels.frielSwimmingPace, swimming)?.toImmutableList(),
+                    ),
+                "saving" to loaded.copy(saving = true),
+                "saveFailed" to loaded.copy(error = UiError(UiError.Kind.SaveZones)),
+            )
+        }
 }
 
-/** Meters of each route end hidden, as the privacy zones screen offers them. */
-private val HIDE_ENDS_CHOICES = persistentListOf(0, 200, 400, 800)
+/** A 1:45 per 100 m threshold pace, in mm/s. */
+private const val SWIM_THRESHOLD_SPEED = 952L
+
+/** Radii and hidden start and end distances, in meters, in the lexicon's steps as the presenter offers them (Off is the page's). */
+private val DISTANCE_CHOICES = persistentListOf(200, 400, 600, 800)
 
 object PrivacyZonesSamples {
     private fun state(content: ContentState<Unit>, zones: ImmutableList<PrivacyZone>?) =
@@ -289,7 +396,7 @@ object PrivacyZonesSamples {
             content = content,
             zones = zones,
             hideEndsMeters = 200,
-            choices = HIDE_ENDS_CHOICES,
+            choices = DISTANCE_CHOICES,
             canEdit = zones != null,
             saving = false,
             canUseLocation = false,
@@ -310,4 +417,22 @@ object PrivacyZonesSamples {
                 SampleKind.FAILED to state(ContentStates.failed(Unit), null),
                 SampleKind.LOADED to state(ContentStates.loaded(Unit), zones),
             )
+
+    /**
+     * States beside [all]: a phone that can add a zone where it is, with a zone that has no label (`phone`), finding the location
+     * (`locating`), no zones and nothing hidden (`empty`), a session to sign in again (`signInAgain`), and a failed change (`saveFailed`).
+     */
+    val variants: Map<String, PrivacyZonesState>
+        get() {
+            val loaded = state(ContentStates.loaded(Unit), zones)
+            val two = (zones + PrivacyZone(latitudeE7 = 400_200_000, longitudeE7 = -1_052_800_000, radiusMeters = 800)).toImmutableList()
+            val phone = loaded.copy(zones = two, canUseLocation = true, hasLocationPermission = true)
+            return mapOf(
+                "phone" to phone,
+                "locating" to phone.copy(locating = true, label = textFieldStateOf("Work")),
+                "empty" to loaded.copy(zones = persistentListOf(), hideEndsMeters = 0),
+                "signInAgain" to loaded.copy(canEdit = false, needsSignIn = true),
+                "saveFailed" to loaded.copy(error = UiError(UiError.Kind.SavePrivacyZones)),
+            )
+        }
 }

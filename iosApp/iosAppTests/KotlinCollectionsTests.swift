@@ -16,7 +16,7 @@ struct KotlinCollectionsTests {
         let state = try #require(Samples.privacyZones["loaded"])
 
         // A Kotlin Int is a 32-bit integer in Swift, never Swift's own `Int`.
-        #expect(state.choices.elements(as: Int32.self) == [0, 200, 400, 800])
+        #expect(state.choices.elements(as: Int32.self) == [200, 400, 600, 800])
     }
 
     @Test func aListOfAContractsObjectsIsThoseObjects() throws {
