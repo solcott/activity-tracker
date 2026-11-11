@@ -111,7 +111,7 @@ struct TextFieldModelTests {
         #expect(state.writes == 0)
     }
 
-    @Test func aNonDigitEditLeavesTheTextAsItWas() {
+    @Test func aDigitsOnlyFieldKeepsAnEditsDigits() {
         let state = FakeText("12")
         let model = TextFieldModel(state, rules: TextFieldRules(digitsOnly: true))
 
@@ -123,6 +123,31 @@ struct TextFieldModelTests {
 
         model.edit("123")
         #expect(model.text == "123")
+    }
+
+    @Test func aDigitTypedRightAfterALetterIsKept() {
+        // Keystrokes arriving before the field is redrawn over a dropped letter carry it in each edit (the roadmap's probes, zones pages).
+        let state = FakeText("")
+        let model = TextFieldModel(state, rules: TextFieldRules(digitsOnly: true, maxLength: 3))
+
+        model.edit("9")
+        model.edit("9a")
+        model.edit("9a5")
+
+        #expect(model.text == "95")
+        #expect(state.value == "95")
+        #expect(model.refusals == 2)
+    }
+
+    @Test func aPasteKeepsItsDigitsWithinTheLength() {
+        let model = TextFieldModel(FakeText(""), rules: TextFieldRules(digitsOnly: true, maxLength: 3))
+
+        model.edit("170 bpm")
+        #expect(model.text == "170")
+
+        model.edit("")
+        model.edit("1700")
+        #expect(model.text == "")
     }
 
     @Test func anOverLengthEditLeavesTheTextAsItWas() {
@@ -148,7 +173,8 @@ struct TextFieldModelTests {
         let rules = TextFieldRules(digitsOnly: true)
         #expect(rules.accepts("2026"))
         #expect(rules.accepts(""))
-        #expect(!rules.accepts("٣"))
+        #expect(rules.taken("٣") == "")
+        #expect(rules.taken("1.5") == "15")
         #expect(!rules.accepts("1.5"))
     }
 
