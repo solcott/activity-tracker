@@ -1189,10 +1189,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Android reference moved.
 - **A calendar date written out is shared now.** `DateText.date` ("Jan 5, 2026") is what the threshold history, effort lists and
   boards show; `DayText` keeps the day beside today. A date in the activity's own UTC offset (`startTime`) is still the shared UI's.
-- **The Release build was already broken, before this change.** `UploadQueueView` has a Swift type only through `:app-fixtures`, which a
-  Release build leaves out, so `KotlinTypes.swift`'s upload queue alias doesn't compile there (`ios-native-uploads` never built
-  Release). This change's own Swift compiles there, and the stub report adds only allowed serializers; the fix is an exported
-  function in `feature/uploads` naming the class, as `ActivityInvitesTexts` names `InviteView`.
+- **The Release build was already broken, before this change, and is fixed since.** `UploadQueueView` had a Swift type only through
+  `:app-fixtures`, which a Release build leaves out, so `KotlinTypes.swift`'s upload queue alias didn't compile there
+  (`ios-native-uploads` never built Release). This change's own Swift compiled there, and the stub report added only allowed
+  serializers. The fix came after the merge: `UploadsState.queue`, a getter typed `UploadQueueView?`, names the class in an `-api`
+  signature, as `IgnoredSensorsState.sensors` does for its list, and `UploadsView` reads it inside `ContentStateView`'s form without a
+  value instead of casting the erased content. Release builds again with the segment lists, edit profile and zones pages merged.
 - **Walked signed in on an iPhone 17 Pro and an iPad Air 11-inch (iOS 26.0), and launched to sign-in on iOS 18.4.** Starred segments
   with the account's one star in its units, its segment's leaderboard (a period restarting the board under the choices, the weight
   menu in pounds, a chosen class filling its chip) and Mayors (the eight windows, an entry opening the shared profile and back), by the
@@ -1321,9 +1323,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   drops the rest, so that digit is kept; an edit over the maximum length is still refused whole, since cutting it would make another
   number.
 - The iOS `Release` configuration exports different Kotlin from `Debug` (no `:app-fixtures`). CI builds Debug only, so a break
-  that only a release build has would first show in an archive build. It has: since `ios-native-uploads`, `KotlinTypes.swift`'s
-  `UploadQueueView` alias doesn't compile in Release, since only the samples name that `:core-data` class (found by
-  `ios-native-zones-pages`); an `-api` signature naming it would fix it, as `ActivityInvitesTexts` does for `InviteView`.
+  that only a release build has would first show in an archive build. It did once: from `ios-native-uploads` until its fix,
+  `KotlinTypes.swift`'s `UploadQueueView` alias didn't compile in Release, since only the samples named that `:core-data` class
+  (found by `ios-native-zones-pages`). `UploadsState.queue` names it now. A `:core-data` or `:core-lexicon` class a native view
+  aliases needs an `-api` signature naming it, not only a sample: build Release before archiving a change that aliases a new one.
 - Snapshot references are true for iOS 26.0 simulators. CI's simulator is the newest the runner has, so CI compares them only when
   that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
