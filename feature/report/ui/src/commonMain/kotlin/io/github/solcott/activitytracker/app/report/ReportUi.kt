@@ -20,32 +20,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_done
-import io.github.solcott.activitytracker.composeApp.resources.report_block_offer
-import io.github.solcott.activitytracker.composeApp.resources.report_note
-import io.github.solcott.activitytracker.composeApp.resources.report_note_required
-import io.github.solcott.activitytracker.composeApp.resources.report_private_note
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_harassment
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_misleading
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_other
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_prompt
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_sexual
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_spam
-import io.github.solcott.activitytracker.composeApp.resources.report_reason_violence
-import io.github.solcott.activitytracker.composeApp.resources.report_send
-import io.github.solcott.activitytracker.composeApp.resources.report_thanks_message
-import io.github.solcott.activitytracker.composeApp.resources.report_thanks_title
-import io.github.solcott.activitytracker.composeApp.resources.report_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.moderation.ReportReason
-import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * The report sheet's content: a reason, an optional note (required for Other) and a word on what moderators may see, then thanks and, when
- * offered, Block.
+ * offered, Block. Its words and conditions are Kotlin's (`ReportTexts`, `ReportState`), shared with the native sheet.
  */
 @SubCircuitInject(ReportScreen::class, SessionScope::class)
 @OptIn(ExperimentalLayoutApi::class)
@@ -53,11 +37,11 @@ import org.jetbrains.compose.resources.stringResource
 fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
     if (state.sent) {
         Column(modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(Res.string.report_thanks_title), style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(Res.string.report_thanks_message), style = MaterialTheme.typography.bodyMedium)
+            Text(ReportTexts.thanksTitle.string(), style = MaterialTheme.typography.titleLarge)
+            Text(ReportTexts.thanksMessage.string(), style = MaterialTheme.typography.bodyMedium)
             if (state.offerBlock) {
                 AppSecondaryButton(onClick = { state.eventSink(ReportEvent.Block) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.report_block_offer, state.authorName))
+                    Text(ReportTexts.blockOffer(state.authorName).string())
                 }
             }
             AppButton(onClick = { state.eventSink(ReportEvent.Close) }, modifier = Modifier.fillMaxWidth()) {
@@ -68,53 +52,40 @@ fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
     }
     Column(modifier.fillMaxWidth()) {
         AppSheetHeader(
-            title = stringResource(Res.string.report_title, state.authorName),
+            title = ReportTexts.title(state.authorName).string(),
             cancelLabel = stringResource(Res.string.action_cancel),
             onCancel = { state.eventSink(ReportEvent.Close) },
-            confirmLabel = stringResource(Res.string.report_send),
+            confirmLabel = ReportTexts.send.string(),
             onConfirm = { if (state.canSend) state.eventSink(ReportEvent.Send) },
         )
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(Res.string.report_reason_prompt), style = MaterialTheme.typography.titleSmall)
+            Text(ReportTexts.reasonPrompt.string(), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ReportReason.entries.forEach { reason ->
+                ReportTexts.reasons.forEach { choice ->
                     AppFilterChip(
-                        selected = state.reason == reason,
-                        onClick = { state.eventSink(ReportEvent.PickReason(reason)) },
+                        selected = state.chose(choice),
+                        onClick = { state.eventSink(ReportEvent.PickReason(choice.reason)) },
                         enabled = !state.sending,
-                        label = { Text(reasonLabel(reason)) },
+                        label = { Text(choice.label.string()) },
                     )
                 }
             }
             AppTextField(
                 state = state.note,
                 modifier = Modifier.fillMaxWidth(),
-                label = stringResource(if (state.reason?.requiresNote == true) Res.string.report_note_required else Res.string.report_note),
+                label = ReportTexts.note(state).string(),
                 enabled = !state.sending,
-                inputTransformation = { if (length > ReportRepository.MAX_NOTE_LENGTH) revertAllChanges() },
+                inputTransformation = { if (length > ReportTexts.noteLimit) revertAllChanges() },
             )
             state.error?.let { ErrorText(it, style = MaterialTheme.typography.bodySmall) }
             Text(
-                stringResource(Res.string.report_private_note),
+                ReportTexts.privateNote.string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
-
-@Composable
-private fun reasonLabel(reason: ReportReason): String =
-    stringResource(
-        when (reason) {
-            ReportReason.SPAM -> Res.string.report_reason_spam
-            ReportReason.SEXUAL -> Res.string.report_reason_sexual
-            ReportReason.VIOLENCE -> Res.string.report_reason_violence
-            ReportReason.HARASSMENT -> Res.string.report_reason_harassment
-            ReportReason.MISLEADING -> Res.string.report_reason_misleading
-            ReportReason.OTHER -> Res.string.report_reason_other
-        },
-    )

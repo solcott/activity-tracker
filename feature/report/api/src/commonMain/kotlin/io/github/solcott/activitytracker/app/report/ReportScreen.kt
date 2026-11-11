@@ -43,6 +43,13 @@ data class ReportState(
 ) : SubCircuitUiState {
     val canSend: Boolean
         get() = reason != null && !sending && (!reason.requiresNote || note.text.isNotBlank())
+
+    /** The chosen reason needs a note: the note's label says so, and Send waits for one. */
+    val noteRequired: Boolean
+        get() = reason?.requiresNote == true
+
+    /** Whether [choice] is the chosen reason. */
+    fun chose(choice: ReportReasonChoice): Boolean = reason == choice.reason
 }
 
 sealed interface ReportEvent {

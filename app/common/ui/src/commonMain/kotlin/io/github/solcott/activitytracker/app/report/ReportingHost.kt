@@ -6,11 +6,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_block
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
 
@@ -26,10 +24,10 @@ fun ReportingHost(reporting: Reporting) {
         }
     }
     reporting.confirmBlock?.let { offer ->
-        val block = stringResource(Res.string.action_block)
+        val block = ReportTexts.block.string()
         AppAlertDialog(
-            title = stringResource(Res.string.block_confirm_title, offer.name),
-            message = stringResource(Res.string.block_confirm_message),
+            title = ReportTexts.blockConfirmTitle(offer).string(),
+            message = ReportTexts.blockConfirmMessage.string(),
             actions =
                 persistentListOf(AppDialogAction(block, destructive = true) { reporting.eventSink(ReportingEvent.ConfirmBlock(true)) }),
             cancelLabel = stringResource(Res.string.action_cancel),
