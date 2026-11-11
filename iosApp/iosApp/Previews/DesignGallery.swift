@@ -29,6 +29,32 @@
             .padding(24)
         }
 
+        /// Form rows: text fields as rows (one marked wrong) and as several lines, and menu choices, one beside a label too long
+        /// for its line.
+        static var formRows: some View {
+            Form {
+                Section {
+                    GalleryField(text: "Gravel bike", layout: .row)
+                    GalleryField(text: "", layout: .row, supportingText: "Give your gear a name", isError: true)
+                    AppPickerRow(
+                        "Type", selection: .constant("bike"), options: ["bike", "shoes"],
+                        optionLabel: { $0 == "bike" ? "Bike" : "Shoes" })
+                    AppPickerRow(
+                        name: "Gear", selection: .constant("self"), options: ["public", "self"],
+                        optionLabel: { $0 == "public" ? "Public" : "Only me" }
+                    ) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: "Gear")
+                            Text(verbatim: "The gear you used, with its name, kind and photo").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Section {
+                    GalleryField(text: "Bought used from a friend.\nNew chain in March.", layout: .multiline)
+                }
+            }
+        }
+
         static var rows: some View {
             List {
                 Section {
@@ -241,25 +267,36 @@
     /// A field over a text field state of its own, as a presenter would give one.
     private struct GalleryField: View {
         private let state: KotlinTextFieldState
+        private let layout: AppTextField.Layout
         private let supportingText: String?
         private let isError: Bool
         @State private var model: TextFieldModel
 
-        init(text: String, supportingText: String? = nil, isError: Bool = false) {
+        init(text: String, layout: AppTextField.Layout = .stacked, supportingText: String? = nil, isError: Bool = false) {
             let state = TextFieldPackage.textFieldStateOf(initialText: text)
             self.state = state
+            self.layout = layout
             self.supportingText = supportingText
             self.isError = isError
             _model = State(initialValue: TextFieldModel(state))
         }
 
         var body: some View {
-            AppTextField(label: .loginHandleLabel, model: model, state: state, supportingText: supportingText, isError: isError)
+            switch layout {
+            case .stacked:
+                AppTextField(label: .loginHandleLabel, model: model, state: state, supportingText: supportingText, isError: isError)
+            case .row:
+                AppTextField(
+                    label: .gearName, model: model, state: state, layout: .row, supportingText: supportingText, isError: isError)
+            case .multiline:
+                AppTextField(label: .gearNotes, model: model, state: state, layout: .multiline)
+            }
         }
     }
 
     #Preview("Buttons") { DesignGallery.buttons }
     #Preview("Fields") { DesignGallery.fields }
+    #Preview("Form rows") { DesignGallery.formRows }
     #Preview("Rows") { DesignGallery.rows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }

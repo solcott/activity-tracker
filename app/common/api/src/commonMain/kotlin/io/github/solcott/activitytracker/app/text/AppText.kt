@@ -38,6 +38,9 @@ sealed interface AppText {
 
         /** [text] as it is. */
         fun written(text: String): AppText = Written(text)
+
+        /** [texts] as a list, each next one joined on by `text_list_pair` ("Ride, Run, Swim"); null for none. */
+        fun joined(texts: List<AppText>): AppText? = texts.reduceOrNull { list, next -> named("text_list_pair", list, next) }
     }
 }
 

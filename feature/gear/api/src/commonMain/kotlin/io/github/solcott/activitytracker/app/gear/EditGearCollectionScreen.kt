@@ -5,9 +5,11 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -33,7 +35,23 @@ data class EditGearCollectionState(
     val saving: Boolean = false,
     val error: UiError? = null,
     val eventSink: (EditGearCollectionEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** "New collection" or "Edit collection". */
+    val title: AppText
+        get() = EditGearTexts.collectionTitle(isNew)
+
+    /** Whether the form's fields and buttons can be used: not while it saves. */
+    val enabled: Boolean
+        get() = !saving
+
+    /** Whether Save is offered: once what the form edits has loaded, as the shared form shows its Save only with the form. */
+    val showsSave: Boolean
+        get() = content.hasLoaded
+
+    /** Whether Add items is offered: while the collection has room. */
+    val canAdd: Boolean
+        get() = !full
+}
 
 sealed interface EditGearCollectionEvent {
     data object Back : EditGearCollectionEvent

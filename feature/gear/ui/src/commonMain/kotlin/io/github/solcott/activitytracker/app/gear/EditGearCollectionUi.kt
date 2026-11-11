@@ -44,11 +44,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_add_items
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_add_items_done
-import io.github.solcott.activitytracker.composeApp.resources.gear_collection_edit_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_empty
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_full
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_items
@@ -56,14 +56,12 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_collection_mo
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_move_up
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_name
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_name_required
-import io.github.solcott.activitytracker.composeApp.resources.gear_collection_new
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_no_more_items
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_notes
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_remove
 import io.github.solcott.activitytracker.composeApp.resources.gear_collection_save
 import io.github.solcott.activitytracker.composeApp.resources.gear_collections_help
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -77,7 +75,7 @@ fun EditGearCollectionUi(state: EditGearCollectionState, modifier: Modifier = Mo
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(if (state.isNew) Res.string.gear_collection_new else Res.string.gear_collection_edit_title),
+                title = state.title.string(),
                 onBack = { state.eventSink(EditGearCollectionEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -95,7 +93,7 @@ fun EditGearCollectionUi(state: EditGearCollectionState, modifier: Modifier = Mo
 
 @Composable
 private fun CollectionForm(state: EditGearCollectionState, modifier: Modifier = Modifier) {
-    val enabled = !state.saving
+    val enabled = state.enabled
     val send = state.eventSink
     var adding by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -107,14 +105,14 @@ private fun CollectionForm(state: EditGearCollectionState, modifier: Modifier = 
             isError = state.nameMissing,
             supportingText = if (state.nameMissing) stringResource(Res.string.gear_collection_name_required) else null,
             lineLimits = TextFieldLineLimits.SingleLine,
-            inputTransformation = InputTransformation.maxLength(GearCollectionRecord.MAX_NAME),
+            inputTransformation = InputTransformation.maxLength(EditGearLimits.collectionName),
         )
         AppTextField(
             state.notes,
             Modifier.fillMaxWidth(),
             label = stringResource(Res.string.gear_collection_notes),
             enabled = enabled,
-            inputTransformation = InputTransformation.maxLength(GearCollectionRecord.MAX_NOTES),
+            inputTransformation = InputTransformation.maxLength(EditGearLimits.collectionNotes),
         )
         Text(
             stringResource(Res.string.gear_collections_help),
@@ -131,7 +129,7 @@ private fun CollectionForm(state: EditGearCollectionState, modifier: Modifier = 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
-        if (state.full) {
+        if (!state.canAdd) {
             Text(stringResource(Res.string.gear_collection_full), style = MaterialTheme.typography.bodySmall)
         } else {
             AppSecondaryButton(onClick = { adding = true }, enabled = enabled) {

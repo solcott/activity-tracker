@@ -24,6 +24,13 @@
         static var gearCollectionVariants: [String: GearCollectionState] { GearPackage.GearCollectionSamples.shared.variants }
         static var ignoredSensors: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.all }
         static var ignoredSensorsVariants: [String: IgnoredSensorsState] { GearPackage.IgnoredSensorsSamples.shared.variants }
+        /// The gear and collection forms in each state they show; states beyond content loading apart.
+        static var editGear: [String: EditGearState] { GearPackage.EditGearSamples.shared.all }
+        static var editGearVariants: [String: EditGearState] { GearPackage.EditGearSamples.shared.variants }
+        static var editGearCollection: [String: EditGearCollectionState] { GearPackage.EditGearCollectionSamples.shared.all }
+        static var editGearCollectionVariants: [String: EditGearCollectionState] {
+            GearPackage.EditGearCollectionSamples.shared.variants
+        }
         static var blockList: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.all }
         static var blockListVariants: [String: BlockListState] { ProfilePackage.BlockListSamples.shared.variants }
 

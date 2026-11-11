@@ -45,11 +45,13 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AddPeopleScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AccountScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LeaveScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearCollectionScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card, and a
         // profile, which opens the follow lists, for the feed's.
         // Accepting an invite waits for the native route preview and visibility form.
-        for screen in ["GearScreen", "EditGearScreen", "EditGearCollectionScreen", "ProfileScreen", "AcceptInviteScreen"] {
+        for screen in ["GearScreen", "ProfileScreen", "AcceptInviteScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it.
@@ -74,5 +76,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.AddPeopleScreen.self) == "AddPeopleScreen")
         #expect(String(describing: ActivityTracker.AccountScreen.self) == "AccountScreen")
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
+        #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
+        #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
     }
 }
