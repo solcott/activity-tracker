@@ -21,14 +21,9 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_category_lock_description
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_help
-import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.DetailCategory
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -78,19 +73,15 @@ fun DetailVisibilityPicker(
  */
 @Composable
 fun CategoryLock(category: String, visibility: String, modifier: Modifier = Modifier) {
-    val tier = narrowTierLabel(visibility) ?: return
-    val description = stringResource(Res.string.detail_category_lock_description, detailCategoryLabel(category), tier)
+    val line = VisibilityTexts.lock(category, visibility)?.string() ?: return
+    val description = VisibilityTexts.lockDescription(category, visibility)?.string().orEmpty()
     Row(
         modifier.semantics(mergeDescendants = true) { contentDescription = description },
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PlatformIcon(AppIcon.Lock, contentDescription = null, size = 12.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            "${detailCategoryLabel(category)} · $tier",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(line, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -101,18 +92,4 @@ fun CategoryLocks(locked: ImmutableList<CategoryVisibility>, modifier: Modifier 
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         locked.forEach { CategoryLock(it.category, it.visibility) }
     }
-}
-
-/**
- * The detail categories of the owner's own [activity] whose data in its view is stored narrower than the activity, from its record and its
- * details (a feed has no streams to read channels from).
- */
-fun narrowerCategories(activity: ActivityView): ImmutableList<CategoryVisibility> {
-    val tier = activity.visibilityOrPublic
-    return DetailCategory.currentTiers(tier, activity, null)
-        .filter { (_, t) -> Visibility.rank(t) > Visibility.rank(tier) }
-        .entries
-        .sortedBy { DetailCategory.all.indexOf(it.key) }
-        .map { CategoryVisibility(it.key, it.value) }
-        .toImmutableList()
 }

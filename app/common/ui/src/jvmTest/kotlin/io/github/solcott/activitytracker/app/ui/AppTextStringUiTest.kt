@@ -37,6 +37,9 @@ class AppTextStringUiTest {
     fun aTimeInAString() =
         shows(AppText.named("leave_paused", evening), "Your server asked to slow down. Carrying on at 19:05.", twentyFourHour = true)
 
+    /** 16:00 UTC is 9:00 AM at UTC-7, whatever the viewer's zone (feed/activity-start-time). */
+    @Test fun aTimeInItsOwnOffset() = shows(AppText.Time(1_794_326_400, utcOffsetMinutes = -420), "9:00 AM", twentyFourHour = false)
+
     @Test fun aNamedStringWithItsArgument() = shows(AppText.named("unit_distance_mi", AppText.written("3.00")), "3.00 mi")
 
     @Test

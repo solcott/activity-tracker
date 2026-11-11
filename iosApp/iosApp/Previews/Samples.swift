@@ -76,6 +76,12 @@
         static var editProfile: [String: EditProfileState] { ProfilePackage.EditProfileSamples.shared.all }
         static var editProfileVariants: [String: EditProfileState] { ProfilePackage.EditProfileSamples.shared.variants }
 
+        /// One activity card in each case it draws differently, for `cardViewer`; a batch import's page in each state it shows.
+        static var activityCards: [String: ActivityView] { ActivityListPackage.ActivityCardSamples.shared.all }
+        static var cardViewer: String { ActivityListPackage.ActivityCardSamples.shared.viewer }
+        static var importBatch: [String: ImportBatchState] { FeedPackage.ImportBatchSamples.shared.all }
+        static var importBatchVariants: [String: ImportBatchState] { FeedPackage.ImportBatchSamples.shared.variants }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(

@@ -15,6 +15,9 @@ import SwiftUI
 /// It asks for the next page (`loadMore`) once the last item loaded is on screen and the state can load more, as the shared
 /// `LoadMoreAtEnd` does. The items reach Swift untyped, since Swift export erases the state's type parameters, so the view names
 /// their type, and `id` gives each one's identity.
+///
+/// The items show in one section, or in the `sections` a screen makes of them (a batch's months, each with its heading), in the order
+/// given; the next page is still asked for once the last item loaded is on screen, whichever section holds it.
 struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     private let state: KotlinPagedState
     private let errorKind: UiError.Kind
@@ -26,19 +29,22 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     private let after: After
     private let empty: Empty
     private let keepsTop: Bool
+    private let sections: (([Item]) -> [PagedSection<Item>])?
 
     /// The ids of the items on screen, which tell when the last one is.
     @State private var onScreen: Set<String> = []
 
     init(
         _ state: KotlinPagedState, of item: Item.Type = Item.self, errorKind: UiError.Kind, id: @escaping (Item) -> String,
-        keepsTop: Bool = false, retry: @escaping () -> Void, loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top,
-        @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder after: () -> After, @ViewBuilder empty: () -> Empty
+        keepsTop: Bool = false, sections: (([Item]) -> [PagedSection<Item>])? = nil, retry: @escaping () -> Void,
+        loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top, @ViewBuilder row: @escaping (Item) -> Row,
+        @ViewBuilder after: () -> After, @ViewBuilder empty: () -> Empty
     ) {
         self.state = state
         self.errorKind = errorKind
         self.id = id
         self.keepsTop = keepsTop
+        self.sections = sections
         self.retry = retry
         self.loadMore = loadMore
         self.top = top()
@@ -80,19 +86,26 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     }
 
     private func list(_ shown: PagedShown) -> some View {
-        let items = state.items.compactMap { $0 as? Item }.map { Identified(id: id($0), item: $0) }
-        let last = items.last?.id
+        let loaded = state.items.compactMap { $0 as? Item }
+        let groups = sections?(loaded) ?? [PagedSection(id: "items", items: loaded)]
+        let last = loaded.last.map(id)
         let wantsMore = state.canLoadMore && last.map(onScreen.contains) == true
         return List {
             top
             if let above = shown.above {
                 status(above, layout: .row)
             }
-            Section {
-                ForEach(items, id: \.id) { identified in
-                    row(identified.item)
-                        .onAppear { onScreen.insert(identified.id) }
-                        .onDisappear { onScreen.remove(identified.id) }
+            ForEach(groups, id: \.id) { group in
+                Section {
+                    ForEach(group.items.map { Identified(id: id($0), item: $0) }, id: \.id) { identified in
+                        row(identified.item)
+                            .onAppear { onScreen.insert(identified.id) }
+                            .onDisappear { onScreen.remove(identified.id) }
+                    }
+                } header: {
+                    if let header = group.header {
+                        Text(verbatim: header)
+                    }
                 }
             }
             after
@@ -129,13 +142,21 @@ extension PagedList where After == EmptyView {
     /// A paged list with no rows after its items.
     init(
         _ state: KotlinPagedState, of item: Item.Type = Item.self, errorKind: UiError.Kind, id: @escaping (Item) -> String,
-        keepsTop: Bool = false, retry: @escaping () -> Void, loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top,
-        @ViewBuilder row: @escaping (Item) -> Row, @ViewBuilder empty: () -> Empty
+        keepsTop: Bool = false, sections: (([Item]) -> [PagedSection<Item>])? = nil, retry: @escaping () -> Void,
+        loadMore: @escaping () -> Void, @ViewBuilder top: () -> Top, @ViewBuilder row: @escaping (Item) -> Row,
+        @ViewBuilder empty: () -> Empty
     ) {
         self.init(
-            state, of: item, errorKind: errorKind, id: id, keepsTop: keepsTop, retry: retry, loadMore: loadMore, top: top, row: row,
-            after: { EmptyView() }, empty: empty)
+            state, of: item, errorKind: errorKind, id: id, keepsTop: keepsTop, sections: sections, retry: retry, loadMore: loadMore,
+            top: top, row: row, after: { EmptyView() }, empty: empty)
     }
+}
+
+/// Some of a paged list's items under an optional heading, in the order the screen gives them.
+struct PagedSection<Item> {
+    let id: String
+    var header: String? = nil
+    let items: [Item]
 }
 
 extension View {

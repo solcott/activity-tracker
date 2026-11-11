@@ -10,29 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_description
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_followers
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_mutuals
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_self
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import org.jetbrains.compose.resources.stringResource
 
 /** A non-public tier's short label (Followers, Mutuals, Only me), as badges and locks show it; null for public or an unknown tier. */
-@Composable
-fun narrowTierLabel(visibility: String): String? =
-    when (Visibility.known(visibility)) {
-        Visibility.FOLLOWERS -> stringResource(Res.string.activity_visibility_badge_followers)
-        Visibility.MUTUALS -> stringResource(Res.string.activity_visibility_badge_mutuals)
-        Visibility.SELF -> stringResource(Res.string.activity_visibility_badge_self)
-        else -> null
-    }
+@Composable fun narrowTierLabel(visibility: String): String? = VisibilityTexts.badge(visibility)?.string()
 
 /** Who may see a non-public activity, as a small label beside it; nothing for a public one. [visibility] is a [Visibility] value. */
 @Composable
 fun VisibilityBadge(visibility: String, modifier: Modifier = Modifier) {
     val label = narrowTierLabel(visibility) ?: return
-    val description = stringResource(Res.string.activity_visibility_badge_description, label)
+    val description = VisibilityTexts.badgeDescription(visibility)?.string().orEmpty()
     Text(
         label,
         style = MaterialTheme.typography.labelSmall,

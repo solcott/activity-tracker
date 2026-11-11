@@ -9,44 +9,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.text.DayText
+import io.github.solcott.activitytracker.app.text.StartText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.uses24HourClock
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.page_start_value
 import io.github.solcott.activitytracker.composeApp.resources.time_am
 import io.github.solcott.activitytracker.composeApp.resources.time_pm
-import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.DetailCategory
-import kotlin.time.Instant
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.UtcOffset
-import kotlinx.datetime.asTimeZone
-import kotlinx.datetime.format
 import kotlinx.datetime.format.DateTimeFormat
 import kotlinx.datetime.format.Padding
 import kotlinx.datetime.format.char
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * On the activity's own clock: "Today", "Yesterday" or its date, and " at " its time when the viewer was served it
- * (feed/activity-start-time). Today is the current date on that same clock. With no stored offset it's the viewer's zone, but a date-only
- * start was cut at UTC midnight, so it's read in UTC to keep its day.
- */
+/** [value] as `StartText` reads it, on the activity's own clock beside today on [LocalClock], formatted on the device's clock. */
 @Composable
-fun startTime(value: FigureValue.StartTime): String {
-    val zone =
-        value.utcOffsetMinutes?.let { UtcOffset(hours = it / MINUTES_PER_HOUR, minutes = it % MINUTES_PER_HOUR).asTimeZone() }
-            ?: if (value.dateOnly) TimeZone.UTC else LocalTimeZone.current
-    val local = Instant.fromEpochSeconds(value.epochSeconds).toLocalDateTime(zone)
-    val day = DayText.day(local.date, today = LocalClock.current.now().toLocalDateTime(zone).date).string()
-    return if (value.dateOnly) day else stringResource(Res.string.page_start_value, day, local.format(timeFormat()))
-}
+fun startTime(value: FigureValue.StartTime): String = StartText.of(value, LocalClock.current.now(), LocalTimeZone.current).string()
 
 /** A page's [start] under its author, with its narrower visibility beside it on the owner's page; nothing without one. */
 @Composable
@@ -57,10 +37,6 @@ fun StartLine(start: Figure?, modifier: Modifier = Modifier) {
         start.mark?.let { VisibilityBadge(it) }
     }
 }
-
-/** The start a viewer was served: only its day when the record holds its local midnight, as it does when the time is hidden from them. */
-internal fun ActivityRecord.startTimeValue(): FigureValue.StartTime =
-    FigureValue.StartTime(startedAt.epochSeconds, utcOffset, dateOnly = startedAt == DetailCategory.localMidnight(startedAt, utcOffset))
 
 /** "07:00" on a 24-hour clock, "7:00 AM" on a 12-hour one, as the viewer's device reads times. */
 @Composable
@@ -82,5 +58,3 @@ fun timeFormat(): DateTimeFormat<LocalDateTime> {
         }
     }
 }
-
-private const val MINUTES_PER_HOUR = 60

@@ -75,6 +75,8 @@ extension ScreenRegistry {
         registry.register(ZonesScreen.self, ZonesState.self) { state in ZonesView(state: state) }
         registry.register(SportZonesScreen.self, SportZonesState.self) { state in SportZonesView(state: state) }
         registry.register(PrivacyZonesScreen.self, PrivacyZonesState.self) { state in PrivacyZonesView(state: state) }
+        // A batch import's page (feed/import-cards), pushed over the feed: the first drawn with the native activity card.
+        registry.register(ImportBatchScreen.self, ImportBatchState.self) { state in ImportBatchView(state: state) }
         return registry
     }()
 }

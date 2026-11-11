@@ -22,46 +22,21 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.moderation.ModerationTexts
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.label_graphic_media
 import io.github.solcott.activitytracker.composeApp.resources.label_hidden_message
 import io.github.solcott.activitytracker.composeApp.resources.label_hidden_show
 import io.github.solcott.activitytracker.composeApp.resources.label_hidden_title
-import io.github.solcott.activitytracker.composeApp.resources.label_impersonation
-import io.github.solcott.activitytracker.composeApp.resources.label_nudity
-import io.github.solcott.activitytracker.composeApp.resources.label_own_blurred
-import io.github.solcott.activitytracker.composeApp.resources.label_porn
-import io.github.solcott.activitytracker.composeApp.resources.label_sexual
 import io.github.solcott.activitytracker.composeApp.resources.label_show
-import io.github.solcott.activitytracker.composeApp.resources.label_spam
-import io.github.solcott.activitytracker.composeApp.resources.label_taken_down
-import io.github.solcott.activitytracker.composeApp.resources.label_warn
 import io.github.solcott.activitytracker.data.moderation.BlurReason
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.moderation.WarnReason
 import org.jetbrains.compose.resources.stringResource
 
-@Composable
-fun blurLabel(reason: BlurReason): String =
-    stringResource(
-        when (reason) {
-            BlurReason.Porn -> Res.string.label_porn
-            BlurReason.Sexual -> Res.string.label_sexual
-            BlurReason.Nudity -> Res.string.label_nudity
-            BlurReason.GraphicMedia -> Res.string.label_graphic_media
-        },
-    )
+@Composable fun blurLabel(reason: BlurReason): String = ModerationTexts.blur(reason).string()
 
-@Composable
-fun warnLabel(reason: WarnReason): String =
-    stringResource(
-        when (reason) {
-            WarnReason.Warn -> Res.string.label_warn
-            WarnReason.Spam -> Res.string.label_spam
-            WarnReason.Impersonation -> Res.string.label_impersonation
-        },
-    )
+@Composable fun warnLabel(reason: WarnReason): String = ModerationTexts.warn(reason).string()
 
 /**
  * [content] (a photo or avatar) blurred under [reason] until [revealed], with the reason and Show on top; tapping reveals it. On Android
@@ -108,19 +83,10 @@ fun BlurredMedia(
  */
 @Composable
 fun ModerationNotice(decision: ModerationDecision, isOwn: Boolean, modifier: Modifier = Modifier, warn: WarnReason? = null) {
-    val primary =
-        when (decision) {
-            is ModerationDecision.Warn -> warnLabel(decision.reason)
-            is ModerationDecision.Blur -> if (isOwn) stringResource(Res.string.label_own_blurred, blurLabel(decision.reason)) else null
-            ModerationDecision.Takedown -> stringResource(Res.string.label_taken_down)
-            ModerationDecision.Hidden,
-            ModerationDecision.None -> null
-        }
-    val warning = warn?.takeUnless { decision is ModerationDecision.Warn || decision == ModerationDecision.Takedown }?.let { warnLabel(it) }
-    if (primary == null && warning == null) return
+    val notices = ModerationTexts.notices(decision, isOwn, warn)
+    if (notices.isEmpty()) return
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        primary?.let { NoticeChip(it, error = decision == ModerationDecision.Takedown) }
-        warning?.let { NoticeChip(it, error = false) }
+        notices.forEach { NoticeChip(it.text.string(), error = it.isError) }
     }
 }
 

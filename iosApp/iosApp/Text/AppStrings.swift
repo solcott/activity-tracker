@@ -33,10 +33,12 @@ nonisolated final class CatalogText: KotlinBase, TextSource, @unchecked Sendable
         return String(format: format, locale: .current, arguments: [Int(quantity)] + args)
     }
 
-    /// A moment as a time of day in this source's time zone, on the clock the device's settings choose ("7:05 PM", "19:05"), as the
-    /// shared UI's `timeFormat` reads it.
-    func time(epochSeconds: Int64) -> String {
-        Date(timeIntervalSince1970: TimeInterval(epochSeconds)).formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
+    /// A moment as a time of day on the clock the device's settings choose ("7:05 PM", "19:05"), as the shared UI's `timeFormat` reads
+    /// it: in the UTC offset given (an activity's own clock), else in this source's time zone.
+    func time(epochSeconds: Int64, utcOffsetMinutes: Int32?) -> String {
+        let shownZone = utcOffsetMinutes.flatMap { TimeZone(secondsFromGMT: Int($0) * 60) } ?? zone
+        return Date(timeIntervalSince1970: TimeInterval(epochSeconds))
+            .formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: shownZone))
     }
 
     private static func format(named name: String) -> String? {

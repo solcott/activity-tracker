@@ -1403,6 +1403,7 @@
     <string name="detail_category_dive_help">Depth, gases, deco and tank pressures. The dive summary shows with the activity.</string>
     <string name="detail_category_gear">Gear</string>
     <string name="detail_category_gear_help">The gear you used. Each item also shows only to the people who may see it.</string>
+    <string name="detail_category_lock">%1$s · %2$s</string>
     <string name="detail_category_lock_description">%1$s: visible to %2$s</string>
     <string name="core_charts_widening_title">Show its elevation and distance charts?</string>
     <string name="core_charts_widening_body">This activity's charts were all visible to fewer people than the activity. Elevation, distance and temperature always show with the activity, so saving makes them visible to: %1$s.</string>
