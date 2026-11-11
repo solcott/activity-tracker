@@ -33,6 +33,12 @@
         static var followRequests: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.all }
         static var followRequestsVariants: [String: FollowRequestsState] { ProfilePackage.FollowRequestsSamples.shared.variants }
 
+        /// The invites list a profile opens and Add people an activity opens; states beyond content loading apart.
+        static var activityInvites: [String: ActivityInvitesState] { InvitesPackage.ActivityInvitesSamples.shared.all }
+        static var activityInvitesVariants: [String: ActivityInvitesState] { InvitesPackage.ActivityInvitesSamples.shared.variants }
+        static var addPeople: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.all }
+        static var addPeopleVariants: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.variants }
+
         /// Settings' pages, which the shared UI still draws. Their states hold the immutable collections `elements(as:)` is tested on.
         static var privacyZones: [String: PrivacyZonesState] { SettingsPackage.PrivacyZonesSamples.shared.all }
         static var trainingZones: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }

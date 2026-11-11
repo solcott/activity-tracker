@@ -4,6 +4,7 @@ import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import CoreTextfield
 import FeatureGearApi
+import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureProfileApi
 import FeatureSettingsApi
@@ -124,6 +125,20 @@ typealias FollowRequestsTab = ProfilePackage.FollowRequestsTab
 typealias FollowRequestsTexts = ProfilePackage.FollowRequestsTexts
 typealias ProfileViewBasic = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 typealias Did = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.Did
+
+// Activity invites (feed/activity-invites): the invitee's list and the owner's Add people, and the lexicon views they list.
+typealias InvitesPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.invites
+typealias ActivityInvitesScreen = InvitesPackage.ActivityInvitesScreen
+typealias ActivityInvitesState = InvitesPackage.ActivityInvitesState
+typealias ActivityInvitesEvent = InvitesPackage.ActivityInvitesEvent
+typealias ActivityInvitesTab = InvitesPackage.ActivityInvitesTab
+typealias ActivityInvitesTexts = InvitesPackage.ActivityInvitesTexts
+typealias AddPeopleScreen = InvitesPackage.AddPeopleScreen
+typealias AddPeopleState = InvitesPackage.AddPeopleState
+typealias AddPeopleEvent = InvitesPackage.AddPeopleEvent
+typealias AddPeopleTexts = InvitesPackage.AddPeopleTexts
+typealias InviteView = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.InviteView
+typealias InviteeView = ExportedKotlinPackages.io.github.solcott.activitytracker.lexicon.app.InviteeView
 
 // Text, icons and loading rules chosen in Kotlin (dev/shared-display-text), and the types they take.
 typealias AppPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app
