@@ -5,6 +5,8 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -41,6 +43,41 @@ data class FollowListState(
     /** The actor whose list this is; null until the first page loads. */
     val subject: ProfileViewBasic?
         get() = accounts.meta
+
+    /** What failed when the list can't load. */
+    val loadErrorKind: UiError.Kind
+        get() =
+            when (kind) {
+                FollowListKind.Followers -> UiError.Kind.LoadFollowers
+                FollowListKind.Following -> UiError.Kind.LoadFollowing
+            }
+
+    /** Whether [account]'s removal is being written, while which it can't be asked for again. */
+    fun isRemoving(account: ProfileViewBasic): Boolean = account.did in removing
+}
+
+/** What the followers and following lists say, chosen here for the shared and the native UI (dev/shared-display-text). */
+object FollowListTexts {
+    /** The list's title. */
+    fun title(kind: FollowListKind): AppText =
+        AppText.named(
+            when (kind) {
+                FollowListKind.Followers -> "follow_list_followers"
+                FollowListKind.Following -> "follow_list_following"
+            },
+        )
+
+    /** The line under the title: whose list it is, by handle; null until the first page says. */
+    fun subtitle(subject: ProfileViewBasic?): AppText? = subject?.let { LabelText.handle(it.handle.value) }
+
+    /** What the list says when it lists no one. */
+    fun empty(kind: FollowListKind): AppText =
+        AppText.named(
+            when (kind) {
+                FollowListKind.Followers -> "follow_list_no_followers"
+                FollowListKind.Following -> "follow_list_no_following"
+            },
+        )
 }
 
 sealed interface FollowListEvent {

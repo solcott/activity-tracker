@@ -115,7 +115,7 @@ object TrainingZonesSamples {
     private val summary =
         ZoneSummary(
             sport = null,
-            kinds = persistentSetOf(ZoneKind.HeartRate, ZoneKind.Power),
+            kinds = persistentListOf(ZoneKindOption(ZoneKind.HeartRate), ZoneKindOption(ZoneKind.Power)),
             training = training,
             override = null,
             paceUnit = PaceUnit.PerKilometer,
@@ -175,6 +175,42 @@ object ThresholdHistorySamples {
 
     val all: Map<String, ThresholdHistoryState>
         get() = contentSamples(persistentListOf(), groups) { ThresholdHistoryState(it) }
+
+    /** Beyond content loading: a threshold with more values than a collapsed section shows, every one shown. */
+    val variants: Map<String, ThresholdHistoryState>
+        get() = mapOf(ALL_ROWS to ThresholdHistoryState(ContentStates.loaded(allRows)))
+
+    const val ALL_ROWS = "allRows"
+
+    private val allRows: ImmutableList<ThresholdHistoryGroup> =
+        persistentListOf(
+            ThresholdHistoryGroup(
+                sport = null,
+                expanded = true,
+                thresholds =
+                    persistentListOf(
+                        ThresholdHistorySection(
+                            threshold = Threshold.FUNCTIONAL_THRESHOLD_POWER,
+                            sport = null,
+                            paceUnit = PaceUnit.PerKilometer,
+                            rows =
+                                listOf(250L, 245L, 240L, 238L, 230L)
+                                    .mapIndexed { i, watts ->
+                                        ThresholdHistoryRow(
+                                            ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, watts),
+                                            HistoryDate(2026, 5 - i, 1),
+                                            current = i == 0,
+                                        )
+                                    }
+                                    .toImmutableList(),
+                            showingAll = true,
+                            chart = null,
+                            undatedCount = 0,
+                            change = null,
+                        ),
+                    ),
+            ),
+        )
 }
 
 object ZonesSamples {
@@ -211,7 +247,7 @@ object SportZonesSamples {
     private fun state(content: ContentState<Unit>, pace: String = "4:30") =
         SportZonesState(
             sport = Sport.RUN,
-            kinds = persistentSetOf(ZoneKind.HeartRate, ZoneKind.Speed),
+            kinds = persistentListOf(ZoneKindOption(ZoneKind.HeartRate), ZoneKindOption(ZoneKind.Speed)),
             thresholdHeartRate = textFieldStateOf("172"),
             maxHeartRate = textFieldStateOf(),
             functionalThresholdPower = textFieldStateOf(),

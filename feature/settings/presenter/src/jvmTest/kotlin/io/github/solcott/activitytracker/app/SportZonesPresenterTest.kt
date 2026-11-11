@@ -107,7 +107,7 @@ class SportZonesPresenterTest {
             },
         ) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals(setOf(ZoneKind.HeartRate, ZoneKind.Power, ZoneKind.Speed), loaded.kinds)
+            assertEquals(listOf(ZoneKind.HeartRate, ZoneKind.Power, ZoneKind.Speed), loaded.kinds.map { it.kind })
             assertEquals(PaceUnit.PerMile, loaded.paceUnit)
             assertEquals("8:12", loaded.thresholdPace.text.toString())
             assertEquals("172", loaded.thresholdHeartRate.text.toString())
@@ -139,7 +139,7 @@ class SportZonesPresenterTest {
             },
         ) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals(setOf(ZoneKind.HeartRate, ZoneKind.Speed), loaded.kinds)
+            assertEquals(listOf(ZoneKind.HeartRate, ZoneKind.Speed), loaded.kinds.map { it.kind })
             assertEquals(PaceUnit.Per100Meters, loaded.paceUnit)
             assertFalse(loaded.saved)
             assertNull(loaded.speedZones)

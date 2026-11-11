@@ -6,25 +6,30 @@ extension View {
     /// navigation title never shows in a column: the bar over both columns keeps the title of the screen it belongs to (the roadmap's
     /// phase 4 probes, settings pages). A native page sets this in place of `.navigationTitle`.
     ///
+    /// `subtitle` is a second, smaller line under the title, such as whose list the page is: the system's navigation subtitle on iOS 26,
+    /// a two-line title before it, and a second line in a column header. Nil draws the title alone.
+    ///
     /// `back` is the page's own way back, as the shared top bar's `onBack` is, for a page that can be opened deeper than the column's
     /// first (`\.paneRoot`): its header shows a back button for it there. A page that is only ever a column's first page needs none.
     /// `canGoBack` false, as for a running leave, shows no back button anywhere: neither the header's nor, alone, the stack's, whose
     /// edge swipe goes with it.
-    func pageTitle(_ title: Text, back: (() -> Void)? = nil, canGoBack: Bool = true) -> some View {
-        modifier(PageTitle(title: title, back: canGoBack ? back : nil, canGoBack: canGoBack, actions: nil))
+    func pageTitle(_ title: Text, subtitle: Text? = nil, back: (() -> Void)? = nil, canGoBack: Bool = true) -> some View {
+        modifier(PageTitle(title: title, subtitle: subtitle, back: canGoBack ? back : nil, canGoBack: canGoBack, actions: nil))
     }
 
     /// The page's title with its `actions` (such as Add, or a menu) at the trailing end of the stack's bar alone, and of its header
     /// in a column.
     func pageTitle(
-        _ title: Text, back: (() -> Void)? = nil, canGoBack: Bool = true, @ViewBuilder actions: () -> some View
+        _ title: Text, subtitle: Text? = nil, back: (() -> Void)? = nil, canGoBack: Bool = true, @ViewBuilder actions: () -> some View
     ) -> some View {
-        modifier(PageTitle(title: title, back: canGoBack ? back : nil, canGoBack: canGoBack, actions: AnyView(actions())))
+        modifier(
+            PageTitle(title: title, subtitle: subtitle, back: canGoBack ? back : nil, canGoBack: canGoBack, actions: AnyView(actions())))
     }
 }
 
 private struct PageTitle: ViewModifier {
     let title: Text
+    let subtitle: Text?
     let back: (() -> Void)?
     let canGoBack: Bool
     let actions: AnyView?
@@ -34,10 +39,11 @@ private struct PageTitle: ViewModifier {
     func body(content: Content) -> some View {
         if inPane {
             // The first page of its column has no back button: the screen beside it is where to go back to, and it stays.
-            content.pageBar { PageBar(title: title, back: paneRoot ? nil : back, actions: actions) }
+            content.pageBar { PageBar(title: title, subtitle: subtitle, back: paneRoot ? nil : back, actions: actions) }
         } else {
             content
                 .navigationTitle(title)
+                .pageSubtitle(subtitle, under: title)
                 .navigationBarTitleDisplayMode(.inline)
                 // The stack's back button pops the Kotlin stack itself; a page that can't go back hides it, and its edge swipe with it.
                 .navigationBarBackButtonHidden(!canGoBack)
@@ -55,13 +61,13 @@ private struct PageTitle: ViewModifier {
 /// A back button sits at its leading end and the page's actions at its trailing end, as a bar's do, and the title keeps clear of both.
 struct PageBar: View {
     let title: Text
+    var subtitle: Text?
     var back: (() -> Void)?
     var actions: AnyView?
 
     var body: some View {
-        title
-            .font(.headline)
-            .lineLimit(1)
+        TitleLines(title: title, subtitle: subtitle)
+            .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             // Clear of whatever is at either end, the same on both sides, so the title stays centred over the column.
             .padding(.horizontal, actions != nil ? 104 : back != nil ? 52 : 16)
@@ -86,7 +92,44 @@ struct PageBar: View {
     }
 }
 
+/// A bar's title in its weight, with the subtitle under it, each on one line. As iOS 26's bar draws a navigation subtitle, a title with
+/// one is a size smaller (the subheadline's, semibold) over the subtitle in the caption's size, secondary (the roadmap's phase 4 probes,
+/// follow lists).
+private struct TitleLines: View {
+    let title: Text
+    let subtitle: Text?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let subtitle {
+                title.font(.subheadline.weight(.semibold)).lineLimit(1)
+                subtitle.font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            } else {
+                title.font(.headline).lineLimit(1)
+            }
+        }
+    }
+}
+
 extension View {
+    /// The page's subtitle under its title in the stack's bar: the system's own on iOS 26; before it, the bar's title drawn as two lines,
+    /// with the navigation title kept for the back button and the app switcher. Nothing when there is no subtitle.
+    @ViewBuilder fileprivate func pageSubtitle(_ subtitle: Text?, under title: Text) -> some View {
+        if let subtitle {
+            if #available(iOS 26.0, *) {
+                navigationSubtitle(subtitle)
+            } else {
+                toolbar {
+                    ToolbarItem(placement: .principal) {
+                        TitleLines(title: title, subtitle: subtitle).accessibilityElement(children: .combine)
+                    }
+                }
+            }
+        } else {
+            self
+        }
+    }
+
     /// Places `bar` over the top of this view's scrolling content, which scrolls under it as it does under the system's bar: with the
     /// scroll edge effect on iOS 26, and over the bar material with a hairline before it, as bars of those versions look.
     @ViewBuilder fileprivate func pageBar(@ViewBuilder _ bar: () -> some View) -> some View {

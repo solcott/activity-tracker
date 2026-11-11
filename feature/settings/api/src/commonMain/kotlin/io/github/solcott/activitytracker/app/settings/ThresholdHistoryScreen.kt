@@ -68,9 +68,12 @@ data class ThresholdHistorySection(
     val newest: ThresholdHistoryRow
         get() = rows.first()
 
-    /** The rows to show: all of them, or the newest [COLLAPSED_ROWS]. */
+    /**
+     * The rows to show: all of them, or the newest [COLLAPSED_ROWS]. Always a copy: a `List` getter handing Swift an empty immutable list
+     * stops the app in the generated getter (dev/ios-swift-interop).
+     */
     val shownRows: List<ThresholdHistoryRow>
-        get() = if (showingAll) rows else rows.take(COLLAPSED_ROWS)
+        get() = if (showingAll) rows.toList() else rows.take(COLLAPSED_ROWS)
 
     val canShowAll: Boolean
         get() = rows.size > COLLAPSED_ROWS

@@ -74,7 +74,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                 Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(Res.string.sport_zones_help, sport), style = MaterialTheme.typography.bodySmall)
                 val paceUnit = paceUnitLabel(state.paceUnit)
-                if (ZoneKind.Speed in state.kinds) {
+                if (state.offers(ZoneKind.Speed)) {
                     SportThresholdField(
                         state,
                         state.thresholdPace,
@@ -98,7 +98,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                     state.defaults.maxHeartRate,
                     ThresholdInput.isValidHeartRate(state.maxHeartRate.text.toString()),
                 )
-                if (ZoneKind.Power in state.kinds) {
+                if (state.offers(ZoneKind.Power)) {
                     SportThresholdField(
                         state,
                         state.functionalThresholdPower,
@@ -107,7 +107,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                         ThresholdInput.isValidPower(state.functionalThresholdPower.text.toString()),
                     )
                 }
-                if (ZoneKind.Speed in state.kinds) {
+                if (state.offers(ZoneKind.Speed)) {
                     HorizontalDivider()
                     ZoneSection(
                         heading = stringResource(Res.string.zones_speed_heading),
@@ -131,7 +131,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                 ) {
                     numberRange(it, stringResource(Res.string.zones_unit_bpm))
                 }
-                if (ZoneKind.Power in state.kinds) {
+                if (state.offers(ZoneKind.Power)) {
                     HorizontalDivider()
                     ZoneSection(
                         heading = stringResource(Res.string.zones_power_heading),

@@ -142,13 +142,13 @@ private fun ZoneSummarySection(summary: ZoneSummary, onEdit: () -> Unit, modifie
         )
         Thresholds(summary)
         val unit = paceUnitLabel(summary.paceUnit)
-        if (ZoneKind.Speed in summary.kinds) {
+        if (summary.offers(ZoneKind.Speed)) {
             ZoneKindHeading(stringResource(Res.string.zones_speed_heading), zoneModelLabel(summary.speedModel))
             ZoneList(summary.speedModel, summary.speedZones) { paceRange(it, summary.paceUnit, unit) }
         }
         ZoneKindHeading(stringResource(Res.string.zones_heart_rate_heading), zoneModelLabel(summary.heartRateModel))
         ZoneList(summary.heartRateModel, summary.heartRateZones) { numberRange(it, stringResource(Res.string.zones_unit_bpm)) }
-        if (ZoneKind.Power in summary.kinds) {
+        if (summary.offers(ZoneKind.Power)) {
             ZoneKindHeading(stringResource(Res.string.zones_power_heading), zoneModelLabel(summary.powerModel))
             ZoneList(summary.powerModel, summary.powerZones) { numberRange(it, stringResource(Res.string.zones_unit_watts)) }
         }
@@ -162,7 +162,7 @@ private fun Thresholds(summary: ZoneSummary, modifier: Modifier = Modifier) {
     val own = summary.override
     val isSport = summary.sport != null
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (ZoneKind.Speed in summary.kinds) {
+        if (summary.offers(ZoneKind.Speed)) {
             val pace =
                 training.thresholdSpeed?.let {
                     stringResource(
@@ -190,7 +190,7 @@ private fun Thresholds(summary: ZoneSummary, modifier: Modifier = Modifier) {
                 inherited = false,
             )
         }
-        if (ZoneKind.Power in summary.kinds) {
+        if (summary.offers(ZoneKind.Power)) {
             ThresholdRow(
                 Res.string.zones_summary_threshold_power,
                 training.functionalThresholdPower?.let { stringResource(Res.string.zones_summary_value_watts, it.toString()) },

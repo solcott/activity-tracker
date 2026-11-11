@@ -25,19 +25,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.signInAgainItem
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_approve
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_decline
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_declined_help
-import io.github.solcott.activitytracker.composeApp.resources.follow_requests_none
-import io.github.solcott.activitytracker.composeApp.resources.follow_requests_none_declined
-import io.github.solcott.activitytracker.composeApp.resources.follow_requests_tab_declined
-import io.github.solcott.activitytracker.composeApp.resources.follow_requests_tab_requests
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_title
 import io.github.solcott.activitytracker.composeApp.resources.follow_requests_truncated
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(FollowRequestsScreen::class, SessionScope::class)
@@ -54,15 +51,11 @@ fun FollowRequestsUi(state: FollowRequestsState, modifier: Modifier = Modifier) 
         modifier = modifier,
         listState = listState,
         edgeToEdge = true,
-    ) { content ->
+    ) { _ ->
         item(key = "tabs") {
             val tabs = FollowRequestsTab.entries
             AppSegmentedControl(
-                labels =
-                    persistentListOf(
-                        stringResource(Res.string.follow_requests_tab_requests),
-                        stringResource(Res.string.follow_requests_tab_declined),
-                    ),
+                labels = tabs.map { FollowRequestsTexts.tab(it).string() }.toImmutableList(),
                 selected = tabs.indexOf(state.tab),
                 onSelect = { state.eventSink(FollowRequestsEvent.SelectTab(tabs[it])) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -70,15 +63,15 @@ fun FollowRequestsUi(state: FollowRequestsState, modifier: Modifier = Modifier) 
         }
         item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadFollowRequests, retry, Modifier.padding(horizontal = 16.dp)) }
         signInAgainItem(state.error, state.needsSignIn) { state.eventSink(FollowRequestsEvent.SignInAgain) }
-        val accounts = if (state.tab == FollowRequestsTab.Requests) content.requests else content.declined
-        if (state.tab == FollowRequestsTab.Declined && accounts.isNotEmpty()) {
+        val accounts = state.accounts
+        if (state.showsDeclinedNote) {
             item(key = "declinedHelp") { ListNote(stringResource(Res.string.follow_requests_declined_help)) }
         }
         items(accounts, key = { it.did.value }) { account ->
             RequestRow(account, state)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
-        if (state.tab == FollowRequestsTab.Requests && content.truncated) {
+        if (state.showsTruncatedNote) {
             item(key = "truncated") { ListNote(stringResource(Res.string.follow_requests_truncated)) }
         }
         if (accounts.isEmpty()) emptyItem(state.tab)
@@ -88,10 +81,10 @@ fun FollowRequestsUi(state: FollowRequestsState, modifier: Modifier = Modifier) 
 /** An account with Approve, and Decline when it's still a request. */
 @Composable
 private fun RequestRow(account: ProfileViewBasic, state: FollowRequestsState) {
-    val enabled = account.did !in state.answering && account.did !in state.unanswerable
+    val enabled = state.canAnswer(account)
     AccountActionRow(account, onClick = { state.eventSink(FollowRequestsEvent.Open(account.did)) }) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state.tab == FollowRequestsTab.Requests) {
+            if (state.offersDecline) {
                 AppSecondaryButton(onClick = { state.eventSink(FollowRequestsEvent.Decline(account.did)) }, enabled = enabled) {
                     Text(stringResource(Res.string.follow_requests_decline))
                 }
@@ -105,8 +98,5 @@ private fun RequestRow(account: ProfileViewBasic, state: FollowRequestsState) {
 
 /** The empty state for [tab]. */
 private fun LazyListScope.emptyItem(tab: FollowRequestsTab) {
-    item(key = "empty") {
-        val text = if (tab == FollowRequestsTab.Requests) Res.string.follow_requests_none else Res.string.follow_requests_none_declined
-        EmptyListText(stringResource(text))
-    }
+    item(key = "empty") { EmptyListText(FollowRequestsTexts.empty(tab).string()) }
 }
