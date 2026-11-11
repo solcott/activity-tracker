@@ -10,8 +10,8 @@ struct UploadsView: View {
     @Environment(\.clock) private var clock
 
     var body: some View {
-        ContentStateView(state.content, as: UploadQueueView.self, errorKind: .LoadUploads, retry: { send(UploadsEvent.Retry.shared) }) {
-            queue in list(queue)
+        ContentStateView(state.content, errorKind: .LoadUploads, retry: { send(UploadsEvent.Retry.shared) }) {
+            if let queue = state.queue { list(queue) }
         }
         .pageTitle(Text(.uploadsTitle)) { clear }
         .alert(

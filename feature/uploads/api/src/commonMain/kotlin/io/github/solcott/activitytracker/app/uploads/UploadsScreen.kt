@@ -50,13 +50,20 @@ data class UploadsState(
     val error: UiError? = null,
     val eventSink: (UploadsEvent) -> Unit = {},
 ) : CircuitUiState {
+    /**
+     * The loaded queue, typed: Swift reads it here (dev/ios-swift-interop). Through [content]'s erased value [UploadQueueView], a
+     * `:core-data` class no other contract signature names, has no Swift type in a release build, which exports no samples.
+     */
+    val queue: UploadQueueView?
+        get() = content.data
+
     /** Whether Clear shows: once the queue has loaded. */
     val showsClear: Boolean
-        get() = content.data != null
+        get() = queue != null
 
     /** Whether Clear can be used: something is finished, and it isn't being cleared. */
     val canClear: Boolean
-        get() = content.data?.hasFinished == true && !clearing
+        get() = queue?.hasFinished == true && !clearing
 
     /** Whether Pause imports shows: an import has activities to upload, and the athlete hasn't paused imports. */
     val showsPauseImports: Boolean
