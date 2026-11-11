@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.host
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -51,11 +52,23 @@ internal fun RunRecords(all: ImmutableList<HostRecord>, running: ImmutableList<H
     }
 }
 
-/** Runs [record]'s presenter and publishes each state it produces. */
+/**
+ * Runs [record]'s presenter and publishes each state it produces, then each sub-screen a UI asked it for ([HostRecord.sub]). The
+ * sub-screens run inside the record, as `SubCircuitContent` runs inside a screen's UI, so what they retain and save is kept and dropped
+ * with the record's, and each under its own key, so one that was closed or replaced never gets its old state back.
+ */
 @Composable
 internal fun RunRecord(record: HostRecord) {
     val state = record.presenter.present()
     SideEffect { record.publish(state) }
+    val subs by record.subs.collectAsState()
+    subs.forEach { sub -> key(sub.key) { RunSub(sub) } }
+}
+
+@Composable
+private fun RunSub(sub: HostSubRecord) {
+    val state = sub.presenter.present(sub.forward)
+    SideEffect { sub.publish(state) }
 }
 
 /** Whether the UI reported [record] visible; read in composition so a change reruns the records. */

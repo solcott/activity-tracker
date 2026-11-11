@@ -68,6 +68,7 @@ internal constructor(
             isRoot = isRoot,
             showsTabs = TopLevelDestination.showsNavigation(screen),
             presenter = presenters.create(screen, this),
+            presenters = presenters,
             // Settings shows Activity defaults beside its list until a row is chosen, without it being on the stack.
             paneDefault = if (screen is SettingsScreen) beside(ActivityDefaultsScreen) else null,
             paneRoot = paneRoot(key),
@@ -83,6 +84,7 @@ internal constructor(
             isRoot = false,
             showsTabs = true,
             presenter = presenters.create(screen, this),
+            presenters = presenters,
             paneRoot = paneRoot(key),
         )
     }

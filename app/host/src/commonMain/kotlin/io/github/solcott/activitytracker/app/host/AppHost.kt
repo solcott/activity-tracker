@@ -62,7 +62,15 @@ internal constructor(private val auth: HostAuth, factories: Set<Presenter.Factor
             .collectLatest { session ->
                 if (session == null) {
                     // A new record each time, so the sign-in screen starts afresh after a sign-out.
-                    val login = HostRecord(keys.next(), LoginScreen, isRoot = true, showsTabs = false, presenter = loginPresenter())
+                    val login =
+                        HostRecord(
+                            keys.next(),
+                            LoginScreen,
+                            isRoot = true,
+                            showsTabs = false,
+                            presenter = loginPresenter(),
+                            presenters = presenters,
+                        )
                     root.value = RootState.SignedOut(login)
                     compose(clock) { RunRecord(login) }
                 } else {

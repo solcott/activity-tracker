@@ -30,7 +30,15 @@ class AppHostTest {
     private val host = AppHost(auth, fakes.factories)
     private val made = mutableListOf<SessionHost>()
     private val sessions = SessionHostFactory { session ->
-        SessionHost(session, fakes.factories, SessionRunner(NoLeaveSteps()), { false }, RecordScreenRequests(), AccountScreenRequests())
+        SessionHost(
+                session,
+                fakes.factories,
+                emptySet(),
+                SessionRunner(NoLeaveSteps()),
+                { false },
+                RecordScreenRequests(),
+                AccountScreenRequests(),
+            )
             .also { made += it }
     }
 

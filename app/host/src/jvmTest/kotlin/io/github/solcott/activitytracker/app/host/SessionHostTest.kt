@@ -42,6 +42,7 @@ class SessionHostTest {
         SessionHost(
             session = sessionOf("did:plc:alice"),
             factories = fakes.factories,
+            subFactories = emptySet(),
             runner = SessionRunner(steps),
             recording = { recovered },
             recordRequests = recordRequests,
@@ -381,7 +382,7 @@ class SessionHostTest {
 }
 
 /** Steps for a session with no leave anywhere, so the app opens at once; tests flip the two flags. */
-private class OpenSteps : SessionSteps {
+internal class OpenSteps : SessionSteps {
     val leavingHere = MutableStateFlow<Boolean?>(false)
     override val left = MutableStateFlow(false)
 
