@@ -161,7 +161,8 @@ fun FeedPresenter(
                 // One snapshot, so the feed never shows the cleared filter with the old control.
                 Snapshot.withMutableSnapshot {
                     filter = FeedFilter.Default
-                    filterScreen = FeedFilterScreen(FeedFilter.Default)
+                    // A new generation: a screen equal to the last would keep the control, and its narrowed chips.
+                    filterScreen = FeedFilterScreen(FeedFilter.Default, filterScreen.generation + 1)
                 }
             }
 

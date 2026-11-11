@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.presenter.Presenter
+import com.slack.circuit.subcircuit.SubCircuitOuterEvent
 import com.slack.circuit.subcircuit.SubPresenterFactory
 import io.github.solcott.activitytracker.app.SessionTestFixture
 import io.github.solcott.activitytracker.app.feed.FeedScreen
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
@@ -82,16 +84,55 @@ class FeedFilterThroughHostTest {
         assertEquals(null, bar.state.filterIsInstance<FeedFilterState>().first { it.typePicker == null }.typePicker)
     }
 
-    private data class ParentState(val filterScreen: FeedFilterScreen, val filter: FeedFilter, val eventSink: (FeedFilter) -> Unit) :
-        CircuitUiState
+    @Test
+    fun clearingFromOutsideTheBarGivesANewBarAtTheDefaultFilter() = runTest {
+        val fixture = SessionTestFixture()
+        val repos = fixture.repos()
+        val host =
+            sessionHostOf(
+                session = sessionFor(fixture),
+                factories = setOf(Presenter.Factory { screen, _, _ -> if (screen == FeedScreen) ParentPresenter else IdlePresenter }),
+                subFactories =
+                    setOf(
+                        SubPresenterFactory { screen -> (screen as? FeedFilterScreen)?.let { FeedFilterPresenter(it, repos.recentTypes) } },
+                    ),
+                steps = OpenSteps,
+            )
+        backgroundScope.launch { host.run(HostClock.Immediate) }
+        val feed = host.stack(TopLevelDestination.Feed).records.value.single()
+        val parent = feed.state.filterIsInstance<ParentState>().first()
+        val report: (SubCircuitOuterEvent) -> Unit = { event -> if (event is FeedFilterOuterEvent.Changed) parent.eventSink(event.filter) }
 
-    /** Keeps the filter the bar reports and hands the bar a screen made once, as the feed's presenter does. */
+        val bar = feed.sub(parent.filterScreen, report)
+        bar.state.filterIsInstance<FeedFilterState>().first().eventSink(FeedFilterEvent.SetRange(DateRange.LastDays(30)))
+        feed.state.filterIsInstance<ParentState>().first { it.filter.range == DateRange.LastDays(30) }.clear()
+
+        // The feed's Clear: the filter back to the default and a new generation of the screen, which the UI asks the host for.
+        val cleared = feed.state.filterIsInstance<ParentState>().first { it.filterScreen != parent.filterScreen }
+        assertEquals(FeedFilter.Default, cleared.filter)
+        val newBar = feed.sub(cleared.filterScreen, report)
+        assertNotSame(bar, newBar, "a new generation replaces the bar rather than keeping the old one")
+        assertEquals(FeedFilter.Default, newBar.state.filterIsInstance<FeedFilterState>().first().filter)
+    }
+
+    private data class ParentState(
+        val filterScreen: FeedFilterScreen,
+        val filter: FeedFilter,
+        val clear: () -> Unit,
+        val eventSink: (FeedFilter) -> Unit,
+    ) : CircuitUiState
+
+    /** Keeps the filter the bar reports and hands the bar a screen made once, replaced only on clear, as the feed's presenter does. */
     private object ParentPresenter : Presenter<ParentState> {
         @Composable
         override fun present(): ParentState {
             var filter by rememberRetained { mutableStateOf(FeedFilter.Default) }
-            val screen = rememberRetained { FeedFilterScreen(FeedFilter.Default) }
-            return ParentState(screen, filter) { filter = it }
+            var screen by rememberRetained { mutableStateOf(FeedFilterScreen(FeedFilter.Default)) }
+            val clear = {
+                filter = FeedFilter.Default
+                screen = FeedFilterScreen(FeedFilter.Default, screen.generation + 1)
+            }
+            return ParentState(screen, filter, clear) { filter = it }
         }
     }
 

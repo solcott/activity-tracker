@@ -77,6 +77,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
@@ -537,13 +538,16 @@ class FeedPresenterTest {
     @Test
     fun clearingFromTheEmptyFeedReseedsTheControlAndKeepsTheScope() = runTest {
         filterTest {
-            awaitRefreshed().eventSink(FeedEvent.SetScope(FeedScope.Mine))
+            val opened = awaitRefreshed()
+            opened.eventSink(FeedEvent.SetScope(FeedScope.Mine))
             val narrowed = FeedFilter(persistentSetOf(ActivityType("hike")))
             awaitUntil { it.scope == FeedScope.Mine }.eventSink(FeedEvent.FilterChanged(narrowed))
             awaitUntil { it.filter == narrowed }.eventSink(FeedEvent.ClearFilters)
             val cleared = awaitUntil { it.filter == FeedFilter.Default }
             assertEquals(FeedScope.Mine, cleared.scope)
-            assertEquals(FeedFilterScreen(FeedFilter.Default), cleared.filterScreen)
+            // Not equal to the first screen, which the control would keep, with its narrowed chips.
+            assertEquals(FeedFilterScreen(FeedFilter.Default, generation = 1), cleared.filterScreen)
+            assertNotEquals(opened.filterScreen, cleared.filterScreen)
             cancelAndIgnoreRemainingEvents()
         }
     }

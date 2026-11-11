@@ -47,9 +47,11 @@ data class FeedFilter(val types: ImmutableSet<ActivityType> = persistentSetOf(),
 /**
  * The feed filter control, embeddable anywhere a list of activities can be filtered. It owns the live filter and reports it as
  * [FeedFilterOuterEvent.Changed] when it's first shown and on every change after that; [initial] only seeds it, so the host keeps this
- * screen stable rather than rebuilding it per change.
+ * screen stable rather than rebuilding it per change. A sub-screen is kept while its screen stays equal, so a host that resets the control
+ * from outside gives it a new [generation]: an equal screen would keep the control's old filter.
  */
-@Immutable data class FeedFilterScreen(val initial: FeedFilter = FeedFilter.Default) : SubScreen<FeedFilterOuterEvent>
+@Immutable
+data class FeedFilterScreen(val initial: FeedFilter = FeedFilter.Default, val generation: Int = 0) : SubScreen<FeedFilterOuterEvent>
 
 sealed interface FeedFilterOuterEvent : SubCircuitOuterEvent {
     data class Changed(val filter: FeedFilter) : FeedFilterOuterEvent

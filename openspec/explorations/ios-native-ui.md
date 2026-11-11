@@ -1369,10 +1369,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
   the view's parent, so a sheet closes its own (`HostSubRecord.close()`).
 - **An enum's cases keep their Kotlin names.** `Selection.All` and `SportCategory.Running` are `.All` and `.Running` in Swift, not
   lower-cased as Swift's own enums are.
-- **The feed's outside Clear may not reset the bar.** `FeedPresenter` clears by giving the bar a new `FeedFilterScreen(Default)`, which
-  is equal to the first one when the athlete began from the default, so neither `SubCircuitContent` nor the host remounts it: the feed
-  shows everything while the bar keeps its chips. Read from the code, not seen on a device; for the feed change to check and fix (a
-  screen carrying a reset count, say).
+- **The feed's outside Clear didn't reset the bar (fixed).** `FeedPresenter` cleared by giving the bar a new `FeedFilterScreen(Default)`,
+  which was equal to the first one when the athlete began from the default, so neither `SubCircuitContent` (keyed by the screen) nor the
+  host remounted it: the feed showed everything while the bar kept its chips. The screen now carries a `generation`, which Clear bumps, so
+  the cleared screen is a new one in both UIs; `FeedFilterThroughHostTest` clears through the host and gets a new bar at the default.
+  Found by reading the code, not seen on a device.
 - **A test entry beside `appHostOf`.** `sessionHostOf` builds a `SessionHost` over given factories for another module's test, which
   `FeedFilterThroughHostTest` (`composeApp`) uses to run the real filter presenter over the shared session fixture. Like `appHostOf`, a
   top-level function of a module reached only through signatures, so Swift export leaves it out.
