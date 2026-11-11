@@ -24,10 +24,14 @@ struct PostsSnapshotTests {
 
     private static let cardSize = CGSize(width: 393, height: 420)
 
-    private func cardList(_ post: PostView, reason: ReasonRepost? = nil) -> some View {
+    private func cardList(_ post: PostView) -> some View {
+        cardList(PostCardContent.Companion.shared.of(post: post, viewerDid: Samples.postViewer, reason: nil))
+    }
+
+    private func cardList(_ content: PostCardContent) -> some View {
         List {
             Section {
-                PostCardView(content: PostCardContent.Companion.shared.of(post: post, viewerDid: Samples.postViewer, reason: reason)) { _ in }
+                PostCardView(content: content) { _ in }
             }
         }
         .listStyle(.insetGrouped)
@@ -42,7 +46,8 @@ struct PostsSnapshotTests {
     @Test(arguments: reposts)
     func repostedPost(sample: String) throws {
         let item = try #require(Samples.postReposts[sample])
-        assertAppSnapshot(of: cardList(item.post, reason: item.reason), size: Self.cardSize, named: sample)
+        let content = PostCardContent.Companion.shared.ofRepost(reposted: item, viewerDid: Samples.postViewer)
+        assertAppSnapshot(of: cardList(content), size: Self.cardSize, named: sample)
     }
 
     @Test func aPostAtTheLargestTextSize() throws {

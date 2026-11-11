@@ -89,7 +89,7 @@ struct CommentsSection: View {
             }
             HStack(spacing: 4) {
                 AppTextField(
-                    label: CommentsTexts.shared.placeholder, model: draft, state: state.draft,
+                    label: CommentsTexts.shared.placeholder, model: draft, state: state.draft, layout: .bare,
                     hint: Text(CommentsTexts.shared.placeholder), onSubmit: { send(CommentEvent.Send.shared) })
                 AppIconButton(.send, label: CommentsTexts.shared.send) { send(CommentEvent.Send.shared) }
             }

@@ -28,6 +28,9 @@ struct AppTextField: View {
         case row
         /// In a grouped form, the label above text that grows to several lines.
         case multiline
+        /// The filled box alone, its label read by VoiceOver only: a field whose hint already names it, beside its own button (a
+        /// comment's field and Send).
+        case bare
     }
 
     private let label: Text
@@ -103,12 +106,21 @@ struct AppTextField: View {
             case .multiline:
                 caption
                 field(axis: .vertical).lineLimit(3...12).multilineTextAlignment(.leading)
+            case .bare:
+                field(axis: .horizontal)
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay {
+                        if isError { RoundedRectangle(cornerRadius: 10).strokeBorder(.red, lineWidth: 1) }
+                    }
             }
             if let supportingText {
                 Text(supportingText)
                     .font(.caption)
                     .foregroundStyle(isError ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-                    .padding(.leading, layout == .stacked ? 4 : 0)
+                    .padding(.leading, layout == .stacked || layout == .bare ? 4 : 0)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .multilineTextAlignment(.leading)
             }

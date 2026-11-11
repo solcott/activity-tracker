@@ -128,7 +128,7 @@ class PostCardContentTest {
     @Test
     fun repostedBy() {
         val reposts = PostCardSamples.reposts
-        fun by(name: String) = reposts.getValue(name).let { PostCardContent.of(it.post, PostCardSamples.viewer, it.reason).repostedBy() }
+        fun by(name: String) = PostCardContent.ofRepost(reposts.getValue(name), PostCardSamples.viewer).repostedBy()
         assertEquals(named("post_reposted_by_you"), by("repostedByYou"))
         assertEquals(named("post_reposted_by", AppText.written("Bob")), by("repostedByOne"))
         assertEquals(

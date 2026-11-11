@@ -331,6 +331,8 @@
                     isError: isError)
             case .multiline:
                 AppTextField(label: .gearNotes, model: model, state: state, layout: .multiline)
+            case .bare:
+                AppTextField(label: .detailCommentPlaceholder, model: model, state: state, layout: .bare, hint: hint)
             }
         }
     }

@@ -41,7 +41,7 @@ struct PostsTextTests {
 
     @Test func repostedByYou() throws {
         let item = try #require(Samples.postReposts["repostedByYou"])
-        let content = PostCardContent.Companion.shared.of(post: item.post, viewerDid: Samples.postViewer, reason: item.reason)
+        let content = PostCardContent.Companion.shared.ofRepost(reposted: item, viewerDid: Samples.postViewer)
         #expect(read(content.repostedBy()) == "Reposted by you")
         #expect(content.reposted)
     }

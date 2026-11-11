@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.QuotedPost
 import io.github.solcott.activitytracker.lexicon.app.QuotedPostEmbed
 import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
+import io.github.solcott.activitytracker.lexicon.app.RepostedPostView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import kotlinx.collections.immutable.persistentListOf
 
@@ -197,6 +198,9 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
         /** [post]'s card for the signed-in [viewerDid], in a timeline through [reason]'s repost when given. */
         fun of(post: PostView, viewerDid: String, reason: ReasonRepost? = null): PostCardContent =
             PostCardContent(post, isOwn = post.author.did.value == viewerDid, viewerDid = viewerDid, reason = reason)
+
+        /** [reposted]'s card in a timeline, headed by who reposted it (feed/reposts). */
+        fun ofRepost(reposted: RepostedPostView, viewerDid: String): PostCardContent = of(reposted.post, viewerDid, reposted.reason)
 
         /** The card's own words that aren't any one post's. */
         fun more(): AppText = AppText.named("post_card_more")
