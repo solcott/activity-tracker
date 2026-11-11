@@ -113,8 +113,8 @@ points, as the Compose preview marks them; null below two points. Swift's `Route
 wide, draws the dashed connectors and the markers with the radii, rings and colours of `RouteMarkers` (copied into Swift with a comment
 naming their source), on a tile of the system's secondary grouped fill, and asks again when its size changes.
 
-- *Why its own fit*: `canvasFit` is in `:app-common-ui`, which Swift can't reach, and the other branch is reshaping it. Once both land,
-  `canvasFit` can ask `RouteShape`'s fit, a follow-up noted in the roadmap.
+- *One fit*: `canvasFit` is in `:app-common-ui`, which Swift can't reach. Once the other branch had made it take `GeoPoint`s (merged
+  in before archiving), its math moved to `TileFit` in `:app-common-api`, which `RouteShape` and `canvasFit` both use.
 - *Why not MapKit's snapshotter*: a different map and credit from the other platforms, and the task keeps the card off native maps.
 
 ### 6. The native card
@@ -163,10 +163,8 @@ page's samples. Snapshots over 2,730 points are split.
 
 - **[A list row that holds buttons]** A tap on an inner control can also fire the row's tap. → The controls are borderless buttons, which
   SwiftUI routes alone; the walk taps each one.
-- **[Two fits for one route]** The native tile and the Compose preview fit with the same math in two places until the other branch lands.
-  → A shared test sample drawn by both; the follow-up is in the roadmap.
-- **[`Pair` in core-location]** `RouteShape` calls `TrackMath` and `RouteCurve`, whose `Pair` signatures the other branch may change. →
-  Only `RouteShape`'s body changes at the merge; its own signature uses no `Pair`.
+- **[`Pair` in core-location]** `RouteShape` calls `TrackMath` and `RouteCurve`, whose `Pair` signatures the other branch changed. →
+  Merged before archiving; only `RouteShape`'s body changed, and the fit became one (`TileFit`).
 - **[Reaching the page on a device]** A batch page needs a batch import. → Two GPX files imported together, as the uploads walk did,
   Only me, deleted afterwards.
 - **[Release export]** Every `:core-lexicon` type the views name must be named by an `-api` signature, not only by samples. →

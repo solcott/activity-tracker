@@ -1307,10 +1307,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   time of day, and `StartText` holds the rule `startTime` had (the detail page's start line resolves it too). This closes the open item
   about the feed's start times.
 - **A rule that needs geometry moves as placed points.** The line preview's decoding, smoothing and fit stay Kotlin's: `RouteShape`
-  returns each piece's points on the tile, the ends and the breaks, and Swift only strokes them. Its fit repeats `canvasFit` (in
-  `:app-common-ui`, which Swift can't reach), since the Pair branch was reshaping that file; once both are merged, `canvasFit` can ask
-  `RouteShape`'s fit. `RouteShape`'s body names `RouteCurve.smooth`'s `Pair`s through `to`, which the source scan allows (it refuses
-  only a `Pair<` type), and changes in one line when that branch's `GeoPoint` signatures land.
+  returns each piece's points on the tile, the ends and the breaks, and Swift only strokes them. The fit itself moved to
+  `:app-common-api` as `TileFit`, which the shared `canvasFit` now asks too, once the Pair branch (merged in before archiving) had made
+  `canvasFit`, `RouteCurve` and `TrackMath` take `GeoPoint`s.
 - **A contract's list fields are `ImmutableList`s, a function's results plain `List`s.** `RouteShape`'s and `ImportBatchMonth`'s list
   fields first failed the strict stability check as `List`; as `ImmutableList`s Swift reads them with `elements(as:)`. Text functions
   (`stats(units)`, `notices()`, `locks()`) return plain lists, which arrive as typed arrays.
@@ -1401,6 +1400,4 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
 - The feed (`FeedScreen`) is still the shared UI's (`ios-native-activity-card`): its filter bar is a SubCircuit the presenter host
   can't run, and its posts, import cards, upload rows, prompts and sheets aren't native. Its change starts with SubCircuits in the host.
-- `RouteShape` (`:app-common-api`) repeats `canvasFit`'s fit for the native route tile; once the Pair branch and this change are
-  merged, `canvasFit` and `RoutePreview` can ask it, and `RouteShape`'s call to `RouteCurve.smooth` takes `GeoPoint`s.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
