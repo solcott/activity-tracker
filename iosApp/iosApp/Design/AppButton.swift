@@ -95,13 +95,22 @@ struct AppTextButton: View {
 /// or active form (a starred segment's star).
 struct AppIconButton: View {
     private let icon: AppIcon
-    private let label: LocalizedStringResource
+    private let label: Text
     private let filled: Bool
     private let action: () -> Void
 
     init(_ icon: AppIcon, label: LocalizedStringResource, filled: Bool = false, action: @escaping () -> Void) {
+        self.init(icon, labelText: Text(label), filled: filled, action: action)
+    }
+
+    /// An icon button whose label Kotlin chooses (a post's Undo repost, a vote naming its proposal).
+    init(_ icon: AppIcon, label: any AppText, filled: Bool = false, action: @escaping () -> Void) {
+        self.init(icon, labelText: Text(label), filled: filled, action: action)
+    }
+
+    private init(_ icon: AppIcon, labelText: Text, filled: Bool, action: @escaping () -> Void) {
         self.icon = icon
-        self.label = label
+        self.label = labelText
         self.filled = filled
         self.action = action
     }
@@ -112,6 +121,6 @@ struct AppIconButton: View {
             // The system's smallest comfortable target, whatever the symbol's own size.
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityLabel(Text(label))
+            .accessibilityLabel(label)
     }
 }
