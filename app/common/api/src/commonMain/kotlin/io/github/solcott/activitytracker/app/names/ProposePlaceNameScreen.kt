@@ -92,6 +92,14 @@ data class ProposePlaceNameState(
         get() =
             sharing != initialSharing || (sharing && (audience != initialAudience || shareText.text.trim().toString() != initialShareText))
 
+    /** The invalid name note shows: something is typed, and it can't be sent as a name. */
+    val showsInvalid: Boolean
+        get() = name.text.isNotEmpty() && !valid
+
+    /** Share to feed, its audience and text can be changed: nothing is being sent, and an edit's sharing has been read. */
+    val shareEnabled: Boolean
+        get() = !sending && !shareLoading
+
     /** The name is the one the edit started from: saving then changes only the sharing. */
     private val nameUnchanged: Boolean
         get() = name.text.trim().toString().equals(unchangedName.trim(), ignoreCase = true)
