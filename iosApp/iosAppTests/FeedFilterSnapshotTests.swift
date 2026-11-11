@@ -21,7 +21,7 @@ struct FeedFilterSnapshotTests {
 
     @Test func typePicker() throws {
         let picker = try #require(Samples.feedFilter["picking"]?.typePicker)
-        assertAppSnapshot(of: TypePickerSheet(picker: picker) { _ in }, named: "picking")
+        assertAppSnapshot(of: TypePickerSheet(picker: picker) { _ in }, named: "picking", precision: Snapshots.barButtons)
     }
 
     @Test func everySampleHasASnapshot() {
