@@ -141,7 +141,7 @@ Tapping the segment or site on a post card SHALL open that segment or site scree
 - **THEN** bob's profile opens
 
 ### Requirement: Profiles list posts
-The profile SHALL offer a switch between Activities, selected first, and Posts. Posts SHALL list the athlete's posts the viewer may see, newest first, from `feed.getAuthorPosts`, with cursor paging. They SHALL load on their own in the content-loading pattern, with an empty state when there are none. The native profile on iOS SHALL list activities only, with no switch, until posts can be drawn natively.
+The profile SHALL offer a switch between Activities, selected first, and Posts. Posts SHALL list the athlete's posts the viewer may see, newest first, from `feed.getAuthorPosts`, with cursor paging. They SHALL load on their own in the content-loading pattern, with an empty state when there are none. The native profile on iOS SHALL offer the same switch and list posts as native post cards.
 
 #### Scenario: Viewer outside the audience
 - **WHEN** carol, who doesn't follow alice, opens Posts on alice's profile and alice's only post is shared with Followers
@@ -152,8 +152,8 @@ The profile SHALL offer a switch between Activities, selected first, and Posts. 
 - **THEN** she sees every post she has shared, whatever its audience
 
 #### Scenario: A profile on iOS
-- **WHEN** alice opens bob's profile on iOS
-- **THEN** it lists bob's activities and offers no Posts
+- **WHEN** alice opens bob's profile on iOS and chooses Posts
+- **THEN** she sees bob's posts she may see as native cards, a page at a time
 
 ### Requirement: Likes on posts
 Clients SHALL offer the like action, and show the like count, on every post the viewer can see except their own. A like on a post SHALL be a `feed.like` naming the post. It SHALL be stored in the giver's repo when the post is Public, and in their `interactions` space when the post is Followers or Mutuals. It SHALL stay where it was written when the post's audience changes later.

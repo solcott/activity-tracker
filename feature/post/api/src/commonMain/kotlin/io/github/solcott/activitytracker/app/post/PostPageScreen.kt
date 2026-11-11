@@ -28,7 +28,11 @@ data class PostPageState(
     val content: ContentState<PostPage?> = ContentState(null),
     val notFound: Boolean = false,
     val eventSink: (PostPageEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** The loaded page, typed for Swift, which can't read the erased [content]'s value; null until the post first loads. */
+    val page: PostPage?
+        get() = content.data
+}
 
 /**
  * The loaded post page, as the viewer left it.
@@ -50,7 +54,19 @@ data class PostPage(
     val reporting: Reporting = Reporting(),
     /** The quote sheet and the delete confirmation (feed/quote-posts). */
     val quote: QuoteFields = QuoteFields(),
-)
+) {
+    /** Show likes is offered: someone liked it, or the list is shown. */
+    val showsLikesToggle: Boolean
+        get() = post.likeCount > 0 || likesList != null
+
+    /** Show reposts is offered: someone reposted it, or the list is shown (feed/reposts). */
+    val showsRepostsToggle: Boolean
+        get() = post.repostCount > 0 || repostsList != null
+
+    /** Show quotes is offered: the viewer is shown a quote of it (feed/quote-posts). */
+    val showsQuotes: Boolean
+        get() = post.quoteCount > 0
+}
 
 sealed interface PostPageEvent {
     data object Back : PostPageEvent

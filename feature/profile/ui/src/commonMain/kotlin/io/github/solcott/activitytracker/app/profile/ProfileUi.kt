@@ -67,9 +67,6 @@ import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_report
-import io.github.solcott.activitytracker.composeApp.resources.profile_posts_empty
-import io.github.solcott.activitytracker.composeApp.resources.profile_tab_activities
-import io.github.solcott.activitytracker.composeApp.resources.profile_tab_posts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
@@ -140,11 +137,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                     if (state.showsActivities) {
                         item(key = TABS_KEY) {
                             AppSegmentedControl(
-                                labels =
-                                    persistentListOf(
-                                        stringResource(Res.string.profile_tab_activities),
-                                        stringResource(Res.string.profile_tab_posts),
-                                    ),
+                                labels = ProfileTab.entries.map { ProfileTexts.tab(it).string() }.toImmutableList(),
                                 selected = state.tab.ordinal,
                                 onSelect = { state.eventSink(ProfileEvent.SelectTab(ProfileTab.entries[it])) },
                                 modifier = Modifier.fillMaxWidth(),
@@ -196,7 +189,7 @@ private fun LazyListScope.postsSection(state: ProfileState) {
     }
     pagedFooter(state.posts, UiError.Kind.LoadPosts, retry) {
         Text(
-            stringResource(Res.string.profile_posts_empty),
+            ProfileTexts.postsEmpty.string(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

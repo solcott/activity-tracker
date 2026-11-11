@@ -155,6 +155,19 @@ object ProfileTexts {
     val settings: AppText
         get() = AppText.named("profile_settings")
 
+    /** A list's name in the Activities and Posts choice (feed/posts). */
+    fun tab(tab: ProfileTab): AppText =
+        AppText.named(
+            when (tab) {
+                ProfileTab.Activities -> "profile_tab_activities"
+                ProfileTab.Posts -> "profile_tab_posts"
+            },
+        )
+
+    /** What Posts says when the athlete has none the viewer may see. */
+    val postsEmpty: AppText
+        get() = AppText.named("profile_posts_empty")
+
     private fun countText(name: String, count: Long?): AppText {
         val n = count ?: 0L
         return AppText.Plural(name, n.toInt(), persistentListOf(AppText.written(formatWhole(n))))

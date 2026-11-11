@@ -92,6 +92,18 @@
         static var profile: [String: ProfileState] { ProfilePackage.ProfileSamples.shared.all }
         static var profileVariants: [String: ProfileState] { ProfilePackage.ProfileSamples.shared.variants }
 
+        /// Posts (ios-native-post-card): one card in each case, for `postViewer`, and through each kind of repost; the post page, the
+        /// quotes list and the quote sheet in each state they show, states beyond content loading apart.
+        static var postCards: [String: PostView] { PostsPackage.PostCardSamples.shared.all }
+        static var postReposts: [String: RepostedPostView] { PostsPackage.PostCardSamples.shared.reposts }
+        static var postViewer: String { PostsPackage.PostCardSamples.shared.viewer }
+        static var postPage: [String: PostPageState] { PostPackage.PostPageSamples.shared.all }
+        static var postPageVariants: [String: PostPageState] { PostPackage.PostPageSamples.shared.variants }
+        static var postQuotes: [String: PostQuotesState] { PostPackage.PostQuotesSamples.shared.all }
+        static var quoteSheet: [String: QuoteFields] {
+            PostsPackage.QuoteSheetSamples.shared.all.merging(PostsPackage.QuoteSheetSamples.shared.variants) { first, _ in first }
+        }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(

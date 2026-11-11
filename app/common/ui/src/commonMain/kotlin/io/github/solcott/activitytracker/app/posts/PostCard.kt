@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -31,56 +30,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_report
-import io.github.solcott.activitytracker.composeApp.resources.comments_count
-import io.github.solcott.activitytracker.composeApp.resources.like_content_description
-import io.github.solcott.activitytracker.composeApp.resources.like_count
-import io.github.solcott.activitytracker.composeApp.resources.post_card_counts
-import io.github.solcott.activitytracker.composeApp.resources.post_card_dive_site
-import io.github.solcott.activitytracker.composeApp.resources.post_card_more
-import io.github.solcott.activitytracker.composeApp.resources.post_card_open
-import io.github.solcott.activitytracker.composeApp.resources.post_card_open_place
-import io.github.solcott.activitytracker.composeApp.resources.post_card_proposes
-import io.github.solcott.activitytracker.composeApp.resources.post_card_segment
-import io.github.solcott.activitytracker.composeApp.resources.post_card_unavailable
-import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by
-import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_open
-import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_others
-import io.github.solcott.activitytracker.composeApp.resources.post_reposted_by_you
-import io.github.solcott.activitytracker.composeApp.resources.post_show_quotes
-import io.github.solcott.activitytracker.composeApp.resources.post_status_adopted
-import io.github.solcott.activitytracker.composeApp.resources.post_status_closed
-import io.github.solcott.activitytracker.composeApp.resources.post_status_expired
-import io.github.solcott.activitytracker.composeApp.resources.post_status_open
-import io.github.solcott.activitytracker.composeApp.resources.post_status_rejected
-import io.github.solcott.activitytracker.composeApp.resources.post_status_superseded
-import io.github.solcott.activitytracker.composeApp.resources.quote_content_description
-import io.github.solcott.activitytracker.composeApp.resources.quote_count
-import io.github.solcott.activitytracker.composeApp.resources.quote_delete
-import io.github.solcott.activitytracker.composeApp.resources.quoted_post_link
-import io.github.solcott.activitytracker.composeApp.resources.quoted_post_open
-import io.github.solcott.activitytracker.composeApp.resources.quoted_post_unavailable
-import io.github.solcott.activitytracker.composeApp.resources.repost_content_description
-import io.github.solcott.activitytracker.composeApp.resources.repost_count
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_totals
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_down
-import io.github.solcott.activitytracker.composeApp.resources.segment_name_vote_up
-import io.github.solcott.activitytracker.composeApp.resources.undo_repost_content_description
-import io.github.solcott.activitytracker.data.feed.isPending
-import io.github.solcott.activitytracker.data.units.formatWhole
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
-import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
-import io.github.solcott.activitytracker.lexicon.app.QuotedPost
-import io.github.solcott.activitytracker.lexicon.app.QuotedPostEmbed
 import io.github.solcott.activitytracker.lexicon.app.ReasonRepost
-import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * One post (feed/posts) in a timeline, on a profile or atop its own page: its author and audience, their text, the proposal it shares as it
@@ -100,41 +54,34 @@ fun PostCard(
     reason: ReasonRepost? = null,
     onQuoteCount: (() -> Unit)? = null,
 ) {
-    val openLabel = stringResource(Res.string.post_card_open)
-    val own = post.author.did.value == viewerDid
+    val content = remember(post, viewerDid, reason) { PostCardContent.of(post, viewerDid, reason) }
+    val openLabel = PostCardContent.open().string()
     Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenPost(post)) }.handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            reason?.let { RepostedBy(it, viewerDid, onEvent) }
-            Header(post, own, canReport, onEvent)
-            post.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            when (val embed = post.embed) {
-                is PostEmbedView.Proposal -> Proposal(post, embed, onEvent)
-                is PostEmbedView.Quote -> QuotedPost(embed.quoted, onEvent)
-                is PostEmbedView.Unknown ->
-                    Text(
-                        stringResource(Res.string.post_card_unavailable),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            content.repostedBy()?.let { RepostedBy(content, it.string(), onEvent) }
+            Header(content, canReport, onEvent)
+            content.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            content.proposal?.let { Proposal(content, it, onEvent) }
+            if (content.quoted != null || content.quotedUnavailable) QuotedPost(content, onEvent)
+            if (content.embedUnknown) {
+                Text(
+                    content.embedUnknownText().string(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Counts(post, own, onEvent, onQuoteCount)
+            Counts(content, onEvent, onQuoteCount)
         }
     }
 }
 
 /** "Reposted by …" above a post in the timeline through a repost (feed/reposts), opening the reposter's profile. */
 @Composable
-private fun RepostedBy(reason: ReasonRepost, viewerDid: String, onEvent: (PostEvent) -> Unit) {
-    val text =
-        when {
-            reason.by.did.value == viewerDid -> stringResource(Res.string.post_reposted_by_you)
-            reason.others > 0 ->
-                pluralStringResource(Res.plurals.post_reposted_by_others, reason.others.toInt(), reason.by.shownName, reason.others.toInt())
-            else -> stringResource(Res.string.post_reposted_by, reason.by.shownName)
-        }
+private fun RepostedBy(content: PostCardContent, text: String, onEvent: (PostEvent) -> Unit) {
+    val reposter = content.reposter ?: return
     Row(
         Modifier.testTag(TestTags.POST_REPOSTED_BY)
-            .clickable(onClickLabel = stringResource(Res.string.post_reposted_by_open)) { onEvent(PostEvent.OpenReposter(reason.by)) }
+            .clickable(onClickLabel = PostCardContent.openReposter().string()) { onEvent(PostEvent.OpenReposter(reposter)) }
             .handCursor(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -149,52 +96,44 @@ private fun RepostedBy(reason: ReasonRepost, viewerDid: String, onEvent: (PostEv
  * shown them; the quote count lists the quotes when [onQuoteCount] is given.
  */
 @Composable
-private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit, onQuoteCount: (() -> Unit)?) {
+private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, onQuoteCount: (() -> Unit)?) {
+    val post = content.post
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (!own) {
-            val given = post.viewer?.like != null
+        if (content.offersLike) {
             AppIconButton(
                 AppIcon.Like,
-                contentDescription = stringResource(Res.string.like_content_description),
+                contentDescription = PostCardContent.like().string(),
                 onClick = { onEvent(PostEvent.Like(post)) },
                 modifier = Modifier.testTag(TestTags.POST_LIKE),
-                filled = given,
-                tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
-            )
-            val reposted = post.viewer?.repost != null
-            AppIconButton(
-                AppIcon.Repost,
-                contentDescription =
-                    stringResource(if (reposted) Res.string.undo_repost_content_description else Res.string.repost_content_description),
-                onClick = { onEvent(PostEvent.Repost(post)) },
-                modifier = Modifier.testTag(TestTags.POST_REPOST),
-                filled = reposted,
-                tint = if (reposted) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+                filled = content.liked,
+                tint = if (content.liked) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
             )
         }
-        // A post sent this session can be quoted once it's listed: a quote names it by its CID (feed/quote-posts).
-        if (!post.isPending) {
+        if (content.offersRepost) {
+            AppIconButton(
+                AppIcon.Repost,
+                contentDescription = content.repostLabel().string(),
+                onClick = { onEvent(PostEvent.Repost(post)) },
+                modifier = Modifier.testTag(TestTags.POST_REPOST),
+                filled = content.reposted,
+                tint = if (content.reposted) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+            )
+        }
+        if (content.offersQuote) {
             AppIconButton(
                 AppIcon.Quote,
-                contentDescription = stringResource(Res.string.quote_content_description),
+                contentDescription = PostCardContent.quote().string(),
                 onClick = { onEvent(PostEvent.Quote(post)) },
                 modifier = Modifier.testTag(TestTags.POST_QUOTE),
             )
         }
-        val quotes = pluralStringResource(Res.plurals.quote_count, post.quoteCount.toInt(), formatWhole(post.quoteCount))
         Text(
-            stringResource(
-                Res.string.post_card_counts,
-                pluralStringResource(Res.plurals.like_count, post.likeCount.toInt(), formatWhole(post.likeCount)),
-                pluralStringResource(Res.plurals.comments_count, post.commentCount.toInt(), formatWhole(post.commentCount)),
-                pluralStringResource(Res.plurals.repost_count, post.repostCount.toInt(), formatWhole(post.repostCount)),
-                quotes,
-            ),
+            content.counts().string(),
             modifier =
                 if (onQuoteCount == null) Modifier
                 else
                     Modifier.testTag(TestTags.POST_QUOTE_COUNT)
-                        .clickable(onClickLabel = stringResource(Res.string.post_show_quotes)) { onQuoteCount() }
+                        .clickable(onClickLabel = PostCardContent.showQuotes().string()) { onQuoteCount() }
                         .handCursor(),
             style = MaterialTheme.typography.bodySmall,
         )
@@ -206,73 +145,65 @@ private fun Counts(post: PostView, own: Boolean, onEvent: (PostEvent) -> Unit, o
  * is itself a quote; a tap opens it. "Post unavailable" in its place opens nothing.
  */
 @Composable
-private fun QuotedPost(quoted: QuotedPost, onEvent: (PostEvent) -> Unit) {
+private fun QuotedPost(content: PostCardContent, onEvent: (PostEvent) -> Unit) {
     val shape = MaterialTheme.shapes.medium
     val framed = Modifier.fillMaxWidth().clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-    when (quoted) {
-        is QuotedPost.Post ->
-            Column(
-                framed
-                    .testTag(TestTags.QUOTED_POST)
-                    .clickable(onClickLabel = stringResource(Res.string.quoted_post_open)) { onEvent(PostEvent.OpenQuoted(quoted.uri)) }
-                    .handCursor()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    quoted.author.shownName + " · " + visibilityLabel(quoted.visibilityOrPublic),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                quoted.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = QUOTED_TEXT_LINES) }
-                when (val embed = quoted.embed) {
-                    is PostEmbedView.Proposal ->
-                        Text(stringResource(Res.string.post_card_proposes, embed.name), style = MaterialTheme.typography.titleSmall)
-                    is QuotedPostEmbed.Link ->
-                        Text(
-                            stringResource(Res.string.quoted_post_link),
-                            Modifier.testTag(TestTags.QUOTED_POST_LINK)
-                                .clickable(onClickLabel = stringResource(Res.string.quoted_post_open)) {
-                                    onEvent(PostEvent.OpenQuoted(embed.uri))
-                                }
-                                .handCursor(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    is QuotedPostEmbed.Unknown,
-                    null -> Unit
-                }
-            }
-        is QuotedPost.Unavailable,
-        is QuotedPost.Unknown ->
+    val quoted = content.quoted
+    if (quoted == null) {
+        Text(
+            content.quotedUnavailableText().string(),
+            framed.testTag(TestTags.QUOTED_POST_UNAVAILABLE).padding(12.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val openLabel = content.quotedOpen().string()
+    Column(
+        framed
+            .testTag(TestTags.QUOTED_POST)
+            .clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenQuoted(quoted.uri)) }
+            .handCursor()
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        content.quotedHeader()?.let {
+            Text(it.string(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        quoted.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = QUOTED_TEXT_LINES) }
+        content.quotedProposes()?.let { Text(it.string(), style = MaterialTheme.typography.titleSmall) }
+        content.quotedLink?.let { link ->
             Text(
-                stringResource(Res.string.quoted_post_unavailable),
-                framed.testTag(TestTags.QUOTED_POST_UNAVAILABLE).padding(12.dp),
+                content.quotedLinkText().string(),
+                Modifier.testTag(TestTags.QUOTED_POST_LINK)
+                    .clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenQuoted(link)) }
+                    .handCursor(),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.primary,
             )
+        }
     }
 }
 
 private const val QUOTED_TEXT_LINES = 6
 
 @Composable
-private fun Header(post: PostView, own: Boolean, canReport: Boolean, onEvent: (PostEvent) -> Unit) {
+private fun Header(content: PostCardContent, canReport: Boolean, onEvent: (PostEvent) -> Unit) {
+    val post = content.post
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         AuthorHeader(post.author, Modifier.weight(1f), onClick = { onEvent(PostEvent.OpenAuthor(post)) }) {
             Text(
-                visibilityLabel(post.visibility ?: Visibility.PUBLIC),
+                content.audience().string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         // Delete only on the viewer's own quote (feed/quote-posts), Report only on someone else's post.
-        val canDelete = own && post.embed is PostEmbedView.Quote
-        if (canDelete || (!own && canReport)) {
+        if (content.offersMenu(canReport)) {
             Box {
                 var open by remember { mutableStateOf(false) }
-                AppIconButton(AppIcon.More, stringResource(Res.string.post_card_more), onClick = { open = true })
-                val label = stringResource(if (canDelete) Res.string.quote_delete else Res.string.action_report)
+                AppIconButton(AppIcon.More, PostCardContent.more().string(), onClick = { open = true })
+                val label = content.menuItem().string()
                 AppMenu(
                     expanded = open,
                     onDismiss = { open = false },
@@ -280,7 +211,7 @@ private fun Header(post: PostView, own: Boolean, canReport: Boolean, onEvent: (P
                         persistentListOf(
                             AppMenuItem(label) {
                                 open = false
-                                onEvent(if (canDelete) PostEvent.Delete(post) else PostEvent.Report(post))
+                                onEvent(content.menuEvent())
                             },
                         ),
                 )
@@ -290,62 +221,40 @@ private fun Header(post: PostView, own: Boolean, canReport: Boolean, onEvent: (P
 }
 
 @Composable
-private fun Proposal(post: PostView, embed: PostEmbedView.Proposal, onEvent: (PostEvent) -> Unit) {
-    val place =
-        embed.segment?.let { stringResource(Res.string.post_card_segment, it.name) }
-            ?: embed.diveSite?.let { stringResource(Res.string.post_card_dive_site, it.name) }.orEmpty()
+private fun Proposal(content: PostCardContent, embed: PostEmbedView.Proposal, onEvent: (PostEvent) -> Unit) {
+    val post = content.post
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            place,
-            Modifier.clickable(onClickLabel = stringResource(Res.string.post_card_open_place)) { onEvent(PostEvent.Open(post)) }
-                .handCursor(),
+            content.place()?.string().orEmpty(),
+            Modifier.clickable(onClickLabel = PostCardContent.openPlace().string()) { onEvent(PostEvent.Open(post)) }.handCursor(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.post_card_proposes, embed.name), style = MaterialTheme.typography.titleMedium)
+                Text(content.proposes()?.string().orEmpty(), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    statusLabel(embed.status) + " · " + stringResource(Res.string.segment_name_totals, embed.up, embed.down),
+                    content.proposalStatus()?.string().orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (embed.canVote) {
-                val vote = embed.viewerVote?.direction
-                fun toggle(direction: String) = onEvent(PostEvent.Vote(post, direction.takeIf { it != vote }))
                 AppIconButton(
                     AppIcon.ChevronUp,
-                    stringResource(Res.string.segment_name_vote_up, embed.name),
-                    onClick = { toggle(SegmentNameVoteDirection.UP) },
+                    content.voteUp().string(),
+                    onClick = { onEvent(content.vote(up = true)) },
                     modifier = Modifier.testTag(TestTags.POST_VOTE_UP),
-                    tint =
-                        if (vote == SegmentNameVoteDirection.UP) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (content.votedUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 AppIconButton(
                     AppIcon.ChevronDown,
-                    stringResource(Res.string.segment_name_vote_down, embed.name),
-                    onClick = { toggle(SegmentNameVoteDirection.DOWN) },
+                    content.voteDown().string(),
+                    onClick = { onEvent(content.vote(up = false)) },
                     modifier = Modifier.testTag(TestTags.POST_VOTE_DOWN),
-                    tint =
-                        if (vote == SegmentNameVoteDirection.DOWN) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (content.votedDown) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
 }
-
-@Composable
-private fun statusLabel(status: String): String =
-    stringResource(
-        when (status) {
-            PostProposalStatus.OPEN -> Res.string.post_status_open
-            PostProposalStatus.ADOPTED -> Res.string.post_status_adopted
-            PostProposalStatus.REJECTED -> Res.string.post_status_rejected
-            PostProposalStatus.EXPIRED -> Res.string.post_status_expired
-            PostProposalStatus.SUPERSEDED -> Res.string.post_status_superseded
-            else -> Res.string.post_status_closed
-        },
-    )

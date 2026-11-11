@@ -21748,6 +21748,17 @@
         }
       }
     },
+    "text_dot_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "text_list_pair" : {
       "extractionState" : "manual",
       "localizations" : {

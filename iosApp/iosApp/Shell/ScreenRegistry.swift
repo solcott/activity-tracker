@@ -82,6 +82,10 @@ extension ScreenRegistry {
 
         // The profile (ios-native-profile), drawn with the native activity card; Report and Posts wait.
         registry.register(ProfileScreen.self, ProfileState.self) { state in ProfilePage(state: state) }
+
+        // Posts (ios-native-post-card): a post's page and its quotes, drawn with the native post card; Report waits.
+        registry.register(PostPageScreen.self, PostPageState.self) { state in PostPage(state: state) }
+        registry.register(PostQuotesScreen.self, PostQuotesState.self) { state in PostQuotesView(state: state) }
         return registry
     }()
 }

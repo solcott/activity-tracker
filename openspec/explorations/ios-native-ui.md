@@ -305,6 +305,13 @@ Each phase leaves a shippable app.
      activities as native cards. What it says and decides is Kotlin's (`ProfileTexts`, getters on `ProfileState`), which `ProfileUi`
      asks too. Left out natively until the host and a post card allow them: Report (its sheet is a SubCircuit) and the Posts tab
      (posts have no native card).
+   - **Posts** (`ios-native-post-card`). A native post card (`PostCardView`, drawn from Kotlin's `PostCardContent`, which the shared
+     `PostCard` asks too: reposted by, author and audience, the proposal with its votes, the quoted post one level deep or "Post
+     unavailable", Like, Repost, Quote and the counts, Delete on the viewer's own quote), the post page (`PostPage`, with the likers,
+     reposters and Show quotes, and the first native comment list, `CommentsSection`, from `CommentsTexts.rows`, whose rule the shared
+     list asks for each comment's actions), the quotes list (`PostQuotesView`), the quote sheet and delete confirmation (`.quoteSheet`,
+     a SwiftUI sheet over `QuoteFields`, a plain state, not a sub-screen), and the profile's Posts tab again (`ProfilePosts`). Report is
+     still left out of the card, the comments and the quotes list, waiting for the native report sheet (`ios-native-report-sheet`).
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -957,6 +964,21 @@ The profile is the last shared page between the You tab and the native pages it 
   (with the quote sheet and Report), so neither has a native form; a native page can't host part of the Compose page, since
   `IosApp.screenViewController(record:)` draws the whole screen.
 
+### Phase 4 probes (posts, `ios-native-post-card`, 2026-11-11)
+
+Asked by reading the generated Swift for `:feature-post-api`, `:app-common-api` and `:core-lexicon`, before the views were written:
+
+- **A post's embed is a sealed protocol Swift can't read well.** `PostView.embed` is `any PostEmbedView`, whose `Unknown` member holds
+  a `JsonObject`, and `QuotedPost` and `QuotedPostEmbed` are the same; so the card reads typed getters (`PostCardContent.proposal`,
+  `quoted`, `quotedLink`, `quotedUnavailable`, `embedUnknown`) and never casts.
+- **`PostPageState.content` and `PostQuotesState.quotes` are erased**, as every `ContentState` and `PagedState`: the page gets a typed
+  `page` getter, and the quotes go through `PagedList` with the item named. `PostPage`'s own fields (`post`, `comments`, `likesList`,
+  `repostsList`, `error`, `quote`) are typed.
+- **`CommentsState` and `CommentThread` hold their comments in `ImmutableList`s**, read with `elements(as:)`; the thread structure, the
+  indent and each comment's menu are flattened in Kotlin (`CommentsTexts.rows`) so Swift doesn't walk threads itself.
+- **`QuoteFields` is a plain part of each host's state**, every field typed (`audiences` an `ImmutableList` of text), so the quote sheet
+  is a SwiftUI sheet over it and needs no sub-screen.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1448,6 +1470,28 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Previous and Mounted on, the breakdowns (one sport and one year each), linked profiles, a follower's view, a photo, and the page on
   iOS 18 signed in or on an iPad. The snapshots cover each of them.
 
+### Phase 4 findings (posts, `ios-native-post-card`)
+
+- **The first native comment list.** The post page needed comments, which the shared activity page shares; `CommentsSection` draws
+  them from `CommentsTexts.rows` (one typed list in the shared order, each row with its key, kind, indent, words and menu) and is ready
+  for the activity page. `CommentAction` moved to `:app-common-api` beside `CommentsTexts.actions`, which the shared list asks now.
+- **Report waits on posts and comments too**, as on the profile: the native card's menu shows only Delete on the viewer's own quote,
+  and the comment menus leave Report out. A spec delta (`moderation/reports`) records it as its own requirement, for the report branch
+  to drop.
+- **A view named for a Kotlin class.** The native page is `PostPage`, so Kotlin's loaded `PostPage` is `LoadedPostPage` in Swift.
+- **`AppIconButton` takes Kotlin's text** now (`init(_:label: any AppText)`), for Undo repost and a vote naming its proposal.
+- **`AppTextField` has a `.bare` layout**: the filled box with no caption over it, its label read by VoiceOver only, for a field whose
+  hint already names it beside its own button (the comment field and Send). The stacked layout showed "Add a comment" twice.
+- **Snapshot images are copied flat into the test bundle**, so two suites' tests of the same name (`card(sample:)`,
+  `page(sample:)`) clash at build time ("Multiple commands produce"). Each suite's test names are its own (`postCard`, `postPage`).
+- **A sheet with bar buttons needs `Snapshots.barButtons`** too: the quote sheet's glass Cancel and Post differ by a few pixels between
+  runs, as the gear and profile forms' do. `FeedFilterSnapshotTests.typePicker` (the type sheet, with Cancel and Apply) doesn't use it
+  and failed on every iOS 26.0 run here, with no visible difference: a follow-up for its owner.
+- **The local stack had no posts.** A post shares its author's own proposal or quotes another post, so the walk made one by hand as
+  rider1.test (sharing an adopted proposal), walked it, and deleted it. Walked on the signed-in iPhone 17 Pro (iOS 26.0): the profile's
+  Posts tab, the card, the post page, Like and the likers, the quote sheet, the quotes list, Delete quote and a comment sent and deleted,
+  every write put back.
+
 ### Phase 4 findings (profile, `ios-native-profile`)
 
 - **Report and Posts can't ride along as fallbacks.** A native page can't host part of the Compose page, and swapping the whole page to
@@ -1559,6 +1603,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   can't run~~: done (`ios-host-subcircuits`), the host runs sub-screens and `FeedFilterBar` draws the bar from one. Its posts, import
   cards, upload rows, prompts and sheets aren't native. The native bar's type sheet has no search and no collapsed sports yet, and the
   outside Clear may leave the bar's chips as they were (Phase 4 findings, host sub-screens).
+- Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the
+  profile's Posts tab, which closes the profile's Posts item above. Still left out: Report on a post, a comment and a quote, until the
+  native report sheet (`ios-native-report-sheet`) merges and the second branch wires it from `PostCardView` and `CommentsSection`. The
+  feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready for the activity page.
 - The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now
   (`ios-host-subcircuits`); each native page that shows one draws it in `SubScreenView` and closes its sub-record when dismissed.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.

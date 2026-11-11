@@ -2089,6 +2089,7 @@
     <string name="gear_total_joined">%1$s · %2$s</string>
     <!-- A list of names, each next one joined on: "Ride, Run". -->
     <string name="text_list_pair">%1$s, %2$s</string>
+    <string name="text_dot_pair">%1$s · %2$s</string>
     <plurals name="gear_total_days">
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>

@@ -21,18 +21,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.post_share_public_only_sign_in
-import io.github.solcott.activitytracker.composeApp.resources.quote_delete_confirm
-import io.github.solcott.activitytracker.composeApp.resources.quote_delete_message
-import io.github.solcott.activitytracker.composeApp.resources.quote_delete_title
-import io.github.solcott.activitytracker.composeApp.resources.quote_sheet_post
-import io.github.solcott.activitytracker.composeApp.resources.quote_sheet_title
-import io.github.solcott.activitytracker.composeApp.resources.quote_text_field
-import io.github.solcott.activitytracker.composeApp.resources.quote_text_too_long
+import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * A host's quote sheet and delete confirmation (feed/quote-posts), from its [QuoteFields]: while it's quoting a post, a sheet with the post
@@ -47,15 +37,15 @@ fun QuoteSheetHost(fields: QuoteFields) {
     }
     fields.confirmDelete?.let {
         AppAlertDialog(
-            title = stringResource(Res.string.quote_delete_title),
-            message = stringResource(Res.string.quote_delete_message),
+            title = QuoteSheetTexts.deleteTitle.string(),
+            message = QuoteSheetTexts.deleteMessage.string(),
             actions =
                 persistentListOf(
-                    AppDialogAction(stringResource(Res.string.quote_delete_confirm), destructive = true) {
+                    AppDialogAction(QuoteSheetTexts.deleteConfirm.string(), destructive = true) {
                         fields.eventSink(QuoteEvent.ConfirmDelete(true))
                     },
                 ),
-            cancelLabel = stringResource(Res.string.action_cancel),
+            cancelLabel = QuoteSheetTexts.cancel.string(),
             onDismiss = { fields.eventSink(QuoteEvent.ConfirmDelete(false)) },
         )
     }
@@ -66,10 +56,10 @@ fun QuoteSheetHost(fields: QuoteFields) {
 fun QuoteSheet(fields: QuoteFields, quotedAuthor: String, quotedText: String?, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
         AppSheetHeader(
-            title = stringResource(Res.string.quote_sheet_title),
-            cancelLabel = stringResource(Res.string.action_cancel),
+            title = QuoteSheetTexts.title.string(),
+            cancelLabel = QuoteSheetTexts.cancel.string(),
             onCancel = { fields.eventSink(QuoteEvent.Cancel) },
-            confirmLabel = stringResource(Res.string.quote_sheet_post),
+            confirmLabel = QuoteSheetTexts.post.string(),
             onConfirm = { if (fields.canPost) fields.eventSink(QuoteEvent.Post) },
             confirmEnabled = fields.canPost,
         )
@@ -81,13 +71,13 @@ fun QuoteSheet(fields: QuoteFields, quotedAuthor: String, quotedText: String?, m
             AppTextField(
                 state = fields.text,
                 modifier = Modifier.fillMaxWidth().testTag(TestTags.QUOTE_TEXT),
-                label = stringResource(Res.string.quote_text_field),
+                label = QuoteSheetTexts.field.string(),
                 enabled = !fields.posting,
                 lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 2, maxHeightInLines = 6),
             )
             if (!fields.textValid) {
                 Text(
-                    stringResource(Res.string.quote_text_too_long, QuoteFields.MAX_TEXT_LENGTH),
+                    QuoteSheetTexts.tooLong.string(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -101,7 +91,7 @@ fun QuoteSheet(fields: QuoteFields, quotedAuthor: String, quotedText: String?, m
             )
             if (fields.publicOnly) {
                 Text(
-                    stringResource(Res.string.post_share_public_only_sign_in),
+                    QuoteSheetTexts.publicOnly.string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -7,31 +7,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_block
-import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.block_commenter
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
-import io.github.solcott.activitytracker.composeApp.resources.comment_more
-import io.github.solcott.activitytracker.composeApp.resources.delete_comment_message
-import io.github.solcott.activitytracker.composeApp.resources.delete_comment_title
-import io.github.solcott.activitytracker.composeApp.resources.detail_delete
-import io.github.solcott.activitytracker.composeApp.resources.hide_comment
-import io.github.solcott.activitytracker.composeApp.resources.mute_commenter
-import io.github.solcott.activitytracker.composeApp.resources.report_comment
-import io.github.solcott.activitytracker.composeApp.resources.unhide_comment
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.AtUri
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.stringResource
 
 /** The "…" menu on a comment by [author], with [actions] (at least one). */
 @Composable
@@ -46,12 +33,12 @@ fun CommentMenu(
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     var confirmingBlock by remember { mutableStateOf(false) }
-    val delete = stringResource(Res.string.detail_delete)
-    val hide = stringResource(Res.string.hide_comment)
-    val unhide = stringResource(Res.string.unhide_comment)
-    val mute = stringResource(Res.string.mute_commenter)
-    val block = stringResource(Res.string.block_commenter)
-    val report = stringResource(Res.string.report_comment)
+    val delete = CommentsTexts.label(CommentAction.Delete).string()
+    val hide = CommentsTexts.label(CommentAction.Hide).string()
+    val unhide = CommentsTexts.label(CommentAction.Unhide).string()
+    val mute = CommentsTexts.label(CommentAction.MuteAuthor).string()
+    val block = CommentsTexts.label(CommentAction.BlockAuthor).string()
+    val report = CommentsTexts.label(CommentAction.Report).string()
     val items =
         remember(actions, delete, hide, unhide, mute, block, report, comment, onReport) {
             actions
@@ -70,25 +57,25 @@ fun CommentMenu(
                 .toImmutableList()
         }
     Box(modifier) {
-        AppIconButton(AppIcon.More, stringResource(Res.string.comment_more), onClick = { open = true })
+        AppIconButton(AppIcon.More, CommentsTexts.more.string(), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
     if (confirming) {
         AppAlertDialog(
-            title = stringResource(Res.string.delete_comment_title),
-            message = stringResource(Res.string.delete_comment_message),
+            title = CommentsTexts.deleteTitle.string(),
+            message = CommentsTexts.deleteMessage.string(),
             actions = persistentListOf(AppDialogAction(delete, destructive = true) { eventSink(CommentEvent.Delete(comment)) }),
-            cancelLabel = stringResource(Res.string.action_cancel),
+            cancelLabel = CommentsTexts.cancel.string(),
             onDismiss = { confirming = false },
         )
     }
     if (confirmingBlock) {
-        val confirm = stringResource(Res.string.action_block)
+        val confirm = CommentsTexts.blockConfirm.string()
         AppAlertDialog(
-            title = stringResource(Res.string.block_confirm_title, author),
-            message = stringResource(Res.string.block_confirm_message),
+            title = CommentsTexts.blockTitle(AppText.written(author)).string(),
+            message = CommentsTexts.blockMessage.string(),
             actions = persistentListOf(AppDialogAction(confirm, destructive = true) { eventSink(CommentEvent.BlockAuthor(comment)) }),
-            cancelLabel = stringResource(Res.string.action_cancel),
+            cancelLabel = CommentsTexts.cancel.string(),
             onDismiss = { confirmingBlock = false },
         )
     }
