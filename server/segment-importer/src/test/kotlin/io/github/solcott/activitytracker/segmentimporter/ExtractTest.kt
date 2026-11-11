@@ -60,9 +60,9 @@ class ExtractTest {
         extract(
             fixture(),
             listOf(
-                AgencyRules.USFS to resource("usfs-trails.geojsonl"),
-                AgencyRules.NPS to resource("nps-trails.geojsonl"),
-                AgencyRules.BLM to resource("blm-trails.geojsonl"),
+                AgencyDataset(AgencyRules.USFS, resource("usfs-trails.geojsonl")),
+                AgencyDataset(AgencyRules.NPS, resource("nps-trails.geojsonl")),
+                AgencyDataset(AgencyRules.BLM, resource("blm-trails.geojsonl")),
             ),
             "test-region",
             out,
@@ -93,18 +93,18 @@ class ExtractTest {
         assertEquals(
             Command.Extract(
                 null,
-                listOf(AgencyRules.USFS to File("usfs.geojsonl"), AgencyRules.NPS to File("nps.geojsonl")),
+                listOf(AgencyDataset(AgencyRules.USFS, File("usfs.geojsonl")), AgencyDataset(AgencyRules.NPS, File("nps.geojsonl"))),
                 "us-vermont",
                 out,
             ),
             extract("--agency", "usfs=usfs.geojsonl", "--region", "us-vermont", "--agency", "nps=nps.geojsonl", "--out", "out.ndjson"),
         )
         assertEquals(
-            Command.Extract(pbf, listOf(AgencyRules.USFS to File("usfs.geojsonl")), "us-vermont", out),
+            Command.Extract(pbf, listOf(AgencyDataset(AgencyRules.USFS, File("usfs.geojsonl"))), "us-vermont", out),
             extract("region.osm.pbf", "--agency", "usfs=usfs.geojsonl", "--region", "us-vermont", "--out", "out.ndjson"),
         )
         assertEquals(
-            Command.Extract(null, listOf(AgencyRules.BLM to File("blm.geojsonl")), "us-utah", out),
+            Command.Extract(null, listOf(AgencyDataset(AgencyRules.BLM, File("blm.geojsonl"))), "us-utah", out),
             extract("--agency", "blm=blm.geojsonl", "--region", "us-utah", "--out", "out.ndjson"),
         )
         assertNull(extract("--agency", "fws=fws.geojsonl", "--region", "us-vermont", "--out", "out.ndjson"), "unknown kind")

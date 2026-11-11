@@ -93,7 +93,7 @@ private fun asServiceAccount(block: suspend (Clients) -> Unit) {
 internal sealed interface Command {
     data class Extract(
         val pbf: File?,
-        val agency: List<Pair<AgencyRules, File>>,
+        val agency: List<AgencyDataset>,
         val region: String,
         val out: File,
         /** The region's language, as an ISO 639-1 code. */
@@ -130,7 +130,7 @@ internal fun parse(args: List<String>): Command? =
 @Suppress("ReturnCount", "CyclomaticComplexMethod") // Each way the arguments can fail to make a command.
 private fun parseExtract(args: List<String>): Command.Extract? {
     val options = mutableMapOf<String, String>()
-    val agency = mutableListOf<Pair<AgencyRules, File>>()
+    val agency = mutableListOf<AgencyDataset>()
     val positional = mutableListOf<String>()
     var i = 0
     while (i < args.size) {
@@ -139,7 +139,7 @@ private fun parseExtract(args: List<String>): Command.Extract? {
             val value = args.getOrNull(i + 1) ?: return null
             if (arg == "--agency") {
                 val rules = AgencyRules.ofKind(value.substringBefore('=', "")) ?: return null
-                agency += rules to File(value.substringAfter('=').takeIf { it.isNotEmpty() } ?: return null)
+                agency += AgencyDataset(rules, File(value.substringAfter('=').takeIf { it.isNotEmpty() } ?: return null))
             } else if (options.put(arg, value) != null) {
                 return null
             }

@@ -56,7 +56,7 @@ private val json = Json { explicitNulls = false }
  */
 internal fun extract(
     pbf: File?,
-    agency: List<Pair<AgencyRules, File>>,
+    agency: List<AgencyDataset>,
     region: String,
     out: File,
     words: GenericWords = GenericWords.ENGLISH,

@@ -24,5 +24,14 @@ internal interface TrailRules {
     fun marksJunctions(tags: Map<String, String>): Boolean
 
     /** Which ways a way may be travelled for [group], along its own node order: forward and backward. */
-    fun directions(tags: Map<String, String>, group: String): Pair<Boolean, Boolean>
+    fun directions(tags: Map<String, String>, group: String): Directions
+}
+
+/** Which ways a way may be travelled along its own node order: [forward], [backward], or both. */
+internal data class Directions(val forward: Boolean, val backward: Boolean) {
+    companion object {
+        val BOTH = Directions(forward = true, backward = true)
+        val FORWARD = Directions(forward = true, backward = false)
+        val BACKWARD = Directions(forward = false, backward = true)
+    }
 }

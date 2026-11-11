@@ -19,7 +19,12 @@ class AgencyReaderTest {
     private fun fixture(name: String) = File(requireNotNull(javaClass.getResource("/$name")).toURI())
 
     private val agency =
-        AgencyReader.read(listOf(AgencyRules.USFS to fixture("usfs-trails.geojsonl"), AgencyRules.NPS to fixture("nps-trails.geojsonl")))
+        AgencyReader.read(
+            listOf(
+                AgencyDataset(AgencyRules.USFS, fixture("usfs-trails.geojsonl")),
+                AgencyDataset(AgencyRules.NPS, fixture("nps-trails.geojsonl")),
+            ),
+        )
     private val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + agency
 
     private fun ways(name: String) = agency.ways.filter { it.name == name }
@@ -69,7 +74,8 @@ class AgencyReaderTest {
                 )
                 .joinToString("\n"),
         )
-        val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
+        val data =
+            OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyDataset(AgencyRules.USFS, file)))
         val cutter = CandidateCutter(data)
         val hikes = TrailBuilder.build(data).filter { it.group == HIKE }.flatMap(cutter::cut)
         assertEquals(listOf("Wilkinson (northbound)", "Wilkinson (southbound)"), hikes.map { it.name }.sorted())
@@ -119,7 +125,7 @@ class AgencyReaderTest {
 
     @Test
     fun blmLinesCloseWhatTheirModesAndAccessLeaveOut() {
-        val blm = AgencyReader.read(listOf(AgencyRules.BLM to fixture("blm-trails.geojsonl")))
+        val blm = AgencyReader.read(listOf(AgencyDataset(AgencyRules.BLM, fixture("blm-trails.geojsonl"))))
         fun at(lng: Double) = blm.lines.single { it.points.first().lng == lng }
         assertEquals(setOf(RIDE), at(-72.54).closed, "Mill Creek Rim, hiking and horses only")
         assertEquals(setOf(RIDE, RUN, HIKE), at(-72.52).closed, "Wipeout Hill, motorcycles only")
@@ -130,7 +136,7 @@ class AgencyReaderTest {
 
     @Test
     fun blmFeaturesByTheirModesAndAccess() {
-        val blm = AgencyReader.read(listOf(AgencyRules.BLM to fixture("blm-trails.geojsonl")))
+        val blm = AgencyReader.read(listOf(AgencyDataset(AgencyRules.BLM, fixture("blm-trails.geojsonl"))))
         assertEquals(mapOf(AgencyRules.BLM to 1), blm.skipped, "Lost Spur has no Original_GlobalID")
         assertEquals(
             listOf("Hidden Valley", "La Sal Nordic", "Mill Creek Rim", "Sand Flats Loop", "Slickrock Connector"),
@@ -153,7 +159,10 @@ class AgencyReaderTest {
         assertTrue(agency.points.keys.all { it < 0 } && agency.ways.all { it.id < 0 })
         val again =
             AgencyReader.read(
-                listOf(AgencyRules.NPS to fixture("nps-trails.geojsonl"), AgencyRules.USFS to fixture("usfs-trails.geojsonl")),
+                listOf(
+                    AgencyDataset(AgencyRules.NPS, fixture("nps-trails.geojsonl")),
+                    AgencyDataset(AgencyRules.USFS, fixture("usfs-trails.geojsonl")),
+                ),
             )
         assertEquals(agency.ways.map { it.tags to it.nodes.toList() }, again.ways.map { it.tags to it.nodes.toList() })
     }

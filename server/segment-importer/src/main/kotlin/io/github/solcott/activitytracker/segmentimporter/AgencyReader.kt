@@ -47,7 +47,7 @@ internal object AgencyReader {
         val lines: List<List<GeoPoint>>,
     )
 
-    fun read(datasets: List<Pair<AgencyRules, File>>): AgencyData {
+    fun read(datasets: List<AgencyDataset>): AgencyData {
         val features = mutableListOf<Feature>()
         val skipped = mutableMapOf<AgencyRules, Int>()
         for ((rules, file) in datasets) {
@@ -178,3 +178,6 @@ internal class PointSnapper {
         private const val HALF_TURN = 180.0
     }
 }
+
+/** An agency dataset to read: the [rules] for its kind, and the [file] holding it. */
+internal data class AgencyDataset(val rules: AgencyRules, val file: File)
