@@ -11,6 +11,11 @@
                 AppSecondaryButton(.actionCancel) {}
                 AppTextButton(.actionRetry) {}
                 AppIconButton(.settings, label: .actionEdit) {}
+                // A row's pair at the small size: a secondary action beside the main one.
+                HStack(spacing: 8) {
+                    AppSecondaryButton(.followRequestsDecline, small: true) {}
+                    AppButton(.followRequestsApprove, small: true) {}
+                }
             }
             .padding(24)
         }
@@ -74,6 +79,20 @@
             }
             .environment(\.inPane, true)
             .environment(\.paneRoot, false)
+        }
+
+        /// A page's title with a subtitle under it: in the stack's bar, and in a column header with a back button.
+        static var pageBarSubtitle: some View {
+            VStack(spacing: 0) {
+                NavigationStack {
+                    List { ForEach(1..<4) { AppListRow(Text(verbatim: "Row \($0)")) } }
+                        .pageTitle(Text(verbatim: "Followers"), subtitle: Text(verbatim: "@alice.test"))
+                }
+                List { ForEach(1..<4) { AppListRow(Text(verbatim: "Row \($0)")) } }
+                    .pageTitle(Text(verbatim: "Following"), subtitle: Text(verbatim: "@bob.test"), back: {})
+                    .environment(\.inPane, true)
+                    .environment(\.paneRoot, false)
+            }
         }
 
         /// A deeper page that can't go back right now, as a running leave: no back button.
@@ -245,6 +264,7 @@
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }
     #Preview("Page bar with back") { DesignGallery.pageBarBack }
+    #Preview("Page bar with a subtitle") { DesignGallery.pageBarSubtitle }
     #Preview("Page bar that can't go back") { DesignGallery.pageBarNoBack }
     #Preview("Images") { DesignGallery.images }
     #Preview("Item rows") { DesignGallery.itemRows }

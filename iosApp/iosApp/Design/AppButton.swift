@@ -6,17 +6,20 @@ import SwiftUI
 /// doesn't on the dark theme's light teal.
 struct AppButton: View {
     private let title: LocalizedStringResource
+    private let small: Bool
     private let action: () -> Void
 
-    init(_ title: LocalizedStringResource, action: @escaping () -> Void) {
+    /// `small` is the size for a list row's trailing end (Approve), and the default the size of a screen's own buttons.
+    init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
         self.title = title
+        self.small = small
         self.action = action
     }
 
     var body: some View {
         Button(action: action) { AppButtonLabel(title: title) }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .controlSize(small ? .small : .large)
     }
 }
 
