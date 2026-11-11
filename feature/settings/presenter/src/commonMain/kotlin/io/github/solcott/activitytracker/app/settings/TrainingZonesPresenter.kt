@@ -32,7 +32,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(TrainingZonesScreen::class, SessionScope::class)
 @Composable
@@ -104,7 +103,7 @@ private fun summary(training: TrainingDetails, sport: String?, units: UnitSystem
     val speed = ZoneModels.speed(effective.speedZoneModel, sport)
     return ZoneSummary(
         sport = sport,
-        kinds = SportZones.kinds(sport).toImmutableSet(),
+        kinds = ZoneKindOption.forSport(sport),
         training = effective,
         override = training.override(sport),
         paceUnit = SportZones.paceUnit(sport, units),

@@ -115,7 +115,7 @@ object TrainingZonesSamples {
     private val summary =
         ZoneSummary(
             sport = null,
-            kinds = persistentSetOf(ZoneKind.HeartRate, ZoneKind.Power),
+            kinds = persistentListOf(ZoneKindOption(ZoneKind.HeartRate), ZoneKindOption(ZoneKind.Power)),
             training = training,
             override = null,
             paceUnit = PaceUnit.PerKilometer,
@@ -211,7 +211,7 @@ object SportZonesSamples {
     private fun state(content: ContentState<Unit>, pace: String = "4:30") =
         SportZonesState(
             sport = Sport.RUN,
-            kinds = persistentSetOf(ZoneKind.HeartRate, ZoneKind.Speed),
+            kinds = persistentListOf(ZoneKindOption(ZoneKind.HeartRate), ZoneKindOption(ZoneKind.Speed)),
             thresholdHeartRate = textFieldStateOf("172"),
             maxHeartRate = textFieldStateOf(),
             functionalThresholdPower = textFieldStateOf(),

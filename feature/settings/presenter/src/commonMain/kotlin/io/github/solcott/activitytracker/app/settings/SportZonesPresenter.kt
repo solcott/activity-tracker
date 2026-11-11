@@ -42,7 +42,6 @@ import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(SportZonesScreen::class, SessionScope::class)
 @Composable
@@ -87,7 +86,7 @@ fun SportZonesPresenter(
 
     return SportZonesState(
         sport = sport,
-        kinds = SportZones.kinds(sport).toImmutableSet(),
+        kinds = ZoneKindOption.forSport(sport),
         thresholdHeartRate = form.thresholdHeartRate,
         maxHeartRate = form.maxHeartRate,
         functionalThresholdPower = form.functionalThresholdPower,

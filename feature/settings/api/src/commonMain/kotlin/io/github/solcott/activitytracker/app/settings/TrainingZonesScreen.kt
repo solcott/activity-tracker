@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.EffectiveTraining
 import io.github.solcott.activitytracker.data.training.PaceUnit
+import io.github.solcott.activitytracker.data.training.SportZones
 import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneKind
 import io.github.solcott.activitytracker.data.training.ZoneModel
@@ -14,7 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * An overview of the signed-in athlete's training zones: the defaults, then each sport with its own. Each opens its editor ([ZonesScreen],
@@ -58,7 +59,8 @@ data class TrainingZones(
 @Immutable
 data class ZoneSummary(
     val sport: String?,
-    val kinds: ImmutableSet<ZoneKind>,
+    /** The zone kinds these zones offer, in the order they show; only these sections show. */
+    val kinds: ImmutableList<ZoneKindOption>,
     val training: EffectiveTraining,
     val override: SportTraining?,
     val paceUnit: PaceUnit,
@@ -68,7 +70,22 @@ data class ZoneSummary(
     val powerZones: ImmutableList<Zone>?,
     val speedModel: ZoneModel,
     val speedZones: ImmutableList<Zone>?,
-)
+) {
+    /** Whether [kind]'s section shows. */
+    fun offers(kind: ZoneKind): Boolean = kinds.any { it.kind == kind }
+}
+
+/**
+ * One kind of zone a set of zones offers. A list or set of an enum's values can't reach Swift, so the kinds are a list of these, each
+ * holding its value as a property, which Swift reads as its own enum (dev/ios-swift-interop).
+ */
+@Immutable
+data class ZoneKindOption(val kind: ZoneKind) {
+    companion object {
+        /** The kinds [sport] offers (the defaults' when null), in [SportZones.kinds]' order. */
+        fun forSport(sport: String?): ImmutableList<ZoneKindOption> = SportZones.kinds(sport).map(::ZoneKindOption).toImmutableList()
+    }
+}
 
 sealed interface TrainingZonesEvent {
     data object Back : TrainingZonesEvent

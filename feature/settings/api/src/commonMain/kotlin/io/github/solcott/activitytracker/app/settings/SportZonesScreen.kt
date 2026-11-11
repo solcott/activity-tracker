@@ -15,7 +15,6 @@ import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 
 /** One sport's own thresholds and zone models, overriding the defaults on [ZonesScreen]. [sport] is a `Sport` value. */
 @CircuitSerializable(SessionScope::class) data class SportZonesScreen(val sport: String) : SettingsPage
@@ -23,8 +22,8 @@ import kotlinx.collections.immutable.ImmutableSet
 @Immutable
 data class SportZonesState(
     val sport: String,
-    /** The zone kinds this sport offers; only these sections show. */
-    val kinds: ImmutableSet<ZoneKind>,
+    /** The zone kinds this sport offers, in the order they show; only these sections show. */
+    val kinds: ImmutableList<ZoneKindOption>,
     /** Lactate threshold heart rate, bpm as typed; blank uses the default. */
     val thresholdHeartRate: TextFieldState,
     /** Bpm as typed; blank uses the default. */
@@ -59,6 +58,9 @@ data class SportZonesState(
     /** False until the form is filled from the saved values, so a save can't blank values the athlete never saw. */
     val loaded: Boolean
         get() = content.hasLoaded
+
+    /** Whether [kind]'s section shows. */
+    fun offers(kind: ZoneKind): Boolean = kinds.any { it.kind == kind }
 
     val valid: Boolean
         get() =

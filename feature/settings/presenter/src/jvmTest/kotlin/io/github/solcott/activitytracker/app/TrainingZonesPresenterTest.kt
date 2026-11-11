@@ -50,7 +50,7 @@ class TrainingZonesPresenterTest {
             val loaded = state.zones!!
             val defaults = loaded.defaults
             assertNull(defaults.sport)
-            assertEquals(setOf(ZoneKind.HeartRate, ZoneKind.Power), defaults.kinds)
+            assertEquals(listOf(ZoneKind.HeartRate, ZoneKind.Power), defaults.kinds.map { it.kind })
             assertEquals(165, defaults.training.thresholdHeartRate)
             assertEquals(5, defaults.heartRateZones?.size)
 
