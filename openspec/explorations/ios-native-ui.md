@@ -200,6 +200,15 @@ Each phase leaves a shippable app.
      functions name them (a zone's label and a privacy zone's name, which the shared pages ask too), and `shownRows` is a copy.
      `ZonesContractsTests` reads every blocker typed over the samples. Left for later changes: the pages themselves, and with them a
      zone row's name and range as `AppText`.
+   - **The invite lists** (`ios-native-invite-lists`). Activity invites and Add people are inset grouped lists (`ActivityInvitesView`,
+     pushed over the shared profile, and `AddPeopleView`, pushed over the shared activity page), built as Follow requests is: a
+     segmented choice over the contract enum's `allCases`, `SignInAgainNotice` over the rows, `AppItemRow`s with two small buttons, the
+     Declined note as the section's footer, and Add people's two lists as headed sections. The first native row to show an activity's
+     distance and time, from the environment's units. What the pages say and decide is Kotlin's (`ActivityInvitesTexts`: an invite's
+     title or type, who added the athlete, its distance and time joined by a shared string; `AddPeopleTexts`; typed `invites`,
+     `invitees` and `followers` and `canAnswer`, `offersDecline`, `canAdd`, `canRemove` and `full` on the states), which the shared
+     pages and `InviteSummary` ask too. Left for later changes: accepting an invite (`AcceptInviteScreen`), which waits for the native
+     route preview and visibility form, and the profile and activity page that open these.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -660,6 +669,25 @@ simulator (iOS 26.0), before the fix, and by reading the generated Swift:
   an immutable list, which has no Swift initialiser, so the all-rows case needed a sample: `ThresholdHistorySamples.variants["allRows"]`,
   a section of five rows with every one shown.
 
+### Phase 4 probes (invite lists, `ios-native-invite-lists`, 2026-11-10)
+
+Activity invites is opened from the own profile and Add people from the own activity, both still the shared UI's. Asked with a
+throwaway Swift test over every `ActivityInvitesSamples` and `AddPeopleSamples` state on a cloned iPhone 17 simulator (iOS 26.0), and by
+reading the generated Swift, before the getters or views were written:
+
+- **`InviteeView` has a Swift type, and `InviteView` only in Debug.** Both are generated in `ActivityTrackerCoreLexicon.swift`, but
+  the one exported signature naming `InviteView` is `:app-fixtures`' `fakeInvite`, which Release builds don't export (the contract names
+  it only as a collection's element or inside an erased `ContentState`); `InviteeView` is named by `AddPeopleEvent.Remove(invitee:)`.
+  So `ActivityInvitesTexts`' functions taking an `InviteView` are what give it a type in every build, as `ZoneTexts` did for `Zone`.
+- **A content that is a class reads through the erased value.** `ActivityInvitesState.content.data` casts to `ActivityInvitesContent`
+  and `AddPeopleState.content.data` to `AddPeopleContent` on every sample, the loading and failed defaults included; their lists read
+  through the iterator as `InviteView` and `InviteeView` (two invites and one invitee loaded, none while loading, failed or empty), and
+  `AddPeopleContent.full` reads as `Bool`. Only a content that is itself a list can't cross the erased value (the gear probe); the views
+  still read typed getters on the state, so neither UI asks what the content holds.
+- **`ActivityInvitesTab` is `CaseIterable`**, `allCases` `[Pending, Declined]` in Kotlin's order, as `FollowRequestsTab` is.
+- **The events take what Swift holds.** `ActivityInvitesEvent.Open(invite:)` and `Decline(invite:)` take the `AtUri` an `InviteView.uri`
+  is, and `AddPeopleEvent.Remove(invitee:)` the Swift `InviteeView`, read from the generated initialisers.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -876,6 +904,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   requests and Remove on a device (the test account doesn't approve followers, and the walk didn't turn that on), a second page, and
   the pages on iOS 18 signed in.
 
+### Phase 4 findings (invite lists, `ios-native-invite-lists`)
+
+- **Follow requests' shape carries over whole.** Activity invites is `FollowRequestsView` with other rows: the segmented choice over
+  the enum's `allCases`, `RefreshStatusView`, the `SignInAgainNotice` row and the Declined note as the section's footer needed nothing
+  new, and neither did Add people's two headed sections of `AppItemRow`s.
+- **A row with two buttons has no room for a picture.** The first recording led each invite with its inviter's `Avatar`; beside Decline
+  and View that left the text about 130 points on an iPhone 17, and "32.40 km · 1:05:00" broke after the dot. Without the picture, as
+  the shared row is, it stays on one line. No string uses a no-break space, and one around the dot would only move the break into
+  "32.40 km".
+- **A joined line is a shared string, not Kotlin's `" · "`.** `InviteSummary` joined the distance and time with `joinToString(" · ")`;
+  `ActivityInvitesTexts.summary` names `activity_invites_summary` instead, so the separator is the catalog's like every other word.
+- **A feature's own text names need their own check.** `SharedTextNamesTest` lives in `:app-common-ui` and can't see a feature's
+  `-api`, so `InvitesTextNamesTest` (`:feature-invites-ui`) checks every name `ActivityInvitesTexts` and `AddPeopleTexts` choose.
+- **A long list's snapshot is drawn tall.** The full activity's 20 people push its note below an iPhone's height, so its snapshot is
+  2,000 points tall (`assertAppSnapshot(size:)`); every other sample is the screen's size.
+- **A worktree's build needs the checkout's `local.properties` to walk.** Without `activitytracker.deviceHost` the build isn't in device
+  mode and calls the local hosts, while the signed-in simulators' session belongs to the public dev ones: every AppView call failed
+  until the file was copied in and the app rebuilt. And a build for the iOS 26.0 destination doesn't run on 18.4
+  (`libswiftCompatibilitySpan.dylib` isn't embedded), so the 18.4 launch takes a build made for that destination.
+- **Walked** (see the change's tasks): Add people from an activity on the signed-in iPhone 17 Pro and iPad Air 11-inch (iOS 26.0),
+  upright and on its side, back by the swipe and the button, and launched to sign-in on iOS 18.4. Still unseen: Activity invites on a device (the local network has no invites, and making one writes records),
+  Add people with followers, and the pages on iOS 18 signed in.
+
 ### Phase 4 findings (zones contracts, `ios-zones-contracts`)
 
 - **A kind list of objects reads in order, and a function taking the enum works.** `ZoneSummary.kinds` and `SportZonesState.kinds`
@@ -921,7 +972,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `EditGearCollectionScreen`) are still the shared UI's too.
 - The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`): its header, tabs and activity cards are the
   feed's work. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
-  followers. Activity invites and Add people can build on `SignInAgainNotice` when they go native.
+  followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
+  (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
+  and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
 - `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
   and could build on `LeaveTexts`.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
