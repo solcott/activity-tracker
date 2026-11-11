@@ -13,6 +13,41 @@ import kotlinx.collections.immutable.toImmutableList
 /** A point placed on a tile, in the tile's own units from its top-leading corner. */
 @Immutable data class ShapePoint(val x: Double, val y: Double)
 
+/**
+ * Where each point goes on a tile [width] by [height] to fit all of [points] inside [pad]: scaled together, centred, north up, with
+ * longitudes shrunk by the cosine of the first point's latitude so shapes keep their proportions. The route and segment stand-ins on every
+ * platform place their lines with it ([RouteShape], the shared UI's `canvasFit`).
+ */
+class TileFit private constructor(points: List<GeoPoint>, width: Double, height: Double, pad: Double) {
+    private val latScale = cos(points.first().lat * PI / HALF_TURN)
+    private val minX = points.minOf { it.lng * latScale }
+    private val maxY = points.maxOf { it.lat }
+    private val scale: Double
+    private val offsetX: Double
+    private val offsetY: Double
+
+    init {
+        val spanX = (points.maxOf { it.lng * latScale } - minX).coerceAtLeast(MIN_SPAN)
+        val spanY = (maxY - points.minOf { it.lat }).coerceAtLeast(MIN_SPAN)
+        scale = minOf((width - 2 * pad) / spanX, (height - 2 * pad) / spanY)
+        offsetX = (width - spanX * scale) / 2
+        offsetY = (height - spanY * scale) / 2
+    }
+
+    /** Where [point] goes on the tile. */
+    fun place(point: GeoPoint): ShapePoint =
+        ShapePoint((point.lng * latScale - minX) * scale + offsetX, (maxY - point.lat) * scale + offsetY)
+
+    companion object {
+        /** The fit of [points] to the tile; null for no points. */
+        fun of(points: List<GeoPoint>, width: Double, height: Double, pad: Double): TileFit? =
+            if (points.isEmpty()) null else TileFit(points, width, height, pad)
+
+        private const val HALF_TURN = 180.0
+        private const val MIN_SPAN = 1e-9
+    }
+}
+
 /** One piece of a route's line, between two of its breaks, as the points to draw through. */
 @Immutable data class RoutePiece(val points: ImmutableList<ShapePoint>)
 
@@ -38,38 +73,18 @@ data class RouteShape(
          * [pad] kept clear on every side; null when it decodes to fewer than two points.
          */
         fun of(polyline: String, gaps: List<Int>?, width: Double, height: Double, pad: Double): RouteShape? {
-            // As points of our own, since this module's signatures name no pair (dev/ios-swift-interop).
-            val points = TrackMath.decodePolylineOrNull(polyline).orEmpty().map { (lat, lng) -> GeoPoint(lat, lng) }
-            if (points.size < 2) return null
-            val place = fit(points, width, height, pad)
+            val points = TrackMath.decodePolylineOrNull(polyline).orEmpty()
+            val fit = points.takeIf { it.size >= 2 }?.let { TileFit.of(it, width, height, pad) } ?: return null
             val pieces = SegmentedPolyline.pieces(points, gaps).filter { it.isNotEmpty() }
             return RouteShape(
-                pieces =
+                pieces = pieces.map { piece -> RoutePiece(RouteCurve.smooth(piece).map(fit::place).toImmutableList()) }.toImmutableList(),
+                start = fit.place(pieces.first().first()),
+                end = fit.place(pieces.last().last()),
+                breaks =
                     pieces
-                        .map { piece ->
-                            val smooth = RouteCurve.smooth(piece.map { it.lat to it.lng })
-                            RoutePiece(smooth.map { (lat, lng) -> place(GeoPoint(lat, lng)) }.toImmutableList())
-                        }
+                        .zipWithNext { before, after -> RouteBreak(fit.place(before.last()), fit.place(after.first())) }
                         .toImmutableList(),
-                start = place(pieces.first().first()),
-                end = place(pieces.last().last()),
-                breaks = pieces.zipWithNext { before, after -> RouteBreak(place(before.last()), place(after.first())) }.toImmutableList(),
             )
         }
-
-        private fun fit(points: List<GeoPoint>, width: Double, height: Double, pad: Double): (GeoPoint) -> ShapePoint {
-            val latScale = cos(points.first().lat * PI / HALF_TURN)
-            val minX = points.minOf { it.lng * latScale }
-            val maxY = points.maxOf { it.lat }
-            val spanX = (points.maxOf { it.lng * latScale } - minX).coerceAtLeast(MIN_SPAN)
-            val spanY = (maxY - points.minOf { it.lat }).coerceAtLeast(MIN_SPAN)
-            val scale = minOf((width - 2 * pad) / spanX, (height - 2 * pad) / spanY)
-            val offsetX = (width - spanX * scale) / 2
-            val offsetY = (height - spanY * scale) / 2
-            return { (lat, lng) -> ShapePoint((lng * latScale - minX) * scale + offsetX, (maxY - lat) * scale + offsetY) }
-        }
-
-        private const val HALF_TURN = 180.0
-        private const val MIN_SPAN = 1e-9
     }
 }
