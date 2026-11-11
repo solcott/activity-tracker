@@ -18,7 +18,7 @@ class AppTextTest {
                 plurals[name]?.let { (one, other) -> fill(if (quantity == 1) one else other, args) }
 
             override fun time(epochSeconds: Long, utcOffsetMinutes: Int?): String =
-                "time $epochSeconds" + (utcOffsetMinutes?.let { " $it" } ?: "")
+                "time $epochSeconds" + utcOffsetMinutes?.let { " $it" }.orEmpty()
 
             private fun fill(template: String, args: List<String>): String =
                 args.foldIndexed(template) { index, text, arg -> text.replace("{${index + 1}}", arg) }

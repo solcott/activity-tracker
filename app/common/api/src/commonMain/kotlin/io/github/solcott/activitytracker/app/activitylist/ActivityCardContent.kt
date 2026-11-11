@@ -40,6 +40,7 @@ import kotlinx.datetime.TimeZone
  * route, and whether Like is offered and given. Each UI only lays it out.
  */
 @Immutable
+@Suppress("TooManyFunctions") // One per line of the card, so both UIs ask the same.
 class ActivityCardContent(val activity: ActivityView, val isOwn: Boolean) {
     /** Every detail the viewer was served, with what they weren't left out. */
     val record: ActivityRecord = activity.effectiveRecord()
