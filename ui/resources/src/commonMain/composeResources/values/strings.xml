@@ -2020,6 +2020,7 @@
     <string name="starred_segments_title">Starred segments</string>
     <string name="starred_segments_empty">Star a segment to keep it here</string>
     <string name="starred_segment_unavailable">This segment is no longer available</string>
+    <string name="starred_segments_summary">%1$s · %2$s</string>
     <!-- Gear (gear/gear-items) -->
     <string name="settings_gear">Gear</string>
     <string name="gear_title">Gear</string>

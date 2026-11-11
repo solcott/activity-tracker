@@ -17,13 +17,14 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.pagedRows
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.starred_segment_unavailable
@@ -46,13 +47,9 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
         listState = listState,
         edgeToEdge = true,
     ) {
-        if (state.needsSignIn) {
+        state.signInError?.let { error ->
             item(key = "sign-in") {
-                Text(
-                    errorText(UiError(UiError.Kind.SignInAgain)),
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Text(errorText(error), Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.error)
             }
         }
         state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
@@ -61,15 +58,12 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
             UiError.Kind.LoadStarredSegments,
             onRetry = { state.eventSink(StarredSegmentsEvent.Retry) },
             key = { it.uri.value },
-            empty =
-                if (state.needsSignIn) null
-                else {
-                    { EmptyListText(stringResource(Res.string.starred_segments_empty)) }
-                },
+            empty = if (state.showsEmpty) ({ EmptyListText(stringResource(Res.string.starred_segments_empty)) }) else null,
         ) { starred ->
             StarredRow(
                 starred,
-                removing = starred.uri in state.removing,
+                canOpen = state.canOpen(starred),
+                removing = state.isRemoving(starred),
                 onOpen = { state.eventSink(StarredSegmentsEvent.Open(starred.uri)) },
                 onUnstar = { state.eventSink(StarredSegmentsEvent.Unstar(starred.uri)) },
             )
@@ -78,11 +72,11 @@ fun StarredSegmentsUi(state: StarredSegmentsState, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun StarredRow(starred: StarredSegment, removing: Boolean, onOpen: () -> Unit, onUnstar: () -> Unit) {
+private fun StarredRow(starred: StarredSegment, canOpen: Boolean, removing: Boolean, onOpen: () -> Unit, onUnstar: () -> Unit) {
     val segment = starred.segment
     Row(
         Modifier.fillMaxWidth()
-            .clickable(enabled = segment != null, onClick = onOpen)
+            .clickable(enabled = canOpen, onClick = onOpen)
             .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -90,8 +84,7 @@ private fun StarredRow(starred: StarredSegment, removing: Boolean, onOpen: () ->
             if (segment != null) {
                 Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${Format.distance(segment.distanceMeters.toDouble())} · " +
-                        segmentTypeLabel(segment.record.sport, segment.record.kind),
+                    StarredSegmentsTexts.summary(segment, LocalUnitSystem.current).string(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

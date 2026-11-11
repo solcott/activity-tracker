@@ -5,39 +5,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.boards.RankBoardTexts
+import io.github.solcott.activitytracker.app.ui.BoardSegments
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RankRow
-import io.github.solcott.activitytracker.app.ui.ScopeControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_empty
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_all_time
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_month
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_year
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.stringResource
-
-private val PERIODS = persistentListOf(LeaderboardPeriod.ALL_TIME, LeaderboardPeriod.YEAR, LeaderboardPeriod.MONTH)
 
 /**
  * A segment's leaderboard: the period and scope, the e-bike board for a ride segment, and the age, weight and gender brackets above the
  * entries, each with its rank, athlete, time and date; the viewer's own place below them when it isn't among those loaded. Tapping an entry
- * opens its activity.
+ * opens its activity. What it offers and says is `SegmentBoardTexts`' and the state's.
  */
 @CircuitInject(SegmentLeaderboardScreen::class, SessionScope::class)
 @Composable
@@ -61,33 +51,26 @@ fun SegmentLeaderboardUi(state: SegmentLeaderboardState, modifier: Modifier = Mo
             emptyText = Res.string.leaderboard_empty,
             key = { it.athlete.did.value },
         ) { entry ->
-            EntryRow(entry, onClick = { state.eventSink(SegmentLeaderboardEvent.OpenActivity(entry.effort.activity)) })
+            EntryRow(state, entry, onClick = { state.eventSink(SegmentLeaderboardEvent.OpenActivity(entry.effort.activity)) })
         }
     }
 }
 
 @Composable
 private fun Filters(state: SegmentLeaderboardState) {
-    val periodLabels =
-        persistentListOf(
-            stringResource(Res.string.leaderboard_period_all_time),
-            stringResource(Res.string.leaderboard_period_year),
-            stringResource(Res.string.leaderboard_period_month),
-        )
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppSegmentedControl(
-            periodLabels,
-            selected = PERIODS.indexOf(state.period).coerceAtLeast(0),
-            onSelect = { state.eventSink(SegmentLeaderboardEvent.PeriodChanged(PERIODS[it])) },
-            modifier = Modifier.fillMaxWidth(),
+        BoardSegments(
+            state.periodChoice,
+            onSelect = { it?.let { period -> state.eventSink(SegmentLeaderboardEvent.PeriodChanged(period)) } },
         )
-        ScopeControl(state.scope, onSelect = { state.eventSink(SegmentLeaderboardEvent.ScopeChanged(it)) })
+        BoardSegments(state.scopeChoice, onSelect = { it?.let { scope -> state.eventSink(SegmentLeaderboardEvent.ScopeChanged(scope)) } })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BoardTypeChip(state.board, state.boards) { state.eventSink(SegmentLeaderboardEvent.BoardChanged(it)) }
-            BracketChips(
-                state.ageGroup,
-                state.weightClass,
-                state.gender,
+            SegmentBoardChips(
+                state.typeChoice,
+                state.ageGroupChoice,
+                state.weightClassChoice(LocalUnitSystem.current),
+                state.genderChoice,
+                onType = { state.eventSink(SegmentLeaderboardEvent.BoardChanged(it)) },
                 onAgeGroup = { state.eventSink(SegmentLeaderboardEvent.AgeGroupChanged(it)) },
                 onWeightClass = { state.eventSink(SegmentLeaderboardEvent.WeightClassChanged(it)) },
                 onGender = { state.eventSink(SegmentLeaderboardEvent.GenderChanged(it)) },
@@ -98,16 +81,13 @@ private fun Filters(state: SegmentLeaderboardState) {
 
 /** One athlete's place: rank, avatar and name, their time and the day they rode it. */
 @Composable
-private fun EntryRow(entry: LeaderboardEntry, onClick: () -> Unit) {
+private fun EntryRow(state: SegmentLeaderboardState, entry: LeaderboardEntry, onClick: () -> Unit) {
     RankRow(
-        entry.rank,
-        accented = entry.rank <= PODIUM,
+        RankBoardTexts.rank(entry.rank).string(),
+        accented = state.accents(entry),
         entry.athlete,
-        detail = effortDateLabel(entry.effort.startedOn),
-        value = Format.duration(entry.effort.elapsed),
+        detail = SegmentBoardTexts.effortDay(entry).string(),
+        value = SegmentBoardTexts.time(entry).string(),
         onClick = onClick,
     )
 }
-
-/** The ranks drawn in the accent colour. */
-private const val PODIUM = 3

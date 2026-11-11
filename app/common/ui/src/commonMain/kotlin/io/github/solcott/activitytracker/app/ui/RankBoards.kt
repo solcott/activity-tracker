@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.boards.BoardChoice
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
@@ -31,15 +32,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_everyone
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_scope_following
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -61,22 +57,33 @@ fun MenuChip(label: String, selected: Boolean, items: ImmutableList<AppMenuItem>
     }
 }
 
-/** A [MenuChip] choosing one of [labels]' keys, always selected since one always applies; [selected]'s label, or itself when unlisted. */
+/**
+ * A board's [choice] as a [MenuChip] of its options, selected while the choice narrows the board; its label alone when there is nothing to
+ * choose (segments/segment-leaderboards).
+ */
 @Composable
-fun ChoiceChip(selected: String, labels: ImmutableMap<String, String>, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun BoardChoiceChip(choice: BoardChoice, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
+    if (!choice.offersMenu) {
+        Text(choice.label.string(), modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.labelLarge)
+        return
+    }
     MenuChip(
-        label = labels[selected] ?: selected,
-        selected = true,
-        items = labels.map { (value, label) -> AppMenuItem(label, checked = value == selected) { onSelect(value) } }.toImmutableList(),
+        label = choice.label.string(),
+        selected = choice.narrows,
+        items =
+            choice.options.map { AppMenuItem(it.label.string(), checked = choice.isChosen(it)) { onSelect(it.value) } }.toImmutableList(),
         modifier = modifier,
     )
 }
 
-/** One athlete's place on a board: [rank] (in the accent colour when [accented]), avatar and name, [detail] under it, and [value]. */
+/**
+ * One athlete's place on a board: [rank], as `RankBoardTexts.rank` writes it (in the accent colour when [accented]), avatar and name,
+ * [detail] under it, and [value].
+ */
 @Composable
 @Suppress("LongParameterList") // A board row's parts.
 fun RankRow(
-    rank: Int,
+    rank: String,
     accented: Boolean,
     athlete: ProfileViewBasic,
     detail: String,
@@ -91,7 +98,7 @@ fun RankRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            rank.toString(),
+            rank,
             Modifier.width(36.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
@@ -106,15 +113,13 @@ fun RankRow(
     }
 }
 
-private val SCOPES = persistentListOf(LeaderboardScope.EVERYONE, LeaderboardScope.FOLLOWING)
-
-/** A board's Everyone / Following control: [scope], a [LeaderboardScope] value, selected. */
+/** A board's [choice] as a segmented control of its options, such as Everyone / Following. */
 @Composable
-fun ScopeControl(scope: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+fun BoardSegments(choice: BoardChoice, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
     AppSegmentedControl(
-        persistentListOf(stringResource(Res.string.leaderboard_scope_everyone), stringResource(Res.string.leaderboard_scope_following)),
-        selected = SCOPES.indexOf(scope).coerceAtLeast(0),
-        onSelect = { onSelect(SCOPES[it]) },
+        choice.options.map { it.label.string() }.toImmutableList(),
+        selected = choice.options.indexOfFirst(choice::isChosen).coerceAtLeast(0),
+        onSelect = { onSelect(choice.options[it].value) },
         modifier = modifier.fillMaxWidth(),
     )
 }

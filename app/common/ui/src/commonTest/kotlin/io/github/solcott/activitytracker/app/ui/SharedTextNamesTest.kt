@@ -2,10 +2,13 @@ package io.github.solcott.activitytracker.app.ui
 
 import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.boards.RankBoardTexts
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
+import io.github.solcott.activitytracker.app.segment.SegmentTexts
 import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
@@ -24,6 +27,9 @@ import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Gender
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
@@ -121,6 +127,24 @@ class SharedTextNamesTest {
                 DayText.day(today, today) +
                 DayText.day(LocalDate(2026, 5, 31), today) +
                 DayText.dayAndTime(Instant.parse("2026-06-01T07:00:00Z"), Instant.parse("2026-06-01T12:00:00Z"), TimeZone.UTC)
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyDateSegmentTypeAndBoardWordNamesAString() {
+        val texts =
+            (1..12).map { DateText.date(2026, it, 1) } +
+                listOf(SegmentKind.RUN, SegmentKind.LIFT).map { SegmentTexts.type(SegmentSportGroup.ALPINE, it) } +
+                listOf(
+                        SegmentSportGroup.RIDE,
+                        SegmentSportGroup.RUN,
+                        SegmentSportGroup.HIKE,
+                        SegmentSportGroup.SKI,
+                        SegmentSportGroup.PADDLE,
+                    )
+                    .map(SegmentTexts::sportGroup) +
+                RankBoardTexts.scope(LeaderboardScope.EVERYONE).options.map { it.label } +
+                RankBoardTexts.reached(DateText.isoDate("2026-10-26"))
         assertAllExist(texts)
     }
 

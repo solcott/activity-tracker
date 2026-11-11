@@ -20010,6 +20010,17 @@
         }
       }
     },
+    "starred_segments_summary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "starred_segments_title" : {
       "extractionState" : "manual",
       "localizations" : {

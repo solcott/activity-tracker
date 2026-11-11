@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.boards.BoardChoice
+import io.github.solcott.activitytracker.app.boards.RankBoardTexts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.RegularsMeta
 import io.github.solcott.activitytracker.lexicon.Did
@@ -32,7 +34,16 @@ data class DiveSiteRegularsState(
     /** The viewer's own entry, shown apart from [entries] when it isn't among them; null when they aren't on the board. */
     val viewerEntry: DiveSiteRegularEntry? = null,
     val eventSink: (DiveSiteRegularsEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    val periodChoice: BoardChoice
+        get() = DiveSiteRegularsTexts.period(period)
+
+    val scopeChoice: BoardChoice
+        get() = RankBoardTexts.scope(scope)
+
+    /** Whether [entry]'s rank is drawn in the accent colour: the top regular alone. */
+    fun accents(entry: DiveSiteRegularEntry): Boolean = entry.rank == 1
+}
 
 sealed interface DiveSiteRegularsEvent {
     data object Back : DiveSiteRegularsEvent

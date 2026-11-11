@@ -44,6 +44,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_depth
@@ -60,7 +61,6 @@ import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars_yours
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_archived_help
 import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_proposed_help
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_visits
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_license
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_osm
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -171,7 +171,7 @@ private fun RegularsCard(regulars: RegularsSummary, onClick: () -> Unit, modifie
     LeaderCard(
         title = stringResource(Res.string.dive_site_regulars_card),
         leader = regulars.leader?.athlete,
-        leaderValue = regulars.leader?.let { pluralStringResource(Res.plurals.dive_site_visits, it.visits, it.visits) }.orEmpty(),
+        leaderValue = regulars.leader?.let { DiveSiteRegularsTexts.visits(it).string() }.orEmpty(),
         noneText = stringResource(Res.string.dive_site_regulars_none),
         viewerText = regulars.viewer?.let { pluralStringResource(Res.plurals.dive_site_regulars_yours, it.visits, it.visits) },
         onClick = onClick,

@@ -29,7 +29,21 @@ data class StarredSegmentsState(
     /** The session predates the grant stars need, so signing in again is the only way to see them. */
     val needsSignIn: Boolean = false,
     val eventSink: (StarredSegmentsEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Why the stars can't show: the session must sign in again; null when it needn't. */
+    val signInError: UiError?
+        get() = if (needsSignIn) UiError(UiError.Kind.SignInAgain) else null
+
+    /** Whether an empty list says so: not while the session must sign in again, which says why there is nothing. */
+    val showsEmpty: Boolean
+        get() = !needsSignIn
+
+    /** Whether tapping [starred] opens its segment: not once the segment is gone. */
+    fun canOpen(starred: StarredSegment): Boolean = starred.segment != null
+
+    /** Whether [starred]'s unstar is being written, so its star can't be tapped. */
+    fun isRemoving(starred: StarredSegment): Boolean = starred.uri in removing
+}
 
 sealed interface StarredSegmentsEvent {
     data object Back : StarredSegmentsEvent

@@ -4,8 +4,11 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.boards.BoardChoice
+import io.github.solcott.activitytracker.app.boards.RankBoardTexts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.BoardMeta
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
@@ -51,7 +54,29 @@ data class SegmentLeaderboardState(
     /** The viewer's own entry, shown apart from [entries] when it isn't among them; null when they aren't on the board. */
     val viewerEntry: LeaderboardEntry? = null,
     val eventSink: (SegmentLeaderboardEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    val periodChoice: BoardChoice
+        get() = SegmentBoardTexts.leaderboardPeriod(period)
+
+    /** The choice of board type, or null while there is none to show; a label when the segment lists one type. */
+    val typeChoice: BoardChoice?
+        get() = SegmentBoardTexts.type(board, boards)
+
+    val scopeChoice: BoardChoice
+        get() = RankBoardTexts.scope(scope)
+
+    val ageGroupChoice: BoardChoice
+        get() = LeaderboardBracketTexts.ageGroup(ageGroup)
+
+    val genderChoice: BoardChoice
+        get() = LeaderboardBracketTexts.gender(gender)
+
+    /** The weight classes in [units], the viewer's. */
+    fun weightClassChoice(units: UnitSystem): BoardChoice = LeaderboardBracketTexts.weightClass(weightClass, units)
+
+    /** Whether [entry]'s rank is drawn in the accent colour: the first three, the podium. */
+    fun accents(entry: LeaderboardEntry): Boolean = entry.rank <= PODIUM
+}
 
 sealed interface SegmentLeaderboardEvent {
     data object Back : SegmentLeaderboardEvent
@@ -83,3 +108,6 @@ sealed interface SegmentLeaderboardEvent {
     /** Opens the activity an entry's effort came from. */
     data class OpenActivity(val uri: AtUri) : SegmentLeaderboardEvent
 }
+
+/** The leaderboard ranks drawn in the accent colour. */
+private const val PODIUM = 3
