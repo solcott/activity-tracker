@@ -41,9 +41,11 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "BlockListScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "AccountScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "LeaveScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearScreen"))
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearCollectionScreen"))
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card.
-        for screen in ["GearScreen", "EditGearScreen", "EditGearCollectionScreen", "ProfileScreen"] {
+        for screen in ["GearScreen", "ProfileScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it.
@@ -64,5 +66,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.BlockListScreen.self) == "BlockListScreen")
         #expect(String(describing: ActivityTracker.AccountScreen.self) == "AccountScreen")
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
+        #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
+        #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
     }
 }

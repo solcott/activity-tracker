@@ -51,6 +51,11 @@ extension ScreenRegistry {
         registry.register(BlockListScreen.self, BlockListState.self) { state in BlockListView(state: state) }
         registry.register(AccountScreen.self, AccountState.self) { state in AccountView(state: state) }
         registry.register(LeaveScreen.self, LeaveState.self) { state in LeaveView(state: state) }
+        // The gear editors (ios-native-gear-editors).
+        registry.register(EditGearScreen.self, EditGearState.self) { state in EditGearView(state: state) }
+        registry.register(EditGearCollectionScreen.self, EditGearCollectionState.self) { state in
+            EditGearCollectionView(state: state)
+        }
         return registry
     }()
 }
