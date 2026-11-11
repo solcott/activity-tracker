@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DayText
+import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
@@ -25,6 +27,12 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 
 /**
  * Every string and image name shared code can choose exists (dev/shared-display-text). The choices are names, not typed resources, so the
@@ -92,6 +100,18 @@ class SharedTextNamesTest {
             GearType.all.map(GearTexts::type) +
                 GearMainTotal.entries.flatMap { main -> UnitSystem.entries.map { GearTexts.mainTotal(main, totals, it) } } +
                 GearTexts.mainTotal(GearMainTotal.DISTANCE, totals.copy(activities = 0, movingTime = 0, distance = 0), UnitSystem.Metric)
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyLengthOfTimeAndDayNamesAString() {
+        val today = LocalDate(2026, 6, 1)
+        val texts =
+            listOf(10.minutes, 3.hours, 2.days).map(DurationText::approximate) +
+                (1..12).map { month -> DayText.day(LocalDate(2025, month, 1), today) } +
+                DayText.day(today, today) +
+                DayText.day(LocalDate(2026, 5, 31), today) +
+                DayText.dayAndTime(Instant.parse("2026-06-01T07:00:00Z"), Instant.parse("2026-06-01T12:00:00Z"), TimeZone.UTC)
         assertAllExist(texts)
     }
 
