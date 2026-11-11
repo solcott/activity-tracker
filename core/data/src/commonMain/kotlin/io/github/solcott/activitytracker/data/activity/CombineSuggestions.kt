@@ -107,14 +107,14 @@ class CombineSuggestions(
      * What to pass `ActivityManager.combine` to accept [suggestion] for [subject]: the combined activity either one is part of, else the
      * earlier one, as `into`, and the other.
      */
-    suspend fun targets(subject: ActivityView, suggestion: CombineSuggestion): Pair<ActivityView, ActivityView> {
+    suspend fun targets(subject: ActivityView, suggestion: CombineSuggestion): CombineTargets {
         val mine = subject.combinedInto?.let { feed.activity(it) } ?: subject
         val theirs = suggestion.shown
         return when {
-            mine.record.combined != null -> mine to theirs
-            theirs.record.combined != null -> theirs to mine
-            mine.record.startedAt <= theirs.record.startedAt -> mine to theirs
-            else -> theirs to mine
+            mine.record.combined != null -> CombineTargets(mine, theirs)
+            theirs.record.combined != null -> CombineTargets(theirs, mine)
+            mine.record.startedAt <= theirs.record.startedAt -> CombineTargets(mine, theirs)
+            else -> CombineTargets(theirs, mine)
         }
     }
 
@@ -157,3 +157,6 @@ class CombineSuggestions(
             maxOf(Duration.ZERO, maxOf(a.startedAt, b.startedAt) - minOf(a.end, b.end))
     }
 }
+
+/** What `ActivityManager.combine` takes to accept a suggestion: the activity to combine [into], and the [other] one. */
+data class CombineTargets(val into: ActivityView, val other: ActivityView)

@@ -191,11 +191,11 @@ internal class StoredActivity(val uri: AtUri, val places: Map<String, PlaceRecor
      * Where each category is stored now, for summary fields and for channels: its narrowest place when it's in several (an interrupted
      * move), so a repair never widens it. A category with no data is absent.
      */
-    fun narrowestTiers(): Pair<Map<String, String>, Map<String, String>> {
+    fun narrowestTiers(): CategoryTiers {
         val now = shares
         fun narrowest(of: (PlaceShare) -> Set<String>) =
             DetailCategory.all.mapNotNull { c -> Visibility.all.lastOrNull { c in of(now[it]) }?.let { c to it } }.toMap()
-        return narrowest { it.summary } to narrowest { it.channels }
+        return CategoryTiers(narrowest { it.summary }, narrowest { it.channels })
     }
 
     /**
@@ -383,3 +383,6 @@ class StreamsUnreadableException(tier: String) : IllegalStateException("The stre
 private inline fun <T> decodeOrNull(block: () -> T): T? = runCatching(block).getOrNull()
 
 private fun JsonElement.asObject() = this as JsonObject
+
+/** Each [DetailCategory]'s tier as stored: [summary] for its summary fields, [channels] for its stream channels. */
+data class CategoryTiers(val summary: Map<String, String>, val channels: Map<String, String>)

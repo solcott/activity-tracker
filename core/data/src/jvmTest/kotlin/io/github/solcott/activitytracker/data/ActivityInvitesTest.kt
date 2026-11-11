@@ -185,7 +185,7 @@ class ActivityInvitesTest {
             )
         val first = TrackMath.decodePolyline(assertNotNull(record.polyline)).first()
         // The stored center moves up to half the radius, so at least 500 m of the start is cut.
-        assertTrue(first.second > 0.004, "the start near home is cut: $first")
+        assertTrue(first.lng > 0.004, "the start near home is cut: $first")
     }
 
     @Test

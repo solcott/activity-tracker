@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.time.Duration.Companion.minutes
@@ -59,7 +60,7 @@ internal fun trackEnds(track: List<LocationSample>): ActivityEnds {
 }
 
 /** Where a decoded polyline [line] started and ended, at the first and last of [altitude] (centimeters) known. */
-internal fun polylineEnds(line: List<Pair<Double, Double>>, altitude: List<Int?>): ActivityEnds {
+internal fun polylineEnds(line: List<GeoPoint>, altitude: List<Int?>): ActivityEnds {
     val (startLat, startLon) = line.first()
     val (endLat, endLon) = line.last()
     return ActivityEnds(

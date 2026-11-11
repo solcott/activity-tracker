@@ -335,7 +335,7 @@ internal fun String?.toFollowPolicy(): String = if (this == FollowPolicy.APPROVE
  * Every detail the athlete has set, from their [record] and their [tiers]' records, and an effective visibility for each group (see
  * [OwnProfile]). A detail a failed save left in two places shows where it's seen most widely.
  */
-internal fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetails>): Pair<ProfileDetails, DetailsVisibility> {
+internal fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetails>): OwnDetails {
     val sources = listOf(Visibility.PUBLIC to (record?.details ?: ProfileDetails())) + tiers.toList()
     var details = ProfileDetails()
     var visibility = DetailsVisibility()
@@ -344,9 +344,12 @@ internal fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetail
         details = group.copy(source, details)
         visibility = group.withVisibility(visibility, shownTo)
     }
-    return details to visibility
+    return OwnDetails(details, visibility)
 }
 
 /** [top] with each group it doesn't set taken from [bottom]. */
 private fun under(top: ProfileDetails, bottom: ProfileDetails): ProfileDetails =
     DetailGroup.entries.filterNot { it.isSet(top) }.fold(top) { acc, group -> group.copy(bottom, acc) }
+
+/** Every profile detail the athlete has set, in [details], and an effective [visibility] for each group (see [OwnProfile]). */
+internal data class OwnDetails(val details: ProfileDetails, val visibility: DetailsVisibility)

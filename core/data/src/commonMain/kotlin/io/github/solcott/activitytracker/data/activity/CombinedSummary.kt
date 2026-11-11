@@ -44,20 +44,20 @@ internal object CombinedSummary {
                 ?.roundToLong()
         fun total(channel: String, field: (ActivityRecord) -> Long?): Long? = totalBy(rankings[channel], field)
         fun firstBy(ranking: List<AtUri>?, field: (ActivityRecord) -> Int?): Int? = groups.firstNotNullOfOrNull { group ->
-            pick(group, ranking, field)?.second
+            pick(group, ranking, field)?.value
         }
         fun first(channel: String, field: (ActivityRecord) -> Int?): Int? = firstBy(rankings[channel], field)
         // Averages and maxima from the combined channel; without one, the groups' own, by time.
         fun mean(token: String): Double? = streams?.let { channel(it, token) }?.takeIf { it.isNotEmpty() }?.average()
         fun peak(token: String): Int? = streams?.let { channel(it, token) }?.maxOrNull()
         fun weighted(channel: String, field: (ActivityRecord) -> Int?): Int? {
-            val values = groups.mapNotNull { group -> pick(group, rankings[channel], field)?.let { it.second to (group.to - group.from) } }
+            val values = groups.mapNotNull { group -> pick(group, rankings[channel], field)?.let { it.value to (group.to - group.from) } }
             val weight = values.sumOf { it.second }
             return if (values.isEmpty()) null
             else if (weight <= 0) values.first().first else (values.sumOf { it.first.toDouble() * it.second } / weight).roundToInt()
         }
         fun maxOf(channel: String, field: (ActivityRecord) -> Int?): Int? =
-            groups.mapNotNull { pick(it, rankings[channel], field)?.second }.maxOrNull()
+            groups.mapNotNull { pick(it, rankings[channel], field)?.value }.maxOrNull()
 
         val elapsed = groups.maxOf { it.to }.toLong()
         // Without distance and speed (left out), nothing tells moving from stopped.
@@ -102,7 +102,7 @@ internal object CombinedSummary {
             maxPower = peak(StreamChannel.POWER) ?: maxOf(StreamChannel.POWER) { it.maxPower },
             normalizedPower =
                 power?.let(PerSecond::normalizedPower)
-                    ?: groups.singleOrNull()?.let { pick(it, rankings[StreamChannel.POWER]) { r -> r.normalizedPower }?.second },
+                    ?: groups.singleOrNull()?.let { pick(it, rankings[StreamChannel.POWER]) { r -> r.normalizedPower }?.value },
             work = total(StreamChannel.POWER) { it.work },
             // The devices' own estimates, kept when heart rate is left out.
             calories = totalBy(kept(rankings, StreamChannel.HEART_RATE)) { it.calories?.toLong() }?.toInt(),
@@ -122,8 +122,8 @@ internal object CombinedSummary {
     }
 
     /** [group]'s member ranked first by [ranking] (then the rest by start) with a value for [field], and that value. */
-    fun <T : Any> pick(group: Group, ranking: List<AtUri>?, field: (ActivityRecord) -> T?): Pair<CombineMember, T>? =
-        ordered(group.members, ranking).firstNotNullOfOrNull { member -> field(member.record)?.let { member to it } }
+    fun <T : Any> pick(group: Group, ranking: List<AtUri>?, field: (ActivityRecord) -> T?): MemberValue<T>? =
+        ordered(group.members, ranking).firstNotNullOfOrNull { member -> field(member.record)?.let { MemberValue(member, it) } }
 
     /** [members] best first by [ranking], then the rest in order of start; none when [ranking] is empty, a channel left out. */
     fun ordered(members: List<CombineMember>, ranking: List<AtUri>?): List<CombineMember> {
@@ -196,7 +196,7 @@ internal object CombinedLegs {
     /** A group recorded at the same time, as one leg: its distance from the combined channel, else its figures from its members. */
     private fun legOf(group: Group, rankings: Map<String, List<AtUri>>, recorded: Map<AtUri, Int>, combined: ActivityStreamData): Leg {
         fun <T : Any> pick(channel: String, field: (ActivityRecord) -> T?): T? =
-            CombinedSummary.pick(group, rankings[channel], field)?.second
+            CombinedSummary.pick(group, rankings[channel], field)?.value
         fun scaled(channel: String, field: (ActivityRecord) -> Number?): Int? =
             CombinedSummary.pick(group, rankings[channel], field)?.let { (member, value) ->
                 (value.toDouble() * CombinedSummary.fraction(group, member, recorded)).roundToInt()
@@ -232,3 +232,6 @@ internal object CombinedLegs {
 
     private const val CM_PER_M = 100
 }
+
+/** A combined activity's [member] that [CombinedSummary.pick] chose for a field, and its [value] there. */
+data class MemberValue<T : Any>(val member: CombineMember, val value: T)
