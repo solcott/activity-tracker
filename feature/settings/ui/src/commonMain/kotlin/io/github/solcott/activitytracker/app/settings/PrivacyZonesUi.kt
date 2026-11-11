@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_add_here
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_empty
@@ -44,7 +45,6 @@ import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_off
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_others_note
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_radius
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_remove
-import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_unnamed
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
@@ -134,7 +134,7 @@ private fun ZoneRow(
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(zone.label ?: stringResource(Res.string.privacy_zones_unnamed, index + 1), style = MaterialTheme.typography.titleSmall)
+            Text(ZoneTexts.privacyZoneName(zone, index).string(), style = MaterialTheme.typography.titleSmall)
             DistanceField(
                 selected = zone.radiusMeters,
                 choices = choices,

@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
@@ -47,7 +48,6 @@ import io.github.solcott.activitytracker.composeApp.resources.zones_default_help
 import io.github.solcott.activitytracker.composeApp.resources.zones_default_title
 import io.github.solcott.activitytracker.composeApp.resources.zones_ftp
 import io.github.solcott.activitytracker.composeApp.resources.zones_heart_rate_heading
-import io.github.solcott.activitytracker.composeApp.resources.zones_label
 import io.github.solcott.activitytracker.composeApp.resources.zones_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_model
 import io.github.solcott.activitytracker.composeApp.resources.zones_needs_ftp
@@ -226,7 +226,7 @@ private fun ZoneRow(zone: Zone, range: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            stringResource(Res.string.zones_label, zone.label),
+            ZoneTexts.label(zone).string(),
             Modifier.widthIn(min = ZONE_LABEL_WIDTH),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
