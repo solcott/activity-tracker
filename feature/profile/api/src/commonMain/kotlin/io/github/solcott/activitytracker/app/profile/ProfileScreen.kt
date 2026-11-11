@@ -136,11 +136,10 @@ data class ProfileState(
      * offered once sent unless the viewer blocks them already. Null where Report isn't offered: the athlete's own profile, one not loaded
      * yet, or no labeler. Kept on a profile the viewer blocks, which has nothing else to report from.
      */
-    fun reportEvent(authorName: String): ReportingEvent.Open? {
-        val shown = profile ?: return null
-        if (isSelf || !reporting.available) return null
-        return ReportingEvent.Open(ReportTarget.Account(shown.did), authorName, offerBlock = !blocking)
-    }
+    fun reportEvent(authorName: String): ReportingEvent.Open? =
+        profile
+            ?.takeUnless { isSelf || !reporting.available }
+            ?.let { ReportingEvent.Open(ReportTarget.Account(it.did), authorName, offerBlock = !blocking) }
 
     /** The labels' notices over the header: a warning, the athlete's own note that their media is blurred, or a takedown. */
     fun notices(): List<NoticeText> =
