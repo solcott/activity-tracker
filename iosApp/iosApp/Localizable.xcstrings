@@ -4995,6 +4995,17 @@
         }
       }
     },
+    "edit_profile_height_in_row" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height (in)"
+          }
+        }
+      }
+    },
     "edit_profile_length" : {
       "extractionState" : "manual",
       "localizations" : {

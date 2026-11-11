@@ -68,6 +68,8 @@ extension ScreenRegistry {
         registry.register(SegmentLeaderboardScreen.self, SegmentLeaderboardState.self) { state in SegmentLeaderboardView(state: state) }
         registry.register(SegmentMayorsScreen.self, SegmentMayorsState.self) { state in SegmentMayorsView(state: state) }
         registry.register(DiveSiteRegularsScreen.self, DiveSiteRegularsState.self) { state in DiveSiteRegularsView(state: state) }
+        // Edit profile (profile/private-details), pushed over the athlete's own profile.
+        registry.register(EditProfileScreen.self, EditProfileState.self) { state in EditProfileView(state: state) }
         return registry
     }()
 }

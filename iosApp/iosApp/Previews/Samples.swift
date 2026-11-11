@@ -66,6 +66,9 @@
         }
         static var segmentMayorsVariants: [String: SegmentMayorsState] { SegmentPackage.SegmentMayorsSamples.shared.variants }
         static var diveSiteRegularsVariants: [String: DiveSiteRegularsState] { DiveSitePackage.DiveSiteRegularsSamples.shared.variants }
+        /// Edit profile in each state it shows; states beyond content loading apart.
+        static var editProfile: [String: EditProfileState] { ProfilePackage.EditProfileSamples.shared.all }
+        static var editProfileVariants: [String: EditProfileState] { ProfilePackage.EditProfileSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

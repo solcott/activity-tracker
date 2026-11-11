@@ -36,4 +36,15 @@ class CalendarDateTest {
         assertNull(CalendarDate.age("2027-01-01", now))
         assertEquals("1990-04-01", CalendarDate.fromPickerMillis(CalendarDate.toPickerMillis("1990-04-01")!!))
     }
+
+    @Test
+    fun aDateTextIsACalendarDayAndBack() {
+        val day = CalendarDate.toLocalDate("1990-04-12")
+        assertEquals(kotlinx.datetime.LocalDate(1990, 4, 12), day)
+        assertEquals("1990-04-12", CalendarDate.fromLocalDate(day))
+        assertNull(CalendarDate.toLocalDate(""))
+        assertNull(CalendarDate.toLocalDate("1990-4-12"))
+        assertNull(CalendarDate.toLocalDate("2023-02-29"))
+        assertEquals("", CalendarDate.fromLocalDate(null))
+    }
 }
