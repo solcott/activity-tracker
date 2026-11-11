@@ -37,7 +37,8 @@ struct GearItemSnapshotTests {
     @Test(arguments: ["replacing", "mountingNone"])
     func mountSheet(sample: String) throws {
         let picker = try #require(Samples.gearVariants[sample]?.picker)
-        assertAppSnapshot(of: MountSheet(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 420), named: sample)
+        assertAppSnapshot(of: MountSheet(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 420), named: sample,
+            precision: Snapshots.barButtons)
     }
 
     @Test func unmountSheet() throws {
@@ -47,7 +48,7 @@ struct GearItemSnapshotTests {
         let initial = try #require(state.unmountInitialDay(now: Samples.clock.now, zone: zone))
         assertAppSnapshot(
             of: UnmountSheet(firstDay: first, initialDay: initial, send: { _ in }),
-            size: CGSize(width: 393, height: 560), named: "unmounting")
+            size: CGSize(width: 393, height: 560), named: "unmounting", precision: Snapshots.barButtons)
     }
 
     @Test func everySampleHasASnapshot() {

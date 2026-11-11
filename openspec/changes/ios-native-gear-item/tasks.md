@@ -16,13 +16,13 @@
 - [x] 3.2 `GearItemView`: header, collections, components, previous, mounted on, linked devices and profiles, totals, breakdowns, activities as `ActivityCardView`s through `PagedList`, Edit in the bar, not found; previews over both sample maps
 - [x] 3.3 The mount sheet and the unmount calendar (`GearItemSheets.swift`), bound to the state's picker and unmounting component; previews
 - [x] 3.4 Register `GearScreen` in `ScreenRegistry` and update `ScreenRegistryTests` (it no longer lists `GearScreen` as shared)
-- [ ] 3.5 Text tests (`GearItemTextTests`) reading the samples' lines and conditions through Swift, and snapshot tests (`GearItemSnapshotTests`) of every sample and variant, the sheets included, recorded on iOS 26.0
+- [x] 3.5 Text tests (`GearItemTextTests`) reading the samples' lines and conditions through Swift, and snapshot tests (`GearItemSnapshotTests`) of every sample and variant, the sheets included, recorded on iOS 26.0
 
 ## 4. Verification
 
 - [x] 4.1 `./gradlew check` passes
-- [ ] 4.2 The Debug and Release iOS builds succeed (`CONFIGURATION=Release` exports no fixtures)
-- [ ] 4.3 The Swift tests pass on an iOS 26.0 and an iOS 18.4 simulator of this change's own
+- [x] 4.2 The Debug and Release iOS builds succeed (`CONFIGURATION=Release` exports no fixtures)
+- [x] 4.3 The Swift tests pass on an iOS 26.0 and an iOS 18.4 simulator of this change's own
 - [ ] 4.4 The page is seen on a device (the shared signed-in simulator when free, on the local stack, anything created Only me and deleted afterwards) or, failing that, in the snapshots; what couldn't be seen is listed under "Not verified" below
 - [ ] 4.5 The roadmap records the probes and findings for this change, its Phases bullet, and the updated open items (`GearScreen` closed)
 
