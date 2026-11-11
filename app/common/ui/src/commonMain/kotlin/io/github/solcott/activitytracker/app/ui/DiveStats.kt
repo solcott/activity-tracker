@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import io.github.solcott.activitytracker.app.text.CardStatsText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.stat_air_temp
 import io.github.solcott.activitytracker.composeApp.resources.stat_air_used
@@ -12,14 +13,12 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_cns_value
 import io.github.solcott.activitytracker.composeApp.resources.stat_desaturation
 import io.github.solcott.activitytracker.composeApp.resources.stat_descent_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_dive_number
-import io.github.solcott.activitytracker.composeApp.resources.stat_dive_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_end_n2
 import io.github.solcott.activitytracker.composeApp.resources.stat_gas
 import io.github.solcott.activitytracker.composeApp.resources.stat_gas_ccr
 import io.github.solcott.activitytracker.composeApp.resources.stat_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.stat_highest_ppo2
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_ascent_rate
-import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_n2_value
 import io.github.solcott.activitytracker.composeApp.resources.stat_no_fly
 import io.github.solcott.activitytracker.composeApp.resources.stat_pressure_range
@@ -27,7 +26,6 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_rmv
 import io.github.solcott.activitytracker.composeApp.resources.stat_sac
 import io.github.solcott.activitytracker.composeApp.resources.stat_surface_interval
 import io.github.solcott.activitytracker.composeApp.resources.stat_visibility
-import io.github.solcott.activitytracker.composeApp.resources.stat_water_temp
 import io.github.solcott.activitytracker.composeApp.resources.stat_water_type
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
@@ -48,10 +46,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
-/** A dive's feed card figures, from its record alone: how deep, how long, how cold. */
-@Composable
-fun diveCardStats(record: ActivityRecord): ImmutableList<Stat> =
-    listOfNotNull(maxDepth(record.dive, null), diveTime(record), waterTemp(record)).toImmutableList()
+/** A dive's feed card figures, from its record alone: how deep, how long, how cold (`CardStatsText`). */
+@Composable fun diveCardStats(record: ActivityRecord): ImmutableList<Stat> = CardStatsText.of(record, LocalUnitSystem.current).stats()
 
 /**
  * A dive's headline figures on its page, then the dive computer's details. A dive logged before records carried a summary takes its depths
@@ -130,16 +126,11 @@ fun waterName(type: String) =
 
 @Composable
 private fun maxDepth(dive: ActivityDive?, streamMeters: Double?): Stat? =
-    (dive?.maxDepth?.let { it / CM_PER_M } ?: streamMeters)?.let { Stat(stringResource(Res.string.stat_max_depth), Format.depth(it)) }
+    CardStatsText.maxDepth(dive, streamMeters, LocalUnitSystem.current)?.stat()
 
-/** The whole dive, surface to surface: moving time means nothing underwater. */
-@Composable
-private fun diveTime(record: ActivityRecord): Stat = Stat(stringResource(Res.string.stat_dive_time), Format.duration(record.elapsedTime))
+@Composable private fun diveTime(record: ActivityRecord): Stat = CardStatsText.diveTime(record).stat()
 
-/** The coldest water, which divers plan for, else the average. */
-@Composable
-private fun waterTemp(record: ActivityRecord): Stat? =
-    (record.dive?.minTemperature ?: record.avgTemperature)?.let { Stat(stringResource(Res.string.stat_water_temp), Format.temperature(it)) }
+@Composable private fun waterTemp(record: ActivityRecord): Stat? = CardStatsText.waterTemp(record, LocalUnitSystem.current)?.stat()
 
 /** "EAN32 → Oxygen", or "CCR · Tx 18/45". */
 @Composable

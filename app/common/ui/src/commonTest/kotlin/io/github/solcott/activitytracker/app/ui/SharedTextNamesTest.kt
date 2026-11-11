@@ -3,16 +3,20 @@ package io.github.solcott.activitytracker.app.ui
 import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
+import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
+import io.github.solcott.activitytracker.app.moderation.ModerationTexts
 import io.github.solcott.activitytracker.app.segment.SegmentTexts
 import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.CardStatsText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
+import io.github.solcott.activitytracker.app.text.StartText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
@@ -21,6 +25,9 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allDrawableResources
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
+import io.github.solcott.activitytracker.data.moderation.BlurReason
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.WarnReason
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -153,6 +160,35 @@ class SharedTextNamesTest {
     @Test
     fun everyZoneNameNamesAString() {
         assertAllExist(ZoneName.entries.map(ZoneNameText::of))
+    }
+
+    @Test
+    fun everyLabelBadgeLockAndCardFigureNamesAString() {
+        val labels =
+            BlurReason.entries.map(ModerationTexts::blur) +
+                WarnReason.entries.map(ModerationTexts::warn) +
+                BlurReason.entries.flatMap { ModerationTexts.notices(ModerationDecision.Blur(it), isOwn = true) }.map { it.text } +
+                ModerationTexts.notices(ModerationDecision.Takedown, isOwn = true).map { it.text }
+        val tiers = Visibility.all.flatMap { listOfNotNull(VisibilityTexts.badge(it), VisibilityTexts.badgeDescription(it)) }
+        val locks =
+            DetailCategory.all.flatMap { category ->
+                listOfNotNull(VisibilityTexts.lock(category, Visibility.SELF), VisibilityTexts.lockDescription(category, Visibility.SELF))
+            }
+        val sports = listOf(Sport.RIDE, Sport.RUN, Sport.SWIM, Sport.STRENGTH)
+        val figures =
+            UnitSystem.entries
+                .flatMap { units ->
+                    sports.flatMap { sport -> listOfNotNull(CardStatsText.distance(sport, 1_000.0, units)) } +
+                        listOfNotNull(CardStatsText.maxDepth(null, 18.2, units))
+                }
+                .flatMap { listOf(it.label, it.value) }
+        val start =
+            StartText.of(
+                FigureValue.StartTime(1_780_000_000, -360, dateOnly = false),
+                Instant.fromEpochSeconds(1_780_000_000),
+                TimeZone.UTC,
+            )
+        assertAllExist(labels + tiers + locks + figures + start)
     }
 
     @Test

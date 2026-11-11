@@ -2784,6 +2784,17 @@
         }
       }
     },
+    "detail_category_lock" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "detail_category_lock_description" : {
       "extractionState" : "manual",
       "localizations" : {
