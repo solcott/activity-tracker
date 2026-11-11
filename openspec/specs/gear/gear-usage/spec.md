@@ -94,7 +94,7 @@ The gear list SHALL show one main total per item: distance for bikes, components
 - **THEN** the rows show 3,200 km, 14 days · 41,000 m, and 120 h, in the athlete's units
 
 ### Requirement: The gear page is native on iOS
-On iOS the gear page SHALL be drawn with the system's list and navigation bar, titled with the item's name: its photo and details, the owner's collections, its components and mount history, its linked devices and profiles, its totals with any starting usage and its breakdowns, then the activities counted for the viewer as native activity cards, newest first, page by page. The owner's page SHALL offer Edit in the bar. Its loading, refresh and error states SHALL follow `ui/content-loading`, and the item's details SHALL stay on screen while its activities load. An item that doesn't exist or that the viewer may not see SHALL say so in the shared page's words, without Retry.
+On iOS the gear page SHALL be drawn with the system's list and navigation bar, titled with the item's name: its photo and details, the owner's collections, its components and mount history, its linked devices and profiles, its totals with any starting usage and its breakdowns, then the activities counted for the viewer as native activity cards, newest first, page by page. The owner's page SHALL offer Edit in the bar.
 
 #### Scenario: Owner's bike
 - **WHEN** the athlete opens their gravel bike with 2,000 km of starting usage and two rides
@@ -107,6 +107,9 @@ On iOS the gear page SHALL be drawn with the system's list and navigation bar, t
 #### Scenario: Unlinking a device
 - **WHEN** the athlete taps Unlink beside the SRAM power meter on the native page
 - **THEN** the device is unlinked as from the shared page
+
+### Requirement: The native gear page loads as the shared one does
+The native gear page's loading, refresh and error states SHALL follow `ui/content-loading`, and the item's details SHALL stay on screen while its activities load. An item that doesn't exist or that the viewer may not see SHALL say so in the shared page's words, without Retry.
 
 #### Scenario: Not found
 - **WHEN** the viewer opens an item they may not see
