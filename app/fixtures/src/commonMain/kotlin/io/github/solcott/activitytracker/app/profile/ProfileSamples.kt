@@ -14,9 +14,15 @@ import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
+import io.github.solcott.activitytracker.lexicon.app.LabelView
+import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
@@ -83,6 +89,73 @@ object ProfileSamples {
                 "noPosts" to noPosts,
                 "postsFailed" to postsFailed,
             )
+
+    private val follow = AtUri("at://did:plc:bob/app.activitytracker.graph.follow/3lfollow")
+    private val block = AtUri("at://did:plc:bob/app.activitytracker.graph.block/3lblock")
+    private val labeler = Did("did:plc:labeler")
+
+    /**
+     * What [all]'s content-loading states don't show: Following and Requested, a follow being written, a muted athlete, a block (and one
+     * held only on Bluesky), the athlete's own profile while they approve followers with more requests than counted and two invites, every
+     * detail, a labelled avatar with a warning, a hidden athlete reached by link, and a failed action. Kept apart from [all], whose keys
+     * are the content-loading conformance set.
+     */
+    val variants: Map<String, ProfileState>
+        get() {
+            fun withViewer(viewer: ProfileViewerState) = profile.copy(viewer = viewer)
+            return mapOf(
+                "following" to state(ContentStates.loaded(withViewer(ProfileViewerState(following = follow)))),
+                "requested" to state(ContentStates.loaded(withViewer(ProfileViewerState(following = follow, followRequested = true)))),
+                "followPending" to loaded.copy(followPending = true),
+                "muted" to loaded.copy(muting = true),
+                "blocked" to
+                    state(ContentStates.loaded(withViewer(ProfileViewerState(blocking = block))))
+                        .copy(
+                            blocking = true,
+                            activities = ContentStates.loaded(persistentListOf()),
+                        ),
+                "blockedOnBluesky" to
+                    state(ContentStates.loaded(withViewer(ProfileViewerState(blocking = block))))
+                        .copy(
+                            blocking = true,
+                            blockedOnBluesky = true,
+                            activities = ContentStates.loaded(persistentListOf()),
+                        ),
+                "ownApproving" to
+                    own.copy(
+                        content = ContentStates.loaded(profile.copy(followPolicy = FollowPolicy.APPROVE)),
+                        followRequestCount = 500,
+                        moreFollowRequests = true,
+                        activityInviteCount = 2,
+                    ),
+                "details" to
+                    state(
+                        ContentStates.loaded(
+                            profile.copy(
+                                details =
+                                    ProfileDetails(
+                                        location = Location(locality = "Boulder", region = "CO", country = "US"),
+                                        birthDate = "1990-04-12",
+                                        gender = "female",
+                                        height = 1680,
+                                        weight = 61_500,
+                                    ),
+                            ),
+                        ),
+                    ),
+                "labeled" to
+                    state(
+                        ContentStates.loaded(
+                            profile.copy(
+                                avatar = "https://example.test/alice.jpg",
+                                labels = listOf(LabelView(labeler, "porn"), LabelView(labeler, "spam")),
+                            ),
+                        ),
+                    ),
+                "hidden" to state(ContentStates.loaded(profile.copy(labels = listOf(LabelView(labeler, "!hide"))))),
+                "actionFailed" to loaded.copy(error = UiError(UiError.Kind.UpdateFollow, DataError.Network)),
+            )
+        }
 }
 
 object FollowRequestsSamples {
