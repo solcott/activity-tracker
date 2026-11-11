@@ -33,7 +33,13 @@ data class TrainingZonesState(
     /** Why saving the visibility failed; loading failures are [content]'s. */
     val error: UiError? = null,
     val eventSink: (TrainingZonesEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    /** The `Visibility` values the zones can be shown to, widest first. */
+    val visibilityOptions: ImmutableList<String>
+        get() = VISIBILITY_OPTIONS
+}
+
+private val VISIBILITY_OPTIONS: ImmutableList<String> = Visibility.all.toImmutableList()
 
 /** The athlete's zones as they apply. */
 @Immutable

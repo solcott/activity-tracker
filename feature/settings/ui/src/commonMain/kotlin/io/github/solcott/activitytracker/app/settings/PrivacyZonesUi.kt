@@ -20,7 +20,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.rememberLocationPermissionRequest
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -33,15 +33,12 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_add_here
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_empty
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_from_activity
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_help
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_hide_ends
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_hide_ends_help
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_label
-import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_locating
-import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_off
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_others_note
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_radius
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_remove
@@ -79,7 +76,7 @@ fun PrivacyZonesUi(state: PrivacyZonesState, modifier: Modifier = Modifier) {
                 if (state.needsSignIn) ErrorText(UiError(UiError.Kind.SignInAgain))
                 state.error?.let { ErrorText(it) }
                 val zones = state.zones ?: return@ReadableScrollColumn
-                val enabled = state.canEdit && !state.saving
+                val enabled = state.enabled
                 if (zones.isEmpty()) Text(stringResource(Res.string.privacy_zones_empty), style = MaterialTheme.typography.bodyMedium)
                 zones.forEachIndexed { index, zone -> ZoneRow(index, zone, state.choices, enabled, state.eventSink) }
                 Text(stringResource(Res.string.privacy_zones_from_activity), style = MaterialTheme.typography.bodySmall)
@@ -88,7 +85,7 @@ fun PrivacyZonesUi(state: PrivacyZonesState, modifier: Modifier = Modifier) {
                         state.label,
                         Modifier.fillMaxWidth(),
                         label = stringResource(Res.string.privacy_zones_label),
-                        enabled = enabled && !state.locating,
+                        enabled = state.canAddHere,
                         lineLimits = TextFieldLineLimits.SingleLine,
                     )
                     AppSecondaryButton(
@@ -96,16 +93,16 @@ fun PrivacyZonesUi(state: PrivacyZonesState, modifier: Modifier = Modifier) {
                             if (state.hasLocationPermission) state.eventSink(PrivacyZonesEvent.AddAtCurrentLocation)
                             else requestPermission()
                         },
-                        enabled = enabled && !state.locating,
+                        enabled = state.canAddHere,
                     ) {
-                        Text(stringResource(if (state.locating) Res.string.privacy_zones_locating else Res.string.privacy_zones_add_here))
+                        Text(PrivacyZonesTexts.addHere(state.locating).string())
                     }
                 }
                 HorizontalDivider()
                 Text(stringResource(Res.string.privacy_zones_hide_ends), style = MaterialTheme.typography.titleMedium)
                 DistanceField(
                     selected = state.hideEndsMeters,
-                    choices = (listOf(0) + state.choices).toImmutableList(),
+                    choices = state.hideEndsChoices,
                     label = stringResource(Res.string.privacy_zones_hide_ends),
                     enabled = enabled,
                     onSelect = { state.eventSink(PrivacyZonesEvent.HideEndsChanged(it)) },
@@ -162,8 +159,8 @@ private fun DistanceField(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val off = stringResource(Res.string.privacy_zones_off)
-    val labels = choices.map { meters -> meters to if (meters == 0) off else Format.distance(meters.toDouble()) }
+    val units = LocalUnitSystem.current
+    val labels = choices.map { meters -> meters to PrivacyZonesTexts.distance(meters, units).string() }
     MenuField(
         shown = labels.firstOrNull { it.first == selected }?.second.orEmpty(),
         label = label,

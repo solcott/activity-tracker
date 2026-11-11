@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.training.ThresholdInput
 import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneModel
@@ -52,6 +53,16 @@ data class ZonesState(
         get() =
             listOf(thresholdHeartRate, maxHeartRate, restingHeartRate).all { ThresholdInput.isValidHeartRate(it.text.toString()) } &&
                 ThresholdInput.isValidPower(functionalThresholdPower.text.toString())
+
+    /** Whether Save can be tapped: the saved values are in, every field holds a value it takes, and no save is running. */
+    val canSave: Boolean
+        get() = loaded && valid && !saving
+
+    /** Whether [text] is blank or a value [threshold] takes. A UI asks with the text it shows, which can be ahead of the state's. */
+    fun isValid(threshold: ZoneThreshold, text: String): Boolean = threshold.isValid(text, PaceUnit.PerKilometer)
+
+    /** Whether imported activities may update [threshold]. */
+    fun autoUpdates(threshold: ZoneThreshold): Boolean = threshold.token in autoUpdate
 }
 
 sealed interface ZonesEvent {

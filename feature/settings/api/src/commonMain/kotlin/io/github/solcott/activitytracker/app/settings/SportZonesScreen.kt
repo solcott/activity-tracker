@@ -67,6 +67,13 @@ data class SportZonesState(
             listOf(thresholdHeartRate, maxHeartRate).all { ThresholdInput.isValidHeartRate(it.text.toString()) } &&
                 ThresholdInput.isValidPower(functionalThresholdPower.text.toString()) &&
                 ThresholdInput.isValidPace(thresholdPace.text.toString(), paceUnit)
+
+    /** Whether Save can be tapped: the saved values are in, every field holds a value it takes, and no save is running. */
+    val canSave: Boolean
+        get() = loaded && valid && !saving
+
+    /** Whether [text] is blank or a value [threshold] takes, a pace per [paceUnit]. A UI asks with the text it shows. */
+    fun isValid(threshold: ZoneThreshold, text: String): Boolean = threshold.isValid(text, paceUnit)
 }
 
 sealed interface SportZonesEvent {

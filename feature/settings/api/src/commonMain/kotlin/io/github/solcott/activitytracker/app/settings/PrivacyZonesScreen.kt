@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /** The places the signed-in athlete hides from their routes, and how much of each route's start and end. */
 @CircuitSerializable(SessionScope::class) data object PrivacyZonesScreen : SettingsPage
@@ -38,7 +39,19 @@ data class PrivacyZonesState(
     /** Why a change failed. */
     val error: UiError?,
     val eventSink: (PrivacyZonesEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Whether a zone, a radius or the hidden distance can be changed now: they can be, and no change is saving. */
+    val enabled: Boolean
+        get() = canEdit && !saving
+
+    /** Whether a zone can be added at the current location now: changes are [enabled] and the location isn't being found. */
+    val canAddHere: Boolean
+        get() = enabled && !locating
+
+    /** The distances hidden from every route's start and end to choose from: none (Off), then [choices]. */
+    val hideEndsChoices: ImmutableList<Int>
+        get() = (listOf(0) + choices).toImmutableList()
+}
 
 sealed interface PrivacyZonesEvent {
     data object Back : PrivacyZonesEvent
