@@ -30,11 +30,10 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -43,40 +42,21 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_linked_profiles
 import io.github.solcott.activitytracker.composeApp.resources.gear_linked_sensors
 import io.github.solcott.activitytracker.composeApp.resources.gear_not_found
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_activities
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_activity_count
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_bottom_time
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_by_sport
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_by_year
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_days
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_distance
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_dives
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_edit
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_elevation_gain
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_elevation_loss
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_no_activities
-import io.github.solcott.activitytracker.composeApp.resources.gear_page_starting
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_totals
-import io.github.solcott.activitytracker.composeApp.resources.gear_retired
-import io.github.solcott.activitytracker.composeApp.resources.gear_total_activities
-import io.github.solcott.activitytracker.composeApp.resources.gear_total_joined
 import io.github.solcott.activitytracker.composeApp.resources.gear_unlink
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.units.formatWhole
-import io.github.solcott.activitytracker.lexicon.app.ActivityType
-import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
-import io.github.solcott.activitytracker.lexicon.app.GearStarting
-import io.github.solcott.activitytracker.lexicon.app.GearTotals
-import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -87,17 +67,16 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(GearScreen::class, SessionScope::class)
 @Composable
 fun GearUi(state: GearState, modifier: Modifier = Modifier) {
-    val page = state.page
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = page?.gear?.name.orEmpty(),
+                title = state.title,
                 onBack = { state.eventSink(GearEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    if (page?.isOwner == true) {
+                    if (state.showsEdit) {
                         AppTextButton(onClick = { state.eventSink(GearEvent.Edit) }) { Text(stringResource(Res.string.gear_page_edit)) }
                     }
                 },
@@ -129,7 +108,7 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearItem, onRetry) }
             item(key = "header") { Header(page) }
-            if (page.isOwner && state.collections.isNotEmpty()) {
+            if (state.showsCollections) {
                 item(key = "collections") {
                     GearCollectionsField(
                         state.collections,
@@ -164,33 +143,16 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
             }
             item(key = "totals") {
                 Section(stringResource(Res.string.gear_page_totals))
-                AppCard(Modifier.fillMaxWidth()) { Totals(page.usage.totals, page.gear.type, page.usage.starting) }
+                AppCard(Modifier.fillMaxWidth()) { Totals(page) }
             }
-            val bySport = page.usage.bySport
-            if (bySport.size > 1) {
-                breakdown(
-                    "sport",
-                    Res.string.gear_page_by_sport,
-                    page.gear.type,
-                    bySport.map { "${it.sport}/${it.subSport}" to it.totals },
-                ) {
-                    activityTypeLabel(ActivityType(bySport[it].sport, bySport[it].subSport))
-                }
-            }
-            val byYear = page.usage.byYear
-            if (byYear.size > 1) {
-                breakdown("year", Res.string.gear_page_by_year, page.gear.type, byYear.map { "${it.year}" to it.totals }) {
-                    byYear[it].year.toString()
-                }
-            }
+            breakdown("sport", Res.string.gear_page_by_sport) { GearPageTexts.bySport(page, it) }
+            breakdown("year", Res.string.gear_page_by_year) { GearPageTexts.byYear(page, it) }
             item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
-            state.error
-                ?.takeIf { it.kind !in MOUNT_ERRORS }
-                ?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+            state.activitiesError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
             activityItems(
                 state.activities.items.toImmutableList(),
                 state.viewerDid,
-                authorClickable = !page.isOwner,
+                authorClickable = state.authorClickable,
                 state.revealed,
                 gap = ACTIVITY_GAP,
             ) {
@@ -220,18 +182,12 @@ private fun Header(page: GearPage) {
         }
         Column(Modifier.weight(1f)) {
             Text(gear.name, style = MaterialTheme.typography.titleLarge)
-            Text(
-                gear.kind?.let { gearKindLabel(GearType.known(gear.type), it) } ?: gearTypeLabel(gear.type),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            listOfNotNull(gear.brand, gear.model)
-                .joinToString(" ")
-                .takeIf { it.isNotEmpty() }
-                ?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            val notes =
-                listOfNotNull(page.visibility?.let { visibilityLabel(it) }, stringResource(Res.string.gear_retired).takeIf { page.retired })
-            if (notes.isNotEmpty()) {
-                Text(notes.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+            Text(GearPageTexts.kindLine(gear).string(), style = MaterialTheme.typography.bodyMedium)
+            GearPageTexts.maker(gear)?.let {
+                Text(it.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            GearPageTexts.notes(page)?.let {
+                Text(it.string(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
             }
         }
     }
@@ -242,40 +198,16 @@ private fun Section(title: String) {
     Text(title, Modifier.padding(top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
 }
 
-/** Every total that applies to [type]'s gear, and the starting usage they include. */
+/** Every total that applies to the item's type ([GearPageTexts.figures]), and the starting usage they include. */
 @Composable
-private fun Totals(totals: GearTotals, type: String, starting: GearStarting?) {
-    val main = GearType.mainTotal(type)
+private fun Totals(page: GearPage) {
+    val units = LocalUnitSystem.current
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Figure(stringResource(Res.string.gear_page_activity_count), formatWhole(totals.activities))
-        Figure(stringResource(Res.string.gear_page_moving_time), gearHoursLabel(totals.movingTime))
-        if (totals.distance > 0 || main == GearMainTotal.DISTANCE) {
-            Figure(stringResource(Res.string.gear_page_distance), gearDistanceLabel(totals.distance))
-        }
-        if (totals.elevationGain > 0)
-            Figure(stringResource(Res.string.gear_page_elevation_gain), Format.elevation(totals.elevationGain.toDouble()))
-        if (totals.elevationLoss > 0 || main == GearMainTotal.DAYS_AND_VERTICAL) {
-            Figure(stringResource(Res.string.gear_page_elevation_loss), Format.elevation(totals.elevationLoss.toDouble()))
-        }
-        Figure(stringResource(Res.string.gear_page_days), formatWhole(totals.days))
-        totals.dives?.let { Figure(stringResource(Res.string.gear_page_dives), formatWhole(it)) }
-        totals.bottomTime?.let { Figure(stringResource(Res.string.gear_page_bottom_time), Format.duration(it)) }
-        startingLabel(starting)?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        GearPageTexts.figures(page, units).forEach { Figure(it.label.string(), it.value.string()) }
+        GearPageTexts.starting(page.usage.starting, units)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-}
-
-/** "Includes 2,000 km · 100 h before tracking"; null without starting usage. */
-@Composable
-private fun startingLabel(starting: GearStarting?): String? {
-    val parts =
-        listOfNotNull(
-            starting?.distance?.takeIf { it > 0 }?.let { gearDistanceLabel(it) },
-            starting?.time?.takeIf { it > 0 }?.let { gearHoursLabel(it) },
-        )
-    if (parts.isEmpty()) return null
-    return stringResource(Res.string.gear_page_starting, parts.joinToString(" · "))
 }
 
 @Composable
@@ -286,19 +218,15 @@ private fun Figure(label: String, value: String) {
     }
 }
 
-/** A breakdown's [rows] (each a key and its totals), the [index]th labeled by [label], with its activities and [type]'s main total. */
-private fun LazyListScope.breakdown(
-    key: String,
-    title: StringResource,
-    type: String,
-    rows: List<Pair<String, GearTotals>>,
-    label: @Composable (index: Int) -> String,
-) {
-    item(key = "$key-header") { Section(stringResource(title)) }
-    rows.forEachIndexed { index, (row, totals) ->
-        item(key = "$key/$row") {
-            val count = pluralStringResource(Res.plurals.gear_total_activities, totals.activities.toInt(), formatWhole(totals.activities))
-            Figure(label(index), stringResource(Res.string.gear_total_joined, count, gearMainTotalLabel(GearType.mainTotal(type), totals)))
+/** A breakdown under [title]: the rows [figures] gives in the athlete's units, none when it gives none. */
+private fun LazyListScope.breakdown(key: String, title: StringResource, figures: (UnitSystem) -> List<GearFigure>) {
+    item(key = "$key-header") {
+        val rows = figures(LocalUnitSystem.current)
+        if (rows.isNotEmpty()) {
+            Column {
+                Section(stringResource(title))
+                rows.forEach { Figure(it.label.string(), it.value.string()) }
+            }
         }
     }
 }

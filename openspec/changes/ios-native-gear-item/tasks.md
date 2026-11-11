@@ -2,8 +2,8 @@
 
 ## 1. Shared texts and conditions
 
-- [ ] 1.1 Add `GearPageTexts` and `GearFigure` to `:feature-gear-api` (kind line, maker, notes, figures, starting usage, breakdowns, component line and dates, mount dates, actions label, picker title, candidate line), with `commonTest` tests for skis, a dive item, one activity type, starting usage and past component dates (`./gradlew :feature-gear-api:jvmTest`)
-- [ ] 1.2 Add getters to `GearState` (title, `showsEdit`, `showsCollections`, `showsComponents`, `managesComponents`, `mountEnabled`, `componentsError`, `activitiesError`, `authorClickable`, `unmountFirstDay`, `unmountInitialDay`) with `MOUNT_ERRORS` moved into the contract, and tests for each (`:feature-gear-api:jvmTest`)
+- [x] 1.1 Add `GearPageTexts` and `GearFigure` to `:feature-gear-api` (kind line, maker, notes, figures, starting usage, breakdowns, component line and dates, mount dates, actions label, picker title, candidate line), with `commonTest` tests for skis, a dive item, one activity type, starting usage and past component dates (`./gradlew :feature-gear-api:jvmTest`)
+- [x] 1.2 Add getters to `GearState` (title, `showsEdit`, `showsCollections`, `showsComponents`, `managesComponents`, `mountEnabled`, `componentsError`, `activitiesError`, `authorClickable`, `unmountFirstDay`, `unmountInitialDay`) with `MOUNT_ERRORS` moved into the contract, and tests for each (`:feature-gear-api:jvmTest`)
 - [ ] 1.3 Make `GearUi.kt` and `GearComponentsUi.kt` resolve them; the existing gear UI and presenter tests and the content-loading conformance test still pass (`:feature-gear-ui:jvmTest`, `:composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"`), and the Android screenshot references are unchanged
 
 ## 2. Samples
