@@ -48,6 +48,10 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "EditGearCollectionScreen"))
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "UploadsScreen"))
+        // The zones pages (ios-native-zones-pages).
+        for page in ["TrainingZonesScreen", "ZonesScreen", "SportZonesScreen", "PrivacyZonesScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: page))
+        }
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The rest of what the lists open is still the shared UI's: the gear item page waits for the native activity card, and a
         // profile, which opens the follow lists, for the feed's.
@@ -55,8 +59,8 @@ struct ScreenRegistryTests {
         for screen in ["GearScreen", "ProfileScreen", "AcceptInviteScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // The other settings pages are still the shared UI's, beside the native list or over it.
-        for page in ["PrivacyZonesScreen", "TrainingZonesScreen", "ZonesScreen", "SportZonesScreen", "LeftElsewhereScreen"] {
+        // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
+        for page in ["ThresholdHistoryScreen", "LeftElsewhereScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: page))
         }
     }
@@ -80,5 +84,9 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
         #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
         #expect(String(describing: ActivityTracker.UploadsScreen.self) == "UploadsScreen")
+        #expect(String(describing: ActivityTracker.TrainingZonesScreen.self) == "TrainingZonesScreen")
+        #expect(String(describing: ActivityTracker.ZonesScreen.self) == "ZonesScreen")
+        #expect(String(describing: ActivityTracker.SportZonesScreen.self) == "SportZonesScreen")
+        #expect(String(describing: ActivityTracker.PrivacyZonesScreen.self) == "PrivacyZonesScreen")
     }
 }

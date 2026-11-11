@@ -2,8 +2,8 @@ import Testing
 
 @testable import ActivityTracker
 
-/// The Training zones, threshold history and Privacy zones contracts read from Swift (dev/ios-swift-interop), on the shared samples. The
-/// pages are still the shared UI's; these hold that a native one can read every field it would draw, typed, without stopping the app.
+/// The Training zones, threshold history and Privacy zones contracts read from Swift (dev/ios-swift-interop), on the shared samples:
+/// every field the native zones pages draw, and threshold history's, which is still the shared UI's, typed, without stopping the app.
 @MainActor
 struct ZonesContractsTests {
     private func read(_ text: any AppText) -> String { AppStrings.string(text) }

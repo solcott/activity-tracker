@@ -62,6 +62,11 @@ extension ScreenRegistry {
         }
         // The upload queue (data/upload-queue), pushed over the feed.
         registry.register(UploadsScreen.self, UploadsState.self) { state in UploadsView(state: state) }
+        // The zones pages (ios-native-zones-pages).
+        registry.register(TrainingZonesScreen.self, TrainingZonesState.self) { state in TrainingZonesView(state: state) }
+        registry.register(ZonesScreen.self, ZonesState.self) { state in ZonesView(state: state) }
+        registry.register(SportZonesScreen.self, SportZonesState.self) { state in SportZonesView(state: state) }
+        registry.register(PrivacyZonesScreen.self, PrivacyZonesState.self) { state in PrivacyZonesView(state: state) }
         return registry
     }()
 }
