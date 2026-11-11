@@ -2,13 +2,13 @@
 
 ## 1. Probe (throwaway code, not merged)
 
-- [ ] 1.1 Read the generated Swift for `ProfileState` and `ProfileView` (design decision 2): which members reach Swift typed (`profile`, `viewerDid`, `reporting`, `revealed`, `ProfileView.details`, `viewer`, `labels`), and that nothing the page needs is dropped. Verify by noting each in the roadmap's probes.
-- [ ] 1.2 Write the results into `openspec/explorations/ios-native-ui.md` under "Phase 4 probes (profile)". Verify it records each result.
+- [x] 1.1 Read the generated Swift for `ProfileState` and `ProfileView` (design decision 2): which members reach Swift typed (`profile`, `viewerDid`, `reporting`, `revealed`, `ProfileView.details`, `viewer`, `labels`), and that nothing the page needs is dropped. Verify by noting each in the roadmap's probes.
+- [x] 1.2 Write the results into `openspec/explorations/ios-native-ui.md` under "Phase 4 probes (profile)". Verify it records each result.
 
 ## 2. Kotlin rules (no visible change)
 
-- [ ] 2.1 `ProfileTexts`, `ProfileEntry`, `ProfileActions`, `FollowButton` and the `ProfileState` getters in `:feature-profile-api` (decision 2). Verify a `commonTest` over every branch.
-- [ ] 2.2 `ProfileUi` asks them. Verify `:feature-profile-ui:jvmTest` and the shared text names test.
+- [x] 2.1 `ProfileTexts`, `ProfileEntry`, `ProfileActions`, `FollowButton` and the `ProfileState` getters in `:feature-profile-api` (decision 2). Verify a `commonTest` over every branch.
+- [x] 2.2 `ProfileUi` asks them. Verify `:feature-profile-ui:jvmTest` and the shared text names test.
 - [ ] 2.3 `ProfileSamples.variants` in `:app-fixtures` (decision 4). Verify `./gradlew :composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"` and the Android screenshot tests pass with no reference changed.
 
 ## 3. The native page
