@@ -279,6 +279,15 @@ Each phase leaves a shippable app.
      feed itself isn't native: its filter bar is a SubCircuit, whose presenter the presenter host can't run, and its posts, import cards,
      upload rows, prompts and sheets aren't native either. Left for later changes: the feed (with SubCircuits in the host), and the
      profile, the gear item page, a dive site's page and Moderation, which can list activities with this card now.
+   - **Sub-screens in the host** (`ios-host-subcircuits`). The presenter host runs SubCircuit sub-screens: a native view asks a shown
+     record for the sub-screen its state embeds (`HostRecord.sub(screen, outerEventSink)`, the screen as an object since Swift has no
+     `SubScreen` type) and draws the `HostSubRecord`'s state through `SubScreenView`, mapping outer events to the screen's events as the
+     shared UI does. The sub-screen's presenter comes from the session graph's `SubPresenterFactory` set and runs inside its record's,
+     so its state is kept and dropped with the record's; a dismissed sheet closes its sub-record, and an unequal screen of its class
+     replaces it. The Compose UIs keep `SubCircuitContent`. The first native sub-screen is the feed's filter bar (`FeedFilterBar`: the
+     chips, the date menu, Clear, a plain type sheet and a custom range sheet), its words and marks Kotlin's (`FeedFilterTexts`,
+     `TypePickerState.selectionOf`), which the shared bar asks too; no page places it, since the feed is still the shared UI's. Left for
+     later changes: the feed, with the bar, and the report and place-name sheets, which can run through the host now.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -880,6 +889,27 @@ written:
 - **Not probed with throwaway code**: a route's nested lists and a time of day in an offset, both this change's own Kotlin, checked by its
   tests instead.
 
+### Phase 4 probes (host sub-screens, `ios-host-subcircuits`, 2026-11-11)
+
+Asked with throwaway code on a simulator made for the change (iPhone 17, iOS 26.0), after the host's own Kotlin was written and its JVM
+tests passed: a Kotlin helper built a `SessionHost` (`sessionHostOf`) over a stand-in feed presenter whose state held a real
+`FeedFilterScreen`, and a stand-in filter presenter, ran it on the main thread with the display-link clock, and `IosApp` handed the
+feed's record to a Swift test.
+
+- **The lookup crosses as written.** `HostRecord.sub(screen: Any, outerEventSink: (SubCircuitOuterEvent) -> Unit)` is
+  `sub(screen: any _KotlinBridgeable, outerEventSink: (any SubCircuitOuterEvent) -> Void)` in Swift, with no stub: the screen object the
+  state holds (`FeedFilterScreen`, a plain class in Swift) passes as is. `HostSubRecord.state` is a typed flow of
+  `Optional<any SubCircuitUiState>`, its `value` cast to `FeedFilterState` with `as?`, and `asAsyncSequence()` followed it (narrowed,
+  then cleared).
+- **Asking twice gives the same object** (`===`), sending outer events to the newest closure; after `close()` the same screen gives a new
+  one.
+- **Events and outer events.** `SetRange(range: DateRange.LastDays(days: 30))` and `Clear.shared` sent from Swift reached the sub-screen's
+  presenter; its outer events reached the closure as `FeedFilterOuterEvent.Changed`, with the filter readable (`Changed(nil)` when first
+  shown, then the last 30 days, then nil).
+- **`SubScreenView` draws and redraws.** A second throwaway test put `SubScreenView { FeedFilterBar(state:) }` over the same record in a
+  window: the bar drew "Any time", and after a `SetRange` sent through the drawn state's sink it redrew "Last 7 days" with Clear, the
+  outer events following.
+
 ### Phase 2 findings (`ios-native-shell`)
 
 What building the host and the shell on Swift export showed, beyond the probes:
@@ -1326,6 +1356,27 @@ What building the host and the shell on Swift export showed, beyond the probes:
   page until it is reopened, as on the shared page. Still unseen on a device: Like (the batch was her own), photos and their labels, a
   group, a dive, locks, a second page, VoiceOver, and the page on iOS 18 signed in or on an iPad.
 
+### Phase 4 findings (host sub-screens, `ios-host-subcircuits`)
+
+- **The UI asks; the host doesn't discover.** A contract listing its sub-screens would let the host run them alone, but every contract
+  with one would change, the outer-event mapping would leave the Compose UIs or be written twice, and a generic holder in a contract
+  meets Swift export's erased generics. Asking mirrors `SubCircuitContent`: the UI decides what shows (a sheet only while open) and maps
+  outer events itself.
+- **A sub-screen runs inside its record, not by its view's visibility.** SwiftUI's `onDisappear` also fires for a view a push covers,
+  after the animation, in no fixed order against the host's recomposition, so a sub-screen stopped by it could be dropped instead of
+  saved with its record. Inside the record's composition (`RunRecord`, keyed by the sub-record) it is saved, restored and forgotten
+  exactly as under `SubCircuitContent`. A view's `@State` can't own a sub-record either: its initial value is rebuilt on every body of
+  the view's parent, so a sheet closes its own (`HostSubRecord.close()`).
+- **An enum's cases keep their Kotlin names.** `Selection.All` and `SportCategory.Running` are `.All` and `.Running` in Swift, not
+  lower-cased as Swift's own enums are.
+- **The feed's outside Clear may not reset the bar.** `FeedPresenter` clears by giving the bar a new `FeedFilterScreen(Default)`, which
+  is equal to the first one when the athlete began from the default, so neither `SubCircuitContent` nor the host remounts it: the feed
+  shows everything while the bar keeps its chips. Read from the code, not seen on a device; for the feed change to check and fix (a
+  screen carrying a reset count, say).
+- **A test entry beside `appHostOf`.** `sessionHostOf` builds a `SessionHost` over given factories for another module's test, which
+  `FeedFilterThroughHostTest` (`composeApp`) uses to run the real filter presenter over the shared session fixture. Like `appHostOf`, a
+  top-level function of a module reached only through signatures, so Swift export leaves it out.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1404,6 +1455,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The segment page (`SegmentScreen`), its map, segment browse and the dive site page are still the shared UI's, waiting for native maps
   and charts; the lists they open are native (`ios-native-segment-lists`). Their Mayor and Regulars cards already ask
   `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
-- The feed (`FeedScreen`) is still the shared UI's (`ios-native-activity-card`): its filter bar is a SubCircuit the presenter host
-  can't run, and its posts, import cards, upload rows, prompts and sheets aren't native. Its change starts with SubCircuits in the host.
+- The feed (`FeedScreen`) is still the shared UI's (`ios-native-activity-card`): ~~its filter bar is a SubCircuit the presenter host
+  can't run~~: done (`ios-host-subcircuits`), the host runs sub-screens and `FeedFilterBar` draws the bar from one. Its posts, import
+  cards, upload rows, prompts and sheets aren't native. The native bar's type sheet has no search and no collapsed sports yet, and the
+  outside Clear may leave the bar's chips as they were (Phase 4 findings, host sub-screens).
+- The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now
+  (`ios-host-subcircuits`); each native page that shows one draws it in `SubScreenView` and closes its sub-record when dismissed.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.

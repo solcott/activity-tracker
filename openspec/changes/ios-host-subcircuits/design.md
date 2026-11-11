@@ -56,10 +56,10 @@ in Swift.
    (quick types and categories as toggles, Apply and Cancel) and a custom range sheet (a graphical `DatePicker`, one pick per date),
    texts from `FeedFilterTexts`. It is placed in no page.
 7. **Probe first, throwaway.** A throwaway Swift test calls a throwaway Kotlin helper that builds a record over a fake parent embedding
-   a real `FeedFilterScreen` and the real `FeedFilterPresenter`, asks it for the sub-record from Swift, sends `SetRange` and `Clear`, and
+   a real `FeedFilterScreen` and a stand-in filter presenter (the real one needs the session database), asks it for the sub-record from Swift, sends `SetRange` and `Clear`, and
    reads the published state and the outer events. It answers whether `Any`, the closure over `SubCircuitOuterEvent` and the state flow
    cross. Removed after; the JVM host tests cover the host's rules permanently, and a `composeApp` JVM test runs the real filter presenter
-   through a `SessionHost`.
+   through a `SessionHost` built by `sessionHostOf`, a test entry like `appHostOf`.
 
 ## Risks / Trade-offs
 

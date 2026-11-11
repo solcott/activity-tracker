@@ -39,7 +39,8 @@ None.
 
 - `:app-host` (`HostRecord`, `HostSubRecord`, `RunRecords`, `SessionHost`, `TabStack`, `AppHost`) and its tests; the session graph's
   `SubPresenterFactory` set reaches `SessionHost`.
-- `:feature-feedfilter-api` (`FeedFilterTexts`) and `:feature-feedfilter-ui` (asks it).
-- `iosApp`: `Kotlin/KotlinTypes.swift` (additions), `Kotlin/FollowingSub.swift` or similar, `Screens/FeedFilterBar.swift`,
+- `:feature-feedfilter-api` (`FeedFilterTexts`, `TypePickerState.selectionOf`), `:feature-feedfilter-ui` (asks them) and
+  `:app-fixtures` (two more filter samples, outside the shared screenshots' `all`).
+- `iosApp`: `Kotlin/KotlinTypes.swift` (additions), `Shell/SubScreenView.swift`, `Screens/FeedFilterBar.swift`,
   `Previews/Samples.swift` (additions), a snapshot suite.
 - The roadmap `openspec/explorations/ios-native-ui.md` and `.agents/rules/compose-screens.md`.
