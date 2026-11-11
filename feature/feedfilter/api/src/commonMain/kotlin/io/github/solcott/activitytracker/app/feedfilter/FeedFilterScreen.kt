@@ -47,9 +47,11 @@ data class FeedFilter(val types: ImmutableSet<ActivityType> = persistentSetOf(),
 /**
  * The feed filter control, embeddable anywhere a list of activities can be filtered. It owns the live filter and reports it as
  * [FeedFilterOuterEvent.Changed] when it's first shown and on every change after that; [initial] only seeds it, so the host keeps this
- * screen stable rather than rebuilding it per change.
+ * screen stable rather than rebuilding it per change. A sub-screen is kept while its screen stays equal, so a host that resets the control
+ * from outside gives it a new [generation]: an equal screen would keep the control's old filter.
  */
-@Immutable data class FeedFilterScreen(val initial: FeedFilter = FeedFilter.Default) : SubScreen<FeedFilterOuterEvent>
+@Immutable
+data class FeedFilterScreen(val initial: FeedFilter = FeedFilter.Default, val generation: Int = 0) : SubScreen<FeedFilterOuterEvent>
 
 sealed interface FeedFilterOuterEvent : SubCircuitOuterEvent {
     data class Changed(val filter: FeedFilter) : FeedFilterOuterEvent
@@ -72,7 +74,18 @@ data class TypePickerState(
     /** The athlete's recent types, then the common ones. */
     val quickTypes: ImmutableList<ActivityType>,
     val categories: ImmutableList<CategorySelection>,
-)
+) {
+    /**
+     * How much of [type] the draft holds, which both UIs mark it with: all of it when it or its bare sport is picked, part when it is a
+     * bare sport some of whose sub-sports are, else none.
+     */
+    fun selectionOf(type: ActivityType): Selection =
+        when {
+            type in draft || (type.subSport != null && ActivityType(type.sport) in draft) -> Selection.All
+            type.subSport == null && draft.any { it.sport == type.sport } -> Selection.Partial
+            else -> Selection.None
+        }
+}
 
 /** One catalog category in the picker, with how much of it [TypePickerState.draft] covers. */
 @Immutable data class CategorySelection(val category: SportCategory, val types: ImmutableList<ActivityType>, val selection: Selection)

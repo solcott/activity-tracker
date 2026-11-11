@@ -9,12 +9,16 @@ plugins {
 // the tabs). Compose runtime and no UI, like a presenter module, and it sees features only through their API modules: it gets
 // presenters from the app's graph, never from a module it depends on (dev/module-boundaries).
 kotlin {
+    // SubCircuit is experimental, opted in module-wide as in the feature conventions: the host runs sub-screens' presenters.
+    compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     sourceSets {
         commonMain.dependencies {
             api(projects.appCommonApi)
             api(projects.coreData)
             // Navigator, Screen and CircuitUiState are in the host's signatures.
             api(libs.circuit.runtime)
+            // A sub-screen's state and outer events are in HostSubRecord's signatures.
+            api(libs.circuitx.subcircuit)
 
             // The screens the host names: the tabs' roots, the flows that take the whole window, and what a request opens.
             implementation(projects.coreLocation)

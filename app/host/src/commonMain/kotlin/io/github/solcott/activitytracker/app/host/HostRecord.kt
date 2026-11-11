@@ -6,6 +6,14 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.Presenter
 import com.slack.circuit.runtime.screen.Screen
+import com.slack.circuit.subcircuit.SubCircuitOuterEvent
+import com.slack.circuit.subcircuit.SubCircuitUiState
+import com.slack.circuit.subcircuit.SubPresenter
+import com.slack.circuit.subcircuit.SubPresenterFactory
+import com.slack.circuit.subcircuit.SubScreen
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -30,6 +38,8 @@ internal constructor(
     /** Whether the tabs show over this screen. False for a flow that takes the whole window (`TopLevelDestination.showsNavigation`). */
     val showsTabs: Boolean,
     internal val presenter: Presenter<*>,
+    /** Where this record's sub-screens' presenters come from ([sub]). */
+    private val presenters: Presenters,
     /**
      * The page a wide UI shows beside this screen until it opens one: Activity defaults, for Settings (ui/settings-layout). It is not in
      * the stack, so going back never returns to it; its presenter runs while the UI reports it visible, and what it retained is kept for as
@@ -65,14 +75,62 @@ internal constructor(
     internal fun publish(state: CircuitUiState) {
         this.state.value = state
     }
+
+    /** The sub-screens a UI asked for and hasn't closed, which run inside this record's presenter while it runs. */
+    internal val subs: StateFlow<ImmutableList<HostSubRecord>>
+        field = MutableStateFlow<ImmutableList<HostSubRecord>>(persistentListOf())
+
+    private var nextSub = 0
+
+    /**
+     * The sub-screen (SubCircuit) [screen] that this record's state embeds, run by the host as `SubCircuitContent` runs it in Compose: what
+     * a native UI draws in place of `SubCircuitContent(screen, outerEventSink)`, sending the sub-screen's outer events to [outerEventSink]
+     * as the shared UI does (dev/presenter-host). Asking again for an equal screen gives the same sub-record, which then sends to the
+     * newest [outerEventSink]; a screen of the same class that isn't equal replaces the one held, starting afresh, as a changed screen
+     * remounts `SubCircuitContent`.
+     *
+     * [screen] is an object because Swift has no type for `SubScreen`, whose generic interface isn't exported. It fails naming [screen]
+     * when it isn't a sub-screen or no presenter is registered for it.
+     */
+    fun sub(screen: Any, outerEventSink: (SubCircuitOuterEvent) -> Unit): HostSubRecord {
+        require(screen is SubScreen<*>) { "$screen is not a sub-screen" }
+        val held = subs.value
+        held
+            .firstOrNull { it.screen == screen }
+            ?.let { sub ->
+                sub.outerEventSink = outerEventSink
+                return sub
+            }
+        val sub = HostSubRecord("$key-sub-${nextSub++}", screen, presenters.createSub(screen), outerEventSink, this)
+        subs.value = (held.filterNot { it.screen::class == screen::class } + sub).toImmutableList()
+        return sub
+    }
+
+    internal fun drop(sub: HostSubRecord) {
+        subs.value = subs.value.filterNot { it === sub }.toImmutableList()
+    }
 }
 
-/** The presenters of one scope, as the app's graph binds them: each factory answers for the screens it knows. */
-internal class Presenters(private val factories: Set<Presenter.Factory>) {
+/**
+ * The presenters of one scope, as the app's graph binds them: each factory answers for the screens it knows, and each sub-screen factory
+ * for the sub-screens it knows. The signed-out scope has no sub-screens.
+ */
+internal class Presenters(
+    private val factories: Set<Presenter.Factory>,
+    private val subFactories: Set<SubPresenterFactory> = emptySet(),
+) {
     /** The presenter for [screen], or an error naming it: a screen nothing presents is a screen left out of the graph. */
     fun create(screen: Screen, navigator: Navigator): Presenter<*> =
         factories.firstNotNullOfOrNull { it.create(screen, navigator, CircuitContext.EMPTY) }
             ?: error("No presenter is registered for $screen")
+
+    /** The presenter for the sub-screen [screen], or an error naming it, as [create]. */
+    fun createSub(screen: SubScreen<*>): SubPresenter<SubCircuitOuterEvent, SubCircuitUiState> {
+        val presenter = subFactories.firstNotNullOfOrNull { it.create(screen) } ?: error("No presenter is registered for $screen")
+        // A factory answers with the presenter of its screen's own outer event and state types, which the host passes through untouched.
+        @Suppress("UNCHECKED_CAST")
+        return presenter as SubPresenter<SubCircuitOuterEvent, SubCircuitUiState>
+    }
 }
 
 /** Hands out [HostRecord.key]s. One per host, so no two of its records share a key. */

@@ -8,6 +8,7 @@ import androidx.compose.runtime.key
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.Presenter
 import com.slack.circuit.runtime.screen.Screen
+import com.slack.circuit.subcircuit.SubPresenterFactory
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -43,9 +44,11 @@ import kotlinx.coroutines.launch
 @Inject
 class SessionHost
 // Internal for the same reason as AppHost's.
+@Suppress("LongParameterList") // What the session graph injects: the presenters, the sub-screens', and one piece per request it follows.
 internal constructor(
     session: OAuthSession,
     factories: Set<Presenter.Factory>,
+    subFactories: Set<SubPresenterFactory>,
     private val runner: SessionRunner,
     private val recording: RecordingRecovery,
     private val recordRequests: RecordScreenRequests,
@@ -53,7 +56,7 @@ internal constructor(
 ) {
     val did: Did = session.did
 
-    private val presenters = Presenters(factories)
+    private val presenters = Presenters(factories, subFactories)
     private val keys = RecordKeys()
 
     /** What the session shows; see [SessionMode]. The tabs are the app only while it is [SessionMode.Open]. */
@@ -110,7 +113,14 @@ internal constructor(
 
     /** A screen shown on its own, with no stack to go back through; its presenter's navigator does nothing. */
     private fun single(screen: Screen): HostRecord =
-        HostRecord(keys.next(), screen, isRoot = true, showsTabs = false, presenter = presenters.create(screen, Navigator.NoOp))
+        HostRecord(
+            keys.next(),
+            screen,
+            isRoot = true,
+            showsTabs = false,
+            presenter = presenters.create(screen, Navigator.NoOp),
+            presenters = presenters,
+        )
 
     /** Anything but the open app drops the tabs' screens, as the Compose shell does: coming back starts from the feed. */
     private fun closeTabs() {
@@ -181,6 +191,18 @@ internal constructor(
         RunRecords(all.toImmutableList(), running.toImmutableList())
     }
 }
+
+/**
+ * A [SessionHost] over [factories] and [subFactories], with no recording to recover and no requests, for a test outside this module that
+ * runs real presenters through it; the app's comes from its session graph. Not exported to Swift, as [appHostOf] isn't.
+ */
+fun sessionHostOf(
+    session: OAuthSession,
+    factories: Set<Presenter.Factory>,
+    subFactories: Set<SubPresenterFactory>,
+    steps: SessionSteps,
+): SessionHost =
+    SessionHost(session, factories, subFactories, SessionRunner(steps), { false }, RecordScreenRequests(), AccountScreenRequests())
 
 /** Whether an unfinished recording of an account's should be shown when its session opens. */
 fun interface RecordingRecovery {

@@ -134,6 +134,8 @@ kotlin {
         jvmMain.dependencies { implementation(libs.maplibre.compose) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
         jvmTest.dependencies {
+            // FeedFilterThroughHostTest runs the real filter bar over the shared session fixture.
+            implementation(projects.appCommonPresenterTesting)
             implementation(projects.appFixtures)
             // LoginThroughHostTest runs the real sign-in presenter through the presenter host.
             implementation(libs.kermit)
