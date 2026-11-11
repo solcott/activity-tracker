@@ -22,15 +22,15 @@
 
 ## 5. The whole change together
 
-- [ ] 5.1 Run `./gradlew format`, `./gradlew check` and `./gradlew -p build-logic :convention:test`. Verify all pass, with no Android screenshot reference changed.
-- [ ] 5.2 Run the Swift tests (`xcodebuild test`) on an iOS 26.0 and an iOS 18.4 simulator. Verify they pass, snapshots compared on 26.0 and skipped on 18.4.
-- [ ] 5.3 Build the Debug and the Release configurations for the simulator. Verify both succeed and pass the stub check, and the stub report lists nothing new from `PresenterHost` or `:feature-feedfilter-api`.
+- [x] 5.1 Run `./gradlew format`, `./gradlew check` and `./gradlew -p build-logic :convention:test`. Verify all pass, with no Android screenshot reference changed.
+- [x] 5.2 Run the Swift tests (`xcodebuild test`) on an iOS 26.0 and an iOS 18.4 simulator. Verify they pass, snapshots compared on 26.0 and skipped on 18.4.
+- [x] 5.3 Build the Debug and the Release configurations for the simulator. Verify both succeed and pass the stub check, and the stub report lists nothing new from `PresenterHost` or `:feature-feedfilter-api`.
 
 ## 6. Docs
 
-- [ ] 6.1 The roadmap: a Phases item 4 bullet, "Phase 4 findings (host sub-screens)", the open items (the Feed's blocker, the equal filter screen). Verify `openspec validate ios-host-subcircuits --strict` passes.
-- [ ] 6.2 `.agents/rules/compose-screens.md` (the host's sub-screens, `SubScreenView`, closing a sheet's sub-record). Verify `scripts/check-agent-sync.sh` and `scripts/check-public-safety.sh` pass.
-- [ ] 6.3 A "Not verified" section listing what wasn't seen and why.
+- [x] 6.1 The roadmap: a Phases item 4 bullet, "Phase 4 findings (host sub-screens)", the open items (the Feed's blocker, the equal filter screen). Verify `openspec validate ios-host-subcircuits --strict` passes.
+- [x] 6.2 `.agents/rules/compose-screens.md` (the host's sub-screens, `SubScreenView`, closing a sheet's sub-record). Verify `scripts/check-agent-sync.sh` and `scripts/check-public-safety.sh` pass.
+- [x] 6.3 A "Not verified" section listing what wasn't seen and why.
 
 ## Order
 
@@ -66,3 +66,12 @@ On `Host Subs iPhone 17` (iOS 26.0), throwaway Kotlin (a `SessionHost` from `ses
 - **The feed's outside Clear**: that it leaves the bar's chips unchanged was read from `FeedPresenter`, not seen; it is the same in both
   UIs and for the feed change to fix.
 - **VoiceOver** on the bar's chips and marks.
+
+## Results (5)
+
+- `./gradlew check` passed (after `SessionHost`'s constructor took a `LongParameterList` note), with no Android screenshot reference
+  changed; `./gradlew -p build-logic :convention:test` passed.
+- Swift tests: 281 tests in 49 suites passed on `Host Subs iPhone 17` (iOS 26.0), snapshots compared, and on `Host Subs iPhone 16 Pro`
+  (iOS 18.4), snapshots skipped.
+- Debug (with the tests) and Release simulator builds succeeded and passed `checkSwiftExportStubs`; the stub report names nothing from
+  `PresenterHost` or `:feature-feedfilter-api`.
