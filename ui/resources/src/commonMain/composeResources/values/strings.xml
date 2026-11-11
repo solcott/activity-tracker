@@ -939,6 +939,7 @@
     <string name="edit_profile_height_cm">Height (cm)</string>
     <string name="edit_profile_height_ft">Height (ft)</string>
     <string name="edit_profile_height_in">(in)</string>
+    <string name="edit_profile_height_in_row">Height (in)</string>
     <string name="edit_profile_clear">Clear</string>
     <string name="edit_profile_not_set">Not set</string>
     <string name="edit_profile_now_hidden">%1$s: public until now. Hiding removes it from your profile, but anyone may already have a copy.</string>
