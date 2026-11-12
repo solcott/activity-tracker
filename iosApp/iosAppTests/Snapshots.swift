@@ -26,6 +26,37 @@ nonisolated enum Snapshots {
 
     /// An iPhone's width and height in points, for a whole screen.
     static let screen = CGSize(width: 393, height: 852)
+
+    /// The most times a view is drawn waiting for two draws in a row to agree.
+    static let settleDraws = 6
+}
+
+extension Snapshotting where Value == UIViewController, Format == UIImage {
+    /// The key window's drawing of a controller, as the library's `.image(drawHierarchyInKeyWindow: true)` makes it, drawn again until
+    /// two draws in a row are the same (at most `Snapshots.settleDraws`), and compared as the library compares that strategy's images.
+    ///
+    /// One draw straight after the view is laid out can catch what the system renders on its own time, half done: the glass and soft
+    /// scroll edge under a bar on iOS 26 blur a backdrop the render server captures apart from the draw, and while a full test run keeps
+    /// the process busy that backdrop can lag the first draw, so a comparison failed only under a full run's load (dev/ios-snapshot-tests).
+    /// The draws are synchronous, with a short pause between them and no turn of the run loop, so no other test runs in between and
+    /// changes the key window.
+    static func settledImage(precision: Float, perceptualPrecision: Float, size: CGSize, traits: UITraitCollection) -> Snapshotting {
+        let base = Snapshotting.image(
+            drawHierarchyInKeyWindow: true, precision: precision, perceptualPrecision: perceptualPrecision, size: size, traits: traits)
+        return Snapshotting(pathExtension: base.pathExtension, diffing: base.diffing, asyncSnapshot: { controller in
+            var last: UIImage?
+            for _ in 0..<Snapshots.settleDraws {
+                var drawn: UIImage?
+                base.snapshot(controller).run { drawn = $0 }
+                // A draw the library finishes later (a web view's) isn't one this app has: leave it to the library.
+                guard let image = drawn else { return base.snapshot(controller) }
+                if let last, last.pngData() == image.pngData() { return Async(value: image) }
+                last = image
+                usleep(50_000)
+            }
+            return Async(value: last!)
+        })
+    }
 }
 
 /// Compares `view`, drawn at `size` in the light and the dark appearance, with its two references. A missing reference is recorded and
@@ -52,8 +83,7 @@ func assertAppSnapshot(
         assertSnapshot(
             of: controller,
             // Drawn in the app's window, where lists and materials look as they do on screen; off screen a list's rows draw apart.
-            as: .image(
-                drawHierarchyInKeyWindow: true, precision: precision, perceptualPrecision: 0.98, size: size, traits: traits),
+            as: .settledImage(precision: precision, perceptualPrecision: 0.98, size: size, traits: traits),
             named: "\(name).\(appearance)", fileID: fileID, file: filePath, testName: testName, line: line, column: column)
     }
 }
