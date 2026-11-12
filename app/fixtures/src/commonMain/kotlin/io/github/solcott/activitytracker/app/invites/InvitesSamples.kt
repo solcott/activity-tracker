@@ -125,6 +125,18 @@ object AcceptInviteSamples {
                 SampleKind.REFRESH_FAILED to AcceptInviteState(content = ContentStates.refreshFailed(fakeInvite())),
                 "overlapping" to overlapping,
             )
+
+    /** Accepting: the form held and the button saying so. */
+    val accepting: AcceptInviteState
+        get() = state(fakeInvite()).copy(accepting = true)
+
+    /** Accepting failed because the session must sign in again. */
+    val signInAgain: AcceptInviteState
+        get() = state(fakeInvite()).copy(error = UiError(UiError.Kind.SignInAgain), canDecline = false)
+
+    /** Every shared sample and the native page's own, for its previews and snapshots. */
+    val variants: Map<String, AcceptInviteState>
+        get() = all + mapOf("accepting" to accepting, "signInAgain" to signInAgain)
 }
 
 object AddPeopleSamples {
