@@ -18,18 +18,13 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_changes
 import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_choice
 import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_discard
-import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_export
-import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_import
-import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_intro
-import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_recording
 import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_rejoin
 import io.github.solcott.activitytracker.composeApp.resources.left_elsewhere_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The athlete left Activity Tracker on another device, and this one holds work for the account: discard it, or rejoin (auth/leaving). */
@@ -48,13 +43,8 @@ fun LeftElsewhereUi(state: LeftElsewhereState, modifier: Modifier = Modifier) {
                     return@Column
                 }
                 val body = MaterialTheme.typography.bodyMedium
-                Text(stringResource(Res.string.left_elsewhere_intro, state.handle), style = body)
-                if (state.changes > 0) {
-                    Text(pluralStringResource(Res.plurals.left_elsewhere_changes, state.changes, state.changes), style = body)
-                }
-                if (state.importSaving) Text(stringResource(Res.string.left_elsewhere_import), style = body)
-                if (state.exportPending) Text(stringResource(Res.string.left_elsewhere_export), style = body)
-                if (state.recording) Text(stringResource(Res.string.left_elsewhere_recording), style = body)
+                Text(LeftElsewhereTexts.intro(state).string(), style = body)
+                LeftElsewhereTexts.lines(state).forEach { Text(it.string(), style = body) }
                 Text(stringResource(Res.string.left_elsewhere_choice), style = body)
                 state.error?.let { ErrorText(it, style = body) }
                 if (state.busy) AppProgressIndicator(small = true)
