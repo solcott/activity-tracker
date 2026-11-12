@@ -1005,6 +1005,7 @@
     <string name="segment_browse_no_results_here">No segments here match “%1$s”.</string>
     <string name="segment_browse_search_everywhere">Search everywhere</string>
     <string name="segment_browse_away">%1$s away</string>
+    <string name="segment_browse_details">%1$s · %2$s</string>
 
     <!-- Record / manual entry -->
     <string name="record_title">Record</string>
