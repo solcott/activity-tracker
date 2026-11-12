@@ -11,10 +11,14 @@ import io.github.solcott.activitytracker.app.detail.FigureTexts
 import io.github.solcott.activitytracker.app.detail.FigureUnit
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.GasMix
+import io.github.solcott.activitytracker.app.detail.LapRow
+import io.github.solcott.activitytracker.app.detail.LapTableTexts
 import io.github.solcott.activitytracker.app.detail.PaceKind
 import io.github.solcott.activitytracker.app.detail.StatsGroupKind
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.detail.StreamUnits
+import io.github.solcott.activitytracker.app.detail.ZoneRows
+import io.github.solcott.activitytracker.app.detail.ZoneTime
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
@@ -182,7 +186,28 @@ class SharedTextNamesTest {
                 listOf(FigureTexts.avgMaxHeading, FigureTexts.avgColumn, FigureTexts.minColumn, FigureTexts.maxColumn) +
                 listOf(FigureTexts.allStats, FigureTexts.trainingLoad, AppText.named("chart_pace")) +
                 listOf(DecoModel.VPM_B, DecoModel.VPM_B_GFS, DecoModel.DCIEM).map(DiveText::decoModel) +
-                listOf(WaterType.FRESH, WaterType.EN13319, WaterType.CUSTOM).mapNotNull(DiveText::water)
+                listOf(WaterType.FRESH, WaterType.EN13319, WaterType.CUSTOM).mapNotNull(DiveText::water) +
+                listOf(DetailSection.HeartRate, DetailSection.Power).flatMap { section ->
+                    ZoneRows.of(
+                            listOf(
+                                ZoneTime("1", ZoneName.entries.first(), 100, 120, 60),
+                                ZoneTime("2", ZoneName.entries.first(), 120, null, 60),
+                            ),
+                            section,
+                        )
+                        .flatMap { listOf(it.label, it.range) } + ZoneRows.heading(section)
+                } +
+                listOf(ZoneRows.missing, ZoneRows.setThresholds) +
+                UnitSystem.entries.flatMap { units ->
+                    listOf(false, true).flatMap { ski ->
+                        val laps =
+                            listOf(
+                                LapRow(1, 60, null, 1.0, 10.0, 140, 200, 80, 10.0, intensity = "warmup", descent = 5.0),
+                                LapRow(2, 60, null, 1.0, 10.0, 140, null, 80, 10.0, intensity = "rest"),
+                            )
+                        LapTableTexts.of(laps, ski, units).let { table -> table.headers + table.rows.flatMap { it.cells + it.spoken } }
+                    }
+                }
         assertAllExist(texts)
     }
 

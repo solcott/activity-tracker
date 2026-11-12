@@ -1555,6 +1555,7 @@
     <string name="detail_section_legs">Legs</string>
     <string name="table_rest">Rest</string>
     <string name="table_row_description">%1$s: %2$s</string>
+    <string name="table_cell_description">%1$s %2$s</string>
     <string name="length_number">Length</string>
     <string name="length_stroke">Stroke</string>
     <string name="length_strokes">Strokes</string>

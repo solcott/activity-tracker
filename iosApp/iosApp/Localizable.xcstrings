@@ -21759,6 +21759,17 @@
         }
       }
     },
+    "table_cell_description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "table_rest" : {
       "extractionState" : "manual",
       "localizations" : {

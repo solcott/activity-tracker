@@ -18,8 +18,9 @@ import kotlinx.collections.immutable.toImmutableList
 /**
  * What a line chart shows, chosen once for every UI (dev/shared-display-text): its [points] (sorted by x, at least two), across [xMin] to
  * [xMax], on the y [axis] with a labelled gridline at each of [yTicks], labels along the bottom at [xTicks], the text read out for each
- * point ([readouts], one per point), the [description] assistive technology reads, and the [bands] it is tinted by along its width (empty
- * when it isn't). A UI only lays it out.
+ * point ([readouts], one per point), the [description] assistive technology reads, the [bands] it is tinted by along its width (empty when
+ * it isn't), and its [average], marked by a dashed line, where it has one. A chart drawn with its larger values lower (a pace, the faster
+ * at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the values unnegated. A UI only lays it out.
  */
 @Immutable
 @Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.
@@ -33,6 +34,7 @@ class LineChart(
     val readouts: ImmutableList<AppText>,
     val description: AppText,
     val bands: ImmutableList<BandStop> = persistentListOf(),
+    val average: Double? = null,
 ) {
     init {
         require(points.size >= 2) { "a line needs two points" }
@@ -84,6 +86,7 @@ class LineChart(
             description: AppText,
             bands: List<BandStop> = emptyList(),
             axis: ChartAxis = ChartAxis.of(points.map { it.y }),
+            average: Double? = null,
         ): LineChart =
             LineChart(
                 points = points.toImmutableList(),
@@ -95,6 +98,7 @@ class LineChart(
                 readouts = readouts.toImmutableList(),
                 description = description,
                 bands = bands.toImmutableList(),
+                average = average,
             )
 
         private const val TICK_MATCH = 1e-6

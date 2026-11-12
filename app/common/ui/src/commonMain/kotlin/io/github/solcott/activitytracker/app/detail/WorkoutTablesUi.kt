@@ -162,7 +162,6 @@ internal fun exerciseLabel(row: SetRow): String {
 }
 
 /** A token as words: "single_arm_cable_row" is "Single arm cable row", "warmUp" is "Warm up". */
-internal fun readableToken(token: String): String =
-    token.replace(Regex("([a-z0-9])([A-Z])"), "$1 $2").replace('_', ' ').trim().lowercase().replaceFirstChar { it.uppercase() }
+internal fun readableToken(token: String): String = LapTableTexts.readableToken(token)
 
 private val ROW_NUMBER_WIDTH = 56.dp

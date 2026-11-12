@@ -8,9 +8,6 @@ import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.chart_description
-import io.github.solcott.activitytracker.composeApp.resources.chart_description_max
-import io.github.solcott.activitytracker.composeApp.resources.chart_description_pace
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker_elevation
 import io.github.solcott.activitytracker.data.units.formatDecimal
@@ -53,28 +50,19 @@ internal fun paceUnit(kind: PaceKind): StreamUnit {
 // A paced sport's speed reads as pace, drawn inverted so the faster (lower) pace is at the top.
 @Composable internal fun lineUnit(kind: StreamKind, pace: PaceKind?): StreamUnit = pace?.let { paceUnit(it) } ?: streamUnit(kind)
 
-@Composable
-internal fun lineTitle(kind: StreamKind, pace: PaceKind?): String =
-    (if (pace != null) AppText.named("chart_pace") else StreamUnits.title(kind)).string()
+@Composable internal fun lineTitle(kind: StreamKind, pace: PaceKind?): String = CardLines.title(kind, pace).string()
 
-/**
- * What a line's chart shows, for a screen reader: a pace's fastest is its best, not its maximum. A line without an average gives its
- * maximum.
- */
+/** What a line's chart shows, for a screen reader ([CardLines.description]). */
 @Composable
 internal fun lineDescription(title: String, average: String?, max: String, pace: PaceKind?): String =
-    when {
-        pace != null -> stringResource(Res.string.chart_description_pace, average.orEmpty(), max)
-        average == null -> stringResource(Res.string.chart_description_max, title, max)
-        else -> stringResource(Res.string.chart_description, title, average, max)
-    }
+    CardLines.description(AppText.written(title), average?.let(AppText::written), AppText.written(max), pace).string()
 
 /** A pace line's cap, [PACE_CEILING] times its average, so stops don't dwarf the rest; none for other lines. */
 internal fun paceCeiling(series: LineSeries, unit: StreamUnit, pace: PaceKind?): Double =
     series.average?.takeIf { pace != null }?.let { unit.convert(it) * PACE_CEILING } ?: Double.MAX_VALUE
 
 /** How much slower than its average a pace chart goes: past it, a stop would flatten the rest of the line. */
-internal const val PACE_CEILING = 1.5
+internal const val PACE_CEILING = CardLines.PACE_CEILING
 
 /** The marker's text: the time and [value], then the elevation there when the chart has it [behind]. */
 @Composable
