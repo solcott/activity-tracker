@@ -89,6 +89,11 @@ extension ScreenRegistry {
 
         // The feed (ios-native-feed), the Feed tab's root, with the native filter bar, activity, import and post cards.
         registry.register(FeedScreen.self, FeedState.self) { state in FeedPage(state: state) }
+
+        // Search (ios-native-search): the Search tab's root, with the shared segment browse embedded in Segments mode, and the choice
+        // after leaving on another device, shown in place of the app.
+        registry.register(AthleteSearchScreen.self, AthleteSearchState.self) { state in AthleteSearchView(state: state) }
+        registry.register(LeftElsewhereScreen.self, LeftElsewhereState.self) { state in LeftElsewhereView(state: state) }
         return registry
     }()
 }
