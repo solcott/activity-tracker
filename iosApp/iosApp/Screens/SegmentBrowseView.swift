@@ -57,7 +57,10 @@ struct SegmentBrowseView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AppTextField(label: SegmentBrowseTexts.shared.searchLabel, model: query, state: state.query)
+            AppTextField(
+                label: SegmentBrowseTexts.shared.searchLabel, model: query, state: state.query,
+                // A name is searched as typed, as the athlete search's field: no capitals or corrections put in.
+                options: TextFieldOptions(capitalization: .never, autocorrection: false, submitLabel: .search))
             if state.offersScope {
                 Picker(selection: Binding(get: { state.scope }, set: { send(SegmentBrowseEvent.ScopeChanged(scope: $0)) })) {
                     ForEach(NameScope.allCases, id: \.self) { scope in
