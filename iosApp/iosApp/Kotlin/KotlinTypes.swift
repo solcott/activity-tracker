@@ -5,6 +5,7 @@ import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import ComSlackCircuitCircuitxSubcircuit
 import CoreTextfield
+import FeatureDetailApi
 import FeatureDivesiteApi
 import FeatureFeedApi
 import FeatureFeedfilterApi
