@@ -4,7 +4,7 @@ import UIKit
 
 /// A line chart drawn with Swift Charts from Kotlin's `LineChart` (`:app-common-api`), the value the shared chart draws too: its points
 /// over its x range, the line filled beneath, the y axis Kotlin chose with a labelled gridline at each step, Kotlin's labels along the
-/// bottom, no line or fill across a gap, and the bands it is tinted by (an elevation profile's grade, `GradeColors`). Tapping or dragging
+/// bottom, no line or fill across a gap, its average dashed where it has one, and the bands it is tinted by (an elevation profile's grade, `GradeColors`). Tapping or dragging
 /// sideways across it marks the nearest point and shows Kotlin's readout for it over the chart, staying where the finger left it; a
 /// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`, through a UIKit pan that begins only sideways, since a
 /// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
@@ -41,6 +41,12 @@ struct LineChartView: View {
                         .foregroundStyle(style.line)
                         .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
+            }
+            // The average, dashed across the chart, where the chart has one (an activity card's line).
+            if let average = chart.average {
+                RuleMark(y: .value("y", average))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
             }
             // The bottom axis's line, which the shared chart draws as its baseline.
             RuleMark(y: .value("y", axis.min)).foregroundStyle(Color(.separator)).lineStyle(StrokeStyle(lineWidth: 1))

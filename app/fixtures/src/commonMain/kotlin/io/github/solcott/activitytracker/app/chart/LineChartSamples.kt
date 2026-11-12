@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.app.chart
 
+import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
+import io.github.solcott.activitytracker.app.detail.CardLines
 import io.github.solcott.activitytracker.app.segment.SegmentSamples
 import io.github.solcott.activitytracker.app.segment.chart
 import io.github.solcott.activitytracker.app.text.AppText
@@ -34,6 +36,17 @@ object LineChartSamples {
     /** The climbing segment's profile in metric units, tinted by grade. */
     val profile: LineChart
         get() = checkNotNull(SegmentSamples.elevation.profile).chart(UnitSystem.Metric)
+
+    /** The sample run's pace line, as its card charts it: inverted, the faster pace at the top, its average dashed. */
+    val pace: LineChart
+        get() {
+            val card = ActivityDetailSamples.runPace
+            return checkNotNull(CardLines.chart(card.series.first(), 3_600, card.pace, UnitSystem.Metric))
+        }
+
+    /** The sample ride's heart rate line, as its card charts it, its average dashed. */
+    val heartRate: LineChart
+        get() = CardLines.of(ActivityDetailSamples.rideHeartRate, ActivityDetailSamples.rideCharts, UnitSystem.Metric).first().chart
 
     private const val SAMPLE_SECONDS = 30.0
     private const val GAP_AT = 31

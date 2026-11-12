@@ -257,6 +257,14 @@
             }
         }
 
+        /// An activity card's lines: a run's pace with the faster pace at the top, and a ride's heart rate, each its average dashed.
+        static var activityCharts: some View {
+            List {
+                LineChartView(chart: Samples.paceChart)
+                LineChartView(chart: Samples.heartRateChart, selected: 20)
+            }
+        }
+
         static var icons: some View {
             VStack(alignment: .leading, spacing: 16) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
@@ -372,6 +380,7 @@
     }
     #Preview("Cards") { DesignGallery.cards }
     #Preview("Charts") { DesignGallery.charts }
+    #Preview("Activity charts") { DesignGallery.activityCharts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
     #Preview("Content") {
