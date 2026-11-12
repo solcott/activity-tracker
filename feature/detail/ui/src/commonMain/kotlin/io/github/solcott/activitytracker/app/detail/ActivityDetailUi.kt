@@ -42,8 +42,6 @@ import io.github.solcott.activitytracker.app.interactions.LikersList
 import io.github.solcott.activitytracker.app.interactions.LoadMoreNearTheEnd
 import io.github.solcott.activitytracker.app.interactions.comments
 import io.github.solcott.activitytracker.app.media.mediaItems
-import io.github.solcott.activitytracker.app.moderation.Revealed
-import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityMap
@@ -56,7 +54,6 @@ import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -71,28 +68,13 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_dive_site_created
-import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
-import io.github.solcott.activitytracker.composeApp.resources.detail_like
-import io.github.solcott.activitytracker.composeApp.resources.detail_liked
-import io.github.solcott.activitytracker.composeApp.resources.detail_more
-import io.github.solcott.activitytracker.composeApp.resources.detail_segment_created
-import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
-import io.github.solcott.activitytracker.composeApp.resources.detail_title
-import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
-import io.github.solcott.activitytracker.composeApp.resources.like_count
-import io.github.solcott.activitytracker.composeApp.resources.report_activity
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
-import io.github.solcott.activitytracker.data.moderation.ReportTarget
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -102,22 +84,13 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(Res.string.detail_title),
+                title = ActivityPageTexts.title.string(),
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
                     val loaded = state.content.data
-                    loaded?.manage?.let {
-                        ManageMenu(
-                            it,
-                            loaded.canHideRouteEnds,
-                            loaded.export,
-                            loaded.eventSink,
-                            canCreateSegment = loaded.canCreateSegment,
-                            canCreateDiveSite = loaded.canCreateDiveSite,
-                        )
-                    }
-                    if (loaded != null && !loaded.isOwn && loaded.reporting.available) OthersActivityMenu(loaded)
+                    loaded?.let { ManageMenu(it) }
+                    if (loaded != null && ActivityPageTexts.offersReport(loaded)) OthersActivityMenu(loaded)
                 },
             )
         },
@@ -134,20 +107,14 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
 @Composable
 private fun OthersActivityMenu(state: ActivityDetailPage) {
     var open by remember { mutableStateOf(false) }
-    val report = stringResource(Res.string.report_activity)
-    val activity = state.activity
-    val name = shownNameLabel(activity.author)
+    val report = ActivityPageTexts.report.string()
+    val name = shownNameLabel(state.activity.author)
     val items =
-        remember(report, activity.uri, activity.cid, name) {
-            persistentListOf(
-                AppMenuItem(report) {
-                    val target = ReportTarget.Activity(activity.uri, activity.cid, activity.author.did)
-                    state.reporting.eventSink(ReportingEvent.Open(target, name))
-                },
-            )
+        remember(report, state, name) {
+            persistentListOf(AppMenuItem(report) { ActivityPageTexts.reportEvent(state, name)?.let(state.reporting.eventSink) })
         }
     Box {
-        AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true })
+        AppIconButton(AppIcon.More, ActivityPageTexts.more.string(), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
 }
@@ -170,10 +137,12 @@ private fun LoadedContent(
     }
     val activity = state.activity
     val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
-    val hiddenKey = Revealed.hiddenKey(activity.uri.value)
-    if (decision == ModerationDecision.Hidden && hiddenKey !in state.revealed) {
+    if (ActivityPageTexts.waitsHidden(state)) {
         // Opened by URI: lists never show it, so the page waits behind a warning.
-        HiddenCard(onShow = { state.revealed.eventSink(hiddenKey) }, modifier.padding(contentPadding).padding(16.dp))
+        HiddenCard(
+            onShow = { state.revealed.eventSink(ActivityPageTexts.hiddenKey(state)) },
+            modifier.padding(contentPadding).padding(16.dp),
+        )
         return
     }
     WithWindowWidth(modifier.fillMaxSize()) { width ->
@@ -336,12 +305,12 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
             VisibilityBadge(state.activity.visibilityOrPublic)
         }
         StartLine(state.page.start)
-        Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
-        if (record.title != null) {
+        Text(ActivityPageTexts.heading(activity).string(), style = MaterialTheme.typography.headlineSmall)
+        ActivityPageTexts.typeLine(activity)?.let { type ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 ActivityTypeIcon(record.activityType, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    activityTypeLabel(record.activityType),
+                    type.string(),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -364,9 +333,7 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
         state.combineSuggestion?.takeIf { !it.asPrompt }?.let { CombineSuggestionBanner(it, state.eventSink) }
         state.manage?.error?.let { ErrorText(it) }
         state.routeError?.let { ErrorText(it) }
-        if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
-        if (state.segmentCreated) Text(stringResource(Res.string.detail_segment_created), style = MaterialTheme.typography.bodySmall)
-        if (state.diveSiteCreated) Text(stringResource(Res.string.detail_dive_site_created), style = MaterialTheme.typography.bodySmall)
+        ActivityPageTexts.notices(state).forEach { Text(it.string(), style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -412,9 +379,9 @@ private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(state, Modifier.weight(1f))
             // Hiding stays available if the last like goes away while the list is open.
-            if (state.activity.likeCount > 0 || state.likesList != null) {
+            if (ActivityPageTexts.showsLikesToggle(state)) {
                 AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLikesList) }) {
-                    Text(stringResource(if (state.likesList != null) Res.string.detail_hide_likes else Res.string.detail_show_likes))
+                    Text(ActivityPageTexts.likesToggle(shown = state.likesList != null).string())
                 }
             }
         }
@@ -427,16 +394,11 @@ private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
 private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val count = state.activity.likeCount
     if (state.isOwn) {
-        Text(pluralStringResource(Res.plurals.like_count, count.toInt(), formatWhole(count)), modifier.padding(vertical = 12.dp))
+        Text(ActivityPageTexts.likeCount(state.activity).string(), modifier.padding(vertical = 12.dp))
     } else {
         Box(modifier) {
             AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLike) }) {
-                Text(
-                    stringResource(
-                        if (state.activity.viewer?.like != null) Res.string.detail_liked else Res.string.detail_like,
-                        count,
-                    ),
-                )
+                Text(ActivityPageTexts.likeButton(state.activity).string())
             }
         }
     }

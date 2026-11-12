@@ -16,14 +16,7 @@ import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_add_people
-import io.github.solcott.activitytracker.composeApp.resources.detail_group_leave
-import io.github.solcott.activitytracker.composeApp.resources.detail_group_left
-import io.github.solcott.activitytracker.composeApp.resources.detail_group_rejoin
-import io.github.solcott.activitytracker.composeApp.resources.detail_leave_copy_group
-import io.github.solcott.activitytracker.composeApp.resources.detail_together_with
-import org.jetbrains.compose.resources.stringResource
+import io.github.solcott.activitytracker.app.ui.string
 
 /**
  * The athletes this activity was done together with (feed/group-activities), each opening their activity, and on the owner's page Leave
@@ -36,7 +29,7 @@ internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifi
     if (!state.showsGroup) return
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (state.partners.isNotEmpty()) {
-            Text(stringResource(Res.string.detail_together_with), style = MaterialTheme.typography.titleMedium)
+            Text(ActivityPageTexts.togetherWith.string(), style = MaterialTheme.typography.titleMedium)
             state.partners.forEach { partner ->
                 val name = partner.author.shownName
                 Row(
@@ -52,25 +45,23 @@ internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifi
             }
         }
         if (own != null) {
-            if (own.left) Text(stringResource(Res.string.detail_group_left), style = MaterialTheme.typography.bodySmall)
+            if (own.left) Text(ActivityPageTexts.groupLeft.string(), style = MaterialTheme.typography.bodySmall)
             AppTextButton(
-                onClick = { state.eventSink(if (own.left) ActivityDetailEvent.RejoinGroup else ActivityDetailEvent.LeaveGroup) },
+                onClick = { state.eventSink(ActivityPageTexts.groupEvent(own)) },
                 enabled = !own.busy,
             ) {
-                Text(stringResource(if (own.left) Res.string.detail_group_rejoin else Res.string.detail_group_leave))
+                Text(ActivityPageTexts.groupButton(own).string())
             }
             own.error?.let { ErrorText(it) }
         }
         if (state.isOwnCopy) {
             AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.LeaveCopyGroup) }, enabled = !state.leavingCopyGroup) {
-                Text(stringResource(Res.string.detail_leave_copy_group))
+                Text(ActivityPageTexts.leaveCopyGroup.string())
             }
             state.copyGroupError?.let { ErrorText(it) }
         }
         if (state.canAddPeople) {
-            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.AddPeople) }) {
-                Text(stringResource(Res.string.detail_add_people))
-            }
+            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.AddPeople) }) { Text(ActivityPageTexts.addPeople.string()) }
         }
     }
 }

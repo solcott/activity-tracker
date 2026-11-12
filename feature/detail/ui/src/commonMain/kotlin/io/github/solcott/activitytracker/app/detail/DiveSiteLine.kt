@@ -4,9 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import io.github.solcott.activitytracker.app.segment.segmentStatusLabel
 import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.string
 
 /**
  * The dive's site on its page (dive-sites/site-visits): the site it visits, by its current name and its status unless active, opening the
@@ -14,14 +14,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
  */
 @Composable
 internal fun DiveSiteLine(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    val visited = state.activity.diveSite
-    if (visited != null) {
-        val status = segmentStatusLabel(visited.status)
-        DiveSite(
-            if (status == null) visited.name else "${visited.name} · $status",
-            modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenDiveSite) }.handCursor(),
-        )
+    val site = ActivityPageTexts.diveSite(state.activity)?.string() ?: return
+    if (ActivityPageTexts.opensDiveSite(state.activity)) {
+        DiveSite(site, modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenDiveSite) }.handCursor())
     } else {
-        state.activity.record.dive?.site?.let { DiveSite(it, modifier) }
+        DiveSite(site, modifier)
     }
 }
