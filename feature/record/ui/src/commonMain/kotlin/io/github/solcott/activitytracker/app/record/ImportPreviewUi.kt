@@ -24,13 +24,9 @@ import io.github.solcott.activitytracker.app.detail.TrainingLoadCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.import_adding_to
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_untitled
-import io.github.solcott.activitytracker.composeApp.resources.import_too_far
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import kotlinx.collections.immutable.ImmutableList
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * What the activity's page will show once saved, read-only: the file, then the notices that change what shows (its time zone, a duplicate),
@@ -96,15 +92,11 @@ private val TABLE_SECTIONS = setOf(DetailSection.Laps, DetailSection.Legs, Detai
 /** The activity a recording is added to, and why it can't be when the file starts too far from it. */
 @Composable
 private fun AddingTo(target: ExistingActivityPreview, tooFar: Boolean, modifier: Modifier = Modifier) {
-    val title = target.title ?: stringResource(Res.string.import_duplicate_untitled)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            stringResource(Res.string.import_adding_to, listOfNotNull(title, target.start, target.device).joinToString(" · ")),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Text(ImportActivityTexts.addingTo(target).string(), style = MaterialTheme.typography.bodyMedium)
         if (tooFar) {
             Text(
-                stringResource(Res.string.import_too_far),
+                ImportActivityTexts.tooFar.string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )

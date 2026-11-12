@@ -26,7 +26,6 @@ import io.github.solcott.activitytracker.app.detail.ITEM_GAP
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -39,45 +38,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
-import io.github.solcott.activitytracker.composeApp.resources.default_title_afternoon
-import io.github.solcott.activitytracker.composeApp.resources.default_title_evening
-import io.github.solcott.activitytracker.composeApp.resources.default_title_morning
-import io.github.solcott.activitytracker.composeApp.resources.default_title_night
-import io.github.solcott.activitytracker.composeApp.resources.import_add_recording_title
-import io.github.solcott.activitytracker.composeApp.resources.import_hint
-import io.github.solcott.activitytracker.composeApp.resources.import_original_too_large
-import io.github.solcott.activitytracker.composeApp.resources.import_pick
-import io.github.solcott.activitytracker.composeApp.resources.import_pick_another
-import io.github.solcott.activitytracker.composeApp.resources.import_reading
-import io.github.solcott.activitytracker.composeApp.resources.import_reading_progress
-import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change
-import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change_sport
-import io.github.solcott.activitytracker.composeApp.resources.import_thresholds_heading
-import io.github.solcott.activitytracker.composeApp.resources.import_title
-import io.github.solcott.activitytracker.composeApp.resources.threshold_ftp
-import io.github.solcott.activitytracker.composeApp.resources.threshold_max_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.threshold_resting_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.threshold_threshold_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
-import io.github.solcott.activitytracker.composeApp.resources.unit_watts
-import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
-import io.github.solcott.activitytracker.data.units.formatWhole
-import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
@@ -104,12 +74,12 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 AppTopBar(
-                    title = stringResource(if (state.addsRecording) Res.string.import_add_recording_title else Res.string.import_title),
+                    title = ImportActivityTexts.title(state.addsRecording).string(),
                     onBack = { state.eventSink(ImportActivityEvent.Back) },
                     scrollBehavior = scrollBehavior,
                     actions = {
                         if (pinnedSave && ios) {
-                            AppTextButton(onClick = save, enabled = state.canSave(preview)) { Text(saveLabel(state)) }
+                            AppTextButton(onClick = save, enabled = state.canSave) { Text(saveLabel(state)) }
                         }
                     },
                 )
@@ -167,22 +137,14 @@ private fun WidePreview(state: ImportActivityState, preview: ImportPreview, padd
 /** Picking files, and how reading them went: progress and Cancel while they're read. */
 @Composable
 internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifier: Modifier = Modifier) {
-    val picked = state.preview != null || state.batch != null
+    val picked = state.picked
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-        if (!picked) Text(stringResource(Res.string.import_hint))
-        AppSecondaryButton(onClick = onPick, enabled = !state.reading && !state.saving) {
-            Text(stringResource(if (picked) Res.string.import_pick_another else Res.string.import_pick))
-        }
+        if (!picked) Text(ImportActivityTexts.hint.string())
+        AppSecondaryButton(onClick = onPick, enabled = !state.reading && !state.saving) { Text(ImportActivityTexts.pick(picked).string()) }
         if (state.reading) {
             AppProgressIndicator()
-            val progress = state.readProgress
-            Text(
-                if (progress == null) stringResource(Res.string.import_reading)
-                else stringResource(Res.string.import_reading_progress, formatWhole(progress.files), formatWhole(progress.activities)),
-            )
-            AppTextButton(onClick = { state.eventSink(ImportActivityEvent.CancelReading) }) {
-                Text(stringResource(Res.string.action_cancel))
-            }
+            Text(ImportActivityTexts.reading(state.readProgress).string())
+            AppTextButton(onClick = { state.eventSink(ImportActivityEvent.CancelReading) }) { Text(ImportActivityTexts.cancel.string()) }
         }
         // Once a file is read, errors are saving's, shown by Save.
         if (!picked) state.error?.let { ErrorText(it) }
@@ -193,7 +155,7 @@ internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifie
             }
         }
         if (picked && state.originalTooLarge) {
-            Text(stringResource(Res.string.import_original_too_large), style = MaterialTheme.typography.bodySmall)
+            Text(ImportActivityTexts.originalTooLarge.string(), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -217,7 +179,7 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         val preview = state.preview
         if (save != null && preview != null) {
             state.error?.let { ErrorText(it) }
-            AppButton(onClick = save, Modifier.fillMaxWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
+            AppButton(onClick = save, Modifier.fillMaxWidth(), enabled = state.canSave) { Text(saveLabel(state)) }
         }
     }
 }
@@ -233,14 +195,12 @@ private fun SaveBar(state: ImportActivityState, preview: ImportPreview, save: ()
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             state.error?.let { ErrorText(it, Modifier.readableWidth()) }
-            AppButton(onClick = save, Modifier.readableWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
+            AppButton(onClick = save, Modifier.readableWidth(), enabled = state.canSave) { Text(saveLabel(state)) }
         }
     }
 }
 
-@Composable
-private fun saveLabel(state: ImportActivityState): String =
-    stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save)
+@Composable private fun saveLabel(state: ImportActivityState): String = ImportActivityTexts.save(state.saving).string()
 
 private val SAVE_PANEL_WIDTH = 380.dp
 private val PREVIEW_MAX_WIDTH = 900.dp
@@ -253,17 +213,13 @@ private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: 
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            stringResource(Res.string.import_thresholds_heading),
+            ImportActivityTexts.thresholdsHeading.string(),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
         changes.forEach { change ->
-            val from = thresholdValue(change.threshold, change.from)
-            val to = thresholdValue(change.threshold, change.to)
             Text(
-                change.sport?.let { sport ->
-                    stringResource(Res.string.import_threshold_change_sport, sportLabel(sport), thresholdLabel(change.threshold), from, to)
-                } ?: stringResource(Res.string.import_threshold_change, thresholdLabel(change.threshold), from, to),
+                ImportActivityTexts.thresholdChange(change).string(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
@@ -271,34 +227,5 @@ private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: 
     }
 }
 
-/** A threshold's value in watts or bpm, or a dash when it wasn't set. */
-@Composable
-private fun thresholdValue(threshold: String, value: Long?): String =
-    when {
-        value == null -> stringResource(Res.string.value_missing)
-        threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.unit_watts, formatWhole(value))
-        else -> stringResource(Res.string.unit_bpm, formatWhole(value))
-    }
-
-@Composable
-private fun thresholdLabel(threshold: String): String =
-    when (threshold) {
-        Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.threshold_ftp)
-        Threshold.MAX_HEART_RATE -> stringResource(Res.string.threshold_max_heart_rate)
-        Threshold.THRESHOLD_HEART_RATE -> stringResource(Res.string.threshold_threshold_heart_rate)
-        Threshold.RESTING_HEART_RATE -> stringResource(Res.string.threshold_resting_heart_rate)
-        else -> threshold
-    }
-
 /** "Morning Mountain Bike Ride". */
-@Composable
-internal fun defaultTitleLabel(title: DefaultTitle): String =
-    stringResource(
-        when (title.partOfDay) {
-            PartOfDay.Morning -> Res.string.default_title_morning
-            PartOfDay.Afternoon -> Res.string.default_title_afternoon
-            PartOfDay.Evening -> Res.string.default_title_evening
-            PartOfDay.Night -> Res.string.default_title_night
-        },
-        activityTypeLabel(title.type),
-    )
+@Composable internal fun defaultTitleLabel(title: DefaultTitle): String = ImportActivityTexts.defaultTitle(title).string()

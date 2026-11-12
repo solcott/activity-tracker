@@ -1771,6 +1771,8 @@
     <string name="combine_explained">Pick another recording of this activity, from a second device or after a break. Your feed then shows them as one activity, and each stays viewable on its own.</string>
     <string name="combine_none">No other activities within 12 hours of this one.</string>
     <string name="combine_row">%1$s · %2$s</string>
+    <!-- A suggested activity: its title, then when it started and how long it lasted in parentheses. -->
+    <string name="combine_suggested_activity">%1$s (%2$s)</string>
 
     <!-- Combine suggestions (feed/combine-suggestions) -->
     <string name="combine_cue_same_activity">Same activity on another device?</string>

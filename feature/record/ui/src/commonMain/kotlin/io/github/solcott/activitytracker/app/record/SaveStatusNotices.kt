@@ -12,26 +12,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.import_saving_progress
-import io.github.solcott.activitytracker.composeApp.resources.import_saving_title
-import io.github.solcott.activitytracker.composeApp.resources.import_stopped
-import io.github.solcott.activitytracker.composeApp.resources.import_stopped_dismiss
-import io.github.solcott.activitytracker.composeApp.resources.import_view_uploads
-import io.github.solcott.activitytracker.data.units.formatWhole
-import org.jetbrains.compose.resources.stringResource
+import io.github.solcott.activitytracker.app.ui.string
 
 /** A batch save under way that this screen didn't start (feed/batch-import): how far it got, and the upload queue. */
 @Composable
 internal fun SavingImportCard(saving: SavingImport, onViewUploads: () -> Unit) {
     AppCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(Res.string.import_saving_title), style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(Res.string.import_saving_progress, formatWhole(saving.progress.queued), formatWhole(saving.progress.total)),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            AppTextButton(onClick = onViewUploads) { Text(stringResource(Res.string.import_view_uploads)) }
+            Text(ImportActivityTexts.savingTitle.string(), style = MaterialTheme.typography.titleMedium)
+            Text(ImportActivityTexts.savingProgress(saving).string(), style = MaterialTheme.typography.bodyMedium)
+            AppTextButton(onClick = onViewUploads) { Text(ImportActivityTexts.viewUploads.string()) }
         }
     }
 }
@@ -44,10 +34,10 @@ internal fun StoppedImportNotice(stopped: StoppedImport, onDismiss: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            stringResource(Res.string.import_stopped, formatWhole(stopped.saved), formatWhole(stopped.total)),
+            ImportActivityTexts.stopped(stopped).string(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onErrorContainer,
         )
-        AppTextButton(onClick = onDismiss) { Text(stringResource(Res.string.import_stopped_dismiss)) }
+        AppTextButton(onClick = onDismiss) { Text(ImportActivityTexts.stoppedDismiss.string()) }
     }
 }

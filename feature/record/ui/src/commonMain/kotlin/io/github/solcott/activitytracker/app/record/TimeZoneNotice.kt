@@ -25,14 +25,9 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.import_time_zone
-import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice
-import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice_file
-import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_option
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Warns that the file's clock has no zone, and lets the athlete pick the one it was recorded in. In a batch, [fileName] says which file.
@@ -47,10 +42,7 @@ fun TimeZoneNotice(
 ) {
     Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val notice =
-                if (fileName == null) stringResource(Res.string.import_time_zone_notice, clock.localStart)
-                else stringResource(Res.string.import_time_zone_notice_file, fileName, clock.localStart)
-            Text(notice, style = MaterialTheme.typography.bodyMedium)
+            Text(ImportActivityTexts.zoneNotice(clock, fileName).string(), style = MaterialTheme.typography.bodyMedium)
             TimeZoneField(clock, onPick, enabled)
         }
     }
@@ -61,24 +53,17 @@ fun TimeZoneNotice(
 @Composable
 private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val selected = zoneLabel(clock.zone)
-    val zones = remember(clock.zones) { clock.zones.map(::ZoneEntry) }
     val query = rememberTextFieldState(selected)
     SideEffect(selected) { query.setTextAndPlaceCursorAtEnd(selected) }
     var expanded by remember { mutableStateOf(false) }
     val typed = query.text.toString()
-    val matches =
-        if (typed == selected) {
-            zones
-        } else {
-            val key = searchKey(typed.trim())
-            zones.filter { key in it.key }
-        }
+    val matches = remember(clock, typed, selected) { if (typed == selected) clock.zones else ImportActivityTexts.zones(clock, typed) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
         AppTextField(
             query,
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled).fillMaxWidth(),
             enabled = enabled,
-            label = stringResource(Res.string.import_time_zone),
+            label = ImportActivityTexts.timeZone.string(),
             trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
             // Typing opens the menu; setting the text from code doesn't.
             inputTransformation = InputTransformation { expanded = true },
@@ -91,7 +76,7 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
                 query.setTextAndPlaceCursorAtEnd(selected)
             },
         ) {
-            matches.forEach { (zone) ->
+            matches.forEach { zone ->
                 val label = zoneLabel(zone)
                 DropdownMenuItem(
                     text = { Text(label) },
@@ -106,14 +91,5 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
     }
 }
 
-/** A zone in [TimeZoneField]'s menu, with the text the search matches folded once rather than per keystroke. */
-private data class ZoneEntry(val zone: TimeZoneOption, val key: String = searchKey("${cityName(zone)} ${zone.offset}"))
-
 /** "America/New York (UTC-04:00)". */
-@Composable private fun zoneLabel(zone: TimeZoneOption) = stringResource(Res.string.import_time_zone_option, cityName(zone), zone.offset)
-
-/** Zone ids spell spaces as underscores. */
-private fun cityName(zone: TimeZoneOption) = zone.id.replace('_', ' ')
-
-/** Folds case, and lets "utc+8" find "UTC+08:00". */
-private fun searchKey(text: String): String = text.lowercase().replace("+0", "+").replace("-0", "-")
+@Composable private fun zoneLabel(zone: TimeZoneOption) = ImportActivityTexts.zone(zone).string()

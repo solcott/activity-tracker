@@ -32,38 +32,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.after_import_done
-import io.github.solcott.activitytracker.composeApp.resources.after_import_links_not_saved
-import io.github.solcott.activitytracker.composeApp.resources.after_import_title
-import io.github.solcott.activitytracker.composeApp.resources.gear_conflict
-import io.github.solcott.activitytracker.composeApp.resources.new_device_add
-import io.github.solcott.activitytracker.composeApp.resources.new_device_collections
-import io.github.solcott.activitytracker.composeApp.resources.new_device_kind
-import io.github.solcott.activitytracker.composeApp.resources.new_device_kind_none
-import io.github.solcott.activitytracker.composeApp.resources.new_device_later
-import io.github.solcott.activitytracker.composeApp.resources.new_device_mount_none
-import io.github.solcott.activitytracker.composeApp.resources.new_device_mount_on
-import io.github.solcott.activitytracker.composeApp.resources.new_device_name
-import io.github.solcott.activitytracker.composeApp.resources.new_device_not_gear
-import io.github.solcott.activitytracker.composeApp.resources.new_device_recorder
-import io.github.solcott.activitytracker.composeApp.resources.new_device_serial
-import io.github.solcott.activitytracker.composeApp.resources.new_device_type
-import io.github.solcott.activitytracker.composeApp.resources.new_device_weak
-import io.github.solcott.activitytracker.composeApp.resources.new_devices_help
-import io.github.solcott.activitytracker.composeApp.resources.new_devices_title
-import io.github.solcott.activitytracker.composeApp.resources.past_imports_apply
-import io.github.solcott.activitytracker.composeApp.resources.past_imports_offer
-import io.github.solcott.activitytracker.composeApp.resources.past_imports_progress
-import io.github.solcott.activitytracker.composeApp.resources.past_imports_skip
-import io.github.solcott.activitytracker.composeApp.resources.profile_link_help
-import io.github.solcott.activitytracker.composeApp.resources.profile_link_none
-import io.github.solcott.activitytracker.composeApp.resources.profile_link_title
-import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 /** The devices an import names that aren't linked to gear yet, a card each, and the offer to link the activity profile. */
 @Composable
@@ -71,9 +42,9 @@ fun NewDevicesForm(fields: NewDevicesFields, modifier: Modifier = Modifier, enab
     if (fields.cards.isEmpty() && fields.profileOffer == null) return
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (fields.cards.isNotEmpty()) {
-            Text(stringResource(Res.string.new_devices_title), style = MaterialTheme.typography.titleSmall)
+            Text(ImportActivityTexts.newDevicesTitle.string(), style = MaterialTheme.typography.titleSmall)
             Text(
-                stringResource(Res.string.new_devices_help),
+                ImportActivityTexts.newDevicesHelp.string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -88,32 +59,17 @@ private fun NewDeviceCardUi(card: NewDeviceCard, fields: NewDevicesFields, enabl
     val send = fields.eventSink
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(deviceName(card.manufacturer, card.model), style = MaterialTheme.typography.titleSmall)
-            val about =
-                listOfNotNull(
-                    stringResource(Res.string.new_device_recorder).takeIf { card.recorder },
-                    card.serialTail?.let { stringResource(Res.string.new_device_serial, it) },
-                    stringResource(Res.string.new_device_weak).takeIf { card.weak },
-                )
-            if (about.isNotEmpty()) {
+            Text(ImportActivityTexts.deviceName(card).string(), style = MaterialTheme.typography.titleSmall)
+            ImportActivityTexts.deviceAbout(card)?.let { about ->
                 Text(
-                    about.joinToString(" · "),
+                    about.string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            val decisions = NewDeviceDecision.entries
+            val decisions = ImportActivityTexts.deviceDecisions.map { it.decision }
             AppSegmentedControl(
-                labels =
-                    decisions
-                        .map {
-                            when (it) {
-                                NewDeviceDecision.Later -> stringResource(Res.string.new_device_later)
-                                NewDeviceDecision.Add -> stringResource(Res.string.new_device_add)
-                                NewDeviceDecision.NotGear -> stringResource(Res.string.new_device_not_gear)
-                            }
-                        }
-                        .toImmutableList(),
+                labels = decisions.map { ImportActivityTexts.decision(it).string() }.toImmutableList(),
                 selected = decisions.indexOf(card.decision),
                 onSelect = { send(NewDeviceEvent.Decide(card.id, decisions[it])) },
                 modifier = Modifier.fillMaxWidth(),
@@ -133,28 +89,28 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
         AppTextField(
             card.name,
             Modifier.fillMaxWidth(),
-            label = stringResource(Res.string.new_device_name),
+            label = ImportActivityTexts.deviceNameLabel.string(),
             enabled = enabled,
             lineLimits = TextFieldLineLimits.SingleLine,
         )
         MenuField(
-            label = stringResource(Res.string.new_device_type),
+            label = ImportActivityTexts.deviceTypeLabel.string(),
             value = gearTypeLabel(card.type),
             items =
-                (GearType.all.map { type ->
+                (ImportActivityTexts.gearTypes.map { type ->
                         AppMenuItem(gearTypeLabel(type), checked = type == card.type) { send(NewDeviceEvent.TypeChanged(card.id, type)) }
                     })
                     .toImmutableList(),
             enabled = enabled,
         )
-        val kinds = GearType.kinds(card.type)
+        val kinds = ImportActivityTexts.gearKinds(card.type)
         if (kinds.isNotEmpty()) {
             MenuField(
-                label = stringResource(Res.string.new_device_kind),
-                value = card.kind?.let { gearKindLabel(card.type, it) } ?: stringResource(Res.string.new_device_kind_none),
+                label = ImportActivityTexts.deviceKindLabel.string(),
+                value = ImportActivityTexts.deviceKind(card).string(),
                 items =
                     (listOf(
-                            AppMenuItem(stringResource(Res.string.new_device_kind_none), checked = card.kind == null) {
+                            AppMenuItem(ImportActivityTexts.deviceKindNone.string(), checked = card.kind == null) {
                                 send(NewDeviceEvent.KindChanged(card.id, null))
                             },
                         ) +
@@ -169,12 +125,11 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
         }
         if (fields.mountOptions.isNotEmpty()) {
             MenuField(
-                label = stringResource(Res.string.new_device_mount_on),
-                value =
-                    fields.mountOptions.firstOrNull { it.uri == card.mountOn }?.name ?: stringResource(Res.string.new_device_mount_none),
+                label = ImportActivityTexts.deviceMountLabel.string(),
+                value = ImportActivityTexts.deviceMount(card, fields).string(),
                 items =
                     (listOf(
-                            AppMenuItem(stringResource(Res.string.new_device_mount_none), checked = card.mountOn == null) {
+                            AppMenuItem(ImportActivityTexts.deviceMountNone.string(), checked = card.mountOn == null) {
                                 send(NewDeviceEvent.MountOn(card.id, null))
                             },
                         ) +
@@ -188,7 +143,7 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
             )
         }
         if (fields.collections.isNotEmpty()) {
-            Text(stringResource(Res.string.new_device_collections), style = MaterialTheme.typography.labelLarge)
+            Text(ImportActivityTexts.deviceCollectionsLabel.string(), style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 fields.collections.forEach { collection ->
                     AppFilterChip(
@@ -208,18 +163,18 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
 private fun ProfileLink(offer: ProfileLinkOffer, send: (NewDeviceEvent) -> Unit, enabled: Boolean) {
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(Res.string.profile_link_title, offer.name), style = MaterialTheme.typography.titleSmall)
+            Text(ImportActivityTexts.profileLinkTitle(offer).string(), style = MaterialTheme.typography.titleSmall)
             Text(
-                stringResource(Res.string.profile_link_help),
+                ImportActivityTexts.profileLinkHelp.string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             MenuField(
                 label = null,
-                value = offer.options.firstOrNull { it.uri == offer.chosen }?.name ?: stringResource(Res.string.profile_link_none),
+                value = ImportActivityTexts.profileLinked(offer).string(),
                 items =
                     (listOf(
-                            AppMenuItem(stringResource(Res.string.profile_link_none), checked = offer.chosen == null) {
+                            AppMenuItem(ImportActivityTexts.profileLinkNone.string(), checked = offer.chosen == null) {
                                 send(NewDeviceEvent.LinkProfile(null))
                             },
                         ) +
@@ -253,7 +208,7 @@ private fun MenuField(label: String?, value: String, items: ImmutableList<AppMen
 internal fun GearConflicts(conflicts: ImmutableList<GearConflict>, modifier: Modifier = Modifier) {
     conflicts.forEach { conflict ->
         Text(
-            stringResource(Res.string.gear_conflict, gearTypeLabel(conflict.type), conflict.names.joinToString(", ")),
+            ImportActivityTexts.gearConflict(conflict).string(),
             modifier,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
@@ -265,28 +220,28 @@ internal fun GearConflicts(conflicts: ImmutableList<GearConflict>, modifier: Mod
 @Composable
 internal fun AfterImportPanel(after: AfterImport, send: (ImportActivityEvent) -> Unit, padding: PaddingValues) {
     ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(Res.string.after_import_title), style = MaterialTheme.typography.titleMedium)
-        if (after.linksNotSaved) Text(stringResource(Res.string.after_import_links_not_saved), color = MaterialTheme.colorScheme.error)
+        Text(ImportActivityTexts.afterTitle.string(), style = MaterialTheme.typography.titleMedium)
+        if (after.linksNotSaved) Text(ImportActivityTexts.afterLinksNotSaved.string(), color = MaterialTheme.colorScheme.error)
         val past = after.pastImports
         if (past != null) {
-            Text(pluralStringResource(Res.plurals.past_imports_offer, past.count, past.count, past.gear.joinToString(", ")))
+            Text(ImportActivityTexts.pastOffer(past).string())
             if (past.applying) {
                 AppProgressIndicator()
                 Text(
-                    stringResource(Res.string.past_imports_progress, past.done, past.count),
+                    ImportActivityTexts.pastProgress(past).string(),
                     style = MaterialTheme.typography.bodySmall,
                 )
             } else {
                 AppButton(onClick = { send(ImportActivityEvent.After.ApplyToPast) }, Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.past_imports_apply))
+                    Text(ImportActivityTexts.pastApply.string())
                 }
                 AppTextButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.past_imports_skip))
+                    Text(ImportActivityTexts.pastSkip.string())
                 }
             }
         } else {
             AppButton(onClick = { send(ImportActivityEvent.After.Done) }, Modifier.fillMaxWidth()) {
-                Text(stringResource(Res.string.after_import_done))
+                Text(ImportActivityTexts.afterDone.string())
             }
         }
     }
