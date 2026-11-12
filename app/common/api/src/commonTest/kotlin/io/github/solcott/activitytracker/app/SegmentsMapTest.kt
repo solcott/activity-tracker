@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** How a map of many segments draws and answers (segments/segment-browse, dev/shared-display-text). */
 class SegmentsMapTest {
@@ -44,6 +45,15 @@ class SegmentsMapTest {
         assertNull(map.nearest(44.4760, -73.2103, withinMeters = 15.0))
         // On the lift, 20 m or more from either run.
         assertNull(map.nearest(44.47530, -73.2105, withinMeters = 15.0))
+    }
+
+    @Test
+    fun theStandInPlacesEveryLineInsideItsPadInDrawingOrder() {
+        val sketch = SegmentsMap.of(lines, selected = "at://a/north").sketch(200.0, 100.0, pad = 10.0)
+        assertEquals(listOf(MapSegmentRole.Lift, MapSegmentRole.Run, MapSegmentRole.Selected), sketch.map { it.role })
+        val points = sketch.flatMap { it.points }
+        assertTrue(points.all { it.x in 10.0..190.0 && it.y in 10.0..90.0 })
+        assertEquals(emptyList(), SegmentsMap.of(emptyList(), null).sketch(200.0, 100.0, 10.0))
     }
 
     @Test

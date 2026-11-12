@@ -124,6 +124,11 @@
         /// The dive site page (ios-native-map) in each state it shows, states beyond content loading apart.
         static var diveSite: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.all }
         static var diveSiteVariants: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.variants }
+        /// The interactive maps (ios-native-interactive-maps): the enlarged segment map, segment browse and Accept invite, each in its
+        /// shared samples and the states beyond content loading.
+        static var segmentMap: [String: SegmentMapState] { SegmentPackage.SegmentMapSamples.shared.variants }
+        static var segmentBrowse: [String: SegmentBrowseState] { SegmentPackage.SegmentBrowseSamples.shared.variants }
+        static var acceptInvite: [String: AcceptInviteState] { InvitesPackage.AcceptInviteSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

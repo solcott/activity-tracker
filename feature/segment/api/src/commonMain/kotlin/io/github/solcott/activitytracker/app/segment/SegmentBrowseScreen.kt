@@ -129,6 +129,12 @@ data class SegmentBrowseState(
     val sports: List<String>
         get() = SegmentSportGroup.all
 
+    /** The event for a tap on the map that found the run [uri] (a line's URI as the map holds it), or none. */
+    fun selectEvent(uri: String?): SegmentBrowseEvent = SegmentBrowseEvent.Select(uri?.let(::AtUri))
+
+    /** Whether [segment] is the run tapped on the map, marked in the list. */
+    fun isSelected(segment: SegmentView): Boolean = segment.uri == selected
+
     /** The map's lines in drawing order with the selected run highlighted, and what a tap selects. */
     val segmentsMap: SegmentsMap
         get() = SegmentsMap.of(mapLines, selected?.value)

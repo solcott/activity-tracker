@@ -17,6 +17,9 @@ enum class MapSegmentRole {
 /** One segment's line on a map of many, decoded: [uri] names it, [points] are its positions, [role] how it's drawn. */
 @Immutable data class MapSegment(val uri: String, val points: ImmutableList<GeoPoint>, val role: MapSegmentRole)
 
+/** One segment's line placed on a stand-in tile, in drawing order, and how it's drawn. */
+@Immutable data class SketchedSegment(val points: ImmutableList<ShapePoint>, val role: MapSegmentRole)
+
 /**
  * Many segments' lines as every map of them draws and answers (segments/segment-browse, dev/shared-display-text): [drawn] in drawing order
  * (lifts first, then runs, then the selected run on top), each decoded once; [nearest], the run a tap selects; [key], what a UI that holds
@@ -41,6 +44,15 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
             .filter { (_, meters) -> meters <= withinMeters }
             .minByOrNull { (_, meters) -> meters }
             ?.first
+    }
+
+    /**
+     * Every line placed on a stand-in tile [width] by [height] with [pad] kept clear, all scaled together (`TileFit`, as the shared stand-in
+     * fits them), in drawing order; empty when there are none.
+     */
+    fun sketch(width: Double, height: Double, pad: Double): List<SketchedSegment> {
+        val fit = TileFit.of(allPoints, width, height, pad) ?: return emptyList()
+        return drawn.map { line -> SketchedSegment(line.points.map(fit::place).toImmutableList(), line.role) }
     }
 
     override fun equals(other: Any?): Boolean = other is SegmentsMap && key == other.key
