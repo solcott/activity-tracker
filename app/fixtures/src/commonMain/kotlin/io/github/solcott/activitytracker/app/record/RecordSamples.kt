@@ -3,9 +3,14 @@ package io.github.solcott.activitytracker.app.record
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
+import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.data.activity.CombineCue
+import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -14,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.RecordingState
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
@@ -314,6 +320,99 @@ object ImportActivitySamples {
                 "afterImport" to
                     state(false, preview)
                         .copy(afterImport = AfterImport(pastImports = PastImportsOffer(persistentListOf("Tarmac"), count = 10))),
+            )
+
+    private val details =
+        ActivityDetailsFields(textFieldStateOf(), diveSite = null, media = persistentListOf(), maxMedia = 4, eventSink = {})
+
+    /** A single file read, its page built, as the form shows it. */
+    private val read: ImportActivityState
+        get() =
+            state(false, preview)
+                .copy(page = ActivityDetailSamples.ridePage, details = details, gear = gear.copy(conflicts = persistentListOf()))
+
+    private val lunchLoop = ExistingActivityPreview("Lunch loop", "2024-05-14 12:01", "Garmin Fenix 7")
+
+    /** Beyond [all]: what the native screen draws and the screenshots don't need again. */
+    val variants: Map<String, ImportActivityState>
+        get() =
+            mapOf(
+                "page" to
+                    read.copy(
+                        originalTooLarge = true,
+                        thresholdChanges =
+                            persistentListOf(
+                                ThresholdChange(Threshold.FUNCTIONAL_THRESHOLD_POWER, from = 231, to = 240),
+                                ThresholdChange(Threshold.MAX_HEART_RATE, from = null, to = 188, sport = Sport.RUN),
+                            ),
+                        gear = gear,
+                    ),
+                "diveZone" to
+                    read.copy(
+                        preview =
+                            preview.copy(
+                                fileName = "blue-hole.xml",
+                                polyline = null,
+                                device = "Shearwater Perdix",
+                                clock =
+                                    ImportClock(
+                                        "2024-10-16 17:30",
+                                        TimeZoneOption("America/Cancun", "UTC-05:00"),
+                                        persistentListOf(
+                                            TimeZoneOption("America/Cancun", "UTC-05:00"),
+                                            TimeZoneOption("America/New_York", "UTC-04:00"),
+                                            TimeZoneOption("Asia/Singapore", "UTC+08:00"),
+                                        ),
+                                    ),
+                            ),
+                        type = ActivityTypeField(ActivityType(Sport.DIVE), typeField.quickTypes),
+                        defaultTitle = DefaultTitle(PartOfDay.Evening, ActivityType(Sport.DIVE)),
+                        page = ActivityDetailSamples.divePage,
+                        details = details.copy(diveSite = textFieldStateOf("Blue Hole")),
+                    ),
+                "duplicate" to read.copy(preview = preview.copy(duplicate = logged)),
+                "duplicateUploading" to
+                    read.copy(
+                        preview = preview.copy(duplicate = logged.copy(stillUploading = true, action = DuplicateAction.ImportAnyway)),
+                    ),
+                "duplicateChecking" to read.copy(duplicateCheck = DuplicateCheck.Checking),
+                "addsRecording" to read.copy(addsRecording = true, addingTo = lunchLoop),
+                "tooFar" to read.copy(addsRecording = true, addingTo = lunchLoop, tooFarFromTarget = true),
+                "saving" to read.copy(saving = true),
+                "saveFailed" to read.copy(error = UiError(UiError.Kind.SaveActivity)),
+                "loadFailed" to state(false, null).copy(error = UiError(UiError.Kind.ReadActivityFile)),
+                "batchPreview" to batchPreview,
+                "batchChecking" to batchState(mixed).copy(duplicateCheck = DuplicateCheck.Failed),
+                "savedSuggestions" to
+                    state(false, null)
+                        .copy(
+                            batchSaved = BatchSaved(saved = 12, skipped = 0),
+                            savedSuggestions =
+                                persistentListOf(
+                                    SavedSuggestion(
+                                        uri = AtUri("at://${Fixed.ALICE.value}/${Nsid.FEED_ACTIVITY}/3kdive1"),
+                                        title = "Blue Hole",
+                                        startEpochSeconds = Fixed.NOW.epochSeconds - 7_200,
+                                        cue = CombineCue.SameActivity,
+                                        other = fakeActivity(),
+                                    ),
+                                ),
+                        ),
+                "pastApplying" to
+                    state(false, preview)
+                        .copy(
+                            afterImport =
+                                AfterImport(
+                                    linksNotSaved = true,
+                                    pastImports =
+                                        PastImportsOffer(
+                                            persistentListOf("Tarmac", "SRAM Power meter"),
+                                            count = 10,
+                                            applying = true,
+                                            done = 4,
+                                        ),
+                                ),
+                        ),
             )
 }
 
