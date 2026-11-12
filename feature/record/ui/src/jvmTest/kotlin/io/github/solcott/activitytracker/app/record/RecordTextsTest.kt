@@ -18,11 +18,11 @@ class RecordTextsTest {
 
     @Test
     fun eachStatusOffersItsControlsInOrder() {
-        assertEquals(listOf(RecordAction.Start), RecordTexts.actions(sample(SampleKind.LOADED)))
-        assertEquals(listOf(RecordAction.Pause), RecordTexts.actions(sample("recording")))
+        assertEquals(listOf(RecordAction.Start), actions(sample(SampleKind.LOADED)))
+        assertEquals(listOf(RecordAction.Pause), actions(sample("recording")))
         assertEquals(
             listOf(RecordAction.Resume, RecordAction.Finish, RecordAction.Discard),
-            RecordTexts.actions(sample("paused")),
+            actions(sample("paused")),
         )
     }
 
@@ -65,6 +65,8 @@ class RecordTextsTest {
         val missing = texts.filterIsInstance<AppText.Named>().map { it.name }.filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }
+
+    private fun actions(state: RecordState) = RecordTexts.controls(state).map { it.action }
 
     private fun sample(name: String) = checkNotNull(samples[name]) { "no sample $name" }
 }

@@ -40,7 +40,7 @@ None.
 
 ## Impact
 
-- **`:feature-record-api`, `-ui`:** `RecordTexts`, `RecordAction`; `RecordUi` asks them. New strings `record_location_off`,
+- **`:feature-record-api`, `-ui`:** `RecordTexts`, `RecordAction`, `RecordControl`, `ActivityTypeField.offeredQuickTypes`; `RecordUi` asks them. New strings `record_location_off`,
   `record_open_settings`, `record_discard_confirm` (the catalog regenerated).
 - **`:app-fixtures`:** `RecordSamples.variants`.
 - **`iosApp`:** `RecordView`, `LocationAuthorization`, `outdoorOnly` on `ActivityTypeRow`/`ActivityTypeSheet`, a wide `AppButton`,

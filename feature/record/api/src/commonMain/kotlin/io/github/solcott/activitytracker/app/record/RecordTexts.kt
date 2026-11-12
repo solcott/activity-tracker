@@ -15,6 +15,9 @@ enum class RecordAction {
     Discard,
 }
 
+/** One control as the screen offers it: what it does and its label. An object, since a list of enums can't reach Swift. */
+data class RecordControl(val action: RecordAction, val label: AppText)
+
 /**
  * What the recording screen says and offers (record/gps-recording, dev/shared-display-text): its figures in the athlete's units, its
  * notices, and the controls for the recording's status. The shared `RecordUi` and the native iOS screen ask them.
@@ -48,12 +51,12 @@ object RecordTexts {
         )
 
     /** The controls for the recording's status, in order. Every one is held while the recording is being saved ([RecordState.saving]). */
-    fun actions(state: RecordState): List<RecordAction> =
+    fun controls(state: RecordState): List<RecordControl> =
         when (state.status) {
             RecordingState.Status.Idle -> listOf(RecordAction.Start)
             RecordingState.Status.Recording -> listOf(RecordAction.Pause)
             RecordingState.Status.Paused -> listOf(RecordAction.Resume, RecordAction.Finish, RecordAction.Discard)
-        }
+        }.map { RecordControl(it, label(it)) }
 
     fun label(action: RecordAction): AppText =
         AppText.named(

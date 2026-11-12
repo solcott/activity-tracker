@@ -78,7 +78,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             if (state.saveFailed) Text(RecordTexts.saveFailed.string(), color = MaterialTheme.colorScheme.error)
             state.error?.let { ErrorText(it) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                RecordTexts.actions(state).forEach { action ->
+                RecordTexts.controls(state).forEach { (action, text) ->
                     val onClick = {
                         when (action) {
                             RecordAction.Start -> if (state.hasPermission) state.eventSink(RecordEvent.Start) else requestPermission()
@@ -88,7 +88,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                             RecordAction.Discard -> state.eventSink(RecordEvent.Discard)
                         }
                     }
-                    val label = RecordTexts.label(action).string()
+                    val label = text.string()
                     if (action == RecordAction.Discard) {
                         AppSecondaryButton(onClick = onClick, enabled = !state.saving) { Text(label) }
                     } else {
