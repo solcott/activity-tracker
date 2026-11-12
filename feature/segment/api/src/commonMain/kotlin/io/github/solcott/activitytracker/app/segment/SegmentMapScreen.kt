@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.uistate.ContentState
 
@@ -27,7 +28,11 @@ data class SegmentMapContent(
     val name: String,
     /** Credit for the data its line came from, overlaid on the map; null for an athlete's segment. */
     val credit: SegmentCredit?,
-)
+) {
+    /** The line as every route map draws it, its ends marked as on the segment page; null when it doesn't decode. */
+    val routeMap: RouteMap?
+        get() = polyline?.let { RouteMap.of(it) }
+}
 
 sealed interface SegmentMapEvent {
     data object Back : SegmentMapEvent
