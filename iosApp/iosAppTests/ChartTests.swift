@@ -21,18 +21,9 @@ struct ChartTests {
         #expect(ChartBands.stops([.init(at: 0, band: 9)], count: 5).map(\.band) == [4, 4])
     }
 
-    @Test func aSidewaysDragKeepsTheReadoutAndAVerticalOneScrolls() {
-        var sideways = ChartScrub()
-        let pressed = sideways.press(at: CGPoint(x: 10, y: 50))
-        let moved = sideways.move(to: CGPoint(x: 60, y: 55))
-        let kept = sideways.release()
-        #expect(pressed && moved && kept)
-        var vertical = ChartScrub()
-        _ = vertical.press(at: CGPoint(x: 10, y: 50))
-        let scrolled = vertical.move(to: CGPoint(x: 12, y: 80))
-        let stillScrolling = vertical.move(to: CGPoint(x: 90, y: 80))
-        let after = vertical.release()
-        #expect(!scrolled && !stillScrolling && !after)
+    @Test func aSidewaysDragScrubsAndAVerticalOneScrolls() {
+        #expect(ChartScrub.scrubs(velocity: CGPoint(x: 300, y: 40)))
+        #expect(!ChartScrub.scrubs(velocity: CGPoint(x: 20, y: -500)))
     }
 
     @Test func theProfileReadsItsTicksAndReadoutsInTheCatalogsWords() {

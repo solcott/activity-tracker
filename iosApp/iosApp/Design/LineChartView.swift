@@ -1,11 +1,13 @@
 import Charts
 import SwiftUI
+import UIKit
 
 /// A line chart drawn with Swift Charts from Kotlin's `LineChart` (`:app-common-api`), the value the shared chart draws too: its points
 /// over its x range, the line filled beneath, the y axis Kotlin chose with a labelled gridline at each step, Kotlin's labels along the
 /// bottom, no line or fill across a gap, and the bands it is tinted by (an elevation profile's grade, `GradeColors`). Tapping or dragging
 /// sideways across it marks the nearest point and shows Kotlin's readout for it over the chart, staying where the finger left it; a
-/// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`). VoiceOver reads it as one element, Kotlin's description.
+/// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`, through a UIKit pan that begins only sideways, since a
+/// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
 ///
 /// Everything it shows is the value's; this only lays it out, so a page passes a chart and a height and nothing else.
 struct LineChartView: View {
@@ -13,7 +15,6 @@ struct LineChartView: View {
     let height: CGFloat
 
     @State private var selected: Int32?
-    @State private var scrub = ChartScrub()
 
     /// `selected` marks a point from the start, for a gallery or snapshot showing the readout.
     init(chart: LineChart, height: CGFloat = 140, selected: Int32? = nil) {
@@ -73,18 +74,12 @@ struct LineChartView: View {
         .chartOverlay { proxy in
             GeometryReader { geometry in
                 Rectangle().fill(.clear).contentShape(Rectangle())
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { drag in
-                                let shows =
-                                    drag.translation == .zero
-                                    ? scrub.press(at: drag.startLocation) : scrub.move(to: drag.location)
-                                select(shows ? drag.location : nil, proxy: proxy, geometry: geometry)
-                            }
-                            .onEnded { _ in
-                                if !scrub.release() { selected = nil }
-                            }
-                    )
+                    .onTapGesture(coordinateSpace: .local) { location in select(location, proxy: proxy, geometry: geometry) }
+                    // A UIKit pan that begins only on a sideways drag, so a vertical one is the list's scroll.
+                    .gesture(
+                        ChartScrubGesture(
+                            moved: { location in select(location, proxy: proxy, geometry: geometry) },
+                            scrolled: { selected = nil }))
             }
         }
         .frame(height: height)
@@ -203,35 +198,46 @@ enum ChartBands {
     }
 }
 
-/// When a press on a chart shows its readout: wherever a finger taps or drags across it, staying after it lifts so the value can be
-/// read. A drag that starts mostly vertical, past `slop` points, is the page scrolling, so it hides the readout instead.
-struct ChartScrub {
-    var slop: CGFloat = 10
-    private var pressedAt: CGPoint?
-    private var scrolling = false
+/// Which drags across a chart scrub its readout: one that starts mostly sideways. One that starts mostly vertical is the page
+/// scrolling, which hides the readout, as the shared chart's `ScrubGesture` decides.
+enum ChartScrub {
+    static func scrubs(velocity: CGPoint) -> Bool { abs(velocity.x) > abs(velocity.y) }
+}
 
-    /// A finger went down at `point`: the readout shows.
-    mutating func press(at point: CGPoint) -> Bool {
-        pressedAt = point
-        scrolling = false
-        return true
+/// A pan over a chart that begins only when `ChartScrub` says the drag scrubs, reporting where the finger is (`moved`); any other drag
+/// is left to the scroll view and reported as `scrolled`.
+private struct ChartScrubGesture: UIGestureRecognizerRepresentable {
+    let moved: (CGPoint) -> Void
+    let scrolled: () -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator(scrolled: scrolled) }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
     }
 
-    /// The finger moved to `point`: the readout shows unless the drag became the page's scroll.
-    mutating func move(to point: CGPoint) -> Bool {
-        if pressedAt == nil { pressedAt = point }
-        if let start = pressedAt, !scrolling {
-            let dx = abs(point.x - start.x)
-            let dy = abs(point.y - start.y)
-            if dy > slop && dy > dx { scrolling = true }
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        if recognizer.state == .began || recognizer.state == .changed {
+            moved(context.converter.localLocation)
         }
-        return !scrolling
     }
 
-    /// The finger lifted: whether the readout stays.
-    mutating func release() -> Bool {
-        pressedAt = nil
-        return !scrolling
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        let scrolled: () -> Void
+
+        init(scrolled: @escaping () -> Void) {
+            self.scrolled = scrolled
+        }
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            let scrubs = ChartScrub.scrubs(velocity: velocity)
+            if !scrubs { scrolled() }
+            return scrubs
+        }
     }
 }
 
