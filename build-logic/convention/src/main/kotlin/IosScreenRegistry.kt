@@ -30,14 +30,18 @@ internal fun registeredScreens(swift: String): Set<String> =
 
 /** [text] without its lines that are comments only: line comments, and the lines of block and doc comments. */
 private fun withoutCommentLines(text: String): String =
-    text.lines().filterNot { line -> line.trim().let { it.startsWith("//") || it.startsWith("/*") || it.startsWith("*") } }.joinToString("\n")
+    text
+        .lines()
+        .filterNot { line -> line.trim().let { it.startsWith("//") || it.startsWith("/*") || it.startsWith("*") } }
+        .joinToString("\n")
 
-private val SERIALIZABLE_SCREEN = Regex("""@CircuitSerializable\b(?:\([^)]*\))?\s*(?:@\w+(?:\([^)]*\))?\s*)*data\s+(?:object|class)\s+(\w+)""")
+private val SERIALIZABLE_SCREEN =
+    Regex("""@CircuitSerializable\b(?:\([^)]*\))?\s*(?:@\w+(?:\([^)]*\))?\s*)*data\s+(?:object|class)\s+(\w+)""")
 private val REGISTERED_SCREEN = Regex("""\bregister\(\s*(\w+)\.self\b""")
 
 /**
- * Fails when a screen the iOS app can show (a serializable screen of a contract module, [contractSources]) has no native view in
- * [registry] (ui/ios-native-shell): a screen without one would need the shared Compose UI, which the iOS app is to stop drawing.
+ * Fails when a screen the iOS app can show (a serializable screen of a contract module, [contractSources]) has no native view in [registry]
+ * (ui/ios-native-shell): a screen without one would need the shared Compose UI, which the iOS app is to stop drawing.
  */
 @CacheableTask
 abstract class CheckIosScreenRegistry : DefaultTask() {
@@ -68,7 +72,8 @@ abstract class CheckIosScreenRegistry : DefaultTask() {
         if (missing.isNotEmpty()) {
             throw GradleException(
                 "These screens have no native view in ${registry.get().asFile.relativeTo(root).path}, and every screen the iOS app can " +
-                    "show needs one, since it is to stop drawing the shared Compose UI (ui/ios-native-shell). Register a view for each:\n" + missing.joinToString("\n") { "  $it" },
+                    "show needs one, since it is to stop drawing the shared Compose UI (ui/ios-native-shell). Register a view for each:\n" +
+                    missing.joinToString("\n") { "  $it" },
             )
         }
         marker.get().asFile.writeText("ok\n")

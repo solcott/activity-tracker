@@ -13,7 +13,8 @@ class IosScreenRegistryTest {
                 data class SegmentScreen(val uri: String, val board: String? = null) : Screen
 
                 @CircuitSerializable(AppScope::class) @Immutable data object LoginScreen : Screen
-                """.trimIndent(),
+                """
+                    .trimIndent(),
             )
 
         assertEquals(listOf("FeedScreen", "SegmentScreen", "LoginScreen"), found)
@@ -28,7 +29,8 @@ class IosScreenRegistryTest {
                 @Immutable data class ReportScreen(val target: ReportTarget) : SubScreen<ReportResult>
                 data class FeedState(val items: List<String>) : CircuitUiState
                 // @CircuitSerializable(SessionScope::class) data object CommentedScreen : Screen
-                """.trimIndent(),
+                """
+                    .trimIndent(),
             )
 
         assertEquals(emptyList(), found)
@@ -43,7 +45,8 @@ class IosScreenRegistryTest {
                 registry.register(
                     SegmentBrowseScreen.self, SegmentBrowseState.self) { state in SegmentBrowseView(state: state) }
                 // registry.register(ModerationScreen.self, ModerationState.self) { state in ModerationView(state: state) }
-                """.trimIndent(),
+                """
+                    .trimIndent(),
             )
 
         assertEquals(setOf("LoginScreen", "SegmentBrowseScreen"), found)
