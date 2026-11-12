@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.app.text.CardStatsText
+import io.github.solcott.activitytracker.app.text.DiveText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.stat_air_temp
 import io.github.solcott.activitytracker.composeApp.resources.stat_air_used
@@ -31,17 +32,12 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
 import io.github.solcott.activitytracker.composeApp.resources.unit_rate_ft_min
 import io.github.solcott.activitytracker.composeApp.resources.unit_rate_m_min
-import io.github.solcott.activitytracker.composeApp.resources.water_custom
-import io.github.solcott.activitytracker.composeApp.resources.water_en13319
-import io.github.solcott.activitytracker.composeApp.resources.water_fresh
-import io.github.solcott.activitytracker.composeApp.resources.water_salt
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -104,7 +100,7 @@ private fun conditions(dive: ActivityDive): List<Stat> {
             )
         },
         dive.descentTime?.let { Stat(stringResource(Res.string.stat_descent_time), Format.duration(it)) },
-        dive.waterType?.let { type -> waterName(type)?.let { Stat(stringResource(Res.string.stat_water_type), stringResource(it)) } },
+        dive.waterType?.let { type -> DiveText.water(type)?.let { Stat(stringResource(Res.string.stat_water_type), it.string()) } },
         dive.visibility?.let { Stat(stringResource(Res.string.stat_visibility), Format.depth(it / CM_PER_M)) },
         dive.airTemperature?.let { Stat(stringResource(Res.string.stat_air_temp), Format.temperature(it)) },
         dive.altitude?.let { Stat(stringResource(Res.string.stat_altitude), Format.elevation(it.toDouble())) },
@@ -114,15 +110,6 @@ private fun conditions(dive: ActivityDive): List<Stat> {
         },
     )
 }
-
-fun waterName(type: String) =
-    when (type) {
-        WaterType.FRESH -> Res.string.water_fresh
-        WaterType.SALT -> Res.string.water_salt
-        WaterType.EN13319 -> Res.string.water_en13319
-        WaterType.CUSTOM -> Res.string.water_custom
-        else -> null
-    }
 
 @Composable
 private fun maxDepth(dive: ActivityDive?, streamMeters: Double?): Stat? =

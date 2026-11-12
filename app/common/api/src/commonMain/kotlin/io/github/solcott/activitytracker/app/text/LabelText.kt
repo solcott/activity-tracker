@@ -25,6 +25,12 @@ object LabelText {
     /** What a sensor is ("Power meter"), by its lexicon kind; an open enum, so an unknown kind is just a sensor. */
     fun sensorType(kind: String): AppText = AppText.Named("sensor_$kind", fallback = AppText.named("sensor_other"))
 
+    /** "Power meter · SRAM", "Heart rate monitor · Garmin HRM 200": what a sensor is, then its make and model where known. */
+    fun sensor(kind: String, manufacturer: String?, model: String?): AppText {
+        val name = listOfNotNull(manufacturer, model).joinToString(" ").ifEmpty { null }
+        return name?.let { AppText.named("text_dot_pair", sensorType(kind), AppText.written(it)) } ?: sensorType(kind)
+    }
+
     /** The name of a sport picker group. */
     fun sportCategory(category: SportCategory): AppText = AppText.named("sport_category_${category.name}")
 
