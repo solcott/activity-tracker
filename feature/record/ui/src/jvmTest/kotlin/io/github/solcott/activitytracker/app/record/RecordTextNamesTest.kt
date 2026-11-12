@@ -93,32 +93,34 @@ class RecordTextNamesTest {
             listOfNotNull(state.newDevices.profileOffer?.let(t::profileLinkTitle), state.newDevices.profileOffer?.let(t::profileLinked)) +
             state.gear?.conflicts.orEmpty().map(t::gearConflict) +
             listOfNotNull(state.afterImport?.pastImports?.let(t::pastOffer), state.afterImport?.pastImports?.let(t::pastProgress)) +
-            (batch?.let { b ->
-                listOfNotNull(
-                    t.found(b),
-                    t.skipped(b),
-                    t.ignored(b),
-                    t.originalsTooLarge(b),
-                    t.selected(b),
-                    t.selectAll(b),
-                    t.originalsSize(b, true),
-                    t.saveFailure(state, b),
-                    t.saveBatch(state, b),
-                    t.batchDuplicateBanner(state, b),
-                ) +
-                    b.exports.map(t::exportNote) +
-                    b.clocks.map { t.zoneNotice(it.clock, it.fileName) } +
-                    t.months(b).map { it.heading } +
-                    b.rows.flatMap { row ->
-                        listOfNotNull(t.rowTitle(row), t.rowDetails(row, units), t.narrowed(row)) +
-                            listOfNotNull(
-                                row.duplicate?.let { t.duplicateWarning(it, t.inFileNumber(b, row)) },
-                                row.duplicate?.let(t::compareOther),
-                            ) +
-                            t.compareRow(row, units)
-                    } +
-                    listOfNotNull(b.preview?.matched?.let { t.compareMatched(it, units) }).flatten()
-            } ?: emptyList())
+            (batch
+                ?.let { b ->
+                    listOfNotNull(
+                        t.found(b),
+                        t.skipped(b),
+                        t.ignored(b),
+                        t.originalsTooLarge(b),
+                        t.selected(b),
+                        t.selectAll(b),
+                        t.originalsSize(b, true),
+                        t.saveFailure(state, b),
+                        t.saveBatch(state, b),
+                        t.batchDuplicateBanner(state, b),
+                    ) +
+                        b.exports.map(t::exportNote) +
+                        b.clocks.map { t.zoneNotice(it.clock, it.fileName) } +
+                        t.months(b).map { it.heading } +
+                        b.rows.flatMap { row ->
+                            listOfNotNull(t.rowTitle(row), t.rowDetails(row, units), t.narrowed(row)) +
+                                listOfNotNull(
+                                    row.duplicate?.let { t.duplicateWarning(it, t.inFileNumber(b, row)) },
+                                    row.duplicate?.let(t::compareOther),
+                                ) +
+                                t.compareRow(row, units)
+                        } +
+                        listOfNotNull(b.preview?.matched?.let { t.compareMatched(it, units) }).flatten()
+                }
+                .orEmpty())
     }
 
     /** Names a text needs, leaving out those with a fallback (a gear kind this client may not name). */

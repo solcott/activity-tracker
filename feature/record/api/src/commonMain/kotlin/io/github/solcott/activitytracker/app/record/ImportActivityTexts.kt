@@ -348,28 +348,31 @@ object ImportActivityTexts {
 
     /** A batch row's sport, start, length, distance and device, a dash for any unknown, beside [compareMatched]'s. */
     fun compareRow(row: ImportRow, units: UnitSystem): List<AppText> =
-        compareValues(row.type, row.start, row.elapsed, row.distanceMeters, row.device, units)
+        CompareValues(row.type, row.start, row.elapsed, row.distanceMeters, row.device).withMissing(units)
 
     /** What a duplicate repeats, in [compareRow]'s order. */
     fun compareMatched(matched: ExistingActivityPreview, units: UnitSystem): List<AppText> =
-        compareValues(matched.type, matched.start, matched.elapsed, matched.distanceMeters, matched.device, units)
+        CompareValues(matched.type, matched.start, matched.elapsed, matched.distanceMeters, matched.device).withMissing(units)
 
-    private fun compareValues(
-        type: ActivityType?,
-        start: String,
-        elapsed: Duration?,
-        meters: Double?,
-        device: String?,
-        units: UnitSystem,
-    ): List<AppText> {
-        val missing = AppText.named("value_missing")
-        return listOf(
-            type?.let(LabelText::activityType) ?: missing,
-            AppText.written(start),
-            elapsed?.let { AppText.written(StatText.duration(it.inWholeSeconds)) } ?: missing,
-            meters?.let { StatText.distance(it, units) } ?: missing,
-            device?.let(AppText::written) ?: missing,
-        )
+    /** The five things a comparison lines up, any of them unknown. */
+    private class CompareValues(
+        val type: ActivityType?,
+        val start: String,
+        val elapsed: Duration?,
+        val meters: Double?,
+        val device: String?,
+    ) {
+        /** In order, a dash for any unknown. */
+        fun withMissing(units: UnitSystem): List<AppText> {
+            val missing = AppText.named("value_missing")
+            return listOf(
+                type?.let(LabelText::activityType) ?: missing,
+                AppText.written(start),
+                elapsed?.let { AppText.written(StatText.duration(it.inWholeSeconds)) } ?: missing,
+                meters?.let { StatText.distance(it, units) } ?: missing,
+                device?.let(AppText::written) ?: missing,
+            )
+        }
     }
 
     /** "40 activities saved.", how many couldn't be read again, and how they upload. */

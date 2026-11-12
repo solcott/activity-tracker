@@ -41,6 +41,8 @@ import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_visibility_heading
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 
 /**
@@ -51,7 +53,6 @@ import kotlinx.collections.immutable.toImmutableMap
 internal fun BatchContent(state: ImportActivityState, batch: ImportBatch, padding: PaddingValues, onPick: () -> Unit) {
     val listState = rememberLazyListState()
     val enabled = !state.saving
-    val shown = batch.shown
     val months = remember(batch) { ImportActivityTexts.months(batch) }
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding) {
@@ -271,10 +272,14 @@ private fun Comparison(row: ImportRow, matched: ExistingActivityPreview, duplica
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (duplicate.exactCopy) Text(ImportActivityTexts.compareExact.string(), style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            CompareColumn(ImportActivityTexts.compareThis, ImportActivityTexts.compareRow(row, units), Modifier.weight(1f))
+            CompareColumn(
+                ImportActivityTexts.compareThis,
+                ImportActivityTexts.compareRow(row, units).toImmutableList(),
+                Modifier.weight(1f),
+            )
             CompareColumn(
                 ImportActivityTexts.compareOther(duplicate),
-                ImportActivityTexts.compareMatched(matched, units),
+                ImportActivityTexts.compareMatched(matched, units).toImmutableList(),
                 Modifier.weight(1f),
             )
         }
@@ -282,7 +287,7 @@ private fun Comparison(row: ImportRow, matched: ExistingActivityPreview, duplica
 }
 
 @Composable
-private fun CompareColumn(heading: AppText, values: List<AppText>, modifier: Modifier = Modifier) {
+private fun CompareColumn(heading: AppText, values: ImmutableList<AppText>, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(heading.string(), style = MaterialTheme.typography.labelLarge)
         values.forEach { value ->

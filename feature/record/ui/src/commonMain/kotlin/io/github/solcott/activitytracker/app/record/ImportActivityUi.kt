@@ -84,7 +84,7 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                     },
                 )
             },
-            bottomBar = { if (pinnedSave && !ios) SaveBar(state, preview, save) },
+            bottomBar = { if (pinnedSave && !ios) SaveBar(state, save) },
         ) { padding ->
             val saved = state.savedSuggestions
             val after = state.afterImport
@@ -186,7 +186,7 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
 
 /** Save, pinned under the preview on Android, desktop and web, so it stays in reach while the preview scrolls. */
 @Composable
-private fun SaveBar(state: ImportActivityState, preview: ImportPreview, save: () -> Unit) {
+private fun SaveBar(state: ImportActivityState, save: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).navigationBarsPadding()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Column(
