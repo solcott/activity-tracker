@@ -7,8 +7,10 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
+import io.github.solcott.activitytracker.app.SegmentsMap
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
@@ -88,6 +90,54 @@ data class SegmentBrowseState(
     /** Whether a name is being searched rather than the area browsed. */
     val searchingNames: Boolean
         get() = query.text.isNotBlank()
+
+    /** The searched name as the results' messages quote it. */
+    val nameQuery: String
+        get() = query.text.trim().toString()
+
+    /** Whether This area and Everywhere are offered: while a name is searched over a map's area. */
+    val offersScope: Boolean
+        get() = hasArea && searchingNames
+
+    /**
+     * Whether no name match offers Search everywhere: when This area was searched. Zoomed out too far, This area already searched
+     * everywhere, so there's nowhere wider to offer.
+     */
+    val offersSearchEverywhere: Boolean
+        get() = hasArea && scope == NameScope.ThisArea && !tooWide
+
+    /** What the list shows, on a platform with a map ([mapSupported]) or without one (web). */
+    fun listShows(mapSupported: Boolean): BrowseList =
+        when {
+            searchingNames -> BrowseList.Names
+            !mapSupported -> BrowseList.WebPrompt
+            start == BrowseStart.Locating -> BrowseList.Locating
+            start == BrowseStart.Nowhere -> BrowseList.Nowhere
+            tooWide -> BrowseList.TooWide
+            else -> BrowseList.Area
+        }
+
+    /** The area's runs, nearest first: a copy Swift reads as an array, empty or not. */
+    val areaRuns: List<BrowsedSegment>
+        get() = area.data.runs.toList()
+
+    /** Whether the area holds more runs than were read. */
+    val areaCapped: Boolean
+        get() = area.data.capped
+
+    /** The sport chips' groups after All, in order. */
+    val sports: List<String>
+        get() = SegmentSportGroup.all
+
+    /** The event for a tap on the map that found the run [uri] (a line's URI as the map holds it), or none. */
+    fun selectEvent(uri: String?): SegmentBrowseEvent = SegmentBrowseEvent.Select(uri?.let(::AtUri))
+
+    /** Whether [segment] is the run tapped on the map, marked in the list. */
+    fun isSelected(segment: SegmentView): Boolean = segment.uri == selected
+
+    /** The map's lines in drawing order with the selected run highlighted, and what a tap selects. */
+    val segmentsMap: SegmentsMap
+        get() = SegmentsMap.of(mapLines, selected?.value)
 }
 
 sealed interface SegmentBrowseEvent {

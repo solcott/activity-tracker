@@ -357,6 +357,20 @@ Each phase leaves a shippable app.
      `routeMap`, `proposals`, `history`, `viewerDid` and `revealed`; `PlaceNameFields.isOwn`), which the Compose pages ask too. Left for
      later changes: the segment page (its elevation chart), the enlarged maps and segment browse (interactive and many-segment maps), the
      activity page and the invite's route preview, and the highlighted stretch a new segment shows.
+   - **The interactive maps** (`ios-native-interactive-maps`). A segment's enlarged map is native (`SegmentMapView`): the line on
+     `RouteMapView(height: nil, interactive: true)` filling the page, pan and zoom north-up with Recenter, the data credit over the
+     top-leading corner (`CreditBox`, `SegmentCreditTexts`) with the line framed below it. Segment browse is native (`SegmentBrowseView`):
+     the name field, This area and Everywhere while a name is searched over an area, the sport menu chip, and the list beside the map
+     from 600 points wide and under it on a phone, on a MapKit map of many segments (`SegmentsMapView`) drawing Kotlin's `SegmentsMap`
+     (the lines in drawing order, lifts dashed under the runs and the selected run on top, `nearest` for a tap, since SwiftUI's `Map`
+     has no line hit test, `sketch` for the stand-in, and `MapViewport.ofDegrees` for what it reports). The Search tab shows it in
+     Segments mode as a screen its record embeds (`HostRecord.embed`, drawn by `EmbeddedScreenView`): the browse presenter runs inside
+     the Search record's and navigates its stack, so the Compose embed (`SegmentBrowseViewController`) is gone. Accept invite is native
+     (`AcceptInviteView`): the summary, the route as `RouteSketch`, the intro and overlap warning, the title, the visibility sections
+     Activity defaults also places (`VisibilityFormSections`), sign in again, Decline and Accept. What they say and decide is Kotlin's
+     (`SegmentBrowseTexts` with `SegmentBrowseState.listShows`, `offersScope`, `offersSearchEverywhere`; `SegmentCreditTexts`;
+     `AcceptInviteTexts` with `AcceptInviteState.busy`, `offersSignInAgain`, `routeMap`; `SegmentMapContent.routeMap`), which the Compose
+     pages ask too. Left for later changes: the create-segment page and its highlighted stretch, the activity's route viewer and page.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1671,6 +1685,37 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Apple's credit), the about lines in imperial units, the Regulars card opening the native board, the conditions, the names and the
   dives as cards; a drag over the map scrolled the page; dark mode; a card opened its dive. Nothing was written.
 
+### Phase 4 findings (interactive maps, `ios-native-interactive-maps`)
+
+- **A full screen inside a native page runs through the host, not a Compose view.** Segment browse is a Circuit screen with a
+  navigator, so `HostRecord.sub` (SubCircuits only) can't run it. `HostRecord.embed(screen)` gives a child record whose presenter gets
+  the parent's navigator and runs inside the parent's `RunRecord` under its own key, as `CircuitContent` runs inside `AthleteSearchUi`;
+  an equal screen returns the same child. Compose's round trip through `AthleteSearchEvent.GoTo` ends in the same `goTo`, so the
+  native page skips it. `SegmentBrowseThroughHostTest` runs the real browse presenter this way.
+- **SwiftUI's `Map` has no line hit test.** A tap is turned into a coordinate by `MapReader`'s proxy, a point 12 points away gives the
+  reach in metres, and Kotlin picks the run (`SegmentsMap.nearest`, distance to each stretch, lifts excluded). MapLibre keeps its own
+  rendered-feature query on the other platforms.
+- **Where the map was left is the page's, not the presenter's.** The shared map saves its last camera with `rememberSaveable`; the
+  native map keeps it in `SegmentsMapMemory`, held by the Search page, with the last camera request it took, so switching modes reopens
+  it where it was (seen on the iPad). A request with a new id still moves it once.
+- **`onMapCameraChange(frequency: .onEnd)`** reports the region on first layout and after each pan, which `MapViewport.ofDegrees` turns
+  into the presenter's 1e-7 box, as MapLibre's `awaitViewport` and camera-stop do.
+- **A browse snapshot at an iPad's landscape size renders offset by the test host's safe area** (the name field's label at the top
+  edge), in or out of a `NavigationStack`; on the iPad itself the layout is right. The phone snapshots aren't affected.
+- **The shared iOS location request answers granted at once** (the tracker asks the system), so the native view does the same when
+  `askLocation` is set; the system's own prompt then shows once.
+- **On a `Map`, a plain or simultaneous tap gesture never fires** (iOS 26; a log showed no call), so selecting a run needs a
+  `highPriorityGesture(SpatialTapGesture())`, which leaves the map's pan and pinch working. **Inside a map's content `Color.accentColor`
+  is the system's blue**, not the app's tint, so map lines take `Color("AccentColor")` by name (`RouteMapView` too). Both were found on
+  the iPad, not in snapshots, which draw stand-ins.
+- **A worktree with no `local.properties` builds an app that refreshes the session with the local client ID**, which the device-mode
+  PDS refuses (`InvalidClientMetadataError`) — repeatedly, so the session could end. Copy the device-mode `local.properties` into a new
+  worktree before installing its build on a signed-in simulator.
+- **Walked on the signed-in iPad Air 11-inch (iOS 26.0) as alice**: browse beside the live map with the area's runs, nearest first, the
+  capped note, a tap selecting a run and the list scrolling to it, a pan, the mode switch keeping the map, a name search with This area,
+  Everywhere and Search everywhere, a segment opened and back, and from its page the native enlarged map with its credit, a pan and
+  Recenter. Not seen: the sport filter's effect (the simulator's input never landed a menu choice), lifts (none there), and Accept invite
+  (the stack has no invites).
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1704,12 +1749,14 @@ What building the host and the shell on Swift export showed, beyond the probes:
   tabs at the top~~: a tab's first page now titles itself large (`\.tabRoot`, set by `StackView` on the stack's root), as the shared
   root did; the pages pushed over it keep inline titles. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
-  (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
-  and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
+  (`ios-native-invite-lists`). ~~Accepting an invite (`AcceptInviteScreen`) is still the shared UI's~~: native
+  (`ios-native-interactive-maps`), not yet seen on a device; Activity invites itself wasn't seen on a device, since the local network has
+  no invites.
 - ~~`LeftElsewhereScreen` (left on another device) is still the shared UI's~~: done (`ios-native-search`), `LeftElsewhereView` over
   `LeftElsewhereTexts`, in a stack of its own. A leave resuming (`LeaveView` shown alone) still has no stack, so its title doesn't show.
-- Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`); it waits for native
-  maps, and then the embed (`SegmentBrowseViewController`) goes.
+- ~~Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`)~~: native
+  (`ios-native-interactive-maps`), embedded through the host (`HostRecord.embed`); the Compose embed is gone. Its runs, a tap selecting
+  one and opening a segment were not seen on a device: the walk had no tunnel to the AppView.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
   Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). ~~`ZoneSummary.kinds` and `SportZonesState.kinds`
@@ -1751,9 +1798,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
 - `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
-- The segment page (`SegmentScreen`), its map and segment browse are still the shared UI's: the segment page waits for native charts
-  (its elevation profile) and can place `RouteMapView` and `PlaceNamesSection` as they are; its enlarged map and segment browse want
-  the map's interactive mode and, for browse, many segments and a search box over one map. ~~The dive site page~~: native
+- The segment page (`SegmentScreen`) is still the shared UI's: it waits for native charts (its elevation profile) and can place
+  `RouteMapView`, `PlaceNamesSection` and `CreditBox` (with `SegmentCreditTexts`) as they are. ~~Its enlarged map and segment
+  browse~~: native (`ios-native-interactive-maps`). The create-segment page and the highlighted stretch a new segment shows are still
+  the shared UI's. ~~The dive site page~~: native
   (`ios-native-map`). The lists they open are native (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
   `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,

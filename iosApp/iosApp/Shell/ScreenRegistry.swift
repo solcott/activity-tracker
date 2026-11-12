@@ -97,6 +97,14 @@ extension ScreenRegistry {
 
         // The dive site page (ios-native-map), the first drawn with the native route map, with its names and the name sheet.
         registry.register(DiveSiteScreen.self, DiveSiteState.self) { state in DiveSitePage(state: state) }
+
+        // The interactive maps (ios-native-interactive-maps): a segment's enlarged map, segment browse (which the Search tab embeds, and
+        // which draws natively too if anything pushes it), and accepting an invite.
+        registry.register(SegmentMapScreen.self, SegmentMapState.self) { state in SegmentMapView(state: state) }
+        registry.register(SegmentBrowseScreen.self, SegmentBrowseState.self) { state in
+            SegmentBrowseView(state: state, memory: SegmentsMapMemory())
+        }
+        registry.register(AcceptInviteScreen.self, AcceptInviteState.self) { state in AcceptInviteView(state: state) }
         return registry
     }()
 }

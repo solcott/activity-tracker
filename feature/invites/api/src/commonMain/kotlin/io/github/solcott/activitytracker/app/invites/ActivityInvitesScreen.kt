@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.SignInAgainNotice
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.shownName
@@ -161,7 +162,42 @@ data class AcceptInviteState(
     /** Why accepting or declining failed; loading failures are [content]'s. */
     val error: UiError? = null,
     val eventSink: (AcceptInviteEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    /** Accepting or declining is running, so neither can start again and the form is held. */
+    val busy: Boolean
+        get() = accepting || declining
+
+    /** The invite once loaded; null before, or when it's gone. */
+    val invite: InviteView?
+        get() = content.data
+
+    /** The activity's route as the line preview draws it; null when it has none. */
+    val routeMap: RouteMap?
+        get() = invite?.record?.let { record -> record.polyline?.let { RouteMap.of(it, record.polylineGaps) } }
+
+    /** Whether a failure is the session needing to sign in again, which offers Sign in again. */
+    val offersSignInAgain: Boolean
+        get() = error?.kind == UiError.Kind.SignInAgain
+}
+
+/** What Accept invite says, chosen here for the shared and the native UI (dev/shared-display-text). */
+object AcceptInviteTexts {
+    val title: AppText = AppText.named("accept_invite_title")
+
+    /** What accepting copies and leaves out, naming who added the athlete. */
+    fun intro(invite: InviteView): AppText = AppText.named("accept_invite_intro", AppText.written(invite.inviter.shownName))
+
+    /** The athlete already has an activity overlapping this one. */
+    val overlap: AppText = AppText.named("accept_invite_overlap")
+
+    /** The invite was cancelled, lapsed or accepted. */
+    val gone: AppText = AppText.named("accept_invite_gone")
+
+    /** Accept, or "Accepting…" while it runs. */
+    fun accept(accepting: Boolean): AppText = AppText.named(if (accepting) "accept_invite_accepting" else "accept_invite_accept")
+
+    val decline: AppText = AppText.named("accept_invite_decline")
+}
 
 sealed interface AcceptInviteEvent {
     data object Back : AcceptInviteEvent

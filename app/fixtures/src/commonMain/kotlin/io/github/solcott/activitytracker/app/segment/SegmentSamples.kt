@@ -246,8 +246,20 @@ object SegmentSamples {
 object SegmentMapSamples {
     private val content = SegmentMapContent(SegmentSamples.segment.record.line, SegmentSamples.segment.record.name, credit = null)
 
+    /** An OpenStreetMap segment: its credit over the map's corner. */
+    val credited: SegmentMapState
+        get() = SegmentMapState(ContentStates.loaded(content.copy(credit = SegmentCredit.OpenStreetMap("ODbL-1.0"))))
+
+    /** An agency's segment, naming the agency. */
+    val agency: SegmentMapState
+        get() = SegmentMapState(ContentStates.loaded(content.copy(credit = SegmentCredit.Agency("PD", "USFS"))))
+
     val all: Map<String, SegmentMapState>
         get() = contentSamples(null, content) { SegmentMapState(it) }
+
+    /** Every shared sample and the credited ones, for the native page's previews and snapshots. */
+    val variants: Map<String, SegmentMapState>
+        get() = all + mapOf("credited" to credited, "agency" to agency)
 }
 
 object SegmentLeaderboardSamples {

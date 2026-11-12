@@ -16688,6 +16688,17 @@
         }
       }
     },
+    "segment_browse_details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "segment_browse_locating" : {
       "extractionState" : "manual",
       "localizations" : {

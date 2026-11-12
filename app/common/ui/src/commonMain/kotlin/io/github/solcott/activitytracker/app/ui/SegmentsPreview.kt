@@ -13,7 +13,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.MapSegmentLine
-import io.github.solcott.activitytracker.location.TrackMath
+import io.github.solcott.activitytracker.app.MapSegmentRole
+import io.github.solcott.activitytracker.app.SegmentsMap
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -22,27 +23,23 @@ import kotlinx.collections.immutable.ImmutableList
  */
 @Composable
 internal fun SegmentsPreview(segments: ImmutableList<MapSegmentLine>, selected: String?, modifier: Modifier = Modifier) {
-    val lines =
-        remember(segments) {
-            segments.mapNotNull { line -> TrackMath.decodePolylineOrNull(line.polyline)?.takeIf { it.size >= 2 }?.let { line to it } }
-        }
+    val map = remember(segments, selected) { SegmentsMap.of(segments, selected) }
     val run = MaterialTheme.colorScheme.primary
     val lift = MaterialTheme.colorScheme.outline
     val highlight = MaterialTheme.colorScheme.tertiary
     Canvas(modifier.background(MaterialTheme.colorScheme.surfaceContainer)) {
-        val at = canvasFit(lines.flatMap { it.second }, size, pad = 16.dp.toPx()) ?: return@Canvas
+        val at = canvasFit(map.allPoints, size, pad = 16.dp.toPx()) ?: return@Canvas
 
         val dashes = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
-        // Lifts first, then runs, then the selected run on top.
-        val ordered = lines.sortedBy { (line, _) -> if (line.lift) 0 else if (line.uri == selected) 2 else 1 }
-        for ((line, linePoints) in ordered) {
+        // In the shared drawing order: lifts, then runs, then the selected run on top.
+        for (line in map.drawn) {
             val path =
-                Path().apply { linePoints.map { at(it) }.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }
+                Path().apply { line.points.map { at(it) }.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }
             val (color, width, effect) =
-                when {
-                    line.lift -> Triple(lift, 2.dp, dashes)
-                    line.uri == selected -> Triple(highlight, 6.dp, null)
-                    else -> Triple(run, 4.dp, null)
+                when (line.role) {
+                    MapSegmentRole.Lift -> Triple(lift, 2.dp, dashes)
+                    MapSegmentRole.Selected -> Triple(highlight, 6.dp, null)
+                    MapSegmentRole.Run -> Triple(run, 4.dp, null)
                 }
             drawPath(path, color, style = Stroke(width.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect))
         }

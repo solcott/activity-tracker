@@ -12,7 +12,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -25,14 +24,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_accept
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_accepting
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_decline
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_gone
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_intro
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_overlap
-import io.github.solcott.activitytracker.composeApp.resources.accept_invite_title
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -47,7 +40,7 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(Res.string.accept_invite_title),
+                title = AcceptInviteTexts.title.string(),
                 onBack = { state.eventSink(AcceptInviteEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -55,22 +48,19 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
     ) { padding ->
         val retry = { state.eventSink(AcceptInviteEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadActivityInvite, retry, contentPadding = padding) { invite ->
-            val busy = state.accepting || state.declining
+            val busy = state.busy
             ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 RefreshStatus(state.content, UiError.Kind.LoadActivityInvite, retry)
                 if (invite == null) {
-                    Text(stringResource(Res.string.accept_invite_gone))
+                    Text(AcceptInviteTexts.gone.string())
                     return@ReadableScrollColumn
                 }
                 InviteSummary(invite)
                 invite.record.polyline?.let {
                     RoutePreview(it, Modifier.fillMaxWidth(), gaps = invite.record.polylineGaps?.toImmutableList())
                 }
-                Text(
-                    stringResource(Res.string.accept_invite_intro, invite.inviter.shownName),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (state.overlaps) Text(stringResource(Res.string.accept_invite_overlap), color = MaterialTheme.colorScheme.error)
+                Text(AcceptInviteTexts.intro(invite).string(), style = MaterialTheme.typography.bodyMedium)
+                if (state.overlaps) Text(AcceptInviteTexts.overlap.string(), color = MaterialTheme.colorScheme.error)
                 AppTextField(
                     state.title,
                     label = stringResource(Res.string.field_title),
@@ -80,7 +70,7 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
                 ActivityVisibilityForm(state.visibility, enabled = !busy)
                 state.error?.let { error ->
                     ErrorText(error)
-                    if (error.kind == UiError.Kind.SignInAgain) {
+                    if (state.offersSignInAgain) {
                         AppSecondaryButton(onClick = { state.eventSink(AcceptInviteEvent.SignInAgain) }) {
                             Text(stringResource(Res.string.action_sign_in_again))
                         }
@@ -89,11 +79,11 @@ fun AcceptInviteUi(state: AcceptInviteState, modifier: Modifier = Modifier) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.canDecline) {
                         AppSecondaryButton(onClick = { state.eventSink(AcceptInviteEvent.Decline) }, enabled = !busy) {
-                            Text(stringResource(Res.string.accept_invite_decline))
+                            Text(AcceptInviteTexts.decline.string())
                         }
                     }
                     AppButton(onClick = { state.eventSink(AcceptInviteEvent.Accept) }, enabled = !busy) {
-                        Text(stringResource(if (state.accepting) Res.string.accept_invite_accepting else Res.string.accept_invite_accept))
+                        Text(AcceptInviteTexts.accept(state.accepting).string())
                     }
                 }
             }

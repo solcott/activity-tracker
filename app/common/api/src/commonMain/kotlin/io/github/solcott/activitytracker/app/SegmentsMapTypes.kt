@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Immutable
+import kotlin.math.roundToInt
 
 /**
  * One segment's line on a map of many (segments/segment-browse): [uri] names it in selections, [polyline] is its line at precision 5, and a
@@ -27,6 +28,22 @@ data class MapViewport(
     companion object {
         /** One degree, as `feed.searchSegments` limits a box. */
         const val MAX_SPAN_E7 = 10_000_000
+
+        /** What a map shows, from its box and centre in degrees, as every map reports it. */
+        @Suppress("LongParameterList") // A box and a centre, as a map reports them.
+        fun ofDegrees(south: Double, west: Double, north: Double, east: Double, centerLat: Double, centerLng: Double): MapViewport =
+            MapViewport(
+                minLat = e7(south),
+                minLng = e7(west),
+                maxLat = e7(north),
+                maxLng = e7(east),
+                centerLat = e7(centerLat),
+                centerLng = e7(centerLng),
+            )
+
+        private fun e7(degrees: Double): Int = (degrees * E7).roundToInt()
+
+        private const val E7 = 1e7
     }
 }
 

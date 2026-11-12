@@ -92,6 +92,19 @@ object SegmentBrowseSamples {
     /** Finding where the athlete is. */
     val locating: SegmentBrowseState
         get() = nowhere.copy(start = BrowseStart.Locating)
+
+    /** Every shared sample and the browse states beyond content loading, for the native page's previews and snapshots. */
+    val variants: Map<String, SegmentBrowseState>
+        get() =
+            all +
+                mapOf(
+                    "selected" to selected,
+                    "tooWide" to tooWide,
+                    "nameResults" to nameResults,
+                    "nothingHere" to nothingHere,
+                    "nowhere" to nowhere,
+                    "locating" to locating,
+                )
 }
 
 /** Burlington, Vermont: where the samples' map is centred. */

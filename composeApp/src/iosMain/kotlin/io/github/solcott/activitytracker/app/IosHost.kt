@@ -1,20 +1,15 @@
 package io.github.solcott.activitytracker.app
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import com.slack.circuit.foundation.Circuit
 import com.slack.circuit.foundation.CircuitCompositionLocals
-import com.slack.circuit.foundation.CircuitContent
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.runtime.Navigator
-import com.slack.circuit.runtime.screen.PopResult
 import com.slack.circuit.runtime.ui.Ui
 import com.slack.circuit.subcircuit.LocalSubCircuit
 import io.github.solcott.activitytracker.activityfile.FitDecoder
@@ -24,9 +19,6 @@ import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.HostRecord
 import io.github.solcott.activitytracker.app.host.RootState
 import io.github.solcott.activitytracker.app.host.startOnMain
-import io.github.solcott.activitytracker.app.search.AthleteSearchEvent
-import io.github.solcott.activitytracker.app.search.AthleteSearchState
-import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
@@ -98,19 +90,6 @@ fun ScreenViewController(record: HostRecord): UIViewController {
 }
 
 /**
- * Entry point for `:iosShell`: the segment browse screen (segments/segment-browse) drawn by its shared Compose UI, for the native Search
- * page to show in Segments mode until segment browse is native. It is what `AthleteSearchUi` composes in that mode: the browse presenter
- * runs here, inside this view controller's composition, and what it opens goes on the Search tab's stack through [record]'s latest
- * [AthleteSearchState], as `AthleteSearchEvent.GoTo`. [record] is the Search tab's root, the only handle Swift has on its state.
- */
-@Suppress("FunctionName")
-fun SegmentBrowseViewController(record: HostRecord): UIViewController {
-    val graph = IosHost.graph()
-    val session = IosHost.session
-    return ComposeUIViewController { SegmentBrowse(record, graph, session) }
-}
-
-/**
  * Entry point for `:iosShell`: the bytes of the photo a `heldphoto:` URL names, from the signed-in session's uploads, as the shared UI's
  * image loader serves them ([HeldPhotoFetcher]); null when signed out or when the session doesn't hold it.
  */
@@ -127,30 +106,6 @@ private fun Screen(record: HostRecord, graph: AppGraph, session: SessionGraph?) 
     val ui = remember(record, circuit) { uiFor(record, circuit) }
     val state by record.state.collectAsState()
     SharedUi(record, circuit, session) { state?.let { ui.Content(it, Modifier) } }
-}
-
-/** The Search tab's Segments mode: the browse screen, whose navigation goes to the Search tab's events, as `AthleteSearchUi` sends them. */
-@Composable
-private fun SegmentBrowse(record: HostRecord, graph: AppGraph, session: SessionGraph?) {
-    val circuit = session?.sessionCircuit?.circuit ?: graph.appCircuit.circuit
-    val state by record.state.collectAsState()
-    // The sink is a new lambda on each of the tab presenter's states; reading the latest keeps the navigator, and with it the browse
-    // presenter CircuitContent keys on it, the same.
-    val sink by rememberUpdatedState((state as? AthleteSearchState)?.eventSink)
-    val navigator = remember {
-        object : Navigator by Navigator.NoOp {
-            override fun goTo(screen: com.slack.circuit.runtime.screen.Screen): Boolean {
-                sink?.invoke(AthleteSearchEvent.GoTo(screen))
-                return true
-            }
-
-            override fun pop(result: PopResult?): com.slack.circuit.runtime.screen.Screen? {
-                sink?.invoke(AthleteSearchEvent.Back)
-                return null
-            }
-        }
-    }
-    SharedUi(record, circuit, session) { CircuitContent(SegmentBrowseScreen, navigator = navigator, modifier = Modifier.fillMaxSize()) }
 }
 
 /** The theme, Circuit's locals, and the signed-in session's units and sub-screens, around a shared UI drawn for [record]. */

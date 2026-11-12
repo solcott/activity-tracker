@@ -30,10 +30,11 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.rememberLocationPermissionRequest
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.OpenNewResultsAtTop
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.SearchField
@@ -46,27 +47,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.pagedRows
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_all_sports
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_away
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_capped
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_locating
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_no_results
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_no_results_here
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_none_here
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_nowhere
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_scope_area
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_scope_everywhere
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_search_everywhere
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_search_label
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_web_prompt
-import io.github.solcott.activitytracker.composeApp.resources.segment_browse_zoom_in
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
-import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.stringResource
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Segments around a place and segments found by name (segments/segment-browse): on a phone the map above the list, on a wider window the
@@ -87,19 +72,19 @@ fun SegmentBrowseUi(state: SegmentBrowseState, modifier: Modifier = Modifier) {
             !interactiveMapSupported ->
                 Column(Modifier.fillMaxSize()) {
                     BrowseHeader(state)
-                    BrowseList(state, listState, Modifier.weight(1f))
+                    BrowseRows(state, listState, Modifier.weight(1f))
                 }
             width == WindowWidth.Compact ->
                 Column(Modifier.fillMaxSize()) {
                     BrowseHeader(state)
                     BrowseMap(state, Modifier.fillMaxWidth().weight(MAP_WEIGHT))
-                    BrowseList(state, listState, Modifier.fillMaxWidth().weight(1f))
+                    BrowseRows(state, listState, Modifier.fillMaxWidth().weight(1f))
                 }
             else ->
                 Row(Modifier.fillMaxSize()) {
                     Column(Modifier.width(LIST_PANE_WIDTH).fillMaxHeight()) {
                         BrowseHeader(state)
-                        BrowseList(state, listState, Modifier.weight(1f))
+                        BrowseRows(state, listState, Modifier.weight(1f))
                     }
                     BrowseMap(state, Modifier.weight(1f).fillMaxHeight())
                 }
@@ -123,13 +108,10 @@ private fun BrowseMap(state: SegmentBrowseState, modifier: Modifier = Modifier) 
 @Composable
 private fun BrowseHeader(state: SegmentBrowseState) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SearchField(state.query, stringResource(Res.string.segment_browse_search_label), Modifier.fillMaxWidth())
-        if (state.hasArea && state.searchingNames) {
+        SearchField(state.query, SegmentBrowseTexts.searchLabel.string(), Modifier.fillMaxWidth())
+        if (state.offersScope) {
             AppSegmentedControl(
-                persistentListOf(
-                    stringResource(Res.string.segment_browse_scope_area),
-                    stringResource(Res.string.segment_browse_scope_everywhere),
-                ),
+                NameScope.entries.map { SegmentBrowseTexts.scope(it).string() }.toImmutableList(),
                 selected = state.scope.ordinal,
                 onSelect = { state.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.entries[it])) },
                 modifier = Modifier.fillMaxWidth(),
@@ -139,13 +121,13 @@ private fun BrowseHeader(state: SegmentBrowseState) {
             AppFilterChip(
                 selected = state.sport == null,
                 onClick = { state.eventSink(SegmentBrowseEvent.SportChanged(null)) },
-                label = { Text(stringResource(Res.string.segment_browse_all_sports)) },
+                label = { Text(SegmentBrowseTexts.allSports.string()) },
             )
-            for (sport in SegmentSportGroup.all) {
+            for (sport in state.sports) {
                 AppFilterChip(
                     selected = state.sport == sport,
                     onClick = { state.eventSink(SegmentBrowseEvent.SportChanged(sport)) },
-                    label = { Text(segmentSportLabel(sport)) },
+                    label = { Text(SegmentBrowseTexts.sport(sport).string()) },
                 )
             }
         }
@@ -154,39 +136,38 @@ private fun BrowseHeader(state: SegmentBrowseState) {
 
 /** Name results while a name is searched, else the area's runs, or why there are none to show yet. */
 @Composable
-private fun BrowseList(state: SegmentBrowseState, listState: LazyListState, modifier: Modifier = Modifier) {
+private fun BrowseRows(state: SegmentBrowseState, listState: LazyListState, modifier: Modifier = Modifier) {
     val retry = { state.eventSink(SegmentBrowseEvent.Retry) }
     // Every branch fills this box, so the list keeps the share of the screen the caller gave it, loaded or not.
     Box(modifier) {
-        when {
-            state.searchingNames -> NameResults(state, listState)
-            !interactiveMapSupported -> Message(stringResource(Res.string.segment_browse_web_prompt))
-            state.start == BrowseStart.Locating -> Locating()
-            state.start == BrowseStart.Nowhere -> Message(stringResource(Res.string.segment_browse_nowhere))
-            state.tooWide -> Message(stringResource(Res.string.segment_browse_zoom_in))
-            else ->
+        when (val shows = state.listShows(interactiveMapSupported)) {
+            BrowseList.Names -> NameResults(state, listState)
+            BrowseList.Locating -> Locating()
+            BrowseList.Area ->
                 ContentStateLayout(state.area, UiError.Kind.LoadAreaSegments, retry) { area ->
                     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
                         item(key = "refresh") { RefreshStatus(state.area, UiError.Kind.LoadAreaSegments, retry) }
-                        if (area.capped) item(key = "capped") { EmptyListText(stringResource(Res.string.segment_browse_capped)) }
+                        if (area.capped) item(key = "capped") { EmptyListText(SegmentBrowseTexts.capped.string()) }
                         items(area.runs, key = { it.segment.uri.value }) { run ->
-                            SegmentRow(run.segment, run.metersAway, selected = run.segment.uri == state.selected) {
+                            SegmentRow(
+                                run.segment,
+                                SegmentBrowseTexts.details(run, LocalUnitSystem.current),
+                                selected = run.segment.uri == state.selected,
+                            ) {
                                 state.eventSink(SegmentBrowseEvent.Open(run.segment.uri))
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
-                        if (area.runs.isEmpty()) item(key = "none") { EmptyListText(stringResource(Res.string.segment_browse_none_here)) }
+                        if (area.runs.isEmpty()) item(key = "none") { EmptyListText(SegmentBrowseTexts.noneHere.string()) }
                     }
                 }
+            else -> SegmentBrowseTexts.message(shows)?.let { Message(it.string()) }
         }
     }
 }
 
 @Composable
 private fun NameResults(state: SegmentBrowseState, listState: LazyListState, modifier: Modifier = Modifier) {
-    val query = state.query.text.trim().toString()
-    // Zoomed out too far, This area already searched everywhere (nameParams), so there's nowhere wider to offer.
-    val inArea = state.hasArea && state.scope == NameScope.ThisArea && !state.tooWide
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
         pagedRows(
             state.results,
@@ -194,35 +175,26 @@ private fun NameResults(state: SegmentBrowseState, listState: LazyListState, mod
             onRetry = { state.eventSink(SegmentBrowseEvent.Retry) },
             key = { it.uri.value },
             empty = {
-                if (inArea) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        EmptyListText(stringResource(Res.string.segment_browse_no_results_here, query))
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    EmptyListText(SegmentBrowseTexts.noResults(state).string())
+                    if (state.offersSearchEverywhere) {
                         AppTextButton(onClick = { state.eventSink(SegmentBrowseEvent.SearchEverywhere) }) {
-                            Text(stringResource(Res.string.segment_browse_search_everywhere))
+                            Text(SegmentBrowseTexts.searchEverywhere.string())
                         }
                     }
-                } else {
-                    EmptyListText(stringResource(Res.string.segment_browse_no_results, query))
                 }
             },
         ) { segment ->
-            SegmentRow(segment, metersAway = null, selected = segment.uri == state.selected) {
+            SegmentRow(segment, SegmentBrowseTexts.details(segment, LocalUnitSystem.current), selected = segment.uri == state.selected) {
                 state.eventSink(SegmentBrowseEvent.Open(segment.uri))
             }
         }
     }
 }
 
-/** A segment: its name, then its length and type, and how far away it is in the area's list. The one tapped on the map is marked. */
+/** A segment: its name, then its [details] line. The one tapped on the map is marked. */
 @Composable
-private fun SegmentRow(segment: SegmentView, metersAway: Int?, selected: Boolean, onClick: () -> Unit) {
-    val details =
-        listOfNotNull(
-                Format.distance(segment.distanceMeters.toDouble()),
-                segmentTypeLabel(segment.record.sport, segment.record.kind),
-                metersAway?.let { stringResource(Res.string.segment_browse_away, Format.distance(it.toDouble())) },
-            )
-            .joinToString(" · ")
+private fun SegmentRow(segment: SegmentView, details: AppText, selected: Boolean, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
             .then(if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
@@ -230,7 +202,7 @@ private fun SegmentRow(segment: SegmentView, metersAway: Int?, selected: Boolean
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
-        Text(details, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -256,7 +228,7 @@ private fun areaRowsBeforeRuns(state: SegmentBrowseState): Int = if (state.area.
 private fun Locating(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         AppProgressIndicator()
-        EmptyListText(stringResource(Res.string.segment_browse_locating))
+        EmptyListText(SegmentBrowseTexts.message(BrowseList.Locating)?.string().orEmpty())
     }
 }
 

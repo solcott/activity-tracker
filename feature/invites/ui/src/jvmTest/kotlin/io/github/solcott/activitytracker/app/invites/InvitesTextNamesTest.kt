@@ -16,6 +16,15 @@ class InvitesTextNamesTest {
         val texts =
             ActivityInvitesTab.entries.flatMap { listOf(ActivityInvitesTexts.tab(it), ActivityInvitesTexts.empty(it)) } +
                 listOf(ActivityInvitesTexts.from(invite), ActivityInvitesTexts.summary(invite, UnitSystem.Metric)) +
+                listOf(
+                    AcceptInviteTexts.title,
+                    AcceptInviteTexts.intro(invite),
+                    AcceptInviteTexts.overlap,
+                    AcceptInviteTexts.gone,
+                    AcceptInviteTexts.accept(false),
+                    AcceptInviteTexts.accept(true),
+                    AcceptInviteTexts.decline,
+                ) +
                 listOf(InviteStatus.PENDING, InviteStatus.JOINED).flatMap {
                     val invitee = fakeInvitee(status = it)
                     listOf(AddPeopleTexts.status(invitee), AddPeopleTexts.remove(invitee))

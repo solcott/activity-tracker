@@ -51,6 +51,8 @@ internal constructor(
      * so a UI that draws the screen gives it no back button; the same screen shown on its own has one.
      */
     val paneRoot: StateFlow<Boolean> = MutableStateFlow(false),
+    /** What this record's presenter navigates: its stack, or nothing for a screen with none. A screen it [embed]s navigates it too. */
+    private val navigator: Navigator = Navigator.NoOp,
 ) {
     /**
      * The screen's latest state: null until its presenter first runs, and kept, unchanged, while the presenter is stopped (the screen is
@@ -108,6 +110,42 @@ internal constructor(
 
     internal fun drop(sub: HostSubRecord) {
         subs.value = subs.value.filterNot { it === sub }.toImmutableList()
+    }
+
+    /** The screens a UI asked this record to embed ([embed]), which run inside its presenter while it runs. */
+    internal val embedded: StateFlow<ImmutableList<HostRecord>>
+        field = MutableStateFlow<ImmutableList<HostRecord>>(persistentListOf())
+
+    private var nextEmbedded = 0
+
+    /**
+     * The screen [screen] this record's page shows inside itself, as the shared UI places it with `CircuitContent` (the Search tab's
+     * segment browse): a record of its own whose presenter runs inside this one's while it runs, so what it retains and saves is kept and
+     * dropped with this record's, and whose navigation goes to this record's stack (dev/presenter-host). A native UI draws it from its
+     * [state] as it draws any record. Asking again for an equal screen gives the same record.
+     *
+     * [screen] is an object for the same reason as [sub]'s. It fails naming [screen] when it isn't a screen or no presenter is registered
+     * for it.
+     */
+    fun embed(screen: Any): HostRecord {
+        require(screen is Screen) { "$screen is not a screen" }
+        embedded.value
+            .firstOrNull { it.screen == screen }
+            ?.let {
+                return it
+            }
+        val record =
+            HostRecord(
+                key = "$key-embedded-${nextEmbedded++}",
+                screen = screen,
+                isRoot = false,
+                showsTabs = showsTabs,
+                presenter = presenters.create(screen, navigator),
+                presenters = presenters,
+                navigator = navigator,
+            )
+        embedded.value = (embedded.value + record).toImmutableList()
+        return record
     }
 }
 

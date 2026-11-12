@@ -448,3 +448,27 @@ typealias DiveSiteView = LexiconAppPackage.DiveSiteView
 typealias DiveSiteConditions = LexiconAppPackage.DiveSiteConditions
 typealias SegmentNameProposalView = LexiconAppPackage.SegmentNameProposalView
 typealias SegmentNameAdoption = LexiconAppPackage.SegmentNameAdoption
+// The interactive maps (ios-native-interactive-maps): the enlarged segment map, segment browse and its many-segment map, Accept invite,
+// and the screen a record embeds.
+typealias SegmentMapScreen = SegmentPackage.SegmentMapScreen
+typealias SegmentMapState = SegmentPackage.SegmentMapState
+typealias SegmentMapEvent = SegmentPackage.SegmentMapEvent
+typealias SegmentMapContent = SegmentPackage.SegmentMapContent
+typealias SegmentCredit = SegmentPackage.SegmentCredit
+typealias SegmentCreditTexts = SegmentPackage.SegmentCreditTexts
+typealias SegmentBrowseScreen = SegmentPackage.SegmentBrowseScreen
+typealias SegmentBrowseState = SegmentPackage.SegmentBrowseState
+typealias SegmentBrowseEvent = SegmentPackage.SegmentBrowseEvent
+typealias SegmentBrowseTexts = SegmentPackage.SegmentBrowseTexts
+typealias BrowsedSegment = SegmentPackage.BrowsedSegment
+typealias BrowseList = SegmentPackage.BrowseList
+typealias NameScope = SegmentPackage.NameScope
+typealias SegmentsMap = AppPackage.SegmentsMap
+typealias MapSegment = AppPackage.MapSegment
+typealias MapSegmentRole = AppPackage.MapSegmentRole
+typealias MapViewport = AppPackage.MapViewport
+typealias MapCameraRequest = AppPackage.MapCameraRequest
+typealias AcceptInviteScreen = InvitesPackage.AcceptInviteScreen
+typealias AcceptInviteState = InvitesPackage.AcceptInviteState
+typealias AcceptInviteEvent = InvitesPackage.AcceptInviteEvent
+typealias AcceptInviteTexts = InvitesPackage.AcceptInviteTexts
