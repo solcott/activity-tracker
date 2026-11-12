@@ -1555,6 +1555,7 @@
     <string name="detail_section_legs">Legs</string>
     <string name="table_rest">Rest</string>
     <string name="table_row_description">%1$s: %2$s</string>
+    <string name="table_cell_description">%1$s %2$s</string>
     <string name="length_number">Length</string>
     <string name="length_stroke">Stroke</string>
     <string name="length_strokes">Strokes</string>
@@ -2092,6 +2093,7 @@
     <string name="gear_total_joined">%1$s · %2$s</string>
     <!-- A list of names, each next one joined on: "Ride, Run". -->
     <string name="text_list_pair">%1$s, %2$s</string>
+    <string name="text_arrow_pair">%1$s → %2$s</string>
     <string name="text_dot_pair">%1$s · %2$s</string>
     <plurals name="gear_total_days">
         <item quantity="one">%1$d day</item>

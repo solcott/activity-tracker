@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
  * The names of things the app shows by a token or a kind. Several come from open sets (a sport another client added, a sensor kind the app
  * doesn't know), so each says what to show when the app has no string for one, the same in every UI (dev/shared-display-text).
  */
+@Suppress("TooManyFunctions") // One per kind of label.
 object LabelText {
     /** A sport's name. The lexicon's sport is an open enum, so an unknown token shows capitalized as it is. */
     fun sport(sport: String): AppText = AppText.Named("sport_$sport", fallback = AppText.written(sport.replaceFirstChar { it.uppercase() }))
@@ -24,6 +25,12 @@ object LabelText {
 
     /** What a sensor is ("Power meter"), by its lexicon kind; an open enum, so an unknown kind is just a sensor. */
     fun sensorType(kind: String): AppText = AppText.Named("sensor_$kind", fallback = AppText.named("sensor_other"))
+
+    /** "Power meter · SRAM", "Heart rate monitor · Garmin HRM 200": what a sensor is, then its make and model where known. */
+    fun sensor(kind: String, manufacturer: String?, model: String?): AppText {
+        val name = listOfNotNull(manufacturer, model).joinToString(" ").ifEmpty { null }
+        return name?.let { AppText.named("text_dot_pair", sensorType(kind), AppText.written(it)) } ?: sensorType(kind)
+    }
 
     /** The name of a sport picker group. */
     fun sportCategory(category: SportCategory): AppText = AppText.named("sport_category_${category.name}")

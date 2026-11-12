@@ -16,26 +16,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_edit
-import io.github.solcott.activitytracker.composeApp.resources.detail_member_of
-import io.github.solcott.activitytracker.composeApp.resources.detail_members
-import io.github.solcott.activitytracker.composeApp.resources.detail_open_combined
-import io.github.solcott.activitytracker.composeApp.resources.detail_open_recorded
-import io.github.solcott.activitytracker.composeApp.resources.detail_recording_of
-import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed
-import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed_earlier
-import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed_later
-import io.github.solcott.activitytracker.composeApp.resources.detail_recordings
 import io.github.solcott.activitytracker.composeApp.resources.edit_combination
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
-import kotlin.math.abs
 import kotlin.time.Instant
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -49,28 +38,18 @@ fun Recordings(activity: ActivityView, onOpen: (AtUri) -> Unit, modifier: Modifi
     if (recordings.isEmpty() && recordingOf == null) return
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (recordingOf != null) {
-            Text(stringResource(Res.string.detail_recording_of), style = MaterialTheme.typography.bodyMedium)
-            Link(stringResource(Res.string.detail_open_recorded)) { onOpen(recordingOf) }
+            Text(RecordingTexts.recordingOf.string(), style = MaterialTheme.typography.bodyMedium)
+            Link(RecordingTexts.openRecorded.string()) { onOpen(recordingOf) }
         } else {
-            Text(stringResource(Res.string.detail_recordings), style = MaterialTheme.typography.labelLarge)
+            Text(RecordingTexts.recordings.string(), style = MaterialTheme.typography.labelLarge)
             recordings.forEach { recording -> Link(recordingName(recording, activity.record.startedAt)) { onOpen(recording.uri) } }
         }
     }
 }
 
-/** The recording's device; or, for a file that named none, when it started next to [activityStart], to tell such recordings apart. */
 @Composable
-private fun recordingName(recording: RecordingView, activityStart: Instant): String {
-    recording.device?.let {
-        return it
-    }
-    val minutes = (recording.startedAt - activityStart).inWholeMinutes.toInt()
-    return when {
-        minutes > 0 -> pluralStringResource(Res.plurals.detail_recording_unnamed_later, minutes, minutes)
-        minutes < 0 -> pluralStringResource(Res.plurals.detail_recording_unnamed_earlier, abs(minutes), abs(minutes))
-        else -> stringResource(Res.string.detail_recording_unnamed)
-    }
-}
+private fun recordingName(recording: RecordingView, activityStart: Instant): String =
+    RecordingTexts.recordingName(recording, activityStart).string()
 
 /**
  * A combined activity's members, oldest first, each opening its own page, with Edit for the owner ([onEdit]: the combination editor); or,
@@ -83,11 +62,11 @@ fun Members(activity: ActivityView, onOpen: (AtUri) -> Unit, onEdit: (() -> Unit
     if (members.isEmpty() && combinedInto == null) return
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (combinedInto != null) {
-            Text(stringResource(Res.string.detail_member_of), style = MaterialTheme.typography.bodyMedium)
-            Link(stringResource(Res.string.detail_open_combined)) { onOpen(combinedInto) }
+            Text(RecordingTexts.memberOf.string(), style = MaterialTheme.typography.bodyMedium)
+            Link(RecordingTexts.openCombined.string()) { onOpen(combinedInto) }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(Res.string.detail_members), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                Text(RecordingTexts.members.string(), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                 if (onEdit != null) {
                     val description = stringResource(Res.string.edit_combination)
                     AppTextButton(onClick = onEdit, modifier = Modifier.semantics { contentDescription = description }) {
@@ -100,13 +79,8 @@ fun Members(activity: ActivityView, onOpen: (AtUri) -> Unit, onEdit: (() -> Unit
     }
 }
 
-/**
- * A member's device; or, for a file that named none, its sport. Not its start: a member whose start is hidden is served at its local day's
- * midnight, so it would read as hours away from the combined activity.
- */
-@Composable
-fun memberName(member: MemberView): String =
-    member.device ?: member.sport?.let { sportLabel(it) } ?: stringResource(Res.string.detail_recording_unnamed)
+/** A member's device; or, for a file that named none, its sport ([RecordingTexts.memberName]). */
+@Composable fun memberName(member: MemberView): String = RecordingTexts.memberName(member).string()
 
 @Composable
 private fun Link(text: String, onClick: () -> Unit) {

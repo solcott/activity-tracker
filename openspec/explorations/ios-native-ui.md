@@ -384,6 +384,23 @@ Each phase leaves a shippable app.
      `:app-common-api`, which the shared effort row asks too; `SegmentTexts.kindIcon`; `SegmentState`'s `routeMap`, `chart`, `isLift`
      and `offersLeaderboard`); a `<string-array>` item is `AppText.named("<array>_<index>")` in both UIs. Left for later changes:
      threshold history (a step chart with dots and value labels, and sparklines), the activity page's charts and the import preview's.
+   - **The activity page** (`ios-native-activity-page`, archived). `ActivityPage` draws `ActivityDetailScreen` in inset grouped sections: the
+     header (the labels' notices, the author and tier badge, the start and its lock, the title and type, the dive site, the
+     description, the other recordings and members, the combine banner, errors and notices), the route on the static native map
+     expanding to the shared enlarged map with the map's lock and the photos (`MediaStrip(showsRoute: false)`), the hero, likes and who
+     liked it, Together with, the training load, a section per metric card (its headline, each line as a native `LineChartView` with
+     its average dashed and a pace line inverted, time in zones as bars or Set thresholds, its rows, the laps table), the segment
+     efforts (indented by nesting) and lifts, the stats list with gear rows opening their gear, and the comments (`CommentsSection`).
+     From a regular width of 840 points a 400-point pane (map, header, hero, likes, group, avg/max table, training load, stats, comments)
+     sits beside the cards, each scrolling on its own. The bar holds the owner's menu, built from Kotlin's `ActivityPageTexts.ownerMenu`
+     (Split and Delete in alerts, Export in a sheet whose built file goes to the share sheet through `IosApp.writeExport`), or Report.
+     The combine prompt is an alert; a hidden activity waits behind its warning. What it says moved out of Compose: `FigureTexts`,
+     `StreamUnits`, `DiveText`, `LabelText.sensor`, `CardLines`, `ZoneRows`, `LapTableTexts` and `RecordingTexts` (`:app-common-api`),
+     `ActivityPageTexts` (`:feature-detail-api`), which the Compose page asks too; `LineChart` gained `average`. Left for later
+     changes: the charts `LineChart` can't draw (the elevation behind a line, a pair's second line, several tanks, a dive's markers and
+     ceiling, e-bike assist steps, the power curve, gears), the legs, lengths and sets tables, the edit-combination sheet, chart source
+     captions, nested efforts' guides and span bars, and the screens it opens that are still shared (media gallery, enlarged route map,
+     Edit, combine picker, create segment).
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1753,6 +1770,32 @@ What building the host and the shell on Swift export showed, beyond the probes:
   page), the OSM credit, Leaderboard, the Mayor card opening the native board, the efforts with PR opening their activity, dark mode,
   Star and unstar, and the expand button opening the shared enlarged map; "Easy Street" showed the ski run icon and no chart.
 
+### Phase 4 findings (activity page, `ios-native-activity-page`)
+
+- **The figures' words were the page's biggest Compose-only rule set.** `PageFigures.kt` (460 lines) chose every label and value with
+  `stringResource`; it became `FigureTexts` over `StreamUnits` and `DiveText`, and the Compose helpers one line each. `text_dot_pair` and
+  the new `text_arrow_pair` join a value's parts ("Air → EAN50", "100% → 70% · min 48%") as Compose's `joinToString` did, and
+  `table_cell_description` joins a lap's header and value for its spoken row.
+- **An inverted chart needs nothing in Swift.** `ChartAxis.of(inverted = true)` already gave Vico's negated axis; `CardLines` plots a
+  pace negated and labels each tick with the unnegated value, so `LineChartView` draws the faster pace at the top unchanged. Only the
+  average needed a field (`LineChart.average`, a dashed `RuleMark`).
+- **A menu whose items need confirmation is a list of items with an optional event.** `ActivityMenuItem.event` is the event to send, or
+  null for Split, Export and Delete, which each UI asks about first; the Compose `ManageMenu` and the native `ActivityPageMenu` both build
+  from `ownerMenu`, so the rule of which items show is written once.
+- **The recordings, members and combine cue are shared with import**, so their words went to `:app-common-api` (`RecordingTexts`)
+  rather than the detail `-api`, which the import screen can't see.
+- **A Kotlin extension property reaches Swift as a package function** (`DetailPackage.getCommentsState(page)`), as `getShownName` did.
+- **iOS 26 goes back on a rightward drag anywhere over a page,** which took a rightward scrub on a chart (`ChartScrub` only began on
+  sideways drags, but the stack's pan won). The chart's pan delegate now makes every other non-scroll pan wait for it to fail
+  (`shouldBeRequiredToFailBy`), the stack's back included, whose view can be the pan's own host view.
+- **A Release build sees a feature's `-api` only if Swift imports it:** Debug reached `FeatureDetailApi` through the samples, which
+  Release doesn't export, so `KotlinTypes.swift` imports it like the others.
+- **A snapshot taller than about 4,000 points renders blank;** the page's tall images are 2,600 points, and a card cut off below them
+  gets a suite of its own (`lapsAndElevationCards`).
+- **Walked on the signed-in iPad Air (iOS 26.0) as alice** with the tunnel up: the owner's and someone else's pages, the live map,
+  landscape's two panes, the combine banner, native charts with readouts, laps, nested efforts, stats, gear, comments, the menus and
+  the report sheet, dark mode.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1843,6 +1886,14 @@ What building the host and the shell on Swift export showed, beyond the probes:
   segment shows are still the shared UI's. ~~The dive site page~~: native (`ios-native-map`). The lists they open are native
   (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
   `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
+- ~~The activity page (`ActivityDetailScreen`) is still the shared UI's~~: native (`ios-native-activity-page`). Still left on it:
+  charts `LineChart` can't draw yet (the elevation behind a line, a left/right pair's second line, several tanks on one chart, a dive's
+  gas switches, warnings and deco ceiling, e-bike assist mode's steps, the power curve and the gears chart; their cards show their
+  headline, a plain chart of the main line and their rows), the legs, lengths and sets tables (multisport, pool swims, workouts), the
+  edit-combination sheet (removing a member, data sources; Split stays in the menu), the chart source captions on a combined activity,
+  and the nested efforts' guide lines and span bars (rows are indented instead). Two cards to a row on a medium width is the shared
+  page's; the native one stacks them. The screens it opens that are still shared: the media gallery, the enlarged route map, Edit, the
+  combine picker, Add a recording (import) and Create segment.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
   iPad). Still left: the bar's type sheet has no search and no collapsed sports; ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
@@ -1850,8 +1901,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   quotes in the feed, import cards, the upload rows, the prompts and a failed first load, which the local stack's alice didn't have.
 - Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the
   profile's Posts tab, which closes the profile's Posts item above. ~~Still left out: Report on a post, a comment and a quote~~: done
-  (`ios-native-post-report`). The feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready
-  for the activity page (pass its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards too.
+  (`ios-native-post-report`). ~~The feed's posts and the activity page's comments are still the shared UI's~~: both native (`ios-native-feed`,
+  `ios-native-activity-page`, which passes its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards too.
 - ~~The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now~~: both native
   (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. ~~The native post card (`ios-native-post-card`) wires
   Report in its menu with `reporting(_:)` once the two merge~~: done (`ios-native-post-report`). The name sheet is placed on the native dive site page (`ios-native-map`).

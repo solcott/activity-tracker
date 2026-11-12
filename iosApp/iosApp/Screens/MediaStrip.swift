@@ -9,6 +9,8 @@ struct MediaStrip: View {
     let content: ActivityCardContent
     let revealed: Bool
     let reveal: () -> Void
+    /// False where the page draws the route on its own map, as the activity page does: then only the photos show.
+    var showsRoute = true
     let open: (Int32) -> Void
 
     static let height: CGFloat = 160
@@ -18,14 +20,14 @@ struct MediaStrip: View {
     var body: some View {
         let photos = content.media.elements(as: MediaPhoto.self)
         if photos.isEmpty {
-            if content.hasRoute {
+            if (showsRoute && content.hasRoute) {
                 route.frame(maxWidth: .infinity).frame(height: Self.height).clipShape(tile)
             }
         } else {
             GeometryReader { geometry in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Self.gap) {
-                        if content.hasRoute {
+                        if (showsRoute && content.hasRoute) {
                             route.frame(width: geometry.size.width * 0.8).clipShape(tile)
                         }
                         ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in

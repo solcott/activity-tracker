@@ -22,8 +22,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 
 /** "Power meter · SRAM", "Heart rate monitor · Garmin HRM 200". */
 @Composable
-fun sensorLabel(kind: String, manufacturer: String?, model: String?): String =
-    listOfNotNull(sensorTypeLabel(kind), listOfNotNull(manufacturer, model).joinToString(" ").ifEmpty { null }).joinToString(" · ")
+fun sensorLabel(kind: String, manufacturer: String?, model: String?): String = LabelText.sensor(kind, manufacturer, model).string()
 
 /** The name of a sport picker group. */
 @Composable fun sportCategoryLabel(category: SportCategory): String = LabelText.sportCategory(category).string()

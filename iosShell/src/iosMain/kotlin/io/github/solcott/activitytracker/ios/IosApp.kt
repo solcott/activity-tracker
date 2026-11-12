@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.profile.EditProfileLimits
 import io.github.solcott.activitytracker.app.ui.compressAvatar as compressForAvatar
 import io.github.solcott.activitytracker.app.ui.compressPhoto as compressForUpload
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.export.ExportArchive
 import io.github.solcott.activitytracker.data.export.writeToPath
 import kotlinx.io.bytestring.ByteString
@@ -46,6 +47,12 @@ object IosApp {
      * sheet (auth/data-export). Whether it was written; a failed write leaves no file. Swift awaits it.
      */
     suspend fun writeArchive(archive: ExportArchive, path: String): Boolean = archive.writeToPath(path)
+
+    /**
+     * Writes an activity's exported file into the file at [path], replacing one already there, for the native activity page to offer in the
+     * share sheet (feed/activity-export). Whether it was written. Swift awaits it.
+     */
+    suspend fun writeExport(file: ExportedFile, path: String): Boolean = file.writeToPath(path)
 
     /**
      * A photo a native form picked, ready to attach: [image] (any format the platform decodes) re-encoded, scaled and stripped of its

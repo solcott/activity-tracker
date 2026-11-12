@@ -1,11 +1,8 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import io.github.solcott.activitytracker.app.text.DiveText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.deco_model_dciem
-import io.github.solcott.activitytracker.composeApp.resources.deco_model_vpm_b
-import io.github.solcott.activitytracker.composeApp.resources.deco_model_vpm_b_gfs
-import io.github.solcott.activitytracker.composeApp.resources.deco_model_zhl16c
 import io.github.solcott.activitytracker.composeApp.resources.dive_gradient_factors
 import io.github.solcott.activitytracker.composeApp.resources.stat_deco_model
 import io.github.solcott.activitytracker.composeApp.resources.stat_deco_model_gf
@@ -18,8 +15,6 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_safety_stop
 import io.github.solcott.activitytracker.composeApp.resources.stat_setpoint_high
 import io.github.solcott.activitytracker.composeApp.resources.stat_setpoint_low
 import io.github.solcott.activitytracker.composeApp.resources.stat_setpoints
-import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
-import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import org.jetbrains.compose.resources.stringResource
@@ -65,17 +60,7 @@ private fun decoModel(dive: ActivityDive): Stat? {
 }
 
 /** Millibar as "1.40 bar". */
-@Composable fun bar(millibar: Int): String = stringResource(Res.string.unit_pressure_bar, formatDecimal(millibar / MBAR_PER_BAR, 2))
+@Composable fun bar(millibar: Int): String = DiveText.bar(millibar).string()
 
 /** A deco model's name; one the app doesn't know reads as its token. */
-@Composable
-fun decoModelName(model: String): String =
-    when (model) {
-        DecoModel.ZHL16C -> stringResource(Res.string.deco_model_zhl16c)
-        DecoModel.VPM_B -> stringResource(Res.string.deco_model_vpm_b)
-        DecoModel.VPM_B_GFS -> stringResource(Res.string.deco_model_vpm_b_gfs)
-        DecoModel.DCIEM -> stringResource(Res.string.deco_model_dciem)
-        else -> model
-    }
-
-private const val MBAR_PER_BAR = 1000.0
+@Composable fun decoModelName(model: String): String = DiveText.decoModel(model).string()

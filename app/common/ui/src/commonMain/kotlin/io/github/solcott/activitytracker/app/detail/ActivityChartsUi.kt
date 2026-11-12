@@ -11,9 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.settings.zoneName
 import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.chart.SeriesLabel
 import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
@@ -21,8 +21,8 @@ import io.github.solcott.activitytracker.app.ui.chart.TimeSeriesChart
 import io.github.solcott.activitytracker.app.ui.chart.ZoneBar
 import io.github.solcott.activitytracker.app.ui.chart.ZoneBars
 import io.github.solcott.activitytracker.app.ui.diveAlertLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.chart_avg_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_np_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_alerts
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
@@ -31,22 +31,12 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
-import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate_zones
-import io.github.solcott.activitytracker.composeApp.resources.chart_left_right
 import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
-import io.github.solcott.activitytracker.composeApp.resources.chart_max_only
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_point
-import io.github.solcott.activitytracker.composeApp.resources.chart_power_zones
 import io.github.solcott.activitytracker.composeApp.resources.chart_tank_pressure_help
-import io.github.solcott.activitytracker.composeApp.resources.chart_zone_label
-import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range
-import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range_open
-import io.github.solcott.activitytracker.composeApp.resources.charts_missing_zones
-import io.github.solcott.activitytracker.composeApp.resources.charts_set_thresholds
-import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hours
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_seconds
@@ -58,7 +48,6 @@ import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -113,14 +102,14 @@ private fun CardExtras(
     when (card.section) {
         DetailSection.HeartRate -> {
             val zones = card.zones
-            if (zones != null) Zones(Res.string.chart_heart_rate_zones, zones, Res.string.unit_bpm)
+            if (zones != null) Zones(DetailSection.HeartRate, zones)
             else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
         }
 
         DetailSection.Power -> {
             if (card.powerCurve.size >= 2) PowerCurve(card.powerCurve)
             val zones = card.zones
-            if (zones != null) Zones(Res.string.chart_power_zones, zones, Res.string.unit_watts)
+            if (zones != null) Zones(DetailSection.Power, zones)
             else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
         }
 
@@ -142,12 +131,12 @@ private fun CardExtras(
 private fun MissingZones(onSetThresholds: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            stringResource(Res.string.charts_missing_zones),
+            ZoneRows.missing.string(),
             Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AppTextButton(onClick = onSetThresholds) { Text(stringResource(Res.string.charts_set_thresholds)) }
+        AppTextButton(onClick = onSetThresholds) { Text(ZoneRows.setThresholds.string()) }
     }
 }
 
@@ -246,11 +235,11 @@ private fun LineChart(
     val right = series.right
     val rightPoints = right?.let { rememberPoints(it) }
     val lines = if (rightPoints == null) others else persistentListOf(rightPoints)
+    // The shared rule (CardLines.detail), but for several tanks' maxima, and normalized power beside power.
+    val shared = CardLines.detail(series, pace, LocalUnitSystem.current)?.string()
     val detail =
         when {
-            max == null -> null
-            average == null -> stringResource(Res.string.chart_max_only, max)
-            right != null -> stringResource(Res.string.chart_left_right, average, right.average?.let { unit.text(unit.convert(it)) } ?: "–")
+            max == null || average == null || right != null -> shared
             detailOverride != null -> detailOverride
             normalizedPower != null ->
                 stringResource(
@@ -259,7 +248,7 @@ private fun LineChart(
                     stringResource(Res.string.unit_watts, formatWhole(normalizedPower)),
                     max,
                 )
-            else -> stringResource(Res.string.chart_avg_max, average, max)
+            else -> shared
         }
     val points = rememberPoints(series, unit, paceCeiling(series, unit, pace))
     val backdrop = elevation?.let { rememberPoints(it) }
@@ -295,24 +284,19 @@ private fun LineChart(
 }
 
 @Composable
-private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: StringResource) {
-    val total = zones.sumOf { it.seconds }.coerceAtLeast(1)
-    val bars = zones.map { zone ->
-        ZoneBar(
-            label = stringResource(Res.string.chart_zone_label, zone.label),
-            name = zoneName(zone.name),
-            range =
-                stringResource(
-                    unit,
-                    zone.high?.let { stringResource(Res.string.chart_zone_range, formatWhole(zone.low), formatWhole(it)) }
-                        ?: stringResource(Res.string.chart_zone_range_open, formatWhole(zone.low)),
-                ),
-            time = Format.duration(zone.seconds.toLong()),
-            fraction = zone.seconds.toFloat() / total,
-        )
-    }
+private fun Zones(section: DetailSection, zones: ImmutableList<ZoneTime>) {
+    val bars =
+        ZoneRows.of(zones, section).map { row ->
+            ZoneBar(
+                label = row.label.string(),
+                name = row.name.string(),
+                range = row.range.string(),
+                time = row.time.string(),
+                fraction = row.fraction.toFloat(),
+            )
+        }
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
-        ChartHeader(stringResource(title), null)
+        ChartHeader(ZoneRows.heading(section).string(), null)
         ZoneBars(bars.toImmutableList())
     }
 }

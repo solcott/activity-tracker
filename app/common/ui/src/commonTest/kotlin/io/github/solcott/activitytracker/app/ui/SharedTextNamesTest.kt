@@ -3,7 +3,22 @@ package io.github.solcott.activitytracker.app.ui
 import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
+import io.github.solcott.activitytracker.app.detail.AvgMaxMetric
+import io.github.solcott.activitytracker.app.detail.DetailSection
+import io.github.solcott.activitytracker.app.detail.Figure
+import io.github.solcott.activitytracker.app.detail.FigureKey
+import io.github.solcott.activitytracker.app.detail.FigureTexts
+import io.github.solcott.activitytracker.app.detail.FigureUnit
 import io.github.solcott.activitytracker.app.detail.FigureValue
+import io.github.solcott.activitytracker.app.detail.GasMix
+import io.github.solcott.activitytracker.app.detail.LapRow
+import io.github.solcott.activitytracker.app.detail.LapTableTexts
+import io.github.solcott.activitytracker.app.detail.PaceKind
+import io.github.solcott.activitytracker.app.detail.StatsGroupKind
+import io.github.solcott.activitytracker.app.detail.StreamKind
+import io.github.solcott.activitytracker.app.detail.StreamUnits
+import io.github.solcott.activitytracker.app.detail.ZoneRows
+import io.github.solcott.activitytracker.app.detail.ZoneTime
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
@@ -14,6 +29,7 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.CardStatsText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.DayText
+import io.github.solcott.activitytracker.app.text.DiveText
 import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
@@ -33,6 +49,7 @@ import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
@@ -46,12 +63,14 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 
@@ -110,6 +129,87 @@ class SharedTextNamesTest {
                 listOf(false, true).map { VisibilityTexts.lockedNote(VisibilityFields(canChoose = false, spacesUnsupported = it)) } +
                 // The string an unknown sensor falls back to.
                 (LabelText.sensorType("unknown") as AppText.Named).fallback!!
+        assertAllExist(texts)
+    }
+
+    /** A value of every kind whose text names a string. */
+    private val figureValues =
+        listOf(
+            FigureValue.Pace(3_000, swim = false),
+            FigureValue.Pace(1_000, swim = true),
+            FigureValue.Quantity(200, FigureUnit.Watts),
+            FigureValue.Quantity(140, FigureUnit.Bpm),
+            FigureValue.Quantity(90, FigureUnit.Rpm),
+            FigureValue.Quantity(600, FigureUnit.Kilocalories),
+            FigureValue.Quantity(900, FigureUnit.Kilojoules),
+            FigureValue.Quantity(50, FigureUnit.Milliseconds),
+            FigureValue.LeftRight(StreamKind.TorqueEffectiveness, 70.0, null),
+            FigureValue.BatteryUsed(90.0, 40.0),
+            FigureValue.Gear(3),
+            FigureValue.Shifts(2, 30),
+            FigureValue.PoolLength(25, yards = true),
+            FigureValue.PoolLength(50, yards = false),
+            FigureValue.GearItem("Bike", GearType.all.first(), null),
+            FigureValue.Token(WaterType.SALT),
+            FigureValue.Gases(persistentListOf(GasMix(21, 0), GasMix(32, 0), GasMix(18, 45), GasMix(100, 0)), closedCircuit = true),
+            FigureValue.PercentRange(5, 12),
+            FigureValue.Stamina(100, 70, 48),
+            FigureValue.Stamina(100, null, null),
+            FigureValue.Fluid(700),
+            FigureValue.PressureRange(200.0, 50.0),
+            FigureValue.Bar(1.4),
+            FigureValue.GasRate(18.0),
+            FigureValue.PressureRate(1.2),
+            FigureValue.VerticalRate(150),
+            FigureValue.Minutes(90),
+            FigureValue.Minutes(3_000),
+            FigureValue.DecoModel(DecoModel.ZHL16C, 30, 85),
+            FigureValue.DecoModel(null, 30, 85),
+            FigureValue.PpO2Limits(1400, 1600, 1600),
+            FigureValue.Setpoints(700, 1300),
+        )
+
+    @Test
+    fun everyFigureStreamAndCardNamesAString() {
+        val now = Instant.parse("2026-06-01T18:00:00Z")
+        val texts =
+            UnitSystem.entries.flatMap { units ->
+                figureValues.map { FigureTexts.value(it, units, now, TimeZone.UTC) } +
+                    StreamKind.entries.map { StreamUnits.valueText(it, 1.0, units) } +
+                    PaceKind.entries.map { StreamUnits.paceText(it, 300.0, units) }
+            } +
+                FigureKey.entries
+                    .filterNot { it in setOf(FigureKey.StreamAverage, FigureKey.LeftRight) }
+                    .map { FigureTexts.label(Figure(it, FigureValue.Missing)) } +
+                StreamKind.entries.map(StreamUnits::title) +
+                StatsGroupKind.entries.map(FigureTexts::group) +
+                AvgMaxMetric.entries.map(FigureTexts::avgMax) +
+                DetailSection.entries.map(FigureTexts::section) +
+                listOf(FigureTexts.avgMaxHeading, FigureTexts.avgColumn, FigureTexts.minColumn, FigureTexts.maxColumn) +
+                listOf(FigureTexts.allStats, FigureTexts.trainingLoad, AppText.named("chart_pace")) +
+                listOf(DecoModel.VPM_B, DecoModel.VPM_B_GFS, DecoModel.DCIEM).map(DiveText::decoModel) +
+                listOf(WaterType.FRESH, WaterType.EN13319, WaterType.CUSTOM).mapNotNull(DiveText::water) +
+                listOf(DetailSection.HeartRate, DetailSection.Power).flatMap { section ->
+                    ZoneRows.of(
+                            listOf(
+                                ZoneTime("1", ZoneName.entries.first(), 100, 120, 60),
+                                ZoneTime("2", ZoneName.entries.first(), 120, null, 60),
+                            ),
+                            section,
+                        )
+                        .flatMap { listOf(it.label, it.range) } + ZoneRows.heading(section)
+                } +
+                listOf(ZoneRows.missing, ZoneRows.setThresholds) +
+                UnitSystem.entries.flatMap { units ->
+                    listOf(false, true).flatMap { ski ->
+                        val laps =
+                            listOf(
+                                LapRow(1, 60, null, 1.0, 10.0, 140, 200, 80, 10.0, intensity = "warmup", descent = 5.0),
+                                LapRow(2, 60, null, 1.0, 10.0, 140, null, 80, 10.0, intensity = "rest"),
+                            )
+                        LapTableTexts.of(laps, ski, units).let { table -> table.headers + table.rows.flatMap { it.cells + it.spoken } }
+                    }
+                }
         assertAllExist(texts)
     }
 
