@@ -138,12 +138,15 @@ struct HeroFigures: View {
     }
 }
 
-/// One metric's card as a section: its title (and lock) as the header, its headline, each of its lines as a native chart, its zones (or
-/// Set thresholds for the owner who has none), its other figures as rows, and the laps table.
+/// One metric's card as a section: its title (and lock) as the header, on a combined activity the devices its data came from, its
+/// headline, each of its charts as Kotlin builds them (`CardLines`: the elevation behind an effort line, a pair's two legs, every tank, a
+/// dive's marks and ceiling, the power curve, the gears), its zones (or Set thresholds for the owner who has none), its other figures as
+/// rows, and its laps, legs, lengths or sets table.
 struct MetricCardSection: View {
     let card: MetricCard
     let charts: ActivityCharts
     let missingZones: Bool
+    var caption: (any AppText)?
     let setThresholds: () -> Void
 
     @Environment(\.stats) private var stats
@@ -153,6 +156,9 @@ struct MetricCardSection: View {
         let lines = CardLines.shared.of(card: card, charts: charts, units: stats.units)
         let zones = ZoneTimeRows.shared.of(card: card)
         Section {
+            if let caption {
+                Text(caption).font(.footnote).foregroundStyle(.secondary)
+            }
             if !headline.isEmpty {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(Array(headline.enumerated()), id: \.offset) { _, figure in FigureBlock(figure: figure, font: .title3, unitFont: .footnote) }
@@ -180,8 +186,8 @@ struct MetricCardSection: View {
                 }
             }
             ForEach(Array(card.rows.elements(as: Figure.self).enumerated()), id: \.offset) { _, figure in FigureRowView(figure: figure) }
-            if card.section == .Laps {
-                LapTableView(table: LapTableTexts.shared.of(charts: charts, units: stats.units))
+            if let table = StructureTableTexts.shared.of(section: card.section, charts: charts, units: stats.units) {
+                LapTableView(table: table)
             }
         } header: {
             HStack(spacing: 8) {
@@ -225,7 +231,8 @@ struct ZoneTimesView: View {
     }
 }
 
-/// The laps table: a header row, then a row per lap, each read as one sentence, every cell on one line that shrinks to fit.
+/// A card's table (laps, legs, lengths or sets): a header row, then a row per lap, each read as one sentence, every cell on one line that
+/// shrinks to fit but the table's wide column (a name), which wraps to a second.
 struct LapTableView: View {
     let table: DetailTable
 
@@ -241,9 +248,13 @@ struct LapTableView: View {
             .accessibilityHidden(true)
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 GridRow {
-                    ForEach(Array(row.cells.elements(as: (any AppText).self).enumerated()), id: \.offset) { _, cell in
-                        // One line each, shrinking rather than wrapping, so a row of seven columns fits a phone.
-                        Text(cell).font(.footnote).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                    ForEach(Array(row.cells.elements(as: (any AppText).self).enumerated()), id: \.offset) { column, cell in
+                        // One line each, shrinking rather than wrapping, so a row of seven columns fits a phone; a name may wrap.
+                        if column == Int(table.wideColumn) {
+                            Text(cell).font(.footnote).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(cell).font(.footnote).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                        }
                     }
                 }
                 .accessibilityElement(children: .ignore)
