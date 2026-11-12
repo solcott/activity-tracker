@@ -17,6 +17,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /** What threshold history says and charts, chosen here for the shared and the native UI (dev/shared-display-text). */
+@Suppress("TooManyFunctions") // One function per thing the page says, as the shared and the native page ask them.
 object ThresholdHistoryTexts {
     /** "Default", or the sport's name. */
     fun heading(group: ThresholdHistoryGroup): AppText = group.sport?.let { LabelText.sport(it) } ?: AppText.named("zones_history_default")

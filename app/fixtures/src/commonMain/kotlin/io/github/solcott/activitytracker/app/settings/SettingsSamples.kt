@@ -260,9 +260,6 @@ object ThresholdHistorySamples {
 
     const val ALL_ROWS = "allRows"
 
-    private fun row(threshold: String, value: Long, date: HistoryDate?, current: Boolean, sport: String? = null, source: String? = null) =
-        ThresholdHistoryRow(ThresholdEntry(threshold, value, sport = sport, source = source), date, current)
-
     /** Threshold power 230 W on Jan 10 to 250 W on May 31, with one undated value; the last placed before today. */
     private val power =
         ThresholdHistorySection(
@@ -271,10 +268,22 @@ object ThresholdHistorySamples {
             paceUnit = PaceUnit.PerKilometer,
             rows =
                 persistentListOf(
-                    row(Threshold.FUNCTIONAL_THRESHOLD_POWER, 250, HistoryDate(2026, 5, 31), current = true, source = "manual"),
-                    row(Threshold.FUNCTIONAL_THRESHOLD_POWER, 238, HistoryDate(2026, 3, 2), current = false, source = "device"),
-                    row(Threshold.FUNCTIONAL_THRESHOLD_POWER, 230, HistoryDate(2026, 1, 10), current = false, source = "garmin"),
-                    row(Threshold.FUNCTIONAL_THRESHOLD_POWER, 225, null, current = false),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 250, source = "manual"),
+                        HistoryDate(2026, 5, 31),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 238, source = "device"),
+                        HistoryDate(2026, 3, 2),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 230, source = "garmin"),
+                        HistoryDate(2026, 1, 10),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 225), null, current = false),
                 ),
             showingAll = false,
             chart =
@@ -300,8 +309,16 @@ object ThresholdHistorySamples {
             paceUnit = PaceUnit.PerKilometer,
             rows =
                 persistentListOf(
-                    row(Threshold.THRESHOLD_HEART_RATE, 170, HistoryDate(2026, 4, 12), current = true, source = "strava"),
-                    row(Threshold.THRESHOLD_HEART_RATE, 170, HistoryDate(2026, 2, 1), current = false, source = "manual"),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_HEART_RATE, 170, source = "strava"),
+                        HistoryDate(2026, 4, 12),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_HEART_RATE, 170, source = "manual"),
+                        HistoryDate(2026, 2, 1),
+                        current = false,
+                    ),
                 ),
             showingAll = false,
             chart =
@@ -321,7 +338,14 @@ object ThresholdHistorySamples {
             threshold = Threshold.MAX_HEART_RATE,
             sport = null,
             paceUnit = PaceUnit.PerKilometer,
-            rows = persistentListOf(row(Threshold.MAX_HEART_RATE, 192, HistoryDate(2026, 3, 20), current = true, source = "device")),
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 192, source = "device"),
+                        HistoryDate(2026, 3, 20),
+                        current = true,
+                    ),
+                ),
             showingAll = false,
             chart = null,
             undatedCount = 0,
@@ -336,9 +360,21 @@ object ThresholdHistorySamples {
             paceUnit = PaceUnit.PerMile,
             rows =
                 persistentListOf(
-                    row(Threshold.THRESHOLD_SPEED, 3_200, HistoryDate(2026, 6, 1), current = true, sport = Sport.RUN, source = "device"),
-                    row(Threshold.THRESHOLD_SPEED, 3_100, HistoryDate(2026, 4, 15), current = false, sport = Sport.RUN, source = "manual"),
-                    row(Threshold.THRESHOLD_SPEED, 3_000, HistoryDate(2026, 2, 3), current = false, sport = Sport.RUN, source = "manual"),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_200, sport = Sport.RUN, source = "device"),
+                        HistoryDate(2026, 6, 1),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_100, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 4, 15),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_000, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 2, 3),
+                        current = false,
+                    ),
                 ),
             showingAll = false,
             chart =
@@ -363,8 +399,16 @@ object ThresholdHistorySamples {
             paceUnit = PaceUnit.PerMile,
             rows =
                 persistentListOf(
-                    row(Threshold.MAX_HEART_RATE, 188, HistoryDate(2026, 5, 2), current = true, sport = Sport.RUN, source = "garmin"),
-                    row(Threshold.MAX_HEART_RATE, 194, HistoryDate(2026, 1, 20), current = false, sport = Sport.RUN, source = "manual"),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 188, sport = Sport.RUN, source = "garmin"),
+                        HistoryDate(2026, 5, 2),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 194, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 1, 20),
+                        current = false,
+                    ),
                 ),
             showingAll = false,
             chart =

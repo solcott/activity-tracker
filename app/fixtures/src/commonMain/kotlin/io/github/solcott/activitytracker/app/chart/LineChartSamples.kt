@@ -11,8 +11,10 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** Line charts as the native design gallery shows them: one in the accent colour with a gap in its samples, a segment's profile,
- * and a threshold's steps. */
+/**
+ * Line charts as the native design gallery shows them: one in the accent colour with a gap in its samples, a segment's profile, and a
+ * threshold's steps.
+ */
 object LineChartSamples {
     /** Heart rate over half an hour, untinted, with no samples for two minutes in the middle. */
     val plain: LineChart

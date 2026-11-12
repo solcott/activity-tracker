@@ -282,7 +282,7 @@ private fun ChartPanel(section: ThresholdHistorySection, chart: ThresholdChart, 
         Row(Modifier.padding(start = AXIS_WIDTH + 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(ThresholdHistoryTexts.chartStart(chart).string(), style = MaterialTheme.typography.labelSmall, color = muted)
             Text(
-                ThresholdHistoryTexts.undated(section)?.string() ?: "",
+                ThresholdHistoryTexts.undated(section)?.string().orEmpty(),
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.labelSmall,
                 color = muted,
