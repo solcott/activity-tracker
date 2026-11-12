@@ -5,13 +5,18 @@ import SwiftUI
 /// words and marks are Kotlin's (`FeedFilterTexts`, `TypePickerState.selectionOf`), as the shared bar's are. The type picker is a plain
 /// sheet of the quick types and each category's types; the shared picker's search and collapsed sports are the native feed's to add.
 ///
-/// No page draws it yet: the feed is still the shared UI's (ios-host-subcircuits).
+/// The native feed draws it as its list's first row, its scope chip leading (ios-native-feed).
 struct FeedFilterBar: View {
     let state: FeedFilterState
+    /// A chip of the page's own before the bar's, on the same wrapping line: the feed's scope.
+    var leading: AnyView? = nil
 
     var body: some View {
         let filter = state.filter
         FlowRow {
+            if let leading {
+                leading
+            }
             ChipButton(filled: filter.types.size > 0) {
                 state.eventSink(FeedFilterEvent.OpenTypes.shared)
             } label: {
