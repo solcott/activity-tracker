@@ -16204,6 +16204,17 @@
         }
       }
     },
+    "record_discard_confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard this recording? It can't be brought back."
+          }
+        }
+      }
+    },
     "record_finish" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16211,6 +16222,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish & save"
+          }
+        }
+      }
+    },
+    "record_location_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location access is off for Activity Tracker. Turn it on in Settings to record."
+          }
+        }
+      }
+    },
+    "record_open_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
           }
         }
       }

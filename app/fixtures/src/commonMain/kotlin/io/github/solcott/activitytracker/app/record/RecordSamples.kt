@@ -61,6 +61,30 @@ object RecordSamples {
                 "recovered" to state(RecordingState.Status.Paused).copy(recovered = true),
                 "saveFailed" to state(RecordingState.Status.Recording).copy(saveFailed = true),
             )
+
+    /**
+     * The states beyond these the native screen draws: before location access is given, a paused gravel ride with a title, gear and
+     * categories ready to finish, finishing it, a refused finish, and the same run in imperial units.
+     */
+    val variants: Map<String, RecordState>
+        get() {
+            val full =
+                state(RecordingState.Status.Paused)
+                    .copy(
+                        type = ActivityTypeField(ActivityType(Sport.RIDE, SubSport.GRAVEL), typeField.quickTypes),
+                        title = textFieldStateOf("Gravel loop"),
+                        visibility = FormSamples.visibility,
+                        gear = FormSamples.gear,
+                    )
+            return mapOf(
+                "noPermission" to state(RecordingState.Status.Idle).copy(hasPermission = false),
+                "full" to full,
+                "saving" to full.copy(saving = true),
+                "finishFailed" to full.copy(error = UiError(UiError.Kind.SaveActivity)),
+                "run" to
+                    state(RecordingState.Status.Recording).copy(type = ActivityTypeField(ActivityType(Sport.RUN), typeField.quickTypes)),
+            )
+        }
 }
 
 object ManualActivitySamples {

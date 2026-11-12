@@ -181,6 +181,9 @@
         static var createSegmentVariants: [String: CreateSegmentState] { SegmentPackage.CreateSegmentSamples.shared.variants }
         static var importActivity: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.all }
         static var importActivityVariants: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.variants }
+        /// Record (ios-native-record) in each state it shows.
+        static var record: [String: RecordState] { RecordPackage.RecordSamples.shared.all }
+        static var recordVariants: [String: RecordState] { RecordPackage.RecordSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

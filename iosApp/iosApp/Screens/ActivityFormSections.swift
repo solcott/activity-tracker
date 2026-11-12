@@ -261,11 +261,13 @@ struct GearFieldSheet: View {
 struct ActivityTypeRow: View {
     let field: ActivityTypeField
     var enabled = true
+    /// Leaves out types that can't use GPS, for recording, as the shared picker does.
+    var outdoorOnly = false
     @State private var choosing = false
 
     var body: some View {
         let selected = field.selected
-        let choices = SportTypeGroups.shared.subSportChoices(selected: selected, outdoorOnly: false).elements(as: KotlinActivityType.self)
+        let choices = SportTypeGroups.shared.subSportChoices(selected: selected, outdoorOnly: outdoorOnly).elements(as: KotlinActivityType.self)
         Button { choosing = true } label: {
             HStack(spacing: 12) {
                 Text(.sportPickerLabel).foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
@@ -279,7 +281,7 @@ struct ActivityTypeRow: View {
         .disabled(!enabled)
         .accessibilityValue(Text(LabelText.shared.activityType(type: selected)))
         .sheet(isPresented: $choosing) {
-            ActivityTypeSheet(field: field)
+            ActivityTypeSheet(field: field, outdoorOnly: outdoorOnly)
         }
         if !choices.isEmpty {
             FlowRow {
@@ -315,26 +317,29 @@ extension View {
 /// expanded. A collapsed sport whose sub-sport is chosen names it under its label. Choosing closes the sheet.
 struct ActivityTypeSheet: View {
     let field: ActivityTypeField
+    /// Leaves out types that can't use GPS, quick types included, for recording.
+    var outdoorOnly = false
     @State private var query: String
     @State private var expanded: Set<String>
     @Environment(\.dismiss) private var dismiss
 
     /// `query` starts the search typed and `expanded` the sports disclosed (by their token), for a preview or snapshot.
-    init(field: ActivityTypeField, query: String = "", expanded: Set<String> = []) {
+    init(field: ActivityTypeField, outdoorOnly: Bool = false, query: String = "", expanded: Set<String> = []) {
         self.field = field
+        self.outdoorOnly = outdoorOnly
         _query = State(initialValue: query)
         _expanded = State(initialValue: expanded)
     }
 
     var body: some View {
         let searching = SportTypeSearch.shared.searching(query: query)
-        let groups = SportTypeGroups.shared.matching(query: query, source: CatalogText.shared, outdoorOnly: false)
+        let groups = SportTypeGroups.shared.matching(query: query, source: CatalogText.shared, outdoorOnly: outdoorOnly)
             .elements(as: SportTypeGroup.self)
         NavigationStack {
             List {
                 if !searching {
                     Section {
-                        ForEach(field.quickTypes.elements(as: KotlinActivityType.self), id: \.key) { choice($0) }
+                        ForEach(quickTypes, id: \.key) { choice($0) }
                     } header: {
                         Text(.sportPickerQuick)
                     }
@@ -369,6 +374,10 @@ struct ActivityTypeSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button(.actionCancel) { dismiss() } }
             }
         }
+    }
+
+    private var quickTypes: [KotlinActivityType] {
+        field.offeredQuickTypes(outdoorOnly: outdoorOnly)
     }
 
     /// The chosen type when it is one of `nested`, which a collapsed sport names under its label.

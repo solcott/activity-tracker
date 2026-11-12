@@ -7,26 +7,29 @@ import SwiftUI
 struct AppButton: View {
     private let title: Text
     private let small: Bool
+    private let wide: Bool
     private let action: () -> Void
 
     /// `small` is the size for a list row's trailing end (Approve), and the default the size of a screen's own buttons.
     init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, action: action)
+        self.init(text: Text(title), small: small, wide: false, action: action)
     }
 
-    /// A button whose label Kotlin chose (a profile's Follow).
-    init(_ title: any AppText, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, action: action)
+    /// A button whose label Kotlin chose (a profile's Follow). `wide` fills the width it's given, as a bar of controls shares it
+    /// (Record's).
+    init(_ title: any AppText, small: Bool = false, wide: Bool = false, action: @escaping () -> Void) {
+        self.init(text: Text(title), small: small, wide: wide, action: action)
     }
 
-    private init(text: Text, small: Bool, action: @escaping () -> Void) {
+    private init(text: Text, small: Bool, wide: Bool, action: @escaping () -> Void) {
         title = text
         self.small = small
+        self.wide = wide
         self.action = action
     }
 
     var body: some View {
-        Button(action: action) { AppButtonLabel(title: title) }
+        Button(action: action) { AppButtonLabel(title: title).wideLabel(wide) }
             .buttonStyle(.borderedProminent)
             .controlSize(small ? .small : .large)
     }
@@ -50,26 +53,28 @@ private struct AppButtonLabel: View {
 struct AppSecondaryButton: View {
     private let title: Text
     private let small: Bool
+    private let wide: Bool
     private let action: () -> Void
 
     /// `small` is the size for a list row's trailing end (Unblock), and the default the size of a screen's own buttons.
     init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, action: action)
+        self.init(text: Text(title), small: small, wide: false, action: action)
     }
 
-    /// A button whose label Kotlin chose.
-    init(_ title: any AppText, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, action: action)
+    /// A button whose label Kotlin chose. `wide` fills the width it's given, as `AppButton`'s does.
+    init(_ title: any AppText, small: Bool = false, wide: Bool = false, action: @escaping () -> Void) {
+        self.init(text: Text(title), small: small, wide: wide, action: action)
     }
 
-    private init(text: Text, small: Bool, action: @escaping () -> Void) {
+    private init(text: Text, small: Bool, wide: Bool, action: @escaping () -> Void) {
         title = text
         self.small = small
+        self.wide = wide
         self.action = action
     }
 
     var body: some View {
-        Button(action: action) { title }
+        Button(action: action) { title.wideLabel(wide) }
             .buttonStyle(.bordered)
             .controlSize(small ? .small : .large)
     }
@@ -122,5 +127,12 @@ struct AppIconButton: View {
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .accessibilityLabel(label)
+    }
+}
+
+extension View {
+    /// A wide button's label fills the width it's given.
+    fileprivate func wideLabel(_ wide: Bool) -> some View {
+        frame(maxWidth: wide ? .infinity : nil)
     }
 }
