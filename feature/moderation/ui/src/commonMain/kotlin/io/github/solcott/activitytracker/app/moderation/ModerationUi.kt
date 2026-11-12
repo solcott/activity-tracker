@@ -21,8 +21,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.shownNameLabel
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.moderation_help
 import io.github.solcott.activitytracker.composeApp.resources.moderation_not_under_review
@@ -30,7 +29,6 @@ import io.github.solcott.activitytracker.composeApp.resources.moderation_open
 import io.github.solcott.activitytracker.composeApp.resources.moderation_title
 import io.github.solcott.activitytracker.composeApp.resources.moderation_uri
 import io.github.solcott.activitytracker.composeApp.resources.moderation_uri_placeholder
-import io.github.solcott.activitytracker.composeApp.resources.moderation_visibility
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
 
@@ -58,7 +56,7 @@ fun ModerationUi(state: ModerationState, modifier: Modifier = Modifier) {
                 lineLimits = TextFieldLineLimits.SingleLine,
                 onKeyboardAction = { state.eventSink(ModerationEvent.Open) },
             )
-            AppButton(onClick = { state.eventSink(ModerationEvent.Open) }, enabled = !state.loading) {
+            AppButton(onClick = { state.eventSink(ModerationEvent.Open) }, enabled = ModerationSubjectTexts.canOpen(state)) {
                 Text(stringResource(Res.string.moderation_open))
             }
             if (state.loading) AppProgressIndicator()
@@ -79,8 +77,7 @@ private fun Subject(subject: ModerationSubject, modifier: Modifier = Modifier) {
             }
             is ModerationSubject.Comment -> {
                 Visibility(subject.visibility)
-                val author = subject.comment.author
-                Text(shownNameLabel(author), style = MaterialTheme.typography.labelLarge)
+                Text(ModerationSubjectTexts.commentAuthor(subject.comment).string(), style = MaterialTheme.typography.labelLarge)
                 Text(subject.comment.text, style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -89,5 +86,5 @@ private fun Subject(subject: ModerationSubject, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Visibility(visibility: String) {
-    Text(stringResource(Res.string.moderation_visibility, visibilityLabel(visibility)), style = MaterialTheme.typography.labelMedium)
+    Text(ModerationSubjectTexts.visibility(visibility).string(), style = MaterialTheme.typography.labelMedium)
 }

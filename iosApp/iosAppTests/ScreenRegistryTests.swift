@@ -96,6 +96,8 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ImportActivityScreen"))
         // Record (ios-native-record).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "RecordScreen"))
+        // Moderation (ios-native-moderation): with it every screen has a native view (checkIosScreenRegistry).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ModerationScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
@@ -150,5 +152,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.ImportActivityScreen.self) == "ImportActivityScreen")
         // Record (ios-native-record).
         #expect(String(describing: ActivityTracker.RecordScreen.self) == "RecordScreen")
+        // Moderation (ios-native-moderation).
+        #expect(String(describing: ActivityTracker.ModerationScreen.self) == "ModerationScreen")
     }
 }

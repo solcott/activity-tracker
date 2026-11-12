@@ -15,6 +15,7 @@ import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureMapApi
 import FeatureMediaApi
+import FeatureModerationApi
 import FeaturePostApi
 import FeatureProfileApi
 import FeatureRecordApi
@@ -638,3 +639,10 @@ typealias RecordEvent = RecordPackage.RecordEvent
 typealias RecordTexts = RecordPackage.RecordTexts
 typealias RecordAction = RecordPackage.RecordAction
 typealias RecordControl = RecordPackage.RecordControl
+
+// Moderation (ios-native-moderation): its contract and what it says. Its package is the one `ModerationTexts` (labels' notices) is in.
+typealias ModerationScreen = AppPackage.moderation.ModerationScreen
+typealias ModerationState = AppPackage.moderation.ModerationState
+typealias ModerationEvent = AppPackage.moderation.ModerationEvent
+typealias ModerationSubject = AppPackage.moderation.ModerationSubject
+typealias ModerationSubjectTexts = AppPackage.moderation.ModerationSubjectTexts
