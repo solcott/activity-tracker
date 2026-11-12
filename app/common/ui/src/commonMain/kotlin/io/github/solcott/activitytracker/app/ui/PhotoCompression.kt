@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.ui
 
+import io.github.solcott.activitytracker.app.edit.PhotoCompression
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -11,13 +12,18 @@ import kotlinx.coroutines.withContext
 internal expect fun encodePhoto(image: ByteArray, maxPixels: Int, quality: Int): CompressedPhoto
 
 /**
- * [image] ready to attach to an activity: WebP at 2048 px and quality 80, stepping down until it's under [TARGET_BYTES], comfortably inside
- * the lexicon's 2 MB.
+ * [image] ready to attach to an activity: WebP through [PhotoCompression]'s steps, the first under its target, else the last. The iOS app's
+ * native pick runs the same steps in Swift with libwebp (`PhotoCompressor`).
  */
 suspend fun compressPhoto(image: ByteArray, dispatcher: CoroutineDispatcher = Dispatchers.Default): CompressedPhoto =
     withContext(dispatcher) {
-        STEPS.asSequence().map { (pixels, quality) -> encodePhoto(image, pixels, quality) }.firstOrNull { it.bytes.size <= TARGET_BYTES }
-            ?: encodePhoto(image, LAST_RESORT_PIXELS, LAST_RESORT_QUALITY)
+        val steps = PhotoCompression.steps
+        steps
+            .dropLast(1)
+            .asSequence()
+            .map { encodePhoto(image, it.maxPixels, it.quality) }
+            .firstOrNull { it.bytes.size <= PhotoCompression.targetBytes }
+            ?: steps.last().let { encodePhoto(image, it.maxPixels, it.quality) }
     }
 
 internal const val WEBP = "image/webp"
@@ -25,8 +31,3 @@ internal const val JPEG = "image/jpeg"
 
 /** For a platform that can't write WebP. */
 internal const val JPEG_QUALITY = 82
-
-private const val TARGET_BYTES = 1_500_000
-private val STEPS = listOf(2048 to 80, 2048 to 70, 1600 to 70)
-private const val LAST_RESORT_PIXELS = 1280
-private const val LAST_RESORT_QUALITY = 60
