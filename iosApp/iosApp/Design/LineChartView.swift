@@ -249,7 +249,7 @@ private struct ChartScrubGesture: UIGestureRecognizerRepresentable {
         /// to the right anywhere over the page, waits for this pan to fail. Scroll views' pans aren't held up, so a vertical drag still
         /// scrolls the list at once.
         func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
-            other is UIPanGestureRecognizer && !(other.view is UIScrollView) && other.view !== recognizer.view
+            other !== recognizer && other is UIPanGestureRecognizer && !(other.view is UIScrollView)
         }
     }
 }
