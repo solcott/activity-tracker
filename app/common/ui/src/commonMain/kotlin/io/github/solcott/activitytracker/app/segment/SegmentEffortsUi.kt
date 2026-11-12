@@ -19,11 +19,8 @@ import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.downhill_skiing
-import io.github.solcott.activitytracker.composeApp.resources.ski_lift
+import io.github.solcott.activitytracker.composeApp.resources.allDrawableResources
 import io.github.solcott.activitytracker.lexicon.app.EffortView
-import io.github.solcott.activitytracker.lexicon.app.SegmentKind
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
@@ -89,13 +86,9 @@ fun EffortRow(
  */
 @Composable fun segmentTypeLabel(sport: String, kind: String?): String = SegmentTexts.type(sport, kind).string()
 
-/** The icon that tells a ski lift from a ski run; null for every other segment, which needs none. */
+/** The icon that tells a ski lift from a ski run ([SegmentTexts.kindIcon]); null for every other segment, which needs none. */
 fun segmentKindIcon(sport: String, kind: String?): DrawableResource? =
-    when {
-        SegmentKind.of(kind) == SegmentKind.LIFT -> Res.drawable.ski_lift
-        sport == SegmentSportGroup.ALPINE -> Res.drawable.downhill_skiing
-        else -> null
-    }
+    SegmentTexts.kindIcon(sport, kind)?.let { Res.allDrawableResources[it] }
 
 /** [segmentKindIcon] for a segment of [sport] and [kind], read out as its [segmentTypeLabel]; nothing for a segment with none. */
 @Composable

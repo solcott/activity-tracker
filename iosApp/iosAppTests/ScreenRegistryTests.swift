@@ -73,11 +73,13 @@ struct ScreenRegistryTests {
         for screen in ["AthleteSearchScreen", "LeftElsewhereScreen", "DiveSiteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The segment page, with the native chart (ios-native-charts).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "SegmentScreen"))
         // The rest of what the lists open is still the shared UI's.
         // Accepting an invite waits for the native route preview and visibility form.
-        // The segment page draws a chart, and its enlarged map and segment browse wait for the native map's interactive pages (the
-        // native Search tab embeds the shared browse screen).
-        for screen in ["AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen"] {
+        // The segment page's enlarged map and segment browse wait for the native map's interactive pages (the native Search tab
+        // embeds the shared browse screen).
+        for screen in ["AcceptInviteScreen", "SegmentMapScreen", "SegmentBrowseScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
@@ -113,6 +115,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.SegmentMayorsScreen.self) == "SegmentMayorsScreen")
         #expect(String(describing: ActivityTracker.DiveSiteRegularsScreen.self) == "DiveSiteRegularsScreen")
         #expect(String(describing: ActivityTracker.DiveSiteScreen.self) == "DiveSiteScreen")
+        #expect(String(describing: ActivityTracker.SegmentScreen.self) == "SegmentScreen")
         #expect(String(describing: ActivityTracker.EditProfileScreen.self) == "EditProfileScreen")
         #expect(String(describing: ActivityTracker.TrainingZonesScreen.self) == "TrainingZonesScreen")
         #expect(String(describing: ActivityTracker.ZonesScreen.self) == "ZonesScreen")

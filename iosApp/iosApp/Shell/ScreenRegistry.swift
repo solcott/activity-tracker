@@ -97,6 +97,7 @@ extension ScreenRegistry {
 
         // The dive site page (ios-native-map), the first drawn with the native route map, with its names and the name sheet.
         registry.register(DiveSiteScreen.self, DiveSiteState.self) { state in DiveSitePage(state: state) }
+        registry.register(SegmentScreen.self, SegmentState.self) { state in SegmentPage(state: state) }
         return registry
     }()
 }
