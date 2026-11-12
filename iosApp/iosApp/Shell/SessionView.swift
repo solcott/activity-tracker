@@ -17,6 +17,8 @@ struct SessionView: View {
                 // The athlete's units, for the native views that format stats (dev/shared-display-text).
                 Following(session.shownUnits) { shown in
                     TabsView(session: session).environment(\.stats, Stats(units: shown.units))
+                        // Route maps draw MapKit's live map in a session; previews and snapshots draw the line preview.
+                        .environment(\.liveMaps, true)
                 }
             }
         }

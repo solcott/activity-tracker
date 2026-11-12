@@ -98,6 +98,10 @@ private constructor(
     val breaks: ImmutableList<MapBreak>,
     val bounds: MapBounds,
 ) {
+    /** The route and its marks as text: a UI that holds a map frames it again when this changes, and not on every new state. */
+    val key: String
+        get() = "$polyline|$gaps|$start|$end"
+
     /** The camera that frames the route in a map [width] by [height], with [top] kept clear along the top. */
     fun frame(width: Double, height: Double, top: Double = 0.0): MapFrame = MapFrame.fit(bounds, width, height, top = top)
 
