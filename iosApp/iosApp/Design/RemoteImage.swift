@@ -11,10 +11,13 @@ import SwiftUI
 /// Public shows its photo by one), is answered from those bytes, which Kotlin keeps, as the shared UI's image loader answers it.
 struct RemoteImage<Placeholder: View>: View {
     private let url: String?
+    private let fits: Bool
     private let placeholder: Placeholder
 
-    init(_ url: String?, @ViewBuilder placeholder: () -> Placeholder) {
+    /// `fits` shows the whole picture inside its frame (a gallery's photo) rather than filling it.
+    init(_ url: String?, fits: Bool = false, @ViewBuilder placeholder: () -> Placeholder) {
         self.url = url
+        self.fits = fits
         self.placeholder = placeholder()
     }
 
@@ -22,7 +25,7 @@ struct RemoteImage<Placeholder: View>: View {
         if let request = RemoteImages.request(for: url) {
             LazyImage(request: request) { phase in
                 if let image = phase.image {
-                    image.resizable().scaledToFill()
+                    if fits { image.resizable().scaledToFit() } else { image.resizable().scaledToFill() }
                 } else {
                     placeholder
                 }

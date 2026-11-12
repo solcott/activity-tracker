@@ -149,6 +149,27 @@
         static var stepChart: LineChart { AppPackage.chart.LineChartSamples.shared.steps }
         static var sparklineChart: LineChart { AppPackage.chart.LineChartSamples.shared.sparkline }
 
+        /// The rest of the activity page (ios-native-activity-rest): every chart the samples with more charts and the dive draw, the
+        /// combined ride's page for its edit sheet, and the screens the page opens in each state they show.
+        static var layeredCharts: [LineChart] {
+            ["moreCharts", "dive"].flatMap { name -> [LineChart] in
+                guard let page = activityDetailVariants[name]?.content.data as? ActivityDetailPage, let charts = page.page.charts else {
+                    return []
+                }
+                return page.page.cards.elements(as: MetricCard.self).flatMap { card in
+                    CardLines.shared.of(card: card, charts: charts, units: .Metric).map(\.chart)
+                }
+            }
+        }
+        static var combinedPage: ActivityDetailPage { DetailPackage.ActivityDetailSamples.shared.combinedPage }
+        static var routeMap: [String: RouteMapState] { AppPackage.map.RouteMapSamples.shared.all }
+        static var mediaGallery: [String: MediaGalleryState] {
+            AppPackage.media.MediaGallerySamples.shared.all.merging(AppPackage.media.MediaGallerySamples.shared.variants) { $1 }
+        }
+        static var combinePicker: [String: CombinePickerState] {
+            DetailPackage.CombinePickerSamples.shared.all.merging(DetailPackage.CombinePickerSamples.shared.variants) { $1 }
+        }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(
