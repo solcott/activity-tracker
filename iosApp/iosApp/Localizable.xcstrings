@@ -1915,6 +1915,17 @@
         }
       }
     },
+    "combine_suggested_activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "combine_suggestion_combine" : {
       "extractionState" : "manual",
       "localizations" : {
