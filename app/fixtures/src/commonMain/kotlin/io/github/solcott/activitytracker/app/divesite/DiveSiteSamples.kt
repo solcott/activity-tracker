@@ -231,6 +231,18 @@ object CreateDiveSiteSamples {
                 DUPLICATE to loadedState().copy(duplicates = persistentListOf(fakeDiveSite(name = "Ras Mohammed Shark Reef"))),
             )
 
+    /** The states beyond these the native form draws: a site naming its dive, publishing, the allowance reached and a failed check. */
+    val variants: Map<String, CreateDiveSiteState>
+        get() =
+            mapOf(
+                "namesDive" to loadedState().copy(namesDive = true, radius = 250),
+                "publishing" to loadedState().copy(publishing = true),
+                "limitReached" to loadedState().copy(limitReached = true),
+                "checkFailed" to loadedState().copy(actionError = UiError(UiError.Kind.CheckDiveSite)),
+                "noPosition" to
+                    CreateDiveSiteState(content = ContentStates.loaded(Unit), unavailable = CreateDiveSiteUnavailable.NoPosition),
+            )
+
     const val INSIDE_ZONE = "insideZone"
     const val DUPLICATE = "duplicate"
 }

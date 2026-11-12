@@ -359,5 +359,5 @@ object EditProfileSamples {
             )
 
     /** An 8 × 8 teal PNG, standing in for a picked photo's bytes. */
-    private const val PICKED_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPQmtuPFTEMLQkAT3dVgRdrT9YAAAAASUVORK5CYII="
+    internal const val PICKED_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPQmtuPFTEMLQkAT3dVgRdrT9YAAAAASUVORK5CYII="
 }

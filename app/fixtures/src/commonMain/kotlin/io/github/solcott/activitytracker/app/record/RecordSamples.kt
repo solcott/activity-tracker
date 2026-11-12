@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.RecordingState
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
@@ -84,6 +85,24 @@ object ManualActivitySamples {
                         VisibilityFields(canChoose = false, spacesUnsupported = true),
                     ),
             )
+
+    /** The states beyond these the native form draws: a gravel ride with gear and categories, in imperial, saving, and its type sheet. */
+    val variants: Map<String, ManualActivityState>
+        get() {
+            val full =
+                state("55", visibility = FormSamples.visibility)
+                    .copy(
+                        type = ActivityTypeField(ActivityType(Sport.RIDE, SubSport.GRAVEL), typeField.quickTypes),
+                        temperature = textFieldStateOf("18"),
+                        gear = FormSamples.gear,
+                    )
+            return mapOf(
+                "full" to full,
+                "imperial" to full.copy(units = UnitSystem.Imperial, distance = textFieldStateOf("15.2")),
+                "saving" to full.copy(saving = true),
+                "noSubSports" to full.copy(type = ActivityTypeField(ActivityType(Sport.YOGA), typeField.quickTypes)),
+            )
+        }
 }
 
 object ImportActivitySamples {
