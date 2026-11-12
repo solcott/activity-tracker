@@ -137,7 +137,7 @@ class ActivityCardContentTest {
         val shape = assertNotNull(card(ActivityCardSamples.broken).routeShape(300.0, 160.0, 12.0))
         assertEquals(2, shape.pieces.size)
         assertEquals(1, shape.breaks.size)
-        val all = shape.pieces.flatMap { it.points } + shape.start + shape.end
+        val all = shape.pieces.flatMap { it.points } + assertNotNull(shape.start) + assertNotNull(shape.end)
         assertTrue(all.all { it.x in 11.9..288.1 && it.y in 11.9..148.1 }, "Outside the tile: $all")
     }
 

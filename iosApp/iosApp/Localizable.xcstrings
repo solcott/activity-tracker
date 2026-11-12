@@ -15159,6 +15159,17 @@
         }
       }
     },
+    "place_name_proposal_line" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "post_card_counts" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -13,17 +13,25 @@ import io.github.solcott.activitytracker.app.fixtures.fakeDiveSiteRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeRegularEntry
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
+import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.divesites.RegularsMeta
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewerState
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.siteOutline
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
+import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -53,6 +61,7 @@ object DiveSiteSamples {
                     )
                 },
             dives = if (site == null) PagedStates.loading() else PagedStates.end(dives, Unit),
+            viewerDid = Fixed.ALICE.value,
         )
 
     val loading: DiveSiteState
@@ -79,6 +88,7 @@ object DiveSiteSamples {
                 content = ContentStates.loaded(osm.copy(status = SegmentStatus.PROPOSED)),
                 outline = osm.record.let { siteOutline(it.lat, it.lng, it.radius) },
                 dives = PagedStates.end(emptyList(), Unit),
+                viewerDid = Fixed.ALICE.value,
             )
         }
 
@@ -94,6 +104,84 @@ object DiveSiteSamples {
             )
 
     const val PROPOSED = "proposed"
+
+    /**
+     * A site the community renamed (dive-sites/site-names): its history, Bob's open proposal with the viewer's vote for it, and Alice's
+     * own; Alice may vote.
+     */
+    val renamed: DiveSiteState
+        get() {
+            val alice = fakeProfileBasic(Fixed.ALICE)
+            val bob = fakeProfileBasic(Fixed.BOB)
+            val named =
+                site.copy(
+                    record = site.record.copy(name = "Ras Mohammed"),
+                    name = "Shark Alley",
+                    nameHistory = listOf(SegmentNameAdoption("Shark Alley", Fixed.NOW - 40.days, up = 1_204, down = 3, proposer = bob)),
+                    nameProposals =
+                        listOf(
+                            SegmentNameProposalView(
+                                uri = Fixed.uri(bob.did, Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3ksiteprop1"),
+                                cid = Fixed.cid("3ksiteprop1"),
+                                name = "The Wall",
+                                proposer = bob,
+                                openedAt = Fixed.NOW - 3.days,
+                                up = 4,
+                                down = 1,
+                                viewerVote =
+                                    SegmentNameViewerVote(
+                                        Fixed.uri(alice.did, Nsid.FEED_SEGMENT_NAME_VOTE, "3ksitevote1"),
+                                        SegmentNameVoteDirection.UP,
+                                    ),
+                            ),
+                            SegmentNameProposalView(
+                                uri = Fixed.uri(alice.did, Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3ksiteprop2"),
+                                cid = Fixed.cid("3ksiteprop2"),
+                                name = "Coral Gardens",
+                                proposer = alice,
+                                openedAt = Fixed.NOW - 1.days,
+                                up = 2,
+                                down = 0,
+                            ),
+                        ),
+                    viewer = DiveSiteViewerState(canProposeName = false, canVoteOnNames = true),
+                )
+            return state(ContentStates.loaded(named)).copy(names = PlaceNameFields(viewerDid = alice.did.value))
+        }
+
+    /** [renamed] for Carol, who may propose, whose session can't vote, and whose last vote failed. */
+    val votingUnavailable: DiveSiteState
+        get() = renamed.let {
+            val named = checkNotNull(it.site)
+            it.copy(
+                content = ContentStates.loaded(named.copy(viewer = named.viewer?.copy(canProposeName = true))),
+                names =
+                    PlaceNameFields(
+                        canVoteHere = false,
+                        viewerDid = Fixed.CAROL.value,
+                        error = UiError(UiError.Kind.VoteSegmentName),
+                    ),
+                viewerDid = Fixed.CAROL.value,
+            )
+        }
+
+    /** A duplicate of an earlier site, archived conditions aside: its status, help and Open the original. */
+    val duplicate: DiveSiteState
+        get() {
+            val copy =
+                fakeDiveSite(rkey = "3ksite2", status = SegmentStatus.DUPLICATE)
+                    .copy(duplicateOf = Fixed.uri(Fixed.ALICE, Nsid.FEED_DIVE_SITE, "3ksite1"))
+            return DiveSiteState(
+                content = ContentStates.loaded(copy),
+                outline = copy.record.let { siteOutline(it.lat, it.lng, it.radius) },
+                dives = PagedStates.end(emptyList(), Unit),
+                viewerDid = Fixed.ALICE.value,
+            )
+        }
+
+    /** Kept apart from [all], whose keys are the content-loading set. */
+    val variants: Map<String, DiveSiteState>
+        get() = mapOf("renamed" to renamed, "votingUnavailable" to votingUnavailable, "duplicate" to duplicate)
 }
 
 object DiveSiteRegularsSamples {

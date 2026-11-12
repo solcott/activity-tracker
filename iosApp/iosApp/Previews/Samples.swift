@@ -121,6 +121,9 @@
         static var athleteSearch: [String: AthleteSearchState] { SearchPackage.AthleteSearchSamples.shared.all }
         static var athleteSearchVariants: [String: AthleteSearchState] { SearchPackage.AthleteSearchSamples.shared.variants }
         static var leftElsewhere: [String: LeftElsewhereState] { SettingsPackage.LeftElsewhereSamples.shared.all }
+        /// The dive site page (ios-native-map) in each state it shows, states beyond content loading apart.
+        static var diveSite: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.all }
+        static var diveSiteVariants: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

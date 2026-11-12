@@ -1,5 +1,6 @@
 import ActivityTrackerCoreData
 import ActivityTrackerCoreLexicon
+import ActivityTrackerCoreLocation
 import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import ComSlackCircuitCircuitxSubcircuit
@@ -428,3 +429,22 @@ typealias LeftElsewhereScreen = SettingsPackage.LeftElsewhereScreen
 typealias LeftElsewhereState = SettingsPackage.LeftElsewhereState
 typealias LeftElsewhereEvent = SettingsPackage.LeftElsewhereEvent
 typealias LeftElsewhereTexts = SettingsPackage.LeftElsewhereTexts
+// The route map and the dive site page (ios-native-map): what a map shows, the page's contract and what it and a place's names say.
+typealias RouteMap = AppPackage.RouteMap
+typealias MapLine = AppPackage.MapLine
+typealias MapBreak = AppPackage.MapBreak
+typealias MapBounds = AppPackage.MapBounds
+typealias MapFrame = AppPackage.MapFrame
+typealias RouteEnds = AppPackage.RouteEnds
+typealias GeoPoint = ExportedKotlinPackages.io.github.solcott.activitytracker.location.GeoPoint
+typealias PlaceTexts = SegmentPackage.PlaceTexts
+typealias PlaceNameTexts = NamesPackage.PlaceNameTexts
+typealias DiveSiteScreen = DiveSitePackage.DiveSiteScreen
+typealias DiveSiteState = DiveSitePackage.DiveSiteState
+typealias DiveSiteEvent = DiveSitePackage.DiveSiteEvent
+typealias DiveSiteTexts = DiveSitePackage.DiveSiteTexts
+typealias RegularsSummary = DiveSitePackage.RegularsSummary
+typealias DiveSiteView = LexiconAppPackage.DiveSiteView
+typealias DiveSiteConditions = LexiconAppPackage.DiveSiteConditions
+typealias SegmentNameProposalView = LexiconAppPackage.SegmentNameProposalView
+typealias SegmentNameAdoption = LexiconAppPackage.SegmentNameAdoption

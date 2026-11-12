@@ -27,14 +27,14 @@ import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
 import io.github.solcott.activitytracker.app.names.PlaceNames
 import io.github.solcott.activitytracker.app.segment.CreatedBy
 import io.github.solcott.activitytracker.app.segment.PlaceStatus
-import io.github.solcott.activitytracker.app.settings.monthName
+import io.github.solcott.activitytracker.app.segment.PlaceTexts
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -45,31 +45,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_depth
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_from
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_month
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_temperature
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_conditions_visibility
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_dives
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_duplicate_help
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_no_dives
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_radius
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars_card
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars_none
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_regulars_yours
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_archived_help
-import io.github.solcott.activitytracker.composeApp.resources.dive_site_status_proposed_help
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_license
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_osm
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
-import io.github.solcott.activitytracker.lexicon.app.SegmentSource
-import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * A dive site: its centre and radius on a map, its original name when renamed, its creator and data credit, its status, its top Regular,
@@ -109,8 +87,8 @@ private fun Loaded(state: DiveSiteState, site: DiveSiteView, padding: PaddingVal
             item { About(state, site) }
             state.conditions?.let { conditions -> item { Conditions(conditions, Modifier.padding(bottom = 12.dp)) } }
             item {
-                val proposals = remember(site.nameProposals) { site.nameProposals.toImmutableList() }
-                val history = remember(site.nameHistory) { site.nameHistory.toImmutableList() }
+                val proposals = remember(site.nameProposals) { state.proposals }
+                val history = remember(site.nameHistory) { state.history }
                 PlaceNames(
                     proposals = proposals,
                     history = history,
@@ -124,23 +102,18 @@ private fun Loaded(state: DiveSiteState, site: DiveSiteView, padding: PaddingVal
     }
 }
 
-/** The site's radius, creator, data credit, status and top Regular. */
+/** The site's radius, creator, data credit, status and top Regular, as [DiveSiteTexts] words them. */
 @Composable
 private fun About(state: DiveSiteState, site: DiveSiteView) {
     Column(Modifier.padding(vertical = 12.dp)) {
         state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }
-        Text(
-            stringResource(Res.string.dive_site_radius, Format.elevation(site.record.radius.toDouble())),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Text(DiveSiteTexts.radius(site, LocalUnitSystem.current).string(), style = MaterialTheme.typography.titleMedium)
         CreatedBy(site.creator.handle.value)
         Credit(site)
         PlaceStatus(
-            site.status,
-            hasOriginal = site.duplicateOf != null,
-            proposedHelp = Res.string.dive_site_status_proposed_help,
-            duplicateHelp = Res.string.dive_site_duplicate_help,
-            archivedHelp = Res.string.dive_site_status_archived_help,
+            label = DiveSiteTexts.status(site),
+            help = DiveSiteTexts.statusHelp(site),
+            offersOriginal = DiveSiteTexts.offersOriginal(site),
             onOpenOriginal = { state.eventSink(DiveSiteEvent.OpenOriginal) },
         )
         state.regulars?.let { regulars ->
@@ -152,16 +125,12 @@ private fun About(state: DiveSiteState, site: DiveSiteView) {
 /** Credit for where the site's position came from: OpenStreetMap's attribution for an imported one, and its licence. */
 @Composable
 private fun Credit(site: DiveSiteView) {
-    if (site.record.source == SegmentSource.OSM) {
+    DiveSiteTexts.osmCredit(site)?.let { credit ->
         val uriHandler = LocalUriHandler.current
-        AppTextButton(onClick = { uriHandler.openUri(OSM_COPYRIGHT_URL) }) { Text(stringResource(Res.string.segment_credit_osm)) }
+        AppTextButton(onClick = { uriHandler.openUri(PlaceTexts.OSM_COPYRIGHT_URL) }) { Text(credit.string()) }
     }
-    if (site.record.license.isNotBlank()) {
-        Text(
-            stringResource(Res.string.segment_credit_license, site.record.license),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    DiveSiteTexts.license(site)?.let {
+        Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -169,11 +138,11 @@ private fun Credit(site: DiveSiteView) {
 @Composable
 private fun RegularsCard(regulars: RegularsSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
     LeaderCard(
-        title = stringResource(Res.string.dive_site_regulars_card),
+        title = DiveSiteTexts.regularsTitle.string(),
         leader = regulars.leader?.athlete,
         leaderValue = regulars.leader?.let { DiveSiteRegularsTexts.visits(it).string() }.orEmpty(),
-        noneText = stringResource(Res.string.dive_site_regulars_none),
-        viewerText = regulars.viewer?.let { pluralStringResource(Res.plurals.dive_site_regulars_yours, it.visits, it.visits) },
+        noneText = DiveSiteTexts.regularsNone.string(),
+        viewerText = regulars.viewer?.let { DiveSiteTexts.yourVisits(it).string() },
         onClick = onClick,
         modifier = modifier,
     )
@@ -185,69 +154,30 @@ private fun RegularsCard(regulars: RegularsSummary, onClick: () -> Unit, modifie
  */
 @Composable
 private fun Conditions(conditions: DiveSiteConditions, modifier: Modifier = Modifier) {
+    val units = LocalUnitSystem.current
     AppCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(Res.string.dive_site_conditions), style = MaterialTheme.typography.titleSmall)
+            Text(DiveSiteTexts.conditionsTitle.string(), style = MaterialTheme.typography.titleSmall)
             Text(
-                pluralStringResource(Res.plurals.dive_site_conditions_from, conditions.dives, conditions.dives),
+                DiveSiteTexts.conditionsFrom(conditions).string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            conditions.medianTemperature?.let { median ->
-                Text(
-                    stringResource(
-                        Res.string.dive_site_conditions_temperature,
-                        Format.temperature(median),
-                        Format.temperature(conditions.minTemperature),
-                        Format.temperature(conditions.maxTemperature),
-                    ),
-                )
-            }
-            conditions.medianVisibility?.let {
-                Text(stringResource(Res.string.dive_site_conditions_visibility, Format.depth(it / CM_PER_M)))
-            }
-            conditions.medianMaxDepth?.let { median ->
-                Text(
-                    stringResource(
-                        Res.string.dive_site_conditions_depth,
-                        Format.depth(median / CM_PER_M),
-                        Format.depth(conditions.maxDepth?.let { it / CM_PER_M }),
-                    ),
-                )
-            }
-            if (conditions.months.size > 1) {
-                for (month in conditions.months) {
-                    Text(
-                        stringResource(
-                            Res.string.dive_site_conditions_month,
-                            monthName(month.month),
-                            Format.temperature(month.medianTemperature),
-                            Format.depth(month.medianVisibility?.let { it / CM_PER_M }),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
+            for (line in DiveSiteTexts.conditionLines(conditions, units)) Text(line.string())
+            for (line in DiveSiteTexts.monthLines(conditions, units)) Text(line.string(), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 /** The dives at the site, newest first, each opening its page, then the next page's spinner or failure, or that there are none. */
 private fun LazyListScope.dives(state: DiveSiteState) {
-    item {
-        Text(stringResource(Res.string.dive_site_dives), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium)
-    }
+    item { Text(DiveSiteTexts.dives.string(), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium) }
     pagedRefreshStatus(state.dives, UiError.Kind.LoadDiveSiteDives) { state.eventSink(DiveSiteEvent.RetryDives) }
     items(state.dives.items, key = { it.uri.value }) { dive ->
         val open = { state.eventSink(DiveSiteEvent.OpenDive(dive.uri)) }
         ActivityCard(dive, onClick = open, onAuthorClick = null, onLike = null, onOpenMedia = { open() }, Modifier.padding(bottom = 12.dp))
     }
     pagedFooter(state.dives, UiError.Kind.LoadDiveSiteDives, onRetry = { state.eventSink(DiveSiteEvent.RetryDives) }) {
-        EmptyListText(stringResource(Res.string.dive_site_no_dives), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        EmptyListText(DiveSiteTexts.noDives.string(), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-
-private const val CM_PER_M = 100.0
-
-/** OSM's attribution guideline asks for a link here. */
-private const val OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright"

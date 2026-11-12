@@ -342,6 +342,21 @@ Each phase leaves a shippable app.
      too (`LeftElsewhereView`), in a stack of its own `SessionView` gives it so its title shows. What they say is Kotlin's
      (`AthleteSearchTexts`, `LeftElsewhereTexts`), which the Compose screens ask too. Left for later changes: native segment browse, with
      the native maps.
+   - **The route map and the dive site page** (`ios-native-map`). A native map (`RouteMapView`, MapKit's SwiftUI `Map`) draws a route
+     as the shared map does: each piece smoothed, in the accent colour on a white casing, the breaks' dashed connectors and markers, and
+     the start and end where the viewer's map shows them, framed north-up as Kotlin frames it. What it shows is Kotlin's (`RouteMap` in
+     `:app-common-api`: the pieces, the markers with the ends others see, the bounds, and `MapFrame`, the Web Mercator camera with the
+     shared margin and closest zoom 16), which the Compose map, its line preview and the feed's map images ask too (the feed's images
+     its framing as well); `MapCamera` turns the frame into MapKit's rect. It is static by default (a drag scrolls the page), opens an
+     enlarged map with `expand:`, and pans and zooms north-up with Recenter when `interactive`. Outside a session (`\.liveMaps`, set by
+     `SessionView`) it draws `RouteSketch` from `RouteMap.sketch`, so previews and snapshots fetch nothing; `RouteShape`'s ends are
+     optional so the stand-in honours hidden ends. The first page with it is the dive site page (`DiveSitePage`): the outline on the map,
+     the about lines, the Regulars card, the conditions, the names (`PlaceNamesSection`, ready for the segment page) with the native
+     name sheet (`placeNames(_:)`), and the dives as native cards with no Like (`ActivityCardView(likeable:)`). What it says and decides is
+     Kotlin's (`DiveSiteTexts`; `PlaceTexts` and `PlaceNameTexts` in `:app-common-api`, shared with the segment page; `DiveSiteState`'s
+     `routeMap`, `proposals`, `history`, `viewerDid` and `revealed`; `PlaceNameFields.isOwn`), which the Compose pages ask too. Left for
+     later changes: the segment page (its elevation chart), the enlarged maps and segment browse (interactive and many-segment maps), the
+     activity page and the invite's route preview, and the highlighted stretch a new segment shows.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -353,7 +368,7 @@ Each phase leaves a shippable app.
 | State observation | Observation (`@Observable`), `AsyncSequence` from exported flows | |
 | Navigation | `TabView`, `NavigationStack(path:)`, `NavigationSplitView` for Settings on iPad | Calf's tab bar, the nav decoration |
 | Sheets, alerts, menus, dates | `.sheet`, `.alert`, `.confirmationDialog`, `Menu`, `DatePicker` | Calf's adaptives |
-| Maps | MapLibre Native for iOS with its SwiftUI DSL; `MLNMapSnapshotter` for thumbnails | MapLibre Compose |
+| Maps | MapKit's SwiftUI `Map` (`RouteMapView`, `ios-native-map`), the line preview in previews and snapshots | MapLibre Compose |
 | Charts | Swift Charts | Vico |
 | Images | Nuke with NukeUI, and a custom loader for `heldphoto:` URLs | Coil |
 | Pickers and sharing | `PhotosPicker`, `.fileImporter`, `ShareLink` | FileKit's Compose launchers |
@@ -363,7 +378,10 @@ Each phase leaves a shippable app.
 | Concurrency | Swift 6 mode with default main-actor isolation | |
 | Project layout | One app target with a synchronized folder per feature; Swift Package Manager for dependencies only | |
 
-MapKit was set aside for maps because it can't render the OpenFreeMap styles the other platforms use.
+MapKit was first set aside for maps because it can't render the OpenFreeMap styles the other platforms use. `ios-native-map` took it
+anyway: it is the system's own (no package, binary framework or style URL), follows the appearance, carries Apple's credit and legal
+link itself, and its `MapPolyline` and `Annotation` draw every mark a route map needs; the marks are the same everywhere and only the
+tiles look like Apple Maps. Feed thumbnails stay the line preview on the native card.
 
 ## Spike findings
 
@@ -1628,6 +1646,31 @@ What building the host and the shell on Swift export showed, beyond the probes:
   kept, "zzz" with no match, Cancel, Segments with the shared browse (located, segments listed, a segment's page opened and back),
   and the mode and map kept across Feed and across Athletes. Nothing was written.
 
+### Phase 4 findings (map, `ios-native-map`)
+
+- **MapKit, not MapLibre.** The stack table chose MapLibre Native for its styles; MapKit's SwiftUI `Map` needs no package and draws
+  every mark (`MapPolyline` with a dash `StrokeStyle`, `Annotation` views for the markers), so the marks match every platform while the
+  tiles are Apple's. The stack table says so.
+- **Kotlin frames, MapKit follows.** `MapCamera` turns `RouteMap.frame` (MapLibre's zoom: a 512-point world at zoom 0) into a
+  `MapCameraPosition.rect` of the view's own size: MapKit's world is 2^28 map points wide, so a point spans `2^28 / (512 · 2^zoom)` of
+  them. The closest-zoom rule (16) comes with it; MapKit's own region fit has none. A Swift test holds the conversion to Kotlin's frame.
+- **A Kotlin object isn't `Equatable` to SwiftUI's `onChange`**, so the map frames again on `RouteMap.key` (the route and its marks as
+  text), not on every new state, which would undo a viewer's pan on an interactive map.
+- **`annotationTitles(.hidden)` is a `MapContent` modifier**, per annotation; on the `Map` it doesn't compile.
+- **A static map in a `List` row scrolls with the page**: `interactionModes: []` lets a drag that starts on it scroll the list (seen
+  on the iPad), so no gesture shield is needed.
+- **Previews and snapshots read `\.liveMaps`**, false unless `SessionView` sets it, so they draw `RouteSketch` and never fetch tiles;
+  sniffing the preview or test host would miss one or the other. `RouteShape`'s ends became optional so the stand-in honours hidden
+  ends (a dive site's outline).
+- **The live Compose map keeps `cameraForBounds`**; only the feed's map images and the native map share `MapFrame`, so Android and
+  desktop are unchanged (open item).
+- **Text the page shared with the segment page moved once**: `PlaceTexts` (creator, credit, licence, status and its help, whether Open
+  the original shows) and `PlaceNameTexts` (the names section, including the vote a tap sends) in `:app-common-api`; `PlaceStatus` now
+  takes the texts rather than string resources. One new string, `place_name_proposal_line`, joins a proposal's author and totals.
+- **Walked on the signed-in iPad Air 11-inch (iOS 26.0) as alice:** Blue Hole from a dive's page, with the live map (tiles, outline,
+  Apple's credit), the about lines in imperial units, the Regulars card opening the native board, the conditions, the names and the
+  dives as cards; a drag over the map scrolled the page; dark mode; a card opened its dive. Nothing was written.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1708,9 +1751,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
 - `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
-- The segment page (`SegmentScreen`), its map, segment browse and the dive site page are still the shared UI's, waiting for native maps
-  and charts; the lists they open are native (`ios-native-segment-lists`). Their Mayor and Regulars cards already ask
-  `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
+- The segment page (`SegmentScreen`), its map and segment browse are still the shared UI's: the segment page waits for native charts
+  (its elevation profile) and can place `RouteMapView` and `PlaceNamesSection` as they are; its enlarged map and segment browse want
+  the map's interactive mode and, for browse, many segments and a search box over one map. ~~The dive site page~~: native
+  (`ios-native-map`). The lists they open are native (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
+  `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
   iPad). Still left: the bar's type sheet has no search and no collapsed sports; ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
@@ -1722,5 +1767,5 @@ What building the host and the shell on Swift export showed, beyond the probes:
   for the activity page (pass its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards too.
 - ~~The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now~~: both native
   (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. ~~The native post card (`ios-native-post-card`) wires
-  Report in its menu with `reporting(_:)` once the two merge~~: done (`ios-native-post-report`). The name sheet waits for a native segment or dive site page to place it; it was seen in snapshots only.
+  Report in its menu with `reporting(_:)` once the two merge~~: done (`ios-native-post-report`). The name sheet is placed on the native dive site page (`ios-native-map`).
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.

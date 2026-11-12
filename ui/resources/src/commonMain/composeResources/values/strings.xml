@@ -1945,6 +1945,7 @@
     <string name="segment_name_proposals">Proposed names</string>
     <string name="segment_name_proposed_by">By %1$s</string>
     <string name="segment_name_totals">%1$d up · %2$d down</string>
+    <string name="place_name_proposal_line">%1$s · %2$s</string>
     <string name="segment_name_propose">Propose a name</string>
     <string name="segment_name_edit">Edit name</string>
     <string name="segment_name_delete">Delete proposal</string>

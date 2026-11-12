@@ -3,13 +3,13 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * Where a route map puts its markers: the [start] and [end] of the whole line (null where a privacy zone hides it, [shownAt]), and the
+ * Where a route map puts its markers, as [RouteMap] places them: the [start] and [end] of the whole line (null where hidden), and the
  * [breaks] of the line (`feed.activity#polylineGaps`), in order.
  */
 @Immutable
@@ -18,13 +18,9 @@ internal data class RouteMarkers<T>(val start: T?, val end: T?, val breaks: Immu
     @Immutable data class Break<T>(val stop: T, val resume: T)
 
     companion object {
-        /** The markers of a line drawn as [pieces] (`SegmentedPolyline.pieces`); null when there are no points. */
-        fun <T> of(pieces: List<List<T>>): RouteMarkers<T>? {
-            val drawn = pieces.filter { it.isNotEmpty() }
-            if (drawn.isEmpty()) return null
-            val breaks = drawn.zipWithNext { before, after -> Break(before.last(), after.first()) }.toImmutableList()
-            return RouteMarkers(drawn.first().first(), drawn.last().last(), breaks)
-        }
+        /** Where [map] puts its markers: `RouteMap` decides them, for every UI (dev/shared-display-text). */
+        fun of(map: RouteMap): RouteMarkers<GeoPoint> =
+            RouteMarkers(map.start, map.end, map.breaks.map { Break(it.stop, it.resume) }.toImmutableList())
 
         /** The start marker's fill; the end's is [END_COLOR]. Both are ringed in white. */
         val START_COLOR = Color(0xFF43A047)
@@ -48,7 +44,3 @@ internal data class RouteMarkers<T>(val start: T?, val end: T?, val breaks: Immu
         val CONNECTOR_SPACE = 5.dp
     }
 }
-
-/** These markers with the start and end at [ends] when given: the owner's untrimmed line marks the ends of the route others see. */
-internal fun RouteMarkers<GeoPoint>.shownAt(ends: RouteEnds?): RouteMarkers<GeoPoint> =
-    if (ends == null) this else copy(start = ends.start, end = ends.end)

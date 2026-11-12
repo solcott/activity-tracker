@@ -37,15 +37,12 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_extremes
 import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_range
 import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_star
-import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived_help
-import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_rides
@@ -128,11 +125,15 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     CreatedBy(segment.creator.handle.value)
                     state.credit?.let { Credit(it) }
                     PlaceStatus(
-                        segment.status,
-                        hasOriginal = segment.duplicateOf != null,
-                        proposedHelp = Res.string.segment_status_proposed_help,
-                        duplicateHelp = Res.string.segment_duplicate_help,
-                        archivedHelp = Res.string.segment_status_archived_help,
+                        label = PlaceTexts.status(segment.status),
+                        help =
+                            PlaceTexts.statusHelp(
+                                segment.status,
+                                proposedHelp = "segment_status_proposed_help",
+                                duplicateHelp = "segment_duplicate_help",
+                                archivedHelp = "segment_status_archived_help",
+                            ),
+                        offersOriginal = PlaceTexts.offersOriginal(segment.status, hasOriginal = segment.duplicateOf != null),
                         onOpenOriginal = { state.eventSink(SegmentEvent.OpenOriginal) },
                     )
                     if (!lift && SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {

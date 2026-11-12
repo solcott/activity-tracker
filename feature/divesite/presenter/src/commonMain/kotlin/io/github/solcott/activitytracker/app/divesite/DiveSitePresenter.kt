@@ -11,6 +11,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.names.rememberPlaceNames
 import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -82,6 +83,8 @@ fun DiveSitePresenter(screen: DiveSiteScreen, navigator: Navigator, sites: DiveS
         regulars = regulars,
         dives = dives.state,
         names = placeNames,
+        viewerDid = names.self.value,
+        revealed = rememberRevealed(),
     ) { event ->
         when (event) {
             DiveSiteEvent.Back -> navigator.pop()

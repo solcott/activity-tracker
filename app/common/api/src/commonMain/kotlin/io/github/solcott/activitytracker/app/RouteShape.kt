@@ -63,8 +63,10 @@ class TileFit private constructor(points: List<GeoPoint>, width: Double, height:
 @Immutable
 data class RouteShape(
     val pieces: ImmutableList<RoutePiece>,
-    val start: ShapePoint,
-    val end: ShapePoint,
+    /** Where the start marker goes; null where the map shows none ([RouteMap.sketch] with hidden ends). */
+    val start: ShapePoint?,
+    /** Where the end marker goes; null where the map shows none. */
+    val end: ShapePoint?,
     val breaks: ImmutableList<RouteBreak>,
 ) {
     companion object {

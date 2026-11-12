@@ -27,15 +27,11 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked
 import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_implausible
 import io.github.solcott.activitytracker.composeApp.resources.segment_pr
 import io.github.solcott.activitytracker.composeApp.resources.segment_rank_ordinals
-import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived
-import io.github.solcott.activitytracker.composeApp.resources.segment_status_duplicate
-import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed
 import io.github.solcott.activitytracker.composeApp.resources.ski_lift
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
-import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringArrayResource
@@ -116,14 +112,7 @@ private fun notRankedLabel(reason: String?): String? =
 @Composable fun effortDateLabel(startedOn: String): String = DateText.isoDate(startedOn).string()
 
 /** A segment's [status] as a label; null for an active one, or one with no status. */
-@Composable
-fun segmentStatusLabel(status: String?): String? =
-    when (SegmentStatus.of(status)) {
-        SegmentStatus.PROPOSED -> stringResource(Res.string.segment_status_proposed)
-        SegmentStatus.DUPLICATE -> stringResource(Res.string.segment_status_duplicate)
-        SegmentStatus.ARCHIVED -> stringResource(Res.string.segment_status_archived)
-        else -> null
-    }
+@Composable fun segmentStatusLabel(status: String?): String? = PlaceTexts.status(status)?.string()
 
 /**
  * What a segment of [sport] and [kind] is, as a label: a ski lift or a ski run for `alpine` ones (segments/segment-lifts), else its sport

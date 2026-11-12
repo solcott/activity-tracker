@@ -94,6 +94,9 @@ extension ScreenRegistry {
         // after leaving on another device, shown in place of the app.
         registry.register(AthleteSearchScreen.self, AthleteSearchState.self) { state in AthleteSearchView(state: state) }
         registry.register(LeftElsewhereScreen.self, LeftElsewhereState.self) { state in LeftElsewhereView(state: state) }
+
+        // The dive site page (ios-native-map), the first drawn with the native route map, with its names and the name sheet.
+        registry.register(DiveSiteScreen.self, DiveSiteState.self) { state in DiveSitePage(state: state) }
         return registry
     }()
 }

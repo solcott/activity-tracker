@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.RouteEnds
-import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
@@ -37,13 +37,13 @@ fun RoutePreview(
     ends: RouteEnds? = null,
     highlight: String? = null,
 ) {
+    val map = remember(polyline, gaps, ends) { RouteMap.of(polyline, gaps, ends) } ?: return
     val points = remember(polyline) { TrackMath.decodePolylineOrNull(polyline).orEmpty() }
-    if (points.size < 2) return
     val stretch = remember(highlight) { highlight?.let(TrackMath::decodePolylineOrNull).orEmpty() }
     val highlightColor = MaterialTheme.colorScheme.tertiary
-    val markers = remember(points, gaps, ends) { RouteMarkers.of(SegmentedPolyline.pieces(points, gaps))?.shownAt(ends) }
+    val markers = remember(map) { RouteMarkers.of(map) }
     // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
-    val curves = remember(points, gaps) { SegmentedPolyline.pieces(points, gaps).map(RouteCurve::smooth) }
+    val curves = map.pieces.map { it.points }
     val stretchCurve = remember(stretch) { RouteCurve.smooth(stretch) }
     val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().height(height)) {
@@ -57,7 +57,7 @@ fun RoutePreview(
             }
         drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawHighlight(stretchCurve.map { at(it) }, highlightColor)
-        markers?.let { (start, end, breaks) ->
+        markers.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
             for ((stop, resume) in breaks) {
                 drawLine(RouteMarkers.BREAK_COLOR, at(stop), at(resume), RouteMarkers.CONNECTOR_WIDTH.toPx(), pathEffect = dashes)
