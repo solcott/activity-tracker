@@ -57,34 +57,17 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.zones_history
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_collapse_all
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_collapsed
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_current
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_date_unknown
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_default
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_default_help
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_empty
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_expand_all
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_expanded
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_help
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_only_value
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_remove
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_remove_description
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_show_all
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_show_fewer
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_sport_help
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_summary
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_thresholds
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_today
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_undated
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_values
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ThresholdHistoryScreen::class, SessionScope::class)
@@ -133,7 +116,7 @@ private fun Intro(state: ThresholdHistoryState, modifier: Modifier = Modifier) {
         )
         AppIconButton(
             if (state.anyExpanded) AppIcon.CollapseAll else AppIcon.ExpandAll,
-            stringResource(if (state.anyExpanded) Res.string.zones_history_collapse_all else Res.string.zones_history_expand_all),
+            ThresholdHistoryTexts.toggleAll(state).string(),
             onClick = { state.eventSink(ThresholdHistoryEvent.ToggleAll) },
         )
     }
@@ -165,8 +148,7 @@ private fun GroupCard(group: ThresholdHistoryGroup, state: ThresholdHistoryState
 
 @Composable
 private fun GroupHeader(group: ThresholdHistoryGroup, onToggle: () -> Unit, modifier: Modifier = Modifier) {
-    val sport = group.sport
-    val stateText = stringResource(if (group.expanded) Res.string.zones_history_expanded else Res.string.zones_history_collapsed)
+    val stateText = ThresholdHistoryTexts.expansion(group).string()
     Row(
         modifier
             .fillMaxWidth()
@@ -185,23 +167,15 @@ private fun GroupHeader(group: ThresholdHistoryGroup, onToggle: () -> Unit, modi
             size = 20.dp,
         )
         Column(Modifier.weight(1f)) {
+            Text(ThresholdHistoryTexts.heading(group).string(), style = MaterialTheme.typography.titleMedium)
             Text(
-                if (sport == null) stringResource(Res.string.zones_history_default) else sportLabel(sport),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                if (sport == null) stringResource(Res.string.zones_history_default_help)
-                else stringResource(Res.string.zones_history_sport_help, sportLabel(sport)),
+                ThresholdHistoryTexts.help(group).string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
-            stringResource(
-                Res.string.zones_history_summary,
-                pluralStringResource(Res.plurals.zones_history_thresholds, group.thresholds.size, group.thresholds.size),
-                pluralStringResource(Res.plurals.zones_history_values, group.valueCount, group.valueCount),
-            ),
+            ThresholdHistoryTexts.summary(group).string(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -240,7 +214,7 @@ private fun OverviewTile(section: ThresholdHistorySection, modifier: Modifier = 
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            thresholdValue(section.threshold, section.newest.entry.value, section.paceUnit),
+            ThresholdHistoryTexts.current(section).string(),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -257,7 +231,7 @@ private fun ThresholdBlock(section: ThresholdHistorySection, state: ThresholdHis
             Text(thresholdLabel(section.threshold), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    thresholdValue(section.threshold, section.newest.entry.value, section.paceUnit),
+                    ThresholdHistoryTexts.current(section).string(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -273,10 +247,7 @@ private fun ThresholdBlock(section: ThresholdHistorySection, state: ThresholdHis
         }
         if (section.canShowAll) {
             AppTextButton(onClick = { state.eventSink(ThresholdHistoryEvent.ToggleShowAll(section.threshold, section.sport)) }) {
-                Text(
-                    if (section.showingAll) stringResource(Res.string.zones_history_show_fewer)
-                    else stringResource(Res.string.zones_history_show_all, section.rows.size),
-                )
+                Text(ThresholdHistoryTexts.showAll(section).string())
             }
         }
     }
@@ -309,11 +280,9 @@ private fun ChartPanel(section: ThresholdHistorySection, chart: ThresholdChart, 
             )
         }
         Row(Modifier.padding(start = AXIS_WIDTH + 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(longDate(chart.start), style = MaterialTheme.typography.labelSmall, color = muted)
+            Text(ThresholdHistoryTexts.chartStart(chart).string(), style = MaterialTheme.typography.labelSmall, color = muted)
             Text(
-                if (section.undatedCount > 0)
-                    pluralStringResource(Res.plurals.zones_history_undated, section.undatedCount, section.undatedCount)
-                else "",
+                ThresholdHistoryTexts.undated(section)?.string() ?: "",
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.labelSmall,
                 color = muted,
@@ -332,7 +301,7 @@ private fun HistoryRow(
     state: ThresholdHistoryState,
     modifier: Modifier = Modifier,
 ) {
-    val value = thresholdValue(section.threshold, row.entry.value, section.paceUnit)
+    val value = thresholdValue(section, row.entry.value)
     Row(
         modifier.fillMaxWidth().heightIn(min = 52.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -340,12 +309,9 @@ private fun HistoryRow(
     ) {
         Text(value, Modifier.width(VALUE_WIDTH), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         Column(Modifier.weight(1f)) {
+            Text(ThresholdHistoryTexts.date(row).string(), style = MaterialTheme.typography.bodySmall)
             Text(
-                row.date?.let { longDate(it) } ?: stringResource(Res.string.zones_history_date_unknown),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                sourceLabel(row.entry),
+                sourceLabel(row),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -364,7 +330,7 @@ private fun HistoryRow(
         if (state.removing == row.entry) {
             Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) { AppProgressIndicator(small = true) }
         } else {
-            RemoveButton(row, value, thresholdLabel(section.threshold), state)
+            RemoveButton(row, ThresholdHistoryTexts.removeLabel(section, row).string(), state)
         }
     }
 }
@@ -372,8 +338,7 @@ private fun HistoryRow(
 @Composable
 private fun RemoveButton(
     row: ThresholdHistoryRow,
-    value: String,
-    threshold: String,
+    description: String,
     state: ThresholdHistoryState,
     modifier: Modifier = Modifier,
 ) {
@@ -381,7 +346,7 @@ private fun RemoveButton(
     Box(modifier) {
         AppIconButton(
             AppIcon.Delete,
-            stringResource(Res.string.zones_history_remove_description, value, threshold),
+            description,
             onClick = { confirming = true },
             enabled = state.removing == null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -404,14 +369,9 @@ private fun RemoveButton(
 /** "+18 W since Mar 2", "12 s/mi faster since Jun 1", or "Only value"; a threshold with values but nothing to compare shows nothing. */
 @Composable
 private fun ChangeText(section: ThresholdHistorySection, style: TextStyle, modifier: Modifier = Modifier) {
-    val change = section.change
-    val text =
-        when {
-            section.rows.size == 1 -> stringResource(Res.string.zones_history_only_value)
-            change == null -> return
-            else -> changeText(section, change)
-        }
-    val color = if (change == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+    val text = changeText(section) ?: return
+    val color =
+        if (ThresholdHistoryTexts.changed(section)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Text(text, modifier, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
