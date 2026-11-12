@@ -21,18 +21,14 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.field_title
-import io.github.solcott.activitytracker.composeApp.resources.manual_distance_label_km
-import io.github.solcott.activitytracker.composeApp.resources.manual_distance_label_mi
 import io.github.solcott.activitytracker.composeApp.resources.manual_duration_label
-import io.github.solcott.activitytracker.composeApp.resources.manual_temperature_label_c
-import io.github.solcott.activitytracker.composeApp.resources.manual_temperature_label_f
 import io.github.solcott.activitytracker.composeApp.resources.manual_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.units.UnitSystem
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,13 +56,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             UnitSystemPicker(state.units, { state.eventSink(ManualActivityEvent.UnitsChanged(it)) }, Modifier.fillMaxWidth())
             AppTextField(
                 state.distance,
-                label =
-                    stringResource(
-                        when (state.units) {
-                            UnitSystem.Metric -> Res.string.manual_distance_label_km
-                            UnitSystem.Imperial -> Res.string.manual_distance_label_mi
-                        },
-                    ),
+                label = ManualActivityTexts.distanceLabel(state.units).string(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -78,13 +68,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             )
             AppTextField(
                 state.temperature,
-                label =
-                    stringResource(
-                        when (state.units) {
-                            UnitSystem.Metric -> Res.string.manual_temperature_label_c
-                            UnitSystem.Imperial -> Res.string.manual_temperature_label_f
-                        },
-                    ),
+                label = ManualActivityTexts.temperatureLabel(state.units).string(),
                 // Not Decimal: some numeric keyboards have no minus key.
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
