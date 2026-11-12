@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.moderation.ReportReason
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.textfield.TextFieldState
 
 /**
@@ -80,7 +81,14 @@ data class Reporting(
     /** The author to block, named, while the confirmation shows. */
     val confirmBlock: BlockOffer? = null,
     val eventSink: (ReportingEvent) -> Unit = {},
-)
+) {
+    /**
+     * What a comment's Report sends to [eventSink]: the sheet for [comment] by its URI and CID, naming its author [authorName] as each UI
+     * shows them (their display name, else their `@handle`), so neither UI builds a report target (dev/shared-display-text).
+     */
+    fun reportComment(comment: CommentView, authorName: String): ReportingEvent.Open =
+        ReportingEvent.Open(ReportTarget.Comment(comment.uri, comment.cid, comment.author.did), authorName)
+}
 
 @Immutable data class BlockOffer(val author: Did, val name: String)
 

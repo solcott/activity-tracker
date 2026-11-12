@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.CARD_PADDING
 import io.github.solcott.activitytracker.app.report.Reporting
-import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
 import io.github.solcott.activitytracker.app.ui.ErrorText
@@ -51,7 +50,6 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_section_com
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
-import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -148,7 +146,7 @@ private fun CommentRow(
         uri = comment.uri,
         state = state,
         modifier = modifier,
-        onReport = { reporting.eventSink(ReportingEvent.Open(ReportTarget.Comment(comment.uri, comment.cid, comment.author.did), name)) },
+        onReport = { reporting.eventSink(reporting.reportComment(comment, name)) },
         decision = ModerationDecision.of(comment.labels, comment.author.labels, isOwn = comment.author.did == state.viewerDid),
     )
 }
