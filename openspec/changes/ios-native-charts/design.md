@@ -34,15 +34,15 @@ effort row's ordinal (a `string-array`), PR, reasons and e-bike.
 `ChartAxis(min, max, step)` with `around(low, high)` and `aroundTime(low, high)` and `of(values, labelled, inverted, timeValues)`
 (`yAxisOf`) moves to `:core-data` (`data.chart`), and `BandStop(at, band)` with `BandStop.runs(xFractions, bands, minPoints)` (the old
 `GradeBands.stops`) beside it. `:ui-designsystem` already depends on `:core-data`, so `TimeSeriesChart` asks `ChartAxis.of` instead of its
-private `YAxis`, takes an optional `yAxis: ChartAxis?` that overrides it, and `GradeBands.brush` takes `core-data`'s `BandStop`; the
+private `YAxis`, takes an optional `axis: ChartAxis?` that overrides it, and `GradeBands.brush` takes `core-data`'s `BandStop`; the
 colours and brush stay Compose's. Alternatives: `:ui-designsystem` depending on `:app-common-api` (breaks "no app types"), or a copy of
 the axis rule in `:app-common-api` (two homes).
 
 `LineChart` (`:app-common-api`, `app.chart`) is what a chart shows, non-generic for Swift export: `points` (`LinePoint(x, y, gapBefore)`,
 already in display units), `xMin`/`xMax`, `axis` (`ChartAxis`), `yTicks` and `xTicks` (`ChartTick(value, label: AppText)`; the y ticks
 every axis step), `readouts` (one `AppText` per point), `description` (`AppText`), `bands` (`BandStop`s, empty when untinted). Methods:
-`nearest(x)` (the old `nearestIndex`, earlier on a tie), `readout(x)`, `pieces` (the points split at gaps, for a drawer that can't break a
-line), `tickLabel(value, ticks)` for a UI asked about one tick, `bandCount`. A `LineChart.of(...)` builder computes the axis and y ticks
+`nearest(x)` (the old `nearestIndex`, earlier on a tie), `readout(x)`, `labelAt(value, ticks)` for a UI asked about one tick,
+`bandCount`. Splitting the points at gaps is the drawing's (`ChartPieces` in Swift, Vico's connector in Compose). A `LineChart.of(...)` builder computes the axis and y ticks
 from a label function. `BandStop` gets a Swift type through `LineChart`'s signatures (`bandAt(index)`), as the zones' `Zone` did.
 
 ### The segment profile as a chart
@@ -62,11 +62,13 @@ baseline, no gridlines. Untinted it uses the accent colour (area at 0.18). Tinte
 plot, each band's colour repeated at its stop so it switches sharply (`ChartBands.gradientStops`, a small type with a Swift test), the
 area at 0.45; the colours are `GradeColors` (`Design/`), the five band colours of `GradeBands` for light and dark as dynamic colours.
 
-Readout: `chartOverlay` with a clear layer taking a `SpatialTapGesture` and a simultaneous `DragGesture(minimumDistance: 0)` that marks
-the drag scrolling once it moves mostly vertically past 10 points (the `ScrubGesture` rule, `ChartScrub` beside the view with a Swift
-test); the proxy turns the finger's x into a value, Kotlin's `nearest` picks the point, a `RuleMark` and a `PointMark` mark it and the
-readout label sits over the chart, clamped inside its width. It stays after the finger lifts, as the shared one does, and a vertical drag
-hides it. Accessibility: one element, `accessibilityLabel` the description; the marks' own elements are hidden.
+Readout: `chartOverlay` with a clear layer taking a tap and a UIKit pan (`UIGestureRecognizerRepresentable`, iOS 18) that begins
+only when the drag is mostly sideways (`ChartScrub`); a SwiftUI `DragGesture` there, even simultaneous, took the list's scroll (found on
+the simulator). The proxy turns the finger's x into a value, Kotlin's `nearest` picks the point, a `RuleMark` and a `PointMark` mark it and
+the readout label sits over the point, fitted inside the chart, on the page's background with a hairline (a material there rendered
+garbled). It stays after the finger lifts, as the shared one does, and a vertical drag hides it. Half a label of room at each end
+(`chartXScale(range: .plotDimension(...))`) keeps the end labels, which Swift Charts otherwise drops. Accessibility: one element,
+`accessibilityLabel` the description; the marks' own elements are hidden.
 
 ### The segment page
 `SegmentPage(state:)` (named so because `SegmentView` is the lexicon's alias), registered for `SegmentScreen`, a `ContentStateView` over
