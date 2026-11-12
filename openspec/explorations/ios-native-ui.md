@@ -412,6 +412,17 @@ Each phase leaves a shippable app.
      `TypePickerState.groups(query, source)` with `CatalogText` as the source, and `selectionOf(category)`) and discloses each sport's
      sub-sports, collapsed when it opens. A snapshot is drawn until two draws agree (`Snapshotting.settledImage`), so a full run
      compares as a single suite does. `UploadsPresenter` uses `adding`.
+   - **The forms** (`ios-native-forms`). Edit activity (`EditActivityView`), manual entry (`ManualActivityView`) and Create dive site
+     (`CreateDiveSiteView`) are native grouped forms. Edit and manual entry share `ActivityFormSections.swift`: the title, a dive's site,
+     the description and the photos (`ActivityDetailsSections`, several picked at once through `PhotoPick` and sent as one
+     `PhotosPicked`), the gear row and its sheet (`GearFieldRow`, `GearFieldSheet`: tick items, Add collection, Remove all), and the type
+     row with the chosen sport's sub-sports as chips and a searchable single-choice sheet (`ActivityTypeRow`, `ActivityTypeSheet`); both
+     place `VisibilityFormSections`. Edit leads its bar with Cancel and hides the stack's back, since leaving asks first when something
+     changed, and asks before narrowing a Public activity or widening its core charts; manual entry's Save waits for a duration; the dive
+     site form draws its outline on `RouteMapView` with a radius slider, its duplicates as rows to open, and why no site can be made.
+     What they say is Kotlin's (`GearFieldTexts`, `DetailsFormTexts`, `SportTypeGroups.matching` and `subSportChoices`,
+     `ManualActivityTexts`, `EditActivityTexts`, `CreateDiveSiteTexts`, `CreateDiveSiteState.routeMap`, `GearField.isSelected` and
+     `offersClear`), which the Compose forms ask too. The place-name sheet and the feed's filter bar were already native sub-screens.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1827,6 +1838,25 @@ What building the host and the shell on Swift export showed, beyond the probes:
   threw `count` unrecognized (`NSArray` bridging) while passing alone; the two tests doing it read the typed getter
   (`ThresholdHistoryState.groups`) through `elements(as:)` now, as the rules say.
 
+### Phase 4 findings (forms, `ios-native-forms`)
+
+- **A getter a native Save follows has to be a field.** `ManualActivityState.valid` read the duration's text in a getter, which kept the
+  Compose form live but published nothing when only the text changed: two states with the same fields are equal, so the host sends
+  none. The presenter now reads the text in its composition into `durationEntered`, as `ReportState.noteWritten` does, and a test that
+  asserted `valid` on the first state waits for the published one instead.
+- **`description` is dropped again.** `ActivityDetailsFields.description` reached Swift as the object's own `description` (a `String`),
+  so the form got `about`, a getter under another name.
+- **Value classes in a list stay in Kotlin.** `GearField.selected` holds `AtUri`s; rather than reading them in Swift, the field asks
+  `isSelected(option)`, which the Compose sheet asks too. The picker's `GearEvent` clashes with the gear page's alias, so Swift names it
+  `GearFieldEvent`.
+- **Leaving a form that asks first.** The stack's back pops without asking the presenter, so a form whose Back can ask (Edit's unsaved
+  changes) hides it with `pageTitle(canGoBack: false)` and leads its bar with Cancel, sending `Back`: the system's edit-form shape.
+- **Two SwiftUI form details.** A segmented `Picker` as a row with a clear background squares off the rows after it in the same
+  section, so it gets a section of its own. A stepped `Slider` draws a tick per step on iOS 26 (95 ticks for a 25–500 m radius in 5 m
+  steps, a dotted line), so the radius slider is continuous and the presenter rounds and clamps it.
+- **Swift Testing's macros don't nest.** A `#require` inside another `#require`'s argument fails to compile ("recursive expansion");
+  each value is required on its own line.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1922,8 +1952,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   headline, a plain chart of the main line and their rows), the legs, lengths and sets tables (multisport, pool swims, workouts), the
   edit-combination sheet (removing a member, data sources; Split stays in the menu), the chart source captions on a combined activity,
   and the nested efforts' guide lines and span bars (rows are indented instead). Two cards to a row on a medium width is the shared
-  page's; the native one stacks them. The screens it opens that are still shared: the media gallery, the enlarged route map, Edit, the
-  combine picker, Add a recording (import) and Create segment.
+  page's; the native one stacks them. The screens it opens that are still shared: the media gallery, the enlarged route map, ~~Edit~~, the
+  combine picker, Add a recording (import) and Create segment. Edit and Create dive site are native now (`ios-native-forms`), and so is manual entry, from the feed.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
   iPad). ~~Still left: the bar's type sheet has no search and no collapsed sports~~: done (`ios-native-leftovers`); ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
