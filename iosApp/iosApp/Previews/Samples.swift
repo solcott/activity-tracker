@@ -176,6 +176,8 @@
         static var manualActivityVariants: [String: ManualActivityState] { RecordPackage.ManualActivitySamples.shared.variants }
         static var createDiveSite: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.all }
         static var createDiveSiteVariants: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.variants }
+        static var importActivity: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.all }
+        static var importActivityVariants: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
