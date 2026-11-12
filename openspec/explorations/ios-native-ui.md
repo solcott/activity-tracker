@@ -329,7 +329,8 @@ Each phase leaves a shippable app.
      first load's progress or failure shows under the bar, the list pulls to refresh (`pullToRefresh`, the system's spinner held until
      the state's refresh ends), and the quote and report sheets are the posts'. What it says is Kotlin's (`FeedTexts`,
      `FeedUploadTexts`, `ImportCardTexts`, `FeedState.showsEmpty` and `keyOf`), which the Compose feed asks too. Left for later changes: paging the
-     timeline (one page on every platform), Report from a feed post's card, and the bar's type sheet's search and collapsed sports.
+     timeline (one page on every platform) and the bar's type sheet's search and collapsed sports. A feed post's card offers Report
+     (`canReport:`) since the post-report merge.
      A large title shows no title menu, so the scopes are also a chip leading the filters.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
@@ -1682,15 +1683,13 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
-  iPad). Still left: the bar's type sheet has no search and no collapsed sports; Report on a feed post waits for the post card's menu
-  (`ios-native-post-report`, whose `PostCardView(canReport:)` the feed passes `state.reporting.available` once both merge; the page
-  already carries `.reporting`); the feed loads one page on every platform, and paging it is a shared change; the shared feed's
+  iPad). Still left: the bar's type sheet has no search and no collapsed sports; ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
   Refresh button for a pointer has no native twin (an iPad with a pointer pulls to refresh). Seen only in snapshots: posts, reposts and
   quotes in the feed, import cards, the upload rows, the prompts and a failed first load, which the local stack's alice didn't have.
 - Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the
   profile's Posts tab, which closes the profile's Posts item above. ~~Still left out: Report on a post, a comment and a quote~~: done
   (`ios-native-post-report`). The feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready
-  for the activity page (pass its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards once it passes `canReport:`.
+  for the activity page (pass its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards too.
 - ~~The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now~~: both native
   (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. ~~The native post card (`ios-native-post-card`) wires
   Report in its menu with `reporting(_:)` once the two merge~~: done (`ios-native-post-report`). The name sheet waits for a native segment or dive site page to place it; it was seen in snapshots only.
