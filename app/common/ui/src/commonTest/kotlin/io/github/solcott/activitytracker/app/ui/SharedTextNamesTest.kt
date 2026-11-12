@@ -19,9 +19,15 @@ import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.detail.StreamUnits
 import io.github.solcott.activitytracker.app.detail.ZoneRows
 import io.github.solcott.activitytracker.app.detail.ZoneTime
+import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
+import io.github.solcott.activitytracker.app.record.GearCollectionOption
+import io.github.solcott.activitytracker.app.record.GearField
+import io.github.solcott.activitytracker.app.record.GearFieldTexts
+import io.github.solcott.activitytracker.app.record.GearOption
 import io.github.solcott.activitytracker.app.segment.EffortTexts
 import io.github.solcott.activitytracker.app.segment.SegmentTexts
 import io.github.solcott.activitytracker.app.sport.SportTypeGroups
@@ -64,6 +70,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.WaterType
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -221,6 +228,23 @@ class SharedTextNamesTest {
             GearType.all.map(GearTexts::type) +
                 GearMainTotal.entries.flatMap { main -> UnitSystem.entries.map { GearTexts.mainTotal(main, totals, it) } } +
                 GearTexts.mainTotal(GearMainTotal.DISTANCE, totals.copy(activities = 0, movingTime = 0, distance = 0), UnitSystem.Metric)
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyGearFieldTextNamesAString() {
+        val option =
+            GearOption(AtUri("at://did:plc:a/app.activitytracker.gear.item/a"), "Canyon", GearType.BIKE, visibility = Visibility.SELF)
+        val field = GearField(persistentListOf(option), notAdded = 2)
+        val texts =
+            listOfNotNull(
+                GearFieldTexts.summary(field),
+                GearFieldTexts.line(option),
+                GearFieldTexts.line(option.copy(kind = "road", retired = true)),
+                GearFieldTexts.collection(GearCollectionOption("race", "Race day", 3)),
+                GearFieldTexts.notAdded(field),
+                DetailsFormTexts.photosCount(ActivityDetailsFields(textFieldStateOf(), null, persistentListOf(), 4, {})),
+            )
         assertAllExist(texts)
     }
 

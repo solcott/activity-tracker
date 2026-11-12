@@ -20,7 +20,7 @@ import io.github.solcott.activitytracker.app.segment.PlaceDuplicates
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -29,18 +29,12 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_at_site
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_duplicates
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_hidden_start
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_inside_zone
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_limit
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_name
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_names_dive
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_no_position
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_public
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_publish
-import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_radius
 import io.github.solcott.activitytracker.composeApp.resources.create_dive_site_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
@@ -87,7 +81,7 @@ private fun Form(state: CreateDiveSiteState, outline: String, padding: PaddingVa
     ReadableScrollColumn(padding, Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ActivityMap(outline, Modifier.fillMaxWidth(), ends = RouteEnds.HIDDEN)
         Text(
-            stringResource(Res.string.create_dive_site_radius, Format.elevation(state.radius.toDouble())),
+            CreateDiveSiteTexts.radius(state.radius, LocalUnitSystem.current).string(),
             style = MaterialTheme.typography.titleSmall,
         )
         AppSlider(
@@ -105,8 +99,7 @@ private fun Form(state: CreateDiveSiteState, outline: String, padding: PaddingVa
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            stringResource(Res.string.create_dive_site_public) +
-                if (state.namesDive) " " + stringResource(Res.string.create_dive_site_names_dive) else "",
+            CreateDiveSiteTexts.publicNote(state.namesDive).map { it.string() }.joinToString(" "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -128,12 +121,4 @@ private fun Form(state: CreateDiveSiteState, outline: String, padding: PaddingVa
 }
 
 @Composable
-private fun unavailableText(unavailable: CreateDiveSiteUnavailable): String =
-    stringResource(
-        when (unavailable) {
-            CreateDiveSiteUnavailable.NoPosition -> Res.string.create_dive_site_no_position
-            CreateDiveSiteUnavailable.InsideZone -> Res.string.create_dive_site_inside_zone
-            CreateDiveSiteUnavailable.HiddenStart -> Res.string.create_dive_site_hidden_start
-            CreateDiveSiteUnavailable.AtSite -> Res.string.create_dive_site_at_site
-        },
-    )
+private fun unavailableText(unavailable: CreateDiveSiteUnavailable): String = CreateDiveSiteTexts.unavailable(unavailable).string()

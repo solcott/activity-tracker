@@ -75,6 +75,33 @@ class ManualActivityPresenterTest {
     }
 
     @Test
+    fun typingADurationPublishesAStateThatCanSave() = runTest {
+        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
+            val initial = awaitItem()
+            assertFalse(initial.durationEntered)
+            initial.durationMinutes.setTextAndPlaceCursorAtEnd("45")
+            assertTrue(awaitUntil { it.durationEntered }.valid, "a new state follows typing, for a native Save")
+            initial.durationMinutes.setTextAndPlaceCursorAtEnd("0")
+            assertFalse(awaitUntil { !it.durationEntered }.valid)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun switchingUnitsChangesHowEntriesAreRead() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
@@ -127,7 +154,7 @@ class ManualActivityPresenterTest {
             val form = awaitItem()
             form.distance.setTextAndPlaceCursorAtEnd("5,2")
             form.durationMinutes.setTextAndPlaceCursorAtEnd("30,5")
-            assertTrue(form.valid)
+            assertTrue(awaitUntil { it.valid }.valid)
             form.temperature.setTextAndPlaceCursorAtEnd("-2,5")
             form.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()

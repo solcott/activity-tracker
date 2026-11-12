@@ -65,4 +65,25 @@ class SportTypeGroupsTest {
         assertEquals(a, AppText.joined(listOf(a)))
         assertEquals(AppText.named("text_list_pair", AppText.named("text_list_pair", a, b), c), AppText.joined(listOf(a, b, c)))
     }
+
+    @Test
+    fun aSingleChoicePickerListsWhatMatchesAndLeavesOutIndoorTypesWhenRecording() {
+        val gravelOnly = SportTypeGroups.matching(outdoorOnly = false) { it == gravel }
+        assertEquals(listOf(SportCategory.Cycling), gravelOnly.map { it.category })
+        assertEquals(listOf(gravel), gravelOnly.single().types)
+        val everything = SportTypeGroups.matching(outdoorOnly = false) { true }.flatMap { it.types }
+        val outdoors = SportTypeGroups.matching(outdoorOnly = true) { true }.flatMap { it.types }
+        assertTrue(everything.any(SportCatalog::isIndoor))
+        assertFalse(outdoors.any(SportCatalog::isIndoor))
+    }
+
+    @Test
+    fun theSubSportChoicesAreTheGenericSportThenItsSubSports() {
+        val choices = SportTypeGroups.subSportChoices(gravel, outdoorOnly = false)
+        assertEquals(ride, choices.first())
+        assertTrue(gravel in choices)
+        assertEquals(SportCatalog.subSports(Sport.RIDE).size + 1, choices.size)
+        assertFalse(SportTypeGroups.subSportChoices(ride, outdoorOnly = true).any(SportCatalog::isIndoor))
+        assertTrue(SportTypeGroups.subSportChoices(ActivityType(Sport.YOGA), outdoorOnly = false).isEmpty())
+    }
 }

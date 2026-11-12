@@ -7,6 +7,7 @@ import ComSlackCircuitCircuitxSubcircuit
 import CoreTextfield
 import FeatureDetailApi
 import FeatureDivesiteApi
+import FeatureEditApi
 import FeatureFeedApi
 import FeatureFeedfilterApi
 import FeatureGearApi
@@ -16,6 +17,7 @@ import FeatureMapApi
 import FeatureMediaApi
 import FeaturePostApi
 import FeatureProfileApi
+import FeatureRecordApi
 import FeatureReportApi
 import FeatureSearchApi
 import FeatureSegmentApi
@@ -558,3 +560,32 @@ typealias MediaGalleryScreen = AppPackage.media.MediaGalleryScreen
 typealias MediaGalleryState = AppPackage.media.MediaGalleryState
 typealias MediaGalleryEvent = AppPackage.media.MediaGalleryEvent
 typealias MediaGalleryTexts = AppPackage.media.MediaGalleryTexts
+
+// The activity forms (ios-native-forms): editing an activity, entering one by hand and creating a dive site, the details, gear and type
+// pieces they share, and what they say.
+typealias EditPackage = AppPackage.edit
+typealias RecordPackage = AppPackage.record
+typealias EditActivityScreen = EditPackage.EditActivityScreen
+typealias EditActivityState = EditPackage.EditActivityState
+typealias EditActivityEvent = EditPackage.EditActivityEvent
+typealias EditActivityTexts = EditPackage.EditActivityTexts
+typealias ActivityDetailsFields = EditPackage.ActivityDetailsFields
+typealias DetailsEvent = EditPackage.DetailsEvent
+typealias DetailsFormTexts = EditPackage.DetailsFormTexts
+typealias EditMedia = EditPackage.EditMedia
+typealias ManualActivityScreen = RecordPackage.ManualActivityScreen
+typealias ManualActivityState = RecordPackage.ManualActivityState
+typealias ManualActivityEvent = RecordPackage.ManualActivityEvent
+typealias ManualActivityTexts = RecordPackage.ManualActivityTexts
+typealias ActivityTypeField = RecordPackage.ActivityTypeField
+typealias ActivityTypeEvent = RecordPackage.ActivityTypeEvent
+typealias GearField = RecordPackage.GearField
+typealias GearOption = RecordPackage.GearOption
+typealias GearCollectionOption = RecordPackage.GearCollectionOption
+typealias GearFieldEvent = RecordPackage.GearEvent
+typealias GearFieldTexts = RecordPackage.GearFieldTexts
+typealias CreateDiveSiteScreen = DiveSitePackage.CreateDiveSiteScreen
+typealias CreateDiveSiteState = DiveSitePackage.CreateDiveSiteState
+typealias CreateDiveSiteEvent = DiveSitePackage.CreateDiveSiteEvent
+typealias CreateDiveSiteTexts = DiveSitePackage.CreateDiveSiteTexts
+typealias CreateDiveSiteUnavailable = DiveSitePackage.CreateDiveSiteUnavailable

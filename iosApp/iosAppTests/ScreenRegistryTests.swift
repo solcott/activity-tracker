@@ -86,6 +86,10 @@ struct ScreenRegistryTests {
         for screen in ["RouteMapScreen", "MediaGalleryScreen", "CombinePickerScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The activity forms (ios-native-forms).
+        for screen in ["EditActivityScreen", "ManualActivityScreen", "CreateDiveSiteScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
+        }
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
@@ -130,5 +134,9 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.ZonesScreen.self) == "ZonesScreen")
         #expect(String(describing: ActivityTracker.SportZonesScreen.self) == "SportZonesScreen")
         #expect(String(describing: ActivityTracker.PrivacyZonesScreen.self) == "PrivacyZonesScreen")
+        // The activity forms (ios-native-forms).
+        #expect(String(describing: ActivityTracker.EditActivityScreen.self) == "EditActivityScreen")
+        #expect(String(describing: ActivityTracker.ManualActivityScreen.self) == "ManualActivityScreen")
+        #expect(String(describing: ActivityTracker.CreateDiveSiteScreen.self) == "CreateDiveSiteScreen")
     }
 }

@@ -58,8 +58,21 @@ fun ManualActivityPresenter(
             .toImmutableSet()
     val visibility = rememberNewActivityVisibility(defaults, offered)
 
-    return ManualActivityState(type.field, title, distance, duration, temperature, units, saving, error, visibility.fields, gear.field) {
-        event ->
+    // Read in composition, so typing a duration publishes a new state.
+    val durationEntered = (parseDecimal(duration.text.toString()) ?: 0.0) > 0
+    return ManualActivityState(
+        type.field,
+        title,
+        distance,
+        duration,
+        temperature,
+        units,
+        saving,
+        error,
+        visibility.fields,
+        gear.field,
+        durationEntered,
+    ) { event ->
         when (event) {
             is ManualActivityEvent.UnitsChanged -> {
                 units = event.value
