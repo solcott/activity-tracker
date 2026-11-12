@@ -39,7 +39,7 @@ internal fun ManageMenu(page: ActivityDetailPage, modifier: Modifier = Modifier)
         menu
             .mapIndexed { i, item ->
                 AppMenuItem(labels[i], item.action.icon, destructive = item.destructive) {
-                    val event = item.event
+                    val event = item.event()
                     when {
                         event != null -> eventSink(event)
                         item.action == ActivityMenuAction.Split -> splitting = true
@@ -105,7 +105,7 @@ private fun ConfirmDelete(manage: ActivityManage, eventSink: (ActivityDetailEven
         message = ActivityPageTexts.deleteMessage(manage).string(),
         actions =
             choices
-                .mapIndexed { i, choice -> AppDialogAction(labels[i], destructive = true) { eventSink(choice.event) } }
+                .mapIndexed { i, choice -> AppDialogAction(labels[i], destructive = true) { eventSink(choice.event()) } }
                 .toImmutableList(),
         cancelLabel = ActivityPageTexts.cancel.string(),
         onDismiss = onDismiss,

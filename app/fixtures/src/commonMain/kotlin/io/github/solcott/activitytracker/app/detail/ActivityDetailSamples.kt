@@ -138,15 +138,24 @@ object ActivityDetailSamples {
     /** Seconds the sample ride's streams run for. */
     private const val RIDE_SECONDS = 3_600
 
+    /** How many minutes each of a sample line's two waves takes per radian, and how far over its swing its maximum is. */
+    private const val SLOW_WAVE = 6.0
+    private const val FAST_WAVE = 2.0
+    private const val PEAK = 1.3
+    private const val RIPPLE = 3
+
     /** [count] points of a line from [base] swinging by [swing], one a minute, the same every run. */
     private fun samples(base: Double, swing: Double, count: Int = 61): ImmutableList<ChartSample> =
         (0 until count)
             .map { i ->
-                ChartSample(i * RIDE_SECONDS / (count - 1), base + swing * kotlin.math.sin(i / 6.0) + swing / 3 * kotlin.math.cos(i / 2.0))
+                ChartSample(
+                    i * RIDE_SECONDS / (count - 1),
+                    base + swing * kotlin.math.sin(i / SLOW_WAVE) + swing / RIPPLE * kotlin.math.cos(i / FAST_WAVE),
+                )
             }
             .toImmutableList()
 
-    private fun line(kind: StreamKind, base: Double, swing: Double, average: Double? = base, max: Double? = base + swing * 1.3) =
+    private fun line(kind: StreamKind, base: Double, swing: Double, average: Double? = base, max: Double? = base + swing * PEAK) =
         LineSeries(kind, samples(base, swing), average = average, max = max)
 
     private fun zones(vararg seconds: Int, step: Int, from: Int): ImmutableList<ZoneTime> =

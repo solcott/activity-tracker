@@ -42,15 +42,18 @@ class ActivityPageTextsTest {
             ActivityPageTexts.ownerMenu(page).map { it.action },
         )
         // Split, Export and Delete are asked about first.
-        assertTrue(ActivityPageTexts.ownerMenu(page).filter { it.event == null }.all { it.action in ASKED })
+        assertTrue(ActivityPageTexts.ownerMenu(page).filter { it.event() == null }.all { it.action in ASKED })
         assertTrue(ActivityPageTexts.ownerMenu(ActivityDetailSamples.page).isEmpty())
     }
 
     @Test
     fun deletingAGroupedActivityAsksWhetherTheOthersGo() {
         val choices = ActivityPageTexts.deleteChoices(manage)
-        assertEquals(listOf(ActivityDetailEvent.Delete(true), ActivityDetailEvent.Delete(false)), choices.map { it.event })
-        assertEquals(listOf(ActivityDetailEvent.Delete(false)), ActivityPageTexts.deleteChoices(manage.copy(members = 0)).map { it.event })
+        assertEquals(listOf(ActivityDetailEvent.Delete(true), ActivityDetailEvent.Delete(false)), choices.map { it.event() })
+        assertEquals(
+            listOf(ActivityDetailEvent.Delete(false)),
+            ActivityPageTexts.deleteChoices(manage.copy(members = 0)).map { it.event() },
+        )
     }
 
     @Test
@@ -97,6 +100,21 @@ class ActivityPageTextsTest {
                 ActivityPageTexts.exportPreparing,
                 ActivityPageTexts.exportNote(export),
                 ActivityPageTexts.exportNote(export.copy(hasLaps = true)),
+            ) +
+                ActivityPageTexts.notices(page.copy(zoneAdded = true, segmentCreated = true, diveSiteCreated = true)) +
+                ActivityPageTexts.ownerMenu(page.copy(manage = manage, canCreateSegment = true, canCreateDiveSite = true)).map {
+                    it.label
+                } +
+                ActivityPageTexts.deleteChoices(manage).map { it.label } +
+                ExportFormat.entries.map(ActivityPageTexts::formatName)
+        assertAllExist(texts)
+    }
+
+    @Test
+    fun everyNameTheRecordingAndCombineTextsChooseHasItsString() {
+        val page = ActivityDetailSamples.page
+        val texts =
+            listOf(
                 ActivityPageTexts.combine,
                 ActivityPageTexts.notNow,
                 ActivityPageTexts.dontCombine,
@@ -111,14 +129,11 @@ class ActivityPageTextsTest {
                 RecordingTexts.memberOf,
                 RecordingTexts.openCombined,
                 RecordingTexts.members,
-            ) +
-                ActivityPageTexts.notices(page.copy(zoneAdded = true, segmentCreated = true, diveSiteCreated = true)) +
-                ActivityPageTexts.ownerMenu(page.copy(manage = manage, canCreateSegment = true, canCreateDiveSite = true)).map {
-                    it.label
-                } +
-                ActivityPageTexts.deleteChoices(manage).map { it.label } +
-                ExportFormat.entries.map(ActivityPageTexts::formatName) +
-                CombineCue.entries.map(ActivityPageTexts::combineCue)
+            ) + CombineCue.entries.map(ActivityPageTexts::combineCue)
+        assertAllExist(texts)
+    }
+
+    private fun assertAllExist(texts: List<AppText>) {
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources || it in Res.allPluralStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }

@@ -35,7 +35,7 @@ struct ActivityPageMenu: View {
             }
             .alert(Text(texts.deleteTitle), isPresented: $deleting) {
                 ForEach(Array(texts.deleteChoices(manage: manage).enumerated()), id: \.offset) { _, choice in
-                    Button(role: .destructive) { send(choice.event) } label: { Text(choice.label) }
+                    Button(role: .destructive) { send(choice.event()) } label: { Text(choice.label) }
                 }
                 Button(role: .cancel) {} label: { Text(texts.cancel) }
             } message: {
@@ -58,7 +58,7 @@ struct ActivityPageMenu: View {
     }
 
     private func choose(_ item: ActivityMenuItem) {
-        if let event = item.event {
+        if let event = item.event() {
             send(event)
             return
         }

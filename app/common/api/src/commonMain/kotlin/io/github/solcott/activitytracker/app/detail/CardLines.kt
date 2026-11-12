@@ -56,13 +56,15 @@ object CardLines {
      * without a maximum.
      */
     fun detail(series: LineSeries, pace: PaceKind?, units: UnitSystem): AppText? {
-        val max = series.max?.let { valueText(series.kind, it, pace, units) } ?: return null
-        val average = series.average?.let { valueText(series.kind, it, pace, units) } ?: return AppText.named("chart_max_only", max)
+        val text = { v: Double -> valueText(series.kind, v, pace, units) }
+        val max = series.max?.let(text)
+        val average = series.average?.let(text)
         val right = series.right
-        return if (right != null) {
-            AppText.named("chart_left_right", average, right.average?.let { valueText(series.kind, it, pace, units) } ?: StatText.missing)
-        } else {
-            AppText.named("chart_avg_max", average, max)
+        return when {
+            max == null -> null
+            average == null -> AppText.named("chart_max_only", max)
+            right != null -> AppText.named("chart_left_right", average, right.average?.let(text) ?: StatText.missing)
+            else -> AppText.named("chart_avg_max", average, max)
         }
     }
 
@@ -115,8 +117,10 @@ object CardLines {
     /** How much slower than its average a pace chart goes. */
     const val PACE_CEILING = 1.5
     private const val MAX_TIME_GAPS = 4
-    private val TIME_STEPS = listOf(60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600, 43200)
 }
+
+/** The steps an activity's time axis is labelled at, in seconds. */
+private val TIME_STEPS = listOf(60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600, 43200)
 
 /** Time in one zone as a row reads it: "Z2", its name, its range with its unit, its time, and its share of the time in all of them. */
 @Immutable class ZoneRow(val label: AppText, val name: AppText, val range: AppText, val time: AppText, val fraction: Double)
@@ -173,7 +177,7 @@ object LapTableTexts {
     /** [charts]' laps, a ski day's as runs and lifts. */
     fun of(charts: ActivityCharts, units: UnitSystem): DetailTable = of(charts.laps, ski = charts.skiRuns != null, units)
 
-    @Suppress("LongMethod") // A column at a time.
+    @Suppress("LongMethod", "CyclomaticComplexMethod") // A column at a time, each shown or not.
     fun of(laps: List<LapRow>, ski: Boolean, units: UnitSystem): DetailTable {
         val intensity = !ski && laps.any { it.intensity != null }
         val power = laps.any { it.avgPower != null }

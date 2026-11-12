@@ -132,47 +132,49 @@ class SharedTextNamesTest {
         assertAllExist(texts)
     }
 
+    /** A value of every kind whose text names a string. */
+    private val figureValues =
+        listOf(
+            FigureValue.Pace(3_000, swim = false),
+            FigureValue.Pace(1_000, swim = true),
+            FigureValue.Quantity(200, FigureUnit.Watts),
+            FigureValue.Quantity(140, FigureUnit.Bpm),
+            FigureValue.Quantity(90, FigureUnit.Rpm),
+            FigureValue.Quantity(600, FigureUnit.Kilocalories),
+            FigureValue.Quantity(900, FigureUnit.Kilojoules),
+            FigureValue.Quantity(50, FigureUnit.Milliseconds),
+            FigureValue.LeftRight(StreamKind.TorqueEffectiveness, 70.0, null),
+            FigureValue.BatteryUsed(90.0, 40.0),
+            FigureValue.Gear(3),
+            FigureValue.Shifts(2, 30),
+            FigureValue.PoolLength(25, yards = true),
+            FigureValue.PoolLength(50, yards = false),
+            FigureValue.GearItem("Bike", GearType.all.first(), null),
+            FigureValue.Token(WaterType.SALT),
+            FigureValue.Gases(persistentListOf(GasMix(21, 0), GasMix(32, 0), GasMix(18, 45), GasMix(100, 0)), closedCircuit = true),
+            FigureValue.PercentRange(5, 12),
+            FigureValue.Stamina(100, 70, 48),
+            FigureValue.Stamina(100, null, null),
+            FigureValue.Fluid(700),
+            FigureValue.PressureRange(200.0, 50.0),
+            FigureValue.Bar(1.4),
+            FigureValue.GasRate(18.0),
+            FigureValue.PressureRate(1.2),
+            FigureValue.VerticalRate(150),
+            FigureValue.Minutes(90),
+            FigureValue.Minutes(3_000),
+            FigureValue.DecoModel(DecoModel.ZHL16C, 30, 85),
+            FigureValue.DecoModel(null, 30, 85),
+            FigureValue.PpO2Limits(1400, 1600, 1600),
+            FigureValue.Setpoints(700, 1300),
+        )
+
     @Test
     fun everyFigureStreamAndCardNamesAString() {
         val now = Instant.parse("2026-06-01T18:00:00Z")
-        val values =
-            listOf(
-                FigureValue.Pace(3_000, swim = false),
-                FigureValue.Pace(1_000, swim = true),
-                FigureValue.Quantity(200, FigureUnit.Watts),
-                FigureValue.Quantity(140, FigureUnit.Bpm),
-                FigureValue.Quantity(90, FigureUnit.Rpm),
-                FigureValue.Quantity(600, FigureUnit.Kilocalories),
-                FigureValue.Quantity(900, FigureUnit.Kilojoules),
-                FigureValue.Quantity(50, FigureUnit.Milliseconds),
-                FigureValue.LeftRight(StreamKind.TorqueEffectiveness, 70.0, null),
-                FigureValue.BatteryUsed(90.0, 40.0),
-                FigureValue.Gear(3),
-                FigureValue.Shifts(2, 30),
-                FigureValue.PoolLength(25, yards = true),
-                FigureValue.PoolLength(50, yards = false),
-                FigureValue.GearItem("Bike", GearType.all.first(), null),
-                FigureValue.Token(WaterType.SALT),
-                FigureValue.Gases(persistentListOf(GasMix(21, 0), GasMix(32, 0), GasMix(18, 45), GasMix(100, 0)), closedCircuit = true),
-                FigureValue.PercentRange(5, 12),
-                FigureValue.Stamina(100, 70, 48),
-                FigureValue.Stamina(100, null, null),
-                FigureValue.Fluid(700),
-                FigureValue.PressureRange(200.0, 50.0),
-                FigureValue.Bar(1.4),
-                FigureValue.GasRate(18.0),
-                FigureValue.PressureRate(1.2),
-                FigureValue.VerticalRate(150),
-                FigureValue.Minutes(90),
-                FigureValue.Minutes(3_000),
-                FigureValue.DecoModel(DecoModel.ZHL16C, 30, 85),
-                FigureValue.DecoModel(null, 30, 85),
-                FigureValue.PpO2Limits(1400, 1600, 1600),
-                FigureValue.Setpoints(700, 1300),
-            )
         val texts =
             UnitSystem.entries.flatMap { units ->
-                values.map { FigureTexts.value(it, units, now, TimeZone.UTC) } +
+                figureValues.map { FigureTexts.value(it, units, now, TimeZone.UTC) } +
                     StreamKind.entries.map { StreamUnits.valueText(it, 1.0, units) } +
                     PaceKind.entries.map { StreamUnits.paceText(it, 300.0, units) }
             } +

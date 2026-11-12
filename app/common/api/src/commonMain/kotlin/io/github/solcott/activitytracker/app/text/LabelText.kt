@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
  * The names of things the app shows by a token or a kind. Several come from open sets (a sport another client added, a sensor kind the app
  * doesn't know), so each says what to show when the app has no string for one, the same in every UI (dev/shared-display-text).
  */
+@Suppress("TooManyFunctions") // One per kind of label.
 object LabelText {
     /** A sport's name. The lexicon's sport is an open enum, so an unknown token shows capitalized as it is. */
     fun sport(sport: String): AppText = AppText.Named("sport_$sport", fallback = AppText.written(sport.replaceFirstChar { it.uppercase() }))

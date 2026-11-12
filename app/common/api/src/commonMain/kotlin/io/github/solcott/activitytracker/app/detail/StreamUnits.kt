@@ -12,6 +12,7 @@ import kotlin.math.roundToLong
  * How a stream's values read (dev/shared-display-text): its title, its value in the viewer's units ([convert]) and that value with its unit
  * ([text]), or a pace's. The one place these rules are written: the shared charts' `streamUnit` and the native page both ask them.
  */
+@Suppress("TooManyFunctions") // A stream's title, unit, decimals, conversion and text, and a pace's.
 object StreamUnits {
     /** A chart's name for [kind]'s line: "Heart rate", "Cadence". */
     fun title(kind: StreamKind): AppText = AppText.named(titleName(kind))

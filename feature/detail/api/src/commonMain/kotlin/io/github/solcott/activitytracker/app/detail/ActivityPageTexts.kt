@@ -40,20 +40,32 @@ enum class ActivityMenuAction {
     Delete,
 }
 
-/**
- * An item of the owner's "…" menu: its [label], what it does, and the [event] it sends when chosen; null for Split, Export and Delete,
- * which the UI confirms or opens a sheet for first. [destructive] marks Delete.
- */
+/** An item of the owner's "…" menu: its [label] and what it does. [destructive] marks Delete. */
 @Immutable
-class ActivityMenuItem(
-    val label: AppText,
-    val action: ActivityMenuAction,
-    val event: ActivityDetailEvent?,
-    val destructive: Boolean = false,
-)
+class ActivityMenuItem(val label: AppText, val action: ActivityMenuAction, val destructive: Boolean = false) {
+    /** What choosing it sends; null for Split, Export and Delete, which the UI confirms or opens a sheet for first. */
+    fun event(): ActivityDetailEvent? =
+        when (action) {
+            ActivityMenuAction.Edit -> ActivityDetailEvent.Edit
+            ActivityMenuAction.Combine -> ActivityDetailEvent.Combine
+            ActivityMenuAction.AddRecording -> ActivityDetailEvent.AddRecording
+            ActivityMenuAction.Ungroup -> ActivityDetailEvent.Ungroup
+            ActivityMenuAction.HideStart -> ActivityDetailEvent.HideStart
+            ActivityMenuAction.HideEnd -> ActivityDetailEvent.HideEnd
+            ActivityMenuAction.CreateSegment -> ActivityDetailEvent.CreateSegment
+            ActivityMenuAction.CreateDiveSite -> ActivityDetailEvent.CreateDiveSite
+            ActivityMenuAction.Split,
+            ActivityMenuAction.Export,
+            ActivityMenuAction.Delete -> null
+        }
+}
 
-/** A button of the delete confirmation: its [label] and the [event] it sends. */
-@Immutable class ActivityDeleteChoice(val label: AppText, val event: ActivityDetailEvent)
+/** A button of the delete confirmation: its [label], and whether it takes the other recordings or members too. */
+@Immutable
+class ActivityDeleteChoice(val label: AppText, val withRecordings: Boolean) {
+    /** What choosing it sends. */
+    fun event(): ActivityDetailEvent = ActivityDetailEvent.Delete(withRecordings)
+}
 
 /**
  * What the activity page says beyond its figures (feed/activity-page-layout, dev/shared-display-text), and the conditions both UIs ask: the
@@ -142,11 +154,12 @@ object ActivityPageTexts {
     fun routeMap(page: ActivityDetailPage): RouteMap? = page.route?.let { RouteMap.of(it.polyline, it.gaps, it.ends) }
 
     /** The map's lock on the owner's page, when the Map category is narrower than the activity; null otherwise. */
-    fun mapLock(page: ActivityDetailPage): LockLine? {
-        val mark = page.page.mapMark ?: return null
-        val text = VisibilityTexts.lock(DetailCategory.MAP, mark) ?: return null
-        return LockLine(text, VisibilityTexts.lockDescription(DetailCategory.MAP, mark) ?: text)
-    }
+    fun mapLock(page: ActivityDetailPage): LockLine? =
+        page.page.mapMark?.let { mark ->
+            VisibilityTexts.lock(DetailCategory.MAP, mark)?.let {
+                LockLine(it, VisibilityTexts.lockDescription(DetailCategory.MAP, mark) ?: it)
+            }
+        }
 
     /** A narrower category's badge beside a figure or a card's title, and what a screen reader says for it; null for none. */
     fun mark(mark: String?): AppText? = mark?.let(VisibilityTexts::badge)
@@ -179,30 +192,27 @@ object ActivityPageTexts {
     fun ownerMenu(page: ActivityDetailPage): List<ActivityMenuItem> {
         val manage = page.manage ?: return emptyList()
         return buildList {
-            add(ActivityMenuItem(AppText.named("detail_edit"), ActivityMenuAction.Edit, ActivityDetailEvent.Edit))
+            add(ActivityMenuItem(AppText.named("detail_edit"), ActivityMenuAction.Edit))
             if (manage.canCombine) {
-                add(ActivityMenuItem(AppText.named("detail_combine"), ActivityMenuAction.Combine, ActivityDetailEvent.Combine))
+                add(ActivityMenuItem(AppText.named("detail_combine"), ActivityMenuAction.Combine))
                 add(
                     ActivityMenuItem(
                         AppText.named("detail_add_recording"),
                         ActivityMenuAction.AddRecording,
-                        ActivityDetailEvent.AddRecording,
                     ),
                 )
             }
-            if (manage.members > 0) add(ActivityMenuItem(AppText.named("detail_split"), ActivityMenuAction.Split, null))
-            if (manage.canUngroup)
-                add(ActivityMenuItem(AppText.named("detail_ungroup"), ActivityMenuAction.Ungroup, ActivityDetailEvent.Ungroup))
+            if (manage.members > 0) add(ActivityMenuItem(AppText.named("detail_split"), ActivityMenuAction.Split))
+            if (manage.canUngroup) add(ActivityMenuItem(AppText.named("detail_ungroup"), ActivityMenuAction.Ungroup))
             if (page.canHideRouteEnds) {
-                add(ActivityMenuItem(AppText.named("detail_hide_start"), ActivityMenuAction.HideStart, ActivityDetailEvent.HideStart))
-                add(ActivityMenuItem(AppText.named("detail_hide_end"), ActivityMenuAction.HideEnd, ActivityDetailEvent.HideEnd))
+                add(ActivityMenuItem(AppText.named("detail_hide_start"), ActivityMenuAction.HideStart))
+                add(ActivityMenuItem(AppText.named("detail_hide_end"), ActivityMenuAction.HideEnd))
             }
             if (page.canCreateSegment) {
                 add(
                     ActivityMenuItem(
                         AppText.named("detail_create_segment"),
                         ActivityMenuAction.CreateSegment,
-                        ActivityDetailEvent.CreateSegment,
                     ),
                 )
             }
@@ -211,12 +221,11 @@ object ActivityPageTexts {
                     ActivityMenuItem(
                         AppText.named("detail_create_dive_site"),
                         ActivityMenuAction.CreateDiveSite,
-                        ActivityDetailEvent.CreateDiveSite,
                     ),
                 )
             }
-            if (page.export != null) add(ActivityMenuItem(AppText.named("detail_export"), ActivityMenuAction.Export, null))
-            add(ActivityMenuItem(AppText.named("detail_delete"), ActivityMenuAction.Delete, null, destructive = true))
+            if (page.export != null) add(ActivityMenuItem(AppText.named("detail_export"), ActivityMenuAction.Export))
+            add(ActivityMenuItem(AppText.named("detail_delete"), ActivityMenuAction.Delete, destructive = true))
         }
     }
 
@@ -255,14 +264,13 @@ object ActivityPageTexts {
     /** The delete confirmation's buttons: Delete; or, with other recordings or members, Delete all and Delete only this one. */
     fun deleteChoices(manage: ActivityManage): List<ActivityDeleteChoice> {
         val others = manage.otherRecordings + manage.members
-        if (others == 0)
-            return listOf(ActivityDeleteChoice(AppText.named("detail_delete"), ActivityDetailEvent.Delete(withRecordings = false)))
+        if (others == 0) return listOf(ActivityDeleteChoice(AppText.named("detail_delete"), withRecordings = false))
         return listOf(
             ActivityDeleteChoice(
                 AppText.Plural("delete_activity_all", others, persistentListOf(AppText.written("${others + 1}"))),
-                ActivityDetailEvent.Delete(withRecordings = true),
+                withRecordings = true,
             ),
-            ActivityDeleteChoice(AppText.named("delete_activity_only_this"), ActivityDetailEvent.Delete(withRecordings = false)),
+            ActivityDeleteChoice(AppText.named("delete_activity_only_this"), withRecordings = false),
         )
     }
 

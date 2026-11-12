@@ -135,8 +135,6 @@ private fun LoadedContent(
             state.eventSink(ActivityDetailEvent.ExportHandedOff)
         }
     }
-    val activity = state.activity
-    val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
     if (ActivityPageTexts.waitsHidden(state)) {
         // Opened by URI: lists never show it, so the page waits behind a warning.
         HiddenCard(
@@ -392,7 +390,6 @@ private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
 
 @Composable
 private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    val count = state.activity.likeCount
     if (state.isOwn) {
         Text(ActivityPageTexts.likeCount(state.activity).string(), modifier.padding(vertical = 12.dp))
     } else {
