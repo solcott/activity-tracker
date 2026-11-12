@@ -7,12 +7,15 @@ import SwiftUI
 ///
 /// It is a list row. Tapping it opens the post, which is also its VoiceOver action; the reposted-by and author lines, the place, the
 /// quoted post and its link, the votes and the buttons take their own taps. What a tap does is the host's: the card sends the shared
-/// `PostEvent`s. The menu offers Delete on the viewer's own quote; Report waits for the native report sheet (ios-native-post-card).
+/// `PostEvent`s. The menu offers Delete on the viewer's own quote, and Report on someone else's post when the page offers it
+/// (`canReport`), which the host's `Reporting` turns into the native report sheet (`reporting(_:)`, ios-native-post-report).
 struct PostCardView: View {
     let content: PostCardContent
     let send: (any PostEvent) -> Void
     /// Given on the post page, where the counts list the post's quotes.
     var openQuotes: (() -> Void)? = nil
+    /// A labeler is configured (`Reporting.available`), so someone else's post offers Report. Off where the caller doesn't say.
+    var canReport = false
 
     private var post: PostView { content.post }
 
@@ -64,9 +67,10 @@ struct PostCardView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            if content.offersDelete {
+            // Delete only on the viewer's own quote (feed/quote-posts), Report only on someone else's post.
+            if content.offersMenu(reportAvailable: canReport) {
                 Menu {
-                    Button(role: .destructive) { send(content.menuEvent()) } label: { Text(content.menuItem()) }
+                    Button(role: content.offersDelete ? .destructive : nil) { send(content.menuEvent()) } label: { Text(content.menuItem()) }
                 } label: {
                     Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }

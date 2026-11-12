@@ -2,8 +2,9 @@ import SwiftUI
 
 /// A post's page (feed/post-page), drawn from the states `PostPagePresenter` publishes: the post's native card, a failed action, Show
 /// likes and Show reposts with who liked and reposted it, Show quotes, and its comments (`CommentsSection`). A post the AppView doesn't
-/// serve the viewer says it isn't available. The quote sheet and the delete confirmation are the page's `QuoteFields`. Every word and
-/// condition is Kotlin's (`PostPageTexts`, `PostPage`'s getters, `PostCardContent`, `CommentsTexts`), shared with the Compose page.
+/// serve the viewer says it isn't available. The quote sheet and the delete confirmation are the page's `QuoteFields`; Report on the
+/// post and on others' comments opens the native report sheet from its `Reporting` (`reporting(_:)`). Every word and condition is
+/// Kotlin's (`PostPageTexts`, `PostPage`'s getters, `PostCardContent`, `CommentsTexts`), shared with the Compose page.
 /// Named `PostPage`, so Kotlin's loaded page is `LoadedPostPage` here.
 struct PostPage: View {
     let state: PostPageState
@@ -34,7 +35,7 @@ struct PostPage: View {
                 PostCardView(
                     content: PostCardContent.Companion.shared.of(post: page.post, viewerDid: page.viewerDid.value, reason: nil),
                     send: { send(PostPageEvent.Post(event: $0)) },
-                    openQuotes: { send(PostPageEvent.OpenQuotes.shared) })
+                    openQuotes: { send(PostPageEvent.OpenQuotes.shared) }, canReport: page.reporting.available)
             }
             if let error = page.error {
                 ErrorMessage(error, layout: .row).listStatusRow()
@@ -56,9 +57,10 @@ struct PostPage: View {
                     }
                 }
             }
-            CommentsSection(state: page.comments)
+            CommentsSection(state: page.comments, reporting: page.reporting)
         }
         .listStyle(.insetGrouped)
+        .reporting(page.reporting)
     }
 
     private func toggle(_ label: any AppText, action: @escaping () -> Void) -> some View {
@@ -121,7 +123,7 @@ struct PostQuotesView: View {
                 } row: { post in
                     PostCardView(
                         content: PostCardContent.Companion.shared.of(post: post, viewerDid: state.viewerDid, reason: nil),
-                        send: { send(PostQuotesEvent.Post(event: $0)) })
+                        send: { send(PostQuotesEvent.Post(event: $0)) }, canReport: state.reporting.available)
                 } empty: {
                     Text(PostPageTexts.shared.quotesEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
@@ -129,6 +131,7 @@ struct PostQuotesView: View {
         }
         .pageTitle(Text(PostPageTexts.shared.quotesTitle))
         .quoteSheet(state.quote)
+        .reporting(state.reporting)
     }
 
     private func send(_ event: any PostQuotesEvent) {

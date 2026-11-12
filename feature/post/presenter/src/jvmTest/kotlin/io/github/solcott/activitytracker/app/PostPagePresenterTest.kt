@@ -4,13 +4,16 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.interactions.CommentAction
 import io.github.solcott.activitytracker.app.interactions.CommentEvent
+import io.github.solcott.activitytracker.app.interactions.CommentsTexts
 import io.github.solcott.activitytracker.app.post.PostPage
 import io.github.solcott.activitytracker.app.post.PostPageEvent
 import io.github.solcott.activitytracker.app.post.PostPagePresenter
 import io.github.solcott.activitytracker.app.post.PostPageScreen
 import io.github.solcott.activitytracker.app.post.PostPageState
 import io.github.solcott.activitytracker.app.post.PostQuotesScreen
+import io.github.solcott.activitytracker.app.posts.PostCardContent
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.QuoteEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
@@ -18,7 +21,12 @@ import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostView
@@ -216,6 +224,46 @@ class PostPagePresenterTest : ActivityTestBase() {
             state.eventSink(PostPageEvent.Post(PostEvent.OpenPost(post)))
             state.eventSink(PostPageEvent.Post(PostEvent.Open(post)))
             assertIs<SegmentScreen>(navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theCardsReportOpensTheSheetForThePost() = runTest {
+        postFromAppView = post()
+        val r = repos()
+        presenterTestOf(presenterOf(r)) {
+            val state = awaitUntil { it.content.data != null }
+            val page = state.content.data!!
+            assertTrue(page.reporting.available)
+            // What the card's menu sends on someone else's post, in either UI.
+            val card = PostCardContent.of(page.post, alice.value)
+            assertTrue(card.offersMenu(page.reporting.available))
+            assertEquals(AppText.named("action_report"), card.menuItem())
+            state.eventSink(PostPageEvent.Post(card.menuEvent()))
+            val sheet = awaitPage { it.reporting.sheet != null }.reporting.sheet!!
+            assertEquals(ReportTarget.Post(AtUri(postUri), Cid("bafypost"), Did("did:plc:bob")), sheet.target)
+            assertEquals("Bob", sheet.authorName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aCommentsReportOpensTheSheetForTheComment() = runTest {
+        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
+        postFromAppView = post()
+        val r = repos()
+        presenterTestOf(presenterOf(r)) {
+            val page = awaitPage { it.comments.paging.items.isNotEmpty() }
+            val row = CommentsTexts.rows(page.comments, page.reporting.available).single()
+            val report = row.menu.single { it.action == CommentAction.Report }
+            assertEquals(null, report.event(), "Report opens the sheet rather than sending a comment event")
+            page.reporting.eventSink(page.reporting.reportComment(row.comment!!, "@carol.test"))
+            val sheet = awaitPage { it.reporting.sheet != null }.reporting.sheet!!
+            val comment = page.comments.paging.items.single().root!!
+            assertEquals(ReportTarget.Comment(comment.uri, comment.cid, Did("did:plc:carol")), sheet.target)
+            assertEquals("@carol.test", sheet.authorName)
+            assertTrue(sheet.offerBlock)
             cancelAndIgnoreRemainingEvents()
         }
     }

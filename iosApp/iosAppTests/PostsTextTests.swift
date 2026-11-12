@@ -63,6 +63,30 @@ struct PostsTextTests {
         #expect(row.menu.elements(as: CommentMenuItem.self).map { read($0.label) } == ["Unhide", "Mute author", "Block author"])
     }
 
+    @Test func theCardsMenuOffersReportOnSomeoneElsesPost() throws {
+        let bobs = try card("proposal")
+        #expect(!bobs.offersMenu(reportAvailable: false), "no labeler, no menu")
+        #expect(bobs.offersMenu(reportAvailable: true))
+        #expect(read(bobs.menuItem()) == "Report")
+        #expect(bobs.menuEvent() is PostEvent.Report)
+        let own = try card("ownQuote")
+        #expect(own.offersMenu(reportAvailable: true) && !own.offersReport(reportAvailable: true))
+        #expect(read(own.menuItem()) == "Delete quote")
+    }
+
+    @Test func othersCommentsOfferReportWithALabeler() throws {
+        let page = try #require(Samples.postPageVariants["reportable"]?.page)
+        #expect(page.reporting.available)
+        let rows = CommentsTexts.shared.rows(state: page.comments, reportAvailable: page.reporting.available).elements(as: CommentRow.self)
+        for row in rows {
+            #expect(
+                row.menu.elements(as: CommentMenuItem.self).map { read($0.label) } == ["Mute author", "Block author", "Report comment"])
+        }
+        let carols = try #require(rows.first?.comment)
+        let open = page.reporting.reportComment(comment: carols, authorName: "Carol")
+        #expect(open.authorName == "Carol" && open.offerBlock)
+    }
+
     @Test func theQuoteSheet() throws {
         let tooLong = try #require(Samples.quoteSheet["tooLong"])
         #expect(!tooLong.textValid && !tooLong.canPost)
