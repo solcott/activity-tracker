@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.app.MemberView
  * sheet's title and Done, each member's Remove and its confirmation, and each kind of data's row. The Compose sheet and the native one ask
  * these.
  */
+@Suppress("TooManyFunctions") // One per line of the sheet, so both UIs ask the same.
 object CombinationTexts {
     val edit: AppText = AppText.named("action_edit")
     val editDescription: AppText = AppText.named("edit_combination")

@@ -106,7 +106,7 @@ object CardLines {
      * dive's depth (with its [dive] charts) is filled up to the surface with its ceiling, gas switches and warnings; assist mode is in
      * steps.
      */
-    @Suppress("LongMethod", "CyclomaticComplexMethod") // A chart and each thing drawn with it.
+    @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList") // A chart, each thing drawn with it, and their data.
     fun chart(
         series: LineSeries,
         durationSeconds: Int,
@@ -189,9 +189,12 @@ object CardLines {
      */
     fun tanks(tanks: List<LineSeries>, durationSeconds: Int, units: UnitSystem): CardLine? {
         val drawn = tanks.filter { it.points.size >= 2 }
-        val first = drawn.firstOrNull() ?: return null
-        val base = chart(first, durationSeconds, pace = null, units) ?: return null
-        if (drawn.size == 1) return CardLine(title = null, detail = null, chart = base)
+        val base = drawn.firstOrNull()?.let { chart(it, durationSeconds, pace = null, units) } ?: return null
+        return if (drawn.size == 1) CardLine(title = null, detail = null, chart = base) else tanksLine(drawn, base, units)
+    }
+
+    /** Several [tanks] on one chart, built on [base], the first tank's own. */
+    private fun tanksLine(drawn: List<LineSeries>, base: LineChart, units: UnitSystem): CardLine {
         val convert = { v: Double -> StreamUnits.convert(StreamKind.TankPressure, v, units) }
         val others =
             drawn.drop(1).mapIndexed { i, tank ->
@@ -299,8 +302,8 @@ object CardLines {
     /** The rear gear after each shift, held to the end of the activity, in steps over the [elevation]; null with no rear gear. */
     fun gears(gears: List<GearPoint>, durationSeconds: Int, elevation: LineSeries?, units: UnitSystem): CardLine? {
         val shifts = gears.mapNotNull { gear -> gear.rear?.let { LinePoint(gear.seconds.toDouble(), it.toDouble()) } }
-        val last = shifts.lastOrNull() ?: return null
-        val points = if (last.x < durationSeconds) shifts + last.copy(x = durationSeconds.toDouble()) else shifts
+        val last = shifts.lastOrNull()
+        val points = if (last != null && last.x < durationSeconds) shifts + last.copy(x = durationSeconds.toDouble()) else shifts
         if (points.size < 2) return null
         val heights = elevation?.let { elevationPoints(it, units) }.orEmpty()
         val axis = ChartAxis.of(points.map { it.y })
@@ -338,11 +341,10 @@ object CardLines {
 
     /** The y of the point in [points] (sorted by x) closest to [x]; null for none. */
     private fun nearestY(points: List<LinePoint>, x: Double): Double? {
-        if (points.isEmpty()) return null
         val i = points.binarySearch { it.x.compareTo(x) }
-        if (i >= 0) return points[i].y
         val after = -i - 1
-        return listOfNotNull(points.getOrNull(after - 1), points.getOrNull(after)).minBy { abs(it.x - x) }.y
+        return if (i >= 0) points[i].y
+        else listOfNotNull(points.getOrNull(after - 1), points.getOrNull(after)).minByOrNull { abs(it.x - x) }?.y
     }
 
     /** [texts] as one passage, sentence after sentence. */

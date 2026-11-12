@@ -11,12 +11,10 @@ class SampleCardChartsTest {
 
     @Test
     fun everyVariantsCardsChart() {
-        for ((name, state) in ActivityDetailSamples.variants) {
-            val page = state.content.data as? ActivityDetailPage ?: continue
-            val charts = page.page.charts ?: continue
-            page.page.cards.forEach { card -> UnitSystem.entries.forEach { CardLines.of(card, charts, it) } }
-            assertTrue(name.isNotEmpty())
-        }
+        val pages = ActivityDetailSamples.variants.values.mapNotNull { (it.content.data as? ActivityDetailPage)?.page }
+        val charted = pages.filter { it.charts != null }
+        charted.forEach { page -> page.cards.forEach { card -> UnitSystem.entries.forEach { CardLines.of(card, page.charts!!, it) } } }
+        assertTrue(charted.size >= 4)
     }
 
     @Test
