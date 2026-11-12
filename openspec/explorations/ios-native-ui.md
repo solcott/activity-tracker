@@ -384,7 +384,7 @@ Each phase leaves a shippable app.
      `:app-common-api`, which the shared effort row asks too; `SegmentTexts.kindIcon`; `SegmentState`'s `routeMap`, `chart`, `isLift`
      and `offersLeaderboard`); a `<string-array>` item is `AppText.named("<array>_<index>")` in both UIs. Left for later changes:
      threshold history (a step chart with dots and value labels, and sparklines), the activity page's charts and the import preview's.
-   - **The activity page** (`ios-native-activity-page`). `ActivityPage` draws `ActivityDetailScreen` in inset grouped sections: the
+   - **The activity page** (`ios-native-activity-page`, archived). `ActivityPage` draws `ActivityDetailScreen` in inset grouped sections: the
      header (the labels' notices, the author and tier badge, the start and its lock, the title and type, the dive site, the
      description, the other recordings and members, the combine banner, errors and notices), the route on the static native map
      expanding to the shared enlarged map with the map's lock and the photos (`MediaStrip(showsRoute: false)`), the hero, likes and who
