@@ -7,7 +7,7 @@ Lets athletes report activities, photos, comments and accounts to the app's mode
 ## Requirements
 
 ### Requirement: Report entry points
-Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer. The native profile on iOS SHALL offer Report in its menu beside Mute and Block, and show the report sheet natively.
+Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer. The native profile on iOS SHALL offer Report in its menu beside Mute and Block, and show the report sheet natively. The native post card (on the post page, in the quotes list and on the profile's Posts tab), the native post page's comments and the native quotes list on iOS SHALL offer Report where the shared UI does, and show the report sheet natively.
 
 #### Scenario: Report a comment
 - **WHEN** alice opens the menu on bob's comment
@@ -32,6 +32,18 @@ Clients SHALL offer Report on any activity, on each photo in the media gallery, 
 #### Scenario: Own profile on iOS
 - **WHEN** alice opens her own profile on iOS
 - **THEN** Report is not offered
+
+#### Scenario: Someone else's post on iOS
+- **WHEN** alice opens the menu on bob's post as a native card on iOS, with a labeler configured
+- **THEN** it offers Report, which opens the native report sheet for bob's post
+
+#### Scenario: Someone else's comment on iOS
+- **WHEN** alice opens the menu on carol's comment on a native post page, with a labeler configured
+- **THEN** it offers Mute author, Block author and Report, and Report opens the native report sheet for carol's comment
+
+#### Scenario: Own quote on iOS
+- **WHEN** alice opens the menu on her own quote in the native quotes list
+- **THEN** it offers Delete quote, and not Report
 
 ### Requirement: Report reasons
 The report sheet SHALL ask for a reason: spam, sexual content, violence or graphic content, harassment or rude behavior, misleading or impersonation, or other. It SHALL offer an optional note of at most 2000 characters. Each reason SHALL map to its `com.atproto.moderation.defs#reasonType`, and "other" SHALL require the note.
@@ -87,14 +99,3 @@ A report on a non-public activity or comment SHALL be sent in the same way as an
 #### Scenario: Followers-only activity
 - **WHEN** alice, an effective follower of bob, reports bob's Followers activity
 - **THEN** the report reaches the labeler with the activity's URI and CID as the AppView served them to alice
-
-### Requirement: Native posts and comments wait for the native report sheet
-The native post card, the native post page's comments and the native quotes list on iOS SHALL NOT offer Report until the report sheet can be shown from a native page. Their other actions (Delete on the viewer's own quote; Delete, Hide or Unhide, Mute author and Block author on comments) SHALL be offered as in the shared UI.
-
-#### Scenario: Someone else's post on iOS
-- **WHEN** alice sees bob's post as a native card on iOS
-- **THEN** its card offers no menu, and no Report
-
-#### Scenario: Someone else's comment on iOS
-- **WHEN** alice opens the menu on carol's comment on a native post page
-- **THEN** it offers Mute author and Block author, and not Report

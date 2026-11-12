@@ -318,6 +318,10 @@ Each phase leaves a shippable app.
      environment (`\.hostRecord`) and closes the sub-record once the sheet has gone. The profile's menu offers Report
      (`ProfileState.reportEvent`). The place-name sheet (`ProposePlaceNameSheet`, `placeNames(_:)`) is native the same way and placed
      in no page yet. Their words are Kotlin's (`ReportTexts`, `ProposePlaceNameTexts`), which the Compose sheets ask too.
+   - **Report on posts** (`ios-native-post-report`). The native post card offers Report on someone else's post (`canReport:`,
+     sending the shared `PostEvent.Report`) on the post page, in the quotes list and on the profile's Posts tab, and the native
+     comment list on others' comments (`CommentsSection(state:reporting:)`, sending `Reporting.reportComment`, which the Compose list
+     asks too); the post page and quotes list show the native report sheet with `reporting(_:)`.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1546,6 +1550,20 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The note limit is 1900**, not the spec's 2000 (`ReportRepository.MAX_NOTE_LENGTH`, which leaves room for a photo's note); both
   sheets refuse an edit past it.
 
+### Phase 4 findings (post report, `ios-native-post-report`)
+
+- **A post's Report needed no new getter.** `PostCardContent.menuItem()` and `menuEvent()` already chose Delete quote or Report, and
+  the shared post sink turns `PostEvent.Report` into the sheet for the post, so the native card only learned whether Report is offered
+  (`canReport:`, defaulting to off so the card's existing callers are unchanged).
+- **A comment's Report was built in Compose code.** `CommentsUi` built `ReportingEvent.Open(ReportTarget.Comment(…))` itself;
+  `Reporting.reportComment(comment, authorName)` (`:feature-report-api`, since `CommentsTexts` in `:app-common-api` can't see
+  `Reporting`) builds it now for both lists. The author's name is the Compose list's (display name, else `@handle`).
+- **The profile's Posts tab offers Report too**, as the shared tab does; the native profile already carried `reporting(_:)`.
+- **The quotes list's references changed**: its samples have a labeler, so others' quotes now show their menu.
+- **The local stack had no posts again.** A post sharing a proposal must use the proposal's own rkey (the indexer refuses another);
+  the walk wrote rider1's post as `3mzq1` and a comment on it through the PDS, reported both from the iPhone 17 Pro to the local Ozone
+  (`moderation_event` shows each report with its own subject), and deleted both.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1575,7 +1593,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `LinkedSensorTexts`. The gear editors are native (`ios-native-gear-editors`). Its mount dates are still ISO dates on every platform.
 - ~~The profile (`ProfileScreen`) is still the shared UI's (`ios-native-follow-lists`)~~: native (`ios-native-profile`), with the
   native activity card. ~~Report on someone else's profile~~: done (`ios-native-report-sheet`), the native report sheet. ~~The
-  Posts tab~~: done (`ios-native-post-card`), native post cards with the quote sheet; their Report waits for the two to be wired. ~~A native tab root (the profile in the You tab) shows no title on an iPad with its
+  Posts tab~~: done (`ios-native-post-card`), native post cards with the quote sheet, with Report (`ios-native-post-report`). ~~A native tab root (the profile in the You tab) shows no title on an iPad with its
   tabs at the top~~: a tab's first page now titles itself large (`\.tabRoot`, set by `StackView` on the stack's root), as the shared
   root did; the pages pushed over it keep inline titles. Follow requests and Remove were drawn natively but not seen on a device, since the test account doesn't approve
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
@@ -1632,11 +1650,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   cards, upload rows, prompts and sheets aren't native. The native bar's type sheet has no search and no collapsed sports yet, and the
   outside Clear may leave the bar's chips as they were (Phase 4 findings, host sub-screens).
 - Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the
-  profile's Posts tab, which closes the profile's Posts item above. Still left out: Report on a post, a comment and a quote, until the
-  native report sheet (`ios-native-report-sheet`) merges and the second branch wires it from `PostCardView` and `CommentsSection`. The
-  feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready for the activity page.
+  profile's Posts tab, which closes the profile's Posts item above. ~~Still left out: Report on a post, a comment and a quote~~: done
+  (`ios-native-post-report`). The feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready
+  for the activity page (pass its `Reporting`). The native feed (`ios-native-feed`) offers Report on its cards once it passes `canReport:`.
 - ~~The report and place-name sheets (`ReportScreen`, `ProposePlaceNameScreen`) are SubCircuits the host can run now~~: both native
-  (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. The native post card (`ios-native-post-card`) wires
-  Report in its menu with `reporting(_:)` once the two merge, with a Kotlin getter building its `ReportingEvent.Open` as the profile's
-  does. The name sheet waits for a native segment or dive site page to place it; it was seen in snapshots only.
+  (`ios-native-report-sheet`), shown by `reporting(_:)` and `placeNames(_:)`. ~~The native post card (`ios-native-post-card`) wires
+  Report in its menu with `reporting(_:)` once the two merge~~: done (`ios-native-post-report`). The name sheet waits for a native segment or dive site page to place it; it was seen in snapshots only.
 - After the migration every UI change is made twice. Shared fixtures and snapshot coverage on both sides are the parity check.
