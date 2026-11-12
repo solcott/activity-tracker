@@ -119,17 +119,21 @@ internal constructor(
     private var nextEmbedded = 0
 
     /**
-     * The screen [screen] this record's page shows inside itself, as the shared UI places it with `CircuitContent` (the Search tab's segment
-     * browse): a record of its own whose presenter runs inside this one's while it runs, so what it retains and saves is kept and dropped
-     * with this record's, and whose navigation goes to this record's stack (dev/presenter-host). A native UI draws it from its [state] as it
-     * draws any record. Asking again for an equal screen gives the same record.
+     * The screen [screen] this record's page shows inside itself, as the shared UI places it with `CircuitContent` (the Search tab's
+     * segment browse): a record of its own whose presenter runs inside this one's while it runs, so what it retains and saves is kept and
+     * dropped with this record's, and whose navigation goes to this record's stack (dev/presenter-host). A native UI draws it from its
+     * [state] as it draws any record. Asking again for an equal screen gives the same record.
      *
-     * [screen] is an object for the same reason as [sub]'s. It fails naming [screen] when it isn't a screen or no presenter is registered for
-     * it.
+     * [screen] is an object for the same reason as [sub]'s. It fails naming [screen] when it isn't a screen or no presenter is registered
+     * for it.
      */
     fun embed(screen: Any): HostRecord {
         require(screen is Screen) { "$screen is not a screen" }
-        embedded.value.firstOrNull { it.screen == screen }?.let { return it }
+        embedded.value
+            .firstOrNull { it.screen == screen }
+            ?.let {
+                return it
+            }
         val record =
             HostRecord(
                 key = "$key-embedded-${nextEmbedded++}",

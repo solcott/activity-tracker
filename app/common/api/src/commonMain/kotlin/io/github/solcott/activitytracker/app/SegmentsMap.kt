@@ -47,8 +47,8 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
     }
 
     /**
-     * Every line placed on a stand-in tile [width] by [height] with [pad] kept clear, all scaled together (`TileFit`, as the shared stand-in
-     * fits them), in drawing order; empty when there are none.
+     * Every line placed on a stand-in tile [width] by [height] with [pad] kept clear, all scaled together (`TileFit`, as the shared
+     * stand-in fits them), in drawing order; empty when there are none.
      */
     fun sketch(width: Double, height: Double, pad: Double): List<SketchedSegment> {
         val fit = TileFit.of(allPoints, width, height, pad) ?: return emptyList()

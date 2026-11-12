@@ -48,7 +48,9 @@ object SegmentBrowseTexts {
     /** A name result's line under its name: its length and type ("1.2 mi · Ride"). */
     fun details(segment: SegmentView, units: UnitSystem): AppText = joined(segment, null, units)
 
-    /** An area run's line under its name: its length, type and how far its line comes to the map's centre ("1.2 mi · Ride · 0.1 mi away"). */
+    /**
+     * An area run's line under its name: its length, type and how far its line comes to the map's centre ("1.2 mi · Ride · 0.1 mi away").
+     */
     fun details(run: BrowsedSegment, units: UnitSystem): AppText = joined(run.segment, run.metersAway, units)
 
     private fun joined(segment: SegmentView, metersAway: Int?, units: UnitSystem): AppText {

@@ -8,8 +8,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.string
 
 /**
- * Where the segment's line came from (segments/segment-records): OSM's attribution, linking to its copyright page, or the agency's, then the
- * licence; what it says is `SegmentCreditTexts`, which the native pages ask too.
+ * Where the segment's line came from (segments/segment-records): OSM's attribution, linking to its copyright page, or the agency's, then
+ * the licence; what it says is `SegmentCreditTexts`, which the native pages ask too.
  */
 @Composable
 internal fun Credit(credit: SegmentCredit) {

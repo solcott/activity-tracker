@@ -29,13 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.record.rememberLocationPermissionRequest
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
-import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.OpenNewResultsAtTop
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.SearchField
@@ -48,6 +47,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.pagedRows
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -149,7 +149,11 @@ private fun BrowseRows(state: SegmentBrowseState, listState: LazyListState, modi
                         item(key = "refresh") { RefreshStatus(state.area, UiError.Kind.LoadAreaSegments, retry) }
                         if (area.capped) item(key = "capped") { EmptyListText(SegmentBrowseTexts.capped.string()) }
                         items(area.runs, key = { it.segment.uri.value }) { run ->
-                            SegmentRow(run.segment, SegmentBrowseTexts.details(run, LocalUnitSystem.current), selected = run.segment.uri == state.selected) {
+                            SegmentRow(
+                                run.segment,
+                                SegmentBrowseTexts.details(run, LocalUnitSystem.current),
+                                selected = run.segment.uri == state.selected,
+                            ) {
                                 state.eventSink(SegmentBrowseEvent.Open(run.segment.uri))
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

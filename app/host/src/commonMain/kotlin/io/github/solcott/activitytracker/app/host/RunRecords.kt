@@ -53,10 +53,10 @@ internal fun RunRecords(all: ImmutableList<HostRecord>, running: ImmutableList<H
 }
 
 /**
- * Runs [record]'s presenter and publishes each state it produces, then each sub-screen a UI asked it for ([HostRecord.sub]) and each
- * screen it embeds ([HostRecord.embed]). The
- * sub-screens run inside the record, as `SubCircuitContent` runs inside a screen's UI, so what they retain and save is kept and dropped
- * with the record's, and each under its own key, so one that was closed or replaced never gets its old state back.
+ * Runs [record]'s presenter and publishes each state it produces, then each sub-screen a UI asked it for ([HostRecord.sub]) and each screen
+ * it embeds ([HostRecord.embed]). The sub-screens run inside the record, as `SubCircuitContent` runs inside a screen's UI, so what they
+ * retain and save is kept and dropped with the record's, and each under its own key, so one that was closed or replaced never gets its old
+ * state back.
  */
 @Composable
 internal fun RunRecord(record: HostRecord) {
