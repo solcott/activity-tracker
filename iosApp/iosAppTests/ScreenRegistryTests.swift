@@ -78,8 +78,8 @@ struct ScreenRegistryTests {
         for screen in ["SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
-        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
+        // Threshold history, the last settings page, with the native step charts (ios-native-leftovers).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {

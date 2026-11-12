@@ -19,8 +19,7 @@ import kotlinx.collections.immutable.toImmutableList
 /** What threshold history says and charts, chosen here for the shared and the native UI (dev/shared-display-text). */
 object ThresholdHistoryTexts {
     /** "Default", or the sport's name. */
-    fun heading(group: ThresholdHistoryGroup): AppText =
-        group.sport?.let { LabelText.sport(it) } ?: AppText.named("zones_history_default")
+    fun heading(group: ThresholdHistoryGroup): AppText = group.sport?.let { LabelText.sport(it) } ?: AppText.named("zones_history_default")
 
     /** What the group applies to. */
     fun help(group: ThresholdHistoryGroup): AppText =
@@ -173,8 +172,8 @@ object ThresholdHistoryTexts {
 
     /**
      * [section]'s chart as a step line, since a threshold holds until it changes, running on to today at the right edge; null with fewer
-     * than two dated values. [detailed]: a dot on each value (filled on the current one) with its value over it, and its lowest and
-     * highest values on the y axis; otherwise a sparkline with neither, for a collapsed group's tile.
+     * than two dated values. [detailed]: a dot on each value (filled on the current one) with its value over it, and its lowest and highest
+     * values on the y axis; otherwise a sparkline with neither, for a collapsed group's tile.
      */
     fun chart(section: ThresholdHistorySection, detailed: Boolean): LineChart? {
         val chart = section.chart ?: return null
@@ -184,9 +183,11 @@ object ThresholdHistoryTexts {
         val span = 1.0 / (1 - top - bottom)
         val axis = ChartAxis(min = -bottom * span, max = 1 + top * span, step = span)
         val runsOn = placed.last().x < 1f
-        val points = placed.map { LinePoint(it.x.toDouble(), it.y.toDouble()) } + listOfNotNull(
-            LinePoint(1.0, placed.last().y.toDouble()).takeIf { runsOn },
-        )
+        val points =
+            placed.map { LinePoint(it.x.toDouble(), it.y.toDouble()) } +
+                listOfNotNull(
+                    LinePoint(1.0, placed.last().y.toDouble()).takeIf { runsOn },
+                )
         val readouts = placed.map { value(section, it.value) } + listOfNotNull(value(section, placed.last().value).takeIf { runsOn })
         val yTicks =
             if (!detailed) emptyList()

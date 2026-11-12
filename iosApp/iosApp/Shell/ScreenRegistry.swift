@@ -108,6 +108,9 @@ extension ScreenRegistry {
 
         // The segment page (ios-native-charts), with the native chart, map and names.
         registry.register(SegmentScreen.self, SegmentState.self) { state in SegmentPage(state: state) }
+
+        // Threshold history (ios-native-leftovers), opened from Training zones, with the native step charts.
+        registry.register(ThresholdHistoryScreen.self, ThresholdHistoryState.self) { state in ThresholdHistoryView(state: state) }
         return registry
     }()
 }

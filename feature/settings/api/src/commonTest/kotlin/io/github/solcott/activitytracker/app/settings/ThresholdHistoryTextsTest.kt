@@ -64,7 +64,8 @@ class ThresholdHistoryTextsTest {
     @Test
     fun aFasterPaceIsSecondsPerUnit() {
         // 3.0 to 3.2 m/s is 536 to 503 seconds a mile.
-        val pace = section(Threshold.THRESHOLD_SPEED, listOf(3_200, 3_000), change = ThresholdTrend(3_000, 3_200, since), unit = PaceUnit.PerMile)
+        val pace =
+            section(Threshold.THRESHOLD_SPEED, listOf(3_200, 3_000), change = ThresholdTrend(3_000, 3_200, since), unit = PaceUnit.PerMile)
         val change = assertNotNull(ThresholdHistoryTexts.change(pace)) as AppText.Named
         assertEquals("zones_history_change_faster", change.name)
         assertEquals(AppText.written("33"), change.args[0])
@@ -104,7 +105,12 @@ class ThresholdHistoryTextsTest {
 
     @Test
     fun aDeviceSourceNamesTheDevice() {
-        val row = ThresholdHistoryRow(ThresholdEntry(Threshold.MAX_HEART_RATE, 190, source = ThresholdSource.DEVICE, device = "Edge 840"), null, true)
+        val row =
+            ThresholdHistoryRow(
+                ThresholdEntry(Threshold.MAX_HEART_RATE, 190, source = ThresholdSource.DEVICE, device = "Edge 840"),
+                null,
+                true,
+            )
         assertEquals(AppText.named("threshold_source_device_named", AppText.written("Edge 840")), ThresholdHistoryTexts.source(row))
         assertEquals(AppText.named("zones_history_date_unknown"), ThresholdHistoryTexts.date(row))
     }

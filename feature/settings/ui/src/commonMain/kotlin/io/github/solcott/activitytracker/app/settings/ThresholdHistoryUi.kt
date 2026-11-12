@@ -327,7 +327,7 @@ private fun HistoryRow(
                 color = MaterialTheme.colorScheme.onPrimary,
             )
         }
-        if (state.removing == row.entry) {
+        if (state.isRemoving(row)) {
             Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) { AppProgressIndicator(small = true) }
         } else {
             RemoveButton(row, ThresholdHistoryTexts.removeLabel(section, row).string(), state)
@@ -348,7 +348,7 @@ private fun RemoveButton(
             AppIcon.Delete,
             description,
             onClick = { confirming = true },
-            enabled = state.removing == null,
+            enabled = state.canRemove,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val remove = stringResource(Res.string.zones_history_remove)

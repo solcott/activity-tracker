@@ -54,7 +54,7 @@
         static var addPeopleVariants: [String: AddPeopleState] { InvitesPackage.AddPeopleSamples.shared.variants }
 
         /// Training zones, the default and sport zones forms and Privacy zones (ios-native-zones-pages), with their states beyond the
-        /// shared samples; and threshold history, which the shared UI still draws.
+        /// shared samples; and threshold history.
         static var trainingZones: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.all }
         static var trainingZonesVariants: [String: TrainingZonesState] { SettingsPackage.TrainingZonesSamples.shared.variants }
         static var zones: [String: ZonesState] { SettingsPackage.ZonesSamples.shared.all }
