@@ -58,7 +58,8 @@ private struct LiveSegmentsMap: View {
                         MapPolyline(coordinates: coordinates).stroke(Color("LikeColor"), style: SegmentsMapStyle.selected)
                     default:
                         MapPolyline(coordinates: coordinates).stroke(.white, style: SegmentsMapStyle.casing)
-                        MapPolyline(coordinates: coordinates).stroke(Color.accentColor, style: SegmentsMapStyle.run)
+                        // The catalog colour by name: inside a map's content `Color.accentColor` is the system's blue, not the app's tint.
+                        MapPolyline(coordinates: coordinates).stroke(Color("AccentColor"), style: SegmentsMapStyle.run)
                     }
                 }
             }
@@ -68,13 +69,16 @@ private struct LiveSegmentsMap: View {
                 memory.position = .camera(context.camera)
                 onViewport(SegmentsMapGeometry.viewport(context.region))
             }
-            .onTapGesture { point in
+            // Ahead of the map's own gestures: a plain or simultaneous tap gesture on a `Map` never fires (seen on iOS 26), and a tap
+            // doesn't compete with its pan and pinch, which still work.
+            .highPriorityGesture(SpatialTapGesture().onEnded { tapped in
+                let point = tapped.location
                 guard let tap = proxy.convert(point, from: .local),
                     let edge = proxy.convert(CGPoint(x: point.x + SegmentsMapStyle.tapSlop, y: point.y), from: .local)
                 else { return }
                 let reach = SegmentsMapGeometry.meters(from: tap, to: edge)
                 onSelect(map.nearest(lat: tap.latitude, lng: tap.longitude, withinMeters: reach))
-            }
+            })
         }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { newSize in
             size = newSize

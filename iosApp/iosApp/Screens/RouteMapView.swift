@@ -67,7 +67,8 @@ private struct LiveRouteMap: View {
                 MapPolyline(coordinates: line).stroke(.white, style: RouteMarkerStyle.casing)
             }
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                MapPolyline(coordinates: line).stroke(Color.accentColor, style: RouteMarkerStyle.line)
+                // The catalog colour by name: inside a map's content `Color.accentColor` is the system's blue, not the app's tint.
+                MapPolyline(coordinates: line).stroke(Color("AccentColor"), style: RouteMarkerStyle.line)
             }
             ForEach(Array(breaks.enumerated()), id: \.offset) { _, gap in
                 MapPolyline(coordinates: [Self.coordinate(gap.stop), Self.coordinate(gap.resume)])
