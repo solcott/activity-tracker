@@ -176,6 +176,9 @@
         static var manualActivityVariants: [String: ManualActivityState] { RecordPackage.ManualActivitySamples.shared.variants }
         static var createDiveSite: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.all }
         static var createDiveSiteVariants: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.variants }
+        /// Create segment (ios-native-create-segment) in each state it shows, states beyond content loading apart.
+        static var createSegment: [String: CreateSegmentState] { SegmentPackage.CreateSegmentSamples.shared.all }
+        static var createSegmentVariants: [String: CreateSegmentState] { SegmentPackage.CreateSegmentSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

@@ -90,6 +90,8 @@ struct ScreenRegistryTests {
         for screen in ["EditActivityScreen", "ManualActivityScreen", "CreateDiveSiteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // Create segment (ios-native-create-segment).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "CreateSegmentScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
@@ -138,5 +140,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.EditActivityScreen.self) == "EditActivityScreen")
         #expect(String(describing: ActivityTracker.ManualActivityScreen.self) == "ManualActivityScreen")
         #expect(String(describing: ActivityTracker.CreateDiveSiteScreen.self) == "CreateDiveSiteScreen")
+        // Create segment (ios-native-create-segment).
+        #expect(String(describing: ActivityTracker.CreateSegmentScreen.self) == "CreateSegmentScreen")
     }
 }
