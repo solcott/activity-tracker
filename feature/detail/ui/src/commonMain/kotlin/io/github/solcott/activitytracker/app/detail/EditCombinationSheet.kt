@@ -25,17 +25,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.action_done
-import io.github.solcott.activitytracker.composeApp.resources.detail_members
-import io.github.solcott.activitytracker.composeApp.resources.detail_remove_member
-import io.github.solcott.activitytracker.composeApp.resources.edit_combination_title
-import io.github.solcott.activitytracker.composeApp.resources.remove_member_message
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * The owner's combination editor (`feed/combined-sources`): the members, each of which can be taken out (confirmed), and where each kind of
@@ -51,36 +44,31 @@ internal fun EditCombinationSheet(
     var removing by remember { mutableStateOf<MemberView?>(null) }
     AppBottomSheet(onDismiss = onDismiss, sheetState = rememberAppSheetState()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.edit_combination_title), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            AppTextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_done)) }
+            Text(CombinationTexts.title.string(), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            AppTextButton(onClick = onDismiss) { Text(CombinationTexts.done.string()) }
         }
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(Res.string.detail_members), style = MaterialTheme.typography.labelLarge)
+            Text(CombinationTexts.members.string(), style = MaterialTheme.typography.labelLarge)
             activity.members.orEmpty().forEach { member ->
                 val name = memberName(member)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { Text(name, style = MaterialTheme.typography.bodyMedium) }
-                    AppIconButton(AppIcon.Close, stringResource(Res.string.detail_remove_member, name), onClick = { removing = member })
+                    AppIconButton(AppIcon.Close, CombinationTexts.remove(member).string(), onClick = { removing = member })
                 }
             }
             sources?.let { DataSourcesSection(it, eventSink) }
         }
     }
     removing?.let { member ->
-        val name = memberName(member)
+        val remove = CombinationTexts.remove(member).string()
         AppAlertDialog(
-            title = stringResource(Res.string.detail_remove_member, name),
-            message = stringResource(Res.string.remove_member_message),
-            actions =
-                persistentListOf(
-                    AppDialogAction(stringResource(Res.string.detail_remove_member, name), destructive = true) {
-                        eventSink(ActivityDetailEvent.RemoveMember(member.uri))
-                    },
-                ),
-            cancelLabel = stringResource(Res.string.action_cancel),
+            title = remove,
+            message = CombinationTexts.removeMessage.string(),
+            actions = persistentListOf(AppDialogAction(remove, destructive = true) { eventSink(CombinationTexts.removeEvent(member)) }),
+            cancelLabel = CombinationTexts.cancel.string(),
             onDismiss = { removing = null },
         )
     }

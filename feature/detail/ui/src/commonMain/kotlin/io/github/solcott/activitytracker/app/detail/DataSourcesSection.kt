@@ -19,7 +19,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
@@ -27,30 +26,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
-import io.github.solcott.activitytracker.composeApp.resources.chart_source_from
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_cadence
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_distance_speed
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_dive
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_elevation
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_laps
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_map
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_power
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_running_dynamics
-import io.github.solcott.activitytracker.composeApp.resources.data_kind_temperature
-import io.github.solcott.activitytracker.composeApp.resources.data_source_comes_from
-import io.github.solcott.activitytracker.composeApp.resources.data_source_include
-import io.github.solcott.activitytracker.composeApp.resources.data_source_left_out
-import io.github.solcott.activitytracker.composeApp.resources.data_source_started
-import io.github.solcott.activitytracker.composeApp.resources.data_sources
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Where each kind of the owner's combined activity's data comes from (`feed/combined-sources`): one row per kind, switched off when it's
@@ -59,11 +38,11 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun DataSourcesSection(sources: DataSources, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(Res.string.data_sources), style = MaterialTheme.typography.labelLarge)
+        Text(CombinationTexts.dataSources.string(), style = MaterialTheme.typography.labelLarge)
         if (sources.isLoading) AppProgressIndicator(small = true)
         sources.error?.let { error ->
             ErrorText(error, style = MaterialTheme.typography.bodySmall)
-            AppTextButton(onClick = { eventSink(ActivityDetailEvent.RetrySources) }) { Text(stringResource(Res.string.action_retry)) }
+            AppTextButton(onClick = { eventSink(ActivityDetailEvent.RetrySources) }) { Text(CombinationTexts.retry.string()) }
         }
         sources.kinds.forEach { row -> SourceRow(row, saving = sources.saving, eventSink) }
     }
@@ -71,7 +50,7 @@ fun DataSourcesSection(sources: DataSources, eventSink: (ActivityDetailEvent) ->
 
 @Composable
 private fun SourceRow(row: DataSourceRow, saving: DataKind?, eventSink: (ActivityDetailEvent) -> Unit) {
-    val label = dataKindLabel(row.kind)
+    val label = CombinationTexts.kind(row.kind).string()
     val idle = saving == null
     val chosen = row.chosen
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -79,23 +58,23 @@ private fun SourceRow(row: DataSourceRow, saving: DataKind?, eventSink: (Activit
         when {
             !row.included ->
                 Text(
-                    stringResource(Res.string.data_source_left_out),
+                    CombinationTexts.leftOut.string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            chosen != null && row.offered.isNotEmpty() -> SourceMenu(row, label, chosen, enabled = idle, eventSink)
+            chosen != null && CombinationTexts.offersMenu(row) -> SourceMenu(row, chosen, enabled = idle, eventSink)
             chosen != null ->
                 Text(
-                    stringResource(Res.string.chart_source_from, sourceName(chosen)),
+                    CombinationTexts.from(chosen).string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
         }
         if (saving == row.kind) AppProgressIndicator(small = true)
-        val include = stringResource(Res.string.data_source_include, label)
+        val include = CombinationTexts.include(row).string()
         AppSwitch(
             checked = row.included,
-            onCheckedChange = { eventSink(ActivityDetailEvent.SetIncluded(row.kind, it)) },
+            onCheckedChange = { eventSink(CombinationTexts.includeEvent(row, it)) },
             modifier = Modifier.semantics { contentDescription = include },
             enabled = idle,
         )
@@ -104,16 +83,10 @@ private fun SourceRow(row: DataSourceRow, saving: DataKind?, eventSink: (Activit
 
 /** The member [row]'s kind comes from, as a compact trigger opening a menu of the members that recorded it. */
 @Composable
-private fun SourceMenu(
-    row: DataSourceRow,
-    label: String,
-    chosen: MemberView,
-    enabled: Boolean,
-    eventSink: (ActivityDetailEvent) -> Unit,
-) {
+private fun SourceMenu(row: DataSourceRow, chosen: MemberView, enabled: Boolean, eventSink: (ActivityDetailEvent) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val shown = sourceName(chosen)
-    val description = stringResource(Res.string.data_source_comes_from, label, shown)
+    val shown = CombinationTexts.sourceName(chosen).string()
+    val description = CombinationTexts.comesFrom(row, chosen).string()
     Box {
         AppTextButton(
             onClick = { expanded = true },
@@ -126,37 +99,11 @@ private fun SourceMenu(
         val items =
             row.offered
                 .map { member ->
-                    AppMenuItem(sourceName(member), checked = member.uri == chosen.uri) {
-                        if (member.uri != chosen.uri) eventSink(ActivityDetailEvent.ChooseSource(row.kind, member.uri))
+                    AppMenuItem(CombinationTexts.sourceName(member).string(), checked = member.uri == chosen.uri) {
+                        CombinationTexts.chooseEvent(row, member)?.let(eventSink)
                     }
                 }
                 .toImmutableList()
         AppMenu(expanded = expanded, onDismiss = { expanded = false }, items = items)
     }
 }
-
-/** On the owner's page, a member's device, or else when it started: the owner always sees their own start. */
-@Composable
-private fun sourceName(member: MemberView): String =
-    member.device
-        ?: stringResource(
-            Res.string.data_source_started,
-            member.startedAt.toLocalDateTime(LocalTimeZone.current).format(timeFormat()),
-        )
-
-@Composable
-private fun dataKindLabel(kind: DataKind): String =
-    stringResource(
-        when (kind) {
-            DataKind.Map -> Res.string.data_kind_map
-            DataKind.DistanceSpeed -> Res.string.data_kind_distance_speed
-            DataKind.Elevation -> Res.string.data_kind_elevation
-            DataKind.HeartRate -> Res.string.data_kind_heart_rate
-            DataKind.Power -> Res.string.data_kind_power
-            DataKind.Cadence -> Res.string.data_kind_cadence
-            DataKind.Temperature -> Res.string.data_kind_temperature
-            DataKind.RunningDynamics -> Res.string.data_kind_running_dynamics
-            DataKind.Laps -> Res.string.data_kind_laps
-            DataKind.Dive -> Res.string.data_kind_dive
-        },
-    )
