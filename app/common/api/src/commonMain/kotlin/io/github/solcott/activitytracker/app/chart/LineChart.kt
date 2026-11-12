@@ -1,0 +1,115 @@
+package io.github.solcott.activitytracker.app.chart
+
+import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.data.chart.BandStop
+import io.github.solcott.activitytracker.data.chart.ChartAxis
+import kotlin.math.abs
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+
+/** A point of a [LineChart]: [x] and [y] in the units its labels read. [gapBefore] when nothing was recorded for a while before it. */
+@Immutable data class LinePoint(val x: Double, val y: Double, val gapBefore: Boolean = false)
+
+/** A labelled place on a [LineChart]'s axis: [value] on the axis and its [label]. */
+@Immutable data class ChartTick(val value: Double, val label: AppText)
+
+/**
+ * What a line chart shows, chosen once for every UI (dev/shared-display-text): its [points] (sorted by x, at least two), across [xMin] to
+ * [xMax], on the y [axis] with a labelled gridline at each of [yTicks], labels along the bottom at [xTicks], the text read out for each
+ * point ([readouts], one per point), the [description] assistive technology reads, and the [bands] it is tinted by along its width (empty
+ * when it isn't). A UI only lays it out.
+ */
+@Immutable
+class LineChart(
+    val points: ImmutableList<LinePoint>,
+    val xMin: Double,
+    val xMax: Double,
+    val axis: ChartAxis,
+    val yTicks: ImmutableList<ChartTick>,
+    val xTicks: ImmutableList<ChartTick>,
+    val readouts: ImmutableList<AppText>,
+    val description: AppText,
+    val bands: ImmutableList<BandStop> = persistentListOf(),
+) {
+    init {
+        require(points.size >= 2) { "a line needs two points" }
+        require(readouts.size == points.size) { "one readout per point" }
+    }
+
+    /** The index of the point whose x is closest to [x]; the earlier one on a tie. */
+    fun nearest(x: Double): Int {
+        val found = points.binarySearch { it.x.compareTo(x) }
+        if (found >= 0) return found
+        val after = -found - 1
+        return when {
+            after == 0 -> 0
+            after == points.size -> points.lastIndex
+            abs(points[after].x - x) < abs(points[after - 1].x - x) -> after
+            else -> after - 1
+        }
+    }
+
+    /** The readout for the point nearest [x]. */
+    fun readout(x: Double): AppText = readouts[nearest(x)]
+
+    /** The point nearest [x]. */
+    fun pointNear(x: Double): LinePoint = points[nearest(x)]
+
+    /** The points split where the samples have gaps: each piece is drawn as its own line, with nothing across a gap. */
+    val pieces: List<List<LinePoint>>
+        get() = buildList {
+            var piece = mutableListOf<LinePoint>()
+            points.forEach { point ->
+                if (point.gapBefore && piece.isNotEmpty()) {
+                    add(piece)
+                    piece = mutableListOf()
+                }
+                piece += point
+            }
+            add(piece)
+        }
+
+    /** How many band stops tint the chart. */
+    val bandCount: Int
+        get() = bands.size
+
+    /** The [index]th band stop. */
+    fun bandAt(index: Int): BandStop = bands[index]
+
+    /** The label of the tick in [ticks] at [value], or null when none is there. */
+    fun labelAt(value: Double, ticks: List<ChartTick>): AppText? = ticks.firstOrNull { abs(it.value - value) < TICK_MATCH }?.label
+
+    companion object {
+        /**
+         * A chart of [points] across [xMin] to [xMax] with labels at [xTicks]: its y axis chosen by [ChartAxis.of] (or [axis]), each
+         * gridline labelled by [yLabel].
+         */
+        @Suppress("LongParameterList") // A chart's data, its axis's labels and its texts.
+        fun of(
+            points: List<LinePoint>,
+            xMin: Double,
+            xMax: Double,
+            xTicks: List<ChartTick>,
+            yLabel: (Double) -> AppText,
+            readouts: List<AppText>,
+            description: AppText,
+            bands: List<BandStop> = emptyList(),
+            axis: ChartAxis = ChartAxis.of(points.map { it.y }),
+        ): LineChart =
+            LineChart(
+                points = points.toImmutableList(),
+                xMin = xMin,
+                xMax = xMax,
+                axis = axis,
+                yTicks = axis.ticks.map { ChartTick(it, yLabel(it)) }.toImmutableList(),
+                xTicks = xTicks.toImmutableList(),
+                readouts = readouts.toImmutableList(),
+                description = description,
+                bands = bands.toImmutableList(),
+            )
+
+        private const val TICK_MATCH = 1e-6
+    }
+}
