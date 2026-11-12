@@ -26,6 +26,10 @@ data class ActivityDetailsFields(
 ) {
     val canAddMedia: Boolean
         get() = media.size < maxMedia
+
+    /** [description] for Swift, whose export leaves out a member named `description` (dev/ios-swift-interop). */
+    val about: TextFieldState
+        get() = description
 }
 
 /** A photo picked and compressed on the device, and how big it came out. */

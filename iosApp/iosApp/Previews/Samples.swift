@@ -149,6 +149,14 @@
         static var stepChart: LineChart { AppPackage.chart.LineChartSamples.shared.steps }
         static var sparklineChart: LineChart { AppPackage.chart.LineChartSamples.shared.sparkline }
 
+        /// The activity forms (ios-native-forms) in each state they show, states beyond content loading apart.
+        static var editActivity: [String: EditActivityState] { EditPackage.EditActivitySamples.shared.all }
+        static var editActivityVariants: [String: EditActivityState] { EditPackage.EditActivitySamples.shared.variants }
+        static var manualActivity: [String: ManualActivityState] { RecordPackage.ManualActivitySamples.shared.all }
+        static var manualActivityVariants: [String: ManualActivityState] { RecordPackage.ManualActivitySamples.shared.variants }
+        static var createDiveSite: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.all }
+        static var createDiveSiteVariants: [String: CreateDiveSiteState] { DiveSitePackage.CreateDiveSiteSamples.shared.variants }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(
