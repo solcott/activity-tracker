@@ -18,11 +18,13 @@ page's buttons and notices.
   - `DiveText` (`:app-common-api`) for a dive's pressures, rates, gas names and surface interval, which `DiveFormat` resolves, and
     `LabelText.sensor` for a sensor's name, which `sensorLabel` resolves.
   - `CardLines` (`:app-common-api`): a metric card's lines as `LineChart`s with their titles and details (a pace line inverted, its
-    average marked), and `ZoneRows` and `LapTable` for its time in zones and laps.
+    average marked), and `ZoneRows` and `LapTableTexts` for its time in zones and laps; `RecordingTexts` for the recordings, members
+    and combine cue.
   - `ActivityPageTexts` (`:feature-detail-api`): the title, like, likers, together-with, owner's and others' menus, delete and split
     confirmations, export sheet, notices, dive site line, recordings and members, combine banner and prompt.
-- **A native chart can be inverted and mark its average** (ui/ios-design-system): `LineChart` gains `inverted` and `average`, which
-  `LineChartView` draws (the faster pace at the top, a dashed average line). The segment profile's chart is unchanged.
+- **A native chart can be inverted and mark its average** (ui/ios-design-system): `LineChart` gains `average`, which `LineChartView`
+  draws as a dashed line; an inverted line (pace, the faster at the top) is plotted negated on an inverted axis, as the shared chart
+  does. The segment profile's chart is unchanged.
 - **The activity page is native on iOS** (`ActivityPage`, registered in `ScreenRegistry`), in inset grouped sections: the header (who,
   start, title, type, dive site, description, recordings and members, the combine banner, notices), the route on the native map with
   its expand to the enlarged map and the photos opening the gallery, the hero figures, likes and who liked it, Together with, the
@@ -63,8 +65,8 @@ None.
 
 ## Impact
 
-- **`:app-common-api`:** `FigureTexts`, `DiveText`, `LabelText.sensor`, `CardLines`, `ZoneRows`, `LapTable`; `LineChart.inverted`
-  and `average`; tests.
+- **`:app-common-api`:** `FigureTexts`, `DiveText`, `LabelText.sensor`, `CardLines`, `ZoneRows`, `LapTableTexts`, `RecordingTexts`;
+  `LineChart.average`; tests.
 - **`:app-common-ui`:** `PageFigures`, `ChartUnits`, `DiveFormat`, `sensorLabel`, `DetailSectionsUi`, `LapTableUi`, the zones in
   `ActivityChartsUi` resolve them; no visible change.
 - **`:feature-detail-api`, `-ui`:** `ActivityPageTexts`; the Compose page's words ask it.

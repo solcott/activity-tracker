@@ -41,16 +41,17 @@ and `average` for the dashed line. Compose's Vico chart keeps its richer drawing
 header detail and description from the same functions (`CardLines.detail`, `description`). A pace line is capped at 1.5 × its average
 as Compose's is. Series a native chart can't draw yet still get a plain chart of their main line.
 
-**`LineChart` gains two optional fields.** `inverted: Boolean = false` (Swift negates y and its ticks, so gridlines and labels stay the
-shared ones) and `average: Double? = null` (a dashed `RuleMark`). Defaults keep the segment profile and threshold work unchanged. The
+**`LineChart` gains one optional field, `average: Double? = null`** (a dashed `RuleMark`). An inverted line (pace, depth) needs none:
+`CardLines` plots it negated on the axis `ChartAxis.of(inverted = true)` chooses, as the Vico chart does, and labels each tick with the
+unnegated value, so `LineChartView` draws it unchanged. The default keeps the segment profile and threshold work unchanged. The
 other session (leftovers: threshold history's step chart) may touch `LineChartView` too; I note the two fields in the shared notes
 before committing them.
 
 **Zones and laps are rows Kotlin words.** `ZoneRows.of(zones, unit)` gives each zone's label, name, range, time and fraction (the
-Compose `Zones` asks it); `LapTable.of(laps, ski, units)` gives the headers and each row's cells and spoken sentence (`LapTableUi`
+Compose `Zones` asks it); `LapTableTexts.of(laps, ski, units)` gives the headers and each row's cells and spoken sentence (`LapTableUi`
 asks it). Swift draws zones as label/value rows with a bar, and laps as a `Grid` in the card.
 
-**The page's own words are `ActivityPageTexts` in `:feature-detail-api`.** Like `SegmentPageTexts`: title, like label, likers toggle,
+**The page's own words are `ActivityPageTexts` in `:feature-detail-api`** (with `RecordingTexts` in `:app-common-api` for the recordings, members and combine cue, which the import screen shares). Like `SegmentPageTexts`: title, like label, likers toggle,
 together-with lines, menu labels (a list of `ActivityMenuItem`s naming the event, so both UIs build the same menu from one rule),
 delete and split alerts, export sheet lines, notices and the dive site line.
 

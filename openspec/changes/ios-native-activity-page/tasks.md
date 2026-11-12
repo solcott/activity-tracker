@@ -2,10 +2,10 @@
 
 ## 1. Kotlin rules (no visible change)
 
-- [ ] 1.1 `StreamUnits`, `DiveText`, `LabelText.sensor` and `FigureTexts` in `:app-common-api`; `PageFigures`, `ChartUnits`, `DiveFormat`, `sensorLabel`, `DetailSectionsUi`, `TrainingLoadFigures` resolve them. Verify `FigureTextsTest`, `PageFiguresTest` and `:app-common-ui:jvmTest`.
-- [ ] 1.2 `LineChart.inverted` and `average`; `CardLines` (lines, detail, description); `ZoneRows`; `LapTable`; the Compose chart header, zones and lap table ask them. Verify `CardLinesTest`, `ZoneRowsTest`, `LapTableTest`, `LapTableUiTest`.
-- [ ] 1.3 `ActivityPageTexts` (`:feature-detail-api`); the Compose page asks it. Verify its test and the detail UI tests.
-- [ ] 1.4 `IosApp.writeExport` (`:iosShell`); `ActivityDetailSamples.variants` (owner's ride with cards, charts, zones, laps and stats; a run's pace card; hidden; likes shown; combine banner). Verify `ContentLoadingConformanceTest`.
+- [x] 1.1 `StreamUnits`, `DiveText`, `LabelText.sensor` and `FigureTexts` in `:app-common-api`; `PageFigures`, `ChartUnits`, `DiveFormat`, `sensorLabel`, `DetailSectionsUi` resolve them (`TrainingLoadFigures` folded in). Verify `FigureTextsTest`, `PageFiguresTest`, `SharedTextNamesTest` and `:app-common-ui:jvmTest`.
+- [x] 1.2 `LineChart.average` (an inverted line is plotted negated on `ChartAxis.of(inverted = true)`, as the Vico chart does); `CardLines` (lines, detail, description); `ZoneRows`; `LapTableTexts`; the Compose chart header, zones and lap table ask them. Verify `CardLinesTest`, `LapTableUiTest`, `SharedTextNamesTest`.
+- [x] 1.3 `ActivityPageTexts` (`:feature-detail-api`) and `RecordingTexts` (`:app-common-api`, shared with import); the Compose page asks them. Verify `ActivityPageTextsTest` and the detail UI tests.
+- [x] 1.4 `IosApp.writeExport` (`:iosShell`); `ActivityDetailSamples.variants` (owner's ride with cards, charts, zones, laps and stats; a run's pace card; hidden; likes shown; combine banner). Verify `ContentLoadingConformanceTest`.
 
 ## 2. The native views
 
