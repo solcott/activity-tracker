@@ -25,10 +25,10 @@ import kotlinx.collections.immutable.toImmutableList
  * What a line chart shows, chosen once for every UI (dev/shared-display-text): its [points] (sorted by x, at least two), across [xMin] to
  * [xMax], on the y [axis] with a labelled gridline at each of [yTicks], labels along the bottom at [xTicks], the text read out for each
  * point ([readouts], one per point), the [description] assistive technology reads, the [bands] it is tinted by along its width (empty when
- * it isn't), its [average], marked by a dashed line, where it has one, whether it is drawn in [steps] (each value held until
- * the next point, as a threshold holds until it changes), and the [dots] marking some of its points. A chart drawn with its larger
- * values lower (a pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the
- * values unnegated. A UI only lays it out.
+ * it isn't), its [average], marked by a dashed line, where it has one, whether it is drawn in [steps] (each value held until the next
+ * point, as a threshold holds until it changes), and the [dots] marking some of its points. A chart drawn with its larger values lower (a
+ * pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the values unnegated. A UI
+ * only lays it out.
  */
 @Immutable
 @Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.
