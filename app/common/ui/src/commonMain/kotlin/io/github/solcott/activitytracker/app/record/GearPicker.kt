@@ -21,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.gear.gearKindLabel
-import io.github.solcott.activitytracker.app.gear.gearTypeLabel
 import io.github.solcott.activitytracker.app.ui.TapField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
@@ -31,22 +29,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.gear_collection_count
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_add_collection
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_choose
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_clear
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_done
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_empty
-import io.github.solcott.activitytracker.composeApp.resources.gear_field_none
-import io.github.solcott.activitytracker.composeApp.resources.gear_field_not_added
-import io.github.solcott.activitytracker.composeApp.resources.gear_field_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_field_title
-import io.github.solcott.activitytracker.composeApp.resources.page_gear_item_value
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -56,9 +48,13 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun GearPicker(field: GearField, modifier: Modifier = Modifier, enabled: Boolean = true) {
     var choosing by rememberSaveable { mutableStateOf(false) }
-    val names = field.selected.mapNotNull { uri -> field.options.firstOrNull { it.uri == uri }?.name }
-    val shown = if (names.isEmpty()) stringResource(Res.string.gear_field_none) else names.joinToString(", ")
-    TapField(shown, stringResource(Res.string.gear_field_title), onClick = { choosing = true }, modifier.fillMaxWidth(), enabled)
+    TapField(
+        GearFieldTexts.summary(field).string(),
+        stringResource(Res.string.gear_field_title),
+        onClick = { choosing = true },
+        modifier.fillMaxWidth(),
+        enabled,
+    )
     if (choosing) GearSheet(field, onDismiss = { choosing = false })
 }
 
@@ -83,13 +79,13 @@ private fun GearSheet(field: GearField, onDismiss: () -> Unit) {
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
             if (field.collections.isNotEmpty()) CollectionMenu(field)
-            if (field.selected.isNotEmpty()) {
+            if (field.offersClear) {
                 AppTextButton(onClick = { field.eventSink(GearEvent.Clear) }) { Text(stringResource(Res.string.gear_field_clear)) }
             }
         }
-        if (field.notAdded > 0) {
+        GearFieldTexts.notAdded(field)?.let { notAdded ->
             Text(
-                pluralStringResource(Res.plurals.gear_field_not_added, field.notAdded, field.notAdded),
+                notAdded.string(),
                 Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
@@ -97,7 +93,7 @@ private fun GearSheet(field: GearField, onDismiss: () -> Unit) {
         }
         LazyColumn(Modifier.fillMaxWidth()) {
             items(field.options, key = { it.uri.value }) { option ->
-                GearRow(option, checked = option.uri in field.selected) { field.eventSink(GearEvent.Toggle(option.uri)) }
+                GearRow(option, checked = field.isSelected(option)) { field.eventSink(GearEvent.Toggle(option.uri)) }
             }
         }
     }
@@ -115,8 +111,7 @@ private fun CollectionMenu(field: GearField) {
             items =
                 field.collections
                     .map { collection ->
-                        val count = pluralStringResource(Res.plurals.gear_collection_count, collection.count, collection.count)
-                        AppMenuItem(stringResource(Res.string.page_gear_item_value, collection.name, count)) {
+                        AppMenuItem(GearFieldTexts.collection(collection).string()) {
                             field.eventSink(GearEvent.AddCollection(collection.rkey))
                         }
                     }
@@ -135,11 +130,8 @@ private fun GearRow(option: GearOption, checked: Boolean, onToggle: () -> Unit) 
         AppCheckbox(checked, onCheckedChange = null)
         Column(Modifier.weight(1f)) {
             Text(option.name, style = MaterialTheme.typography.bodyLarge)
-            val what = option.kind?.let { gearKindLabel(option.type, it) } ?: gearTypeLabel(option.type)
-            val detail = stringResource(Res.string.page_gear_item_value, what, visibilityLabel(option.visibility))
             Text(
-                if (option.retired) stringResource(Res.string.page_gear_item_value, detail, stringResource(Res.string.gear_field_retired))
-                else detail,
+                GearFieldTexts.line(option).string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

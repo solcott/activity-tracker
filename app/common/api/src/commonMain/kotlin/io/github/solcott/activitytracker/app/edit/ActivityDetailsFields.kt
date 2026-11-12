@@ -2,8 +2,11 @@ package io.github.solcott.activitytracker.app.edit
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.media.MediaItem
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.io.bytestring.ByteString
 
@@ -47,4 +50,18 @@ sealed interface DetailsEvent {
 
     /** Removes one of [ActivityDetailsFields.media], by index. */
     data class RemoveMedia(val index: Int) : DetailsEvent
+}
+
+/** What the details form says that follows a rule (dev/shared-display-text), chosen here for the shared and the native form. */
+object DetailsFormTexts {
+    /** How many photos the activity holds of how many it can: "2 of 4 photos". */
+    fun photosCount(fields: ActivityDetailsFields): AppText =
+        AppText.Plural(
+            "details_photos_count",
+            fields.maxMedia,
+            persistentListOf(
+                AppText.written(formatWhole(fields.media.size.toLong())),
+                AppText.written(formatWhole(fields.maxMedia.toLong())),
+            ),
+        )
 }

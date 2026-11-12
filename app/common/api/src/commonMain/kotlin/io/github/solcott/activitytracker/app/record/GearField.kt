@@ -20,7 +20,14 @@ data class GearField(
     /** Gear types an import's sensors matched more than one selected item of (two bikes), for the athlete to check. */
     val conflicts: ImmutableList<GearConflict> = persistentListOf(),
     val eventSink: (GearEvent) -> Unit = {},
-)
+) {
+    /** Whether [option] is ticked: the activity lists it. */
+    fun isSelected(option: GearOption): Boolean = option.uri in selected
+
+    /** Remove all is offered: something is chosen. */
+    val offersClear: Boolean
+        get() = selected.isNotEmpty()
+}
 
 /** Sensors matched [names], selected items all of the [type] (a `GearType` value), when an activity usually has one. */
 @Immutable data class GearConflict(val type: String, val names: ImmutableList<String>)

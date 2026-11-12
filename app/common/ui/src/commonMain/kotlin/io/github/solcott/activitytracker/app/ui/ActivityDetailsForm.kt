@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
+import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.media.MediaItem
@@ -47,7 +48,6 @@ import io.github.solcott.activitytracker.composeApp.resources.details_add_photos
 import io.github.solcott.activitytracker.composeApp.resources.details_description_label
 import io.github.solcott.activitytracker.composeApp.resources.details_description_placeholder
 import io.github.solcott.activitytracker.composeApp.resources.details_dive_site_label
-import io.github.solcott.activitytracker.composeApp.resources.details_photos_count
 import io.github.solcott.activitytracker.composeApp.resources.details_photos_heading
 import io.github.solcott.activitytracker.composeApp.resources.details_preparing_photos
 import io.github.solcott.activitytracker.composeApp.resources.details_remove_photo
@@ -60,7 +60,6 @@ import io.github.vinceglb.filekit.readBytes
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -130,7 +129,7 @@ private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier:
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(Res.string.details_photos_heading), style = MaterialTheme.typography.labelLarge)
             Text(
-                pluralStringResource(Res.plurals.details_photos_count, fields.maxMedia, fields.media.size, fields.maxMedia),
+                DetailsFormTexts.photosCount(fields).string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
