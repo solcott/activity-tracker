@@ -398,3 +398,20 @@ typealias ProposePlaceNameTexts = NamesPackage.ProposePlaceNameTexts
 typealias PlaceNameFields = NamesPackage.PlaceNameFields
 typealias PlaceNameEvent = NamesPackage.PlaceNameEvent
 typealias ShareLimit = NamesPackage.ShareLimit
+
+// The feed (ios-native-feed): its contract, what it says and offers, the timeline's items and the import card they hold, and the
+// upload summary its rows show.
+typealias FeedScreen = FeedPackage.FeedScreen
+typealias FeedState = FeedPackage.FeedState
+typealias FeedEvent = FeedPackage.FeedEvent
+typealias FeedScope = FeedPackage.FeedScope
+typealias FeedTexts = FeedPackage.FeedTexts
+typealias FeedScopeOption = FeedPackage.FeedScopeOption
+typealias FeedUploadTexts = FeedPackage.FeedUploadTexts
+typealias FeedAddChoice = FeedPackage.FeedAddChoice
+typealias FeedAddKind = FeedPackage.FeedAddKind
+typealias ImportCardTexts = FeedPackage.ImportCardTexts
+typealias TimelineItem = LexiconAppPackage.TimelineItem
+typealias ImportCardView = LexiconAppPackage.ImportCardView
+typealias CardRoute = LexiconAppPackage.CardRoute
+typealias UploadSummary = UploadActivityPackage.UploadSummary
