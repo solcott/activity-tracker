@@ -153,3 +153,11 @@ The iOS app SHALL show upright and on either side on an iPhone, and any way up o
 #### Scenario: An iPhone upside down
 - **WHEN** an athlete turns an iPhone upside down
 - **THEN** the app stays as it was
+
+### Requirement: Every screen has a native view
+Every screen the iOS app can show (each serializable screen of a screen contract) SHALL have a native view registered in the app's
+screen registry, and `./gradlew check` SHALL fail naming any screen that has none.
+
+#### Scenario: A new screen without its view
+- **WHEN** a feature adds a screen to its contract and registers no native view for it
+- **THEN** `./gradlew check` fails and names the screen
