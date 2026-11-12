@@ -450,13 +450,17 @@ object CreateSegmentSamples {
             content = ContentStates.loaded(Unit),
             route = Fixed.POLYLINE,
             sport = "ride",
-            lengthMeters = 2_400f,
-            start = 0.2f,
-            end = 0.6f,
+            lengthMeters = ROUTE_METERS,
+            start = ROUTE_METERS * 0.2f,
+            end = ROUTE_METERS * 0.6f,
             selection = SelectionCheck.Ok(SELECTED_METERS),
+            highlight = HIGHLIGHT,
             name = textFieldStateOf(name),
             named = name.isNotBlank(),
         )
+
+    private fun unavailable(reason: CreateSegmentUnavailable) =
+        CreateSegmentState(content = ContentStates.loaded(Unit), unavailable = reason)
 
     val all: Map<String, CreateSegmentState>
         get() =
@@ -464,9 +468,35 @@ object CreateSegmentSamples {
                 SampleKind.LOADING to CreateSegmentState(content = ContentStates.loading(Unit)),
                 SampleKind.FAILED to CreateSegmentState(content = ContentStates.failed(Unit), loadErrorKind = UiError.Kind.LoadRoute),
                 SampleKind.LOADED to loadedState(),
-                SampleKind.INVALID to loadedState().copy(selection = SelectionCheck.TooShort(200)),
+                SampleKind.INVALID to loadedState().copy(selection = SelectionCheck.TooShort(200), highlight = null),
+            )
+
+    /**
+     * The states beyond these the native form draws: unnamed, the other two checks, a segment naming its activity, a duplicate, the
+     * allowance, publishing, a failed check, and each reason no segment can be made.
+     */
+    val variants: Map<String, CreateSegmentState>
+        get() =
+            mapOf(
+                "unnamed" to loadedState(name = ""),
+                "tooLong" to loadedState().copy(selection = SelectionCheck.TooLong(MAX_METERS), highlight = null),
+                "crossesGap" to loadedState().copy(selection = SelectionCheck.CrossesGap, highlight = null),
+                "namesActivity" to loadedState().copy(namesActivity = true),
+                "duplicate" to
+                    loadedState().copy(duplicates = persistentListOf(fakeSegment(record = fakeSegmentRecord(name = "Ridge Trail climb")))),
+                "limitReached" to loadedState().copy(limitReached = true),
+                "publishing" to loadedState().copy(publishing = true),
+                "checkFailed" to loadedState().copy(actionError = UiError(UiError.Kind.CheckSegment)),
+                "noRoute" to unavailable(CreateSegmentUnavailable.NoRoute),
+                "noSportGroup" to unavailable(CreateSegmentUnavailable.NoSportGroup),
+                "allHidden" to unavailable(CreateSegmentUnavailable.AllHidden),
             )
 }
 
-/** The stretch chosen in the create-segment samples: 0.2 to 0.6 of a 2.4 km route. */
+/** The route in the create-segment samples is taken as 2.4 km, and the stretch chosen 0.2 to 0.6 of it. */
+private const val ROUTE_METERS = 2_400f
 private const val SELECTED_METERS = 960.0
+private const val MAX_METERS = 50_000
+
+/** The stretch drawn over the samples' route: its first leg, the first two points of [Fixed.POLYLINE]. */
+private const val HIGHLIGHT = "_p~iF~ps|U_ulLnnqC"
