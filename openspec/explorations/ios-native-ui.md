@@ -451,6 +451,15 @@ Each phase leaves a shippable app.
      names the activity and has no visibility choices. What it says is Kotlin's (`ImportActivityTexts`, `ImportActivityState.canSave`,
      `canSaveBatch`, `saveEvent` and `saveBatchEvent` with the default titles worded through a `TextSource`,
      `RecordingTexts.suggestedActivity`), which the Compose screen asks too.
+   - **Record** (`ios-native-record`). Record is native (`RecordView`), a grouped form over the feed: a failed finish and the
+     recording's notices (offered back after the app stopped, not saved on the device, location off with Open Settings), the elapsed
+     time large with its figures as the card's `CardStats`, then the forms' type row (outdoor types only, fixed once recording starts),
+     title, gear and visibility sections, with the controls in a bottom bar (`safeAreaInset`): Start; Pause; Finish & save on a row of
+     its own over Resume and Discard, which asks first; progress in their place while finishing. Start without access asks Core Location
+     itself (`LocationAuthorization`, while in use) and sends `PermissionResult` with the answer. Recording stays Kotlin's
+     (`ActivityRecorder`, `IosLocationTracker`). What it says and offers is Kotlin's (`RecordTexts`: the figures in the athlete's units,
+     the notices, `controls` as `RecordControl`s, `typeChangeable`; `ActivityTypeField.offeredQuickTypes`), which the Compose screen asks
+     too. With it every screen of the athlete's own is native; only Moderation, a moderator's page from Settings, is still the shared UI.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1943,6 +1952,21 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The shared iOS layout never showed a failed single-file save**: Save sat in the bar and the save panel, where the error is, shows
   only from 840dp. The native form shows it at the top, as the other forms do.
 
+### Phase 4 findings (record, `ios-native-record`)
+
+- **The shared iOS UI never asked for location.** Its `rememberLocationPermissionRequest` answered "granted" at once and left the
+  asking to `IosLocationTracker.start`, so a refusal was never told to the screen, which then showed a recording that didn't record.
+  The native screen asks Core Location before Start, sends the real answer, and says when access is off. The `*.ios.kt` actual goes
+  with phase 5.
+- **A list of enums can't reach Swift, again.** `RecordTexts.actions` as a `List<RecordAction>` crashed the test host on the first
+  read ("Could not cast `_KotlinExistential` to `RecordAction`"), as the open item below says; `controls` gives `RecordControl`s, each
+  holding its action. A single enum argument or property crosses fine (`label(action: .Discard)`).
+- **`SportCatalog` has no Swift type**: nothing exported named it, so the native sheet's indoor filter is a Kotlin function on the
+  field (`offeredQuickTypes`) rather than an alias.
+- **Three wide buttons don't fit a phone's bar with "Finish & save".** It wrapped to two lines, and shrunk to fit it was cut off; it
+  takes a row of its own instead. A label is the widest it gets in English; another language will want the same room.
+- **The form's top gap is the snapshot harness's**, the same on every native form's references, not Record's.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1956,7 +1980,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
   missed one crashes only on iOS and web, and only when its screen draws.
 - Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder. A native pick goes through the same compression
   (`IosApp.compressPhoto`); Skia can't read a HEIC, so the picker asks for a compatible encoding and `PhotoPick` retries what Kotlin
-  can't read as UIKit's JPEG. Phase 5, which drops Skia from iOS, needs another WebP encoder or a JPEG fallback for every photo.
+  can't read as UIKit's JPEG. Phase 5, which drops Skia from iOS, needs another WebP encoder or a JPEG fallback for every photo. The options are under what still goes through Compose, below (`ios-native-record`).
 - Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side, and a
   profile opened from the blocked list beside it takes the whole window and comes back to the list beside Blocked accounts
   (`ios-native-settings-lists`). Still to see: a window resized across 700 points with the list scrolled, and all of it on iOS 18.
@@ -1984,6 +2008,19 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`)~~: native
   (`ios-native-interactive-maps`), embedded through the host (`HostRecord.embed`); the Compose embed is gone. Its runs, a tap selecting
   one and opening a segment were not seen on a device: the walk had no tunnel to the AppView.
+- **What still goes through the shared Compose UI on iOS** (checked against `ScreenRegistry.app` after `ios-native-record`): only
+  `ModerationScreen`, a moderator's queue opened from Settings when the account can moderate. `ReportScreen`, `ProposePlaceNameScreen`
+  and `FeedFilterScreen` are SubCircuits drawn natively through the host (`ReportSheet`, `ProposePlaceNameSheet`, `FeedFilterBar`);
+  every other `Screen` has an entry. So phase 5 needs, in order: Moderation native (or kept out of the iOS app) so `FallbackScreen` has
+  nothing left to show; then delete `FallbackScreen` and the host's Compose bridge (`composeState` on `TextFieldState`, the fallback
+  controllers), the `*.ios.kt` actuals (`LocationPermission.ios.kt` among them) and the UI modules' iOS targets; split the Metro graph
+  so the iOS one binds no `Ui.Factory`; drop Calf, Haze, Vico, Coil (Nuke already loads every native picture) and MapLibre Compose
+  from iOS; retire `ui/ios-navigation-bar`. **Photo compression needs a replacement first**: `compressPhoto`'s iOS `encodePhoto`
+  writes WebP through Skia, and iOS has no system WebP encoder (ImageIO writes JPEG and HEIC, not WebP). Either an encoder of our own
+  choosing (libwebp through Swift Package Manager or a Kotlin/Native cinterop, called from `IosApp.compressPhoto`) or a JPEG fallback
+  through ImageIO at `JPEG_QUALITY`, which `compressPhoto`'s steps then size under its 1.5 MB target; a JPEG is larger at the same
+  look, so the steps may need another rung. `compressAvatar` is FileKit's JPEG already. `PhotoPick`'s HEIC retry can then read HEIC
+  directly through ImageIO.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
   Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). ~~`ZoneSummary.kinds` and `SportZonesState.kinds`
