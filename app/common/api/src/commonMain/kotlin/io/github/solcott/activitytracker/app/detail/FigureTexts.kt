@@ -105,8 +105,14 @@ object FigureTexts {
     val allStats: AppText = AppText.named("page_all_stats")
     val trainingLoad: AppText = AppText.named("page_training_load")
 
+    /** The page of the gear item [figure] names, when it opens one (gear/gear-usage); null for any other figure. */
+    fun gearUri(figure: Figure): String? = (figure.value as? FigureValue.GearItem)?.uri
+
     /** Whether [rows] give a Min column: some row has a minimum (temperature). */
     fun showsMin(rows: List<AvgMaxRow>): Boolean = rows.any { it.min != null }
+
+    /** Whether [content]'s avg/max table gives a Min column. */
+    fun showsMin(content: ActivityPageContent): Boolean = showsMin(content.avgMax)
 
     /**
      * A figure's value in the viewer's [units], with its unit, in full. A start reads on the activity's own clock beside today, [now] in

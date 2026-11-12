@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.RouteMap
+import io.github.solcott.activitytracker.app.activitylist.LockLine
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.segment.PlaceTexts
@@ -8,12 +10,16 @@ import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StartText
+import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
@@ -131,6 +137,37 @@ object ActivityPageTexts {
     val hiddenTitle: AppText = AppText.named("label_hidden_title")
     val hiddenMessage: AppText = AppText.named("label_hidden_message")
     val hiddenShow: AppText = AppText.named("label_hidden_show")
+
+    /** What the map draws ([ActivityDetailPage.route]) for a native map; null with no route. */
+    fun routeMap(page: ActivityDetailPage): RouteMap? = page.route?.let { RouteMap.of(it.polyline, it.gaps, it.ends) }
+
+    /** The map's lock on the owner's page, when the Map category is narrower than the activity; null otherwise. */
+    fun mapLock(page: ActivityDetailPage): LockLine? {
+        val mark = page.page.mapMark ?: return null
+        val text = VisibilityTexts.lock(DetailCategory.MAP, mark) ?: return null
+        return LockLine(text, VisibilityTexts.lockDescription(DetailCategory.MAP, mark) ?: text)
+    }
+
+    /** A narrower category's badge beside a figure or a card's title, and what a screen reader says for it; null for none. */
+    fun mark(mark: String?): AppText? = mark?.let(VisibilityTexts::badge)
+
+    fun markDescription(mark: String?): AppText? = mark?.let(VisibilityTexts::badgeDescription)
+
+    val segmentsHeading: AppText = AppText.named("detail_section_segments")
+    val liftsHeading: AppText = AppText.named("detail_section_lifts")
+
+    /** "Ridden 3 times". */
+    fun liftRides(lift: LiftRides): AppText =
+        AppText.Plural("detail_lift_rides", lift.rides, persistentListOf(AppText.written("${lift.rides}")))
+
+    /** The time on a lift, in all its rides. */
+    fun liftTime(lift: LiftRides): String = StatText.duration(lift.elapsedSeconds)
+
+    /** What opening an effort sends: its segment, and whether it was an e-bike ride's. */
+    fun openEffort(effort: EffortView): ActivityDetailEvent = ActivityDetailEvent.SegmentOpened(effort.segment.uri, effort.eBike == true)
+
+    /** What opening a lift sends. */
+    fun openLift(lift: LiftRides): ActivityDetailEvent = ActivityDetailEvent.SegmentOpened(lift.segment)
 
     // The owner's menu.
 

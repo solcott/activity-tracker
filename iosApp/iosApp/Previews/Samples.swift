@@ -135,6 +135,16 @@
         /// Line charts for the design gallery: one untinted with a gap, and a segment's profile tinted by grade.
         static var plainChart: LineChart { AppPackage.chart.LineChartSamples.shared.plain }
         static var profileChart: LineChart { AppPackage.chart.LineChartSamples.shared.profile }
+        /// An activity card's lines (ios-native-activity-page): a run's pace, inverted, and a ride's heart rate, each its average dashed.
+        static var paceChart: LineChart { AppPackage.chart.LineChartSamples.shared.pace }
+        static var heartRateChart: LineChart { AppPackage.chart.LineChartSamples.shared.heartRate }
+        /// The activity page (ios-native-activity-page) in each state it shows, states beyond content loading apart.
+        static var activityDetail: [String: ActivityDetailState] { DetailPackage.ActivityDetailSamples.shared.all }
+        static var activityDetailVariants: [String: ActivityDetailState] { DetailPackage.ActivityDetailSamples.shared.variants }
+        /// The sample ride's laps and elevation cards and the charts they draw from, for a card on its own.
+        static var rideLaps: MetricCard { DetailPackage.ActivityDetailSamples.shared.rideLaps }
+        static var rideElevation: MetricCard { DetailPackage.ActivityDetailSamples.shared.rideElevation }
+        static var rideCharts: ActivityCharts { DetailPackage.ActivityDetailSamples.shared.rideCharts }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

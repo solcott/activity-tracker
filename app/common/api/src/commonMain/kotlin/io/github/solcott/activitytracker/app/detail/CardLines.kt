@@ -127,6 +127,9 @@ object ZoneRows {
     fun heading(section: DetailSection): AppText =
         AppText.named(if (section == DetailSection.Power) "chart_power_zones" else "chart_heart_rate_zones")
 
+    /** [card]'s zones as rows; none without zones. */
+    fun of(card: MetricCard): List<ZoneRow> = card.zones?.let { of(it, card.section) }.orEmpty()
+
     /** [zones] as rows: ranges in bpm, or watts for the power card. */
     fun of(zones: List<ZoneTime>, section: DetailSection): List<ZoneRow> {
         val total = zones.sumOf { it.seconds }.coerceAtLeast(1)
@@ -167,6 +170,9 @@ object ZoneRows {
  * ski day's laps are its runs, numbered, with their descent, and its lift rides, named by their lift when one matched. Both UIs ask it.
  */
 object LapTableTexts {
+    /** [charts]' laps, a ski day's as runs and lifts. */
+    fun of(charts: ActivityCharts, units: UnitSystem): DetailTable = of(charts.laps, ski = charts.skiRuns != null, units)
+
     @Suppress("LongMethod") // A column at a time.
     fun of(laps: List<LapRow>, ski: Boolean, units: UnitSystem): DetailTable {
         val intensity = !ski && laps.any { it.intensity != null }

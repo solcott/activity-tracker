@@ -169,7 +169,7 @@ object ActivityDetailSamples {
             LapRow(3, 1_200, 1_190, 10.8, 32.7, 147, 209, 87, 130.0),
         )
 
-    private val rideCharts =
+    val rideCharts =
         ActivityCharts(
             visibility = Visibility.PUBLIC,
             durationSeconds = RIDE_SECONDS,
@@ -284,6 +284,22 @@ object ActivityDetailSamples {
                 ),
             charts = rideCharts,
         )
+
+    /** The ride's heart rate card. */
+    val rideHeartRate: MetricCard
+        get() = ridePage.cards.first()
+
+    /** The ride's laps card. */
+    val rideLaps: MetricCard
+        get() = ridePage.cards.last()
+
+    /** The ride's elevation card: elevation, then grade titled under it. */
+    val rideElevation: MetricCard
+        get() = ridePage.cards[ridePage.cards.lastIndex - 1]
+
+    /** The run's pace card. */
+    val runPace: MetricCard
+        get() = runPage.cards.first()
 
     /** A run's pace card: average and best pace, and the pace line with the faster at the top. */
     private val runPage: ActivityPageContent =
