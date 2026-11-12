@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.app.interactions.RepliesState
 import io.github.solcott.activitytracker.app.posts.QuoteFields
 import io.github.solcott.activitytracker.app.posts.QuoteSheetSamples
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -100,7 +101,8 @@ object PostPageSamples {
     /**
      * What [all]'s content-loading states don't show (ios-native-post-card): who liked it, a failed vote, a comment Alice hid on her own
      * post, a reply in progress with sent comments, a thread with more replies and one whose replies failed, a failed comments page, the
-     * quote sheet open and the delete confirmation.
+     * quote sheet open, the delete confirmation, and a labeler configured, so Bob's post and others' comments offer Report
+     * (ios-native-post-report).
      */
     val variants: Map<String, PostPageState>
         get() {
@@ -179,6 +181,7 @@ object PostPageSamples {
                         ),
                     ),
                 "quoting" to loaded(base.copy(quote = QuoteSheetSamples.open)),
+                "reportable" to loaded(base.copy(reporting = Reporting(available = true))),
                 "confirmDelete" to
                     fakeQuote(author = Fixed.ALICE, quoteCount = 1).let { quote ->
                         loaded(base.copy(post = quote, quote = QuoteFields(confirmDelete = quote)))
