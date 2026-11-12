@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.ios
 
 import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.HeldPhotoBytes
 import io.github.solcott.activitytracker.app.IosAppHost
 import io.github.solcott.activitytracker.app.ScreenViewController
@@ -17,7 +18,10 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.export.ExportArchive
 import io.github.solcott.activitytracker.data.export.writeToPath
+import io.github.solcott.activitytracker.data.importsave.PickedFileSource
+import io.github.vinceglb.filekit.PlatformFile
 import kotlinx.io.bytestring.ByteString
+import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
 
 /**
@@ -35,6 +39,15 @@ object IosApp {
      * screen's states. The SwiftUI shell follows it and draws each screen. Started by the first call.
      */
     fun host(fitDecoder: FitDecoder): AppHost = IosAppHost(fitDecoder)
+
+    /**
+     * The files the native import screen's document picker gave, by their URLs (`file:` and security scoped), as the sources the import
+     * reads a range at a time (feed/batch-import): the same `PickedFileSource` FileKit's picker gives the shared screen, which opens each
+     * URL's security scope while it reads and which a batch save keeps as a bookmark. Swift sends them in
+     * `ImportActivityEvent.FilesPicked`. A URL that doesn't parse is left out.
+     */
+    fun importSources(urls: List<String>): List<ImportSource> =
+        urls.mapNotNull { NSURL.URLWithString(it) }.map { PickedFileSource(PlatformFile(it)) }
 
     /**
      * The bytes of the photo a `heldphoto:` URL names (one this device uploaded and the session holds, such as a non-public gear photo),

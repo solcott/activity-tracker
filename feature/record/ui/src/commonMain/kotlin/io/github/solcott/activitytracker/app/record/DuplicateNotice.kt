@@ -10,38 +10,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
-import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_combine
-import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_ignore
-import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_import_anyway
-import io.github.solcott.activitytracker.composeApp.resources.import_combine_explained
-import io.github.solcott.activitytracker.composeApp.resources.import_combine_uploading
-import io.github.solcott.activitytracker.composeApp.resources.import_copy_explained
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_copy_existing
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_copy_in_file
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_existing
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_in_file
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_shifted
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_untitled
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_checking
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_copies
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_existing
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_failed
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_in_file
-import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_unchecked
-import io.github.solcott.activitytracker.data.units.formatWhole
-import kotlin.math.abs
+import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Why an activity looks like a duplicate ("Already in your log: Blue Hole · 2024-05-12 10:02 · Garmin Descent Mk3") and what to do with it.
  * [inFileNumber] numbers the activity [DuplicateInfo.inBatchIndex] names, as the list shows it. Combine is left out, with the reason, while
- * the logged activity is still uploading.
+ * the logged activity is still uploading. What it says is `ImportActivityTexts`'.
  */
 @Composable
 internal fun DuplicateWarning(
@@ -52,8 +30,12 @@ internal fun DuplicateWarning(
     inFileNumber: Int? = info.inBatchIndex?.plus(1),
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(warningText(info, inFileNumber), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        val actions = info.actions.filter { it != DuplicateAction.Combine || !info.stillUploading }
+        Text(
+            ImportActivityTexts.duplicateWarning(info, inFileNumber).string(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        val actions = ImportActivityTexts.duplicateChoices(info).map { it.action }
         AppSegmentedControl(
             actions.map { actionLabel(it) }.toImmutableList(),
             selected = actions.indexOf(info.action),
@@ -61,99 +43,39 @@ internal fun DuplicateWarning(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )
-        val explained =
-            when {
-                info.exactCopy && info.action == DuplicateAction.Ignore -> stringResource(Res.string.import_copy_explained)
-                info.stillUploading -> stringResource(Res.string.import_combine_uploading)
-                info.action == DuplicateAction.Combine -> stringResource(Res.string.import_combine_explained)
-                else -> null
-            }
-        explained?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        ImportActivityTexts.duplicateExplained(info)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
 /** A single file's activity: the search of the athlete's log while it runs, then what to do if the activity is already there. */
 @Composable
 internal fun PreviewDuplicate(state: ImportActivityState, preview: ImportPreview, modifier: Modifier = Modifier) {
-    if (state.duplicateCheck != DuplicateCheck.Done) {
-        DuplicatesBanner(
-            state.duplicateCheck,
-            existing = 0,
-            inFile = 0,
-            modifier,
-            onRetry = { state.eventSink(ImportActivityEvent.RetryDuplicateCheck) },
-        )
-    }
+    DuplicatesBanner(
+        ImportActivityTexts.duplicateBanner(state),
+        state.duplicateCheck,
+        modifier,
+        onRetry = { state.eventSink(ImportActivityEvent.RetryDuplicateCheck) },
+    )
     preview.duplicate?.let { duplicate ->
         DuplicateWarning(duplicate, { state.eventSink(ImportActivityEvent.DuplicateActionChanged(0, it)) }, !state.saving, modifier)
     }
 }
 
 /**
- * An ignored duplicate has nothing to save; nor has an activity until the athlete's log has been checked for it, nor a recording that can't
- * be added to the activity it's for (too far from it, or that activity still loading).
- */
-internal fun ImportActivityState.canSave(preview: ImportPreview): Boolean =
-    !saving &&
-        !reading &&
-        preview.duplicate?.action != DuplicateAction.Ignore &&
-        duplicateCheck != DuplicateCheck.Checking &&
-        !tooFarFromTarget &&
-        (!addsRecording || addingTo != null)
-
-/**
- * Above a logbook's dives: how many are duplicates, or that the search for them is running or failed, with [onRetry] to search again after
- * a failure (feed/import-duplicates).
+ * Above a logbook's dives, or a single file's preview: [banner] (how many are duplicates, or that the search for them is running or
+ * failed), with [onRetry] to search again after a failure (feed/import-duplicates).
  */
 @Composable
-internal fun DuplicatesBanner(
-    check: DuplicateCheck,
-    existing: Int,
-    inFile: Int,
-    modifier: Modifier = Modifier,
-    copies: Int = 0,
-    onRetry: (() -> Unit)? = null,
-) {
-    val lines =
-        listOfNotNull(
-            stringResource(Res.string.import_duplicates_checking).takeIf { check == DuplicateCheck.Checking },
-            stringResource(Res.string.import_duplicates_failed).takeIf { check == DuplicateCheck.Failed },
-            pluralStringResource(Res.plurals.import_duplicates_existing, existing, formatWhole(existing)).takeIf { existing > 0 },
-            pluralStringResource(Res.plurals.import_duplicates_in_file, inFile, formatWhole(inFile)).takeIf { inFile > 0 },
-            pluralStringResource(Res.plurals.import_duplicates_copies, copies, formatWhole(copies)).takeIf { copies > 0 },
-            stringResource(Res.string.import_duplicates_unchecked).takeIf { existing + inFile > 0 },
-        )
-    if (lines.isEmpty()) return
+internal fun DuplicatesBanner(banner: AppText?, check: DuplicateCheck, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
+    if (banner == null) return
     Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium).padding(12.dp)) {
-        Text(lines.joinToString(" "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
-        if (check == DuplicateCheck.Failed && onRetry != null) {
-            AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+        Text(banner.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+        if (ImportActivityTexts.offersRetry(check) && onRetry != null) {
+            AppTextButton(onClick = onRetry) { Text(ImportActivityTexts.retry.string()) }
         }
     }
 }
 
-@Composable
-private fun warningText(info: DuplicateInfo, inFileNumber: Int?): String {
-    val existing = info.existing
-    if (existing == null) {
-        return stringResource(
-            if (info.exactCopy) Res.string.import_duplicate_copy_in_file else Res.string.import_duplicate_in_file,
-            inFileNumber ?: 0,
-        )
-    }
-    val title = existing.title ?: stringResource(Res.string.import_duplicate_untitled)
-    val details = listOfNotNull(title, existing.start, existing.device).joinToString(" · ")
-    return when {
-        info.hoursApart != 0 -> stringResource(Res.string.import_duplicate_shifted, details, abs(info.hoursApart))
-        info.exactCopy -> stringResource(Res.string.import_duplicate_copy_existing, details)
-        else -> stringResource(Res.string.import_duplicate_existing, details)
-    }
-}
-
-@Composable
-internal fun actionLabel(action: DuplicateAction): String =
-    when (action) {
-        DuplicateAction.Ignore -> stringResource(Res.string.duplicate_action_ignore)
-        DuplicateAction.ImportAnyway -> stringResource(Res.string.duplicate_action_import_anyway)
-        DuplicateAction.Combine -> stringResource(Res.string.duplicate_action_combine)
-    }
+@Composable internal fun actionLabel(action: DuplicateAction): String = ImportActivityTexts.action(action).string()

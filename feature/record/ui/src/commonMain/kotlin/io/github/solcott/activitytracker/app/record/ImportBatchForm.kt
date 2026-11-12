@@ -22,14 +22,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.activityfile.ExportKind
-import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.detail.ITEM_GAP
-import io.github.solcott.activitytracker.app.settings.monthName
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
@@ -40,56 +37,13 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
-import io.github.solcott.activitytracker.composeApp.resources.dive_number
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_found
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_garmin
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_garmin_no_privacy
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_ignored
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_month
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_narrowed_followers
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_narrowed_self
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_originals_size
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_originals_too_large
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_save
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_save_failed
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_saving
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_skipped
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava_no_privacy
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading_mobile
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_visibility_heading
-import io.github.solcott.activitytracker.composeApp.resources.import_bulk_duplicates
-import io.github.solcott.activitytracker.composeApp.resources.import_compare_exact
-import io.github.solcott.activitytracker.composeApp.resources.import_compare_in_import
-import io.github.solcott.activitytracker.composeApp.resources.import_compare_logged
-import io.github.solcott.activitytracker.composeApp.resources.import_compare_this
-import io.github.solcott.activitytracker.composeApp.resources.import_deselect_all
-import io.github.solcott.activitytracker.composeApp.resources.import_dives_details_hint
-import io.github.solcott.activitytracker.composeApp.resources.import_dives_none
-import io.github.solcott.activitytracker.composeApp.resources.import_dives_selected
-import io.github.solcott.activitytracker.composeApp.resources.import_filter_all
-import io.github.solcott.activitytracker.composeApp.resources.import_filter_duplicates
-import io.github.solcott.activitytracker.composeApp.resources.import_filter_new
-import io.github.solcott.activitytracker.composeApp.resources.import_item_done
-import io.github.solcott.activitytracker.composeApp.resources.import_item_title
-import io.github.solcott.activitytracker.composeApp.resources.import_item_title_label
-import io.github.solcott.activitytracker.composeApp.resources.import_megabytes
-import io.github.solcott.activitytracker.composeApp.resources.import_select_all
-import io.github.solcott.activitytracker.composeApp.resources.import_skip_damaged
-import io.github.solcott.activitytracker.composeApp.resources.import_skip_too_large
-import io.github.solcott.activitytracker.composeApp.resources.import_skip_unsupported
-import io.github.solcott.activitytracker.data.units.formatWhole
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
-import org.jetbrains.compose.resources.pluralStringResource
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Several activities to import: what was read, then one row per activity grouped by month (a lazy list, for an account export's thousands),
@@ -99,23 +53,22 @@ import org.jetbrains.compose.resources.stringResource
 internal fun BatchContent(state: ImportActivityState, batch: ImportBatch, padding: PaddingValues, onPick: () -> Unit) {
     val listState = rememberLazyListState()
     val enabled = !state.saving
-    val shown = batch.shown
-    val months = remember(shown) { shown.groupBy { it.month } }
+    val months = remember(batch) { ImportActivityTexts.months(batch) }
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding) {
             item(key = "pick") { PickSection(state, onPick, Modifier.padding(vertical = 16.dp)) }
             item(key = "summary") { BatchSummary(state, batch, enabled) }
             item(key = "filters") { BatchFilters(state, batch, enabled) }
-            months.forEach { (month, rows) ->
-                item(key = "month-$month") {
+            months.forEach { month ->
+                item(key = "month-${month.month}") {
                     Text(
-                        stringResource(Res.string.import_batch_month, monthName(month.month.ordinal + 1), month.year),
+                        month.heading.string(),
                         Modifier.padding(top = 16.dp, bottom = 4.dp),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                items(rows, key = { it.index }) { row -> BatchRow(row, batch, enabled, state.eventSink) }
+                items(month.rows, key = { it.index }) { row -> BatchRow(row, batch, enabled, state.eventSink) }
             }
             item(key = "settings") { BatchSettings(state, batch, enabled, Modifier.padding(vertical = 16.dp)) }
         }
@@ -127,23 +80,10 @@ internal fun BatchContent(state: ImportActivityState, batch: ImportBatch, paddin
 @Composable
 private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled: Boolean, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-        Text(
-            pluralStringResource(Res.plurals.import_batch_found, batch.rows.size, formatWhole(batch.rows.size)),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Text(ImportActivityTexts.found(batch).string(), style = MaterialTheme.typography.titleMedium)
         // One note per export, so a Strava and a Garmin export picked together each say what they bring.
         batch.exports.forEach { export ->
-            Text(
-                stringResource(
-                    when (export.kind) {
-                        ExportKind.Strava if export.privacy -> Res.string.import_batch_strava
-                        ExportKind.Strava -> Res.string.import_batch_strava_no_privacy
-                        ExportKind.Garmin if export.privacy -> Res.string.import_batch_garmin
-                        ExportKind.Garmin -> Res.string.import_batch_garmin_no_privacy
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(ImportActivityTexts.exportNote(export).string(), style = MaterialTheme.typography.bodyMedium)
         }
         batch.clocks.forEach { file ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -157,93 +97,50 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
             }
         }
         DuplicatesBanner(
+            ImportActivityTexts.batchDuplicateBanner(state, batch),
             state.duplicateCheck,
-            batch.existingDuplicates,
-            batch.inBatchDuplicates,
-            copies = batch.exactCopies,
             onRetry = { state.eventSink(ImportActivityEvent.RetryDuplicateCheck) },
         )
-        if (batch.skipped.isNotEmpty()) {
-            val names = batch.skipped.map { skippedLabel(it) }
-            Text(
-                pluralStringResource(Res.plurals.import_batch_skipped, batch.skipped.size, formatWhole(batch.skipped.size)) +
-                    " " +
-                    names.joinToString(", "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+        ImportActivityTexts.skipped(batch)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
-        if (batch.ignoredFiles > 0) {
-            Text(
-                pluralStringResource(Res.plurals.import_batch_ignored, batch.ignoredFiles, formatWhole(batch.ignoredFiles)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        ImportActivityTexts.ignored(batch)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (batch.originalsTooLarge.isNotEmpty()) {
-            Text(
-                stringResource(Res.string.import_batch_originals_too_large, batch.originalsTooLarge.joinToString(", ")),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+        ImportActivityTexts.originalsTooLarge(batch)?.let { Text(it.string(), style = MaterialTheme.typography.bodySmall) }
     }
 }
-
-@Composable
-private fun skippedLabel(file: SkippedFile): String =
-    stringResource(
-        when (file.reason) {
-            SkipReason.Unsupported -> Res.string.import_skip_unsupported
-            SkipReason.Damaged -> Res.string.import_skip_damaged
-            SkipReason.TooLarge -> Res.string.import_skip_too_large
-        },
-        file.name,
-    )
 
 /** All, New or Duplicates, then how many are selected and Select all or Deselect all for the rows shown. */
 @Composable
 private fun BatchFilters(state: ImportActivityState, batch: ImportBatch, enabled: Boolean, modifier: Modifier = Modifier) {
     Column(modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BatchFilter.entries.forEach { filter ->
+            ImportActivityTexts.filters.forEach { (filter) ->
                 AppFilterChip(
                     selected = batch.filter == filter,
                     onClick = { state.eventSink(ImportActivityEvent.FilterChanged(filter)) },
-                    label = {
-                        Text(
-                            stringResource(
-                                when (filter) {
-                                    BatchFilter.All -> Res.string.import_filter_all
-                                    BatchFilter.New -> Res.string.import_filter_new
-                                    BatchFilter.Duplicates -> Res.string.import_filter_duplicates
-                                },
-                            ),
-                        )
-                    },
+                    label = { Text(ImportActivityTexts.filter(filter).string()) },
                     enabled = enabled,
                 )
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(Res.string.import_dives_selected, formatWhole(batch.selectedCount), formatWhole(batch.rows.size)),
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.labelLarge,
-            )
-            if (batch.selectable.isNotEmpty()) {
+            Text(ImportActivityTexts.selected(batch).string(), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            ImportActivityTexts.selectAll(batch)?.let { label ->
                 AppTextButton(
                     onClick = { state.eventSink(ImportActivityEvent.AllShownSelected(!batch.allShownSelected)) },
                     enabled = enabled,
                 ) {
-                    Text(stringResource(if (batch.allShownSelected) Res.string.import_deselect_all else Res.string.import_select_all))
+                    Text(label.string())
                 }
             }
         }
-        if (batch.filter == BatchFilter.Duplicates && batch.shown.isNotEmpty()) {
-            Text(stringResource(Res.string.import_bulk_duplicates), style = MaterialTheme.typography.labelLarge)
+        if (ImportActivityTexts.offersBulkActions(batch)) {
+            Text(ImportActivityTexts.bulkHeading.string(), style = MaterialTheme.typography.labelLarge)
             // Buttons, not a segmented control: the shown duplicates can each be set differently, so none is "selected".
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DuplicateAction.entries.forEach { action ->
+                ImportActivityTexts.bulkChoices.forEach { (action) ->
                     AppSecondaryButton(
                         onClick = { state.eventSink(ImportActivityEvent.ShownDuplicatesAction(action)) },
                         enabled = enabled,
@@ -272,31 +169,14 @@ private fun BatchRow(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             AppCheckbox(row.selected, onCheckedChange = { eventSink(ImportActivityEvent.ItemToggled(row.index)) }, enabled = enabled)
             Column(Modifier.weight(1f).clickable(enabled = enabled) { eventSink(ImportActivityEvent.ItemOpened(row.index)) }) {
-                Text(row.title ?: defaultTitleLabel(row.defaultTitle), style = MaterialTheme.typography.bodyLarge)
-                val details =
-                    listOfNotNull(
-                        row.start,
-                        activityTypeLabel(row.type),
-                        row.dive?.maxDepthMeters?.let { Format.depth(it) } ?: row.distanceMeters?.let { Format.distance(it) },
-                        Format.duration(row.elapsed),
-                        row.dive?.diveNumber?.let { stringResource(Res.string.dive_number, it) },
-                        row.device,
-                    )
+                Text(ImportActivityTexts.rowTitle(row).string(), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    details.joinToString(" · "),
+                    ImportActivityTexts.rowDetails(row, LocalUnitSystem.current).string(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(row.fileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                row.narrowedTo?.let { narrowed ->
-                    Text(
-                        stringResource(
-                            if (narrowed == Visibility.SELF) Res.string.import_batch_narrowed_self
-                            else Res.string.import_batch_narrowed_followers,
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+                ImportActivityTexts.narrowed(row)?.let { Text(it.string(), style = MaterialTheme.typography.bodySmall) }
             }
         }
         row.duplicate?.let { duplicate ->
@@ -306,7 +186,7 @@ private fun BatchRow(
                 enabled = enabled,
                 modifier = Modifier.padding(start = 36.dp, bottom = 8.dp),
                 // The earlier copy by its dive computer's number where it has one, else its place in the batch.
-                inFileNumber = duplicate.inBatchIndex?.let { batch.rows.getOrNull(it)?.dive?.diveNumber ?: (it + 1) },
+                inFileNumber = ImportActivityTexts.inFileNumber(batch, row),
             )
         }
     }
@@ -317,7 +197,7 @@ private fun BatchRow(
 private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enabled: Boolean, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         Text(
-            stringResource(Res.string.import_dives_details_hint),
+            ImportActivityTexts.detailsHint.string(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -328,50 +208,21 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
         }
         NewDevicesForm(state.newDevices, enabled = enabled)
         ActivityVisibilityForm(state.visibility, enabled = enabled, heading = Res.string.import_batch_visibility_heading)
-        if (batch.originalsBytes > 0) {
-            Text(
-                stringResource(
-                    Res.string.import_batch_originals_size,
-                    stringResource(Res.string.import_megabytes, formatWhole((batch.originalsBytes + BYTES_PER_MB - 1) / BYTES_PER_MB)),
-                ) + " " + uploadingNote(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        ImportActivityTexts.originalsSize(batch, LocalUiPlatform.current.isMobile)?.let {
+            Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         // Words for each untitled row's default title, worked out once per distinct title.
-        val untitled = remember(batch.rows) { batch.rows.filter { it.title == null } }
-        val labels = untitled.map { it.defaultTitle }.distinct().associateWith { defaultTitleLabel(it) }
-        val defaultTitles = untitled.associate { it.index to labels.getValue(it.defaultTitle) }.toImmutableMap()
-        val progress = batch.progress
+        val labels = batch.rows.map { it.defaultTitle }.distinct().associateWith { defaultTitleLabel(it) }
+        val defaultTitles =
+            remember(batch.rows, labels) { ImportActivityTexts.defaultTitles(batch) { labels.getValue(it) }.toImmutableMap() }
         // A save that stopped short, and anything else saving refused, by Save where the athlete is looking (feed/batch-import).
-        val failure = batch.saveFailure
-        if (failure != null) {
-            Text(
-                stringResource(
-                    Res.string.import_batch_save_failed,
-                    formatWhole(failure.saved),
-                    formatWhole(failure.total),
-                    errorText(failure.error),
-                ),
-                color = MaterialTheme.colorScheme.error,
-            )
-        } else {
-            state.error?.let { ErrorText(it) }
-        }
+        ImportActivityTexts.saveFailure(state, batch)?.let { Text(it.string(), color = MaterialTheme.colorScheme.error) }
         AppButton(
             onClick = { state.eventSink(ImportActivityEvent.SaveBatch(defaultTitles)) },
             Modifier.fillMaxWidth(),
-            enabled = enabled && !state.reading && batch.selectedCount > 0 && state.duplicateCheck != DuplicateCheck.Checking,
+            enabled = state.canSaveBatch,
         ) {
-            Text(
-                when {
-                    progress != null ->
-                        stringResource(Res.string.import_batch_saving, formatWhole(progress.queued), formatWhole(progress.total))
-                    state.saving -> stringResource(Res.string.action_saving)
-                    batch.selectedCount == 0 -> stringResource(Res.string.import_dives_none)
-                    else -> pluralStringResource(Res.plurals.import_batch_save, batch.selectedCount, formatWhole(batch.selectedCount))
-                },
-            )
+            Text(ImportActivityTexts.saveBatch(state, batch).string())
         }
     }
 }
@@ -382,8 +233,8 @@ private fun ItemSheet(item: ImportItemPreview, row: ImportRow?, enabled: Boolean
     val close = { eventSink(ImportActivityEvent.ItemClosed) }
     AppBottomSheet(onDismiss = close, sheetState = rememberAppSheetState()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.import_item_title), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            AppTextButton(onClick = close) { Text(stringResource(Res.string.import_item_done)) }
+            Text(ImportActivityTexts.itemTitle.string(), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            AppTextButton(onClick = close) { Text(ImportActivityTexts.itemDone.string()) }
         }
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -393,7 +244,7 @@ private fun ItemSheet(item: ImportItemPreview, row: ImportRow?, enabled: Boolean
             AppTextField(
                 item.title,
                 Modifier.fillMaxWidth(),
-                label = stringResource(Res.string.import_item_title_label),
+                label = ImportActivityTexts.itemTitleLabel.string(),
                 placeholder = defaultTitleLabel(item.defaultTitle),
                 enabled = enabled,
                 lineLimits = TextFieldLineLimits.SingleLine,
@@ -417,29 +268,18 @@ private fun ItemSheet(item: ImportItemPreview, row: ImportRow?, enabled: Boolean
 /** A duplicate beside what it repeats: sport, start, length, distance and device, one column each, and whether it's an exact copy. */
 @Composable
 private fun Comparison(row: ImportRow, matched: ExistingActivityPreview, duplicate: DuplicateInfo) {
+    val units = LocalUnitSystem.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (duplicate.exactCopy) Text(stringResource(Res.string.import_compare_exact), style = MaterialTheme.typography.titleSmall)
+        if (duplicate.exactCopy) Text(ImportActivityTexts.compareExact.string(), style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             CompareColumn(
-                stringResource(Res.string.import_compare_this),
-                persistentListOf(
-                    activityTypeLabel(row.type),
-                    row.start,
-                    Format.duration(row.elapsed),
-                    row.distanceMeters?.let { Format.distance(it) },
-                    row.device,
-                ),
+                ImportActivityTexts.compareThis,
+                ImportActivityTexts.compareRow(row, units).toImmutableList(),
                 Modifier.weight(1f),
             )
             CompareColumn(
-                stringResource(if (duplicate.existing != null) Res.string.import_compare_logged else Res.string.import_compare_in_import),
-                persistentListOf(
-                    matched.type?.let { activityTypeLabel(it) },
-                    matched.start,
-                    matched.elapsed?.let { Format.duration(it) },
-                    matched.distanceMeters?.let { Format.distance(it) },
-                    matched.device,
-                ),
+                ImportActivityTexts.compareOther(duplicate),
+                ImportActivityTexts.compareMatched(matched, units).toImmutableList(),
                 Modifier.weight(1f),
             )
         }
@@ -447,18 +287,14 @@ private fun Comparison(row: ImportRow, matched: ExistingActivityPreview, duplica
 }
 
 @Composable
-private fun CompareColumn(heading: String, values: ImmutableList<String?>, modifier: Modifier = Modifier) {
+private fun CompareColumn(heading: AppText, values: ImmutableList<AppText>, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(heading, style = MaterialTheme.typography.labelLarge)
+        Text(heading.string(), style = MaterialTheme.typography.labelLarge)
         values.forEach { value ->
-            Text(value ?: "–", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-private const val BYTES_PER_MB = 1024L * 1024
-
 /** How a saved batch uploads: phones keep going in the background (data/outbox), desktop and web only while the app is open. */
-@Composable
-internal fun uploadingNote(): String =
-    stringResource(if (LocalUiPlatform.current.isMobile) Res.string.import_batch_uploading_mobile else Res.string.import_batch_uploading)
+@Composable internal fun uploadingNote(): String = ImportActivityTexts.uploadingNote(LocalUiPlatform.current.isMobile).string()

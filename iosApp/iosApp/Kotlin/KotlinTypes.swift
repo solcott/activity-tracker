@@ -596,3 +596,37 @@ typealias CreateSegmentEvent = SegmentPackage.CreateSegmentEvent
 typealias CreateSegmentTexts = SegmentPackage.CreateSegmentTexts
 typealias CreateSegmentUnavailable = SegmentPackage.CreateSegmentUnavailable
 typealias SelectionCheck = SegmentPackage.SelectionCheck
+
+// The import screen (ios-native-import): picking files, one activity's preview and form, a batch with its rows and opened row, the new
+// devices, the saved and after-import panels, and what they say.
+typealias ImportActivityScreen = RecordPackage.ImportActivityScreen
+typealias ImportActivityState = RecordPackage.ImportActivityState
+typealias ImportActivityEvent = RecordPackage.ImportActivityEvent
+typealias ImportActivityTexts = RecordPackage.ImportActivityTexts
+typealias ImportPreview = RecordPackage.ImportPreview
+typealias ImportBatch = RecordPackage.ImportBatch
+typealias ImportRow = RecordPackage.ImportRow
+typealias ImportMonth = RecordPackage.ImportMonth
+typealias ImportItemPreview = RecordPackage.ImportItemPreview
+typealias DuplicateInfo = RecordPackage.DuplicateInfo
+typealias DuplicateAction = RecordPackage.DuplicateAction
+typealias DuplicateChoice = RecordPackage.DuplicateChoice
+typealias DuplicateCheck = RecordPackage.DuplicateCheck
+typealias BatchFilter = RecordPackage.BatchFilter
+typealias FilterChoice = RecordPackage.FilterChoice
+typealias BatchExport = RecordPackage.BatchExport
+typealias ImportClock = RecordPackage.ImportClock
+typealias TimeZoneOption = RecordPackage.TimeZoneOption
+typealias FileClock = RecordPackage.FileClock
+typealias ExistingActivityPreview = RecordPackage.ExistingActivityPreview
+typealias SavedSuggestion = RecordPackage.SavedSuggestion
+typealias StoppedImport = RecordPackage.StoppedImport
+typealias NewDevicesFields = RecordPackage.NewDevicesFields
+typealias NewDeviceCard = RecordPackage.NewDeviceCard
+typealias NewDeviceDecision = RecordPackage.NewDeviceDecision
+typealias DeviceDecisionChoice = RecordPackage.DeviceDecisionChoice
+typealias NewDeviceEvent = RecordPackage.NewDeviceEvent
+typealias AfterImport = RecordPackage.AfterImport
+typealias PastImportsOffer = RecordPackage.PastImportsOffer
+typealias GearConflict = RecordPackage.GearConflict
+typealias ThresholdChange = ExportedKotlinPackages.io.github.solcott.activitytracker.data.training.ThresholdChange

@@ -440,6 +440,17 @@ Each phase leaves a shippable app.
      each thumb an adjustable element named and read in Kotlin's words), the selection's line (red when it fails), the name with the
      public note under it, duplicates to open, the allowance, a failed check, and Publish in the bar; or why no segment can be made.
      What it says is Kotlin's (`CreateSegmentTexts`, `CreateSegmentState.routeMap`), which the Compose form asks too.
+   - **Import** (`ios-native-import`). The import screen is native (`ImportActivityView`, `ImportBatchSections.swift`): files picked
+     with `fileImporter` (several, any type) reach Kotlin as the same range-read sources FileKit's picker gives
+     (`IosApp.importSources`, `FilesPicked`), so an archive is never held whole and a batch save keeps them as bookmarks; reading's
+     progress with Cancel, a batch save under way and stopped imports with Dismiss; one activity's preview, drawn with the activity
+     page's pieces (hero, `RouteMapView`, avg/max beside the form, training load, `MetricCardSection`, stats), then the forms' sections,
+     the threshold changes, gear conflicts, new devices and the profile link, with Save in the bar, the preview and form side by side
+     from 840 points; a batch's summary, zones (a searchable sheet), duplicate banner with Retry, filters, rows by month with a tick and
+     an opened row in a sheet; the saved panel with its combine suggestions and the after-import panel. Opened with `combineInto` it
+     names the activity and has no visibility choices. What it says is Kotlin's (`ImportActivityTexts`, `ImportActivityState.canSave`,
+     `canSaveBatch`, `saveEvent` and `saveBatchEvent` with the default titles worded through a `TextSource`,
+     `RecordingTexts.suggestedActivity`), which the Compose screen asks too.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1913,6 +1924,25 @@ What building the host and the shell on Swift export showed, beyond the probes:
   route (its comment meant fractions), so the shared slider's thumbs sat together at the left in every Android screenshot; the native
   snapshots showed it at once. They now choose 480 m to 1,440 m.
 
+### Phase 4 findings (import, `ios-native-import`)
+
+- **One file goes as a source too.** The contract offers `FilePicked` (bytes) beside `FilesPicked`, but the shared picker sends
+  `FilesPicked` for one file as well: an archive can be gigabytes, and a batch save reopens its files from bookmarks, which only a
+  `PlatformBacked` source gives (`ByteArrayImportSource` isn't one). So `fileImporter`'s URLs go through `IosApp.importSources`, which
+  wraps each in the `PickedFileSource` FileKit's iOS picker makes; FileKit holds each URL's security scope while its stream is open.
+  `FilePicked` stays for tests.
+- **Swift builds the events that word text through a `TextSource`.** Save's and Save batch's default titles are the rows' default
+  titles in words; rather than Swift picking the untitled rows and building a dictionary, the state builds the event
+  (`saveEvent(source)`, `saveBatchEvent(source)`) from `CatalogText`, and Compose resolves the same `defaultTitles` rule in composition.
+- **Nested sealed events read as nested types**: `ImportActivityEvent.Saved.Done.shared`, `ImportActivityEvent.After.ApplyToPast.shared`.
+- **A snapshot taller than 8,192 pixels draws blank, with no error.** Every 393 × 3,200 point reference (9,600 pixels at 3x) recorded
+  as an empty page while the 1,180 × 2,400 iPad one drew; 2,700 points (8,100 pixels) draws. Look at a new suite's images before
+  trusting its comparisons.
+- **A list row's second button keeps its text's colour and alignment only as `.plain`.** `.borderless` tinted the row's title and
+  lines and centred the wrapped ones; the tick beside it stays `.borderless`, so each takes its own taps.
+- **The shared iOS layout never showed a failed single-file save**: Save sat in the bar and the save panel, where the error is, shows
+  only from 840dp. The native form shows it at the top, as the other forms do.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2006,8 +2036,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   charts `LineChart` can't draw yet, the legs, lengths and sets tables, the edit-combination sheet, the chart source captions and the
   nested efforts' guide lines and span bars~~: done (`ios-native-activity-rest`), and ~~the media gallery, the enlarged route map and the
   combine picker~~ are native too. Two cards to a row on a medium width is the shared page's; the native one stacks them. The screens it
-  opens that are still shared: Add a recording (import); ~~Create segment~~ is native (`ios-native-create-segment`), ~~Edit~~
-  and ~~Create dive site~~ are native (`ios-native-forms`), and so is manual entry, from the feed. The Compose charts keep Vico and its own drawing of the backdrop, other
+  opens that are still shared: none; ~~Create segment~~ (`ios-native-create-segment`) and ~~Add a recording (import)~~
+  (`ios-native-import`) are native, and so are ~~Edit~~ and ~~Create dive site~~ (`ios-native-forms`), and manual entry, from the feed. The Compose charts keep Vico and its own drawing of the backdrop, other
   lines and marks; only their words are shared.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the

@@ -2,12 +2,17 @@ package io.github.solcott.activitytracker.app.detail
 
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
+import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.activity.CombineCue
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlin.math.abs
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.TimeZone
 
 /**
  * How an activity's other recordings, a combined activity's members and a combine suggestion's cue read (feed/combined-activities,
@@ -63,4 +68,22 @@ object RecordingTexts {
                 CombineCue.Break -> "combine_cue_break"
             },
         )
+
+    /**
+     * [activity] as a combine suggestion names it: its title (or type), then when it started on its own clock and how long it lasted
+     * ("Lunch loop (Today at 12:01 PM · 52:00)").
+     */
+    fun suggestedActivity(activity: ActivityView, now: Instant, zone: TimeZone): AppText {
+        val record = activity.record
+        val start = FigureValue.StartTime(record.startedAt.epochSeconds, record.utcOffset, dateOnly = false)
+        return AppText.named(
+            "combine_suggested_activity",
+            record.title?.let(AppText::written) ?: LabelText.activityType(record.activityType),
+            AppText.named(
+                "combine_row",
+                FigureTexts.value(start, UnitSystem.Metric, now, zone),
+                AppText.written(StatText.duration(record.elapsedTime)),
+            ),
+        )
+    }
 }

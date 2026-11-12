@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.text.TextSource
+import io.github.solcott.activitytracker.app.text.resolve
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -107,7 +109,41 @@ data class ImportActivityState(
     /** Imports whose save stopped before every activity was saved: picking the files again imports the rest. */
     val stoppedImports: ImmutableList<StoppedImport> = persistentListOf(),
     val eventSink: (ImportActivityEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Files have been read: the screen offers Choose other files, and errors are saving's. */
+    val picked: Boolean
+        get() = preview != null || batch != null
+
+    /**
+     * A single activity can be saved: not an ignored duplicate, nor an activity until the athlete's log has been checked for it, nor a
+     * recording that can't be added to the activity it's for (too far from it, or that activity still loading).
+     */
+    val canSave: Boolean
+        get() =
+            preview != null &&
+                !saving &&
+                !reading &&
+                preview.duplicate?.action != DuplicateAction.Ignore &&
+                duplicateCheck != DuplicateCheck.Checking &&
+                !tooFarFromTarget &&
+                (!addsRecording || addingTo != null)
+
+    /** A batch can be saved: something selected, nothing being read, saved or checked. */
+    val canSaveBatch: Boolean
+        get() = batch != null && !saving && !reading && batch.selectedCount > 0 && duplicateCheck != DuplicateCheck.Checking
+
+    /** The single activity's Save, with its default title in [source]'s words (dev/shared-display-text). */
+    fun saveEvent(source: TextSource): ImportActivityEvent =
+        ImportActivityEvent.Save(defaultTitle?.let { ImportActivityTexts.defaultTitle(it).resolve(source) })
+
+    /** The batch's Save, with each untitled activity's default title in [source]'s words. */
+    fun saveBatchEvent(source: TextSource): ImportActivityEvent =
+        ImportActivityEvent.SaveBatch(
+            batch
+                ?.let { ImportActivityTexts.defaultTitles(it) { title -> ImportActivityTexts.defaultTitle(title).resolve(source) } }
+                .orEmpty(),
+        )
+}
 
 /** A batch save under way: [progress] of its activities saved or skipped so far. */
 @Immutable data class SavingImport(val progress: SaveProgress)

@@ -198,7 +198,7 @@ object ActivityDetailSamples {
     private fun figure(key: FigureKey, value: FigureValue, mark: String? = null) = Figure(key, value, mark = mark)
 
     /** What the owner's ride page shows: its hero, training load, a card per metric with charts, zones and laps, and its stats. */
-    private val ridePage: ActivityPageContent =
+    internal val ridePage: ActivityPageContent =
         ActivityPageContent(
             start = page.page.start,
             hero =
@@ -374,7 +374,7 @@ object ActivityDetailSamples {
         }
 
     /** A dive's depth, with a switch to EAN50, a warning and the deco ceiling, and its two tanks. */
-    private val divePage: ActivityPageContent
+    internal val divePage: ActivityPageContent
         get() {
             val depth =
                 LineSeries(

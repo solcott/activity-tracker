@@ -92,6 +92,8 @@ struct ScreenRegistryTests {
         }
         // Create segment (ios-native-create-segment).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "CreateSegmentScreen"))
+        // The import screen (ios-native-import).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ImportActivityScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
@@ -142,5 +144,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.CreateDiveSiteScreen.self) == "CreateDiveSiteScreen")
         // Create segment (ios-native-create-segment).
         #expect(String(describing: ActivityTracker.CreateSegmentScreen.self) == "CreateSegmentScreen")
+        // The import screen (ios-native-import).
+        #expect(String(describing: ActivityTracker.ImportActivityScreen.self) == "ImportActivityScreen")
     }
 }

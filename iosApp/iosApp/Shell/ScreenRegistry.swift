@@ -127,6 +127,8 @@ extension ScreenRegistry {
         registry.register(CreateDiveSiteScreen.self, CreateDiveSiteState.self) { state in CreateDiveSiteView(state: state) }
         // Create segment (ios-native-create-segment), over the activity page.
         registry.register(CreateSegmentScreen.self, CreateSegmentState.self) { state in CreateSegmentView(state: state) }
+        // The import screen (ios-native-import), over the feed and, adding a recording, over the activity page.
+        registry.register(ImportActivityScreen.self, ImportActivityState.self) { state in ImportActivityView(state: state) }
         return registry
     }()
 }
