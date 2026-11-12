@@ -73,13 +73,12 @@ struct ScreenRegistryTests {
         for screen in ["AthleteSearchScreen", "LeftElsewhereScreen", "DiveSiteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // The rest of what the lists open is still the shared UI's.
-        // Accepting an invite waits for the native route preview and visibility form.
-        // The segment page draws a chart, and its enlarged map and segment browse wait for the native map's interactive pages (the
-        // native Search tab embeds the shared browse screen).
-        for screen in ["AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen"] {
-            #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
+        // A segment's enlarged map, segment browse and accepting an invite (ios-native-interactive-maps).
+        for screen in ["SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The rest of what the lists open is still the shared UI's: the segment page draws a chart.
+        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "SegmentScreen"))
         // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
     }
@@ -105,6 +104,9 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.LeaveScreen.self) == "LeaveScreen")
         #expect(String(describing: ActivityTracker.AthleteSearchScreen.self) == "AthleteSearchScreen")
         #expect(String(describing: ActivityTracker.LeftElsewhereScreen.self) == "LeftElsewhereScreen")
+        #expect(String(describing: ActivityTracker.SegmentMapScreen.self) == "SegmentMapScreen")
+        #expect(String(describing: ActivityTracker.SegmentBrowseScreen.self) == "SegmentBrowseScreen")
+        #expect(String(describing: ActivityTracker.AcceptInviteScreen.self) == "AcceptInviteScreen")
         #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
         #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
         #expect(String(describing: ActivityTracker.UploadsScreen.self) == "UploadsScreen")
