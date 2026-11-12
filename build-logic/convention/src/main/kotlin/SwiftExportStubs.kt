@@ -199,6 +199,7 @@ class SwiftExportConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             val contracts = swiftContractModules(rootProject.childProjects.values.map { it.path })
+            val projectDirs = rootProject.childProjects.values.associate { it.path to it.isolated.projectDirectory }
             extensions.create("swiftContracts", SwiftContractsExtension::class.java, contracts)
             val exports = tasks.named { it.endsWith("SwiftExport") }
             tasks.register<CheckSwiftExportStubs>(CHECK_SWIFT_EXPORT_STUBS_TASK_NAME) {
@@ -235,8 +236,20 @@ class SwiftExportConventionPlugin : Plugin<Project> {
                     marker.set(layout.buildDirectory.file("iosResources/check.txt"))
                     mustRunAfter(GENERATE_IOS_RESOURCES_TASK_NAME)
                 }
+            // Every screen the iOS app can show has a native view (ui/ios-native-shell): a text scan of the contracts and the registry.
+            val screenRegistry =
+                tasks.register<CheckIosScreenRegistry>(CHECK_IOS_SCREEN_REGISTRY_TASK_NAME) {
+                    group = JavaBasePlugin.VERIFICATION_GROUP
+                    description = "Fails when a screen of a contract module has no native view in the iOS app's ScreenRegistry."
+                    contracts.forEach { contract ->
+                        contractSources.from(fileTree(projectDirs.getValue(contract.path)) { include("src/*Main/**/*.kt") })
+                    }
+                    registry.set(root.file("iosApp/iosApp/Shell/ScreenRegistry.swift"))
+                    sourceRoot.set(root.asFile.absolutePath)
+                    marker.set(layout.buildDirectory.file("iosScreenRegistry/check.txt"))
+                }
             plugins.withType(LifecycleBasePlugin::class.java) {
-                tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(iosResources) }
+                tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(iosResources, screenRegistry) }
             }
         }
     }
