@@ -274,6 +274,14 @@
             }
         }
 
+        /// The rest of an activity's charts (ios-native-activity-rest): power over the elevation, the power curve, a pedal pair's two legs,
+        /// the gears and assist mode in steps, a dive's depth filled to the surface with its switch, warning and ceiling, and two tanks.
+        static var layeredCharts: some View {
+            List {
+                ForEach(Array(Samples.layeredCharts.enumerated()), id: \.offset) { _, chart in LineChartView(chart: chart) }
+            }
+        }
+
         static var icons: some View {
             VStack(alignment: .leading, spacing: 16) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
@@ -391,6 +399,7 @@
     #Preview("Charts") { DesignGallery.charts }
     #Preview("Activity charts") { DesignGallery.activityCharts }
     #Preview("Step charts") { DesignGallery.stepCharts }
+    #Preview("Layered charts") { DesignGallery.layeredCharts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
     #Preview("Content") {

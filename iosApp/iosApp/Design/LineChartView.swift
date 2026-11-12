@@ -6,7 +6,10 @@ import UIKit
 /// over its x range, the line filled beneath, the y axis Kotlin chose with a labelled gridline at each step, Kotlin's labels along the
 /// bottom, no line or fill across a gap, its average dashed where it has one, and the bands it is tinted by (an elevation profile's
 /// grade, `GradeColors`); in steps when Kotlin says so (a threshold holds until it changes), with Kotlin's dots, filled or hollow, and
-/// their labels over them. Tapping or dragging
+/// their labels over them; a backdrop (the elevation behind an effort line, which Kotlin scaled onto this chart's axis) faintly behind
+/// everything, more lines on the same scale in their own colours (a pair's right leg, another tank, a dive's ceiling), marked moments
+/// with their labels (a gas switch, or a warning in red along the bottom), and a fill above the line instead of below (a dive's depth,
+/// filled up to the surface). Tapping or dragging
 /// sideways across it marks the nearest point and shows Kotlin's readout for it over the chart, staying where the finger left it; a
 /// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`, through a UIKit pan that begins only sideways, since a
 /// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
@@ -36,20 +39,60 @@ struct LineChartView: View {
         let style = ChartTint(chart: chart)
         let shape: InterpolationMethod = chart.steps ? .stepEnd : .linear
         let dots = chart.dots.elements(as: ChartDot.self)
+        let backdrop = ChartPieces.of(chart.backdrop.elements(as: LinePoint.self))
+        let others = (0..<chart.otherCount).map { chart.otherAt(index: $0) }
+        let marks = (0..<chart.markCount).map { chart.markAt(index: $0) }
+        let fillTo = chart.fillAbove ? axis.max : axis.min
         Chart {
-            ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+            // The backdrop first, so everything else is drawn over it.
+            ForEach(Array(backdrop.enumerated()), id: \.offset) { index, piece in
                 ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
                     AreaMark(
                         x: .value("x", point.x), yStart: .value("y", axis.min), yEnd: .value("y", point.y),
-                        series: .value("piece", index)
+                        series: .value("piece", "backdrop \(index)")
+                    )
+                    .foregroundStyle(Color(.label).opacity(0.12))
+                }
+            }
+            ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
+                    AreaMark(
+                        x: .value("x", point.x), yStart: .value("y", fillTo), yEnd: .value("y", point.y),
+                        series: .value("piece", "line \(index)")
                     )
                     .foregroundStyle(style.area)
                     .interpolationMethod(shape)
-                    LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", index))
+                    LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", "line \(index)"))
                         .interpolationMethod(shape)
                         .foregroundStyle(style.line)
                         .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
+            }
+            ForEach(Array(others.enumerated()), id: \.offset) { line, other in
+                let color = ChartOtherColors.color(Int(other.tone))
+                ForEach(Array(ChartPieces.of(other.points.elements(as: LinePoint.self)).enumerated()), id: \.offset) { index, piece in
+                    ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
+                        LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", "other \(line) \(index)"))
+                            .interpolationMethod(shape)
+                            .foregroundStyle(color)
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                    }
+                }
+            }
+            // Each marked moment, labelled beside its line inside the plot: a switch at the top, a warning in red at the bottom.
+            ForEach(Array(marks.enumerated()), id: \.offset) { _, mark in
+                RuleMark(x: .value("x", mark.x))
+                    .foregroundStyle(mark.warning ? Color.red : Color(.systemTeal))
+                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .annotation(
+                        position: .trailing, alignment: mark.warning ? .bottom : .top, spacing: 3,
+                        overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))
+                    ) {
+                        Text(mark.label)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(mark.warning ? Color.red : Color(.systemTeal))
+                            .fixedSize()
+                    }
             }
             // The average, dashed across the chart, where the chart has one (an activity card's line).
             if let average = chart.average {
@@ -142,6 +185,13 @@ private struct ChartDotSymbol: View {
             .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 2))
             .frame(width: size, height: size)
     }
+}
+
+/// The colours of a chart's other lines, in turn, as the shared chart's: teal, purple, then red.
+enum ChartOtherColors {
+    static let all: [Color] = [Color(.systemTeal), Color(.systemPurple), Color(.systemRed)]
+
+    static func color(_ tone: Int) -> Color { all[((tone % all.count) + all.count) % all.count] }
 }
 
 /// The readout over a chart: Kotlin's text for the marked point, on the page's background with a hairline.
