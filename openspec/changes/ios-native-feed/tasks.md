@@ -14,9 +14,9 @@
 
 ## 3. The whole change together
 
-- [ ] 3.1 `./gradlew format` and `./gradlew check`. Verify both pass.
-- [ ] 3.2 The Swift tests on clones of the iOS 26.0 and 18.4 snapshot simulators. Verify they pass, snapshots compared on 26.0 and skipped on 18.4.
-- [ ] 3.3 The Release configuration for the simulator. Verify it builds and passes the stub check.
+- [x] 3.1 `./gradlew format` and `./gradlew check`. Verify both pass.
+- [x] 3.2 The Swift tests on clones of the iOS 26.0 and 18.4 snapshot simulators. Verify they pass, snapshots compared on 26.0 and skipped on 18.4.
+- [x] 3.3 The Release configuration for the simulator. Verify it builds and passes the stub check.
 
 ## 4. See it
 
@@ -24,7 +24,7 @@
 
 ## 5. Docs
 
-- [ ] 5.1 The roadmap: a Phases item 4 bullet, "Phase 4 findings (feed)", the open items (the feed's closed; paging, Report on feed posts, the bar's type sheet). Verify `openspec validate ios-native-feed --strict` passes.
+- [x] 5.1 The roadmap: a Phases item 4 bullet, "Phase 4 findings (feed)", the open items (the feed's closed; paging, Report on feed posts, the bar's type sheet). Verify `openspec validate ios-native-feed --strict` passes.
 - [x] 5.2 `.agents/rules/compose-screens.md` and `adaptive-ui.md` where a rule changed. Verify `scripts/check-agent-sync.sh` and `scripts/check-public-safety.sh` pass.
 - [x] 5.3 A "Not verified" section listing what wasn't seen and why.
 
