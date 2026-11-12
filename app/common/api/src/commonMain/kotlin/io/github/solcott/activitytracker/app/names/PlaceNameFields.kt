@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.names
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 
 /**
  * A place's names as its page shows them (segments/segment-names): a segment's and a dive site's alike. The holder that owns it
@@ -21,7 +22,10 @@ data class PlaceNameFields(
     /** The signed-in viewer's DID: the proposals they made are offered Edit and Delete, not votes. */
     val viewerDid: String? = null,
     val eventSink: (PlaceNameEvent) -> Unit = {},
-)
+) {
+    /** [proposal] is the viewer's own: it offers Edit and Delete rather than votes. */
+    fun isOwn(proposal: SegmentNameProposalView): Boolean = proposal.proposer.did.value == viewerDid
+}
 
 sealed interface PlaceNameEvent {
     /** Opens the sheet proposing a name, when the viewer may propose. */

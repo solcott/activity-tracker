@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -11,9 +12,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.pagedStateOf
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The dive site at [uri] (dive-sites): its centre and radius on a map, its names, its conditions in the viewer's units, its top Regular and
@@ -38,6 +43,10 @@ data class DiveSiteState(
     val dives: PagedState<ActivityView, Unit> = pagedStateOf(),
     /** The site's names: the sheet, a deletion being confirmed, the last failure, and their events. */
     val names: PlaceNameFields = PlaceNameFields(),
+    /** The signed-in viewer's DID, whose own dives' cards show their locks. */
+    val viewerDid: String = "",
+    /** Labeled photos the viewer revealed on this screen. */
+    val revealed: Revealed = Revealed(),
     val eventSink: (DiveSiteEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s site: the last loaded, or null before the first. */
@@ -55,6 +64,14 @@ data class DiveSiteState(
     /** The viewer may vote, having visited the site; [PlaceNameFields.canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = site?.viewer?.canVoteOnNames == true
+
+    /** The site's open name proposals, for a UI that can't read the lexicon view's list. */
+    val proposals: ImmutableList<SegmentNameProposalView>
+        get() = site?.nameProposals.orEmpty().toImmutableList()
+
+    /** The site's adopted names, newest first. */
+    val history: ImmutableList<SegmentNameAdoption>
+        get() = site?.nameHistory.orEmpty().toImmutableList()
 }
 
 /** An active site's Regulars board in brief: its [leader], null when it has none yet, and the [viewer]'s own entry when on it. */

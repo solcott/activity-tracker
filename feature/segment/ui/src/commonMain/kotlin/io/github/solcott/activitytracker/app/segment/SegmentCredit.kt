@@ -19,7 +19,7 @@ internal fun Credit(credit: SegmentCredit) {
         when (credit) {
             is SegmentCredit.OpenStreetMap -> {
                 val uriHandler = LocalUriHandler.current
-                AppTextButton(onClick = { uriHandler.openUri(OSM_COPYRIGHT_URL) }) { Text(stringResource(Res.string.segment_credit_osm)) }
+                AppTextButton(onClick = { uriHandler.openUri(PlaceTexts.OSM_COPYRIGHT_URL) }) { Text(stringResource(Res.string.segment_credit_osm)) }
                 credit.license
             }
             is SegmentCredit.Agency -> {
@@ -39,5 +39,3 @@ private fun CreditText(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** OSM's attribution guideline asks for a link here. */
-private const val OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright"
