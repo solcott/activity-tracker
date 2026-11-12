@@ -30,9 +30,9 @@ import com.patrykandpatrick.vico.multiplatform.common.DashedShape
 import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
+import io.github.solcott.activitytracker.data.chart.ChartAxis
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.ceil
-import kotlin.math.floor
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -49,7 +49,8 @@ import kotlinx.collections.immutable.toImmutableList
  * line, its fill and the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The
  * backdrop, and the fill of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself.
  * [lineBrush] and [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted
- * by grade ([GradeBands]); a line with gaps keeps its plain fill.
+ * by grade ([GradeBands]); a line with gaps keeps its plain fill. [axis] is the y axis a caller chose with [ChartAxis]; without one the
+ * chart takes [ChartAxis.of] its values.
  */
 @Composable
 fun TimeSeriesChart(
@@ -74,6 +75,7 @@ fun TimeSeriesChart(
     lineBrush: Brush? = null,
     areaBrush: Brush? = null,
     height: Dp = 140.dp,
+    axis: ChartAxis? = null,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
@@ -88,8 +90,8 @@ fun TimeSeriesChart(
     val separateFill = gaps.isNotEmpty()
     val model = remember(plotted, plottedExtra) { CartesianChartModel(linesModel(listOf(plotted) + plottedExtra)) }
     val yAxis =
-        remember(points, extra, pointLabels.isEmpty(), inverted, timeValues) {
-            yAxisOf(points + extra.flatten(), pointLabels.isNotEmpty(), inverted, timeValues)
+        remember(points, extra, pointLabels.isEmpty(), inverted, timeValues, axis) {
+            axis ?: ChartAxis.of((points + extra.flatten()).map { it.y }, pointLabels.isNotEmpty(), inverted, timeValues)
         }
     val minY = yAxis.min
     val maxY = yAxis.max
@@ -205,21 +207,6 @@ fun TimeSeriesChart(
     StaticChart(chart, model, description, height, modifier, readout)
 }
 
-/**
- * A little headroom over [values] (more when [labelled] points carry labels above them), and a floor at zero for values that start there,
- * like power or speed; [inverted] for a chart plotted below zero. [timeValues] (a pace) step by whole seconds or minutes and have no floor.
- */
-private fun yAxisOf(values: List<SeriesPoint>, labelled: Boolean, inverted: Boolean, timeValues: Boolean): YAxis {
-    val low = values.minOf { it.y }
-    val high = values.maxOf { it.y }
-    val pad = ((high - low) * Y_PADDING).coerceAtLeast(1.0)
-    val top = if (labelled) (high - low) * LABELLED_Y_PADDING else pad
-    val axis =
-        if (timeValues) YAxis.aroundTime(low - pad, high + top)
-        else YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
-    return if (inverted) YAxis(-axis.max, -axis.min, axis.step) else axis
-}
-
 /** [brush] as a fill when there is one, else [color]. */
 private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(brush) else Fill(color)
 
@@ -263,45 +250,7 @@ private fun rememberBackdrop(points: ImmutableList<SeriesPoint>): AreaUnderlay {
     }
 }
 
-private const val Y_PADDING = 0.08
-private const val LABELLED_Y_PADDING = 0.25
-private const val Y_LABELS = 4
 private const val X_LABELS = 4
-
-/**
- * A y range from [min] to [max] on whole multiples of [step], a round 1, 2 or 5 times a power of ten (at least 1, since labels are whole
- * numbers), with at most [Y_LABELS] gaps.
- */
-private data class YAxis(val min: Double, val max: Double, val step: Double) {
-    companion object {
-        fun around(low: Double, high: Double): YAxis {
-            var magnitude = 1.0
-            while (true) {
-                for (multiple in NICE_STEPS) {
-                    val step = multiple * magnitude
-                    val min = floor(low / step) * step
-                    val max = ceil(high / step) * step
-                    if ((max - min) / step <= Y_LABELS) return YAxis(min, max.coerceAtLeast(min + step), step)
-                }
-                magnitude *= DECADE
-            }
-        }
-
-        /** Like [around], on a step a clock reads easily: 5, 10, 15 or 30 seconds, or 1, 2, 5, 10, 15 or 30 minutes. */
-        fun aroundTime(low: Double, high: Double): YAxis {
-            for (step in TIME_VALUE_STEPS) {
-                val min = floor(low / step) * step
-                val max = ceil(high / step) * step
-                if ((max - min) / step <= Y_LABELS) return YAxis(min, max.coerceAtLeast(min + step), step)
-            }
-            return around(low, high)
-        }
-
-        private val NICE_STEPS = listOf(1.0, 2.0, 5.0)
-        private val TIME_VALUE_STEPS = listOf(5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 1800.0)
-        private const val DECADE = 10
-    }
-}
 
 /** About [X_LABELS] labels across [seconds], on a whole number of minutes or hours. */
 private fun timeStep(seconds: Double): Double =
