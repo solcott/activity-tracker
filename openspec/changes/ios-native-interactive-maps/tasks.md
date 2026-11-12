@@ -11,12 +11,12 @@
 
 ## 2. The native views
 
-- [ ] 2.1 Type aliases and samples (appended blocks). Verify the app builds.
-- [ ] 2.2 `RouteMapView(height: nil)` and `SegmentMapView`. Verify its previews and `SegmentMapSnapshotTests`, light and dark, each image looked at.
-- [ ] 2.3 `SegmentsMapView` and `SegmentBrowseView`, phone and iPad layouts. Verify previews, `SegmentBrowseSnapshotTests` and a Swift test of the map's conversions.
-- [ ] 2.4 `EmbeddedScreenView`; the Search tab's Segments mode shows the native browse; the Compose embed and its entry point removed. Verify the app builds and the stub check passes.
-- [ ] 2.5 `VisibilityFormSections` (from Activity defaults) and `AcceptInviteView`. Verify Activity defaults' snapshots unchanged and `AcceptInviteSnapshotTests`.
-- [ ] 2.6 The registry entries. Verify `ScreenRegistryTests` names them native.
+- [x] 2.1 Type aliases and samples (appended blocks). Verify the app builds.
+- [x] 2.2 `RouteMapView(height: nil)` and `SegmentMapView`. Verify its previews and `SegmentMapSnapshotTests`, light and dark, each image looked at.
+- [x] 2.3 `SegmentsMapView` and `SegmentBrowseView`, phone and iPad layouts. Verify previews, `SegmentBrowseSnapshotTests` and a Swift test of the map's conversions.
+- [x] 2.4 `EmbeddedScreenView`; the Search tab's Segments mode shows the native browse; the Compose embed and its entry point removed. Verify the app builds and the stub check passes.
+- [x] 2.5 `VisibilityFormSections` (from Activity defaults) and `AcceptInviteView`. Verify Activity defaults' snapshots unchanged and `AcceptInviteSnapshotTests`.
+- [x] 2.6 The registry entries. Verify `ScreenRegistryTests` names them native.
 
 ## 3. The whole change together
 
@@ -31,5 +31,5 @@
 ## 5. Docs
 
 - [ ] 5.1 The roadmap: a Phases item 4 bullet, "Phase 4 findings (interactive maps)", the open items. Verify `openspec validate ios-native-interactive-maps --strict` passes.
-- [ ] 5.2 `.agents/rules/compose-screens.md` and `adaptive-ui.md` where a rule changed. Verify `scripts/check-agent-sync.sh` and `scripts/check-public-safety.sh` pass.
+- [x] 5.2 `.agents/rules/compose-screens.md` and `adaptive-ui.md` where a rule changed. Verify `scripts/check-agent-sync.sh` and `scripts/check-public-safety.sh` pass.
 - [ ] 5.3 A "Not verified" section listing what wasn't seen and why.
