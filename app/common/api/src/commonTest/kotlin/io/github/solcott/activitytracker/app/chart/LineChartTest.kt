@@ -73,4 +73,21 @@ class LineChartTest {
             )
         }
     }
+
+    @Test
+    fun aBackdropFillsThreeFifthsOfTheAxisFromItsBottom() {
+        val axis = io.github.solcott.activitytracker.data.chart.ChartAxis(0.0, 300.0, 100.0)
+        val backdrop = LineChart.backdropOf(listOf(LinePoint(0.0, 100.0), LinePoint(1.0, 160.0)), axis)
+        assertEquals(0.0, backdrop[0].y)
+        assertEquals(180.0, backdrop[1].y, 1e-9)
+    }
+
+    @Test
+    fun aFlatBackdropStaysFlat() {
+        val axis = io.github.solcott.activitytracker.data.chart.ChartAxis(0.0, 100.0, 50.0)
+        val backdrop = LineChart.backdropOf(listOf(LinePoint(0.0, 100.0), LinePoint(1.0, 102.0)), axis)
+        // A 2 m rise over the 20 m floor fills a tenth of three fifths.
+        assertEquals(6.0, backdrop[1].y, 1e-9)
+        assertEquals(emptyList(), LineChart.backdropOf(listOf(LinePoint(0.0, 1.0)), axis))
+    }
 }

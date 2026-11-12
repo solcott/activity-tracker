@@ -18,6 +18,15 @@ import kotlinx.collections.immutable.toImmutableList
  */
 @Immutable data class ChartDot(val index: Int, val filled: Boolean, val label: AppText? = null)
 
+/**
+ * Another line on a [LineChart], on its scale and unfilled: a left/right pair's right leg, another tank, a dive's ceiling. [tone] picks its
+ * colour from the chart's other colours, in order.
+ */
+@Immutable data class ChartLine(val points: ImmutableList<LinePoint>, val tone: Int = 0)
+
+/** A moment on a [LineChart]: a vertical line at [x] with its [label] (a gas switch), in the error colour when it's a [warning]. */
+@Immutable data class ChartMark(val x: Double, val label: AppText, val warning: Boolean = false)
+
 /** A labelled place on a [LineChart]'s axis: [value] on the axis and its [label]. */
 @Immutable data class ChartTick(val value: Double, val label: AppText)
 
@@ -26,9 +35,11 @@ import kotlinx.collections.immutable.toImmutableList
  * [xMax], on the y [axis] with a labelled gridline at each of [yTicks], labels along the bottom at [xTicks], the text read out for each
  * point ([readouts], one per point), the [description] assistive technology reads, the [bands] it is tinted by along its width (empty when
  * it isn't), its [average], marked by a dashed line, where it has one, whether it is drawn in [steps] (each value held until the next
- * point, as a threshold holds until it changes), and the [dots] marking some of its points. A chart drawn with its larger values lower (a
- * pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the values unnegated. A UI
- * only lays it out.
+ * point, as a threshold holds until it changes), and the [dots] marking some of its points; the [backdrop] drawn faintly behind the line
+ * (the elevation behind an effort line, already scaled onto this chart's axis by [backdropOf]), [others] lines on its scale, its [marks],
+ * and whether it is filled from the line up to the top ([fillAbove], a dive's depth) rather than down to the bottom. A chart drawn with its
+ * larger values lower (a pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the
+ * values unnegated. A UI only lays it out.
  */
 @Immutable
 @Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.
@@ -45,6 +56,10 @@ class LineChart(
     val average: Double? = null,
     val steps: Boolean = false,
     val dots: ImmutableList<ChartDot> = persistentListOf(),
+    val backdrop: ImmutableList<LinePoint> = persistentListOf(),
+    val others: ImmutableList<ChartLine> = persistentListOf(),
+    val marks: ImmutableList<ChartMark> = persistentListOf(),
+    val fillAbove: Boolean = false,
 ) {
     init {
         require(points.size >= 2) { "a line needs two points" }
@@ -85,6 +100,20 @@ class LineChart(
     /** The [index]th dot. */
     fun dotAt(index: Int): ChartDot = dots[index]
 
+    /** How many more lines the chart draws. */
+    val otherCount: Int
+        get() = others.size
+
+    /** The [index]th other line. */
+    fun otherAt(index: Int): ChartLine = others[index]
+
+    /** How many moments the chart marks. */
+    val markCount: Int
+        get() = marks.size
+
+    /** The [index]th mark. */
+    fun markAt(index: Int): ChartMark = marks[index]
+
     /** The label of the tick in [ticks] at [value], or null when none is there. */
     fun labelAt(value: Double, ticks: List<ChartTick>): AppText? = ticks.firstOrNull { abs(it.value - value) < TICK_MATCH }?.label
 
@@ -107,6 +136,10 @@ class LineChart(
             average: Double? = null,
             steps: Boolean = false,
             dots: List<ChartDot> = emptyList(),
+            backdrop: List<LinePoint> = emptyList(),
+            others: List<ChartLine> = emptyList(),
+            marks: List<ChartMark> = emptyList(),
+            fillAbove: Boolean = false,
         ): LineChart =
             LineChart(
                 points = points.toImmutableList(),
@@ -121,7 +154,29 @@ class LineChart(
                 average = average,
                 steps = steps,
                 dots = dots.toImmutableList(),
+                backdrop = backdrop.toImmutableList(),
+                others = others.toImmutableList(),
+                marks = marks.toImmutableList(),
+                fillAbove = fillAbove,
             )
+
+        /**
+         * [points] (an elevation) as a backdrop on [axis]: its lowest at the axis's bottom and its span (at least [minSpan]) filling
+         * [BACKDROP_HEIGHT] of the chart, so the line in front stays readable and a flat route stays flat. Empty for fewer than two points.
+         */
+        fun backdropOf(points: List<LinePoint>, axis: ChartAxis, minSpan: Double = MIN_BACKDROP_SPAN): List<LinePoint> {
+            if (points.size < 2) return emptyList()
+            val low = points.minOf { it.y }
+            val span = (points.maxOf { it.y } - low).coerceAtLeast(minSpan) / BACKDROP_HEIGHT
+            val range = axis.max - axis.min
+            return points.map { it.copy(y = axis.min + (it.y - low) / span * range) }
+        }
+
+        /** The share of a chart's height a backdrop's span fills. */
+        const val BACKDROP_HEIGHT = 0.6
+
+        /** The smallest span a backdrop is drawn over, in its unit: 20 m of elevation. */
+        const val MIN_BACKDROP_SPAN = 20.0
 
         private const val TICK_MATCH = 1e-6
     }
