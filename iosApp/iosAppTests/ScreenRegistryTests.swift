@@ -68,13 +68,12 @@ struct ScreenRegistryTests {
         for screen in ["PostPageScreen", "PostQuotesScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The dive site page, with the native route map (ios-native-map).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "DiveSiteScreen"))
         // The rest of what the lists open is still the shared UI's.
         // Accepting an invite waits for the native route preview and visibility form.
-        // The segment and dive site pages, their map and segment browse draw maps or charts, so they wait for native ones.
-        for screen in [
-            "AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen",
-            "DiveSiteScreen",
-        ] {
+        // The segment page draws a chart, and its enlarged map and segment browse wait for the native map's interactive pages.
+        for screen in ["AcceptInviteScreen", "SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen"] {
             #expect(!ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
@@ -109,6 +108,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.SegmentLeaderboardScreen.self) == "SegmentLeaderboardScreen")
         #expect(String(describing: ActivityTracker.SegmentMayorsScreen.self) == "SegmentMayorsScreen")
         #expect(String(describing: ActivityTracker.DiveSiteRegularsScreen.self) == "DiveSiteRegularsScreen")
+        #expect(String(describing: ActivityTracker.DiveSiteScreen.self) == "DiveSiteScreen")
         #expect(String(describing: ActivityTracker.EditProfileScreen.self) == "EditProfileScreen")
         #expect(String(describing: ActivityTracker.TrainingZonesScreen.self) == "TrainingZonesScreen")
         #expect(String(describing: ActivityTracker.ZonesScreen.self) == "ZonesScreen")

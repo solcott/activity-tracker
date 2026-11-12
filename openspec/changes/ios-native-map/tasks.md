@@ -10,10 +10,10 @@
 
 ## 2. The native views
 
-- [ ] 2.1 Type aliases and samples (appended blocks). Verify the app builds.
-- [ ] 2.2 `RouteMapView` with `\.liveMaps` and the shared marker style; `RouteSketch` with optional ends; `MapCamera` math with a Swift test. Verify `RouteMapTests` and a preview.
-- [ ] 2.3 `DiveSitePage` and `PlaceNamesSection`, `.placeNames(state.names)`, `ActivityCardView(likes:)`. Verify their previews and `DiveSiteSnapshotTests`, light and dark, each image looked at.
-- [ ] 2.4 The registry entry. Verify `ScreenRegistryTests` names `DiveSiteScreen` as native.
+- [x] 2.1 Type aliases and samples (appended blocks). Verify the app builds.
+- [x] 2.2 `RouteMapView` with `\.liveMaps` and the shared marker style; `RouteSketch` with optional ends; `MapCamera` math with a Swift test. Verify `RouteMapTests` and a preview.
+- [x] 2.3 `DiveSitePage` and `PlaceNamesSection`, `.placeNames(state.names)`, `ActivityCardView(likes:)`. Verify their previews and `DiveSiteSnapshotTests`, light and dark, each image looked at.
+- [x] 2.4 The registry entry. Verify `ScreenRegistryTests` names `DiveSiteScreen` as native.
 
 ## 3. The whole change together
 

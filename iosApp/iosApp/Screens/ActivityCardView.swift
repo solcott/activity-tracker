@@ -14,6 +14,8 @@ struct ActivityCardView: View {
     var authorClickable = true
     /// The viewer revealed this card's blurred photos on this page.
     var revealed = false
+    /// False where the page offers no Like on its cards, as the shared page passes none (a dive site's dives).
+    var likeable = true
     let send: (any ActivityListEvent) -> Void
     var reveal: () -> Void = {}
 
@@ -132,7 +134,7 @@ struct ActivityCardView: View {
 
     private var likes: some View {
         HStack(spacing: 0) {
-            if content.offersLike {
+            if likeable && content.offersLike {
                 AppIconButton(.like, label: .likeContentDescription, filled: content.liked) {
                     send(ActivityListEvent.ToggleLike(activity: content.activity))
                 }

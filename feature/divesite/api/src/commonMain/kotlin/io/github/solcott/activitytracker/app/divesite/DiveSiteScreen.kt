@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -64,6 +66,10 @@ data class DiveSiteState(
     /** The viewer may vote, having visited the site; [PlaceNameFields.canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = site?.viewer?.canVoteOnNames == true
+
+    /** The site's centre and radius as a route map draws it: [outline] with no start or end marked; null until loaded. */
+    val routeMap: RouteMap?
+        get() = outline?.let { RouteMap.of(it, ends = RouteEnds.HIDDEN) }
 
     /** The site's open name proposals, for a UI that can't read the lexicon view's list. */
     val proposals: ImmutableList<SegmentNameProposalView>

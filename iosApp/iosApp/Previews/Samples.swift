@@ -117,6 +117,10 @@
             state.filter.isNarrowed ? FeedFilterPackage.FeedFilterSamples.shared.narrowed : feedFilterBar
         }
 
+        /// The dive site page (ios-native-map) in each state it shows, states beyond content loading apart.
+        static var diveSite: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.all }
+        static var diveSiteVariants: [String: DiveSiteState] { DiveSitePackage.DiveSiteSamples.shared.variants }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(

@@ -89,6 +89,8 @@ extension ScreenRegistry {
 
         // The feed (ios-native-feed), the Feed tab's root, with the native filter bar, activity, import and post cards.
         registry.register(FeedScreen.self, FeedState.self) { state in FeedPage(state: state) }
+        // The dive site page (ios-native-map), the first drawn with the native route map, with its names and the name sheet.
+        registry.register(DiveSiteScreen.self, DiveSiteState.self) { state in DiveSitePage(state: state) }
         return registry
     }()
 }
