@@ -630,3 +630,11 @@ typealias AfterImport = RecordPackage.AfterImport
 typealias PastImportsOffer = RecordPackage.PastImportsOffer
 typealias GearConflict = RecordPackage.GearConflict
 typealias ThresholdChange = ExportedKotlinPackages.io.github.solcott.activitytracker.data.training.ThresholdChange
+
+// The recording screen (ios-native-record): its contract and what it says and offers.
+typealias RecordScreen = RecordPackage.RecordScreen
+typealias RecordState = RecordPackage.RecordState
+typealias RecordEvent = RecordPackage.RecordEvent
+typealias RecordTexts = RecordPackage.RecordTexts
+typealias RecordAction = RecordPackage.RecordAction
+typealias RecordControl = RecordPackage.RecordControl
