@@ -14,7 +14,7 @@ What the power curve, the gears chart, a dive's marks and a card's source captio
 
 #### Scenario: The power curve's labels
 - **WHEN** a ride's power curve includes 5 seconds, 1 minute and 20 minutes
-- **THEN** both UIs label those durations "5 s", "1 min" and "20 min"
+- **THEN** both UIs label those durations "5s", "1m" and "20m"
 
 ### Requirement: The combination sheet reads the same in both UIs
 What the owner's combination sheet says SHALL be chosen once in shared code: its title, the members heading, each member's name and remove button, the removal confirmation, the data sources heading, each kind's name, where it comes from or that it's left out, and its switch's spoken label.
