@@ -8,8 +8,8 @@ import SwiftUI
 /// title shows no title menu) as the title's menu does once it collapses inline; Add sits in the bar; the list pulls to refresh. Every word and condition is Kotlin's (`FeedTexts`, `ImportCardTexts`, `FeedState`), shared with the Compose feed.
 ///
 /// The quote sheet is the posts' (`quoteSheet`), and the report sheet shows once a post's Report sends `ReportingEvent.Open`
-/// (`reporting(_:)`), which the native post card's menu doesn't offer yet. The feed loads one page, on every platform, so it asks for
-/// no more.
+/// (`reporting(_:)`), which a post card's menu offers on someone else's post while reporting is available. The feed loads one page,
+/// on every platform, so it asks for no more.
 struct FeedPage: View {
     let state: FeedState
     /// The filter bar's state where no host runs it (previews and snapshots); never given in the app.
@@ -161,12 +161,12 @@ struct FeedPage: View {
         } else if let post = item as? TimelineItem.Post {
             PostCardView(
                 content: PostCardContent.Companion.shared.of(post: post.post, viewerDid: state.viewerDid, reason: nil),
-                send: { send(FeedEvent.Post(event: $0)) })
+                send: { send(FeedEvent.Post(event: $0)) }, canReport: state.reporting.available)
         } else if let repost = item as? TimelineItem.Repost {
             PostCardView(
                 content: PostCardContent.Companion.shared.of(
                     post: repost.reposted.post, viewerDid: state.viewerDid, reason: repost.reposted.reason),
-                send: { send(FeedEvent.Post(event: $0)) })
+                send: { send(FeedEvent.Post(event: $0)) }, canReport: state.reporting.available)
         }
     }
 
