@@ -21,48 +21,15 @@ struct ActivityDefaultsView: View {
         .pageTitle(Text(.settingsActivityDefaults))
     }
 
-    @ViewBuilder private func content(_ defaults: VisibilityFields) -> some View {
-        let categories = defaults.categories.elements(as: CategoryVisibility.self)
-        Section {
-            picker(
-                Text(.visibilityLabel),
-                name: String(localized: .visibilityLabel),
-                selection: Binding(
-                    get: { defaults.activity }, set: { defaults.eventSink(VisibilityEvent.ActivityChanged(visibility: $0)) }),
-                options: defaults.activityOptions.elements(as: String.self))
-        } header: {
-            Text(.settingsDefaultsActivity)
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                note(VisibilityTexts.shared.followersNote(selected: defaults.activity, approvesFollowers: defaults.approvesFollowers))
-                if categories.isEmpty { pageNote(defaults) }
-            }
-        }
-        if !categories.isEmpty {
-            let options = defaults.categoryOptions.elements(as: String.self)
-            Section {
-                ForEach(categories, id: \.category) { category in
-                    picker(
-                        label(defaults, category.category),
-                        name: AppStrings.string(VisibilityTexts.shared.categoryName(fields: defaults, category: category.category)),
-                        selection: Binding(
-                            get: { category.visibility },
-                            set: { defaults.eventSink(VisibilityEvent.CategoryChanged(category: category.category, visibility: $0)) }),
-                        options: options)
-                }
-            } header: {
-                Text(.detailVisibilityHeading)
-            } footer: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(.detailVisibilityHelp)
-                    // The shared page says it under each such picker; in a grouped form it is said once for the section.
-                    note(
-                        categories.lazy.compactMap {
-                            VisibilityTexts.shared.followersNote(selected: $0.visibility, approvesFollowers: defaults.approvesFollowers)
-                        }.first)
-                    pageNote(defaults)
-                }
-            }
+    private func content(_ defaults: VisibilityFields) -> some View {
+        let hasCategories = !defaults.categories.elements(as: CategoryVisibility.self).isEmpty
+        return VisibilityFormSections(
+            fields: defaults, heading: Text(.settingsDefaultsActivity), activityEnabled: state.canChange,
+            categoriesEnabled: state.canChange
+        ) {
+            if !hasCategories { pageNote(defaults) }
+        } detailsNote: {
+            pageNote(defaults)
         }
     }
 
@@ -73,33 +40,6 @@ struct ActivityDefaultsView: View {
         if let error = state.error {
             ErrorMessage(error, layout: .row)
         }
-    }
-
-    /// A category's name, with what it covers under it for the categories whose name doesn't say.
-    private func label(_ defaults: VisibilityFields, _ category: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(VisibilityTexts.shared.categoryName(fields: defaults, category: category))
-            if let help = VisibilityTexts.shared.categoryHelp(category: category) {
-                Text(help).font(.footnote).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    /// A menu of `options`, `Visibility` values each named as every picker names it, with the one chosen shown at the row's trailing
-    /// edge (`AppPickerRow`). The presenter changes `selection` when told, and puts it back if the save fails. `name` is what VoiceOver
-    /// calls it.
-    private func picker(_ label: some View, name: String, selection: Binding<String>, options: [String]) -> some View {
-        AppPickerRow(
-            name: name, selection: selection, options: options,
-            optionLabel: { AppStrings.string(LabelText.shared.visibility(visibility: $0)) }
-        ) {
-            label
-        }
-        .disabled(!state.canChange)
-    }
-
-    @ViewBuilder private func note(_ text: (any AppText)?) -> some View {
-        if let text { Text(text) }
     }
 }
 
