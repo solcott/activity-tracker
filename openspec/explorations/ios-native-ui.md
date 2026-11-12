@@ -1704,10 +1704,18 @@ What building the host and the shell on Swift export showed, beyond the probes:
   edge), in or out of a `NavigationStack`; on the iPad itself the layout is right. The phone snapshots aren't affected.
 - **The shared iOS location request answers granted at once** (the tracker asks the system), so the native view does the same when
   `askLocation` is set; the system's own prompt then shows once.
-- **Walked on the signed-in iPad Air 11-inch (iOS 26.0) as alice**, with the tunnel down (device mode), so nothing the AppView serves
-  loaded: browse beside the live map at the simulator's location, the area's and the name search's failures with Retry, a pan, the
-  mode switch keeping the map, This area and Everywhere, dark mode. The enlarged map and Accept invite were seen only in snapshots.
-
+- **On a `Map`, a plain or simultaneous tap gesture never fires** (iOS 26; a log showed no call), so selecting a run needs a
+  `highPriorityGesture(SpatialTapGesture())`, which leaves the map's pan and pinch working. **Inside a map's content `Color.accentColor`
+  is the system's blue**, not the app's tint, so map lines take `Color("AccentColor")` by name (`RouteMapView` too). Both were found on
+  the iPad, not in snapshots, which draw stand-ins.
+- **A worktree with no `local.properties` builds an app that refreshes the session with the local client ID**, which the device-mode
+  PDS refuses (`InvalidClientMetadataError`) — repeatedly, so the session could end. Copy the device-mode `local.properties` into a new
+  worktree before installing its build on a signed-in simulator.
+- **Walked on the signed-in iPad Air 11-inch (iOS 26.0) as alice**: browse beside the live map with the area's runs, nearest first, the
+  capped note, a tap selecting a run and the list scrolling to it, a pan, the mode switch keeping the map, a name search with This area,
+  Everywhere and Search everywhere, a segment opened and back, and from its page the native enlarged map with its credit, a pan and
+  Recenter. Not seen: the sport filter's effect (the simulator's input never landed a menu choice), lifts (none there), and Accept invite
+  (the stack has no invites).
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime

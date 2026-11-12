@@ -36,30 +36,42 @@
 
 ## Walk (iPad Air 11-inch `3F116204-14F9-4645-9E88-D02627E2ACC6`, iOS 26.0, signed in as alice on the local stack; this change's Debug build)
 
-- **4.1.** Search's Segments mode drew native segment browse under the mode choice: on the iPad the list column (the name field, the
-  sport menu chip) beside the live MapKit map, Apple's tiles and credit with Legal in its corner, opened at the simulator's location
-  after the system's location prompt, which was answered Allow Once. The area's load failed, and the list said
-  "Couldn't load the segments here" with Retry. A drag panned the map; switching to Athletes and back to Segments reopened it where it was
-  left. Typing a name showed This area and Everywhere over the sport chip, and its own failure ("Couldn't search segments") with Retry.
-  Dark mode turned the tiles and page dark. The search field's label isn't clipped on the device (the iPad snapshot's offset is the test
-  host's landscape safe area).
-- **Fixed after the walk:** the field capitalized its first letter; it now takes names as typed (no capitals or corrections), as the
-  athlete search does. Seen only in code and the build: the simulator stopped taking taps on the field after the reinstall.
-- **Put back:** the field was cleared, the appearance set back to light and the Feed tab chosen. Nothing was written.
+- **First walk, tunnel down.** Search's Segments mode drew native segment browse under the mode choice: on the iPad the list column
+  (the name field, the sport menu chip) beside the live MapKit map, Apple's tiles and credit with Legal in its corner, opened at the
+  simulator's location after the system's location prompt (answered Allow Once each time). Nothing the AppView serves loaded: the
+  list said "Couldn't load the segments here" with Retry, and a name search "Couldn't search segments". A drag panned the map; switching
+  to Athletes and back reopened it where it was left; typing a name showed This area and Everywhere; dark mode turned the tiles and page
+  dark. The search field's label isn't clipped on the device (the iPad snapshot's offset is the test host's landscape safe area).
+- **Second walk, tunnel up.** This worktree had no `local.properties`, so its first build refreshed alice's session with the local
+  client ID and the PDS refused it (`InvalidClientMetadataError`): the earlier failures were that as much as the tunnel. With the other
+  worktrees' device-mode `local.properties` copied in (untracked), the rebuilt app reached the AppView, still signed in. Then:
+  - The area's runs on the live map (the importer's trails around the simulator's location) and the list nearest first, with the capped
+    note ("More segments here than shown…"), each row's length, type and distance away. No lifts in that area.
+  - **Two bugs found and fixed** (`c1057518`): the runs drew in the system's blue, since `Color.accentColor` inside a map's content isn't
+    the app's tint (now `Color("AccentColor")`, in `RouteMapView` too); and a tap on a line did nothing, since a plain or simultaneous
+    tap gesture on a `Map` never fires (a temporary log showed no call). With a high-priority spatial tap, a tap on a short line turned it
+    amber and the list scrolled to and marked "Willow Creek: Willow Creek → Fayview Lane"; a drag still panned the map afterwards.
+  - Opening a run from the list pushed its segment page (still the shared UI) on the Search tab; its map's expand opened the **native
+    enlarged map**: the line in the app's teal with its start and end markers, filling the page under the segment's name, the OSM credit
+    and licence top-leading, Recenter top-trailing. A pan moved it and Recenter framed the whole line again (a 0.31 mi line stops at the
+    shared closest zoom; a 1.59 mi one fills the width below the credit). Back twice returned to browse with its map, list position and
+    selection as left.
+  - A name search: "ghost" listed the Ghost Falls segments page by page and the map drew only their lines; "ghostghost" said "No segments
+    here match “ghostghost”." with Search everywhere, which switched the scope to Everywhere and said "No segments match “ghostghost”.".
+    The field took the name in lowercase, as typed.
+  - The sport menu chip opened with All and the six groups; choosing one never landed through the simulator's input (the tap reached
+    the list row under the menu instead), so the filter's effect wasn't seen.
+- **Put back:** the field was cleared and the Feed tab chosen; the appearance stayed light. Nothing was written. The location prompt was
+  answered Allow Once, which lapses.
 - **Simulators:** the Swift tests ran on `Interactive Maps iPhone 17` (iOS 26.0, `4B43CC7E`, cloned from `D6328F65`) and `Interactive
-  Maps iPhone 16 Pro 18.4` (`01098C2A`, cloned from `958C0DC3`; snapshots skipped).
+  Maps iPhone 16 Pro 18.4` (`01098C2A`, cloned from `958C0DC3`; snapshots skipped), 365 passing on each after the fix.
 
 ## Not verified
 
-- **Anything the AppView serves, on a device.** The local stack runs in device mode, so the app reaches the AppView through the named
-  tunnel, which was down, and starting it wasn't permitted in this session. So the feed and every segment query failed: the area's runs
-  and lifts on the live map, selecting a run by tapping its line (and the list marking and scrolling to it), opening a segment from the
-  list and coming back, name results, Search everywhere and the sport filter's effect were not seen. The snapshots draw each list and
-  the stand-in map; `SegmentsMapTest` and `InteractiveMapsTextTests` hold the tap rule and the viewport conversion;
-  `SegmentBrowseThroughHostTest` opens a segment from the embedded browse on the Search tab's stack.
-- **The enlarged segment map on a device** (pan, zoom, Recenter, the credit over the live map): it opens from the segment page, which
-  needs a segment the AppView serves. Its snapshots draw each state and credit.
-- **Accept invite on a device**: alice has no pending invite on the stack (and invites come from the AppView). Its snapshots draw each
+- **The sport filter's effect on a device**: the menu opened with its choices, but the simulator's input never landed a choice. The
+  snapshots and `SegmentBrowseTextsTest` cover the choices; the presenter's filtering is `SegmentBrowsePresenterTest`'s.
+- **Lifts on the live map**: the walked area has none. The stand-in snapshot draws one dashed under the runs.
+- **Accept invite on a device**: the stack holds no activity invites at all, and making one would be a write. Its snapshots draw each
   state, accepting and sign-in-again.
 - An iPhone layout on a device (the map over the list), iOS 18 signed in, VoiceOver and the largest text sizes.
 - The highlighted stretch a new segment shows: the create-segment page isn't part of this change (roadmap open items).
