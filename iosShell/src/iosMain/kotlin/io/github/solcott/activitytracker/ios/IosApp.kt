@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.HeldPhotoBytes
 import io.github.solcott.activitytracker.app.IosAppHost
 import io.github.solcott.activitytracker.app.ScreenViewController
-import io.github.solcott.activitytracker.app.SegmentBrowseViewController
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
 import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
@@ -72,12 +71,6 @@ object IosApp {
 
     /** A screen drawn by the shared Compose UI, for one the shell has no native view for. Call [host] first. */
     fun screenViewController(record: HostRecord): UIViewController = ScreenViewController(record)
-
-    /**
-     * The shared segment browse screen, for the native Search page's Segments mode until segment browse is native: what it opens goes on
-     * the Search tab's stack through [record], the tab's root. Call [host] first.
-     */
-    fun segmentBrowseViewController(record: HostRecord): UIViewController = SegmentBrowseViewController(record)
 
     /**
      * Registers the handlers of the app's background tasks: uploading queued writes (data/outbox), finishing batch saves

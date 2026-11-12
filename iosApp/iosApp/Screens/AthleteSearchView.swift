@@ -1,19 +1,18 @@
 import IosShell
 import SwiftUI
-import UIKit
 
 /// The Search tab's root (segments/segment-browse), drawn from the states `AthleteSearchPresenter` publishes: Athletes and Segments as a
 /// segmented choice, the list's first row; in Athletes mode the system's search field over the matching accounts, a page at a time, the prompt
-/// while nothing is typed and the message when nothing matched; in Segments mode the shared segment browse screen, embedded until segment
-/// browse is native. What it says that follows a rule is Kotlin's (`AthleteSearchTexts`), shared with the Compose page. The query, the mode
+/// while nothing is typed and the message when nothing matched; in Segments mode the native segment browse (`SegmentBrowseView`), which
+/// the host runs as a screen this page's record embeds, so what it opens goes on the Search tab. What it says that follows a rule is Kotlin's (`AthleteSearchTexts`), shared with the Compose page. The query, the mode
 /// and the results are the presenter's, so they are kept while the athlete visits other tabs.
 struct AthleteSearchView: View {
     let state: AthleteSearchState
     /// The query as typed, held here so the field follows each keystroke; it edits the state's field and follows it back.
     @State private var query: TextFieldModel
-    /// The embedded browse screen's controller, made the first time Segments shows and kept with this page, so switching modes back and
-    /// forth keeps its map and its query, as the shared tab does.
-    @State private var browse = SegmentBrowseController()
+    /// Where segment browse's map was left, kept with this page, so switching modes back and forth reopens it there, as the shared tab
+    /// does; its query and lists are kept by the host with this page's record.
+    @State private var browseMap = SegmentsMapMemory()
     @Environment(\.hostRecord) private var record
 
     init(state: AthleteSearchState) {
@@ -31,9 +30,15 @@ struct AthleteSearchView: View {
             // No list to scroll: the choice stays over the browse screen.
             VStack(spacing: 0) {
                 modes.padding(.horizontal, 16).padding(.vertical, 8)
-                SegmentBrowseEmbed(record: record, controller: browse)
+                if let record {
+                    EmbeddedScreenView(record, screen: SegmentBrowseScreen.shared) { (browse: SegmentBrowseState) in
+                        SegmentBrowseView(state: browse, memory: browseMap)
+                    }
+                } else {
+                    // Outside the host, as in a preview or a snapshot, there is no record to run browse in; its own previews show it.
+                    Spacer()
+                }
             }
-            .background(Color(.systemGroupedBackground))
         } else {
             athletes
         }
@@ -90,44 +95,6 @@ struct AthleteSearchView: View {
 
     private func send(_ event: any AthleteSearchEvent) {
         state.eventSink(event)
-    }
-}
-
-/// The view controller of the shared segment browse screen one Search page embeds, made once.
-@MainActor
-final class SegmentBrowseController {
-    private var made: UIViewController?
-
-    func controller(for record: HostRecord) -> UIViewController {
-        if let made { return made }
-        let controller = IosApp.shared.segmentBrowseViewController(record: record)
-        made = controller
-        return controller
-    }
-}
-
-/// The shared segment browse screen under the native Search page's choice (segments/segment-browse), run by Kotlin for the Search tab's
-/// record: what it opens goes on the Search tab's stack. Compose pads for the keyboard itself, so SwiftUI doesn't. Outside the host, as in
-/// a preview or a snapshot, there is no record to run it, and the space is left empty.
-private struct SegmentBrowseEmbed: View {
-    let record: HostRecord?
-    let controller: SegmentBrowseController
-
-    var body: some View {
-        if let record {
-            Embedded(make: { controller.controller(for: record) }).ignoresSafeArea(.keyboard)
-        } else {
-            Color(.systemGroupedBackground)
-        }
-    }
-
-    private struct Embedded: UIViewControllerRepresentable {
-        let make: () -> UIViewController
-
-        // The fallback screens' container, which takes the controller from one that held it before.
-        func makeUIViewController(context: Context) -> FallbackContainerController { FallbackContainerController(content: make()) }
-
-        func updateUIViewController(_ container: FallbackContainerController, context: Context) {}
     }
 }
 
