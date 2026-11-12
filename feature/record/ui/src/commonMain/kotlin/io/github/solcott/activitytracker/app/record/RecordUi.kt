@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -27,20 +27,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.field_title
-import io.github.solcott.activitytracker.composeApp.resources.record_discard
-import io.github.solcott.activitytracker.composeApp.resources.record_finish
-import io.github.solcott.activitytracker.composeApp.resources.record_pause
-import io.github.solcott.activitytracker.composeApp.resources.record_recovered
-import io.github.solcott.activitytracker.composeApp.resources.record_resume
-import io.github.solcott.activitytracker.composeApp.resources.record_save_failed
-import io.github.solcott.activitytracker.composeApp.resources.record_start
 import io.github.solcott.activitytracker.composeApp.resources.record_title
-import io.github.solcott.activitytracker.composeApp.resources.stat_distance
-import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.location.RecordingState
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -66,17 +57,12 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
         ) {
             ActivityTypePicker(
                 state.type,
-                enabled = state.status == RecordingState.Status.Idle,
+                enabled = RecordTexts.typeChangeable(state),
                 outdoorOnly = true,
             )
-            Text(Format.duration(state.elapsed), style = MaterialTheme.typography.displayLarge)
+            Text(RecordTexts.elapsed(state).string(), style = MaterialTheme.typography.displayLarge)
             StatsRow(
-                listOfNotNull(
-                        Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
-                        Format.rateStat(state.type.selected.sport, state.distanceMeters, state.movingSeconds),
-                        Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
-                    )
-                    .toImmutableList(),
+                RecordTexts.stats(state, LocalUnitSystem.current).map { Stat(it.label.string(), it.value.string()) }.toImmutableList(),
             )
             AppTextField(
                 state = state.title,
@@ -88,36 +74,25 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 state.visibility,
                 enabled = !state.saving,
             )
-            if (state.recovered) Text(stringResource(Res.string.record_recovered))
-            if (state.saveFailed) Text(stringResource(Res.string.record_save_failed), color = MaterialTheme.colorScheme.error)
+            if (state.recovered) Text(RecordTexts.recovered.string())
+            if (state.saveFailed) Text(RecordTexts.saveFailed.string(), color = MaterialTheme.colorScheme.error)
             state.error?.let { ErrorText(it) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (state.status) {
-                    RecordingState.Status.Idle -> {
-                        AppButton(
-                            onClick = {
-                                if (state.hasPermission) {
-                                    state.eventSink(RecordEvent.Start)
-                                } else {
-                                    requestPermission()
-                                }
-                            },
-                            enabled = !state.saving,
-                        ) {
-                            Text(stringResource(Res.string.record_start))
+                RecordTexts.actions(state).forEach { action ->
+                    val onClick = {
+                        when (action) {
+                            RecordAction.Start -> if (state.hasPermission) state.eventSink(RecordEvent.Start) else requestPermission()
+                            RecordAction.Pause -> state.eventSink(RecordEvent.Pause)
+                            RecordAction.Resume -> state.eventSink(RecordEvent.Resume)
+                            RecordAction.Finish -> state.eventSink(RecordEvent.Finish)
+                            RecordAction.Discard -> state.eventSink(RecordEvent.Discard)
                         }
                     }
-
-                    RecordingState.Status.Recording -> {
-                        AppButton(onClick = { state.eventSink(RecordEvent.Pause) }) { Text(stringResource(Res.string.record_pause)) }
-                    }
-
-                    RecordingState.Status.Paused -> {
-                        AppButton(onClick = { state.eventSink(RecordEvent.Resume) }) { Text(stringResource(Res.string.record_resume)) }
-                        AppButton(onClick = { state.eventSink(RecordEvent.Finish) }) { Text(stringResource(Res.string.record_finish)) }
-                        AppSecondaryButton(onClick = { state.eventSink(RecordEvent.Discard) }) {
-                            Text(stringResource(Res.string.record_discard))
-                        }
+                    val label = RecordTexts.label(action).string()
+                    if (action == RecordAction.Discard) {
+                        AppSecondaryButton(onClick = onClick, enabled = !state.saving) { Text(label) }
+                    } else {
+                        AppButton(onClick = onClick, enabled = !state.saving) { Text(label) }
                     }
                 }
             }
