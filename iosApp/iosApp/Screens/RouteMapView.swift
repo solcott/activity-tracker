@@ -10,13 +10,13 @@ import SwiftUI
 ///
 /// It is static by default, so a drag over it scrolls the page. With `expand`, a tap on it or its expand button opens the enlarged map;
 /// `interactive` pans and zooms it, north-up, with Recenter. `overlayTop` is the height of anything the page draws over its top edge,
-/// which the frame keeps the route below.
+/// which the frame keeps the route below. A nil `height` fills the space the page gives the map, as the enlarged map does.
 ///
 /// Outside a signed-in session (`\.liveMaps`, which `SessionView` sets) it draws the route as `RouteSketch` instead, so previews and
 /// snapshots load no tiles and look the same on every run.
 struct RouteMapView: View {
     let map: RouteMap
-    var height: CGFloat = 240
+    var height: CGFloat? = 240
     var interactive = false
     var expand: (() -> Void)?
     var overlayTop: CGFloat = 0
@@ -31,7 +31,7 @@ struct RouteMapView: View {
                 RouteSketch { size in map.sketch(width: size.width, height: size.height, pad: RouteMarkerStyle.sketchPad) }
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
         .frame(height: height)
         .overlay(alignment: .topTrailing) {
             if let expand, !interactive {
