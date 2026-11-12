@@ -114,6 +114,12 @@ extension ScreenRegistry {
 
         // Threshold history (ios-native-leftovers), opened from Training zones, with the native step charts.
         registry.register(ThresholdHistoryScreen.self, ThresholdHistoryState.self) { state in ThresholdHistoryView(state: state) }
+
+        // The activity forms (ios-native-forms): Edit, over the activity page; entering one by hand, over the feed; and creating a dive
+        // site from a dive, over its page.
+        registry.register(EditActivityScreen.self, EditActivityState.self) { state in EditActivityView(state: state) }
+        registry.register(ManualActivityScreen.self, ManualActivityState.self) { state in ManualActivityView(state: state) }
+        registry.register(CreateDiveSiteScreen.self, CreateDiveSiteState.self) { state in CreateDiveSiteView(state: state) }
         return registry
     }()
 }
