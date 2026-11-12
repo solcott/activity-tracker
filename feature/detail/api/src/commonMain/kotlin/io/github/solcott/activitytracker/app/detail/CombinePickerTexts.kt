@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlin.time.Instant
@@ -32,6 +33,9 @@ object CombinePickerTexts {
             AppText.written(StatText.duration(record.elapsedTime)),
         )
     }
+
+    /** Its type, for its icon. */
+    fun type(activity: ActivityView): ActivityType = activity.record.activityType
 
     /** The device it was recorded on, when it named one. */
     fun device(activity: ActivityView): AppText? = activity.record.device?.let(AppText::written)

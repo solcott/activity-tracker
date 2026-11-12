@@ -184,8 +184,8 @@ object CardLines {
     }
 
     /**
-     * A chart of every tank on one scale, the first filled and the rest as more lines, headed by each tank's maximum; one tank charts as
-     * any line. Null without a tank of two points.
+     * A chart of every tank on one scale, the first filled and the rest as more lines, headed by each tank's maximum (untitled, as its card
+     * names it); one tank charts as any line. Null without a tank of two points.
      */
     fun tanks(tanks: List<LineSeries>, durationSeconds: Int, units: UnitSystem): CardLine? {
         val drawn = tanks.filter { it.points.size >= 2 }
@@ -211,7 +211,8 @@ object CardLines {
                 average = base.average,
                 others = others,
             )
-        return CardLine(title = title(StreamKind.TankPressure, null), detail = tanksDetail(drawn, units), chart = chart)
+        // The card's own title already names it; its header gives each tank's maximum.
+        return CardLine(title = null, detail = tanksDetail(drawn, units), chart = chart)
     }
 
     /** Several tanks' maxima, "200 bar · 180 bar"; null without one. */

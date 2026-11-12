@@ -127,7 +127,7 @@ class CardLinesTest {
         val card = MetricCard(DetailSection.TankPressure, persistentListOf(), series = persistentListOf(one, two))
         val line = CardLines.of(card, charts(), UnitSystem.Metric).single()
         assertEquals(1, line.chart.otherCount)
-        assertEquals(named("chart_tank_pressure"), line.title)
+        assertNull(line.title)
         assertEquals(
             named("text_dot_pair", named("unit_pressure_bar", written("200")), named("unit_pressure_bar", written("210"))),
             line.detail,

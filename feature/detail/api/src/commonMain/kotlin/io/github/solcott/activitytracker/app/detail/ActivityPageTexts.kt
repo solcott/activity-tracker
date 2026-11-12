@@ -161,6 +161,10 @@ object ActivityPageTexts {
             }
         }
 
+    /** [section]'s card's caption on a combined activity: the devices its data came from, in time order; null otherwise. */
+    fun sourceCaption(page: ActivityDetailPage, section: DetailSection): AppText? =
+        page.chartSources.firstOrNull { it.section == section }?.members?.let(RecordingTexts::sourceCaption)
+
     /** A narrower category's badge beside a figure or a card's title, and what a screen reader says for it; null for none. */
     fun mark(mark: String?): AppText? = mark?.let(VisibilityTexts::badge)
 

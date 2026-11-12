@@ -13,6 +13,16 @@ import kotlinx.collections.immutable.toImmutableList
  * each row's cells, a rest's or transition's row with its time alone, and each row's spoken sentence. Both UIs ask them.
  */
 object StructureTableTexts {
+    /** [section]'s table, as its card draws it: the laps, legs, lengths or sets; null for a card without one. */
+    fun of(section: DetailSection, charts: ActivityCharts, units: UnitSystem): DetailTable? =
+        when (section) {
+            DetailSection.Laps -> LapTableTexts.of(charts, units)
+            DetailSection.Legs -> legs(charts.legs, units)
+            DetailSection.Lengths -> lengths(charts.lengths)
+            DetailSection.Sets -> sets(charts.sets, units)
+            else -> null
+        }
+
     /** A pool swim's lengths: each one's number, stroke, time, stroke count and SWOLF; a rest, its time only. */
     fun lengths(lengths: List<LengthRow>): DetailTable {
         val headers = listOf("length_number", "length_stroke", "lap_time", "length_strokes", "length_swolf").map(AppText::named)

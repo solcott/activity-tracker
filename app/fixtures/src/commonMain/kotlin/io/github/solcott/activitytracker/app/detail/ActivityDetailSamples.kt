@@ -424,10 +424,10 @@ object ActivityDetailSamples {
                     laps = persistentListOf(),
                     legs =
                         persistentListOf(
-                            LegRow("swimming", "open_water", transition = false, seconds = 1_620, distanceMeters = 1_500),
+                            LegRow(Sport.SWIM, "open_water", transition = false, seconds = 1_620, distanceMeters = 1_500),
                             LegRow("transition", null, transition = true, seconds = 140, distanceMeters = null),
-                            LegRow("cycling", "road", transition = false, seconds = 4_200, distanceMeters = 40_000),
-                            LegRow("running", null, transition = false, seconds = 2_580, distanceMeters = 10_000),
+                            LegRow(Sport.RIDE, "road", transition = false, seconds = 4_200, distanceMeters = 40_000),
+                            LegRow(Sport.RUN, null, transition = false, seconds = 2_580, distanceMeters = 10_000),
                         ),
                     lengths =
                         persistentListOf(
@@ -599,7 +599,7 @@ object CombinePickerSamples {
                         ContentStates.loaded((candidates + candidates2).toImmutableList()),
                         combining = candidates.first().uri,
                     ),
-                "failed" to
+                "combineFailed" to
                     CombinePickerState(
                         ContentStates.loaded(candidates),
                         error = UiError(UiError.Kind.CombineActivity),
