@@ -108,6 +108,9 @@ extension ScreenRegistry {
 
         // The segment page (ios-native-charts), with the native chart, map and names.
         registry.register(SegmentScreen.self, SegmentState.self) { state in SegmentPage(state: state) }
+
+        // The activity page (ios-native-activity-page), with the native map, charts, comments and menus.
+        registry.register(ActivityDetailScreen.self, ActivityDetailState.self) { state in ActivityPage(state: state) }
         return registry
     }()
 }

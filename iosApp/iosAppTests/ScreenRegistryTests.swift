@@ -78,6 +78,8 @@ struct ScreenRegistryTests {
         for screen in ["SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The activity page, with the native map, charts and comments (ios-native-activity-page).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ActivityDetailScreen"))
         // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
     }
@@ -85,6 +87,7 @@ struct ScreenRegistryTests {
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
         // The registry takes a screen's name from its Swift type, and the host gives the Kotlin class's.
         #expect(String(describing: ActivityTracker.LoginScreen.self) == "LoginScreen")
+        #expect(String(describing: ActivityTracker.ActivityDetailScreen.self) == "ActivityDetailScreen")
         #expect(String(describing: ActivityTracker.SettingsScreen.self) == "SettingsScreen")
         #expect(String(describing: ActivityTracker.ActivityDefaultsScreen.self) == "ActivityDefaultsScreen")
         #expect(String(describing: ActivityTracker.SegmentsAndGroupsScreen.self) == "SegmentsAndGroupsScreen")
