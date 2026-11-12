@@ -29,8 +29,9 @@ struct SegmentBrowseView: View {
                         list
                     }
                     .frame(width: SegmentBrowseLayout.listWidth)
+                    .frame(maxHeight: .infinity, alignment: .top)
                     Divider()
-                    map
+                    map.frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 VStack(spacing: 0) {
@@ -44,6 +45,7 @@ struct SegmentBrowseView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         // The shared iOS UI answers the location question at once: the location tracker asks the system itself.
         .task(id: state.askLocation) {
