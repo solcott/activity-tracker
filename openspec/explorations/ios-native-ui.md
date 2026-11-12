@@ -460,6 +460,14 @@ Each phase leaves a shippable app.
      (`ActivityRecorder`, `IosLocationTracker`). What it says and offers is Kotlin's (`RecordTexts`: the figures in the athlete's units,
      the notices, `controls` as `RecordControl`s, `typeChangeable`; `ActivityTypeField.offeredQuickTypes`), which the Compose screen asks
      too. With it every screen of the athlete's own is native; only Moderation, a moderator's page from Settings, is still the shared UI.
+   - **Moderation** (`ios-native-moderation`). The moderator's page is native (`ModerationView`), an inset grouped list: the subject's
+     AT-URI as a field (no capitals or corrections, Go sends `Open`) with the help under it, Open held while opening with a spinner
+     beside it, a URI that isn't a record address or a failed open as the shared error row, then the subject headed "Visible to:" with
+     its tier: the activity as the native card, inert as the shared page's is, or the comment's author and text, or "Not under review".
+     What follows a rule is Kotlin's (`ModerationSubjectTexts`: the visibility line, the author's name or `@handle`, `canOpen`), which
+     the Compose page asks too. Settings still offers it only off mobile, so nothing on iOS opens it; it is native so that every screen
+     the host can show has a view, which `checkIosScreenRegistry` (in `check`) now holds for every `@CircuitSerializable` screen of a
+     contract module. With it phase 4 is done: `FallbackScreen` has nothing left to draw.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1967,6 +1975,23 @@ What building the host and the shell on Swift export showed, beyond the probes:
   takes a row of its own instead. A label is the widest it gets in English; another language will want the same room.
 - **The form's top gap is the snapshot harness's**, the same on every native form's references, not Record's.
 
+### Phase 4 findings (moderation, `ios-native-moderation`)
+
+- **Nothing on iOS opens it.** Settings offers Moderation only off mobile (`ui/settings-layout`), and the native list never did, so
+  the page was only a `FallbackScreen` waiting for a path to it (a restored stack, a future deep link). It is native anyway, so phase 5
+  can delete the fallback with no screen left behind; offering it on iPhone or iPad stays a product choice of its own.
+- **Which screens the host can show is a source fact, not a graph one.** Every screen a navigator can push is `@CircuitSerializable`
+  in a contract module, and sub-screens never are, so `checkIosScreenRegistry` reads the contracts' sources and `ScreenRegistry.swift`
+  as text and runs in `check` on any machine. Reading them from the Kotlin graph instead would need a signed-in session, since the
+  session graph holds the session screens' serializer registrations.
+- **The package is shared.** `ModerationScreen` is in `app.moderation`, beside `:app-common-api`'s `ModerationTexts` (labels' notices),
+  so the page's own texts are `ModerationSubjectTexts`, and the aliases reach both through `AppPackage.moderation`.
+- **A new contract module needs its `import` in `KotlinTypes.swift`.** Debug found `FeatureModerationApi`'s types through the samples'
+  module, so the aliases compiled; Release, which leaves the samples out, didn't until the import was added. A new feature's first
+  native screen should check a Release build.
+- **The activity is drawn inert, as the shared page draws it:** no author link, Like, tap or photo opening, and its blurred photos
+  stay blurred. Revealing them for a moderator would be a change on both UIs.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2008,11 +2033,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`)~~: native
   (`ios-native-interactive-maps`), embedded through the host (`HostRecord.embed`); the Compose embed is gone. Its runs, a tap selecting
   one and opening a segment were not seen on a device: the walk had no tunnel to the AppView.
-- **What still goes through the shared Compose UI on iOS** (checked against `ScreenRegistry.app` after `ios-native-record`): only
-  `ModerationScreen`, a moderator's queue opened from Settings when the account can moderate. `ReportScreen`, `ProposePlaceNameScreen`
-  and `FeedFilterScreen` are SubCircuits drawn natively through the host (`ReportSheet`, `ProposePlaceNameSheet`, `FeedFilterBar`);
-  every other `Screen` has an entry. So phase 5 needs, in order: Moderation native (or kept out of the iOS app) so `FallbackScreen` has
-  nothing left to show; then delete `FallbackScreen` and the host's Compose bridge (`composeState` on `TextFieldState`, the fallback
+- **What still goes through the shared Compose UI on iOS** (checked against `ScreenRegistry.app` after `ios-native-moderation`, and
+  held by `checkIosScreenRegistry` in `check`): nothing. ~~`ModerationScreen`~~ is native (`ios-native-moderation`), and every
+  `@CircuitSerializable` screen of a contract module has an entry. `ReportScreen`, `ProposePlaceNameScreen` and `FeedFilterScreen` are
+  SubCircuits drawn natively through the host (`ReportSheet`, `ProposePlaceNameSheet`, `FeedFilterBar`). So phase 5 needs, in order:
+  ~~Moderation native so `FallbackScreen` has nothing left to show~~ (done); delete `FallbackScreen` and the host's Compose bridge (`composeState` on `TextFieldState`, the fallback
   controllers), the `*.ios.kt` actuals (`LocationPermission.ios.kt` among them) and the UI modules' iOS targets; split the Metro graph
   so the iOS one binds no `Ui.Factory`; drop Calf, Haze, Vico, Coil (Nuke already loads every native picture) and MapLibre Compose
   from iOS; retire `ui/ios-navigation-bar`. **Photo compression needs a replacement first**: `compressPhoto`'s iOS `encodePhoto`
