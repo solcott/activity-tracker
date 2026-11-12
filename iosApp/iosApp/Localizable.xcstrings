@@ -17128,6 +17128,17 @@
         }
       }
     },
+    "segment_length_type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "segment_mayor_none" : {
       "extractionState" : "manual",
       "localizations" : {

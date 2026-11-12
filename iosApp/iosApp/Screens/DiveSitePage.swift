@@ -39,7 +39,12 @@ struct DiveSitePage: View {
             }
             if let regulars = state.regulars {
                 Section {
-                    RegularsCard(regulars: regulars) { send(DiveSiteEvent.OpenRegulars.shared) }
+                    let texts = DiveSiteTexts.shared
+                    LeaderCardView(
+                        title: texts.regularsTitle, leader: regulars.leader?.athlete,
+                        value: regulars.leader.map { DiveSiteRegularsTexts.shared.visits(entry: $0) }, none: texts.regularsNone,
+                        own: regulars.viewer.map { texts.yourVisits(entry: $0) }
+                    ) { send(DiveSiteEvent.OpenRegulars.shared) }
                 }
             }
             if let conditions = state.conditions {
@@ -127,43 +132,6 @@ private struct DiveSiteAbout: View {
                 Button(action: openOriginal) { Text(PlaceTexts.shared.openOriginal) }
             }
         }
-    }
-}
-
-/// An active site's top Regular and their dives, or that it has none yet, and the viewer's own count; a tap opens the board.
-private struct RegularsCard: View {
-    let regulars: RegularsSummary
-    let open: () -> Void
-
-    var body: some View {
-        let texts = DiveSiteTexts.shared
-        Button(action: open) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(texts.regularsTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
-                    if let leader = regulars.leader {
-                        let name = AppPackage.getShownName(leader.athlete)
-                        HStack(spacing: 12) {
-                            Avatar(url: leader.athlete.avatar, name: name, size: 36)
-                            Text(verbatim: name).frame(maxWidth: .infinity, alignment: .leading)
-                            Text(DiveSiteRegularsTexts.shared.visits(entry: leader)).fontWeight(.medium)
-                        }
-                    } else {
-                        Text(texts.regularsNone).foregroundStyle(.secondary)
-                    }
-                    if let own = regulars.viewer {
-                        Text(texts.yourVisits(entry: own)).font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-            .foregroundStyle(.primary)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
     }
 }
 

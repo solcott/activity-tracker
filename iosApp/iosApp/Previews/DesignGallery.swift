@@ -248,6 +248,15 @@
             .background(Color(.systemGroupedBackground))
         }
 
+        /// Line charts: one in the accent colour with a gap, a profile tinted by grade, and that profile with its readout shown.
+        static var charts: some View {
+            List {
+                LineChartView(chart: Samples.plainChart)
+                LineChartView(chart: Samples.profileChart)
+                LineChartView(chart: Samples.profileChart, selected: 80)
+            }
+        }
+
         static var icons: some View {
             VStack(alignment: .leading, spacing: 16) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
@@ -362,6 +371,7 @@
         .tabViewStyle(.page)
     }
     #Preview("Cards") { DesignGallery.cards }
+    #Preview("Charts") { DesignGallery.charts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
     #Preview("Content") {

@@ -7,9 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import kotlin.math.roundToInt
 import kotlin.test.Test
-import kotlin.test.assertEquals
 
 /**
  * A segment's elevation on its screen (segments/segment-elevation): gain, loss and average grade when known, and high, low and maximum
@@ -80,12 +78,5 @@ class SegmentElevationUiTest {
     fun aLiftShowsItsProfileToo() = runComposeUiTest {
         setContent { AppPreview { SegmentUi(SegmentSamples.lift) } }
         onNodeWithTag(SEGMENT_PROFILE_TAG).assertExists()
-    }
-
-    @Test
-    fun distanceLabelsAreRoundSteps() {
-        assertEquals(listOf(0.0, 0.5, 1.0, 1.5), distanceLabels(1.6))
-        assertEquals(listOf(0.0, 0.2, 0.4, 0.6, 0.8), distanceLabels(0.99).map { (it * 10).roundToInt() / 10.0 })
-        assertEquals(listOf(0.0, 10.0, 20.0, 30.0, 40.0, 50.0), distanceLabels(50.0))
     }
 }

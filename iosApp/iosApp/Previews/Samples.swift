@@ -129,6 +129,12 @@
         static var segmentMap: [String: SegmentMapState] { SegmentPackage.SegmentMapSamples.shared.variants }
         static var segmentBrowse: [String: SegmentBrowseState] { SegmentPackage.SegmentBrowseSamples.shared.variants }
         static var acceptInvite: [String: AcceptInviteState] { InvitesPackage.AcceptInviteSamples.shared.variants }
+        /// The segment page (ios-native-charts) in each state it shows, states beyond content loading apart.
+        static var segment: [String: SegmentState] { SegmentPackage.SegmentSamples.shared.all }
+        static var segmentVariants: [String: SegmentState] { SegmentPackage.SegmentSamples.shared.variants }
+        /// Line charts for the design gallery: one untinted with a gap, and a segment's profile tinted by grade.
+        static var plainChart: LineChart { AppPackage.chart.LineChartSamples.shared.plain }
+        static var profileChart: LineChart { AppPackage.chart.LineChartSamples.shared.profile }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

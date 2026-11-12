@@ -105,6 +105,9 @@ extension ScreenRegistry {
             SegmentBrowseView(state: state, memory: SegmentsMapMemory())
         }
         registry.register(AcceptInviteScreen.self, AcceptInviteState.self) { state in AcceptInviteView(state: state) }
+
+        // The segment page (ios-native-charts), with the native chart, map and names.
+        registry.register(SegmentScreen.self, SegmentState.self) { state in SegmentPage(state: state) }
         return registry
     }()
 }

@@ -4,11 +4,16 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteMap
+import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.uistate.ContentState
 import kotlin.math.abs
@@ -63,6 +68,21 @@ data class SegmentState(
     /** The viewer may vote ([SegmentView.viewer]'s flag); [PlaceNameFields.canVoteHere] says whether this session can send it. */
     val canVote: Boolean
         get() = segment?.viewer?.canVoteOnNames == true
+
+    /** The segment's line as a route map, its start and end marked; null until loaded or for a line too short to draw. */
+    val routeMap: RouteMap?
+        get() = polyline?.let { RouteMap.of(it) }
+
+    /** [profile] as a chart in [units], as both UIs draw it; null without a profile. */
+    fun chart(units: UnitSystem): LineChart? = profile?.chart(units)
+
+    /** A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names. */
+    val isLift: Boolean
+        get() = segment?.let { !SegmentKind.isRanked(it.record.kind) } == true
+
+    /** The Leaderboard button shows: an active segment that isn't a lift. */
+    val offersLeaderboard: Boolean
+        get() = segment?.let { !isLift && SegmentStatus.of(it.status) == SegmentStatus.ACTIVE } == true
 }
 
 /**

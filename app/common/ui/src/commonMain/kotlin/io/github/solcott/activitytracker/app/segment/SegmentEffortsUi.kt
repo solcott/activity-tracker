@@ -16,26 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.text.DateText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.downhill_skiing
-import io.github.solcott.activitytracker.composeApp.resources.segment_ebike
-import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_excluded
-import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_hidden
-import io.github.solcott.activitytracker.composeApp.resources.segment_not_ranked_implausible
-import io.github.solcott.activitytracker.composeApp.resources.segment_pr
-import io.github.solcott.activitytracker.composeApp.resources.segment_rank_ordinals
-import io.github.solcott.activitytracker.composeApp.resources.ski_lift
+import io.github.solcott.activitytracker.composeApp.resources.allDrawableResources
 import io.github.solcott.activitytracker.lexicon.app.EffortView
-import io.github.solcott.activitytracker.lexicon.app.NotRanked
-import io.github.solcott.activitytracker.lexicon.app.SegmentKind
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringArrayResource
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * One effort as a row: [label] (the segment's name on an activity page, the date on a segment page), with its time, marked "PR" when it's
@@ -61,52 +48,31 @@ fun EffortRow(
         if (showKind) SegmentKindIcon(effort.segment.sport, effort.segment.kind)
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
-            if (showStatus)
-                segmentStatusLabel(effort.segment.status)?.let { status ->
-                    Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            notRankedLabel(effort.notRanked)?.let { reason ->
-                Text(reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (effort.eBike == true) {
-                Text(
-                    stringResource(Res.string.segment_ebike),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            val notes =
+                listOfNotNull(EffortTexts.status(effort).takeIf { showStatus }, EffortTexts.notRanked(effort), EffortTexts.eBike(effort))
+            notes.forEach { note ->
+                Text(note.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        effort.rank?.let { rank ->
-            stringArrayResource(Res.array.segment_rank_ordinals).getOrNull(rank - 1)?.let { ordinal ->
-                Text(
-                    ordinal,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        if (effort.best == true) {
+        EffortTexts.rank(effort)?.let { ordinal ->
             Text(
-                stringResource(Res.string.segment_pr),
+                ordinal.string(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        EffortTexts.pr(effort)?.let { pr ->
+            Text(
+                pr.string(),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.tertiary,
             )
         }
-        Text(Format.duration(effort.elapsed), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(EffortTexts.time(effort), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
     }
 }
-
-/** Why leaderboards don't rank an effort ([NotRanked]), as a line; null when they do, or for a reason this app doesn't know. */
-@Composable
-private fun notRankedLabel(reason: String?): String? =
-    when (reason) {
-        NotRanked.HIDDEN -> stringResource(Res.string.segment_not_ranked_hidden)
-        NotRanked.EXCLUDED -> stringResource(Res.string.segment_not_ranked_excluded)
-        NotRanked.IMPLAUSIBLE -> stringResource(Res.string.segment_not_ranked_implausible)
-        else -> null
-    }
 
 /** An effort's `YYYY-MM-DD` date, written out; the string itself when it doesn't parse. `DateText` chooses it. */
 @Composable fun effortDateLabel(startedOn: String): String = DateText.isoDate(startedOn).string()
@@ -120,13 +86,9 @@ private fun notRankedLabel(reason: String?): String? =
  */
 @Composable fun segmentTypeLabel(sport: String, kind: String?): String = SegmentTexts.type(sport, kind).string()
 
-/** The icon that tells a ski lift from a ski run; null for every other segment, which needs none. */
+/** The icon that tells a ski lift from a ski run ([SegmentTexts.kindIcon]); null for every other segment, which needs none. */
 fun segmentKindIcon(sport: String, kind: String?): DrawableResource? =
-    when {
-        SegmentKind.of(kind) == SegmentKind.LIFT -> Res.drawable.ski_lift
-        sport == SegmentSportGroup.ALPINE -> Res.drawable.downhill_skiing
-        else -> null
-    }
+    SegmentTexts.kindIcon(sport, kind)?.let { Res.allDrawableResources[it] }
 
 /** [segmentKindIcon] for a segment of [sport] and [kind], read out as its [segmentTypeLabel]; nothing for a segment with none. */
 @Composable

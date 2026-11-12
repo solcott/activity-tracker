@@ -73,12 +73,11 @@ struct ScreenRegistryTests {
         for screen in ["AthleteSearchScreen", "LeftElsewhereScreen", "DiveSiteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // A segment's enlarged map, segment browse and accepting an invite (ios-native-interactive-maps).
-        for screen in ["SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
+        // A segment's page with the native chart (ios-native-charts), its enlarged map, segment browse and accepting an invite
+        // (ios-native-interactive-maps).
+        for screen in ["SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // The rest of what the lists open is still the shared UI's: the segment page draws a chart.
-        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "SegmentScreen"))
         // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
         #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
     }
@@ -115,6 +114,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.SegmentMayorsScreen.self) == "SegmentMayorsScreen")
         #expect(String(describing: ActivityTracker.DiveSiteRegularsScreen.self) == "DiveSiteRegularsScreen")
         #expect(String(describing: ActivityTracker.DiveSiteScreen.self) == "DiveSiteScreen")
+        #expect(String(describing: ActivityTracker.SegmentScreen.self) == "SegmentScreen")
         #expect(String(describing: ActivityTracker.EditProfileScreen.self) == "EditProfileScreen")
         #expect(String(describing: ActivityTracker.TrainingZonesScreen.self) == "TrainingZonesScreen")
         #expect(String(describing: ActivityTracker.ZonesScreen.self) == "ZonesScreen")

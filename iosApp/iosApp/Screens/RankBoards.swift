@@ -127,3 +127,46 @@ struct YourPlace<Row: View>: View {
         }
     }
 }
+
+/// A board's leader in brief, on the page it belongs to (a segment's Mayor, a dive site's top Regular): the board's title, the leader's
+/// picture, name and count, or that there is none yet, and the viewer's own count; a tap opens the board. Its words are Kotlin's.
+struct LeaderCardView: View {
+    let title: any AppText
+    let leader: ProfileViewBasic?
+    let value: (any AppText)?
+    let none: any AppText
+    let own: (any AppText)?
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
+                    if let leader {
+                        let name = AppPackage.getShownName(leader)
+                        HStack(spacing: 12) {
+                            Avatar(url: leader.avatar, name: name, size: 36)
+                            Text(verbatim: name).frame(maxWidth: .infinity, alignment: .leading)
+                            if let value {
+                                Text(value).fontWeight(.medium)
+                            }
+                        }
+                    } else {
+                        Text(none).foregroundStyle(.secondary)
+                    }
+                    if let own {
+                        Text(own).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.primary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+    }
+}

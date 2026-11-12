@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
@@ -239,8 +240,66 @@ object SegmentSamples {
             )
         }
 
+    /**
+     * An active OpenStreetMap segment the viewer starred, with a profile, its Mayor and the viewer's place on that board, and the viewer's
+     * efforts: their PR in 3rd, one from an activity excluded from leaderboards, and an e-bike ride's.
+     */
+    val openStreetMap: SegmentState
+        get() {
+            val osm =
+                fakeSegment(
+                        "osm-climb",
+                        record = fakeSegmentRecord(name = "Notch Road Climb", source = SegmentSource.OSM, license = "ODbL-1.0"),
+                        distanceMeters = 1_600,
+                        status = SegmentStatus.ACTIVE,
+                    )
+                    .copy(elevationGain = 84, elevationLoss = 12, elevationSource = SegmentElevationSource.TERRAIN)
+            val basic = fakeSegmentBasic(osm)
+            return SegmentState(
+                content = ContentStates.loaded(osm),
+                polyline = osm.record.line,
+                efforts =
+                    persistentListOf(
+                        fakeEffort(basic, elapsed = 312, startedOn = "2026-05-31", rank = 3, best = true),
+                        fakeEffort(basic, elapsed = 330, startedOn = "2026-05-12").copy(notRanked = NotRanked.EXCLUDED),
+                        fakeEffort(basic, elapsed = 3_725, startedOn = "2026-04-02").copy(eBike = true),
+                    ),
+                starred = true,
+                credit = SegmentCredit.OpenStreetMap("ODbL-1.0"),
+                mayor =
+                    MayorSummary(
+                        leader = fakeMayorEntry(athlete = fakeProfileBasic(Fixed.BOB), efforts = 14),
+                        viewer = fakeMayorEntry(rank = 4, efforts = 3),
+                    ),
+                profile = fakeProfile(1_600, maxGradePercent = 12.4) { at -> CLIMB_START_M + climbProfile(at) },
+            )
+        }
+
+    /** A duplicate of an earlier segment, from an agency's trail data: its status and Open the original, and no efforts. */
+    val duplicate: SegmentState
+        get() {
+            val copy =
+                fakeSegment(
+                        "agency-dup",
+                        record = fakeSegmentRecord(name = "Ridge Trail", source = SegmentSource.AGENCY, license = "CC0-1.0"),
+                        status = SegmentStatus.DUPLICATE,
+                    )
+                    .copy(duplicateOf = segment.uri)
+            return SegmentState(
+                content = ContentStates.loaded(copy),
+                polyline = copy.record.line,
+                credit = SegmentCredit.Agency("CC0-1.0", attribution = "US Forest Service"),
+            )
+        }
+
+    /** Kept apart from [all], whose keys are the content-loading set. */
+    val variants: Map<String, SegmentState>
+        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate)
+
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"
+    const val OPEN_STREET_MAP = "openStreetMap"
+    const val DUPLICATE = "duplicate"
 }
 
 object SegmentMapSamples {
