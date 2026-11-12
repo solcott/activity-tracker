@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.detail.untilText
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
@@ -42,6 +41,8 @@ import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.LocalClock
+import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
@@ -58,48 +59,26 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.feed_add
-import io.github.solcott.activitytracker.composeApp.resources.feed_add_manual
-import io.github.solcott.activitytracker.composeApp.resources.feed_empty_can_record
-import io.github.solcott.activitytracker.composeApp.resources.feed_empty_filtered
-import io.github.solcott.activitytracker.composeApp.resources.feed_empty_manual_only
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_clear
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_following
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_mine
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_anyone
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_body
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_connected
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_title
-import io.github.solcott.activitytracker.composeApp.resources.feed_import
-import io.github.solcott.activitytracker.composeApp.resources.feed_imports_paused
-import io.github.solcott.activitytracker.composeApp.resources.feed_imports_waiting
-import io.github.solcott.activitytracker.composeApp.resources.feed_other_changes
-import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
-import io.github.solcott.activitytracker.composeApp.resources.feed_rejected_changes
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_body
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_not_now
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_title
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn_on
-import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused
-import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused_tomorrow
-import io.github.solcott.activitytracker.composeApp.resources.feed_uploading
-import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_activities
-import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_and_imported
-import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_imported
-import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_with_other
-import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.isLoading
-import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -113,15 +92,17 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
     // One scroll position per scope and filter, so a new one opens at its top rather than wherever the last list was.
     val listState = key(state.scope, state.filter) { rememberLazyListState() }
     val scopeMenu =
-        state.scopes
-            .map { scope -> AppMenuItem(scopeLabel(scope), checked = scope == state.scope) { state.eventSink(FeedEvent.SetScope(scope)) } }
+        FeedTexts.scopes(state)
+            .map { option ->
+                AppMenuItem(option.label.string(), checked = option.chosen) { state.eventSink(FeedEvent.SetScope(option.scope)) }
+            }
             .toImmutableList()
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
         modifier = modifier,
         topBar = {
             AppTopBar(
-                title = scopeLabel(state.scope),
+                title = FeedTexts.title(state).string(),
                 scrollBehavior = scrollBehavior,
                 titleMenu = scopeMenu,
                 actions = {
@@ -206,31 +187,28 @@ private fun Timeline(
             modifier = Modifier.fillMaxSize(),
         ) {
             val uploads = state.uploads
-            if (uploads.refused > 0) {
+            FeedUploadTexts.refused(uploads)?.let { refused ->
                 item(key = "rejected") {
                     AppTextButton(onClick = { state.eventSink(FeedEvent.OpenUploads) }) {
-                        Text(
-                            pluralStringResource(Res.plurals.feed_rejected_changes, uploads.refused, uploads.refused),
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        Text(refused.string(), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
-            if (uploads.uploading) {
+            FeedUploadTexts.uploading(uploads)?.let { uploading ->
                 item(key = "uploading") {
                     AppTextButton(onClick = { state.eventSink(FeedEvent.OpenUploads) }) {
                         Column {
-                            Text(uploadingText(uploads), style = MaterialTheme.typography.bodySmall)
-                            if (uploads.importsPaused && uploads.imported > 0) {
+                            Text(uploading.string(), style = MaterialTheme.typography.bodySmall)
+                            FeedUploadTexts.importsPaused(uploads)?.let { paused ->
                                 Text(
-                                    stringResource(Res.string.feed_imports_paused),
+                                    paused.string(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            uploads.serverPausedUntil?.let { until ->
+                            FeedUploadTexts.pausedUntil(uploads, LocalClock.current.now(), LocalTimeZone.current)?.let { until ->
                                 Text(
-                                    pausedUntil(until),
+                                    until.string(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -251,24 +229,18 @@ private fun Timeline(
             if (state.askSegments) item { SegmentsPrompt(state) }
             if (state.askGroups) item { GroupsPrompt(state) }
             timelineItems(state)
-            if (state.items.isEmpty() && !state.content.isLoading) {
+            FeedTexts.empty(state)?.let { empty ->
                 item {
                     Column(
                         Modifier.fillMaxSize().padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (state.filter.isNarrowed) {
-                            Text(stringResource(Res.string.feed_empty_filtered))
+                        Text(empty.string())
+                        if (FeedTexts.emptyOffersClear(state)) {
                             AppTextButton(onClick = { state.eventSink(FeedEvent.ClearFilters) }) {
                                 Text(stringResource(Res.string.feed_filter_clear))
                             }
-                        } else {
-                            Text(
-                                stringResource(
-                                    if (state.canRecord) Res.string.feed_empty_can_record else Res.string.feed_empty_manual_only,
-                                ),
-                            )
                         }
                     }
                 }
@@ -326,50 +298,26 @@ private fun GroupsPrompt(state: FeedState, modifier: Modifier = Modifier) {
 @Composable
 private fun AddActivityMenu(state: FeedState, recordInMenu: Boolean, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
-    val record = stringResource(Res.string.feed_record)
-    val manual = stringResource(Res.string.feed_add_manual)
-    val import = stringResource(Res.string.feed_import)
     val items =
-        remember(state.canRecord, recordInMenu, record, manual, import, state.eventSink) {
-            buildList {
-                if (recordInMenu && state.canRecord) add(AppMenuItem(record, AppIcon.Record) { state.eventSink(FeedEvent.Record) })
-                add(AppMenuItem(manual, AppIcon.ManualEntry) { state.eventSink(FeedEvent.AddManual) })
-                add(AppMenuItem(import, AppIcon.Import) { state.eventSink(FeedEvent.Import) })
-            }
-                .toImmutableList()
-        }
+        FeedTexts.addChoices(state, recordInMenu)
+            .map { choice -> AppMenuItem(choice.label.string(), addIcon(choice.kind)) { state.eventSink(choice.event) } }
+            .toImmutableList()
     Box(modifier) {
-        AppIconButton(AppIcon.Add, stringResource(Res.string.feed_add), onClick = { open = true })
+        AppIconButton(AppIcon.Add, FeedTexts.add().string(), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
 }
 
-@Composable
-private fun scopeLabel(scope: FeedScope): String =
-    when (scope) {
-        FeedScope.Following -> stringResource(Res.string.feed_filter_following)
-        FeedScope.Mine -> stringResource(Res.string.feed_filter_mine)
+private fun addIcon(kind: FeedAddKind): AppIcon =
+    when (kind) {
+        FeedAddKind.Record -> AppIcon.Record
+        FeedAddKind.Manual -> AppIcon.ManualEntry
+        FeedAddKind.Import -> AppIcon.Import
     }
-
-/** "Paused by the server until 3:40 PM", or "until tomorrow at" when the pause ends after midnight (data/outbox). */
-@Composable
-private fun pausedUntil(until: Instant): String = untilText(until, Res.string.feed_upload_paused, Res.string.feed_upload_paused_tomorrow)
 
 /** The timeline's activities, import cards, posts and reposted posts, in their order. */
 private fun LazyListScope.timelineItems(state: FeedState) {
-    items(
-        state.items,
-        key = {
-            when (it) {
-                is TimelineItem.Activity -> it.view.uri.value
-                is TimelineItem.ImportCard -> "importCard:${it.card.author.did.value}/${it.card.batch}"
-                is TimelineItem.Post -> "post:${it.post.uri.value}"
-                // A post comes once a timeline, as itself or through a repost, so its URI keys it either way.
-                is TimelineItem.Repost -> "post:${it.reposted.post.uri.value}"
-                is TimelineItem.Unknown -> it.hashCode()
-            }
-        },
-    ) { item ->
+    items(state.items, key = state::keyOf) { item ->
         when (item) {
             is TimelineItem.Activity ->
                 ActivityListCard(
@@ -392,29 +340,5 @@ private fun LazyListScope.timelineItems(state: FeedState) {
                 )
             is TimelineItem.Unknown -> Unit
         }
-    }
-}
-
-/**
- * What is uploading, by activity (data/outbox): "Uploading 1 activity and 950 imported · 3 other changes". Imports the athlete paused are
- * waiting rather than uploading.
- */
-@Composable
-private fun uploadingText(uploads: UploadSummary): String {
-    val own = pluralStringResource(Res.plurals.feed_uploading_activities, uploads.own, uploads.own)
-    val imported = pluralStringResource(Res.plurals.feed_uploading_imported, uploads.imported, uploads.imported)
-    val activities =
-        when {
-            uploads.own > 0 && uploads.imported > 0 -> stringResource(Res.string.feed_uploading_and_imported, own, uploads.imported)
-            uploads.own > 0 -> stringResource(Res.string.feed_uploading, own)
-            uploads.imported > 0 && uploads.importsPaused -> stringResource(Res.string.feed_imports_waiting, imported)
-            uploads.imported > 0 -> stringResource(Res.string.feed_uploading, imported)
-            else -> null
-        }
-    val other = pluralStringResource(Res.plurals.feed_other_changes, uploads.other, uploads.other)
-    return when {
-        activities != null && uploads.other > 0 -> stringResource(Res.string.feed_uploading_with_other, activities, other)
-        activities != null -> activities
-        else -> pluralStringResource(Res.plurals.feed_pending_writes, uploads.other, uploads.other)
     }
 }
