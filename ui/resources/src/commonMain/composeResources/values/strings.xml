@@ -2095,6 +2095,8 @@
     <string name="text_list_pair">%1$s, %2$s</string>
     <string name="text_arrow_pair">%1$s → %2$s</string>
     <string name="text_dot_pair">%1$s · %2$s</string>
+    <string name="text_space_pair">%1$s %2$s</string>
+    <string name="text_semicolon_pair">%1$s; %2$s</string>
     <plurals name="gear_total_days">
         <item quantity="one">%1$d day</item>
         <item quantity="other">%1$d days</item>

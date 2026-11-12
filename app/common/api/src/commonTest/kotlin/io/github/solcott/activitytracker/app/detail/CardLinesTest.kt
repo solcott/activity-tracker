@@ -91,4 +91,100 @@ class CardLinesTest {
         assertEquals(named("value_missing"), table.rows[1].cells.last())
         assertTrue(table.wideFirst)
     }
+
+    @Test
+    fun anEffortLineHasTheElevationBehindIt() {
+        val elevation = LineSeries(StreamKind.Elevation, samples(100.0, 160.0, 120.0), average = null, max = 160.0)
+        val hr = LineSeries(StreamKind.HeartRate, samples(120.0, 140.0, 160.0), average = 140.0, max = 160.0)
+        val card = MetricCard(DetailSection.HeartRate, persistentListOf(), series = persistentListOf(hr))
+        val chart = CardLines.of(card, charts(hr, elevation), UnitSystem.Metric).single().chart
+        assertEquals(3, chart.backdrop.size)
+        assertEquals(chart.axis.min, chart.backdrop[0].y)
+        assertEquals(
+            named("chart_marker_elevation", written("1:00"), named("unit_bpm", written("140")), named("unit_elevation_m", written("160"))),
+            chart.readouts[1],
+        )
+        // Elevation itself draws none behind it.
+        val own = MetricCard(DetailSection.Elevation, persistentListOf(), series = persistentListOf(elevation))
+        assertTrue(CardLines.of(own, charts(hr, elevation), UnitSystem.Metric).single().chart.backdrop.isEmpty())
+    }
+
+    @Test
+    fun aPairDrawsItsRightLegAsASecondLine() {
+        val right = LineSeries(StreamKind.PedalSmoothness, samples(20.0, 22.0), average = 21.0, max = 22.0)
+        val left = LineSeries(StreamKind.PedalSmoothness, samples(18.0, 19.0), average = 18.5, max = 19.0, right = right)
+        val card = MetricCard(DetailSection.CyclingDynamics, persistentListOf(), series = persistentListOf(left))
+        val line = CardLines.of(card, charts(left), UnitSystem.Metric).single()
+        assertEquals(listOf(20.0, 22.0), line.chart.others.single().points.map { it.y })
+        assertTrue(line.chart.axis.max >= 22.0)
+        assertTrue(line.detail != null)
+    }
+
+    @Test
+    fun everyTankIsOnOneChart() {
+        val one = LineSeries(StreamKind.TankPressure, samples(200.0, 150.0), average = null, max = 200.0)
+        val two = LineSeries(StreamKind.TankPressure, samples(210.0, 190.0), average = null, max = 210.0)
+        val card = MetricCard(DetailSection.TankPressure, persistentListOf(), series = persistentListOf(one, two))
+        val line = CardLines.of(card, charts(), UnitSystem.Metric).single()
+        assertEquals(1, line.chart.otherCount)
+        assertEquals(named("chart_tank_pressure"), line.title)
+        assertEquals(
+            named("text_dot_pair", named("unit_pressure_bar", written("200")), named("unit_pressure_bar", written("210"))),
+            line.detail,
+        )
+    }
+
+    @Test
+    fun aDiveMarksItsSwitchesAndWarningsAndDrawsItsCeiling() {
+        val depth = LineSeries(StreamKind.Depth, samples(0.0, 20.0, 30.0, 5.0), average = 15.0, max = 30.0)
+        val card = MetricCard(DetailSection.Depth, persistentListOf(), series = persistentListOf(depth))
+        val dive =
+            charts(depth)
+                .copy(
+                    gasSwitches = persistentListOf(GasSwitchPoint(120, 50, 0)),
+                    alerts = persistentListOf(DiveAlertPoint(150, "ascent_rate")),
+                    ceiling = persistentListOf(ChartSample(60, 3.0), ChartSample(120, 6.0)),
+                )
+        val chart = CardLines.of(card, dive, UnitSystem.Metric).single().chart
+        assertTrue(chart.fillAbove)
+        assertEquals(listOf(120.0, 150.0), chart.marks.map { it.x })
+        assertEquals(listOf(false, true), chart.marks.map { it.warning })
+        assertEquals(-6.0, chart.others.single().points[1].y)
+    }
+
+    @Test
+    fun assistModeIsInSteps() {
+        val mode = LineSeries(StreamKind.EbikeAssistMode, samples(1.0, 3.0, 2.0), average = null, max = 3.0)
+        val card = MetricCard(DetailSection.EBike, persistentListOf(), series = persistentListOf(mode))
+        assertTrue(CardLines.of(card, charts(mode), UnitSystem.Metric).single().chart.steps)
+    }
+
+    @Test
+    fun thePowerCurveFollowsThePowerLine() {
+        val power = LineSeries(StreamKind.Power, samples(200.0, 250.0), average = 225.0, max = 250.0)
+        val curve = persistentListOf(CurvePoint(5, 600), CurvePoint(30, 400), CurvePoint(60, 350), CurvePoint(1200, 260))
+        val card = MetricCard(DetailSection.Power, persistentListOf(), series = persistentListOf(power), powerCurve = curve)
+        val lines = CardLines.of(card, charts(power), UnitSystem.Metric)
+        val curveChart = lines[1]
+        assertEquals(named("chart_power_curve"), curveChart.title)
+        assertEquals(listOf(0.0, 2.0, 3.0), curveChart.chart.xTicks.map { it.value })
+        assertEquals(
+            listOf(
+                named("unit_duration_seconds", written("5")),
+                named("unit_duration_minutes", written("1")),
+                named("unit_duration_minutes", written("20")),
+            ),
+            curveChart.chart.xTicks.map { it.label },
+        )
+    }
+
+    @Test
+    fun gearsHoldToTheEndInSteps() {
+        val gears = persistentListOf(GearPoint(0, 2, 5), GearPoint(120, 2, 3))
+        val card = MetricCard(DetailSection.Gears, persistentListOf(), gears = gears)
+        val chart = CardLines.of(card, charts(), UnitSystem.Metric).single().chart
+        assertTrue(chart.steps)
+        assertEquals(listOf(0.0, 120.0, 600.0), chart.points.map { it.x })
+        assertEquals(listOf(5.0, 3.0, 3.0), chart.points.map { it.y })
+    }
 }

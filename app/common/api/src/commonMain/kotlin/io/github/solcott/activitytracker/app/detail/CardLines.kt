@@ -1,16 +1,22 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.chart.ChartLine
+import io.github.solcott.activitytracker.app.chart.ChartMark
 import io.github.solcott.activitytracker.app.chart.ChartTick
 import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.chart.LinePoint
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DiveText
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.data.chart.ChartAxis
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.data.units.formatWhole
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -22,26 +28,44 @@ import kotlinx.collections.immutable.toImmutableList
 
 /**
  * How a metric card's lines read and chart (feed/activity-page-layout, dev/shared-display-text): each line's title, header detail and
- * description, which the shared chart asks too, and each as a [LineChart] over the activity's time for a native page. The shared chart also
- * draws the elevation behind effort lines, a pair's second line, several tanks and a dive's markers, which [LineChart] can't yet; here each
- * card's lines are their main line alone.
+ * description, which the shared chart asks too, and each as a [LineChart] over the activity's time for a native page, with what the shared
+ * chart draws around it: the elevation behind an effort line, a pair's right leg, every tank on one chart, a dive's ceiling, gas switches
+ * and warnings, an e-bike's assist mode in steps, then the power curve and the gears.
  */
+@Suppress("TooManyFunctions") // One per chart the card draws and the words each says.
 object CardLines {
-    /** The card's lines as charts, in drawing order; a series with fewer than two points has none. */
-    fun of(card: MetricCard, charts: ActivityCharts, units: UnitSystem): List<CardLine> =
-        card.series.mapNotNull { series ->
-            val pace = card.pace.takeIf { series.kind == StreamKind.Speed }
-            // The card's title and headline already name and sum up its own line; a second (grade under elevation) needs a title.
-            val titled = series.kind.name != card.section.name && card.series.size > 1
-            val tanks = card.section == DetailSection.TankPressure && card.series.size > 1
-            chart(series, charts.durationSeconds, pace, units)?.let { chart ->
-                CardLine(
-                    title = title(series.kind, pace).takeIf { titled || tanks },
-                    detail = detail(series, pace, units).takeIf { titled || series.right != null },
-                    chart = chart,
-                )
+    /** The card's charts, in drawing order; a series with fewer than two points has none. */
+    fun of(card: MetricCard, charts: ActivityCharts, units: UnitSystem): List<CardLine> {
+        val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }
+        val lines =
+            if (card.section == DetailSection.TankPressure) {
+                listOfNotNull(tanks(card.series, charts.durationSeconds, units))
+            } else {
+                card.series.mapNotNull { series -> line(card, series, charts, elevation, units) }
             }
+        val extra =
+            when (card.section) {
+                DetailSection.Power -> listOfNotNull(powerCurve(card.powerCurve))
+                DetailSection.Gears -> listOfNotNull(gears(card.gears, charts.durationSeconds, elevation, units))
+                else -> emptyList()
+            }
+        return lines + extra
+    }
+
+    private fun line(card: MetricCard, series: LineSeries, charts: ActivityCharts, elevation: LineSeries?, units: UnitSystem): CardLine? {
+        val pace = card.pace.takeIf { series.kind == StreamKind.Speed }
+        // The card's title and headline already name and sum up its own line; a second (grade under elevation) needs a title.
+        val titled = series.kind.name != card.section.name && card.series.size > 1
+        val behind = elevation?.takeIf { series.kind in OVER_ELEVATION && it !== series }
+        val dive = charts.takeIf { series.kind == StreamKind.Depth }
+        return chart(series, charts.durationSeconds, pace, units, behind, dive)?.let { chart ->
+            CardLine(
+                title = title(series.kind, pace).takeIf { titled },
+                detail = detail(series, pace, units).takeIf { titled || series.right != null },
+                chart = chart,
+            )
         }
+    }
 
     /** A line's title: Pace for a pace line, else its stream's. */
     fun title(kind: StreamKind, pace: PaceKind?): AppText = if (pace != null) AppText.named("chart_pace") else StreamUnits.title(kind)
@@ -76,8 +100,21 @@ object CardLines {
             else -> AppText.named("chart_description", title, average, max)
         }
 
-    /** [series] over the activity's [durationSeconds] as a [LineChart]; a pace line inverted, the faster at the top, and capped. */
-    fun chart(series: LineSeries, durationSeconds: Int, pace: PaceKind?, units: UnitSystem): LineChart? {
+    /**
+     * [series] over the activity's [durationSeconds] as a [LineChart]; a pace line inverted, the faster at the top, and capped. With
+     * [elevation] it's drawn faintly behind and each readout names the elevation there; a left/right pair's right leg is a second line; a
+     * dive's depth (with its [dive] charts) is filled up to the surface with its ceiling, gas switches and warnings; assist mode is in
+     * steps.
+     */
+    @Suppress("LongMethod", "CyclomaticComplexMethod") // A chart and each thing drawn with it.
+    fun chart(
+        series: LineSeries,
+        durationSeconds: Int,
+        pace: PaceKind?,
+        units: UnitSystem,
+        elevation: LineSeries? = null,
+        dive: ActivityCharts? = null,
+    ): LineChart? {
         if (series.points.size < 2) return null
         val convert = { v: Double ->
             if (pace != null) StreamUnits.paceSeconds(pace, v, units) else StreamUnits.convert(series.kind, v, units)
@@ -93,18 +130,222 @@ object CardLines {
         val axisLabel = { v: Double -> if (pace != null) StreamUnits.paceAxis(v) else StreamUnits.axis(v) }
         val maxText = series.max?.let { valueText(series.kind, it, pace, units) } ?: StatText.missing
         val title = title(series.kind, pace)
+        val right =
+            series.right
+                ?.takeIf { it.points.size >= 2 }
+                ?.let { leg ->
+                    val converted = leg.points.map { convert(it.value) }
+                    ChartLine(
+                        leg.points
+                            .mapIndexed { i, sample -> LinePoint(sample.seconds.toDouble(), sign * converted[i], sample.gapBefore) }
+                            .toImmutableList(),
+                    )
+                }
+        val depthCeiling =
+            dive
+                ?.ceiling
+                ?.takeIf { it.size >= 2 }
+                ?.let { samples ->
+                    ChartLine(samples.map { LinePoint(it.seconds.toDouble(), sign * convert(it.value), it.gapBefore) }.toImmutableList())
+                }
+        val others = listOfNotNull(right, depthCeiling)
+        // The axis spans every line it draws.
+        val axis =
+            ChartAxis.of(
+                values + others.flatMap { line -> line.points.map { sign * it.y } },
+                inverted = inverted,
+                timeValues = pace != null,
+            )
+        val heights = elevation?.let { elevationPoints(it, units) }.orEmpty()
+        val readouts =
+            series.points.mapIndexed { i, sample ->
+                val at = time(sample.seconds)
+                nearestY(heights, sample.seconds.toDouble())?.let { height ->
+                    AppText.named("chart_marker_elevation", at, text(values[i]), StreamUnits.text(StreamKind.Elevation, height, units))
+                } ?: AppText.named("chart_marker", at, text(values[i]))
+            }
+        val notes = listOfNotNull(dive?.let { depthNotes(it) }, AppText.named("chart_left_right_help").takeIf { right != null })
         return LineChart.of(
             points = points,
             xMin = 0.0,
             xMax = durationSeconds.toDouble().coerceAtLeast(points.last().x),
             xTicks = timeTicks(durationSeconds),
             yLabel = { axisLabel(sign * it) },
-            readouts = series.points.mapIndexed { i, sample -> AppText.named("chart_marker", time(sample.seconds), text(values[i])) },
-            description = description(title, average?.let(text), maxText, pace),
-            axis = ChartAxis.of(values, inverted = inverted, timeValues = pace != null),
+            readouts = readouts,
+            description = sentences(listOf(description(title, average?.let(text), maxText, pace)) + notes),
+            axis = axis,
             average = average?.let { sign * it.coerceAtMost(ceiling) },
+            steps = series.kind == StreamKind.EbikeAssistMode,
+            backdrop = LineChart.backdropOf(heights, axis),
+            others = others,
+            marks = dive?.let { depthMarks(it) }.orEmpty(),
+            fillAbove = series.kind == StreamKind.Depth,
         )
     }
+
+    /**
+     * A chart of every tank on one scale, the first filled and the rest as more lines, headed by each tank's maximum; one tank charts as
+     * any line. Null without a tank of two points.
+     */
+    fun tanks(tanks: List<LineSeries>, durationSeconds: Int, units: UnitSystem): CardLine? {
+        val drawn = tanks.filter { it.points.size >= 2 }
+        val first = drawn.firstOrNull() ?: return null
+        val base = chart(first, durationSeconds, pace = null, units) ?: return null
+        if (drawn.size == 1) return CardLine(title = null, detail = null, chart = base)
+        val convert = { v: Double -> StreamUnits.convert(StreamKind.TankPressure, v, units) }
+        val others =
+            drawn.drop(1).mapIndexed { i, tank ->
+                ChartLine(tank.points.map { LinePoint(it.seconds.toDouble(), convert(it.value), it.gapBefore) }.toImmutableList(), tone = i)
+            }
+        val axis = ChartAxis.of(drawn.flatMap { tank -> tank.points.map { convert(it.value) } })
+        val chart =
+            LineChart.of(
+                points = base.points,
+                xMin = base.xMin,
+                xMax = base.xMax,
+                xTicks = base.xTicks,
+                yLabel = StreamUnits::axis,
+                readouts = base.readouts,
+                description = sentences(listOf(base.description, tanksHelp(drawn.size))),
+                axis = axis,
+                average = base.average,
+                others = others,
+            )
+        return CardLine(title = title(StreamKind.TankPressure, null), detail = tanksDetail(drawn, units), chart = chart)
+    }
+
+    /** Several tanks' maxima, "200 bar · 180 bar"; null without one. */
+    fun tanksDetail(tanks: List<LineSeries>, units: UnitSystem): AppText? =
+        tanks
+            .mapNotNull { it.max?.let { max -> StreamUnits.valueText(StreamKind.TankPressure, max, units) } }
+            .reduceOrNull { a, b -> AppText.named("text_dot_pair", a, b) }
+
+    /** What a chart of [count] tanks shows, for a screen reader. */
+    fun tanksHelp(count: Int): AppText = AppText.named("chart_tank_pressure_help", AppText.written("$count"))
+
+    /** A dive's gas switches, by the gas's name, and its warnings, in the error colour, as marks on its depth chart. */
+    fun depthMarks(charts: ActivityCharts): List<ChartMark> =
+        charts.gasSwitches.map { ChartMark(it.seconds.toDouble(), DiveText.gasName(it.oxygen, it.helium)) } +
+            charts.alerts.map { ChartMark(it.seconds.toDouble(), LabelText.diveAlert(it.kind), warning = true) }
+
+    /** What a depth chart marks, for a screen reader: each switch and warning at its time, and the ceiling; null for none. */
+    fun depthNotes(charts: ActivityCharts): AppText? {
+        val switches =
+            AppText.joined(
+                charts.gasSwitches.map { AppText.named("chart_depth_switch", DiveText.gasName(it.oxygen, it.helium), time(it.seconds)) },
+            )
+        val alerts =
+            AppText.joined(charts.alerts.map { AppText.named("chart_depth_switch", LabelText.diveAlert(it.kind), time(it.seconds)) })
+        val notes =
+            listOfNotNull(
+                switches?.let { AppText.named("chart_depth_switches", it) },
+                alerts?.let { AppText.named("chart_depth_alerts", it) },
+                AppText.named("chart_depth_ceiling").takeIf { charts.ceiling.size >= 2 },
+            )
+        return notes.takeIf { it.isNotEmpty() }?.let(::sentences)
+    }
+
+    /**
+     * The best average power for each duration, each an equal step along the axis so 1 s to 1 min takes no more room than 1 min to 1 h,
+     * labelled at 5 s, 1, 5 and 20 min and 1 h; null with fewer than two durations.
+     */
+    fun powerCurve(curve: List<CurvePoint>): CardLine? {
+        if (curve.size < 2) return null
+        val points = curve.mapIndexed { i, point -> LinePoint(i.toDouble(), point.watts.toDouble()) }
+        val watts = { w: Double -> AppText.named("unit_watts", AppText.written(formatWhole(w.roundToInt()))) }
+        val chart =
+            LineChart.of(
+                points = points,
+                // Half a step either side, so a label at either end has room.
+                xMin = -CURVE_EDGE,
+                xMax = points.last().x + CURVE_EDGE,
+                xTicks =
+                    curve.mapIndexedNotNull { i, p ->
+                        ChartTick(i.toDouble(), durationLabel(p.seconds)).takeIf { p.seconds in CURVE_STATS }
+                    },
+                yLabel = watts,
+                readouts = curve.map { AppText.named("chart_marker", durationLabel(it.seconds), watts(it.watts.toDouble())) },
+                description = powerCurveDescription(curve),
+                axis = ChartAxis.of(points.map { it.y }),
+            )
+        return CardLine(title = AppText.named("chart_power_curve"), detail = null, chart = chart)
+    }
+
+    /** What the power curve shows, for a screen reader: the best power at each labelled duration. */
+    fun powerCurveDescription(curve: List<CurvePoint>): AppText {
+        val points =
+            curve
+                .filter { it.seconds in CURVE_STATS }
+                .map {
+                    AppText.named(
+                        "chart_power_curve_point",
+                        durationLabel(it.seconds),
+                        AppText.named("unit_watts", AppText.written(formatWhole(it.watts))),
+                    )
+                }
+        val listed = points.reduceOrNull { a, b -> AppText.named("text_semicolon_pair", a, b) } ?: AppText.written("")
+        return AppText.named("chart_power_curve_help", listed)
+    }
+
+    /** A power curve's duration: "5s", "20m", "1h". */
+    fun durationLabel(seconds: Int): AppText =
+        when {
+            seconds < MINUTE -> AppText.named("unit_duration_seconds", AppText.written("$seconds"))
+            seconds < HOUR -> AppText.named("unit_duration_minutes", AppText.written("${seconds / MINUTE}"))
+            else -> AppText.named("unit_duration_hours", AppText.written("${seconds / HOUR}"))
+        }
+
+    /** The rear gear after each shift, held to the end of the activity, in steps over the [elevation]; null with no rear gear. */
+    fun gears(gears: List<GearPoint>, durationSeconds: Int, elevation: LineSeries?, units: UnitSystem): CardLine? {
+        val shifts = gears.mapNotNull { gear -> gear.rear?.let { LinePoint(gear.seconds.toDouble(), it.toDouble()) } }
+        val last = shifts.lastOrNull() ?: return null
+        val points = if (last.x < durationSeconds) shifts + last.copy(x = durationSeconds.toDouble()) else shifts
+        if (points.size < 2) return null
+        val heights = elevation?.let { elevationPoints(it, units) }.orEmpty()
+        val axis = ChartAxis.of(points.map { it.y })
+        val chart =
+            LineChart.of(
+                points = points,
+                xMin = 0.0,
+                xMax = durationSeconds.toDouble().coerceAtLeast(points.last().x),
+                xTicks = timeTicks(durationSeconds),
+                yLabel = { AppText.written("${it.roundToInt()}") },
+                readouts =
+                    points.map { p ->
+                        val at = time(p.x.toInt())
+                        val gear = gearText(p.y.roundToInt())
+                        nearestY(heights, p.x)?.let {
+                            AppText.named("chart_marker_elevation", at, gear, StreamUnits.text(StreamKind.Elevation, it, units))
+                        } ?: AppText.named("chart_marker", at, gear)
+                    },
+                description = gearsHelp,
+                axis = axis,
+                steps = true,
+                backdrop = LineChart.backdropOf(heights, axis),
+            )
+        return CardLine(title = AppText.named("chart_gears"), detail = null, chart = chart)
+    }
+
+    /** "Gear 4". */
+    fun gearText(gear: Int): AppText = AppText.named("chart_gear_value", AppText.written("$gear"))
+
+    val gearsHelp: AppText = AppText.named("chart_gears_help")
+
+    /** [series] (an elevation) in the viewer's units, as points over time. */
+    private fun elevationPoints(series: LineSeries, units: UnitSystem): List<LinePoint> =
+        series.points.map { LinePoint(it.seconds.toDouble(), StreamUnits.convert(StreamKind.Elevation, it.value, units), it.gapBefore) }
+
+    /** The y of the point in [points] (sorted by x) closest to [x]; null for none. */
+    private fun nearestY(points: List<LinePoint>, x: Double): Double? {
+        if (points.isEmpty()) return null
+        val i = points.binarySearch { it.x.compareTo(x) }
+        if (i >= 0) return points[i].y
+        val after = -i - 1
+        return listOfNotNull(points.getOrNull(after - 1), points.getOrNull(after)).minBy { abs(it.x - x) }.y
+    }
+
+    /** [texts] as one passage, sentence after sentence. */
+    fun sentences(texts: List<AppText>): AppText = texts.reduce { a, b -> AppText.named("text_space_pair", a, b) }
 
     /** Labels along an activity's time: a round step of minutes or hours, at most five labels from the start. */
     fun timeTicks(durationSeconds: Int): List<ChartTick> {
@@ -117,7 +358,17 @@ object CardLines {
     /** How much slower than its average a pace chart goes. */
     const val PACE_CEILING = 1.5
     private const val MAX_TIME_GAPS = 4
+    private const val CURVE_EDGE = 0.5
+    private const val MINUTE = 60
+    private const val HOUR = 3600
 }
+
+/** Lines that read against the climbs; not elevation itself, nor a dive's depth. */
+private val OVER_ELEVATION =
+    setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Grade, StreamKind.Temperature)
+
+/** The power curve's labelled durations. */
+private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
 
 /** The steps an activity's time axis is labelled at, in seconds. */
 private val TIME_STEPS = listOf(60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600, 43200)
@@ -166,8 +417,17 @@ object ZoneRows {
 /** A table row: its cells in column order, and the sentence a screen reader says for it. */
 @Immutable class TableRow(val cells: ImmutableList<AppText>, val spoken: AppText)
 
-/** A table: its column [headers] and its [rows]. [wideFirst] gives the first column (a lift's name) a wide share. */
-@Immutable class DetailTable(val headers: ImmutableList<AppText>, val rows: ImmutableList<TableRow>, val wideFirst: Boolean)
+/**
+ * A table: its column [headers] and its [rows]. [wideFirst] gives the first column (a lift's name) a wide share; [wideColumn] is the column
+ * (a name) given twice the others' share, -1 for none.
+ */
+@Immutable
+class DetailTable(
+    val headers: ImmutableList<AppText>,
+    val rows: ImmutableList<TableRow>,
+    val wideFirst: Boolean,
+    val wideColumn: Int = if (wideFirst) 0 else -1,
+)
 
 /**
  * The laps table (feed/activity-page-layout): each lap's time, distance, speed and effort, with its intensity when the laps record one. A
