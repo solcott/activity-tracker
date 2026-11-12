@@ -384,6 +384,17 @@ Each phase leaves a shippable app.
      `:app-common-api`, which the shared effort row asks too; `SegmentTexts.kindIcon`; `SegmentState`'s `routeMap`, `chart`, `isLift`
      and `offersLeaderboard`); a `<string-array>` item is `AppText.named("<array>_<index>")` in both UIs. Left for later changes:
      threshold history (a step chart with dots and value labels, and sparklines), the activity page's charts and the import preview's.
+   - **The leftovers** (`ios-native-leftovers`). Threshold history is native (`ThresholdHistoryView`), the last settings page: an inset
+     grouped list with Expand all or Collapse all in the bar, a section per group whose header row expands or collapses it, each
+     threshold in full (its value now and change, its step chart with a dot and value over each dated value, filled on the current one,
+     run on to today, its first date, Today and the undated count under it, its values with date, source, Current and a remove menu,
+     Show all) or a tile per threshold with its sparkline. `LineChart` grew a step style and dots (`steps`, `ChartDot`, both defaulted),
+     which `LineChartView` draws, and `interactive: false` for a sparkline. What it says and charts is Kotlin's (`ThresholdHistoryTexts`
+     with `chart(section, detailed)`; `ThresholdHistoryState.isRemoving(row)` and `canRemove`), which the Compose page asks too. The
+     feed's native type sheet searches (`searchable`, the rule `SportTypeSearch` in `:app-common-api`, the sheet's groups
+     `TypePickerState.groups(query, source)` with `CatalogText` as the source, and `selectionOf(category)`) and discloses each sport's
+     sub-sports, collapsed when it opens. A snapshot is drawn until two draws agree (`Snapshotting.settledImage`), so a full run
+     compares as a single suite does. `UploadsPresenter` uses `adding`.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1753,6 +1764,26 @@ What building the host and the shell on Swift export showed, beyond the probes:
   page), the OSM credit, Leaderboard, the Mayor card opening the native board, the efforts with PR opening their activity, dark mode,
   Star and unstar, and the expand button opening the shared enlarged map; "Easy Street" showed the ski run icon and no chart.
 
+### Phase 4 findings (leftovers, `ios-native-leftovers`)
+
+- **A threshold's step chart is a `LineChart` too.** Kotlin keeps `ThresholdChart`'s 0–1 placements as the chart's units, adds the
+  run-on point at today (no dot), and sets the axis with the Vico chart's insets so the labels have room; the y ticks are the lowest and
+  highest values, which the Compose page shows beside its chart. Swift Charts' `.stepEnd` interpolation draws a value held until the next
+  point, for both the line and the area. The x labels (the first date and Today) are text under the chart, not ticks: Swift Charts drops
+  a label at the plot's edge that would overflow (`ios-native-charts`), and a long date does.
+- **A menu's label takes the accent.** `Image.foregroundStyle(.secondary)` inside a `Menu`'s label is overridden by the tint; the muted
+  remove button sets `.tint(Color(.secondaryLabel))` on the menu.
+- **A Kotlin `TextSource` can come from Swift.** `CatalogText` already implements it, so a rule that needs labels resolved (the type
+  search) takes the source and Swift passes `CatalogText.shared`; Compose resolves its labels in composition and passes a matcher.
+- **Why snapshots failed only in a full run.** The failure seen here (`GearEditorsSnapshotTests` `nothingToAdd.dark`, 44,085 pixels of
+  1,485,540 off by at most 9 levels, all under the sheet's bar) is the soft scroll edge's blur, which the render server draws from a
+  backdrop it captures on its own time. A single draw straight after layout could catch it behind, and it did only while the full run
+  kept the process busy: twelve busy CPU cores didn't reproduce it, and the suites passed alone. `assertAppSnapshot` now draws through the
+  library's own key-window path until two draws in a row are the same (at most six, 50 ms apart, synchronously so no other test runs and
+  changes the key window), so the references stay true. Also seen in a full run: a cast of an erased `content.data` to a Swift array
+  threw `count` unrecognized (`NSArray` bridging) while passing alone; the two tests doing it read the typed getter
+  (`ThresholdHistoryState.groups`) through `elements(as:)` now, as the rules say.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1805,10 +1836,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   copy. Only an empty persistent list stops the app through a `List` getter, and a threshold always has a row, so it never could have.
 - ~~Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map~~: neither
   needed (`ios-native-zones-pages`). Training zones, the default and sport zones and Privacy zones are native, and a zone row's name and
-  range are `AppText` (`ZoneNameText`, `ZoneTexts.range`). Threshold history is still the shared UI's: it draws a chart per threshold.
-  Native charts exist now (`ios-native-charts`), but threshold history's are step charts with a filled dot on the current value,
-  hollow ones on past values and a value label over each, run on to today, plus a sparkline per collapsed group: `LineChart` needs a
-  step style, dots and point labels first, and the page (expand and collapse, show all, removal) is a change of its own.
+  range are `AppText` (`ZoneNameText`, `ZoneTexts.range`). ~~Threshold history is still the shared UI's~~: native
+  (`ios-native-leftovers`), with step charts, dots and labels on `LineChart` and the sparklines. Its Compose page keeps its Vico chart
+  over `ThresholdChart`; only its text moved to `ThresholdHistoryTexts`.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
@@ -1845,7 +1875,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
-  iPad). Still left: the bar's type sheet has no search and no collapsed sports; ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
+  iPad). ~~Still left: the bar's type sheet has no search and no collapsed sports~~: done (`ios-native-leftovers`); ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's
   Refresh button for a pointer has no native twin (an iPad with a pointer pulls to refresh). Seen only in snapshots: posts, reposts and
   quotes in the feed, import cards, the upload rows, the prompts and a failed first load, which the local stack's alice didn't have.
 - Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the

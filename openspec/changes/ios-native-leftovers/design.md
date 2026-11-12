@@ -50,6 +50,13 @@ record screen's type picker; changing any snapshot reference that isn't this cha
   differences). The expected fix is in `assertAppSnapshot`: put the controller in the key window and let the run loop settle (lay out
   and spin until two renders agree, bounded) before the comparison; and only where differences are rendering noise, a tolerance
   justified by the diff. The design records which it was.
+- **Flaky snapshots, found.** Timing, not precision. A full run failed `GearEditorsSnapshotTests` `nothingToAdd.dark` on 44,085 of
+  1,485,540 pixels, at most 9 levels off, all under the sheet's bar: the soft scroll edge's blur, drawn by the render server from a
+  backdrop it captures on its own time. Twelve busy CPU cores didn't reproduce it, and the suites passed alone. With the settling draw
+  (`Snapshotting.settledImage`: the library's own key-window draw, repeated until two agree, at most six, 50 ms apart, synchronously),
+  two suites' references turned out to hold a half-done first draw: athlete search's field without its clear button, and the quote
+  sheet's text wrapped at a narrower width. Those were re-recorded settled; everything else compared unchanged. The same full run threw
+  `count` unrecognized from a test casting an erased `content.data` to a Swift array; those tests read the typed getter now.
 - **Deprecation.** `expanded.adding(event.batchId)`.
 
 ## Risks / Trade-offs
