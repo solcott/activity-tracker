@@ -13,8 +13,8 @@ import kotlinx.collections.immutable.toImmutableList
 @Immutable data class LinePoint(val x: Double, val y: Double, val gapBefore: Boolean = false)
 
 /**
- * A dot on the point at [index] of a [LineChart]: [filled] (the current value) or hollow, with [label] over it when given, kept inside
- * the chart.
+ * A dot on the point at [index] of a [LineChart]: [filled] (the current value) or hollow, with [label] over it when given, kept inside the
+ * chart.
  */
 @Immutable data class ChartDot(val index: Int, val filled: Boolean, val label: AppText? = null)
 
@@ -24,9 +24,9 @@ import kotlinx.collections.immutable.toImmutableList
 /**
  * What a line chart shows, chosen once for every UI (dev/shared-display-text): its [points] (sorted by x, at least two), across [xMin] to
  * [xMax], on the y [axis] with a labelled gridline at each of [yTicks], labels along the bottom at [xTicks], the text read out for each
- * point ([readouts], one per point), the [description] assistive technology reads, the [bands] it is tinted by along its width (empty
- * when it isn't), whether it is drawn in [steps] (each value held until the next point, as a threshold holds until it changes), and the
- * [dots] marking some of its points. A UI only lays it out.
+ * point ([readouts], one per point), the [description] assistive technology reads, the [bands] it is tinted by along its width (empty when
+ * it isn't), whether it is drawn in [steps] (each value held until the next point, as a threshold holds until it changes), and the [dots]
+ * marking some of its points. A UI only lays it out.
  */
 @Immutable
 @Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.

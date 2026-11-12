@@ -23,7 +23,6 @@ import org.jetbrains.compose.resources.stringResource
 /** [date] written out ("Jan 5, 2026"), as `DateText` chooses it. */
 @Composable fun longDate(date: HistoryDate): String = DateText.date(date.year, date.month, date.day).string()
 
-
 @Suppress("MagicNumber") // Months of the year.
 @Composable
 fun monthName(month: Int): String =
