@@ -117,6 +117,11 @@
             state.filter.isNarrowed ? FeedFilterPackage.FeedFilterSamples.shared.narrowed : feedFilterBar
         }
 
+        /// The Search tab (ios-native-search) in each state it shows, states beyond content loading apart; the left-elsewhere choice.
+        static var athleteSearch: [String: AthleteSearchState] { SearchPackage.AthleteSearchSamples.shared.all }
+        static var athleteSearchVariants: [String: AthleteSearchState] { SearchPackage.AthleteSearchSamples.shared.variants }
+        static var leftElsewhere: [String: LeftElsewhereState] { SettingsPackage.LeftElsewhereSamples.shared.all }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(

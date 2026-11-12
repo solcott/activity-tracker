@@ -13,6 +13,7 @@ import FeatureLoginApi
 import FeaturePostApi
 import FeatureProfileApi
 import FeatureReportApi
+import FeatureSearchApi
 import FeatureSegmentApi
 import FeatureSettingsApi
 import FeatureUploadsApi
@@ -415,3 +416,15 @@ typealias TimelineItem = LexiconAppPackage.TimelineItem
 typealias ImportCardView = LexiconAppPackage.ImportCardView
 typealias CardRoute = LexiconAppPackage.CardRoute
 typealias UploadSummary = UploadActivityPackage.UploadSummary
+
+// Search (ios-native-search): the Search tab's contract and what it says; the left-elsewhere choice and what it says.
+typealias SearchPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.app.search
+typealias AthleteSearchScreen = SearchPackage.AthleteSearchScreen
+typealias AthleteSearchState = SearchPackage.AthleteSearchState
+typealias AthleteSearchEvent = SearchPackage.AthleteSearchEvent
+typealias AthleteSearchTexts = SearchPackage.AthleteSearchTexts
+typealias SearchMode = SearchPackage.SearchMode
+typealias LeftElsewhereScreen = SettingsPackage.LeftElsewhereScreen
+typealias LeftElsewhereState = SettingsPackage.LeftElsewhereState
+typealias LeftElsewhereEvent = SettingsPackage.LeftElsewhereEvent
+typealias LeftElsewhereTexts = SettingsPackage.LeftElsewhereTexts
