@@ -25,8 +25,9 @@ The native pieces exist: `PagedList` (with `keepsTop`), `AppItemRow` with `Avata
    the state's query, followed with `follow(state.query.values)` as `AppTextField` does, so a restored or cleared query shows. It is
    not focused on opening: a tab root that raises the keyboard each time it is chosen isn't iOS's way, and the prompt says what to type.
    It is present only in Athletes mode, since the browse screen has its own name field.
-3. **The mode choice is a segmented `Picker` over `SearchMode.allCases`** in a bar under the navigation bar (`safeAreaInset`/
-   `safeAreaBar` at the top), so it stays put in both modes and the list still drives the large title's collapse.
+3. **The mode choice is a segmented `Picker` over `SearchMode.allCases`**, the list's first row in Athletes mode (scrolling under the
+   large title, as the feed's filters do) and over the embed in Segments mode, where nothing scrolls. A bar under the navigation bar
+   (`safeAreaBar`) was tried first: its scroll edge effect blurred the large title (roadmap findings, search).
 4. **Athletes mode is a `PagedList` with `keepsTop`.** Its top rows are the prompt while the query is blank (a status row), so the
    prompt shows before any search, and the first page's progress or failure follows it; the empty slot is `AthleteSearchTexts.empty`.
    Rows are `AppItemRow`s as in Followers, opening the profile with `Open(did)`.

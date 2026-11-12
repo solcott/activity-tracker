@@ -331,6 +331,16 @@ Each phase leaves a shippable app.
      `FeedUploadTexts`, `ImportCardTexts`, `FeedState.showsEmpty` and `keyOf`), which the Compose feed asks too. Left for later changes: paging the
      timeline (one page on every platform), Report from a feed post's card, and the bar's type sheet's search and collapsed sports.
      A large title shows no title menu, so the scopes are also a chip leading the filters.
+   - **Search** (`ios-native-search`). The Search tab's root is native (`AthleteSearchView`): the large title by mode ("Find athletes",
+     "Search"), Athletes and Segments as a segmented choice (the list's first row, over the embed in Segments mode), and in Athletes
+     mode the system's search field (`searchable`, bound to a `TextFieldModel` over the presenter's query) over the accounts as
+     `AppItemRow`s through `PagedList` with `keepsTop`, the prompt while nothing is typed and the no-match message. Segments mode embeds
+     the shared segment browse screen under the choice: a Compose view controller (`IosApp.segmentBrowseViewController(record:)`, the
+     browse presenter running in its composition as `AthleteSearchUi` runs it) whose navigation goes to the Search record's latest state
+     as `GoTo`, kept with the page so the map and query survive switching modes. The choice after leaving on another device is native
+     too (`LeftElsewhereView`), in a stack of its own `SessionView` gives it so its title shows. What they say is Kotlin's
+     (`AthleteSearchTexts`, `LeftElsewhereTexts`), which the Compose screens ask too. Left for later changes: native segment browse, with
+     the native maps.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1599,6 +1609,24 @@ What building the host and the shell on Swift export showed, beyond the probes:
   (the system's spinner, then settled), Add's three entries, a card opening its activity and back, the inline title's scope menu, and
   the end of the list. Nothing was written; the scope and filters were put back to Following with none.
 
+### Phase 4 findings (search, `ios-native-search`)
+
+- **A `safeAreaBar` under a large title blurs the title.** The choice placed in a bar under the navigation bar (`pageBar`'s iOS 26
+  form) put the scroll edge effect over the large title, which drew faded and blurred on the iPhone and in the snapshots. The choice
+  is the list's first row instead, as the feed's filters are, and sits over the embed in Segments mode, where nothing scrolls.
+- **A shared screen can be embedded in a native page.** `SegmentBrowseViewController(record)` composes `CircuitContent` of a screen
+  the host doesn't run, inside the session's Circuit locals, with a navigator that sends the record's latest state's events; Swift
+  places it with `FallbackContainerController` and holds it in the page's `@State`, so switching modes keeps its composition (the
+  map's camera, its query). Compose pads for the keyboard itself, so the embed ignores SwiftUI's keyboard safe area. Its edit menu
+  ("Select All") can stay on screen after the keyboard goes, as in any fallback screen.
+- **`searchable` binds to a `TextFieldModel`** as `AppTextField` does: the binding edits the model and the page follows the state's
+  `values`, so a query the presenter keeps comes back after a profile is popped; Cancel clears it through the same binding.
+- **Counts grouped.** The left-elsewhere changes count was a raw int to a plural in the Compose screen ("1200 changes"); as
+  `LeftElsewhereTexts` it passes `formatWhole` text, on every platform.
+- **Walked on the signed-in iPhone 17 Pro (iOS 26.0) as alice:** the prompt, "bo" finding bob, his profile and back with the query
+  kept, "zzz" with no match, Cancel, Segments with the shared browse (located, segments listed, a segment's page opened and back),
+  and the mode and map kept across Feed and across Athletes. Nothing was written.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1634,8 +1662,10 @@ What building the host and the shell on Swift export showed, beyond the probes:
   followers. ~~Activity invites and Add people can build on `SignInAgainNotice` when they go native~~: done
   (`ios-native-invite-lists`). Accepting an invite (`AcceptInviteScreen`) is still the shared UI's, waiting for the native route preview
   and visibility form; Activity invites itself wasn't seen on a device, since the local network has no invites.
-- `LeftElsewhereScreen` (left on another device) is still the shared UI's, shown alone in place of the app; it shares Leave's words
-  and could build on `LeaveTexts`.
+- ~~`LeftElsewhereScreen` (left on another device) is still the shared UI's~~: done (`ios-native-search`), `LeftElsewhereView` over
+  `LeftElsewhereTexts`, in a stack of its own. A leave resuming (`LeaveView` shown alone) still has no stack, so its title doesn't show.
+- Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`); it waits for native
+  maps, and then the embed (`SegmentBrowseViewController`) goes.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
   Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). ~~`ZoneSummary.kinds` and `SportZonesState.kinds`
