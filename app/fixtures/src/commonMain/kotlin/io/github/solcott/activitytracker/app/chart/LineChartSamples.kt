@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.chart
 
 import io.github.solcott.activitytracker.app.segment.SegmentSamples
 import io.github.solcott.activitytracker.app.segment.chart
+import io.github.solcott.activitytracker.app.settings.ThresholdHistorySamples
+import io.github.solcott.activitytracker.app.settings.ThresholdHistoryTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
@@ -9,7 +11,8 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** Line charts as the native design gallery shows them: one in the accent colour with a gap in its samples, and a segment's profile. */
+/** Line charts as the native design gallery shows them: one in the accent colour with a gap in its samples, a segment's profile,
+ * and a threshold's steps. */
 object LineChartSamples {
     /** Heart rate over half an hour, untinted, with no samples for two minutes in the middle. */
     val plain: LineChart
@@ -34,6 +37,16 @@ object LineChartSamples {
     /** The climbing segment's profile in metric units, tinted by grade. */
     val profile: LineChart
         get() = checkNotNull(SegmentSamples.elevation.profile).chart(UnitSystem.Metric)
+
+    /** A threshold's step chart with its dots and values, and the same threshold as a sparkline, from threshold history's samples. */
+    val steps: LineChart
+        get() = checkNotNull(ThresholdHistoryTexts.chart(thresholdPower, detailed = true))
+
+    val sparkline: LineChart
+        get() = checkNotNull(ThresholdHistoryTexts.chart(thresholdPower, detailed = false))
+
+    private val thresholdPower
+        get() = checkNotNull(ThresholdHistorySamples.variants["charted"]?.groups).first().thresholds.first()
 
     private const val SAMPLE_SECONDS = 30.0
     private const val GAP_AT = 31

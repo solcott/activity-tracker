@@ -135,6 +135,8 @@
         /// Line charts for the design gallery: one untinted with a gap, and a segment's profile tinted by grade.
         static var plainChart: LineChart { AppPackage.chart.LineChartSamples.shared.plain }
         static var profileChart: LineChart { AppPackage.chart.LineChartSamples.shared.profile }
+        static var stepChart: LineChart { AppPackage.chart.LineChartSamples.shared.steps }
+        static var sparklineChart: LineChart { AppPackage.chart.LineChartSamples.shared.sparkline }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {

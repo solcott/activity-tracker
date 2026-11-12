@@ -48,6 +48,9 @@ struct DesignSnapshotTests {
     @Test func cards() { assertAppSnapshot(of: DesignGallery.cards, size: panel, named: "cards") }
 
     @Test func charts() { assertAppSnapshot(of: DesignGallery.charts, size: CGSize(width: 393, height: 620), named: "charts") }
+    @Test func stepCharts() {
+        assertAppSnapshot(of: DesignGallery.stepCharts, size: CGSize(width: 393, height: 520), named: "stepCharts")
+    }
 
     @Test func icons() { assertAppSnapshot(of: DesignGallery.icons, size: panel, named: "icons") }
 
