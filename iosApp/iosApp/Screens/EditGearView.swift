@@ -201,7 +201,7 @@ struct EditGearView: View {
         HStack(spacing: 16) {
             GearPhotoView(photo: state.photo)
             VStack(alignment: .leading, spacing: 8) {
-                PhotosPicker(selection: $photoItem, matching: .images, preferredItemEncoding: .compatible) {
+                PhotosPicker(selection: $photoItem, matching: .images, preferredItemEncoding: .current) {
                     Text(state.photoAction)
                 }
                 if state.photo != nil {

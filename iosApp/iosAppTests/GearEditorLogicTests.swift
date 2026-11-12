@@ -78,7 +78,7 @@ struct TickedItemsTests {
     }
 }
 
-/// The gear form's photo pick: what reaches the presenter, with Kotlin's compression stood in for.
+/// The gear form's photo pick: what reaches the presenter, with the compression stood in for.
 @MainActor
 struct PhotoPickTests {
     private let photo = AppPackage.edit.PickedPhoto(
@@ -94,26 +94,23 @@ struct PhotoPickTests {
         }.jpegData(compressionQuality: 0.9)!
     }
 
-    @Test func aPictureKotlinReadsIsSent() async {
+    @Test func aCompressedPictureIsSent() async {
         var sent: [PickedPhoto] = []
         let pick = PhotoPick { _ in photo }
         await pick.pick({ Data([9]) }) { sent.append($0) }
         #expect(sent.count == 1)
     }
 
-    @Test func aPictureKotlinCantReadIsTriedAgainAsAJpeg() async {
-        var tried: [Data] = []
+    @Test func aPictureTheCompressionRefusesIsntTriedAgain() async {
+        var tried = 0
         var sent: [PickedPhoto] = []
-        let original = jpeg()
-        // Kotlin refuses the first bytes, as it does a HEIC, and takes UIKit's JPEG.
-        let pick = PhotoPick { data in
-            tried.append(data)
-            return tried.count == 2 ? photo : nil
+        let pick = PhotoPick { _ in
+            tried += 1
+            return nil
         }
-        await pick.pick({ original }) { sent.append($0) }
-        #expect(tried.count == 2)
-        #expect(tried[1].starts(with: [0xFF, 0xD8]))
-        #expect(sent.count == 1)
+        await pick.pick({ jpeg() }) { sent.append($0) }
+        #expect(tried == 1)
+        #expect(sent.isEmpty)
     }
 
     @Test func bytesThatArentAPictureSendNothing() async {
@@ -130,6 +127,7 @@ struct PhotoPickTests {
         await PhotoPick.app.pick({ jpeg() }) { sent.append($0) }
         let picked = try #require(sent.first)
         #expect(picked.mimeType == "image/webp")
-        #expect(picked.width == 8)
+        #expect(picked.width == 8 && picked.height == 8)
+        #expect(picked.bytes.data.starts(with: Array("RIFF".utf8)))
     }
 }

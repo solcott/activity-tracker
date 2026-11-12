@@ -8,12 +8,10 @@ import io.github.solcott.activitytracker.app.ScreenViewController
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
 import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
-import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.HostRecord
 import io.github.solcott.activitytracker.app.profile.EditProfileLimits
 import io.github.solcott.activitytracker.app.ui.compressAvatar as compressForAvatar
-import io.github.solcott.activitytracker.app.ui.compressPhoto as compressForUpload
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.export.ExportArchive
@@ -66,17 +64,6 @@ object IosApp {
      * share sheet (feed/activity-export). Whether it was written. Swift awaits it.
      */
     suspend fun writeExport(file: ExportedFile, path: String): Boolean = file.writeToPath(path)
-
-    /**
-     * A photo a native form picked, ready to attach: [image] (any format the platform decodes) re-encoded, scaled and stripped of its
-     * metadata by the same `compressPhoto` the shared UI's pick runs, so the photo saved is the same on every platform. Null when [image]
-     * can't be read as a picture. Swift awaits it and sends the result in the form's own event (`EditGearEvent.PhotoPicked`).
-     */
-    suspend fun compressPhoto(image: ByteString): PickedPhoto? = runSuspendCatching {
-        compressForUpload(image.toByteArray())
-    }
-        .map { PickedPhoto(ByteString(it.bytes), it.mimeType, it.width, it.height) }
-        .getOrNull()
 
     /**
      * A profile photo the native edit profile picked, ready to attach: [image] (any format the platform decodes, a HEIC included) as a JPEG

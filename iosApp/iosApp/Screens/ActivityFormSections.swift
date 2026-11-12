@@ -4,7 +4,7 @@ import UIKit
 
 /// What an athlete writes about an activity, as sections of a grouped form (the shared `ActivityDetailsForm`): the title, a dive's
 /// site, the description, then the photos, each removable, with Add photos while the activity has room. Picked photos go through
-/// Kotlin's compression (`PhotoPick`) and are sent together, as the shared form sends them. What follows a rule is Kotlin's
+/// the photo compression (`PhotoPick`) and are sent together, as the shared form sends them. What follows a rule is Kotlin's
 /// (`DetailsFormTexts`). Its fields follow their Kotlin states, which exist once the form shows, so a page places it after loading.
 struct ActivityDetailsSections: View {
     let title: KotlinTextFieldState
@@ -69,7 +69,7 @@ struct ActivityPhotosSection: View {
                 if fields.canAddMedia {
                     PhotosPicker(
                         selection: $picked, maxSelectionCount: max(Int(fields.maxMedia) - media.count, 1), matching: .images,
-                        preferredItemEncoding: .compatible
+                        preferredItemEncoding: .current
                     ) {
                         addTile
                     }

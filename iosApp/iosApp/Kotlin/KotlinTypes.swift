@@ -646,3 +646,6 @@ typealias ModerationState = AppPackage.moderation.ModerationState
 typealias ModerationEvent = AppPackage.moderation.ModerationEvent
 typealias ModerationSubject = AppPackage.moderation.ModerationSubject
 typealias ModerationSubjectTexts = AppPackage.moderation.ModerationSubjectTexts
+// Photo compression (ios-libwebp-photos): Kotlin's steps, which the Swift compressor runs with libwebp.
+typealias PhotoCompression = AppPackage.edit.PhotoCompression
+typealias PhotoStep = AppPackage.edit.PhotoStep
