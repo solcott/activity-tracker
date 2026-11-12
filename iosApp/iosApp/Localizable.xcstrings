@@ -16831,6 +16831,17 @@
         }
       }
     },
+    "segment_create_along" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ along the route"
+          }
+        }
+      }
+    },
     "segment_create_crosses_gap" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16849,6 +16860,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This segment already exists. Use it instead:"
+          }
+        }
+      }
+    },
+    "segment_create_end" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End of the stretch"
           }
         }
       }
@@ -16948,6 +16970,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stretch along the route"
+          }
+        }
+      }
+    },
+    "segment_create_start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start of the stretch"
           }
         }
       }

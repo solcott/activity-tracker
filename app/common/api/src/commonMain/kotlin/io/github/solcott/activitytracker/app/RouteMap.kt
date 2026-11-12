@@ -84,8 +84,9 @@ data class MapFrame(val latitude: Double, val longitude: Double, val zoom: Doubl
 /**
  * A served route as every route map draws it (feed/route-markers, feed/map-breaks, feed/route-line-detail, dev/shared-display-text): the
  * [pieces] of its line between its breaks, each smoothed into curves; its [start] and [end] markers (at the ends others see when the map is
- * given them, none where they're hidden) and its [breaks] at the stored positions; and its [bounds], from the stored positions too. The
- * shared map, its line preview and the feed's map images ask it, and so does the native iOS map, which lays it out on MapKit.
+ * given them, none where they're hidden) and its [breaks] at the stored positions; a [highlight]ed stretch over it, such as a new
+ * segment's, smoothed the same way; and its [bounds], from the stored positions too. The shared map, its line preview and the feed's map
+ * images ask it, and so does the native iOS map, which lays it out on MapKit.
  */
 @Immutable
 @Suppress("LongParameterList") // Everything a route map draws, built only by [of].
@@ -93,13 +94,19 @@ class RouteMap
 private constructor(
     private val polyline: String,
     private val gaps: ImmutableList<Int>?,
+    private val highlighted: String?,
     val pieces: ImmutableList<MapLine>,
     val start: GeoPoint?,
     val end: GeoPoint?,
     val breaks: ImmutableList<MapBreak>,
     val bounds: MapBounds,
+    /** A stretch drawn over the route, wider and in the highlight colour; null for none. */
+    val highlight: MapLine?,
 ) {
-    /** The route and its marks as text: a UI that holds a map frames it again when this changes, and not on every new state. */
+    /**
+     * The route and its marks as text: a UI that holds a map frames it again when this changes, and not on every new state. The [highlight]
+     * isn't in it, so moving a stretch along the route leaves the camera where it is.
+     */
     val key: String
         get() = "$polyline|$gaps|$start|$end"
 
@@ -110,29 +117,41 @@ private constructor(
     fun sketch(width: Double, height: Double, pad: Double): RouteShape? =
         RouteShape.of(polyline, gaps, width, height, pad)?.let { shape ->
             val fit = TileFit.of(allPoints(), width, height, pad) ?: return@let shape
-            shape.copy(start = start?.let(fit::place), end = end?.let(fit::place))
+            shape.copy(
+                start = start?.let(fit::place),
+                end = end?.let(fit::place),
+                highlight = highlight?.let { line -> RoutePiece(line.points.map(fit::place).toImmutableList()) },
+            )
         }
 
     private fun allPoints(): List<GeoPoint> = TrackMath.decodePolylineOrNull(polyline).orEmpty()
 
     override fun equals(other: Any?): Boolean =
-        other is RouteMap && polyline == other.polyline && gaps == other.gaps && start == other.start && end == other.end
+        other is RouteMap &&
+            polyline == other.polyline &&
+            gaps == other.gaps &&
+            start == other.start &&
+            end == other.end &&
+            highlighted == other.highlighted
 
-    override fun hashCode(): Int = listOf(polyline, gaps, start, end).hashCode()
+    override fun hashCode(): Int = listOf(polyline, gaps, start, end, highlighted).hashCode()
 
     companion object {
         /**
          * [polyline] (an encoded polyline, as served) broken at [gaps] (`feed.activity#polylineGaps`), its start and end marked at [ends]
-         * when given (the owner's untrimmed track marks where others' routes start and end; [RouteEnds.HIDDEN] marks none); null when it
+         * when given (the owner's untrimmed track marks where others' routes start and end; [RouteEnds.HIDDEN] marks none), with
+         * [highlight] (an encoded polyline of the same precision) drawn over it when it decodes to two points or more; null when the route
          * decodes to fewer than two points.
          */
-        fun of(polyline: String, gaps: List<Int>? = null, ends: RouteEnds? = null): RouteMap? {
+        fun of(polyline: String, gaps: List<Int>? = null, ends: RouteEnds? = null, highlight: String? = null): RouteMap? {
             val points = TrackMath.decodePolylineOrNull(polyline).orEmpty()
             if (points.size < 2) return null
             val drawn = SegmentedPolyline.pieces(points, gaps).filter { it.isNotEmpty() }
+            val stretch = highlight?.let(TrackMath::decodePolylineOrNull)?.takeIf { it.size >= 2 }
             return RouteMap(
                 polyline = polyline,
                 gaps = gaps?.toImmutableList(),
+                highlighted = highlight.takeIf { stretch != null },
                 pieces = drawn.map { MapLine(RouteCurve.smooth(it).toImmutableList()) }.toImmutableList(),
                 start = if (ends == null) drawn.first().first() else ends.start,
                 end = if (ends == null) drawn.last().last() else ends.end,
@@ -144,6 +163,7 @@ private constructor(
                         east = points.maxOf { it.lng },
                         north = points.maxOf { it.lat },
                     ),
+                highlight = stretch?.let { MapLine(RouteCurve.smooth(it).toImmutableList()) },
             )
         }
     }

@@ -1925,6 +1925,9 @@
     <string name="segment_create_title">New segment</string>
     <string name="segment_create_name">Name</string>
     <string name="segment_create_range">Stretch along the route</string>
+    <string name="segment_create_start">Start of the stretch</string>
+    <string name="segment_create_end">End of the stretch</string>
+    <string name="segment_create_along">%1$s along the route</string>
     <string name="segment_create_length">%1$s · %2$s</string>
     <string name="segment_create_too_short">%1$s segments must be at least %2$s</string>
     <string name="segment_create_too_long">Segments can be at most %1$s</string>

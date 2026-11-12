@@ -17,7 +17,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppRangeSlider
@@ -26,22 +26,13 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_all_hidden
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_crosses_gap
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_duplicates
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_length
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_limit
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_links_activity
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_name
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_no_route
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_no_sport
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_public
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_publish
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_range
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_title
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_long
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_short
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -83,9 +74,10 @@ fun CreateSegmentUi(state: CreateSegmentState, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Form(state: CreateSegmentState, route: String, padding: PaddingValues) {
+    val units = LocalUnitSystem.current
     ReadableScrollColumn(padding, Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ActivityMap(route, Modifier.fillMaxWidth(), gaps = state.routeGaps, highlight = state.highlight)
-        Text(stringResource(Res.string.segment_create_range), style = MaterialTheme.typography.titleSmall)
+        Text(CreateSegmentTexts.range.string(), style = MaterialTheme.typography.titleSmall)
         AppRangeSlider(
             value = state.start..state.end,
             onValueChange = { range -> state.eventSink(CreateSegmentEvent.SelectionChanged(range.start, range.endInclusive)) },
@@ -102,13 +94,12 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            stringResource(Res.string.segment_create_public) +
-                if (state.namesActivity) " " + stringResource(Res.string.segment_create_links_activity) else "",
+            CreateSegmentTexts.publicNote(state.namesActivity).map { it.string() }.joinToString(" "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (state.duplicates.isNotEmpty()) {
-            val labels = state.duplicates.map { "${it.currentName} · ${Format.distance(it.distanceMeters.toDouble())}" }.toImmutableList()
+            val labels = state.duplicates.map { CreateSegmentTexts.duplicate(it, units).string() }.toImmutableList()
             PlaceDuplicates(
                 stringResource(Res.string.segment_create_duplicates),
                 labels,
@@ -124,33 +115,16 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
     }
 }
 
-/** The stretch's length and sport group, or why it can't be a segment. */
+/** The stretch's length and sport group, or why it can't be a segment (`CreateSegmentTexts`). */
 @Composable
 private fun SelectionText(state: CreateSegmentState) {
-    val sport = state.sport?.let { segmentSportLabel(it) }.orEmpty()
-    when (val selection = state.selection) {
-        is SelectionCheck.Ok ->
-            Text(
-                stringResource(Res.string.segment_create_length, Format.distance(selection.meters), sport),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        is SelectionCheck.TooShort ->
-            ErrorLine(stringResource(Res.string.segment_create_too_short, sport, Format.distance(selection.minMeters.toDouble())))
-        is SelectionCheck.TooLong ->
-            ErrorLine(stringResource(Res.string.segment_create_too_long, Format.distance(selection.maxMeters.toDouble())))
-        SelectionCheck.CrossesGap -> ErrorLine(stringResource(Res.string.segment_create_crosses_gap))
+    val text = CreateSegmentTexts.selection(state, LocalUnitSystem.current).string()
+    if (CreateSegmentTexts.selectionFails(state)) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    } else {
+        Text(text, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
-private fun ErrorLine(text: String) = Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-
-@Composable
-private fun unavailableText(unavailable: CreateSegmentUnavailable): String =
-    stringResource(
-        when (unavailable) {
-            CreateSegmentUnavailable.NoRoute -> Res.string.segment_create_no_route
-            CreateSegmentUnavailable.NoSportGroup -> Res.string.segment_create_no_sport
-            CreateSegmentUnavailable.AllHidden -> Res.string.segment_create_all_hidden
-        },
-    )
+private fun unavailableText(unavailable: CreateSegmentUnavailable): String = CreateSegmentTexts.unavailable(unavailable).string()

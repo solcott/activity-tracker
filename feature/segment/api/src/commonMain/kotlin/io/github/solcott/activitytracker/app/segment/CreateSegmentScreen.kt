@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -64,6 +65,10 @@ data class CreateSegmentState(
     /** A stretch that can be a segment, a name, and nothing pending. */
     val canPublish: Boolean
         get() = selection is SelectionCheck.Ok && named && !publishing && !limitReached
+
+    /** The route as a route map draws it, with [highlight] over it; null while loading. */
+    val routeMap: RouteMap?
+        get() = route?.let { RouteMap.of(it, routeGaps, highlight = highlight) }
 }
 
 /** Why a segment can't be created from an activity. */

@@ -589,3 +589,10 @@ typealias CreateDiveSiteState = DiveSitePackage.CreateDiveSiteState
 typealias CreateDiveSiteEvent = DiveSitePackage.CreateDiveSiteEvent
 typealias CreateDiveSiteTexts = DiveSitePackage.CreateDiveSiteTexts
 typealias CreateDiveSiteUnavailable = DiveSitePackage.CreateDiveSiteUnavailable
+// Create segment (ios-native-create-segment): its contract, why no segment can be made, a stretch's check, and what the form says.
+typealias CreateSegmentScreen = SegmentPackage.CreateSegmentScreen
+typealias CreateSegmentState = SegmentPackage.CreateSegmentState
+typealias CreateSegmentEvent = SegmentPackage.CreateSegmentEvent
+typealias CreateSegmentTexts = SegmentPackage.CreateSegmentTexts
+typealias CreateSegmentUnavailable = SegmentPackage.CreateSegmentUnavailable
+typealias SelectionCheck = SegmentPackage.SelectionCheck

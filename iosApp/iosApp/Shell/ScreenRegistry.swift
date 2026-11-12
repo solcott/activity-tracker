@@ -125,6 +125,8 @@ extension ScreenRegistry {
         registry.register(EditActivityScreen.self, EditActivityState.self) { state in EditActivityView(state: state) }
         registry.register(ManualActivityScreen.self, ManualActivityState.self) { state in ManualActivityView(state: state) }
         registry.register(CreateDiveSiteScreen.self, CreateDiveSiteState.self) { state in CreateDiveSiteView(state: state) }
+        // Create segment (ios-native-create-segment), over the activity page.
+        registry.register(CreateSegmentScreen.self, CreateSegmentState.self) { state in CreateSegmentView(state: state) }
         return registry
     }()
 }
