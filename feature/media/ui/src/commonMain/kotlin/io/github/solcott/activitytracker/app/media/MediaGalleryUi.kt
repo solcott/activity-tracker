@@ -51,17 +51,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_more
-import io.github.solcott.activitytracker.composeApp.resources.details_photo
-import io.github.solcott.activitytracker.composeApp.resources.label_taken_down_photo
-import io.github.solcott.activitytracker.composeApp.resources.media_close
-import io.github.solcott.activitytracker.composeApp.resources.media_counter
 import io.github.solcott.activitytracker.composeApp.resources.media_next
 import io.github.solcott.activitytracker.composeApp.resources.media_previous
-import io.github.solcott.activitytracker.composeApp.resources.media_zoom_hint
-import io.github.solcott.activitytracker.composeApp.resources.report_photo
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
@@ -93,15 +87,13 @@ fun MediaGalleryUi(state: MediaGalleryState, modifier: Modifier = Modifier) {
         ) {
             AppIconButton(
                 AppIcon.Close,
-                contentDescription = stringResource(Res.string.media_close),
+                contentDescription = MediaGalleryTexts.close.string(),
                 onClick = { state.eventSink(MediaGalleryEvent.Back) },
                 tint = Color.White,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.items.size > 1) {
-                    Text(stringResource(Res.string.media_counter, state.page + 1, state.items.size), color = Color.White)
-                }
-                if (state.canReport && state.reporting.available) PhotoMenu(state)
+                MediaGalleryTexts.counter(state)?.let { Text(it.string(), color = Color.White) }
+                if (MediaGalleryTexts.offersReport(state)) PhotoMenu(state)
             }
         }
     }
@@ -112,10 +104,10 @@ fun MediaGalleryUi(state: MediaGalleryState, modifier: Modifier = Modifier) {
 @Composable
 private fun PhotoMenu(state: MediaGalleryState) {
     var open by remember { mutableStateOf(false) }
-    val report = stringResource(Res.string.report_photo)
+    val report = MediaGalleryTexts.reportPhoto.string()
     val items = remember(report) { persistentListOf(AppMenuItem(report) { state.eventSink(MediaGalleryEvent.ReportPhoto) }) }
     Box {
-        AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true }, tint = Color.White)
+        AppIconButton(AppIcon.More, MediaGalleryTexts.more.string(), onClick = { open = true }, tint = Color.White)
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
 }
@@ -152,7 +144,7 @@ private fun Pager(state: MediaGalleryState, modifier: Modifier = Modifier) {
                     when {
                         state.takenDown ->
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(stringResource(Res.string.label_taken_down_photo), color = Color.White)
+                                Text(MediaGalleryTexts.takenDown.string(), color = Color.White)
                             }
                         else ->
                             BlurredMedia(
@@ -197,12 +189,12 @@ private const val SCRIM_ALPHA = 0.5f
 
 @Composable
 private fun Photo(photo: MediaItem.Photo, zoomed: Boolean, onTap: () -> Unit, modifier: Modifier = Modifier) {
-    val description = photo.alt ?: stringResource(Res.string.details_photo)
+    val description = MediaGalleryTexts.description(photo).string()
     if (zoomed) {
         // A fresh zoom state each time, so leaving zoom mode resets the scale.
         CoilZoomAsyncImage(photo.url, contentDescription = description, modifier = modifier.fillMaxSize(), onTap = { onTap() })
     } else {
-        val hint = stringResource(Res.string.media_zoom_hint)
+        val hint = MediaGalleryTexts.zoomHint.string()
         AsyncImage(
             photo.url,
             contentDescription = description,

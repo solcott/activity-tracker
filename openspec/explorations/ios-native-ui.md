@@ -412,6 +412,17 @@ Each phase leaves a shippable app.
      `TypePickerState.groups(query, source)` with `CatalogText` as the source, and `selectionOf(category)`) and discloses each sport's
      sub-sports, collapsed when it opens. A snapshot is drawn until two draws agree (`Snapshotting.settledImage`), so a full run
      compares as a single suite does. `UploadsPresenter` uses `adding`.
+   - **The rest of the activity page** (`ios-native-activity-rest`). Every chart the shared card draws is native: `LineChart` grew a
+     backdrop, more lines, marks and a fill above (all defaulted), which `LineChartView` draws, and `CardLines.of` builds each card's
+     charts (the elevation behind effort lines with its height in the readout, a pair's two legs, every tank on one chart, a dive's depth
+     with its switches, warnings and ceiling, assist mode in steps, the power curve and the gears). The legs, lengths and sets tables are
+     `StructureTableTexts` `DetailTable`s, drawn by the Compose card and the native one; a combined activity's cards say where their data
+     came from (`RecordingTexts.sourceCaption`); the owner edits a combination in a native sheet (`EditCombinationSheet`, `CombinationTexts`:
+     members removed after a confirmation, each kind's source menu and switch); nested efforts draw their guide lines and span bars. The
+     screens the page opens are native: the enlarged route map (`ActivityRouteMapView`, `RouteMapTexts`), the media gallery
+     (`MediaGalleryView`, `MediaGalleryTexts`: paged, a tap zooming in a `UIScrollView`, the counter, Report, a label's cover and the
+     owner's taken-down placeholders) and the combine picker (`CombinePickerView`, `CombinePickerTexts`). Left for later: Edit (the forms
+     change), Add a recording, Create segment and Create dive site.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1827,6 +1838,35 @@ What building the host and the shell on Swift export showed, beyond the probes:
   threw `count` unrecognized (`NSArray` bridging) while passing alone; the two tests doing it read the typed getter
   (`ThresholdHistoryState.groups`) through `elements(as:)` now, as the rules say.
 
+### Phase 4 findings (the rest of the activity page, `ios-native-activity-rest`)
+
+- **Every card chart is one `LineChart`, with defaulted layers.** `backdrop`, `others` (`ChartLine` with a tone), `marks` (`ChartMark`,
+  a warning in red) and `fillAbove` cover what Vico's `TimeSeriesChart` draws around a line (the elevation behind effort lines, a pair's
+  right leg, more tanks, a dive's ceiling, switches and warnings, its depth filled to the surface); the power curve is a line over its
+  durations' indices with ticks at 5 s, 1, 5 and 20 min and 1 h, and the gears a step line held to the end. `CardLines.of` returns all of
+  a card's charts in drawing order, so the native card just lists them; the Compose card keeps Vico and asks the same descriptions,
+  labels and details.
+- **Swift Charts has no second y scale,** so Kotlin puts the backdrop on the chart's own axis (`LineChart.backdropOf`: its low at the
+  axis's bottom, its span, at least 20 in its unit, filling three fifths), which the JVM tests check. A backdrop must not follow the line's
+  step interpolation (the gears' elevation turned into stairs).
+- **A mark's label goes beside its rule, inside the plot.** At `.bottom` a warning's label sat on the time axis' labels; `.trailing`
+  aligned top (a switch) or bottom (a warning), fitted to the chart, keeps both readable.
+- **Swift export erases an `ImmutableList` parameter too,** so the native page asks for whole values: `StructureTableTexts.of(section,
+  charts, units)` rather than `legs(charts.legs)`, `ActivityPageTexts.sourceCaption(page, section)`, and `SegmentEffortRow.guideAt(index)`
+  for a list of `Boolean`s.
+- **The gallery zooms in UIKit.** SwiftUI has no pinch-and-pan image, so a zoomed photo is a `UIScrollView` with a double tap and a
+  single tap that waits for it; while zoomed the paged `TabView` is replaced by that one photo, so a pan moves the photo, as the shared
+  pager stops swiping. `RemoteImage(fits:)` shows a whole photo.
+- **The combination sheet's open state is the view's,** as `rememberSaveable` is in Compose; it closes when a split leaves nothing
+  combined (`CombinationTexts.offersEdit`).
+- **A `UIViewRepresentable` has no size in `updateUIView` on its first pass,** so a scroll view fitting its content sizes it in its own
+  `layoutSubviews` (the gallery's zoomed photo was black until it did).
+- **An iOS 18.4 run needs its own build:** a build for the 26.0 destination lacks `libswiftCompatibilitySpan` and stops before the first
+  test.
+- **Walked on the signed-in iPhone 17 Pro (iOS 26) as alice:** the gallery with zoom and the native report sheet, the enlarged route map,
+  nested efforts with guides and span bars on real Corner Canyon efforts, and the combine picker's empty state. The layered charts,
+  structure tables, captions and the combination sheet are seen only in snapshots (see the change's Not verified).
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1916,14 +1956,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   segment shows are still the shared UI's. ~~The dive site page~~: native (`ios-native-map`). The lists they open are native
   (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
   `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
-- ~~The activity page (`ActivityDetailScreen`) is still the shared UI's~~: native (`ios-native-activity-page`). Still left on it:
-  charts `LineChart` can't draw yet (the elevation behind a line, a left/right pair's second line, several tanks on one chart, a dive's
-  gas switches, warnings and deco ceiling, e-bike assist mode's steps, the power curve and the gears chart; their cards show their
-  headline, a plain chart of the main line and their rows), the legs, lengths and sets tables (multisport, pool swims, workouts), the
-  edit-combination sheet (removing a member, data sources; Split stays in the menu), the chart source captions on a combined activity,
-  and the nested efforts' guide lines and span bars (rows are indented instead). Two cards to a row on a medium width is the shared
-  page's; the native one stacks them. The screens it opens that are still shared: the media gallery, the enlarged route map, Edit, the
-  combine picker, Add a recording (import) and Create segment.
+- ~~The activity page (`ActivityDetailScreen`) is still the shared UI's~~: native (`ios-native-activity-page`). ~~Still left on it:
+  charts `LineChart` can't draw yet, the legs, lengths and sets tables, the edit-combination sheet, the chart source captions and the
+  nested efforts' guide lines and span bars~~: done (`ios-native-activity-rest`), and ~~the media gallery, the enlarged route map and the
+  combine picker~~ are native too. Two cards to a row on a medium width is the shared page's; the native one stacks them. The screens it
+  opens that are still shared: Edit (the forms change), Add a recording (import), Create segment and Create dive site. The Compose
+  charts keep Vico and its own drawing of the backdrop, other lines and marks; only their words are shared.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
   iPad). ~~Still left: the bar's type sheet has no search and no collapsed sports~~: done (`ios-native-leftovers`); ~~Report on a feed post waits for the post card's menu~~: done, the feed passes `canReport: state.reporting.available`; the feed loads one page on every platform, and paging it is a shared change; the shared feed's

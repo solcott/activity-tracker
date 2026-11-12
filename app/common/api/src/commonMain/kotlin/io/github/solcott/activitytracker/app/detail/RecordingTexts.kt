@@ -43,6 +43,16 @@ object RecordingTexts {
     fun memberName(member: MemberView): AppText =
         member.device?.let(AppText::written) ?: member.sport?.let(LabelText::sport) ?: AppText.named("detail_recording_unnamed")
 
+    /**
+     * A card's caption on a combined activity: the devices its data came from, in time order ("From Edge 840", "From Forerunner, then
+     * Phone"), each by [memberName]; null for none.
+     */
+    fun sourceCaption(members: List<MemberView>): AppText? =
+        members
+            .map(::memberName)
+            .reduceOrNull { acc, name -> AppText.named("chart_source_then", acc, name) }
+            ?.let { AppText.named("chart_source_from", it) }
+
     /** What a combine suggestion looks like, as a question. */
     fun combineCue(cue: CombineCue): AppText =
         AppText.named(

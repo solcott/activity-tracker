@@ -29,7 +29,14 @@ data class SegmentEffortRow(
     val lastChild: Boolean = false,
     val spanStart: Float? = null,
     val spanEnd: Float? = null,
-)
+) {
+    /** How many [guides] the row has. */
+    val guideCount: Int
+        get() = guides.size
+
+    /** Whether the [index]th of [guides] continues. */
+    fun guideAt(index: Int): Boolean = guides[index]
+}
 
 /** Seconds an effort's ends may differ by and still count as the same moment: each is rounded to whole seconds. */
 private const val TOLERANCE_S = 2L

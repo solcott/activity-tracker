@@ -8,9 +8,9 @@ import SwiftUI
 /// a 400-point pane beside the cards, as the shared page lays it out from 840dp. Every word and condition is Kotlin's
 /// (`ActivityPageTexts`, `FigureTexts`, `CardLines`, `ActivityCardContent`), shared with the Compose page.
 ///
-/// Named `ActivityPage` because `ActivityView` is the lexicon class it shows. Charts the native chart can't draw yet (the elevation
-/// behind a line, a pair's second line, the power curve, gears, a dive's markers) and the legs, lengths and sets tables wait; their cards
-/// show their headline and rows.
+/// Named `ActivityPage` because `ActivityView` is the lexicon class it shows. Every chart and table the shared page draws is drawn
+/// natively; a combined activity's cards name their sources, and its owner edits the combination in a native sheet
+/// (`EditCombinationSheet`).
 struct ActivityPage: View {
     let state: ActivityDetailState
 
@@ -228,6 +228,7 @@ private struct ActivitySections {
             ForEach(Array(page.page.cards.elements(as: MetricCard.self).enumerated()), id: \.offset) { _, card in
                 MetricCardSection(
                     card: card, charts: charts, missingZones: page.chartsMissingZones,
+                    caption: texts.sourceCaption(page: page, section: card.section),
                     setThresholds: { send(ActivityDetailEvent.OpenTrainingZones.shared) })
             }
         }
@@ -238,8 +239,11 @@ private struct ActivitySections {
         if !groups.isEmpty {
             Section {
                 ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
-                    ForEach(Array(group.rows.elements(as: SegmentEffortRow.self).enumerated()), id: \.offset) { _, row in
-                        SegmentEffortRowView(row: row) { send(texts.openEffort(effort: row.effort)) }
+                    let rows = group.rows.elements(as: SegmentEffortRow.self)
+                    // Every bar in a group starts past its deepest indent, so the bars share one axis and their spans line up.
+                    let barIndent = CGFloat(rows.map(\.depth).max() ?? 0) * EffortGuides.indent
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        SegmentEffortRowView(row: row, barIndent: barIndent) { send(texts.openEffort(effort: row.effort)) }
                     }
                 }
             } header: {
@@ -287,6 +291,8 @@ private struct ActivityHeader: View {
     let page: ActivityDetailPage
 
     @Environment(\.clock) private var clock
+    /// The owner's combination sheet is open; a split that leaves nothing combined closes it.
+    @State private var editing = false
 
     var body: some View {
         let texts = ActivityPageTexts.shared
@@ -356,6 +362,9 @@ private struct ActivityHeader: View {
             }
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: Binding(get: { editing && CombinationTexts.shared.offersEdit(page: page) }, set: { editing = $0 })) {
+            EditCombinationSheet(page: page)
+        }
     }
 
     /// The other devices that recorded this activity, each opening its recording; or, on a recording, the activity it records.
@@ -386,7 +395,16 @@ private struct ActivityHeader: View {
             Button { send(ActivityDetailEvent.OpenActivity(uri: combinedInto)) } label: { Text(texts.openCombined) }
                 .buttonStyle(.borderless)
         } else if let members = activity.members, !members.isEmpty {
-            Text(texts.members).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+            HStack {
+                Text(texts.members).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if CombinationTexts.shared.offersEdit(page: page) {
+                    Button { editing = true } label: { Text(CombinationTexts.shared.edit) }
+                        .buttonStyle(.borderless)
+                        .font(.footnote)
+                        .accessibilityLabel(Text(CombinationTexts.shared.editDescription))
+                }
+            }
             ForEach(Array(members.enumerated()), id: \.offset) { _, member in
                 Button { send(ActivityDetailEvent.OpenActivity(uri: member.uri)) } label: { Text(texts.memberName(member: member)) }
                     .buttonStyle(.borderless)
@@ -518,39 +536,112 @@ private struct ActivityTogether: View {
     }
 }
 
-/// One of the activity's efforts: its segment's name, indented under the effort it's nested in, why it isn't ranked and e-bike under it,
-/// its rank and PR, and its time; a tap opens its segment. Its words are Kotlin's (`EffortTexts`), as the shared row's are.
+/// One of the activity's efforts: its segment's name, indented under the effort it's nested in and joined to it by guide lines, why it
+/// isn't ranked and e-bike under it, its rank and PR, and its time, with a bar under it marking its span within its group when the group
+/// has more than one; a tap opens its segment. Its words are Kotlin's (`EffortTexts`), as the shared row's are.
 private struct SegmentEffortRowView: View {
     let row: SegmentEffortRow
+    let barIndent: CGFloat
     let open: () -> Void
 
     var body: some View {
         let texts = EffortTexts.shared
         let effort = row.effort
         Button(action: open) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: row.label)
-                    ForEach(Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()), id: \.offset) {
-                        _, note in Text(note).font(.footnote).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: row.label)
+                        ForEach(Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()), id: \.offset) {
+                            _, note in Text(note).font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if let rank = texts.rank(effort: effort) {
+                        Text(rank).font(.footnote.weight(.bold)).foregroundStyle(.tint)
+                    }
+                    if let pr = texts.pr(effort: effort) {
+                        Text(pr).font(.footnote.weight(.bold)).foregroundStyle(Color(.like))
+                    }
+                    Text(verbatim: texts.time(effort: effort)).fontWeight(.medium).monospacedDigit()
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if let rank = texts.rank(effort: effort) {
-                    Text(rank).font(.footnote.weight(.bold)).foregroundStyle(.tint)
+                .padding(.leading, CGFloat(row.depth) * EffortGuides.indent)
+                if let start = row.spanStart, let end = row.spanEnd {
+                    EffortSpanBar(start: CGFloat(start), end: CGFloat(end))
+                        .padding(.leading, barIndent)
                 }
-                if let pr = texts.pr(effort: effort) {
-                    Text(pr).font(.footnote.weight(.bold)).foregroundStyle(Color(.like))
-                }
-                Text(verbatim: texts.time(effort: effort)).fontWeight(.medium).monospacedDigit()
             }
-            .padding(.leading, CGFloat(row.depth) * 16)
+            .padding(.vertical, EffortGuides.padding)
+            .background(alignment: .topLeading) { EffortGuides(row: row) }
             .foregroundStyle(.primary)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+        // A nested effort's guides run on from the row above, so no line parts them.
+        .listRowSeparator(row.depth > 0 ? .hidden : .automatic, edges: .top)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// A nested effort's guide lines in its indent, as the shared card draws them: each ancestor's that continues past it as a full-height
+/// line, and its own from the top turning to meet its name, ending there when it's the last nested under its parent.
+struct EffortGuides: View {
+    let row: SegmentEffortRow
+
+    /// How far each depth indents, with its guide line down the middle.
+    static let indent: CGFloat = 20
+    /// The row's padding above its name.
+    static let padding: CGFloat = 10
+
+    @ScaledMetric(relativeTo: .body) private var lineHeight: CGFloat = 22
+
+    var body: some View {
+        if row.depth > 0 {
+            let guides = (0..<row.guideCount).map { row.guideAt(index: $0) }
+            let depth = Int(row.depth)
+            let meet = Self.padding + lineHeight / 2
+            let last = row.lastChild
+            Canvas { context, size in
+                var path = Path()
+                for (i, continues) in guides.enumerated() where continues {
+                    let x = Self.indent * CGFloat(i) + Self.indent / 2
+                    path.move(to: CGPoint(x: x, y: 0))
+                    path.addLine(to: CGPoint(x: x, y: size.height))
+                }
+                let own = Self.indent * CGFloat(depth - 1) + Self.indent / 2
+                path.move(to: CGPoint(x: own, y: 0))
+                path.addLine(to: CGPoint(x: own, y: last ? meet : size.height))
+                path.move(to: CGPoint(x: own, y: meet))
+                path.addLine(to: CGPoint(x: Self.indent * CGFloat(depth) - 2, y: meet))
+                context.stroke(path, with: .color(Color(.separator)), lineWidth: 1)
+            }
+            .environment(\.layoutDirection, .leftToRight)
+            .flipsForRightToLeftLayoutDirection(true)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// A thin track with the stretch from `start` to `end` (fractions of its width) filled.
+struct EffortSpanBar: View {
+    let start: CGFloat
+    let end: CGFloat
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            Capsule().fill(Color(.secondarySystemFill))
+                .overlay(alignment: .leading) {
+                    Capsule().fill(Color.accentColor)
+                        .frame(width: max(geometry.size.height, width * (end - start)))
+                        .offset(x: width * start)
+                }
+        }
+        .frame(height: 4)
+        .clipShape(Capsule())
+        .accessibilityHidden(true)
     }
 }
 

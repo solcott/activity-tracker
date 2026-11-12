@@ -12,6 +12,8 @@ import FeatureFeedfilterApi
 import FeatureGearApi
 import FeatureInvitesApi
 import FeatureLoginApi
+import FeatureMapApi
+import FeatureMediaApi
 import FeaturePostApi
 import FeatureProfileApi
 import FeatureReportApi
@@ -533,3 +535,26 @@ typealias GroupPartner = LexiconAppPackage.GroupPartner
 typealias RecordingView = LexiconAppPackage.RecordingView
 typealias MemberView = LexiconAppPackage.MemberView
 typealias ExportedFile = ExportedKotlinPackages.io.github.solcott.activitytracker.data.activity.ExportedFile
+// The rest of the activity page (ios-native-activity-rest): a chart's more lines and marks, the structure tables, the combination sheet,
+// and the screens the page opens (the enlarged route map, the media gallery, the combine picker).
+typealias ChartLine = AppPackage.chart.ChartLine
+typealias ChartMark = AppPackage.chart.ChartMark
+typealias StructureTableTexts = DetailPackage.StructureTableTexts
+typealias CombinationTexts = DetailPackage.CombinationTexts
+typealias DataSources = DetailPackage.DataSources
+typealias DataSourceRow = DetailPackage.DataSourceRow
+typealias ChartSource = DetailPackage.ChartSource
+typealias DataKind = ExportedKotlinPackages.io.github.solcott.activitytracker.data.activity.DataKind
+typealias CombinePickerScreen = DetailPackage.CombinePickerScreen
+typealias CombinePickerState = DetailPackage.CombinePickerState
+typealias CombinePickerEvent = DetailPackage.CombinePickerEvent
+typealias CombinePickerTexts = DetailPackage.CombinePickerTexts
+typealias RouteMapScreen = AppPackage.map.RouteMapScreen
+typealias RouteMapState = AppPackage.map.RouteMapState
+typealias RouteMapContent = AppPackage.map.RouteMapContent
+typealias RouteMapEvent = AppPackage.map.RouteMapEvent
+typealias RouteMapTexts = AppPackage.map.RouteMapTexts
+typealias MediaGalleryScreen = AppPackage.media.MediaGalleryScreen
+typealias MediaGalleryState = AppPackage.media.MediaGalleryState
+typealias MediaGalleryEvent = AppPackage.media.MediaGalleryEvent
+typealias MediaGalleryTexts = AppPackage.media.MediaGalleryTexts

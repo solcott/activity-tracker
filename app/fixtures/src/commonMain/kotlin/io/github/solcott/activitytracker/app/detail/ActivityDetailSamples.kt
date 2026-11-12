@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.detail
 
 import io.github.solcott.activitytracker.app.ShownRoute
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -19,11 +20,14 @@ import io.github.solcott.activitytracker.app.interactions.CommentThread
 import io.github.solcott.activitytracker.app.interactions.CommentsPaging
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.data.activity.CombineCue
+import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.LabelView
+import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -338,6 +342,172 @@ object ActivityDetailSamples {
                 rideCharts.copy(lines = persistentListOf(line(StreamKind.Speed, 3_400.0, 500.0, max = 4_600.0)), laps = persistentListOf()),
         )
 
+    /** A ride's power card with its curve, its pedal smoothness pair, its gears and its e-bike assist steps. */
+    private val moreChartsPage: ActivityPageContent
+        get() {
+            val right = line(StreamKind.PedalSmoothness, 22.0, 3.0)
+            val smoothness = line(StreamKind.PedalSmoothness, 19.0, 3.0).copy(right = right)
+            val assist =
+                LineSeries(
+                    StreamKind.EbikeAssistMode,
+                    samples(2.0, 1.0).map { it.copy(value = kotlin.math.round(it.value)) }.toImmutableList(),
+                    average = null,
+                    max = 3.0,
+                )
+            val curve =
+                listOf(1 to 820, 5 to 760, 15 to 610, 30 to 520, 60 to 430, 300 to 310, 600 to 280, 1200 to 262, 3600 to 221)
+                    .map { (s, w) -> CurvePoint(s, w) }
+                    .toImmutableList()
+            val gears =
+                listOf(0 to 6, 300 to 4, 900 to 3, 1500 to 5, 2400 to 2, 3000 to 4).map { (s, r) -> GearPoint(s, 2, r) }.toImmutableList()
+            return ActivityPageContent(
+                start = page.page.start,
+                cards =
+                    persistentListOf(
+                        MetricCard(DetailSection.Power, persistentListOf(), series = persistentListOf(power), powerCurve = curve),
+                        MetricCard(DetailSection.CyclingDynamics, persistentListOf(), series = persistentListOf(smoothness)),
+                        MetricCard(DetailSection.Gears, persistentListOf(), gears = gears),
+                        MetricCard(DetailSection.EBike, persistentListOf(), series = persistentListOf(assist)),
+                    ),
+                charts = rideCharts.copy(lines = persistentListOf(power, smoothness, assist, elevation), powerCurve = curve, gears = gears),
+            )
+        }
+
+    /** A dive's depth, with a switch to EAN50, a warning and the deco ceiling, and its two tanks. */
+    private val divePage: ActivityPageContent
+        get() {
+            val depth =
+                LineSeries(
+                    StreamKind.Depth,
+                    (0..60)
+                        .map { i ->
+                            ChartSample(i * 60, 30.0 * kotlin.math.sin(i / 60.0 * kotlin.math.PI) + 2.0 * kotlin.math.sin(i / 3.0))
+                        }
+                        .map { it.copy(value = it.value.coerceAtLeast(0.0)) }
+                        .toImmutableList(),
+                    average = 18.0,
+                    max = 31.0,
+                )
+            val ceiling =
+                (20..40).map { i -> ChartSample(i * 60, 6.0 * kotlin.math.sin((i - 20) / 20.0 * kotlin.math.PI)) }.toImmutableList()
+            val tanks = persistentListOf(line(StreamKind.TankPressure, 140.0, 40.0), line(StreamKind.TankPressure, 170.0, 25.0))
+            val charts =
+                rideCharts.copy(
+                    lines = persistentListOf(depth),
+                    gasSwitches = persistentListOf(GasSwitchPoint(1_500, 50, 0)),
+                    alerts = persistentListOf(DiveAlertPoint(2_400, "rbt")),
+                    ceiling = ceiling,
+                    tankPressures = tanks,
+                    heartRateZones = null,
+                    powerZones = null,
+                    laps = persistentListOf(),
+                )
+            return ActivityPageContent(
+                start = page.page.start,
+                cards =
+                    persistentListOf(
+                        MetricCard(DetailSection.Depth, persistentListOf(), series = persistentListOf(depth)),
+                        MetricCard(DetailSection.TankPressure, persistentListOf(), series = tanks),
+                    ),
+                charts = charts,
+            )
+        }
+
+    /** A multisport day's legs, a pool swim's lengths and a workout's sets, each card with its table. */
+    private val structuresPage: ActivityPageContent
+        get() {
+            val charts =
+                rideCharts.copy(
+                    lines = persistentListOf(),
+                    heartRateZones = null,
+                    powerZones = null,
+                    laps = persistentListOf(),
+                    legs =
+                        persistentListOf(
+                            LegRow(Sport.SWIM, "open_water", transition = false, seconds = 1_620, distanceMeters = 1_500),
+                            LegRow("transition", null, transition = true, seconds = 140, distanceMeters = null),
+                            LegRow(Sport.RIDE, "road", transition = false, seconds = 4_200, distanceMeters = 40_000),
+                            LegRow(Sport.RUN, null, transition = false, seconds = 2_580, distanceMeters = 10_000),
+                        ),
+                    lengths =
+                        persistentListOf(
+                            LengthRow(1, "freestyle", 32, 16, rest = false),
+                            LengthRow(2, "freestyle", 33, 17, rest = false),
+                            LengthRow(null, null, 30, null, rest = true),
+                            LengthRow(3, "breaststroke", 44, 12, rest = false),
+                        ),
+                    sets =
+                        persistentListOf(
+                            SetRow(
+                                1,
+                                rest = false,
+                                category = "squat",
+                                exercise = "barbell_back_squat",
+                                reps = 8,
+                                weightGrams = 80_000,
+                                seconds = 45,
+                            ),
+                            SetRow(null, rest = true, category = null, exercise = null, reps = null, weightGrams = null, seconds = 90),
+                            SetRow(
+                                2,
+                                rest = false,
+                                category = "row",
+                                exercise = "single_arm_cable_row",
+                                reps = 12,
+                                weightGrams = 20_000,
+                                seconds = 40,
+                            ),
+                        ),
+                )
+            return ActivityPageContent(
+                start = page.page.start,
+                cards =
+                    persistentListOf(
+                        MetricCard(DetailSection.Legs, persistentListOf()),
+                        MetricCard(DetailSection.Lengths, persistentListOf()),
+                        MetricCard(DetailSection.Sets, persistentListOf()),
+                    ),
+                charts = charts,
+            )
+        }
+
+    /** A ride combined from a bike computer and a phone, as its owner sees it: the members, each card's sources and the data sources. */
+    private val combined: ActivityDetailPage
+        get() {
+            val edge =
+                MemberView(Fixed.uri(Fixed.ALICE, Nsid.FEED_ACTIVITY, "3kedge"), activity.record.startedAt, 2_400, Sport.RIDE, "Edge 840")
+            val phone =
+                MemberView(
+                    Fixed.uri(Fixed.ALICE, Nsid.FEED_ACTIVITY, "3kphone"),
+                    activity.record.startedAt + kotlin.time.Duration.parse("40m"),
+                    1_200,
+                    Sport.RIDE,
+                )
+            val ridden = activity.copy(members = listOf(edge, phone))
+            return page.copy(
+                activity = ridden,
+                viewerDid = Fixed.ALICE,
+                isOwn = true,
+                manage = ownManage.copy(members = 2, canCombine = false),
+                page = ridePage.copy(cards = persistentListOf(ridePage.cards.first())),
+                chartSources = persistentListOf(ChartSource(DetailSection.HeartRate, persistentListOf(edge, phone))),
+                dataSources =
+                    DataSources(
+                        kinds =
+                            persistentListOf(
+                                DataSourceRow(DataKind.Map, included = true, chosen = edge, offered = persistentListOf()),
+                                DataSourceRow(DataKind.HeartRate, included = true, chosen = edge, offered = persistentListOf(edge, phone)),
+                                DataSourceRow(DataKind.Power, included = false, chosen = null, offered = persistentListOf()),
+                            ),
+                    ),
+                partners = persistentListOf(),
+            )
+        }
+
+    /** The combined ride's page, for its edit sheet. */
+    val combinedPage: ActivityDetailPage
+        get() = combined
+
     private val ownManage = ActivityManage(otherRecordings = 1, canUngroup = true, canCombine = true, busy = false, error = null)
 
     /**
@@ -403,6 +573,10 @@ object ActivityDetailSamples {
                     ),
                 "hidden" to state(page.copy(activity = activity.copy(labels = listOf(LabelView(Did("did:plc:labeler"), "!hide"))))),
                 "segments" to state(page.copy(segments = nestedSegments, lifts = liftRides)),
+                "moreCharts" to state(page.copy(page = moreChartsPage, partners = persistentListOf())),
+                "dive" to state(page.copy(page = divePage, partners = persistentListOf())),
+                "structures" to state(page.copy(page = structuresPage, partners = persistentListOf())),
+                "combined" to state(combined),
             )
         }
 
@@ -416,6 +590,31 @@ object ActivityDetailSamples {
 }
 
 object CombinePickerSamples {
+    /** Beyond content loading: one candidate being combined, and combining having failed. */
+    val variants: Map<String, CombinePickerState>
+        get() =
+            mapOf(
+                "combining" to
+                    CombinePickerState(
+                        ContentStates.loaded((candidates + candidates2).toImmutableList()),
+                        combining = candidates.first().uri,
+                    ),
+                "combineFailed" to
+                    CombinePickerState(
+                        ContentStates.loaded(candidates),
+                        error = UiError(UiError.Kind.CombineActivity),
+                    ),
+            )
+
+    private val candidates2: ImmutableList<ActivityView> =
+        persistentListOf(
+            fakeActivity(
+                "3kactivity4",
+                fakeProfileBasic(),
+                FeedSamples.activities.first().record.copy(title = null, device = "Pixel 9"),
+            ),
+        )
+
     val candidates: ImmutableList<ActivityView> =
         persistentListOf(
             fakeActivity("3kactivity3", fakeProfileBasic(), FeedSamples.activities.first().record.copy(title = "Ride (watch)")),

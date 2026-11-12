@@ -24,22 +24,11 @@ import io.github.solcott.activitytracker.app.ui.diveAlertLabel
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_np_max
-import io.github.solcott.activitytracker.composeApp.resources.chart_depth_alerts
-import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
-import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
-import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switches
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
-import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
-import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
-import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_point
-import io.github.solcott.activitytracker.composeApp.resources.chart_tank_pressure_help
-import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hours
-import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
-import io.github.solcott.activitytracker.composeApp.resources.unit_duration_seconds
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.pow
@@ -163,25 +152,12 @@ private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
         remember(charts.gasSwitches, names) {
             charts.gasSwitches.mapIndexed { i, switch -> SeriesLabel(switch.seconds.toDouble(), 0.0, names[i]) }.toImmutableList()
         }
-    val switchText =
-        charts.gasSwitches.zip(names) { switch, name ->
-            stringResource(Res.string.chart_depth_switch, name, Format.duration(switch.seconds.toLong()))
-        }
     val alertNames = charts.alerts.map { diveAlertLabel(it.kind) }
     val warnings =
         remember(charts.alerts, alertNames) {
             charts.alerts.mapIndexed { i, alert -> SeriesLabel(alert.seconds.toDouble(), 0.0, alertNames[i]) }.toImmutableList()
         }
-    val alertText =
-        charts.alerts.zip(alertNames) { alert, name ->
-            stringResource(Res.string.chart_depth_switch, name, Format.duration(alert.seconds.toLong()))
-        }
-    val extra =
-        listOfNotNull(
-            switchText.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.chart_depth_switches, it.joinToString(", ")) },
-            alertText.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.chart_depth_alerts, it.joinToString(", ")) },
-            stringResource(Res.string.chart_depth_ceiling).takeIf { ceiling.isNotEmpty() },
-        )
+    val extra = CardLines.depthNotes(charts)?.string()
     LineChart(
         series,
         charts.durationSeconds,
@@ -190,7 +166,7 @@ private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
         others = if (ceiling.isEmpty()) persistentListOf() else persistentListOf(ceiling.toImmutableList()),
         events = events,
         warnings = warnings,
-        extraDescription = extra.joinToString(" "),
+        extraDescription = extra,
     )
 }
 
@@ -198,7 +174,6 @@ private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
 @Composable
 private fun TankPressures(tanks: ImmutableList<LineSeries>, durationSeconds: Int) {
     val first = tanks.firstOrNull() ?: return
-    val unit = streamUnit(StreamKind.TankPressure)
     val rest = tanks.drop(1).map { rememberPoints(it) }.toImmutableList()
     LineChart(
         first,
@@ -206,8 +181,8 @@ private fun TankPressures(tanks: ImmutableList<LineSeries>, durationSeconds: Int
         elevation = null,
         titled = tanks.size > 1,
         others = rest,
-        extraDescription = stringResource(Res.string.chart_tank_pressure_help, tanks.size).takeIf { tanks.size > 1 },
-        detailOverride = tanks.mapNotNull { it.max }.takeIf { tanks.size > 1 }?.joinToString(" · ") { unit.text(unit.convert(it)) },
+        extraDescription = CardLines.tanksHelp(tanks.size).string().takeIf { tanks.size > 1 },
+        detailOverride = CardLines.tanksDetail(tanks, LocalUnitSystem.current)?.string()?.takeIf { tanks.size > 1 },
     )
 }
 
@@ -312,28 +287,25 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
         val next = curve.getOrNull(i + 1)?.seconds ?: curve[i].seconds
         (curve[i].seconds * (next.toDouble() / curve[i].seconds).pow(x - i)).roundToInt()
     }
-    val labelled = remember(curve) { curve.filter { it.seconds in CURVE_STATS } }
-    val seconds = stringResource(Res.string.unit_duration_seconds, "%s")
-    val minutes = stringResource(Res.string.unit_duration_minutes, "%s")
-    val hours = stringResource(Res.string.unit_duration_hours, "%s")
+    // The shared duration label (CardLines.durationLabel), at any duration a marker lands on.
+    val templates = DURATION_UNITS.map { CardLines.durationLabel(it).string().replace("1", "%s") }
     val durationLabel = { s: Int ->
         when {
-            s < MINUTE -> seconds.replace("%s", "$s")
-            s < HOUR -> minutes.replace("%s", "${s / MINUTE}")
-            else -> hours.replace("%s", "${s / HOUR}")
+            s < DURATION_UNITS[1] -> templates[0].replace("%s", "$s")
+            s < DURATION_UNITS[2] -> templates[1].replace("%s", "${s / DURATION_UNITS[1]}")
+            else -> templates[2].replace("%s", "${s / DURATION_UNITS[2]}")
         }
     }
     val marker = stringResource(Res.string.chart_marker, "%1", "%2")
     val wattsTemplate = stringResource(Res.string.unit_watts, "%s")
-    val wattsAt = labelled.map { durationLabel(it.seconds) to stringResource(Res.string.unit_watts, formatWhole(it.watts)) }
-    val described = wattsAt.map { (duration, w) -> stringResource(Res.string.chart_power_curve_point, duration, w) }
+    val description = CardLines.powerCurveDescription(curve).string()
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(Res.string.chart_power_curve), null)
         TimeSeriesChart(
             points = points,
             // Half a step either side: the axis gives a label only as much room as it has to the range's edge.
             xRange = -CURVE_EDGE..points.last().x + CURVE_EDGE,
-            description = stringResource(Res.string.chart_power_curve_help, described.joinToString("; ")),
+            description = description,
             yLabel = { "${formatWhole(it.roundToInt())}${watts.trim().let { u -> " $u" }}" },
             xLabel = { durationLabel(secondsAt(it)) },
             markerLabel = { x, y ->
@@ -361,7 +333,7 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int, elevati
         TimeSeriesChart(
             points = points,
             xRange = 0.0..durationSeconds.toDouble(),
-            description = stringResource(Res.string.chart_gears_help),
+            description = CardLines.gearsHelp.string(),
             yLabel = { "${it.roundToInt()}" },
             xLabel = { Format.duration(it.roundToLong()) },
             markerLabel = markerLabel,
@@ -374,9 +346,9 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int, elevati
 /** Lines that read against the climbs; not elevation itself, nor a dive's depth. */
 private val OVER_ELEVATION =
     setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Grade, StreamKind.Temperature)
-private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
 private const val CURVE_EDGE = 0.5
+
+/** A second, a minute and an hour: each reads as one of its unit, so its label is the unit's template. */
+private val DURATION_UNITS = listOf(1, 60, 3600)
 private val CHART_GAP = 24.dp
 private val HEADER_GAP = 8.dp
-private const val MINUTE = 60
-private const val HOUR = 3600

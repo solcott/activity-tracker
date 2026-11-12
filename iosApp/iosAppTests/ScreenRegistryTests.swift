@@ -82,12 +82,19 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ActivityDetailScreen"))
         // Threshold history, the last settings page, with the native step charts (ios-native-leftovers).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
+        // What the activity page opens: its enlarged route map, its photos and the combine picker (ios-native-activity-rest).
+        for screen in ["RouteMapScreen", "MediaGalleryScreen", "CombinePickerScreen"] {
+            #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
+        }
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
         // The registry takes a screen's name from its Swift type, and the host gives the Kotlin class's.
         #expect(String(describing: ActivityTracker.LoginScreen.self) == "LoginScreen")
         #expect(String(describing: ActivityTracker.ActivityDetailScreen.self) == "ActivityDetailScreen")
+        #expect(String(describing: ActivityTracker.RouteMapScreen.self) == "RouteMapScreen")
+        #expect(String(describing: ActivityTracker.MediaGalleryScreen.self) == "MediaGalleryScreen")
+        #expect(String(describing: ActivityTracker.CombinePickerScreen.self) == "CombinePickerScreen")
         #expect(String(describing: ActivityTracker.SettingsScreen.self) == "SettingsScreen")
         #expect(String(describing: ActivityTracker.ActivityDefaultsScreen.self) == "ActivityDefaultsScreen")
         #expect(String(describing: ActivityTracker.SegmentsAndGroupsScreen.self) == "SegmentsAndGroupsScreen")

@@ -114,6 +114,12 @@ extension ScreenRegistry {
 
         // Threshold history (ios-native-leftovers), opened from Training zones, with the native step charts.
         registry.register(ThresholdHistoryScreen.self, ThresholdHistoryState.self) { state in ThresholdHistoryView(state: state) }
+
+        // The rest of the activity page (ios-native-activity-rest): the screens it opens, the enlarged route map, the media gallery and
+        // the combine picker.
+        registry.register(RouteMapScreen.self, RouteMapState.self) { state in ActivityRouteMapView(state: state) }
+        registry.register(MediaGalleryScreen.self, MediaGalleryState.self) { state in MediaGalleryView(state: state) }
+        registry.register(CombinePickerScreen.self, CombinePickerState.self) { state in CombinePickerView(state: state) }
         return registry
     }()
 }
