@@ -2,12 +2,12 @@
 
 ## 1. Kotlin rules (no visible change)
 
-- [ ] 1.1 `SegmentCreditTexts` and `SegmentMapContent.routeMap` (`:feature-segment-api`, presenter); `Credit` and `SegmentMapUi` ask them. Verify their tests and the screenshot tests unchanged.
-- [ ] 1.2 `SegmentsMap` (drawing order, `nearest`, `key`) and `MapViewport.ofDegrees` in `:app-common-api`; `SegmentsMap.nonWeb` and `SegmentsPreview` ask them. Verify `SegmentsMapTest`.
-- [ ] 1.3 `SegmentBrowseTexts` and `SegmentBrowseState`'s `listShows`, `offersScope`, `offersSearchEverywhere`, typed getters, `sports`, `segmentsMap`; `SegmentBrowseUi` asks them. Verify their tests, `SharedTextNamesTest` and the screenshot tests unchanged.
-- [ ] 1.4 `AcceptInviteTexts` and `AcceptInviteState`'s `busy`, `invite`, `routeMap`; `AcceptInviteUi` asks them. Verify their tests.
-- [ ] 1.5 `HostRecord.embed` with its navigator, run inside `RunRecord`. Verify host tests and a real-presenter test through the host.
-- [ ] 1.6 `SegmentMapSamples` and any missing browse and invite samples. Verify `ContentLoadingConformanceTest`.
+- [x] 1.1 `SegmentCreditTexts` and `SegmentMapContent.routeMap` (`:feature-segment-api`, presenter); `Credit` and `SegmentMapUi` ask them. Verify their tests and the screenshot tests unchanged.
+- [x] 1.2 `SegmentsMap` (drawing order, `nearest`, `key`) and `MapViewport.ofDegrees` in `:app-common-api`; `SegmentsMap.nonWeb` and `SegmentsPreview` ask them. Verify `SegmentsMapTest`.
+- [x] 1.3 `SegmentBrowseTexts` and `SegmentBrowseState`'s `listShows`, `offersScope`, `offersSearchEverywhere`, typed getters, `sports`, `segmentsMap`; `SegmentBrowseUi` asks them. Verify their tests, `SharedTextNamesTest` and the screenshot tests unchanged.
+- [x] 1.4 `AcceptInviteTexts` and `AcceptInviteState`'s `busy`, `invite`, `routeMap`; `AcceptInviteUi` asks them. Verify their tests.
+- [x] 1.5 `HostRecord.embed` with its navigator, run inside `RunRecord`. Verify host tests and a real-presenter test through the host.
+- [x] 1.6 `SegmentMapSamples` and any missing browse and invite samples. Verify `ContentLoadingConformanceTest`.
 
 ## 2. The native views
 
