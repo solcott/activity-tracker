@@ -171,9 +171,7 @@ private fun Conditions(conditions: DiveSiteConditions, modifier: Modifier = Modi
 
 /** The dives at the site, newest first, each opening its page, then the next page's spinner or failure, or that there are none. */
 private fun LazyListScope.dives(state: DiveSiteState) {
-    item {
-        Text(DiveSiteTexts.dives.string(), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium)
-    }
+    item { Text(DiveSiteTexts.dives.string(), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium) }
     pagedRefreshStatus(state.dives, UiError.Kind.LoadDiveSiteDives) { state.eventSink(DiveSiteEvent.RetryDives) }
     items(state.dives.items, key = { it.uri.value }) { dive ->
         val open = { state.eventSink(DiveSiteEvent.OpenDive(dive.uri)) }

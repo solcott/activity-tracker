@@ -28,8 +28,8 @@ object PlaceNameTexts {
     val votingUnavailable: AppText = AppText.named("segment_name_voting_unavailable")
 
     /**
-     * Whether the section shows at all: nothing to list, nothing to propose and no failure take no space, given the place's [proposals]
-     * and [history] counts.
+     * Whether the section shows at all: nothing to list, nothing to propose and no failure take no space, given the place's [proposals] and
+     * [history] counts.
      */
     fun shows(proposals: Int, history: Int, canPropose: Boolean, fields: PlaceNameFields): Boolean =
         proposals > 0 || history > 0 || canPropose || fields.error != null

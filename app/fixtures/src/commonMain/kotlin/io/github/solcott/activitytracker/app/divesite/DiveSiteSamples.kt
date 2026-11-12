@@ -1,14 +1,6 @@
 package io.github.solcott.activitytracker.app.divesite
 
 import io.github.solcott.activitytracker.app.UiError
-import kotlin.time.Duration.Companion.days
-import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
-import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
-import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
-import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
-import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewerState
-import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.PagedStates
@@ -21,17 +13,25 @@ import io.github.solcott.activitytracker.app.fixtures.fakeDiveSiteRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeRegularEntry
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
+import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.divesites.RegularsMeta
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.lexicon.app.DiveSiteViewerState
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.siteOutline
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
+import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -117,8 +117,7 @@ object DiveSiteSamples {
                 site.copy(
                     record = site.record.copy(name = "Ras Mohammed"),
                     name = "Shark Alley",
-                    nameHistory =
-                        listOf(SegmentNameAdoption("Shark Alley", Fixed.NOW - 40.days, up = 1_204, down = 3, proposer = bob)),
+                    nameHistory = listOf(SegmentNameAdoption("Shark Alley", Fixed.NOW - 40.days, up = 1_204, down = 3, proposer = bob)),
                     nameProposals =
                         listOf(
                             SegmentNameProposalView(
@@ -152,20 +151,19 @@ object DiveSiteSamples {
 
     /** [renamed] for Carol, who may propose, whose session can't vote, and whose last vote failed. */
     val votingUnavailable: DiveSiteState
-        get() =
-            renamed.let {
-                val named = checkNotNull(it.site)
-                it.copy(
-                    content = ContentStates.loaded(named.copy(viewer = named.viewer?.copy(canProposeName = true))),
-                    names =
-                        PlaceNameFields(
-                            canVoteHere = false,
-                            viewerDid = Fixed.CAROL.value,
-                            error = UiError(UiError.Kind.VoteSegmentName),
-                        ),
-                    viewerDid = Fixed.CAROL.value,
-                )
-            }
+        get() = renamed.let {
+            val named = checkNotNull(it.site)
+            it.copy(
+                content = ContentStates.loaded(named.copy(viewer = named.viewer?.copy(canProposeName = true))),
+                names =
+                    PlaceNameFields(
+                        canVoteHere = false,
+                        viewerDid = Fixed.CAROL.value,
+                        error = UiError(UiError.Kind.VoteSegmentName),
+                    ),
+                viewerDid = Fixed.CAROL.value,
+            )
+        }
 
     /** A duplicate of an earlier site, archived conditions aside: its status, help and Open the original. */
     val duplicate: DiveSiteState

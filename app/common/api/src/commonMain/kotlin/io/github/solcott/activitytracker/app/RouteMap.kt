@@ -42,8 +42,8 @@ data class MapFrame(val latitude: Double, val longitude: Double, val zoom: Doubl
 
         /**
          * The camera that frames [bounds] in a map [width] by [height] with [margin] on every side and [top] more along the top (anything a
-         * caller draws over the map's top edge): the zoom fits the tighter of the two directions in Web Mercator, clamped to
-         * [0, MAX_ZOOM], and the centre is the middle of what's left.
+         * caller draws over the map's top edge): the zoom fits the tighter of the two directions in Web Mercator, clamped to [0, MAX_ZOOM],
+         * and the centre is the middle of what's left.
          */
         fun fit(bounds: MapBounds, width: Double, height: Double, margin: Double = MARGIN, top: Double = 0.0): MapFrame {
             val west = mercatorX(bounds.west)
@@ -83,15 +83,16 @@ data class MapFrame(val latitude: Double, val longitude: Double, val zoom: Doubl
 
 /**
  * A served route as every route map draws it (feed/route-markers, feed/map-breaks, feed/route-line-detail, dev/shared-display-text): the
- * [pieces] of its line between its breaks, each smoothed into curves; its [start] and [end] markers (at the ends others see when the map
- * is given them, none where they're hidden) and its [breaks] at the stored positions; and its [bounds], from the stored positions too. The
+ * [pieces] of its line between its breaks, each smoothed into curves; its [start] and [end] markers (at the ends others see when the map is
+ * given them, none where they're hidden) and its [breaks] at the stored positions; and its [bounds], from the stored positions too. The
  * shared map, its line preview and the feed's map images ask it, and so does the native iOS map, which lays it out on MapKit.
  */
 @Immutable
+@Suppress("LongParameterList") // Everything a route map draws, built only by [of].
 class RouteMap
 private constructor(
     private val polyline: String,
-    private val gaps: List<Int>?,
+    private val gaps: ImmutableList<Int>?,
     val pieces: ImmutableList<MapLine>,
     val start: GeoPoint?,
     val end: GeoPoint?,
@@ -131,7 +132,7 @@ private constructor(
             val drawn = SegmentedPolyline.pieces(points, gaps).filter { it.isNotEmpty() }
             return RouteMap(
                 polyline = polyline,
-                gaps = gaps,
+                gaps = gaps?.toImmutableList(),
                 pieces = drawn.map { MapLine(RouteCurve.smooth(it).toImmutableList()) }.toImmutableList(),
                 start = if (ends == null) drawn.first().first() else ends.start,
                 end = if (ends == null) drawn.last().last() else ends.end,

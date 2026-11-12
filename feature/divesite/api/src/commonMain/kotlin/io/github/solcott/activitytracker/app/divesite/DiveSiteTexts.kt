@@ -73,9 +73,7 @@ object DiveSiteTexts {
                     StatText.temperature(conditions.maxTemperature, units),
                 )
             },
-            conditions.medianVisibility?.let {
-                AppText.named("dive_site_conditions_visibility", StatText.depth(it / CM_PER_M, units))
-            },
+            conditions.medianVisibility?.let { AppText.named("dive_site_conditions_visibility", StatText.depth(it / CM_PER_M, units)) },
             conditions.medianMaxDepth?.let { median ->
                 AppText.named(
                     "dive_site_conditions_depth",

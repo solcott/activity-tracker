@@ -128,14 +128,16 @@ private fun Proposal(
                 PlaceNameTexts.voteUp(proposal).string(),
                 onClick = { onVote(true) },
                 enabled = canVoteHere,
-                tint = if (PlaceNameTexts.votedUp(proposal)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint =
+                    if (PlaceNameTexts.votedUp(proposal)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AppIconButton(
                 AppIcon.ChevronDown,
                 PlaceNameTexts.voteDown(proposal).string(),
                 onClick = { onVote(false) },
                 enabled = canVoteHere,
-                tint = if (PlaceNameTexts.votedDown(proposal)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint =
+                    if (PlaceNameTexts.votedDown(proposal)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
