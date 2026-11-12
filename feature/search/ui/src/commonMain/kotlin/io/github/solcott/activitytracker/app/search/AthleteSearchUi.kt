@@ -38,16 +38,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedRows
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.search_label
-import io.github.solcott.activitytracker.composeApp.resources.search_mode_athletes
-import io.github.solcott.activitytracker.composeApp.resources.search_mode_segments
-import io.github.solcott.activitytracker.composeApp.resources.search_no_results
-import io.github.solcott.activitytracker.composeApp.resources.search_prompt
-import io.github.solcott.activitytracker.composeApp.resources.search_tab_title
-import io.github.solcott.activitytracker.composeApp.resources.search_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(AthleteSearchScreen::class, SessionScope::class)
@@ -62,7 +57,7 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(if (state.mode == SearchMode.Segments) Res.string.search_tab_title else Res.string.search_title),
+                title = AthleteSearchTexts.title(state.mode).string(),
                 onBack = { state.eventSink(AthleteSearchEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -70,7 +65,7 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             AppSegmentedControl(
-                persistentListOf(stringResource(Res.string.search_mode_athletes), stringResource(Res.string.search_mode_segments)),
+                SearchMode.entries.map { AthleteSearchTexts.mode(it).string() }.toPersistentList(),
                 selected = state.mode.ordinal,
                 onSelect = { state.eventSink(AthleteSearchEvent.ModeChanged(SearchMode.entries[it])) },
                 modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -100,7 +95,7 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
                     ) { account ->
                         AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })
                     }
-                    if (state.query.text.isBlank()) item { Message(stringResource(Res.string.search_prompt)) }
+                    AthleteSearchTexts.prompt(state)?.let { prompt -> item { Message(prompt.string()) } }
                 }
             }
         }
@@ -134,9 +129,9 @@ private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifie
 
 /** What the results say when empty: that nothing matched; none before a query, which shows the prompt instead. */
 private fun AthleteSearchState.empty(): (@Composable () -> Unit)? =
-    if (query.text.isBlank()) null
-    else {
-        { Message(stringResource(Res.string.search_no_results, query.text.trim().toString())) }
+    AthleteSearchTexts.empty(this)?.let { text ->
+        val message: @Composable () -> Unit = { Message(text.string()) }
+        message
     }
 
 @Composable
