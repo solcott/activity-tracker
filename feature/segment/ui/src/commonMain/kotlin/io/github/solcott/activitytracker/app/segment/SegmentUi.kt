@@ -27,7 +27,7 @@ import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
 import io.github.solcott.activitytracker.app.names.PlaceNames
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
-import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -36,24 +36,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.segment_elevation
-import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_extremes
-import io.github.solcott.activitytracker.composeApp.resources.segment_elevation_range
-import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
-import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
-import io.github.solcott.activitytracker.composeApp.resources.segment_star
-import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
-import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
-import io.github.solcott.activitytracker.composeApp.resources.segment_your_rides
-import io.github.solcott.activitytracker.composeApp.resources.unit_percent
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.lexicon.app.SegmentKind
-import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * A segment: a star to keep it in the viewer's starred list, its line on a map, its original name when renamed, its length, sport group and
@@ -76,7 +62,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
                     if (segment != null && starred != null) {
                         AppIconButton(
                             AppIcon.Star,
-                            stringResource(if (starred) Res.string.segment_unstar else Res.string.segment_star),
+                            SegmentPageTexts.star(starred).string(),
                             onClick = { state.eventSink(SegmentEvent.ToggleStar) },
                             filled = starred,
                         )
@@ -98,7 +84,8 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues, onRetry: () -> Unit) {
     val listState = rememberLazyListState()
     // A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names.
-    val lift = !SegmentKind.isRanked(segment.record.kind)
+    val lift = state.isLift
+    val units = LocalUnitSystem.current
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
@@ -111,34 +98,24 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     // Says whether it's a ski run or a ski lift, with the icon the activity page shows beside it.
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SegmentKindIcon(segment.record.sport, segment.record.kind)
-                        Text(
-                            "${Format.distance(segment.distanceMeters.toDouble())} · " +
-                                segmentTypeLabel(segment.record.sport, segment.record.kind),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Text(SegmentPageTexts.summary(segment, units).string(), style = MaterialTheme.typography.titleMedium)
                     }
-                    Elevation(segment)
+                    SegmentPageTexts.elevation(segment, units)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
                     state.profile?.let {
-                        Extremes(it)
+                        Text(SegmentPageTexts.extremes(it, units).string(), style = MaterialTheme.typography.bodyMedium)
                         SegmentProfileChart(it, Modifier.padding(top = 8.dp))
                     }
                     CreatedBy(segment.creator.handle.value)
                     state.credit?.let { Credit(it) }
                     PlaceStatus(
                         label = PlaceTexts.status(segment.status),
-                        help =
-                            PlaceTexts.statusHelp(
-                                segment.status,
-                                proposedHelp = "segment_status_proposed_help",
-                                duplicateHelp = "segment_duplicate_help",
-                                archivedHelp = "segment_status_archived_help",
-                            ),
-                        offersOriginal = PlaceTexts.offersOriginal(segment.status, hasOriginal = segment.duplicateOf != null),
+                        help = SegmentPageTexts.statusHelp(segment),
+                        offersOriginal = SegmentPageTexts.offersOriginal(segment),
                         onOpenOriginal = { state.eventSink(SegmentEvent.OpenOriginal) },
                     )
-                    if (!lift && SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {
+                    if (state.offersLeaderboard) {
                         AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, Modifier.padding(top = 8.dp)) {
-                            Text(stringResource(Res.string.segment_leaderboard))
+                            Text(SegmentPageTexts.leaderboard.string())
                         }
                     }
                     state.mayor?.let { mayor ->
@@ -147,16 +124,11 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                 }
             }
             if (!lift) item { SegmentNames(state, segment) }
-            item {
-                Text(
-                    stringResource(if (lift) Res.string.segment_your_rides else Res.string.segment_your_efforts),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+            item { Text(SegmentPageTexts.efforts(lift).string(), style = MaterialTheme.typography.titleMedium) }
             if (state.efforts.isEmpty()) {
                 item {
                     Text(
-                        stringResource(Res.string.segment_no_efforts),
+                        SegmentPageTexts.noEfforts.string(),
                         Modifier.padding(vertical = 12.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -165,7 +137,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             items(state.efforts, key = { "${it.activity.value} ${it.startOffset}" }) { effort ->
                 EffortRow(
                     effort,
-                    effortDateLabel(effort.startedOn),
+                    EffortTexts.date(effort).string(),
                     onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -193,48 +165,3 @@ private fun SegmentNames(state: SegmentState, segment: SegmentView) {
 private fun SegmentNameDialogs(state: SegmentState) {
     PlaceNameDialogs(state.names)
 }
-
-/**
- * The segment's gain, loss and average grade (net change over its length), when the AppView has derived them (segments/segment-elevation);
- * nothing otherwise.
- */
-@Composable
-private fun Elevation(segment: SegmentView) {
-    val gain = segment.elevationGain ?: return
-    val loss = segment.elevationLoss ?: 0
-    val grade = if (segment.distanceMeters > 0) (gain - loss) * PERCENT / segment.distanceMeters else 0.0
-    Text(
-        stringResource(
-            Res.string.segment_elevation,
-            Format.elevation(gain.toDouble()),
-            Format.elevation(loss.toDouble()),
-            stringResource(Res.string.unit_percent, formatDecimal(grade, 1)),
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-    )
-}
-
-/**
- * The [profile]'s high and low points, and its maximum grade as a whole percent when the AppView measured one (segments/segment-elevation).
- */
-@Composable
-private fun Extremes(profile: SegmentProfile) {
-    val high = Format.elevation(profile.highM)
-    val low = Format.elevation(profile.lowM)
-    val maxGrade = profile.maxGradePercent
-    Text(
-        if (maxGrade != null) {
-            stringResource(
-                Res.string.segment_elevation_extremes,
-                high,
-                low,
-                stringResource(Res.string.unit_percent, formatDecimal(maxGrade, 0)),
-            )
-        } else {
-            stringResource(Res.string.segment_elevation_range, high, low)
-        },
-        style = MaterialTheme.typography.bodyMedium,
-    )
-}
-
-private const val PERCENT = 100.0

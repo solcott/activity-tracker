@@ -24,12 +24,8 @@ import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.mayors_empty
 import io.github.solcott.activitytracker.composeApp.resources.mayors_title
-import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_none
-import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_title
-import io.github.solcott.activitytracker.composeApp.resources.segment_mayor_yours
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -71,11 +67,11 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
 @Composable
 internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
     LeaderCard(
-        title = stringResource(Res.string.segment_mayor_title),
+        title = SegmentPageTexts.mayorTitle.string(),
         leader = mayor.leader?.athlete,
-        leaderValue = mayor.leader?.let { SegmentBoardTexts.efforts(it).string() }.orEmpty(),
-        noneText = stringResource(Res.string.segment_mayor_none),
-        viewerText = mayor.viewer?.let { pluralStringResource(Res.plurals.segment_mayor_yours, it.efforts, it.efforts) },
+        leaderValue = mayor.leader?.let { SegmentPageTexts.mayorValue(it).string() }.orEmpty(),
+        noneText = SegmentPageTexts.mayorNone.string(),
+        viewerText = mayor.viewer?.let { SegmentPageTexts.mayorYours(it).string() },
         onClick = onClick,
         modifier = modifier,
     )

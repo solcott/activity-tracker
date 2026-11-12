@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
+import io.github.solcott.activitytracker.app.segment.EffortTexts
 import io.github.solcott.activitytracker.app.segment.SegmentTexts
 import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.text.AppText
@@ -31,14 +32,18 @@ import io.github.solcott.activitytracker.data.moderation.WarnReason
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.training.ZoneName
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
@@ -192,13 +197,52 @@ class SharedTextNamesTest {
     }
 
     @Test
+    fun everyEffortRowWordNamesAString() {
+        val effort = { rank: Int?, notRanked: String? ->
+            EffortView(
+                segment =
+                    SegmentViewBasic(
+                        uri = AtUri("at://did:plc:a/app.activitytracker.feed.segment/1"),
+                        name = "Hill",
+                        sport = "ride",
+                        distanceMeters = 1,
+                    ),
+                activity = AtUri("at://did:plc:a/app.activitytracker.feed.activity/1"),
+                startOffset = 0,
+                elapsed = 60,
+                startedOn = "2026-05-01",
+                eBike = true,
+                best = true,
+                rank = rank,
+                notRanked = notRanked,
+            )
+        }
+        val efforts =
+            (1..10).map { effort(it, null) } + listOf(NotRanked.HIDDEN, NotRanked.EXCLUDED, NotRanked.IMPLAUSIBLE).map { effort(null, it) }
+        assertAllExist(
+            efforts.flatMap {
+                listOfNotNull(
+                    EffortTexts.date(it),
+                    EffortTexts.rank(it),
+                    EffortTexts.pr(it),
+                    EffortTexts.notRanked(it),
+                    EffortTexts.eBike(it),
+                )
+            },
+        )
+    }
+
+    @Test
     fun everySportImageExists() {
         val missing = SportIconNames.all.filterNot { it in Res.allDrawableResources }
         assertTrue(missing.isEmpty(), "No drawable for $missing")
     }
 
     private fun assertAllExist(texts: List<AppText>) {
-        val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources || it in Res.allPluralStringResources }
+        val missing =
+            texts.flatMap(::names).distinct().filterNot {
+                it in Res.allStringResources || it in Res.allPluralStringResources || isStringArrayItem(it)
+            }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }
 
