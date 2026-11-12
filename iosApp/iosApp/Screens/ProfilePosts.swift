@@ -41,7 +41,7 @@ struct ProfilePosts: View {
                 Section {
                     PostCardView(
                         content: PostCardContent.Companion.shared.of(post: post, viewerDid: state.viewerDid, reason: nil),
-                        send: { send(ProfileEvent.Post(event: $0)) })
+                        send: { send(ProfileEvent.Post(event: $0)) }, canReport: state.reporting.available)
                 }
                 .onAppear { if post.uri.value == posts.last?.uri.value { lastShown = true } }
                 .onDisappear { if post.uri.value == posts.last?.uri.value { lastShown = false } }

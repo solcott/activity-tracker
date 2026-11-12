@@ -6,15 +6,19 @@ import SwiftUI
 /// Block author ask first; then the next page's progress or failure and the field, saying which comment it answers.
 ///
 /// It asks for the next page once a row of one of the last five threads, a just-sent comment or the rows after them shows, as the shared
-/// list does. Report waits for the native report sheet (ios-native-post-card), so the menus leave it out.
+/// list does. Given the page's `Reporting`, others' comments offer Report where a labeler is configured, sending the comment's
+/// `ReportingEvent.Open` that Kotlin builds (`Reporting.reportComment`); the page shows the sheet (`reporting(_:)`). Without one they
+/// offer no Report.
 struct CommentsSection: View {
     let state: CommentsState
+    let reporting: Reporting?
     @State private var draft: TextFieldModel
     @State private var onScreen: Set<String> = []
     @State private var confirming: Confirmation?
 
-    init(state: CommentsState) {
+    init(state: CommentsState, reporting: Reporting? = nil) {
         self.state = state
+        self.reporting = reporting
         _draft = State(initialValue: TextFieldModel(state.draft))
     }
 
@@ -24,12 +28,12 @@ struct CommentsSection: View {
     }
 
     var body: some View {
-        let rows = CommentsTexts.shared.rows(state: state, reportAvailable: false).elements(as: CommentRow.self)
+        let rows = CommentsTexts.shared.rows(state: state, reportAvailable: reporting?.available ?? false).elements(as: CommentRow.self)
         let near = nearKeys(rows)
         let wantsMore = state.paging.canLoadMore && !onScreen.isDisjoint(with: near)
         Section {
             ForEach(rows, id: \.key) { row in
-                CommentRowView(row: row, send: send, choose: choose)
+                CommentRowView(row: row, send: send) { item, author in choose(item, row: row, author: author) }
                     .padding(.leading, row.isReply ? 32 : 0)
                     .onAppear { onScreen.insert(row.key) }
                     .onDisappear { onScreen.remove(row.key) }
@@ -111,8 +115,17 @@ struct CommentsSection: View {
 
     private static let tailKey = "comments/loading"
 
-    private func choose(_ item: CommentMenuItem, author: any AppText) {
-        if item.confirms {
+    /// The author as the report sheet names them, as the shared list does: their display name, else their `@handle`.
+    private static func reportName(_ author: ProfileViewBasic) -> String {
+        author.displayName ?? AppStrings.string(LabelText.shared.handle(handle: author.handle.value))
+    }
+
+    private func choose(_ item: CommentMenuItem, row: CommentRow, author: any AppText) {
+        if item.action == .Report {
+            if let reporting, let comment = row.comment {
+                reporting.eventSink(reporting.reportComment(comment: comment, authorName: Self.reportName(comment.author)))
+            }
+        } else if item.confirms {
             confirming = Confirmation(item: item, author: author)
         } else if let event = item.event() {
             send(event)
@@ -191,8 +204,7 @@ struct CommentRowView: View {
     }
 
     @ViewBuilder private func menu(_ author: any AppText) -> some View {
-        // Report waits for the native report sheet; `rows` already leaves it out.
-        let items = row.menu.elements(as: CommentMenuItem.self).filter { $0.action != .Report }
+        let items = row.menu.elements(as: CommentMenuItem.self)
         if !items.isEmpty {
             Menu {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
