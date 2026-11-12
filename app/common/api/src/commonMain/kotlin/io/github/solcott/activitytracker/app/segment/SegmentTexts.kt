@@ -4,8 +4,10 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 
-/** What a segment is, as text both UIs show (dev/shared-display-text): its sport group, its type in a list of segments and
- * the image beside a ski segment's type. */
+/**
+ * What a segment is, as text both UIs show (dev/shared-display-text): its sport group, its type in a list of segments and the image beside
+ * a ski segment's type.
+ */
 object SegmentTexts {
     /** A [SegmentSportGroup]'s name ("Ride", "Paddle"); an unknown group as its token. */
     fun sportGroup(sport: String): AppText = AppText.Named("segment_sport_$sport", fallback = AppText.written(sport))

@@ -234,7 +234,11 @@ class SharedTextNamesTest {
 
     @Test
     fun everySportImageExists() {
-        val kinds = listOfNotNull(SegmentTexts.kindIcon(SegmentSportGroup.ALPINE, SegmentKind.LIFT), SegmentTexts.kindIcon(SegmentSportGroup.ALPINE, null))
+        val kinds =
+            listOfNotNull(
+                SegmentTexts.kindIcon(SegmentSportGroup.ALPINE, SegmentKind.LIFT),
+                SegmentTexts.kindIcon(SegmentSportGroup.ALPINE, null),
+            )
         val missing = (SportIconNames.all + kinds).filterNot { it in Res.allDrawableResources }
         assertTrue(missing.isEmpty(), "No drawable for $missing")
     }

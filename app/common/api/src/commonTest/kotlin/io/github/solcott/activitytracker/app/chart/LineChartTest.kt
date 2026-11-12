@@ -34,5 +34,4 @@ class LineChartTest {
         assertEquals(AppText.written("1450 m"), line.labelAt(1_450.0, line.yTicks))
         assertNull(line.labelAt(1_425.0, line.yTicks))
     }
-
 }

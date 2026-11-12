@@ -13,6 +13,7 @@ import kotlinx.collections.immutable.persistentListOf
  * What a segment's page says, for both UIs (segments/segment-efforts, segments/segment-elevation, segments/segment-mayors,
  * dev/shared-display-text): the star, its length and type, its elevation, its data's credit, the Mayor card and the efforts' heading.
  */
+@Suppress("TooManyFunctions") // One per line of the page, so both UIs ask the same.
 object SegmentPageTexts {
     /** The star's label: Star segment, or Unstar segment when [starred]. */
     fun star(starred: Boolean): AppText = AppText.named(if (starred) "segment_unstar" else "segment_star")

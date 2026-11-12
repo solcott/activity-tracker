@@ -22,6 +22,7 @@ import kotlinx.collections.immutable.toImmutableList
  * when it isn't). A UI only lays it out.
  */
 @Immutable
+@Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.
 class LineChart(
     val points: ImmutableList<LinePoint>,
     val xMin: Double,

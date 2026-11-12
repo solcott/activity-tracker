@@ -91,7 +91,7 @@ fun TimeSeriesChart(
     val model = remember(plotted, plottedExtra) { CartesianChartModel(linesModel(listOf(plotted) + plottedExtra)) }
     val yAxis =
         remember(points, extra, pointLabels.isEmpty(), inverted, timeValues, axis) {
-            axis ?: ChartAxis.of((points + extra.flatten()).map { it.y }, pointLabels.isNotEmpty(), inverted, timeValues)
+            yAxisOf(axis, points + extra.flatten(), pointLabels.isNotEmpty(), inverted, timeValues)
         }
     val minY = yAxis.min
     val maxY = yAxis.max
@@ -206,6 +206,10 @@ fun TimeSeriesChart(
         )
     StaticChart(chart, model, description, height, modifier, readout)
 }
+
+/** The caller's [axis], or the shared rule's for [values] ([ChartAxis.of]). */
+private fun yAxisOf(axis: ChartAxis?, values: List<SeriesPoint>, labelled: Boolean, inverted: Boolean, timeValues: Boolean): ChartAxis =
+    axis ?: ChartAxis.of(values.map { it.y }, labelled, inverted, timeValues)
 
 /** [brush] as a fill when there is one, else [color]. */
 private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(brush) else Fill(color)

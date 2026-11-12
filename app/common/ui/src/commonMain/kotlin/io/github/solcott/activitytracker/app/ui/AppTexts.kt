@@ -51,10 +51,9 @@ fun AppText.string(): String =
 @Composable
 private fun arrayItem(name: String): String? {
     val split = name.lastIndexOf('_')
-    if (split <= 0) return null
-    val index = name.substring(split + 1).toIntOrNull() ?: return null
-    val resource = Res.allStringArrayResources[name.substring(0, split)] ?: return null
-    return stringArrayResource(resource).getOrNull(index)
+    val index = name.substring(split + 1).toIntOrNull()
+    val resource = if (split > 0) Res.allStringArrayResources[name.substring(0, split)] else null
+    return if (resource == null || index == null) null else stringArrayResource(resource).getOrNull(index)
 }
 
 /** Whether [name] is an item of a shared `<string-array>`, as [arrayItem] reads it. */
