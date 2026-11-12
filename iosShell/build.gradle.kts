@@ -23,7 +23,7 @@ kotlin {
             // api, so Swift sees ByteString, which IosApp.heldPhoto returns and Swift turns into Data (toNSData).
             api(libs.kotlinx.io.bytestring)
 
-            // compressPhoto and compressAvatar, which IosApp runs for a photo the native gear form or edit profile picks.
+            // compressAvatar, which IosApp runs for a photo the native edit profile picks.
             implementation(projects.appCommonUi)
             implementation(projects.composeApp)
             // EditProfileLimits, the avatar's size and quality.
