@@ -11,6 +11,7 @@
 		A10000000000000000000021 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000020 /* SnapshotTesting */; };
 		A10000000000000000000024 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000023 /* Nuke */; };
 		A10000000000000000000026 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000025 /* NukeUI */; };
+		A100000000000000000000B2 /* libwebp in Frameworks */ = {isa = PBXBuildFile; productRef = A100000000000000000000B1 /* libwebp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 				A10000000000000000000013 /* FITSwiftSDK in Frameworks */,
 				A10000000000000000000024 /* Nuke in Frameworks */,
 				A10000000000000000000026 /* NukeUI in Frameworks */,
+				A100000000000000000000B2 /* libwebp in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +115,7 @@
 				A10000000000000000000012 /* FITSwiftSDK */,
 				A10000000000000000000023 /* Nuke */,
 				A10000000000000000000025 /* NukeUI */,
+				A100000000000000000000B1 /* libwebp */,
 			);
 			productName = iosApp;
 			productReference = A10000000000000000000001 /* ActivityTracker.app */;
@@ -170,6 +173,7 @@
 				A10000000000000000000011 /* XCRemoteSwiftPackageReference "fit-swift-sdk" */,
 				A1000000000000000000001F /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 				A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */,
+				A100000000000000000000B0 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000005 /* Products */;
@@ -463,6 +467,14 @@
 				version = 13.2.3;
 			};
 		};
+		A100000000000000000000B0 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/libwebp-Xcode.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -485,6 +497,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
 			productName = NukeUI;
+		};
+		A100000000000000000000B1 /* libwebp */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A100000000000000000000B0 /* XCRemoteSwiftPackageReference "libwebp-Xcode" */;
+			productName = libwebp;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

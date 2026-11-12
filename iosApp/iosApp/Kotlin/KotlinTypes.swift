@@ -638,3 +638,7 @@ typealias RecordEvent = RecordPackage.RecordEvent
 typealias RecordTexts = RecordPackage.RecordTexts
 typealias RecordAction = RecordPackage.RecordAction
 typealias RecordControl = RecordPackage.RecordControl
+
+// Photo compression (ios-libwebp-photos): Kotlin's steps, which the Swift compressor runs with libwebp.
+typealias PhotoCompression = AppPackage.edit.PhotoCompression
+typealias PhotoStep = AppPackage.edit.PhotoStep
