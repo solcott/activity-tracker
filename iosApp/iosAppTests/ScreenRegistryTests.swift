@@ -90,6 +90,8 @@ struct ScreenRegistryTests {
         for screen in ["EditActivityScreen", "ManualActivityScreen", "CreateDiveSiteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
+        // The import screen (ios-native-import).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ImportActivityScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {
@@ -138,5 +140,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.EditActivityScreen.self) == "EditActivityScreen")
         #expect(String(describing: ActivityTracker.ManualActivityScreen.self) == "ManualActivityScreen")
         #expect(String(describing: ActivityTracker.CreateDiveSiteScreen.self) == "CreateDiveSiteScreen")
+        // The import screen (ios-native-import).
+        #expect(String(describing: ActivityTracker.ImportActivityScreen.self) == "ImportActivityScreen")
     }
 }
