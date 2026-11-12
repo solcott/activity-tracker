@@ -134,8 +134,8 @@ private struct ZoomablePhoto: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(tap: tap) }
 
-    func makeUIView(context: Context) -> UIScrollView {
-        let scroll = UIScrollView()
+    func makeUIView(context: Context) -> ZoomScrollView {
+        let scroll = ZoomScrollView()
         scroll.backgroundColor = .black
         scroll.minimumZoomScale = 1
         scroll.maximumZoomScale = 5
@@ -147,6 +147,7 @@ private struct ZoomablePhoto: UIViewRepresentable {
         image.contentMode = .scaleAspectFit
         image.isUserInteractionEnabled = true
         scroll.addSubview(image)
+        scroll.image = image
         context.coordinator.image = image
         let double = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.doubleTapped(_:)))
         double.numberOfTapsRequired = 2
@@ -160,11 +161,20 @@ private struct ZoomablePhoto: UIViewRepresentable {
         return scroll
     }
 
-    func updateUIView(_ scroll: UIScrollView, context: Context) {
+    func updateUIView(_ scroll: ZoomScrollView, context: Context) {
         context.coordinator.tap = tap
-        if scroll.zoomScale == 1, let image = context.coordinator.image, image.frame.size != scroll.bounds.size {
-            image.frame = CGRect(origin: .zero, size: scroll.bounds.size)
-            scroll.contentSize = scroll.bounds.size
+    }
+
+    /// A scroll view that fits its photo to its bounds whenever it lays out unzoomed, since it has no size when it's made.
+    final class ZoomScrollView: UIScrollView {
+        weak var image: UIImageView?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            if zoomScale == 1, let image, image.frame.size != bounds.size {
+                image.frame = CGRect(origin: .zero, size: bounds.size)
+                contentSize = bounds.size
+            }
         }
     }
 
