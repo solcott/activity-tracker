@@ -82,7 +82,7 @@ typealias GrantStatus = AuthPackage.GrantStatus
 typealias ExportArchive = ExportedKotlinPackages.io.github.solcott.activitytracker.data.export.ExportArchive
 
 // Training zones, the default and sport zones forms and Privacy zones (ios-native-zones-pages), what they say and limit, and the
-// training types they read; threshold history, still the shared UI's. `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`'
+// training types they read; threshold history (ios-native-leftovers). `Zone` and `PrivacyZone` have Swift types because `ZoneTexts`'
 // functions name them (dev/ios-swift-interop).
 typealias TrainingZonesScreen = SettingsPackage.TrainingZonesScreen
 typealias TrainingZonesState = SettingsPackage.TrainingZonesState
@@ -108,6 +108,11 @@ typealias PrivacyZonesTexts = SettingsPackage.PrivacyZonesTexts
 typealias ThresholdHistoryState = SettingsPackage.ThresholdHistoryState
 typealias ThresholdHistoryGroup = SettingsPackage.ThresholdHistoryGroup
 typealias ThresholdHistorySection = SettingsPackage.ThresholdHistorySection
+typealias ThresholdHistoryScreen = SettingsPackage.ThresholdHistoryScreen
+typealias ThresholdHistoryEvent = SettingsPackage.ThresholdHistoryEvent
+typealias ThresholdHistoryRow = SettingsPackage.ThresholdHistoryRow
+typealias ThresholdHistoryTexts = SettingsPackage.ThresholdHistoryTexts
+typealias ThresholdChart = SettingsPackage.ThresholdChart
 typealias TrainingPackage = ExportedKotlinPackages.io.github.solcott.activitytracker.data.training
 typealias ZoneKind = TrainingPackage.ZoneKind
 typealias Zone = TrainingPackage.Zone
@@ -214,6 +219,7 @@ typealias PickedPhoto = AppPackage.edit.PickedPhoto
 typealias SportTypeGroups = AppPackage.sport.SportTypeGroups
 typealias SportTypeGroup = AppPackage.sport.SportTypeGroup
 typealias SportTypeRow = AppPackage.sport.SportTypeRow
+typealias SportTypeSearch = AppPackage.sport.SportTypeSearch
 typealias KotlinLocalDate = ExportedKotlinPackages.kotlinx.datetime.LocalDate
 typealias KotlinByteString = ExportedKotlinPackages.kotlinx.io.bytestring.ByteString
 
@@ -477,6 +483,7 @@ typealias AcceptInviteTexts = InvitesPackage.AcceptInviteTexts
 typealias LineChart = AppPackage.chart.LineChart
 typealias LinePoint = AppPackage.chart.LinePoint
 typealias ChartTick = AppPackage.chart.ChartTick
+typealias ChartDot = AppPackage.chart.ChartDot
 typealias ChartAxis = ExportedKotlinPackages.io.github.solcott.activitytracker.data.chart.ChartAxis
 typealias BandStop = ExportedKotlinPackages.io.github.solcott.activitytracker.data.chart.BandStop
 typealias SegmentScreen = SegmentPackage.SegmentScreen

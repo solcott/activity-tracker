@@ -111,6 +111,9 @@ extension ScreenRegistry {
 
         // The activity page (ios-native-activity-page), with the native map, charts, comments and menus.
         registry.register(ActivityDetailScreen.self, ActivityDetailState.self) { state in ActivityPage(state: state) }
+
+        // Threshold history (ios-native-leftovers), opened from Training zones, with the native step charts.
+        registry.register(ThresholdHistoryScreen.self, ThresholdHistoryState.self) { state in ThresholdHistoryView(state: state) }
         return registry
     }()
 }

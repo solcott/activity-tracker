@@ -80,8 +80,8 @@ struct ScreenRegistryTests {
         }
         // The activity page, with the native map, charts and comments (ios-native-activity-page).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ActivityDetailScreen"))
-        // The other settings pages are still the shared UI's, beside the native list or over it: threshold history draws charts.
-        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
+        // Threshold history, the last settings page, with the native step charts (ios-native-leftovers).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "ThresholdHistoryScreen"))
     }
 
     @Test func theAppsEntriesAreNamedAsKotlinNamesTheirScreens() {

@@ -4,12 +4,16 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.subcircuit.SubCircuitOuterEvent
 import com.slack.circuit.subcircuit.SubCircuitUiState
 import com.slack.circuit.subcircuit.SubScreen
+import io.github.solcott.activitytracker.app.sport.SportTypeGroup
+import io.github.solcott.activitytracker.app.sport.SportTypeSearch
+import io.github.solcott.activitytracker.app.text.TextSource
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 
 /** When the activities in a feed started, in the athlete's local calendar days. A preset is resolved against today when it's queried. */
@@ -85,6 +89,22 @@ data class TypePickerState(
             type.subSport == null && draft.any { it.sport == type.sport } -> Selection.Partial
             else -> Selection.None
         }
+
+    /** The categories' types that [matches] keeps, as the picker lists them, leaving out categories with none. */
+    fun groups(matches: (ActivityType) -> Boolean): ImmutableList<SportTypeGroup> =
+        categories
+            .map { SportTypeGroup(it.category, it.types.filter(matches).toImmutableList()) }
+            .filter { it.types.isNotEmpty() }
+            .toImmutableList()
+
+    /**
+     * The groups listed for [query] ([SportTypeSearch.matches], the labels read by [source]): every category's types while nothing is
+     * typed.
+     */
+    fun groups(query: String, source: TextSource): ImmutableList<SportTypeGroup> = groups { SportTypeSearch.matches(it, query, source) }
+
+    /** How much of [category] the draft holds, which its header marks while nothing is searched. */
+    fun selectionOf(category: SportCategory): Selection = categories.firstOrNull { it.category == category }?.selection ?: Selection.None
 }
 
 /** One catalog category in the picker, with how much of it [TypePickerState.draft] covers. */

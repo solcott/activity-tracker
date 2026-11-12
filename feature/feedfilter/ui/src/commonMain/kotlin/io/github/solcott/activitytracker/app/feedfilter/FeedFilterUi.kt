@@ -26,7 +26,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
-import io.github.solcott.activitytracker.app.sport.SportTypeGroup
+import io.github.solcott.activitytracker.app.sport.SportTypeSearch
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
@@ -156,13 +156,9 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
         // Search is UI-only, so the query resets each time the sheet opens.
         val query = rememberTextFieldState()
         val needle = query.text.trim().toString()
-        val searching = needle.isNotEmpty()
+        val searching = SportTypeSearch.searching(needle)
         val matches = activityTypeMatcher(needle)
-        val groups =
-            picker.categories
-                .map { SportTypeGroup(it.category, it.types.filter(matches).toImmutableList()) }
-                .filter { it.types.isNotEmpty() }
-                .toImmutableList()
+        val groups = picker.groups(matches)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AppTextField(
                 query,
@@ -195,7 +191,7 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
                 onCategoryClick = if (searching) null else { category -> eventSink(FeedFilterEvent.ToggleCategory(category)) },
                 categoryTrailing = { category ->
                     if (!searching) {
-                        AppTriStateCheckbox(picker.categories.first { it.category == category }.selection.toggleable(), onClick = null)
+                        AppTriStateCheckbox(picker.selectionOf(category).toggleable(), onClick = null)
                     }
                 },
             ) { type ->

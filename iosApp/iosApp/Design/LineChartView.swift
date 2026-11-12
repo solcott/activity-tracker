@@ -4,7 +4,9 @@ import UIKit
 
 /// A line chart drawn with Swift Charts from Kotlin's `LineChart` (`:app-common-api`), the value the shared chart draws too: its points
 /// over its x range, the line filled beneath, the y axis Kotlin chose with a labelled gridline at each step, Kotlin's labels along the
-/// bottom, no line or fill across a gap, its average dashed where it has one, and the bands it is tinted by (an elevation profile's grade, `GradeColors`). Tapping or dragging
+/// bottom, no line or fill across a gap, its average dashed where it has one, and the bands it is tinted by (an elevation profile's
+/// grade, `GradeColors`); in steps when Kotlin says so (a threshold holds until it changes), with Kotlin's dots, filled or hollow, and
+/// their labels over them. Tapping or dragging
 /// sideways across it marks the nearest point and shows Kotlin's readout for it over the chart, staying where the finger left it; a
 /// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`, through a UIKit pan that begins only sideways, since a
 /// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
@@ -13,13 +15,16 @@ import UIKit
 struct LineChartView: View {
     let chart: LineChart
     let height: CGFloat
+    let interactive: Bool
 
     @State private var selected: Int32?
 
-    /// `selected` marks a point from the start, for a gallery or snapshot showing the readout.
-    init(chart: LineChart, height: CGFloat = 140, selected: Int32? = nil) {
+    /// `selected` marks a point from the start, for a gallery or snapshot showing the readout. A chart that isn't `interactive` (a
+    /// sparkline in a tile) shows no readout and leaves every touch to what holds it.
+    init(chart: LineChart, height: CGFloat = 140, selected: Int32? = nil, interactive: Bool = true) {
         self.chart = chart
         self.height = height
+        self.interactive = interactive
         _selected = State(initialValue: selected)
     }
 
@@ -29,6 +34,8 @@ struct LineChartView: View {
         let axis = chart.axis
         let labels = ChartLabels(chart: chart)
         let style = ChartTint(chart: chart)
+        let shape: InterpolationMethod = chart.steps ? .stepEnd : .linear
+        let dots = chart.dots.elements(as: ChartDot.self)
         Chart {
             ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
                 ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
@@ -37,7 +44,9 @@ struct LineChartView: View {
                         series: .value("piece", index)
                     )
                     .foregroundStyle(style.area)
+                    .interpolationMethod(shape)
                     LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", index))
+                        .interpolationMethod(shape)
                         .foregroundStyle(style.line)
                         .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
@@ -50,6 +59,21 @@ struct LineChartView: View {
             }
             // The bottom axis's line, which the shared chart draws as its baseline.
             RuleMark(y: .value("y", axis.min)).foregroundStyle(Color(.separator)).lineStyle(StrokeStyle(lineWidth: 1))
+            ForEach(dots, id: \.index) { dot in
+                if Int(dot.index) < points.count {
+                    let point = points[Int(dot.index)]
+                    PointMark(x: .value("x", point.x), y: .value("y", point.y))
+                        .symbol { ChartDotSymbol(filled: dot.filled) }
+                        .annotation(position: .top, spacing: 4, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                            if let label = dot.label {
+                                Text(label)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(dot.filled ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                                    .fixedSize()
+                            }
+                        }
+                }
+            }
             if let selected, Int(selected) < points.count {
                 let point = points[Int(selected)]
                 RuleMark(x: .value("x", point.x)).foregroundStyle(Color(.secondaryLabel)).lineStyle(StrokeStyle(lineWidth: 1))
@@ -78,14 +102,16 @@ struct LineChartView: View {
             }
         }
         .chartOverlay { proxy in
-            GeometryReader { geometry in
-                Rectangle().fill(.clear).contentShape(Rectangle())
-                    .onTapGesture(coordinateSpace: .local) { location in select(location, proxy: proxy, geometry: geometry) }
-                    // A UIKit pan that begins only on a sideways drag, so a vertical one is the list's scroll.
-                    .gesture(
-                        ChartScrubGesture(
-                            moved: { location in select(location, proxy: proxy, geometry: geometry) },
-                            scrolled: { selected = nil }))
+            if interactive {
+                GeometryReader { geometry in
+                    Rectangle().fill(.clear).contentShape(Rectangle())
+                        .onTapGesture(coordinateSpace: .local) { location in select(location, proxy: proxy, geometry: geometry) }
+                        // A UIKit pan that begins only on a sideways drag, so a vertical one is the list's scroll.
+                        .gesture(
+                            ChartScrubGesture(
+                                moved: { location in select(location, proxy: proxy, geometry: geometry) },
+                                scrolled: { selected = nil }))
+                }
             }
         }
         .frame(height: height)
@@ -102,6 +128,19 @@ struct LineChartView: View {
         let origin = geometry[plot].origin
         guard let x: Double = proxy.value(atX: location.x - origin.x) else { return }
         selected = chart.nearest(x: x)
+    }
+}
+
+/// A dot on a chart's point: filled on the current value, hollow (the page's background inside the line's colour) on the others.
+private struct ChartDotSymbol: View {
+    let filled: Bool
+
+    var body: some View {
+        let size: CGFloat = filled ? 12 : 9
+        Circle()
+            .fill(filled ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color(.systemBackground)))
+            .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 2))
+            .frame(width: size, height: size)
     }
 }
 

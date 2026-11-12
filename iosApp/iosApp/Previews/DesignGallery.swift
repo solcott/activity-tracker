@@ -265,6 +265,15 @@
             }
         }
 
+        /// Step charts: a threshold's steps with its dots and values, the same with a readout, and its sparkline.
+        static var stepCharts: some View {
+            List {
+                LineChartView(chart: Samples.stepChart, height: 150)
+                LineChartView(chart: Samples.stepChart, height: 150, selected: 1)
+                LineChartView(chart: Samples.sparklineChart, height: 26).frame(width: 150)
+            }
+        }
+
         static var icons: some View {
             VStack(alignment: .leading, spacing: 16) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
@@ -381,6 +390,7 @@
     #Preview("Cards") { DesignGallery.cards }
     #Preview("Charts") { DesignGallery.charts }
     #Preview("Activity charts") { DesignGallery.activityCharts }
+    #Preview("Step charts") { DesignGallery.stepCharts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
     #Preview("Content") {

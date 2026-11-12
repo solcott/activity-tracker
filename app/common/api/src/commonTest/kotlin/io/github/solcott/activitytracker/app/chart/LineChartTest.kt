@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app.chart
 import io.github.solcott.activitytracker.app.text.AppText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class LineChartTest {
@@ -33,5 +35,42 @@ class LineChartTest {
         assertEquals(listOf(1_400.0, 1_450.0, 1_500.0), line.yTicks.map { it.value })
         assertEquals(AppText.written("1450 m"), line.labelAt(1_450.0, line.yTicks))
         assertNull(line.labelAt(1_425.0, line.yTicks))
+    }
+
+    @Test
+    fun aChartIsPlainUnlessGivenStepsOrDots() {
+        val line = chart(listOf(LinePoint(0.0, 1.0), LinePoint(1.0, 2.0)))
+        assertFalse(line.steps)
+        assertEquals(0, line.dotCount)
+    }
+
+    @Test
+    fun aDotMustMarkOneOfThePoints() {
+        val points = listOf(LinePoint(0.0, 1.0), LinePoint(1.0, 2.0))
+        val dotted =
+            LineChart.of(
+                points,
+                0.0,
+                1.0,
+                emptyList(),
+                { AppText.written("") },
+                points.map { AppText.written("") },
+                AppText.written(""),
+                steps = true,
+                dots = listOf(ChartDot(1, filled = true, label = AppText.written("2"))),
+            )
+        assertEquals(ChartDot(1, true, AppText.written("2")), dotted.dotAt(0))
+        assertFailsWith<IllegalArgumentException> {
+            LineChart.of(
+                points,
+                0.0,
+                1.0,
+                emptyList(),
+                { AppText.written("") },
+                points.map { AppText.written("") },
+                AppText.written(""),
+                dots = listOf(ChartDot(2, filled = false)),
+            )
+        }
     }
 }

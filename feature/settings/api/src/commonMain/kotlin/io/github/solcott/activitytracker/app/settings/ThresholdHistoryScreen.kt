@@ -34,6 +34,13 @@ data class ThresholdHistoryState(
 
     val anyExpanded: Boolean
         get() = content.data.any { it.expanded }
+
+    /** Whether [row]'s value is the one being removed, which shows progress in its place. */
+    fun isRemoving(row: ThresholdHistoryRow): Boolean = removing == row.entry
+
+    /** Whether a value can be removed now: not while another removal runs. */
+    val canRemove: Boolean
+        get() = removing == null
 }
 
 /** The defaults' thresholds when [sport] is null, else that sport's. Collapsed, it shows an overview of each threshold instead. */

@@ -61,7 +61,8 @@ struct ZonesContractsTests {
     }
 
     private func section(_ state: ThresholdHistoryState?) throws -> ThresholdHistorySection? {
-        let groups = try #require(state?.content.data as? [ThresholdHistoryGroup])
+        // The typed getter, not a cast of the erased `content.data`, which bridges through `NSArray` (KotlinCollectionsTests).
+        let groups = try #require(state?.groups).elements(as: ThresholdHistoryGroup.self)
         return groups.first?.thresholds.elements(as: ThresholdHistorySection.self).first
     }
 }

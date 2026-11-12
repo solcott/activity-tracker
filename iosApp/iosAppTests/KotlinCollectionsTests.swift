@@ -20,8 +20,9 @@ struct KotlinCollectionsTests {
     }
 
     @Test func aListOfAContractsObjectsIsThoseObjects() throws {
-        // Loaded content holding a list arrives as a Swift array already; the lists inside its objects are Kotlin's.
-        let groups = try #require(Samples.thresholdHistory["loaded"]?.content.data as? [SettingsPackage.ThresholdHistoryGroup])
+        // Through the state's typed getter, never a cast of the erased `content.data` to a Swift array: that bridges the Kotlin list
+        // through `NSArray`, which once threw (`count` unrecognized) under a full run's load.
+        let groups = try #require(Samples.thresholdHistory["loaded"]?.groups).elements(as: SettingsPackage.ThresholdHistoryGroup.self)
         let group = try #require(groups.first)
 
         let thresholds = group.thresholds.elements(as: SettingsPackage.ThresholdHistorySection.self)

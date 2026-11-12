@@ -18,13 +18,10 @@ import io.github.solcott.activitytracker.composeApp.resources.month_short_6
 import io.github.solcott.activitytracker.composeApp.resources.month_short_7
 import io.github.solcott.activitytracker.composeApp.resources.month_short_8
 import io.github.solcott.activitytracker.composeApp.resources.month_short_9
-import io.github.solcott.activitytracker.composeApp.resources.zones_history_date_short
 import org.jetbrains.compose.resources.stringResource
 
 /** [date] written out ("Jan 5, 2026"), as `DateText` chooses it. */
 @Composable fun longDate(date: HistoryDate): String = DateText.date(date.year, date.month, date.day).string()
-
-@Composable fun shortDate(date: HistoryDate): String = stringResource(Res.string.zones_history_date_short, monthName(date.month), date.day)
 
 @Suppress("MagicNumber") // Months of the year.
 @Composable

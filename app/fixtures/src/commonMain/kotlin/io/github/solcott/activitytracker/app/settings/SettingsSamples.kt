@@ -235,9 +235,198 @@ object ThresholdHistorySamples {
 
     /** Beyond content loading: a threshold with more values than a collapsed section shows, every one shown. */
     val variants: Map<String, ThresholdHistoryState>
-        get() = mapOf(ALL_ROWS to ThresholdHistoryState(ContentStates.loaded(allRows)))
+        get() =
+            mapOf(
+                ALL_ROWS to ThresholdHistoryState(ContentStates.loaded(allRows)),
+                // Charts: the defaults expanded with a rising power and a flat heart rate, Run collapsed to its tiles.
+                "charted" to ThresholdHistoryState(ContentStates.loaded(charted(defaultsExpanded = true, runExpanded = false))),
+                // Every group collapsed: the overview tiles with their sparklines.
+                "collapsed" to ThresholdHistoryState(ContentStates.loaded(charted(defaultsExpanded = false, runExpanded = false))),
+                // Run's pace expanded, which got faster, in minutes per mile.
+                "pace" to ThresholdHistoryState(ContentStates.loaded(charted(defaultsExpanded = false, runExpanded = true))),
+                // A value being removed: its row shows progress and no other can be removed.
+                "removing" to
+                    ThresholdHistoryState(
+                        ContentStates.loaded(charted(defaultsExpanded = true, runExpanded = false)),
+                        removing = power.rows.first().entry,
+                    ),
+                // A removal that failed.
+                "removeFailed" to
+                    ThresholdHistoryState(
+                        ContentStates.loaded(charted(defaultsExpanded = true, runExpanded = false)),
+                        error = UiError(UiError.Kind.SaveZones),
+                    ),
+            )
 
     const val ALL_ROWS = "allRows"
+
+    /** Threshold power 230 W on Jan 10 to 250 W on May 31, with one undated value; the last placed before today. */
+    private val power =
+        ThresholdHistorySection(
+            threshold = Threshold.FUNCTIONAL_THRESHOLD_POWER,
+            sport = null,
+            paceUnit = PaceUnit.PerKilometer,
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 250, source = "manual"),
+                        HistoryDate(2026, 5, 31),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 238, source = "device"),
+                        HistoryDate(2026, 3, 2),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 230, source = "garmin"),
+                        HistoryDate(2026, 1, 10),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 225), null, current = false),
+                ),
+            showingAll = false,
+            chart =
+                ThresholdChart(
+                    persistentListOf(
+                        ChartPoint(0f, 0f, 230, current = false),
+                        ChartPoint(0.35f, 0.4f, 238, current = false),
+                        ChartPoint(0.8f, 1f, 250, current = true),
+                    ),
+                    start = HistoryDate(2026, 1, 10),
+                    lowest = 230,
+                    highest = 250,
+                ),
+            undatedCount = 1,
+            change = ThresholdTrend(from = 230, to = 250, since = HistoryDate(2026, 1, 10)),
+        )
+
+    /** Threshold heart rate 170 bpm, set twice to the same value: a flat line and no change. */
+    private val heartRate =
+        ThresholdHistorySection(
+            threshold = Threshold.THRESHOLD_HEART_RATE,
+            sport = null,
+            paceUnit = PaceUnit.PerKilometer,
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_HEART_RATE, 170, source = "strava"),
+                        HistoryDate(2026, 4, 12),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_HEART_RATE, 170, source = "manual"),
+                        HistoryDate(2026, 2, 1),
+                        current = false,
+                    ),
+                ),
+            showingAll = false,
+            chart =
+                ThresholdChart(
+                    persistentListOf(ChartPoint(0f, 0.5f, 170, current = false), ChartPoint(0.6f, 0.5f, 170, current = true)),
+                    start = HistoryDate(2026, 2, 1),
+                    lowest = 170,
+                    highest = 170,
+                ),
+            undatedCount = 0,
+            change = ThresholdTrend(from = 170, to = 170, since = HistoryDate(2026, 2, 1)),
+        )
+
+    /** Max heart rate with one value: "Only value", no chart. */
+    private val maxHeartRate =
+        ThresholdHistorySection(
+            threshold = Threshold.MAX_HEART_RATE,
+            sport = null,
+            paceUnit = PaceUnit.PerKilometer,
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 192, source = "device"),
+                        HistoryDate(2026, 3, 20),
+                        current = true,
+                    ),
+                ),
+            showingAll = false,
+            chart = null,
+            undatedCount = 0,
+            change = null,
+        )
+
+    /** Run's threshold pace, 3.0 to 3.2 m/s (8:56 to 8:23 a mile), and its own max heart rate. */
+    private val runPace =
+        ThresholdHistorySection(
+            threshold = Threshold.THRESHOLD_SPEED,
+            sport = Sport.RUN,
+            paceUnit = PaceUnit.PerMile,
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_200, sport = Sport.RUN, source = "device"),
+                        HistoryDate(2026, 6, 1),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_100, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 4, 15),
+                        current = false,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.THRESHOLD_SPEED, 3_000, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 2, 3),
+                        current = false,
+                    ),
+                ),
+            showingAll = false,
+            chart =
+                ThresholdChart(
+                    persistentListOf(
+                        ChartPoint(0f, 0f, 3_000, current = false),
+                        ChartPoint(0.5f, 0.5f, 3_100, current = false),
+                        ChartPoint(0.85f, 1f, 3_200, current = true),
+                    ),
+                    start = HistoryDate(2026, 2, 3),
+                    lowest = 3_000,
+                    highest = 3_200,
+                ),
+            undatedCount = 0,
+            change = ThresholdTrend(from = 3_000, to = 3_200, since = HistoryDate(2026, 2, 3)),
+        )
+
+    private val runMaxHeartRate =
+        ThresholdHistorySection(
+            threshold = Threshold.MAX_HEART_RATE,
+            sport = Sport.RUN,
+            paceUnit = PaceUnit.PerMile,
+            rows =
+                persistentListOf(
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 188, sport = Sport.RUN, source = "garmin"),
+                        HistoryDate(2026, 5, 2),
+                        current = true,
+                    ),
+                    ThresholdHistoryRow(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 194, sport = Sport.RUN, source = "manual"),
+                        HistoryDate(2026, 1, 20),
+                        current = false,
+                    ),
+                ),
+            showingAll = false,
+            chart =
+                ThresholdChart(
+                    persistentListOf(ChartPoint(0f, 1f, 194, current = false), ChartPoint(0.7f, 0f, 188, current = true)),
+                    start = HistoryDate(2026, 1, 20),
+                    lowest = 188,
+                    highest = 194,
+                ),
+            undatedCount = 0,
+            change = ThresholdTrend(from = 194, to = 188, since = HistoryDate(2026, 1, 20)),
+        )
+
+    private fun charted(defaultsExpanded: Boolean, runExpanded: Boolean): ImmutableList<ThresholdHistoryGroup> =
+        persistentListOf(
+            ThresholdHistoryGroup(null, defaultsExpanded, persistentListOf(power, heartRate, maxHeartRate)),
+            ThresholdHistoryGroup(Sport.RUN, runExpanded, persistentListOf(runPace, runMaxHeartRate)),
+        )
 
     private val allRows: ImmutableList<ThresholdHistoryGroup> =
         persistentListOf(
