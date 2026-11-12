@@ -15,6 +15,7 @@ import FeatureInvitesApi
 import FeatureLoginApi
 import FeatureMapApi
 import FeatureMediaApi
+import FeatureModerationApi
 import FeaturePostApi
 import FeatureProfileApi
 import FeatureRecordApi
