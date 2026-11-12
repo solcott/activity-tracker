@@ -322,6 +322,15 @@ Each phase leaves a shippable app.
      sending the shared `PostEvent.Report`) on the post page, in the quotes list and on the profile's Posts tab, and the native
      comment list on others' comments (`CommentsSection(state:reporting:)`, sending `Reporting.reportComment`, which the Compose list
      asks too); the post page and quotes list show the native report sheet with `reporting(_:)`.
+   - **The feed** (`ios-native-feed`). The Feed tab's root is an inset grouped list (`FeedPage`) under a large title naming the scope,
+     which is the scopes' menu (`toolbarTitleMenu`), with Add in the bar: the filter bar as its first row (the host's sub-screen,
+     `FeedFilterBar`), the upload rows (`FeedUploadRows`), a refresh's failure and a failed action, the two prompts, and the timeline as
+     native activity cards, import cards (`FeedImportCard`) and post cards in its order, or the empty message with Clear filters. The
+     first load's progress or failure shows under the bar, the list pulls to refresh (`pullToRefresh`, the system's spinner held until
+     the state's refresh ends), and the quote and report sheets are the posts'. What it says is Kotlin's (`FeedTexts`,
+     `FeedUploadTexts`, `ImportCardTexts`, `FeedState.showsEmpty` and `keyOf`), which the Compose feed asks too. Left for later changes: paging the
+     timeline (one page on every platform), Report from a feed post's card, and the bar's type sheet's search and collapsed sports.
+     A large title shows no title menu, so the scopes are also a chip leading the filters.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1564,6 +1573,32 @@ What building the host and the shell on Swift export showed, beyond the probes:
   the walk wrote rider1's post as `3mzq1` and a comment on it through the PDS, reported both from the iPhone 17 Pro to the local Ozone
   (`moderation_event` shows each report with its own subject), and deleted both.
 
+### Phase 4 findings (feed, `ios-native-feed`)
+
+- **A large title has no title menu.** `toolbarTitleMenu` drew its chevron and opened only once the list had scrolled the title inline;
+  on the large title of a tab root a tap did nothing (iPad, iOS 26.0). The scopes are a chip leading the filter bar's line
+  (`FeedFilterBar(leading:)`, an `AppMenuChip`), and the title's menu stays for the inline title. A tab root that picks what it shows
+  from its title wants the same.
+- **The bar can be a list row.** The shared feed pins its bar above the list because a lazy item scrolled off loses its state; the
+  host keeps a sub-screen for its record's life, so natively the bar scrolls with the list and under the large title, and the first
+  load's progress or failure is a row under it. Its type sheet presented from the row as before.
+- **Pull to refresh waits on the state.** `refreshable` ends its spinner when its action returns, and the action only sends an event;
+  `pullToRefresh` polls the page's refreshing flag (kept in a reference the task reads, since a view's properties are the values it was
+  drawn with) until the refresh has shown running and ended, or briefly if it never shows running.
+- **The outside Clear resets the bar** (seen on the iPad): Clear filters on the empty feed cleared the chips with the list, through
+  the screen's `generation` (ios-host-subcircuits), so the open item about it is closed.
+- **Counts grouped.** The upload rows and the import card passed raw ints to plurals in the Compose feed ("3000 imported"); as
+  `FeedUploadTexts` and `ImportCardTexts` they pass `formatWhole` text, as `ui/number-format` asks, on every platform.
+- **There is no next page.** The feed reads its cache and then the AppView's first page; the walk reached the list's end with nothing
+  more to load, on the native page as on the shared one.
+- **A snapshot draws a large title against the window's edge**, with none of the margin it has on a device, so the feed's snapshots
+  use the inline title; the page is a tab root in the app.
+- **Walked on the signed-in iPad Air 11-inch (iOS 26.0) as alice:** the native feed with her and bob's activities as native cards
+  (badges, locks, a route, blurred photos), the scope chip to Mine and back (title and list followed), Last 7 days (chip filled, Clear
+  shown, list narrowed), Swim from the type sheet (the empty message with Clear filters, which cleared the chips too), pull to refresh
+  (the system's spinner, then settled), Add's three entries, a card opening its activity and back, the inline title's scope menu, and
+  the end of the list. Nothing was written; the scope and filters were put back to Following with none.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1645,10 +1680,13 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - The segment page (`SegmentScreen`), its map, segment browse and the dive site page are still the shared UI's, waiting for native maps
   and charts; the lists they open are native (`ios-native-segment-lists`). Their Mayor and Regulars cards already ask
   `SegmentBoardTexts.efforts` and `DiveSiteRegularsTexts.visits`.
-- The feed (`FeedScreen`) is still the shared UI's (`ios-native-activity-card`): ~~its filter bar is a SubCircuit the presenter host
-  can't run~~: done (`ios-host-subcircuits`), the host runs sub-screens and `FeedFilterBar` draws the bar from one. Its posts, import
-  cards, upload rows, prompts and sheets aren't native. The native bar's type sheet has no search and no collapsed sports yet, and the
-  outside Clear may leave the bar's chips as they were (Phase 4 findings, host sub-screens).
+- ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
+  sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
+  iPad). Still left: the bar's type sheet has no search and no collapsed sports; Report on a feed post waits for the post card's menu
+  (`ios-native-post-report`, whose `PostCardView(canReport:)` the feed passes `state.reporting.available` once both merge; the page
+  already carries `.reporting`); the feed loads one page on every platform, and paging it is a shared change; the shared feed's
+  Refresh button for a pointer has no native twin (an iPad with a pointer pulls to refresh). Seen only in snapshots: posts, reposts and
+  quotes in the feed, import cards, the upload rows, the prompts and a failed first load, which the local stack's alice didn't have.
 - Posts are native (`ios-native-post-card`): the card, the post page with its comments, the quotes list, the quote sheet, and the
   profile's Posts tab, which closes the profile's Posts item above. ~~Still left out: Report on a post, a comment and a quote~~: done
   (`ios-native-post-report`). The feed's posts and the activity page's comments are still the shared UI's; `CommentsSection` is ready

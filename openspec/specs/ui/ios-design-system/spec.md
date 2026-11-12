@@ -285,3 +285,10 @@ A native page with comments SHALL list them as the shared list does: the count, 
 #### Scenario: A hidden comment on the viewer's own post
 - **WHEN** alice sees a comment she hid on her own post, on iOS
 - **THEN** it is dimmed, says it's hidden, offers no Reply, and its menu offers Unhide
+
+### Requirement: A native page pulls to refresh
+A native page that refreshes SHALL use the system's pull to refresh, whose spinner shows until the page's state says the refresh has ended, and SHALL show a failed refresh in the page's own refresh row.
+
+#### Scenario: A slow refresh
+- **WHEN** the athlete pulls the native feed down and the AppView takes two seconds to answer
+- **THEN** the system's spinner shows for those two seconds and then closes

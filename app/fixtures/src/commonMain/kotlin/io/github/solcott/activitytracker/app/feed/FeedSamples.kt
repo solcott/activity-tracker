@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.feed
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
+import io.github.solcott.activitytracker.app.feedfilter.FeedFilterSamples
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
@@ -173,5 +175,27 @@ object FeedSamples {
                 "reposted" to reposted,
                 "quotes" to quotes,
                 "askingGroups" to askingGroups,
+            )
+
+    /**
+     * States beyond the shared samples, which the native feed's previews and snapshots draw too: the Mine scope, a filter that left
+     * nothing, a phone that can't record, the segments prompt, a failed action over the list, and a server pause ending tomorrow.
+     */
+    val variants: Map<String, FeedState>
+        get() =
+            mapOf(
+                "mine" to loaded.copy(scope = FeedScope.Mine),
+                // The filter of the bar's own narrowed sample, which the native snapshots draw over it.
+                "emptyFiltered" to
+                    empty.copy(
+                        filter = FeedFilterSamples.narrowed.filter,
+                        filterScreen = FeedFilterScreen(FeedFilterSamples.narrowed.filter),
+                    ),
+                "emptyManualOnly" to empty.copy(canRecord = false),
+                "askingSegments" to loaded.copy(askSegments = true),
+                "actionFailed" to loaded.copy(error = UiError(UiError.Kind.SaveSettings, null)),
+                "pausedTomorrow" to
+                    state(ContentStates.loaded(items))
+                        .copy(uploads = UploadSummary(own = 2, importsPaused = true, serverPausedUntil = Fixed.NOW + 20.hours)),
             )
 }

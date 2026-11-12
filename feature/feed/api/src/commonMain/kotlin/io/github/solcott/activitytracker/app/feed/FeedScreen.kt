@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.isLoading
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -80,6 +81,23 @@ data class FeedState(
     /** [items]' activities, without the import cards. */
     val activities: ImmutableList<ActivityView>
         get() = items.mapNotNull { (it as? TimelineItem.Activity)?.view }.toImmutableList()
+
+    /** Whether the feed says it is empty ([FeedTexts.empty]): it lists nothing and isn't loading. */
+    val showsEmpty: Boolean
+        get() = items.isEmpty() && !content.isLoading
+
+    /**
+     * [item]'s identity in the list: an activity's URI, an import card's author and batch, and a post's URI whether it comes as itself or
+     * through a repost, since a post comes once a timeline.
+     */
+    fun keyOf(item: TimelineItem): String =
+        when (item) {
+            is TimelineItem.Activity -> item.view.uri.value
+            is TimelineItem.ImportCard -> "importCard:${item.card.author.did.value}/${item.card.batch}"
+            is TimelineItem.Post -> "post:${item.post.uri.value}"
+            is TimelineItem.Repost -> "post:${item.reposted.post.uri.value}"
+            is TimelineItem.Unknown -> "unknown:${item.hashCode()}"
+        }
 }
 
 sealed interface FeedEvent {

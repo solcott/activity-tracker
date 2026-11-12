@@ -51,7 +51,8 @@ class FeedUploadsUiTest {
                 FeedUi(FeedSamples.paused)
             }
         }
-        onNodeWithText("Uploading 3000 imported activities").assertExists()
+        // Grouped by thousands (ui/number-format).
+        onNodeWithText("Uploading 3,000 imported activities").assertExists()
         onNodeWithText("Paused by the server until 3:40 PM").assertExists()
     }
 

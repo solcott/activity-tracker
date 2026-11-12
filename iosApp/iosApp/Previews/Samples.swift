@@ -108,6 +108,15 @@
             PostsPackage.QuoteSheetSamples.shared.all.merging(PostsPackage.QuoteSheetSamples.shared.variants) { first, _ in first }
         }
 
+        /// The feed (ios-native-feed) in each state it shows, states beyond content loading apart, and the filter bar it draws where no
+        /// host runs it: at the default, or narrowed for a narrowed feed.
+        static var feed: [String: FeedState] { FeedPackage.FeedSamples.shared.all }
+        static var feedVariants: [String: FeedState] { FeedPackage.FeedSamples.shared.variants }
+        static var feedFilterBar: FeedFilterState { feedFilter["loaded"]! }
+        static func feedFilterBar(for state: FeedState) -> FeedFilterState {
+            state.filter.isNarrowed ? FeedFilterPackage.FeedFilterSamples.shared.narrowed : feedFilterBar
+        }
+
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
             ShownClock.fixed(
