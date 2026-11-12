@@ -60,15 +60,15 @@ struct ScreenRegistryTests {
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ImportBatchScreen"))
         // The gear item page, with its activities as native cards (ios-native-gear-item).
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "GearScreen"))
-        #expect(!ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
+        // The feed, the Feed tab's root (ios-native-feed).
+        #expect(ScreenRegistry.app.hasView(forScreenNamed: "FeedScreen"))
         // The profile (ios-native-profile), which opens the native follow lists, requests and edit profile.
         #expect(ScreenRegistry.app.hasView(forScreenNamed: "ProfileScreen"))
         // A post's page and its quotes, with the native post card (ios-native-post-card).
         for screen in ["PostPageScreen", "PostQuotesScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
-        // The rest of what the lists open is still the shared UI's: the feed, which can place its native filter bar now
-        // (ios-host-subcircuits), waits for its posts and sheets.
+        // The rest of what the lists open is still the shared UI's.
         // Accepting an invite waits for the native route preview and visibility form.
         // The segment and dive site pages, their map and segment browse draw maps or charts, so they wait for native ones.
         for screen in [

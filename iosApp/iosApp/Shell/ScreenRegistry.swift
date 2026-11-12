@@ -86,6 +86,9 @@ extension ScreenRegistry {
         // Posts (ios-native-post-card): a post's page and its quotes, drawn with the native post card; Report waits.
         registry.register(PostPageScreen.self, PostPageState.self) { state in PostPage(state: state) }
         registry.register(PostQuotesScreen.self, PostQuotesState.self) { state in PostQuotesView(state: state) }
+
+        // The feed (ios-native-feed), the Feed tab's root, with the native filter bar, activity, import and post cards.
+        registry.register(FeedScreen.self, FeedState.self) { state in FeedPage(state: state) }
         return registry
     }()
 }
