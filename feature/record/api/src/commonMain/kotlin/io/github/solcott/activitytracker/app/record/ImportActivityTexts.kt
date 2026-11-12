@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.SkipReason
+import io.github.solcott.activitytracker.app.RouteMap
+import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.detail.FigureTexts
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.RecordingTexts
@@ -12,10 +14,12 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -116,6 +120,15 @@ object ImportActivityTexts {
             threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> AppText.named("unit_watts", whole(value))
             else -> AppText.named("unit_bpm", whole(value))
         }
+
+    /** The route the preview draws, with its breaks; null for an indoor activity. */
+    fun routeMap(preview: ImportPreview): RouteMap? = preview.polyline?.let { RouteMap.of(it, preview.polylineGaps) }
+
+    /** The map's lock when the Map category is narrower than the activity ("Map · Only me"), and what a screen reader says for it. */
+    fun mapLock(page: ActivityPageContent): AppText? = page.mapMark?.let { VisibilityTexts.lock(DetailCategory.MAP, it) }
+
+    fun mapLockDescription(page: ActivityPageContent): AppText? =
+        page.mapMark?.let { VisibilityTexts.lockDescription(DetailCategory.MAP, it) }
 
     /** "Adds this file as another recording of: Lunch loop · 2024-05-14 12:01 · Garmin Fenix 7". */
     fun addingTo(target: ExistingActivityPreview): AppText = AppText.named("import_adding_to", described(target))
@@ -413,7 +426,7 @@ object ImportActivityTexts {
     /** The zones [query] finds by part of their city ("cancun", "new york") or offset ("utc+8"); every zone for a blank query. */
     fun zones(clock: ImportClock, query: String): List<TimeZoneOption> {
         val key = searchKey(query.trim())
-        return if (key.isEmpty()) clock.zones else clock.zones.filter { key in searchKey("${cityName(it)} ${it.offset}") }
+        return if (key.isEmpty()) clock.zones.toList() else clock.zones.filter { key in searchKey("${cityName(it)} ${it.offset}") }
     }
 
     /** Zone ids spell spaces as underscores. */
@@ -462,7 +475,7 @@ object ImportActivityTexts {
 
     /** Every gear type a new item can be. */
     val gearTypes: List<String>
-        get() = GearType.all
+        get() = GearType.all.toList()
 
     /** [type]'s kinds; none for a type without kinds. */
     fun gearKinds(type: String): List<String> = GearType.kinds(type)
