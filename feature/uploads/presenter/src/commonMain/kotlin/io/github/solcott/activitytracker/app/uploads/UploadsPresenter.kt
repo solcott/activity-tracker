@@ -92,7 +92,7 @@ fun UploadsPresenter(navigator: Navigator, uploads: UploadQueue, locationTracker
             UploadsEvent.PauseImports -> act(UploadsEvent.PauseImports, UiError.Kind.PauseImports) { uploads.pauseImports() }
             UploadsEvent.ResumeImports -> act(UploadsEvent.ResumeImports, UiError.Kind.PauseImports) { uploads.resumeImports() }
             UploadsEvent.ClearFinished -> act(UploadsEvent.ClearFinished, UiError.Kind.ClearUploads) { uploads.clearFinished() }
-            is UploadsEvent.ShowAll -> if (event.batchId !in expanded) expanded = expanded.add(event.batchId)
+            is UploadsEvent.ShowAll -> if (event.batchId !in expanded) expanded = expanded.adding(event.batchId)
             is UploadsEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri))
         }
     }
