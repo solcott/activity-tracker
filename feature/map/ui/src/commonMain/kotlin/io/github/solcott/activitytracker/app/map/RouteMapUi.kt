@@ -13,20 +13,19 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 
 /** The activity's route on a map filling the screen, which the viewer pans and zooms, recenters on the route, and leaves with back. */
 @CircuitInject(RouteMapScreen::class, SessionScope::class)
 @Composable
 fun RouteMapUi(state: RouteMapState, modifier: Modifier = Modifier) {
-    val loaded = state.content.data
-    val title = loaded?.let { it.title ?: activityTypeLabel(it.activityType) }
+    val title = RouteMapTexts.title(state.content.data).string()
     AppScaffold(
         modifier = modifier,
-        topBar = { AppTopBar(title.orEmpty(), onBack = { state.eventSink(RouteMapEvent.Back) }) },
+        topBar = { AppTopBar(title, onBack = { state.eventSink(RouteMapEvent.Back) }) },
     ) { padding ->
         ContentStateLayout(
             state.content,

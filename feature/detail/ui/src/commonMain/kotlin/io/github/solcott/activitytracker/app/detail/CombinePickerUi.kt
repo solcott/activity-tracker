@@ -26,13 +26,10 @@ import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
-import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.combine_explained
-import io.github.solcott.activitytracker.composeApp.resources.combine_none
 import io.github.solcott.activitytracker.composeApp.resources.combine_row
-import io.github.solcott.activitytracker.composeApp.resources.combine_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.activityType
@@ -44,7 +41,7 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     val retry = { state.eventSink(CombinePickerEvent.Retry) }
     ListScreen(
-        title = stringResource(Res.string.combine_title),
+        title = CombinePickerTexts.title.string(),
         onBack = { state.eventSink(CombinePickerEvent.Back) },
         content = state.content,
         errorKind = UiError.Kind.LoadCombineCandidates,
@@ -54,7 +51,7 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
     ) { candidates ->
         item {
             Text(
-                stringResource(Res.string.combine_explained),
+                CombinePickerTexts.explained.string(),
                 Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -63,14 +60,14 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
         item { RefreshStatus(state.content, UiError.Kind.LoadCombineCandidates, retry, Modifier.padding(horizontal = 16.dp)) }
         state.error?.let { error -> item { ErrorText(error, Modifier.padding(16.dp)) } }
         if (candidates.isEmpty()) {
-            item { Centered { Text(stringResource(Res.string.combine_none)) } }
+            item { Centered { Text(CombinePickerTexts.none.string()) } }
         } else {
             items(candidates, key = { it.uri.value }) { activity ->
                 Candidate(
                     activity,
-                    combining = state.combining == activity.uri,
-                    enabled = state.combining == null,
-                    onPick = { state.eventSink(CombinePickerEvent.Pick(activity.uri)) },
+                    combining = CombinePickerTexts.isCombining(state, activity),
+                    enabled = CombinePickerTexts.picks(state),
+                    onPick = { state.eventSink(CombinePickerTexts.pick(activity)) },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -89,14 +86,16 @@ private fun Candidate(activity: ActivityView, combining: Boolean, enabled: Boole
     ) {
         ActivityTypeIcon(record.activityType, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.titleSmall)
+            Text(CombinePickerTexts.heading(activity).string(), style = MaterialTheme.typography.titleSmall)
             val start = startTime(FigureValue.StartTime(record.startedAt.epochSeconds, record.utcOffset, dateOnly = false))
             Text(
                 stringResource(Res.string.combine_row, start, Format.duration(record.elapsedTime)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            record.device?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            CombinePickerTexts.device(activity)?.let {
+                Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         if (combining) AppProgressIndicator(Modifier.size(20.dp))
     }
