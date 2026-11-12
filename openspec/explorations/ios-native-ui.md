@@ -434,6 +434,12 @@ Each phase leaves a shippable app.
      What they say is Kotlin's (`GearFieldTexts`, `DetailsFormTexts`, `SportTypeGroups.matching` and `subSportChoices`,
      `ManualActivityTexts`, `EditActivityTexts`, `CreateDiveSiteTexts`, `CreateDiveSiteState.routeMap`, `GearField.isSelected` and
      `offersClear`), which the Compose forms ask too. The place-name sheet and the feed's filter bar were already native sub-screens.
+   - **Create segment** (`ios-native-create-segment`). `CreateSegmentView`, over the activity page, is a grouped form shaped like Create
+     dive site's: the route as the zones leave it on `RouteMapView` with the chosen stretch highlighted (`RouteMap.highlight`, drawn on
+     MapKit and in `RouteSketch`, kept out of `RouteMap.key` so a moved stretch never reframes), a two-thumb `RangeSlider` (`Design/`,
+     each thumb an adjustable element named and read in Kotlin's words), the selection's line (red when it fails), the name with the
+     public note under it, duplicates to open, the allowance, a failed check, and Publish in the bar; or why no segment can be made.
+     What it says is Kotlin's (`CreateSegmentTexts`, `CreateSegmentState.routeMap`), which the Compose form asks too.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -1896,6 +1902,17 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **Swift Testing's macros don't nest.** A `#require` inside another `#require`'s argument fails to compile ("recursive expansion");
   each value is required on its own line.
 
+### Phase 4 findings (create segment, `ios-native-create-segment`)
+
+- **SwiftUI has no range slider.** `RangeSlider` draws the system slider's look with two thumbs; only the thumbs take a drag (from
+  their own `DragGesture` in the track's coordinate space), so a vertical drag elsewhere on the form's row still scrolls the form.
+  Each thumb is its own adjustable element stepping by a hundredth of the range, which VoiceOver names Start or End of the stretch.
+- **A highlight belongs to the map, not the frame.** Putting the stretch on `RouteMap` made it a new state each move (it's in
+  `equals`) while `key`, which the native map reframes on, leaves it out: dragging moves the line and not the camera.
+- **A sample's numbers can be wrong without anyone seeing.** The loaded sample's start and end were 0.2 and 0.6 *metres* of a 2.4 km
+  route (its comment meant fractions), so the shared slider's thumbs sat together at the left in every Android screenshot; the native
+  snapshots showed it at once. They now choose 480 m to 1,440 m.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1989,8 +2006,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   charts `LineChart` can't draw yet, the legs, lengths and sets tables, the edit-combination sheet, the chart source captions and the
   nested efforts' guide lines and span bars~~: done (`ios-native-activity-rest`), and ~~the media gallery, the enlarged route map and the
   combine picker~~ are native too. Two cards to a row on a medium width is the shared page's; the native one stacks them. The screens it
-  opens that are still shared: Add a recording (import) and Create segment; ~~Edit~~ and ~~Create dive site~~ are native
-  (`ios-native-forms`), and so is manual entry, from the feed. The Compose charts keep Vico and its own drawing of the backdrop, other
+  opens that are still shared: Add a recording (import); ~~Create segment~~ is native (`ios-native-create-segment`), ~~Edit~~
+  and ~~Create dive site~~ are native (`ios-native-forms`), and so is manual entry, from the feed. The Compose charts keep Vico and its own drawing of the backdrop, other
   lines and marks; only their words are shared.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
