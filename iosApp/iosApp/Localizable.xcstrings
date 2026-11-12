@@ -21825,6 +21825,28 @@
         }
       }
     },
+    "text_semicolon_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@; %2$@"
+          }
+        }
+      }
+    },
+    "text_space_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "threshold_ftp" : {
       "extractionState" : "manual",
       "localizations" : {
