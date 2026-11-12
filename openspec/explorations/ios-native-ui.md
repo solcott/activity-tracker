@@ -357,6 +357,19 @@ Each phase leaves a shippable app.
      `routeMap`, `proposals`, `history`, `viewerDid` and `revealed`; `PlaceNameFields.isOwn`), which the Compose pages ask too. Left for
      later changes: the segment page (its elevation chart), the enlarged maps and segment browse (interactive and many-segment maps), the
      activity page and the invite's route preview, and the highlighted stretch a new segment shows.
+   - **Charts and the segment page** (`ios-native-charts`). A native line chart (`LineChartView`, Swift Charts) draws Kotlin's
+     `LineChart` (`:app-common-api`, `app.chart`): the points, filled beneath and broken at gaps, the y axis with a labelled gridline
+     per step, the x labels, the band stops it is tinted by (`GradeColors`, the grade bands' light and dark colours), a readout per
+     point and the description VoiceOver reads; a tap or sideways drag shows the nearest point's readout and leaves it, and a mostly
+     vertical drag scrolls the page (`ChartScrub`). The generic rules moved out of Compose into `:core-data` (`data.chart`:
+     `ChartAxis`, the y axis's round steps, and `BandStop.runs`, the grade bands' runs), which `TimeSeriesChart` and `GradeBands` ask
+     too, and a page's choices into its `-api` (`SegmentProfile.chart(units)`, which the Compose profile chart now draws). The first page
+     with it is the segment page (`SegmentPage`): Star in the bar, the static map expanding to the shared enlarged map, the about lines,
+     the profile, the credit, the status, Leaderboard and the Mayor card (`LeaderCardView`, shared with the dive site's Regulars), the
+     names, and the viewer's efforts (`EffortRowView`). What it says is Kotlin's (`SegmentPageTexts`; `EffortTexts` in
+     `:app-common-api`, which the shared effort row asks too; `SegmentTexts.kindIcon`; `SegmentState`'s `routeMap`, `chart`, `isLift`
+     and `offersLeaderboard`); a `<string-array>` item is `AppText.named("<array>_<index>")` in both UIs. Left for later changes:
+     threshold history (a step chart with dots and value labels, and sparklines), the activity page's charts and the import preview's.
 5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
    Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
    `ui/ios-navigation-bar`.
@@ -369,7 +382,7 @@ Each phase leaves a shippable app.
 | Navigation | `TabView`, `NavigationStack(path:)`, `NavigationSplitView` for Settings on iPad | Calf's tab bar, the nav decoration |
 | Sheets, alerts, menus, dates | `.sheet`, `.alert`, `.confirmationDialog`, `Menu`, `DatePicker` | Calf's adaptives |
 | Maps | MapKit's SwiftUI `Map` (`RouteMapView`, `ios-native-map`), the line preview in previews and snapshots | MapLibre Compose |
-| Charts | Swift Charts | Vico |
+| Charts | Swift Charts (`LineChartView`, `ios-native-charts`) | Vico |
 | Images | Nuke with NukeUI, and a custom loader for `heldphoto:` URLs | Coil |
 | Pickers and sharing | `PhotosPicker`, `.fileImporter`, `ShareLink` | FileKit's Compose launchers |
 | Icons and text | SF Symbols, a String Catalog, Dynamic Type | Compose resources |
@@ -1671,6 +1684,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Apple's credit), the about lines in imperial units, the Regulars card opening the native board, the conditions, the names and the
   dives as cards; a drag over the map scrolled the page; dark mode; a card opened its dive. Nothing was written.
 
+### Phase 4 findings (charts, `ios-native-charts`)
+
+- **Swift Charts draws the shared value, Kotlin chooses it.** `LineChart` (`:app-common-api`) holds the points, the y axis and its
+  labelled ticks, the x ticks, a readout per point, the description and the band stops; `LineChartView` lays them out with
+  `AreaMark`/`LineMark` per gap-free piece, `AxisMarks(values:)` at Kotlin's ticks and a `RuleMark` baseline. The generic rules moved to
+  `:core-data` (`data.chart`) rather than `:app-common-api`, since `:ui-designsystem` holds no app types but already reaches
+  `:core-data`; the Vico chart asks the same `ChartAxis`, and `GradeBands.brush` paints the same `BandStop.runs`.
+- **A label at a chart's edge is dropped** by Swift Charts when it would overflow the plot; `chartXScale(range: .plotDimension(startPadding:
+  18, endPadding: 18))` keeps half a label of room, as Vico's `FixedXLabels` does.
+- **A SwiftUI drag over a list row takes the list's scroll**, even as a `simultaneousGesture` with `minimumDistance: 0`: on the simulator a
+  vertical drag that started on the chart didn't scroll the page. A UIKit pan through `UIGestureRecognizerRepresentable` (iOS 18) that
+  begins only when its velocity is mostly sideways (`ChartScrub`) scrubs, and every other drag is the list's.
+- **A material background inside a chart annotation renders garbled** in snapshots (the marks' gradient shows through); the readout
+  uses the page's background with a hairline.
+- **A gradient tints a series across the marks' bounds**, which is the whole plot for a profile; band colours are catalog colours
+  (`GradeBand0Color`…`4`) with the shared light and dark values.
+- **An item of a `<string-array>` is a name too** (`AppText.named("segment_rank_ordinals_2")`): the iOS catalog already named items so,
+  and the Compose resolver now reads `Res.allStringArrayResources` the same way.
+- **Walked on the signed-in iPhone 17 Pro (iOS 26.0) as alice:** "Rush - 2112" from Search's segment browse, with the live map, the
+  imperial lines, the tinted profile and its readout (a sideways drag, kept after release; a vertical drag from the chart scrolled the
+  page), the OSM credit, Leaderboard, the Mayor card opening the native board, the efforts with PR opening their activity, dark mode,
+  Star and unstar, and the expand button opening the shared enlarged map; "Easy Street" showed the ski run icon and no chart.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1722,6 +1758,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map~~: neither
   needed (`ios-native-zones-pages`). Training zones, the default and sport zones and Privacy zones are native, and a zone row's name and
   range are `AppText` (`ZoneNameText`, `ZoneTexts.range`). Threshold history is still the shared UI's: it draws a chart per threshold.
+  Native charts exist now (`ios-native-charts`), but threshold history's are step charts with a filled dot on the current value,
+  hollow ones on past values and a value label over each, run on to today, plus a sparkline per collapsed group: `LineChart` needs a
+  step style, dots and point labels first, and the page (expand and collapse, show all, removal) is a change of its own.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while
@@ -1751,10 +1790,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
 - `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
-- The segment page (`SegmentScreen`), its map and segment browse are still the shared UI's: the segment page waits for native charts
-  (its elevation profile) and can place `RouteMapView` and `PlaceNamesSection` as they are; its enlarged map and segment browse want
-  the map's interactive mode and, for browse, many segments and a search box over one map. ~~The dive site page~~: native
-  (`ios-native-map`). The lists they open are native (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
+- ~~The segment page (`SegmentScreen`) is still the shared UI's~~: native (`ios-native-charts`), with the native chart and map. Its
+  enlarged map and segment browse are still the shared UI's: they want the map's interactive mode and, for browse, many segments and a
+  search box over one map. ~~The dive site page~~: native (`ios-native-map`). The lists they open are native (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
   `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
 - ~~The feed (`FeedScreen`) is still the shared UI's~~: native (`ios-native-feed`), with its posts, import cards, upload rows, prompts,
   sheets, pull to refresh and empty and failure states; ~~the outside Clear may leave the bar's chips~~: it resets them (seen on the
