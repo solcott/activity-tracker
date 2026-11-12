@@ -20,7 +20,7 @@
 
 ## 3. The whole change together
 
-- [ ] 3.1 `./gradlew format` and `./gradlew check -Pkotlin.incremental=false`. Verify both pass.
+- [x] 3.1 `./gradlew format` and `./gradlew check -Pkotlin.incremental=false`. Verify both pass.
 - [ ] 3.2 The Swift tests on clones of the iOS 26.0 and 18.4 snapshot simulators. Verify they pass, snapshots compared on 26.0 and skipped on 18.4.
 - [ ] 3.3 The Release configuration for the simulator. Verify it builds and passes the stub check.
 
