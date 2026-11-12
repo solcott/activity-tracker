@@ -6,6 +6,8 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.GearField
+import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -78,4 +80,10 @@ sealed interface EditActivityEvent {
 
     /** Excludes the activity from segment leaderboards, or ranks it again; saved with the rest. */
     data class LeaderboardExclusionChanged(val excluded: Boolean) : EditActivityEvent
+}
+
+/** What the edit form says that follows a rule (dev/shared-display-text), chosen here for the shared and the native form. */
+object EditActivityTexts {
+    /** The warning that saving makes an older activity's core charts as visible as the activity, naming that [visibility]. */
+    fun coreChartsBody(visibility: String): AppText = AppText.named("core_charts_widening_body", LabelText.visibility(visibility))
 }

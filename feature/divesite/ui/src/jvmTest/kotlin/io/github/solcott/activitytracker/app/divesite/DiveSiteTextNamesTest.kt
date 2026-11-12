@@ -32,6 +32,16 @@ class DiveSiteTextNamesTest {
     private val alices = renamed.proposals.last()
 
     @Test
+    fun everyNameTheCreateFormChoosesHasItsString() {
+        val texts =
+            UnitSystem.entries.map { CreateDiveSiteTexts.radius(100, it) } +
+                CreateDiveSiteUnavailable.entries.map(CreateDiveSiteTexts::unavailable) +
+                CreateDiveSiteTexts.publicNote(namesDive = true)
+        val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources }
+        assertTrue(missing.isEmpty(), "No string for $missing")
+    }
+
+    @Test
     fun everyNameThePageChoosesHasItsString() {
         val conditions = fakeDiveSiteConditions()
         val statuses = listOf(SegmentStatus.PROPOSED, SegmentStatus.DUPLICATE, SegmentStatus.ARCHIVED).map { site.copy(status = it) }

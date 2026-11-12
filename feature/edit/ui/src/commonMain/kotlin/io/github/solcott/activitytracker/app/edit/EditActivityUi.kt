@@ -30,7 +30,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.visibilityLabel
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_save
@@ -38,7 +38,6 @@ import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_body
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_confirm
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_title
-import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_body
 import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_confirm
 import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_activity_title
@@ -145,7 +144,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
     state.confirmCoreCharts?.let { visibility ->
         AppAlertDialog(
             title = stringResource(Res.string.core_charts_widening_title),
-            message = stringResource(Res.string.core_charts_widening_body, visibilityLabel(visibility)),
+            message = EditActivityTexts.coreChartsBody(visibility).string(),
             actions =
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.core_charts_widening_confirm)) {

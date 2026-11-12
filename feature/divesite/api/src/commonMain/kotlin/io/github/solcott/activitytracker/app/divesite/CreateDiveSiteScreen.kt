@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -54,6 +56,10 @@ data class CreateDiveSiteState(
     /** A site that can be made, a name, and nothing pending. */
     val canPublish: Boolean
         get() = unavailable == null && outline != null && named && !publishing && !limitReached
+
+    /** The site's outline as a route map draws it, with no start or end marked; null until it can be made. */
+    val routeMap: RouteMap?
+        get() = outline?.let { RouteMap.of(it, ends = RouteEnds.HIDDEN) }
 }
 
 /** Why a site can't be created from a dive. */
