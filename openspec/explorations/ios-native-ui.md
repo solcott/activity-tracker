@@ -1967,6 +1967,27 @@ What building the host and the shell on Swift export showed, beyond the probes:
   takes a row of its own instead. A label is the widest it gets in English; another language will want the same room.
 - **The form's top gap is the snapshot harness's**, the same on every native form's references, not Record's.
 
+### Phase 5 prep findings (photo compression, `ios-libwebp-photos`)
+
+- **libwebp comes as a Swift package, not a cinterop.** SDWebImage's `libwebp-Xcode` (BSD-3-Clause, 1.6.0 = libwebp 1.6.0, released
+  2026-07-31) is a C target over Google's sources that SPM builds per architecture, so nothing prebuilt is checked in and the exact
+  pin plus `Package.resolved` keep the build reproducible. `import libwebp` exposes `encode.h` through SPM's umbrella directory, and
+  Swift calls `WebPEncodeRGBA` and `WebPFree` directly. A cinterop would have needed libwebp built per Kotlin target by CMake.
+- **One ImageIO call replaces Skia's decode, orientation matrix and scaling.** `CGImageSourceCreateThumbnailAtIndex` with
+  `FromImageAlways`, `WithTransform` and `ThumbnailMaxPixelSize` reads JPEG and HEIC alike, turns an orientation-6 photo upright and
+  never scales up (a 300 × 400 photo stays that size). A 4,032 × 3,024 camera-like photo came out 2,048 × 1,536 under 1.5 MB at the
+  first step.
+- **The pixels are drawn into sRGB and unpremultiplied** (`vImageUnpremultiplyData_RGBA8888`) before libwebp, which takes straight
+  RGBA. An opaque photo's WebP is a bare `VP8 ` chunk: no `VP8X`, `EXIF`, `XMP ` or `ICCP`, so GPS data written into the source is
+  gone, as with Skia.
+- **Swift runs the steps, Kotlin owns them.** `PhotoCompression.steps` (a plain `List` of a two-`Int` class) and `targetBytes` (a
+  `const val` in an object) read fine from Swift; the shared `compressPhoto` reads the same list.
+- **Debug encoding is quick enough.** In the Debug test build (libwebp unoptimised) the 4,032 × 3,024 photo took about 5 s including
+  drawing the source; small photos take milliseconds.
+- **The simulators write HEIC** (`CGImageDestination` with `UTType.heic`, on iOS 26.0 and 18.4), so the HEIC test makes its own.
+- **`ImportSnapshotTests` flaked under load** in this change's runs: a different snapshot each time (the zone sheet's search field
+  before its clear button drew, the iPad page drawn about 20 points high). Not this change's screens; not rerun on the base commit.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -1978,9 +1999,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
   fix: `Pair` and `Triple` are kept out of every non-private signature by detekt's `NoPairInApi`, so Swift export never meets one.
 - Whether the composable `fun interface` lambda linkage error is reported upstream, and a check for such lambdas until it is fixed: a
   missed one crashes only on iOS and web, and only when its screen draws.
-- Photo compression is WebP through Skia on iOS, and iOS has no system WebP encoder. A native pick goes through the same compression
-  (`IosApp.compressPhoto`); Skia can't read a HEIC, so the picker asks for a compatible encoding and `PhotoPick` retries what Kotlin
-  can't read as UIKit's JPEG. Phase 5, which drops Skia from iOS, needs another WebP encoder or a JPEG fallback for every photo. The options are under what still goes through Compose, below (`ios-native-record`).
+- ~~Photo compression is WebP through Skia on iOS~~: done (`ios-libwebp-photos`), libwebp from Swift.
 - Settings' list beside its page was walked on an iPad Air 11-inch (iOS 26.0) with an account, upright and on its side, and a
   profile opened from the blocked list beside it takes the whole window and comes back to the list beside Blocked accounts
   (`ios-native-settings-lists`). Still to see: a window resized across 700 points with the list scrolled, and all of it on iOS 18.
@@ -2015,12 +2034,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
   nothing left to show; then delete `FallbackScreen` and the host's Compose bridge (`composeState` on `TextFieldState`, the fallback
   controllers), the `*.ios.kt` actuals (`LocationPermission.ios.kt` among them) and the UI modules' iOS targets; split the Metro graph
   so the iOS one binds no `Ui.Factory`; drop Calf, Haze, Vico, Coil (Nuke already loads every native picture) and MapLibre Compose
-  from iOS; retire `ui/ios-navigation-bar`. **Photo compression needs a replacement first**: `compressPhoto`'s iOS `encodePhoto`
-  writes WebP through Skia, and iOS has no system WebP encoder (ImageIO writes JPEG and HEIC, not WebP). Either an encoder of our own
-  choosing (libwebp through Swift Package Manager or a Kotlin/Native cinterop, called from `IosApp.compressPhoto`) or a JPEG fallback
-  through ImageIO at `JPEG_QUALITY`, which `compressPhoto`'s steps then size under its 1.5 MB target; a JPEG is larger at the same
-  look, so the steps may need another rung. `compressAvatar` is FileKit's JPEG already. `PhotoPick`'s HEIC retry can then read HEIC
-  directly through ImageIO.
+  from iOS; retire `ui/ios-navigation-bar`. ~~**Photo compression needs a replacement first**~~: done (`ios-libwebp-photos`). A picked activity or gear photo is
+  compressed in Swift (`PhotoCompressor`): ImageIO decodes, turns and scales it (a HEIC included, so `PhotoPick`'s retry is gone),
+  libwebp (SDWebImage's `libwebp-Xcode`, a Swift package) encodes it as WebP through Kotlin's `PhotoCompression` steps, and
+  `IosApp.compressPhoto` is gone. The Compose iOS `encodePhoto` actual is unreachable and goes with the UI modules' iOS targets.
+  `compressAvatar` is FileKit's JPEG over UIKit, with no Skia, but lives in `:app-common-ui`, so phase 5 moves it (or its call) out
+  before dropping that module's iOS target.
 - A collection of Kotlin enums can't reach Swift, as an immutable collection or a plain `List`. Decided
   (`ios-native-settings-pages`): the contract offers an immutable list of its own objects, each holding one value as a property, which
   Swift reads as the enum (`SegmentsAndGroupsState.groupOptions`, `GroupOption`). ~~`ZoneSummary.kinds` and `SportZonesState.kinds`
