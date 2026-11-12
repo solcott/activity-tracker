@@ -68,6 +68,8 @@ data class RouteShape(
     /** Where the end marker goes; null where the map shows none. */
     val end: ShapePoint?,
     val breaks: ImmutableList<RouteBreak>,
+    /** A highlighted stretch over the route, placed with the route's own fit; null for none ([RouteMap.sketch] gives a map's). */
+    val highlight: RoutePiece? = null,
 ) {
     companion object {
         /**

@@ -51,6 +51,24 @@ class RouteMapTest {
     }
 
     @Test
+    fun aHighlightIsDrawnOverTheRouteAndPlacedWithIt() {
+        val stretch = encode(line.subList(2, 6))
+        val map = assertNotNull(RouteMap.of(polyline, highlight = stretch))
+        val highlight = assertNotNull(map.highlight)
+        assertEquals(line[2], highlight.points.first())
+        assertEquals(line[5], highlight.points.last())
+        val plain = assertNotNull(RouteMap.of(polyline))
+        assertNull(plain.highlight)
+        // Moving the stretch is a new map but frames nothing again.
+        assertEquals(plain.key, map.key)
+        assertTrue(plain != map)
+        val sketch = assertNotNull(map.sketch(200.0, 100.0, 10.0))
+        val placed = assertNotNull(sketch.highlight)
+        assertEquals(assertNotNull(plain.sketch(200.0, 100.0, 10.0)).pieces.first().points.first().y, placed.points.first().y)
+        assertNull(assertNotNull(RouteMap.of(polyline, highlight = encode(line.take(1)))).highlight)
+    }
+
+    @Test
     fun underTwoPointsIsNoMap() {
         assertNull(RouteMap.of(encode(listOf(GeoPoint(1.0, 1.0)))))
         assertNull(RouteMap.of("not a polyline"))
