@@ -131,6 +131,8 @@ extension ScreenRegistry {
         registry.register(ImportActivityScreen.self, ImportActivityState.self) { state in ImportActivityView(state: state) }
         // Record (ios-native-record), over the feed and from the recording's notification.
         registry.register(RecordScreen.self, RecordState.self) { state in RecordView(state: state) }
+        // Moderation (ios-native-moderation), the last screen to go native: Settings offers it only off mobile, so nothing opens it yet.
+        registry.register(ModerationScreen.self, ModerationState.self) { state in ModerationView(state: state) }
         return registry
     }()
 }

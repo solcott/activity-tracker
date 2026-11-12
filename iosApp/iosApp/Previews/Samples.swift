@@ -184,6 +184,9 @@
         /// Record (ios-native-record) in each state it shows.
         static var record: [String: RecordState] { RecordPackage.RecordSamples.shared.all }
         static var recordVariants: [String: RecordState] { RecordPackage.RecordSamples.shared.variants }
+        /// Moderation (ios-native-moderation) in each state it shows.
+        static var moderation: [String: ModerationState] { AppPackage.moderation.ModerationSamples.shared.all }
+        static var moderationVariants: [String: ModerationState] { AppPackage.moderation.ModerationSamples.shared.variants }
 
         /// The samples' clock, stopped at `Fixed.NOW` in UTC, as the shared previews read them.
         static var clock: ShownClock {
