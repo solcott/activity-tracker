@@ -23,7 +23,6 @@ import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.location.TrackMath
-import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
@@ -173,17 +172,15 @@ actual fun SegmentsMap(
 private fun MapState.viewportNow(): MapViewport? {
     val bounds = getVisibleBounds() ?: return null
     val target = cameraPosition.center
-    return MapViewport(
-        minLat = e7(bounds.south),
-        minLng = e7(bounds.west),
-        maxLat = e7(bounds.north),
-        maxLng = e7(bounds.east),
-        centerLat = e7(target.latitude),
-        centerLng = e7(target.longitude),
+    return MapViewport.ofDegrees(
+        south = bounds.south,
+        west = bounds.west,
+        north = bounds.north,
+        east = bounds.east,
+        centerLat = target.latitude,
+        centerLng = target.longitude,
     )
 }
-
-private fun e7(degrees: Double): Int = (degrees * E7).roundToInt()
 
 /** A GeoJSON FeatureCollection of [lines], each a LineString carrying its segment's URI; GeoJSON orders positions longitude first. */
 private fun featuresJson(lines: List<MapSegmentLine>): String =
@@ -202,7 +199,6 @@ private val CameraSaver =
     )
 
 private const val NO_REQUEST = -1
-private const val E7 = 1e7
 private const val LIFT_DASH = 3
 private const val LIFT_GAP = 2
 private const val RUNS_LAYER = "segments-runs"
