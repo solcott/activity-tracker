@@ -8,10 +8,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.location.GeoPoint
-import io.github.solcott.activitytracker.location.RouteCurve
-import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.sync.Mutex
@@ -55,22 +53,14 @@ internal object RouteSnapshots {
      * @throws IllegalArgumentException if the polyline has fewer than two points.
      */
     suspend fun render(snapshot: RouteSnapshot, width: Int, height: Int): ImageBitmap {
-        val points = TrackMath.decodePolyline(snapshot.polyline)
-        require(points.size >= 2) { "A route needs two points" }
-        val pieces = SegmentedPolyline.pieces(points, snapshot.gaps)
+        val map = requireNotNull(RouteMap.of(snapshot.polyline, snapshot.gaps)) { "A route needs two points" }
         val route =
             Route(
                 // Drawn as curves through the stored points (feed/route-line-detail), as on the activity's page.
-                routeJson = lineJson(pieces.map(RouteCurve::smooth)),
-                markers = RouteMarkers.of(pieces),
+                routeJson = lineJson(map.pieces.map { it.points }),
+                markers = RouteMarkers.of(map),
                 color = Color(snapshot.routeColor),
-                bounds =
-                    BoundingBox(
-                        west = points.minOf { it.lng },
-                        south = points.minOf { it.lat },
-                        east = points.maxOf { it.lng },
-                        north = points.maxOf { it.lat },
-                    ),
+                bounds = map.bounds.let { BoundingBox(west = it.west, south = it.south, east = it.east, north = it.north) },
             )
         val density = Density(snapshot.density)
         // The snapshotter lays maps out in whole dp and draws them at the density, so this is the size Coil asked for.

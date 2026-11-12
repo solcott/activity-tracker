@@ -2,8 +2,8 @@
 
 ## 1. Kotlin rules (no visible change)
 
-- [ ] 1.1 `RouteMap`, `MapLine`, `MapBreak`, `MapBounds`, `MapFrame` in `:app-common-api`; `RouteShape`'s ends nullable (design: `RouteMap`). Verify `RouteMapTest` and `MapFrameTest`.
-- [ ] 1.2 `ActivityMap.nonWeb`, `RoutePreview`, `RouteSnapshots`, `fitCamera` and `RouteMarkers` ask `RouteMap`; `RouteMarkersTest` folded into `RouteMapTest`. Verify `:app-common-ui:jvmTest` and the Android screenshot tests unchanged.
+- [x] 1.1 `RouteMap`, `MapLine`, `MapBreak`, `MapBounds`, `MapFrame` in `:app-common-api`; `RouteShape`'s ends nullable (design: `RouteMap`). Verify `RouteMapTest` and `MapFrameTest`.
+- [x] 1.2 `ActivityMap.nonWeb`, `RoutePreview`, `RouteSnapshots`, `fitCamera` and `RouteMarkers` ask `RouteMap`; `RouteMarkersTest` folded into `RouteMapTest`. Verify `:app-common-ui:jvmTest` and the Android screenshot tests unchanged.
 - [ ] 1.3 `PlaceTexts`, `PlaceNameTexts` (`:app-common-api`) and `DiveSiteTexts` (`:feature-divesite-api`); the Compose dive site page, names section, `PlaceStatus` and `CreatedBy` ask them. Verify their tests, `SharedTextNamesTest`, and the screenshot tests unchanged.
 - [ ] 1.4 `DiveSiteState.viewerDid` and `revealed`, filled by the presenter. Verify `DiveSitePresenterTest`.
 - [ ] 1.5 `DiveSiteSamples.variants` (renamed with proposals and history, duplicate, own proposal, failed vote). Verify `ContentLoadingConformanceTest`.

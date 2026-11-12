@@ -39,8 +39,9 @@ struct RouteSketch: View {
             marker(at: gap.stop, fill: Marker.breakColor, ring: .white, in: &context)
             marker(at: gap.resume, fill: .white, ring: Marker.breakColor, ringWidth: Marker.resumeRing, in: &context)
         }
-        marker(at: shape.start, fill: Marker.startColor, ring: .white, in: &context)
-        marker(at: shape.end, fill: Marker.endColor, ring: .white, in: &context)
+        // A map whose ends are hidden (a dive site's outline) marks neither.
+        if let start = shape.start { marker(at: start, fill: Marker.startColor, ring: .white, in: &context) }
+        if let end = shape.end { marker(at: end, fill: Marker.endColor, ring: .white, in: &context) }
     }
 
     /// A dot filled with `fill` and ringed with `ring`, as the shared preview draws its markers.

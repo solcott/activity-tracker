@@ -19,12 +19,12 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.map_expand
 import io.github.solcott.activitytracker.composeApp.resources.map_recenter
-import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
@@ -63,22 +63,12 @@ actual fun ActivityMap(
         RoutePreview(polyline, modifier, height, gaps, ends, highlight)
         return
     }
-    // (lat, lng) pairs, like RoutePreview.
-    val points = remember(polyline) { TrackMath.decodePolylineOrNull(polyline).orEmpty() }
-    if (points.size < 2) return
-    val pieces = remember(points, gaps) { SegmentedPolyline.pieces(points, gaps) }
-    // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
-    val routeJson = remember(pieces) { lineJson(pieces.map(RouteCurve::smooth)) }
-    val markers = remember(pieces, ends) { RouteMarkers.of(pieces)?.shownAt(ends) }
-    val bounds =
-        remember(points) {
-            BoundingBox(
-                west = points.minOf { it.lng },
-                south = points.minOf { it.lat },
-                east = points.maxOf { it.lng },
-                north = points.maxOf { it.lat },
-            )
-        }
+    // What the map draws is RouteMap's (dev/shared-display-text): curves through the stored points (feed/route-line-detail), with markers
+    // and framing at the points themselves.
+    val map = remember(polyline, gaps, ends) { RouteMap.of(polyline, gaps, ends) } ?: return
+    val routeJson = remember(map) { lineJson(map.pieces.map { it.points }) }
+    val markers = remember(map) { RouteMarkers.of(map) }
+    val bounds = remember(map) { map.bounds.let { BoundingBox(west = it.west, south = it.south, east = it.east, north = it.north) } }
     val color = MaterialTheme.colorScheme.primary
     val highlightColor = MaterialTheme.colorScheme.tertiary
     val highlightJson =

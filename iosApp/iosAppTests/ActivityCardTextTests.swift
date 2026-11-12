@@ -89,7 +89,7 @@ struct ActivityCardTextTests {
         let pieces = shape.pieces.elements(as: RoutePiece.self)
         #expect(pieces.count == 2)
         #expect(shape.breaks.elements(as: RouteBreak.self).count == 1)
-        let points = pieces.flatMap { $0.points.elements(as: ShapePoint.self) } + [shape.start, shape.end]
+        let points = pieces.flatMap { $0.points.elements(as: ShapePoint.self) } + [shape.start, shape.end].compactMap { $0 }
         #expect(points.allSatisfy { (11.9...288.1).contains($0.x) && (11.9...148.1).contains($0.y) })
         #expect(try card("ride").routeShape(width: 300, height: 160, pad: 12).map { $0.breaks.elements(as: RouteBreak.self).isEmpty } == true)
     }
