@@ -115,45 +115,81 @@ extension View {
     }
 }
 
-/// The type picker: the quick types, then each category with its types, each marked by how much of it the draft holds. Apply changes the
-/// filter; Cancel leaves it.
+/// The type picker: a search field, the quick types, then each category with its types, each marked by how much of it the draft holds.
+/// A sport with sub-sports under it (`SportTypeRow.nested`) discloses them, collapsed each time the sheet opens. While something is
+/// typed it lists every match (`TypePickerState.groups`, the shared rule), expanded, with no quick types and no category marks. Apply
+/// changes the filter; Cancel leaves it.
 struct TypePickerSheet: View {
     let picker: TypePickerState
     let eventSink: (any FeedFilterEvent) -> Void
+    /// The search, which only the sheet uses, so it starts empty each time the sheet opens.
+    @State private var query: String
+    @State private var expanded: Set<String>
+
+    /// `query` starts the search typed and `expanded` the sports disclosed (by their token), for a preview or snapshot.
+    init(
+        picker: TypePickerState, query: String = "", expanded: Set<String> = [], eventSink: @escaping (any FeedFilterEvent) -> Void
+    ) {
+        self.picker = picker
+        self.eventSink = eventSink
+        _query = State(initialValue: query)
+        _expanded = State(initialValue: expanded)
+    }
 
     var body: some View {
+        let searching = SportTypeSearch.shared.searching(query: query)
+        let groups = picker.groups(query: query, source: CatalogText.shared).elements(as: SportTypeGroup.self)
         NavigationStack {
             List {
-                Section {
-                    // Picked or not, as the shared quick chips are: a part-picked sport shows its part in its category below.
-                    ForEach(picker.quickTypes.elements(as: KotlinActivityType.self), id: \.key) { type in
-                        let mark: FeedFilterSelection = picker.selectionOf(type: type) == .All ? .All : .None
-                        row(Text(LabelText.shared.activityType(type: type)), type: type, mark: mark) {
-                            eventSink(FeedFilterEvent.ToggleType(type: type))
-                        }
-                    }
-                } header: {
-                    Text(.sportPickerQuick)
-                }
-                ForEach(picker.categories.elements(as: CategorySelection.self), id: \.category) { category in
+                if !searching {
                     Section {
-                        ForEach(category.types.elements(as: KotlinActivityType.self), id: \.key) { type in
-                            row(Text(LabelText.shared.activityType(type: type)), type: type, mark: picker.selectionOf(type: type)) {
+                        // Picked or not, as the shared quick chips are: a part-picked sport shows its part in its category below.
+                        ForEach(picker.quickTypes.elements(as: KotlinActivityType.self), id: \.key) { type in
+                            let mark: FeedFilterSelection = picker.selectionOf(type: type) == .All ? .All : .None
+                            row(Text(LabelText.shared.activityType(type: type)), type: type, mark: mark) {
                                 eventSink(FeedFilterEvent.ToggleType(type: type))
                             }
                         }
                     } header: {
-                        Button { eventSink(FeedFilterEvent.ToggleCategory(category: category.category)) } label: {
-                            HStack {
-                                Text(LabelText.shared.sportCategory(category: category.category))
-                                Spacer()
-                                SelectionMark(selection: category.selection)
+                        Text(.sportPickerQuick)
+                    }
+                }
+                if groups.isEmpty {
+                    Text(.sportPickerNoMatches).foregroundStyle(.secondary)
+                }
+                ForEach(groups, id: \.category) { group in
+                    Section {
+                        ForEach(group.rows.elements(as: SportTypeRow.self), id: \.type.key) { sport in
+                            let nested = sport.nested.elements(as: KotlinActivityType.self)
+                            if nested.isEmpty {
+                                typeRow(sport.type)
+                            } else {
+                                // A search shows every match, so none hides behind a collapsed sport.
+                                DisclosureGroup(isExpanded: searching ? .constant(true) : isExpanded(sport.type.sport)) {
+                                    ForEach(nested, id: \.key) { typeRow($0) }
+                                } label: {
+                                    typeRow(sport.type)
+                                }
                             }
                         }
-                        .buttonStyle(.plain)
+                    } header: {
+                        if searching {
+                            // A category would pick types the search hides, so its header is plain.
+                            Text(group.label)
+                        } else {
+                            Button { eventSink(FeedFilterEvent.ToggleCategory(category: group.category)) } label: {
+                                HStack {
+                                    Text(group.label)
+                                    Spacer()
+                                    SelectionMark(selection: picker.selectionOf(category: group.category))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(.sportPickerSearch))
             .navigationTitle(Text(.feedFilterTypesTitle))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -164,6 +200,19 @@ struct TypePickerSheet: View {
                     Button(.feedFilterApply) { eventSink(FeedFilterEvent.ApplyTypes.shared) }
                 }
             }
+        }
+    }
+
+    private func isExpanded(_ sport: String) -> Binding<Bool> {
+        Binding(
+            get: { expanded.contains(sport) },
+            set: { open in if open { expanded.insert(sport) } else { expanded.remove(sport) } })
+    }
+
+    /// A type's row, marked by how much of it the draft holds: a sport with only some of its sub-sports picked shows the part mark.
+    private func typeRow(_ type: KotlinActivityType) -> some View {
+        row(Text(LabelText.shared.activityType(type: type)), type: type, mark: picker.selectionOf(type: type)) {
+            eventSink(FeedFilterEvent.ToggleType(type: type))
         }
     }
 
@@ -243,6 +292,12 @@ struct CustomRangeSheet: View {
     #Preview("Type picker") {
         if let picker = Samples.feedFilter["picking"]?.typePicker {
             TypePickerSheet(picker: picker) { _ in }
+        }
+    }
+
+    #Preview("Type picker, searching") {
+        if let picker = Samples.feedFilter["picking"]?.typePicker {
+            TypePickerSheet(picker: picker, query: "tra") { _ in }
         }
     }
 #endif

@@ -218,6 +218,7 @@ typealias PickedPhoto = AppPackage.edit.PickedPhoto
 typealias SportTypeGroups = AppPackage.sport.SportTypeGroups
 typealias SportTypeGroup = AppPackage.sport.SportTypeGroup
 typealias SportTypeRow = AppPackage.sport.SportTypeRow
+typealias SportTypeSearch = AppPackage.sport.SportTypeSearch
 typealias KotlinLocalDate = ExportedKotlinPackages.kotlinx.datetime.LocalDate
 typealias KotlinByteString = ExportedKotlinPackages.kotlinx.io.bytestring.ByteString
 
