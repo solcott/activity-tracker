@@ -12,7 +12,8 @@ struct SessionView: View {
             // Not yet known whether a leave is recorded on this device: nothing, for the moment the database takes to answer.
             case .Unknown: Color(.systemGroupedBackground).ignoresSafeArea()
             case .Leaving: SingleScreen(record: session.leaving)
-            case .LeftElsewhere: SingleScreen(record: session.leftElsewhere)
+            // In a stack of its own, so the native page's title shows; a shared UI hides the stack's bar and draws its own.
+            case .LeftElsewhere: NavigationStack { SingleScreen(record: session.leftElsewhere) }
             case .Open:
                 // The athlete's units, for the native views that format stats (dev/shared-display-text).
                 Following(session.shownUnits) { shown in
