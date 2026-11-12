@@ -3,10 +3,12 @@ package io.github.solcott.activitytracker.app.sport
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
+import io.github.solcott.activitytracker.app.text.TextSource
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -51,4 +53,32 @@ object SportTypeGroups {
             .map { group -> SportTypeGroup(group.category, group.types.filter { it.subSport == null }.distinct().toImmutableList()) }
             .filter { it.types.isNotEmpty() }
             .toImmutableList()
+
+    /**
+     * The groups a single-choice type picker lists: every catalog type [matches] keeps, by category, leaving out categories with none, and
+     * types that can't use GPS when [outdoorOnly] (recording).
+     */
+    fun matching(outdoorOnly: Boolean, matches: (ActivityType) -> Boolean): ImmutableList<SportTypeGroup> =
+        SportCatalog.categories
+            .map { group ->
+                SportTypeGroup(group.category, group.types.filter { offered(it, outdoorOnly) && matches(it) }.distinct().toImmutableList())
+            }
+            .filter { it.types.isNotEmpty() }
+            .toImmutableList()
+
+    /** [matching] for [query] ([SportTypeSearch.matches], the labels read by [source]): every type while nothing is typed. */
+    fun matching(query: String, source: TextSource, outdoorOnly: Boolean): ImmutableList<SportTypeGroup> =
+        matching(outdoorOnly) { SportTypeSearch.matches(it, query, source) }
+
+    /**
+     * The choices offered under a picker's [selected] type: its sport's generic form, then the sport's sub-sports (without the ones that
+     * can't use GPS when [outdoorOnly]); none when the sport has no sub-sports left. Each is named by [LabelText.activityType].
+     */
+    fun subSportChoices(selected: ActivityType, outdoorOnly: Boolean): ImmutableList<ActivityType> {
+        val subs =
+            SportCatalog.subSports(selected.sport).map { ActivityType(selected.sport, it.subSport) }.filter { offered(it, outdoorOnly) }
+        return if (subs.isEmpty()) persistentListOf() else (listOf(ActivityType(selected.sport)) + subs).toImmutableList()
+    }
+
+    private fun offered(type: ActivityType, outdoorOnly: Boolean): Boolean = !(outdoorOnly && SportCatalog.isIndoor(type))
 }

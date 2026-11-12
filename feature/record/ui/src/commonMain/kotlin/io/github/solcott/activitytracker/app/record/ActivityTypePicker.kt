@@ -19,7 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.sport.SportTypeGroup
+import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.TapField
@@ -32,7 +32,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
-import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.sportTypeList
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_label
@@ -76,18 +75,15 @@ fun ActivityTypePicker(field: ActivityTypeField, modifier: Modifier = Modifier, 
 /** The chosen sport's generic form and its sub-sports. Nothing when the sport has none. */
 @Composable
 private fun SubSportChips(selected: ActivityType, onSelect: (ActivityType) -> Unit, enabled: Boolean, outdoorOnly: Boolean) {
-    val types =
-        SportCatalog.subSports(selected.sport)
-            .map { ActivityType(selected.sport, it.subSport) }
-            .filterNot { outdoorOnly && SportCatalog.isIndoor(it) }
+    val types = SportTypeGroups.subSportChoices(selected, outdoorOnly)
     if (types.isEmpty()) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        (listOf(ActivityType(selected.sport)) + types).forEach { type ->
+        types.forEach { type ->
             AppFilterChip(
                 selected = type == selected,
                 onClick = { onSelect(type) },
                 enabled = enabled,
-                label = { Text(if (type.subSport == null) sportLabel(type.sport) else activityTypeLabel(type)) },
+                label = { Text(activityTypeLabel(type)) },
             )
         }
     }
@@ -112,11 +108,7 @@ private fun ActivityTypeSheet(
     val offered = { type: ActivityType -> !(outdoorOnly && SportCatalog.isIndoor(type)) }
     val needle = query.text.trim().toString()
     val matches = activityTypeMatcher(needle)
-    val groups =
-        SportCatalog.categories
-            .map { group -> SportTypeGroup(group.category, group.types.filter { offered(it) && matches(it) }.toImmutableList()) }
-            .filter { it.types.isNotEmpty() }
-            .toImmutableList()
+    val groups = SportTypeGroups.matching(outdoorOnly, matches)
     var expanded by rememberExpandedSports()
 
     AppBottomSheet(onDismiss = onDismiss, sheetState = sheetState) {
