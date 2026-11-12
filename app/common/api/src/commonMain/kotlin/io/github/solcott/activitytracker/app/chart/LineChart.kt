@@ -57,20 +57,6 @@ class LineChart(
     /** The point nearest [x]. */
     fun pointNear(x: Double): LinePoint = points[nearest(x)]
 
-    /** The points split where the samples have gaps: each piece is drawn as its own line, with nothing across a gap. */
-    val pieces: List<List<LinePoint>>
-        get() = buildList {
-            var piece = mutableListOf<LinePoint>()
-            points.forEach { point ->
-                if (point.gapBefore && piece.isNotEmpty()) {
-                    add(piece)
-                    piece = mutableListOf()
-                }
-                piece += point
-            }
-            add(piece)
-        }
-
     /** How many band stops tint the chart. */
     val bandCount: Int
         get() = bands.size

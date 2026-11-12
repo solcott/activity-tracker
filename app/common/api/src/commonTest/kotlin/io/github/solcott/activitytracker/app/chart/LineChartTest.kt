@@ -35,9 +35,4 @@ class LineChartTest {
         assertNull(line.labelAt(1_425.0, line.yTicks))
     }
 
-    @Test
-    fun aGapSplitsTheLine() {
-        val line = chart(listOf(LinePoint(0.0, 1.0), LinePoint(1.0, 2.0), LinePoint(5.0, 3.0, gapBefore = true), LinePoint(6.0, 4.0)))
-        assertEquals(listOf(2, 2), line.pieces.map { it.size })
-    }
 }
