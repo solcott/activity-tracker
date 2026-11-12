@@ -10,8 +10,8 @@ A native route map SHALL be able to draw a highlighted stretch of the route over
 - **THEN** the map draws that kilometre highlighted over the route, framed on the whole route
 
 ### Requirement: A native range slider
-On iOS a native form SHALL be able to choose a range with one slider of two thumbs, the span between them in the accent colour, neither thumb passing the other. Each thumb SHALL be adjustable on its own by assistive technology, read with the form's own description of the range.
+On iOS a native form SHALL be able to choose a range with one slider of two thumbs, the span between them in the accent colour, neither thumb passing the other. Each thumb SHALL be adjustable on its own by assistive technology, named and read with its position in the form's own words.
 
 #### Scenario: VoiceOver
 - **WHEN** a VoiceOver user swipes up on the slider's end thumb
-- **THEN** the end moves along by a step and the new length is read
+- **THEN** the end moves along the route by a step and its new position is read, such as 1.5 km along the route

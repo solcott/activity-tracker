@@ -24,10 +24,10 @@ See proposal.md for why. `CreateSegmentPresenter` already runs in the presenter 
   catalog's `LikeColor`, which the segments map's selected run uses too, on a white casing on MapKit.
 - **A custom two-thumb slider.** SwiftUI has no range slider. `RangeSlider` draws a track, the chosen span in the accent colour and two
   round thumbs; a drag moves the nearer thumb, kept on its side of the other. Each thumb is an accessibility element with
-  `accessibilityAdjustableAction` stepping by 1 % of the range and a value read as the form's length text. It reports every change as it
+  `accessibilityAdjustableAction` stepping by 1 % of the range, named Start or End of the stretch and read as its position along the route (`CreateSegmentTexts.startThumb`, `endThumb`, `along`). It reports every change as it
   moves, as the Compose slider does, and the presenter clears duplicates for the new stretch.
 - **Text rules to Kotlin:** `CreateSegmentTexts` (`:feature-segment-api`): `selection(state, units)` (the length and sport group, too
-  short, too long, crossing a gap), `selectionFails(state)`, `unavailable(reason)`, `publicNote(namesActivity)` (sentences read in
+  short, too long, crossing a gap), `selectionFails(state)`, the slider's `range`, `startThumb`, `endThumb` and `along(meters, units)`, `unavailable(reason)`, `publicNote(namesActivity)` (sentences read in
   order, as the dive site's) and `duplicate(segment, units)` (name · length). `CreateSegmentState.routeMap`, as the dive site's.
 - **The form's order follows Create dive site's**: a failure, the allowance and duplicates at the top where Publish's answer lands,
   then the map, the stretch section (its header the slider's title, the slider, the selection line red when it fails), and the name
