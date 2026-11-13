@@ -89,13 +89,25 @@ class ImportActivityTextsTest {
                 TimeZoneOption("Asia/Singapore", "UTC+08:00"),
                 TimeZoneOption("America/Cancun", "UTC-05:00"),
             )
-        val clock = ImportClock("2024-10-16 17:30", zones[0], zones)
+        val clock = ImportClock(LocalDateTime(2024, 10, 16, 17, 30), zones[0], zones)
         assertEquals(listOf("Asia/Singapore"), ImportActivityTexts.zones(clock, "utc+8").map { it.id })
         assertEquals(listOf("America/New_York"), ImportActivityTexts.zones(clock, " new york").map { it.id })
         assertEquals(3, ImportActivityTexts.zones(clock, "").size)
         assertEquals(
             AppText.named("import_time_zone_option", AppText.written("America/New York"), AppText.written("UTC-04:00")),
             ImportActivityTexts.zone(zones[0]),
+        )
+    }
+
+    @Test
+    fun theZoneNoticeQuotesTheFilesClockWrittenOut() {
+        val zones = persistentListOf(TimeZoneOption("America/Cancun", "UTC-05:00"))
+        val start = LocalDateTime(2024, 10, 16, 17, 30)
+        val clock = ImportClock(start, zones[0], zones)
+        assertEquals(AppText.named("import_time_zone_notice", DateText.of(start)), ImportActivityTexts.zoneNotice(clock))
+        assertEquals(
+            AppText.named("import_time_zone_notice_file", AppText.written("dives.uddf"), DateText.of(start)),
+            ImportActivityTexts.zoneNotice(clock, "dives.uddf"),
         )
     }
 
@@ -142,7 +154,7 @@ class ImportActivityTextsTest {
         val batch = ImportBatch(rows = persistentListOf(row(0, "2024-04-28 07:02", title = "Easy"), row(1, "2024-05-03 18:15")))
         val event = state(batch = batch).saveBatchEvent(source) as ImportActivityEvent.SaveBatch
         assertEquals(mapOf(1 to "default_title_morning:sport_ride"), event.defaultTitles)
-        val save = state(preview = ImportPreview("a.fit", 1.minutes, null, null, dive = null, clock = null)).saveEvent(source)
+        val save = state(preview = ImportPreview("a.fit", 1.minutes, null, null, clock = null)).saveEvent(source)
         assertEquals(ImportActivityEvent.Save("default_title_evening:sport_ride"), save)
     }
 
@@ -170,7 +182,7 @@ class ImportActivityTextsTest {
 
     @Test
     fun saveFollowsTheState() {
-        val preview = ImportPreview("a.fit", 1.minutes, null, null, dive = null, clock = null)
+        val preview = ImportPreview("a.fit", 1.minutes, null, null, clock = null)
         assertTrue(state(preview = preview).canSave)
         assertFalse(state(preview = preview.copy(duplicate = dup().copy(action = DuplicateAction.Ignore))).canSave)
         assertFalse(state(preview = preview).copy(addsRecording = true).canSave)

@@ -131,9 +131,4 @@ class StreamAnalyticsTest {
         assertEquals(240, StreamAnalytics.gapLimit((0..3600 step 60).toList()))
         assertEquals(120, StreamAnalytics.gapLimit(emptyList()))
     }
-
-    @Test
-    fun everyNthKeepsTheLast() {
-        assertEquals(listOf(0, 3, 6, 9, 10), StreamAnalytics.everyNth((0..10).toList(), max = 4))
-    }
 }

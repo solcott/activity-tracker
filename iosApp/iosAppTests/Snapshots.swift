@@ -76,9 +76,15 @@ extension Snapshotting where Value == UIViewController, Format == UIImage {
 /// `precision` is the share of pixels that must match. Every pixel must, except where a view draws something the system renders a
 /// little differently on each run: the glass behind a bar's buttons on iOS 26 differs by a few levels over a few hundred pixels, so a
 /// screen with buttons in its bar passes `Snapshots.barButtons`.
+///
+/// `keepsSafeArea` draws the view with the window's safe area wherever the library places it (`KeptSafeArea`). Without it, a list under
+/// a bar is drawn with the inset it was laid out with, under the window's status bar, after the library has moved the view off screen
+/// and the bar has moved up: the list's new inset arrives a run-loop turn later, and a slow draw (an iPad-sized page) sometimes catches
+/// it, the whole list then 52 points higher (dev/ios-snapshot-tests). Only the iPad import page takes it so far, since every other
+/// reference was recorded the old way.
 @MainActor
 func assertAppSnapshot(
-    of view: some View, size: CGSize = Snapshots.screen, named name: String, precision: Float = 1,
+    of view: some View, size: CGSize = Snapshots.screen, named name: String, precision: Float = 1, keepsSafeArea: Bool = false,
     fileID: StaticString = #fileID, file filePath: StaticString = #filePath, testName: String = #function, line: UInt = #line,
     column: UInt = #column
 ) {
@@ -88,13 +94,49 @@ func assertAppSnapshot(
             mutable.userInterfaceStyle = style
             mutable.displayScale = 3
         }
-        let controller = UIHostingController(rootView: view.frame(width: size.width, height: size.height))
+        let hosting = UIHostingController(rootView: view.frame(width: size.width, height: size.height))
         // Time stands still in the view, so a spinner is drawn at the same turn on every run.
-        controller.view.layer.speed = 0
+        hosting.view.layer.speed = 0
         assertSnapshot(
-            of: controller,
+            of: keepsSafeArea ? KeptSafeArea(hosting) : hosting,
             // Drawn in the app's window, where lists and materials look as they do on screen; off screen a list's rows draw apart.
             as: .settledImage(precision: precision, perceptualPrecision: 0.98, size: size, traits: traits),
             named: "\(name).\(appearance)", fileID: fileID, file: filePath, testName: testName, line: line, column: column)
+    }
+}
+
+/// A controller that gives `child` the key window's safe area wherever its own view is. The library lays a key-window snapshot out at
+/// the window's origin, under the status bar, then moves it off screen (10,000 points away) "to avoid safe area influence" and draws.
+/// The move takes the safe area away: UIKit moves the stack's bar up at once, but the lists inside its columns get their new insets
+/// from SwiftUI a run-loop turn later, which the draw may or may not come after. Here the child's additional insets make up what the
+/// move took (UIKit clamps a negative one, so the child can't be given none), so its safe area never changes and nothing waits on a
+/// later turn.
+final class KeptSafeArea: UIViewController {
+    let child: UIViewController
+
+    init(_ child: UIViewController) {
+        self.child = child
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        addChild(child)
+        child.view.frame = view.bounds
+        child.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(child.view)
+        child.didMove(toParent: self)
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        guard let window = view.window else { return }
+        let kept = window.safeAreaInsets, own = view.safeAreaInsets
+        child.additionalSafeAreaInsets = UIEdgeInsets(
+            top: max(0, kept.top - own.top), left: max(0, kept.left - own.left), bottom: max(0, kept.bottom - own.bottom),
+            right: max(0, kept.right - own.right))
     }
 }

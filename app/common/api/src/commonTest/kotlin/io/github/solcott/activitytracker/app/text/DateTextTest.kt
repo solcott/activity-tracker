@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 
 /** How a calendar date is written out (dev/shared-display-text). */
 class DateTextTest {
@@ -39,6 +40,16 @@ class DateTextTest {
         val at = Instant.parse("2024-05-12T23:30:00Z").epochSeconds
         assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 13), AppText.Time(at, 120)), DateText.at(at, 120))
         assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 12), AppText.Time(at, -300)), DateText.at(at, -300))
+    }
+
+    @Test
+    fun aWallClockIsItsDateAtItsOwnHour() {
+        // A zoneless 17:30 reads 17:30 whatever the device's zone: a UTC moment shown at offset 0.
+        val at = Instant.parse("2024-10-16T17:30:57Z").epochSeconds
+        assertEquals(
+            AppText.named("page_start_value", DateText.date(2024, 10, 16), AppText.Time(at, 0)),
+            DateText.of(LocalDateTime(2024, 10, 16, 17, 30, 57)),
+        )
     }
 
     @Test

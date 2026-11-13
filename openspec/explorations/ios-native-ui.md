@@ -2017,9 +2017,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The simulators write HEIC** (`CGImageDestination` with `UTType.heic`, on iOS 26.0 and 18.4), so the HEIC test makes its own.
 - **`ImportSnapshotTests` flaked under load** in this change's runs: a different snapshot each time (the zone sheet's search field
   before its clear button drew, the iPad page drawn about 20 points high). Not this change's screens; not rerun on the base commit.
-  The clear button's cause and fix are under "Search snapshot flake" below. The iPad page's is not known: it failed alone too
-  (`wide`, two runs of three after that fix), the whole page about 20 points higher than the reference and the same on every draw, so
-  settling can't catch it.
+  The clear button's cause and fix are under "Search snapshot flake" below. ~~The iPad page's is not known~~: found and fixed
+  (`import-leftovers`, "Import leftovers findings" below): the library's move off screen takes the safe area away, and the lists' new
+  inset arrives a run-loop turn later, which a slow draw sometimes catches (52 points, not 20).
 
 ### Phase 5 findings (`ios-drop-compose`)
 
@@ -2108,8 +2108,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   reference changed: the phone-sized batch screenshots end above the rows, and the duplicate and adding-to samples are variants only iOS draws.
 - The written-out date is `DateText.at(epochSeconds, utcOffsetMinutes)`, not `DayText`: the texts take no current moment, and a batch is
   already grouped under month headings. A start's day is the day in its own offset ("May 13" for 23:30 UTC read at UTC+2).
-- The import clock's `localStart` (a zoneless wall clock the zone notice quotes, "its start (2024-10-16 17:30)") still reads ISO and on a
-  24-hour clock. It is not a moment until a zone is picked, so it would need a `LocalDateTime` text of its own; left as the task asked.
+- ~~The import clock's `localStart` (a zoneless wall clock the zone notice quotes, "its start (2024-10-16 17:30)") still reads ISO and on a
+  24-hour clock~~: done (`import-leftovers`), a `LocalDateTime` written by `DateText.of(dateTime)`.
 - The Compose Account page's "Did you keep the export?" dialog and `ArchiveHandOffResult.Shared` are gone; the contract, the
   `exportSharedAsk` sample and the strings stay for the native Account view, and the sample left the Android screenshots (its reference is
   deleted, since without the dialog it drew `exportReady`).
@@ -2126,9 +2126,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   other strings the code used (`chart_marker`, `table_row_description`, `value_missing`, the units and the other `stat_*` dive labels)
   stay: shared code names them. No drawable or test used the deleted code.
 - No visible text changed on any platform, and no Android reference or iOS snapshot changed.
-- Left: `DivePreview.profile` (`:feature-record-api`), which `DepthProfile` drew on the old import screen, is still filled by the record
-  presenter and tested there, but no UI draws it since the import preview became the activity page. It is contract and presenter, not
-  text, so it is left for a cleanup of the import state (whether the rest of `ImportPreview.dive` is still read is unchecked).
+- ~~Left: `DivePreview.profile` (`:feature-record-api`), which `DepthProfile` drew on the old import screen, is still filled by the record
+  presenter and tested there, but no UI draws it since the import preview became the activity page~~: done (`import-leftovers`), the
+  whole of `ImportPreview.dive`, which nothing read, deleted.
   The backlog's "gas-switch markers are on the detail depth chart only" named the deleted preview chart, and is removed.
 
 ### Text round 3 findings (feature labels, `shared-text-labels`)
@@ -2173,7 +2173,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **Fix.** `Snapshotting.settledImage` now takes a draw only once `Snapshots.settledDraws` (three) draws in a row agree, within
   `Snapshots.settleDraws` (nine). A transition a draw late leaves two matching draws before it, so the third differs and drawing goes
   on. No tolerance or reference changed. It costs one more draw per image. Search then passed 10 runs in a row alone under the same
-  load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it; Import's `wide` iPad page, which still fails alone, has another (above).
+  load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it; Import's `wide` iPad page, which still failed alone, had another, fixed in `import-leftovers`.
 
 ### Text round 4 findings (other, `shared-text-other`)
 
@@ -2218,8 +2218,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   (`chart_zone_percent_under`).
 - Checked by name across every Kotlin and Swift source set, tests and the screenshot suite: `elevationStat` and `GearTimeChart` had no
   caller. `showsLength` in `:app-common-ui` was a wrapper only `elevationStat` and its own test used; the test now checks
-  `CardStatsText.showsLength` in `:app-common-api`. `GearTimePreview` stays: the import state and its presenter test use it, though no
-  UI draws its gears now. `stat_elevation` stays (the record texts name it).
+  `CardStatsText.showsLength` in `:app-common-api`. ~~`GearTimePreview` stays: the import state and its presenter test use it, though no
+  UI draws its gears now~~: deleted with `ShiftingPreview.gears` (`import-leftovers`). `stat_elevation` stays (the record texts name it).
 - The Swift helper that concatenates the runs is now `FigureRuns`, since the Kotlin object `FigureParts` takes its old name through
   `KotlinTypes.swift`.
 - detekt's `LongParameterList` caps a constructor at six, so `ZoneRow`'s derived texts are body properties, and the stability check
@@ -2284,6 +2284,54 @@ What building the host and the shell on Swift export showed, beyond the probes:
   of five: no Swift or contract changed here, so it is the import page's, under a full run's load. The desktop app ran (`hotRun --auto`),
   but the hot-reload MCP never connected to it, so the page wasn't looked at there.
 - Don't run `gradlew --stop` to clean up a temporary worktree: it stops every daemon of that Gradle version, other sessions' builds too.
+
+### Import leftovers findings (`import-leftovers`)
+
+- **The import clock's start.** `ImportClock.localStart` is now the file's `LocalDateTime`, and the zone notice quotes it with
+  `DateText.of(dateTime)`: the date written out at the time of day, an `AppText.Time` of the wall clock read as UTC at offset 0, which
+  formats back to its own hour and minute on the device's clock in both UIs, so no new `AppText` case or UI code was needed. A dive
+  log's notice reads "its start (Oct 16, 2024 at 5:30 PM)" (17:30 on a 24-hour device), the same whichever zone is picked. `LOCAL_START`
+  is gone. `kotlinx.datetime.LocalDateTime` joined `config/compose/stability.conf` beside `LocalDate`; Swift export carries it as far
+  as the contract names it, as it does `LocalDate`, and no Swift reads it.
+- **A changed `stability.conf` doesn't recompile.** After the entry was added, `check` still failed `:feature-record-api:composeStabilityCheck`
+  on `ImportClock.localStart`: the JVM compile that writes the stability reports was up to date, its reports from before the edit.
+  `--rerun-tasks` on the module wrote them again (`stable val localStart`). The conf file is passed to the compiler
+  (`ComposeStability.kt`) but evidently isn't an input of that compile task; left as found, since the build logic is outside this change.
+- **Pictures.** iOS 26.0: `batch`, `batchChecking`, `batchDuplicates`, `batchPreview`, `batchSaveFailed`, `batchSaving` and `diveZone`
+  (light and dark), the notice a line longer and the rows below it 18 points lower, nothing else changed. Android: the four phone batch
+  screenshots, only the notice's date line ("May 20, 2024 at 09:30": layoutlib's previews use a 24-hour clock).
+- **Dead import state.** Checked by name across every Kotlin and Swift source set, `:app-fixtures`, the Android screenshot tests and
+  the Swift tests: nothing outside the record presenter and its tests read `ImportPreview.dive` or any of `DivePreview`,
+  `DiveGasPreview`, `DiveTankPreview`, `DiveSitePreview`, `DepthPreviewPoint`, or `ShiftingPreview.gears` and `GearTimePreview`. All
+  of it is deleted, with the presenter's mapping, the emptied `ImportPreviewCharts.kt` (`:app-common-api`) and
+  `StreamAnalytics.everyNth`, whose only caller was the depth profile. A batch row's `DiveRowExtras` (depth and dive number) is another
+  type, which the row texts read, and stays. No picture changed.
+- **Left: more of `ImportPreview` no UI reads.** The same check by name finds no UI reading `elapsed`, `device`, `elevationLossMeters`,
+  `cadence`, `power`, `shifting` (its shift counts), `mtb` or `hasStreams`: the page draws those from the activity it builds, not from
+  the preview. The presenter fills them and only its tests read them; outside this change's scope, so left for a later cleanup.
+- **Import's `wide` iPad page.** Cause: swift-snapshot-testing's key-window path lays the controller out at the window's origin, under
+  the 62-point status bar, then moves it 10,000 points off screen "to avoid safe area influence" and draws. The move takes the safe area
+  away. UIKit moves the stack's bar up at once (y 62 to 10), but the lists in the stack's columns get their new inset (116 to 64) from
+  SwiftUI only a run-loop turn later. A probe test attaching the page as the library does saw the old inset at every draw and the new
+  one after one turn, every time. The references were recorded with the old inset; a draw that came after the update (a slow one: an
+  iPad page at 3x is 25 megapixels) drew everything under the bar exactly 52 points higher, the same on every draw, so settling couldn't
+  catch it (the earlier "about 20 points" was a misreading). `safeAreaRegions = []` on the hosting controller and `.ignoresSafeArea()`
+  on the stack change nothing: the stack reads its safe area from UIKit.
+- **Fix.** `KeptSafeArea` (`Snapshots.swift`) holds the hosting controller as a child and, whenever its own safe area changes, sets the
+  child's `additionalSafeAreaInsets` to what the window has and it lacks, so the child keeps the window's safe area wherever the library
+  puts it and nothing waits on a later turn. A negative additional inset is clamped by UIKit, so the child can't be given none instead.
+  `assertAppSnapshot(keepsSafeArea:)` takes it; only `wide` passes it, since every other reference was recorded with the old inset
+  (the bar at 10 points and the list laid out for 62 + bar). The iPad references are rerecorded: the bar under the status bar and the
+  lists right below it, as on a device. No tolerance changed and the sample stays. `ImportSnapshotTests` then passed 5 runs in a row
+  alone, three of them while `./gradlew check` loaded the machine (it had failed 2 of 3 alone before).
+- **A second iPad flake, seen once before the fix:** the heart-rate chart drawn 1 pixel (a third of a point) higher in its card, the
+  rest identical. Not seen in the five runs after; recorded here in case it returns.
+- **Open: every other suite has the same exposure.** Any snapshot with a list under a bar draws the inset laid out for the status bar,
+  and would fail the same way if a draw came after SwiftUI's update; only the iPad page was slow enough to be seen doing so. Passing
+  `keepsSafeArea` everywhere means rerecording every such reference (each list 52 points higher, the bar under the status bar).
+- Checks: `check -Pkotlin.incremental=false` (Android screenshots with the four new references), the ad-hoc Release simulator build,
+  and `xcodebuild test` on my own clones: iOS 26.0 (iPhone 17) 456 tests passed in one full run, iOS 18.4 (iPhone 16 Pro) 456 passed.
+  `ImportSnapshotTests` alone: 5 of 5 after the fix.
 
 ## Open items
 
@@ -2389,7 +2437,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
     `State` (`LOCAL_START`), and `ImportActivityTexts` showed it as written: a duplicate's "Already in your log", the recording a file is
     added to, a batch's rows and the compare sheet. `ExistingActivityPreview.start` and `ImportRow.start` are now an `ImportStart` (epoch
     seconds and the zone's UTC offset), and the texts write it with `DateText.at` ("May 12, 2024 at 7:02 AM", an `AppText.Time` in that
-    offset). The import clock (`ImportClock.localStart`, quoted by the zone notice) stays text.
+    offset). ~~The import clock (`ImportClock.localStart`, quoted by the zone notice) stays text~~: a `LocalDateTime` since
+    `import-leftovers`, the notice reading "Oct 16, 2024 at 5:30 PM" (`DateText.of(dateTime)`).
   - [x] **Charts** (`shared-text-charts`). The Compose card (`ac/detail/ActivityChartsUi.kt`) now draws `CardLines.of` whole: each
     `CardLine`'s header and chart, the power curve and the gears, through `LineChartUi` (`ac/ui/chart/LineChartUi.kt`), which lays a
     `LineChart` out on Vico as `LineChartView` does on Swift Charts, and `SegmentProfileChart` draws through it too. `ChartUnits.kt`

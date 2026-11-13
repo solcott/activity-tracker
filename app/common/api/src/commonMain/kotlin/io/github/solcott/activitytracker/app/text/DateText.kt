@@ -2,8 +2,11 @@ package io.github.solcott.activitytracker.app.text
 
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
 import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -45,6 +48,12 @@ object DateText {
         val parts = text.split('-').mapNotNull { it.toIntOrNull() }
         return if (parts.size == 3 && parts[1] in 1..12) date(parts[0], parts[1], parts[2]) else AppText.written(text)
     }
+
+    /**
+     * A wall clock with no zone ([dateTime], a dive log's start before a zone is picked) written as [at] writes a moment: "Oct 16, 2024 at
+     * 5:30 PM". Read as UTC at offset 0, it formats back to its own hour and minute on the device's 12- or 24-hour clock.
+     */
+    fun of(dateTime: LocalDateTime): AppText = at(dateTime.toInstant(TimeZone.UTC).epochSeconds, 0)
 
     private const val SECONDS_PER_MINUTE = 60
 }

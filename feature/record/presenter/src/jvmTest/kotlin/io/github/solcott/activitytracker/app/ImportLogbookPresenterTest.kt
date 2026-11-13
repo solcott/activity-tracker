@@ -45,6 +45,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDateTime
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -143,7 +144,7 @@ class ImportLogbookPresenterTest {
             assertEquals(listOf("Blue Hole", null, null), batch.rows.map { it.title })
             assertEquals(3, batch.selectedCount)
             assertTrue(batch.allShownSelected)
-            assertEquals("2026-09-20 10:02", assertNotNull(batch.clocks.singleOrNull()).clock.localStart)
+            assertEquals(LocalDateTime(2026, 9, 20, 10, 2), assertNotNull(batch.clocks.singleOrNull()).clock.localStart)
             assertEquals(PartOfDay.Afternoon, batch.rows[1].defaultTitle.partOfDay)
             assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), batch.rows[1].defaultTitle.type)
             assertEquals(18.0, batch.rows[0].dive?.maxDepthMeters)

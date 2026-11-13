@@ -420,8 +420,8 @@ object ImportActivityTexts {
 
     /** That the file's clock has no zone, so it's read in the one below; for a batch's file, which file. */
     fun zoneNotice(clock: ImportClock, fileName: String? = null): AppText =
-        if (fileName == null) AppText.named("import_time_zone_notice", AppText.written(clock.localStart))
-        else AppText.named("import_time_zone_notice_file", AppText.written(fileName), AppText.written(clock.localStart))
+        if (fileName == null) AppText.named("import_time_zone_notice", DateText.of(clock.localStart))
+        else AppText.named("import_time_zone_notice_file", AppText.written(fileName), DateText.of(clock.localStart))
 
     /** "America/New York (UTC-04:00)". */
     fun zone(zone: TimeZoneOption): AppText =

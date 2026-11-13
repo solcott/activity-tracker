@@ -13,7 +13,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
 
 /** The file's only activity ([placed] in [zone]), and whether it's already in the athlete's log. */
 internal fun singlePreview(
@@ -31,7 +30,7 @@ internal fun singlePreview(
 }
 
 internal fun importClock(start: LocalDateTime, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
-    ImportClock(start.format(LOCAL_START), zones?.find { it.id == zone.id } ?: zoneOption(zone, start), zones ?: persistentListOf())
+    ImportClock(start, zones?.find { it.id == zone.id } ?: zoneOption(zone, start), zones ?: persistentListOf())
 
 /** The file's only activity, by its name; null for a file of several. */
 internal fun singleActivity(file: ImportFile?): NamedActivity? = file?.let { (name, read) ->

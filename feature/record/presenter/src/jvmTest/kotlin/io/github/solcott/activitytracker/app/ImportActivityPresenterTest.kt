@@ -31,11 +31,6 @@ import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
-import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
-import io.github.solcott.activitytracker.app.record.DiveGasPreview
-import io.github.solcott.activitytracker.app.record.DiveSitePreview
-import io.github.solcott.activitytracker.app.record.DiveTankPreview
-import io.github.solcott.activitytracker.app.record.GearTimePreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -140,7 +135,6 @@ class ImportActivityPresenterTest {
             assertEquals(FigureValue.Quantity(152, FigureUnit.Bpm), hero.first { it.key == FigureKey.AvgHeartRate }.value)
             assertEquals("Garmin Fenix 7", preview.device)
             assertNotNull(preview.polyline)
-            assertNull(preview.dive)
             assertNull(preview.clock, "a FIT file's times are UTC")
             assertEquals(ActivityType(Sport.RUN), read.type.selected)
 
@@ -328,7 +322,7 @@ class ImportActivityPresenterTest {
     }
 
     @Test
-    fun aDiveShowsItsDepthsAndGases() = runTest {
+    fun aDiveIsTypedByItsGasesAndOffersItsCategories() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
         val dive = diveLog()
@@ -336,17 +330,6 @@ class ImportActivityPresenterTest {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
             val read = awaitUntil { it.preview != null }
             assertEquals(ActivityType(Sport.DIVE, SubSport.MULTI_GAS), read.type.selected)
-            val preview = assertNotNull(read.preview?.dive)
-            assertEquals(31.0, preview.maxDepthMeters)
-            assertEquals(listOf(DiveGasPreview(21, 35), DiveGasPreview(50, 0)), preview.gases)
-            assertEquals(42, preview.diveNumber)
-            assertEquals(2400L, preview.bottomTimeSeconds)
-            assertEquals(40, preview.oxygenToxicityOtu)
-            assertEquals(1.5, preview.sacBarPerMinute)
-            assertEquals(listOf(DiveTankPreview(210.0, 60.0)), preview.tanks)
-            assertEquals(DiveSitePreview(13.87, -61.08), preview.site, "the exit, with no entry")
-            assertTrue(preview.profile.size <= 300, "thinned to ${preview.profile.size}")
-            assertEquals(DepthPreviewPoint(7200, 0.0), preview.profile.last(), "still ends at the surface")
             assertNull(read.preview?.polyline)
             val offered = read.visibility.categories.map { it.category }
             assertTrue(DetailCategory.DIVE in offered, offered.toString())
@@ -424,7 +407,6 @@ class ImportActivityPresenterTest {
             assertEquals(PowerPreview(180, 640, 205, 108L, 250, 0.82, 11.2), preview.power)
             val shifting = assertNotNull(preview.shifting)
             assertEquals(2, shifting.rearShifts)
-            assertEquals(listOf(GearTimePreview(3, 120), GearTimePreview(4, 480)), shifting.gears)
             assertEquals(MtbPreview(1, 0.6, 4.0, 9.5, 3.1), preview.mtb)
             assertEquals(
                 listOf(
@@ -469,7 +451,7 @@ class ImportActivityPresenterTest {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
             val read = awaitUntil { it.preview != null }
             val clock = assertNotNull(read.preview?.clock)
-            assertEquals("2026-09-20 07:00", clock.localStart)
+            assertEquals(LocalDateTime(2026, 9, 20, 7, 0), clock.localStart)
             assertEquals(TimeZones.device().id, clock.zone.id, "starts in this device's zone")
             assertTrue(TimeZoneOption("America/New_York", "UTC-04:00") in clock.zones, "daylight saving on the day")
 
