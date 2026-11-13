@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.psi.KtImportDirective
  *
  * Files named `*Test.kt` are left alone: the tests that edit a state with Compose's API run on the JVM, where it is Compose's state. The
  * file name holds for every task, where a path pattern in `detekt.yml` doesn't (a source-set task sees paths relative to its source set).
- * The few files that bridge the two types (`:core-textfield`'s actuals, the design system's iOS field) suppress the rule by name.
+ * The few files that bridge the two types (`:core-textfield`'s actuals) suppress the rule by name.
  */
 class UseAppTextFieldState(config: Config) :
     Rule(config, "A text field's state is the app's TextFieldState (:core-textfield), which Swift export can carry, not Compose's.") {

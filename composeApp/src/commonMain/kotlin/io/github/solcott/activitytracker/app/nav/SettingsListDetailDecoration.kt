@@ -43,9 +43,7 @@ import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsPaneRoot
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 
-/**
- * The signed-in app's decoration: [SettingsListDetailDecoration] around the gesture navigation one (iOS swipe, Android predictive back).
- */
+/** The signed-in app's decoration: [SettingsListDetailDecoration] around the gesture navigation one (Android's predictive back). */
 @OptIn(ExperimentalCircuitApi::class)
 internal fun appNavDecoration(circuit: Circuit): NavDecoration =
     SettingsListDetailDecoration(AnimatedNavDecoration(circuit.animatedScreenTransforms, GestureNavigationDecorationFactory()))

@@ -8,8 +8,8 @@ import io.github.solcott.activitytracker.app.RouteEnds
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * An activity's route on a map, framed to fit the whole track. Android, iOS and desktop use MapLibre; MapLibre Compose has no wasmJs target
- * yet (maplibre/maplibre-compose#209, waiting on Compose Multiplatform 1.13; see BACKLOG.md), so web falls back to [RoutePreview]. Keep
+ * An activity's route on a map, framed to fit the whole track. Android and desktop use MapLibre; MapLibre Compose has no wasmJs target yet
+ * (maplibre/maplibre-compose#209, waiting on Compose Multiplatform 1.13; see BACKLOG.md), so web falls back to [RoutePreview]. Keep
  * MapLibre's pre-1.0 API inside the nonWeb actual so its churn stays in one file.
  */
 /**

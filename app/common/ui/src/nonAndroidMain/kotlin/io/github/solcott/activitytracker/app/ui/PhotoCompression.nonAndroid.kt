@@ -11,7 +11,7 @@ import org.jetbrains.skia.Matrix33
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.Surface
 
-// Skia, which Compose ships on iOS, desktop and web, decodes and encodes WebP alike; iOS's own ImageIO can't write WebP.
+// Skia, which Compose ships on desktop and web, decodes and encodes WebP alike.
 internal actual fun encodePhoto(image: ByteArray, maxPixels: Int, quality: Int): CompressedPhoto {
     val codec = Codec.makeFromData(Data.makeFromBytes(image))
     val origin = codec.encodedOrigin
