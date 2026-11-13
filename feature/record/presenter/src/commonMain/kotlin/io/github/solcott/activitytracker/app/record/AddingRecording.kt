@@ -22,8 +22,6 @@ import kotlin.time.Duration.Companion.hours
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Adding a recording to the athlete's own activity ([ImportActivityScreen.combineInto], "Add a recording…"): the activity once loaded
@@ -45,7 +43,7 @@ internal class AddingRecording(val requested: Boolean, val target: OwnActivity?,
 
     /** The target as the screen names it, on [zone]'s clock. */
     fun preview(zone: TimeZone): ExistingActivityPreview? =
-        target?.record?.let { ExistingActivityPreview(it.title, it.startedAt.toLocalDateTime(zone).format(LOCAL_START), it.device) }
+        target?.record?.let { ExistingActivityPreview(it.title, importStart(it.startedAt, zone), it.device) }
 
     /** [source] as the saved recording's: naming [entry] when it's one of several in a logbook, else as a single file's. */
     fun sourceOf(source: SourceFile?): DraftSource? {

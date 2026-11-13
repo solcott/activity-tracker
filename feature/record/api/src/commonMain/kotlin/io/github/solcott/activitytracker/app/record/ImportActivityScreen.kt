@@ -318,13 +318,19 @@ data class DuplicateInfo(
 @Immutable
 data class ExistingActivityPreview(
     val title: String?,
-    /** When it started, on the clock of the picked zone ("2024-05-12 10:02"). */
-    val start: String,
+    /** When it started, on the clock of the picked zone. */
+    val start: ImportStart,
     val device: String?,
     val type: ActivityType? = null,
     val elapsed: Duration? = null,
     val distanceMeters: Double? = null,
 )
+
+/**
+ * When an imported activity, or one it duplicates, started: the moment, and the offset from UTC of the zone it's read in at that moment, so
+ * it reads on that zone's clock (dev/shared-display-text). The texts write it; the state never formats it.
+ */
+@Immutable data class ImportStart(val epochSeconds: Long, val utcOffsetMinutes: Int)
 
 /** One activity of an [ImportBatch], in SI units. */
 @Immutable
@@ -337,8 +343,8 @@ data class ImportRow(
     val defaultTitle: DefaultTitle,
     /** The type it saves as: the athlete's, its account export's, or its file's. */
     val type: ActivityType,
-    /** When it started, on the clock of the zone it's placed in ("2024-05-12 10:02"). */
-    val start: String,
+    /** When it started, on the clock of the zone it's placed in. */
+    val start: ImportStart,
     /** The first day of the month it started in, which the list groups by. */
     val month: LocalDate,
     val elapsed: Duration,

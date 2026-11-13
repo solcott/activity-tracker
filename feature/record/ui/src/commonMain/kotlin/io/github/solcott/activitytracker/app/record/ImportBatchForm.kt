@@ -154,8 +154,8 @@ private fun BatchFilters(state: ImportActivityState, batch: ImportBatch, enabled
 }
 
 /**
- * "Morning Ride", then "2024-05-12 07:02 · Ride · 42.1 km · 1:32:10 · Edge 840" and its file; the checkbox selects it, the rest opens it. A
- * duplicate says what it repeats and offers what to do with it.
+ * "Morning Ride", then "May 12, 2024 at 7:02 AM · Ride · 42.1 km · 1:32:10 · Edge 840" and its file; the checkbox selects it, the rest
+ * opens it. A duplicate says what it repeats and offers what to do with it.
  */
 @Composable
 private fun BatchRow(

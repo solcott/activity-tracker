@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.record
 
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.TextSource
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -14,9 +15,19 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.toInstant
 
 class ImportActivityTextsTest {
     private val ride = ActivityType(Sport.RIDE)
+
+    /** [local] ("2024-05-14 12:01") on the clock [offsetMinutes] from UTC. */
+    private fun startAt(local: String, offsetMinutes: Int = 0) =
+        ImportStart(
+            LocalDateTime.parse(local.replace(' ', 'T')).toInstant(UtcOffset(seconds = offsetMinutes * 60)).epochSeconds,
+            offsetMinutes,
+        )
 
     private fun row(index: Int, start: String, title: String? = null, duplicate: DuplicateInfo? = null, dive: DiveRowExtras? = null) =
         ImportRow(
@@ -24,7 +35,7 @@ class ImportActivityTextsTest {
             title = title,
             defaultTitle = DefaultTitle(PartOfDay.Morning, ride),
             type = ride,
-            start = start,
+            start = startAt(start),
             month = LocalDate.parse(start.take(7) + "-01"),
             elapsed = 52.minutes,
             distanceMeters = 42_300.0,
@@ -98,13 +109,13 @@ class ImportActivityTextsTest {
 
     @Test
     fun aWarningNamesWhatItRepeats() {
-        val logged = ExistingActivityPreview(null, "2024-05-14 12:01", "Fenix 7")
+        val logged = ExistingActivityPreview(null, startAt("2024-05-14 12:01"), "Fenix 7")
         assertEquals(
             AppText.named(
                 "import_duplicate_existing",
                 AppText.named(
                     "text_dot_pair",
-                    AppText.named("text_dot_pair", AppText.named("import_duplicate_untitled"), AppText.written("2024-05-14 12:01")),
+                    AppText.named("text_dot_pair", AppText.named("import_duplicate_untitled"), DateText.at(logged.start.epochSeconds, 0)),
                     AppText.written("Fenix 7"),
                 ),
             ),
@@ -147,8 +158,33 @@ class ImportActivityTextsTest {
     @Test
     fun aRowSaysWhatItIs() {
         val details = ImportActivityTexts.rowDetails(row(0, "2024-04-28 07:02"), UnitSystem.Metric)
-        assertTrue(details.toString().contains("2024-04-28 07:02") && details.toString().contains("52:00"))
+        val start = DateText.at(startAt("2024-04-28 07:02").epochSeconds, 0)
+        assertTrue(details.toString().contains(start.toString()) && details.toString().contains("52:00"))
+        assertFalse(details.toString().contains("2024-04-28"))
         assertNull(ImportActivityTexts.duplicateBanner(DuplicateCheck.Done, 0, 0))
         assertEquals(AppText.named("import_duplicates_failed"), ImportActivityTexts.duplicateBanner(DuplicateCheck.Failed, 0, 0))
+    }
+
+    @Test
+    fun aStartIsItsDateAtItsTimeOnItsZonesClock() {
+        // 07:02 at UTC+2: the date written out, the time of day an AppText.Time each UI formats on the device's 12- or 24-hour clock.
+        val start = startAt("2024-05-12 07:02", offsetMinutes = 120)
+        assertEquals(
+            AppText.named("page_start_value", DateText.date(2024, 5, 12), AppText.Time(start.epochSeconds, 120)),
+            ImportActivityTexts.start(start),
+        )
+    }
+
+    @Test
+    fun aStartOnAnotherOffsetKeepsThatOffsetsDay() {
+        // An existing activity that started at 23:30 UTC, read in the file's UTC+2: the next day, at 01:30.
+        val at = startAt("2024-05-12 23:30")
+        val logged = ExistingActivityPreview("Lunch loop", ImportStart(at.epochSeconds, 120), null, ride, 52.minutes, 42_300.0)
+        val compared = ImportActivityTexts.compareMatched(logged, UnitSystem.Metric)
+        assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 13), AppText.Time(at.epochSeconds, 120)), compared[1])
+        assertEquals(
+            AppText.named("page_start_value", DateText.date(2024, 5, 12), AppText.Time(at.epochSeconds, 0)),
+            ImportActivityTexts.compareRow(row(0, "2024-05-12 23:30"), UnitSystem.Metric)[1],
+        )
     }
 }

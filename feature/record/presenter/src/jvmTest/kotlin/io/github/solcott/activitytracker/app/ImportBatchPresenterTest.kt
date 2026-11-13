@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.record.ImportStart
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.UploadState
@@ -53,6 +54,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.asTimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -505,13 +510,13 @@ class ImportBatchPresenterTest {
         presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
             awaitItem().eventSink(picked("trip1.uddf" to logbook("09:00"), "trip2.uddf" to logbook("14:00")))
             val read = awaitUntil { it.batch?.clocks?.size == 2 }
-            val before = assertNotNull(read.batch).rows.map { it.start }
+            val before = assertNotNull(read.batch).rows.map { it.start.local() }
             read.eventSink(ImportActivityEvent.FileZoneChanged(read.batch!!.clocks[1].key, "Pacific/Kiritimati"))
             val moved = awaitUntil { it.batch?.clocks?.get(1)?.clock?.zone?.id == "Pacific/Kiritimati" }
             val zones = moved.batch!!.clocks.map { it.clock.zone.id }
             assertTrue(zones[0] != "Pacific/Kiritimati", zones.toString())
             // The clocks read the same in their own zones; only the moved file's moment changes.
-            assertEquals(before, moved.batch!!.rows.map { it.start })
+            assertEquals(before, moved.batch!!.rows.map { it.start.local() })
             moved.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
             awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
@@ -614,3 +619,7 @@ class ImportBatchPresenterTest {
         }
     }
 }
+
+/** The wall clock an import's start reads on, in its own offset. */
+private fun ImportStart.local(): LocalDateTime =
+    Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(UtcOffset(seconds = utcOffsetMinutes * 60).asTimeZone())

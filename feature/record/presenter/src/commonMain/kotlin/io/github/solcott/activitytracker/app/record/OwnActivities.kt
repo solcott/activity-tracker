@@ -21,8 +21,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * The athlete's own activities around a file's, to find duplicates among; null while they load. [retry] searches again after a search that
@@ -80,7 +78,7 @@ internal fun duplicateInfo(match: ActivityMatch?, action: DuplicateAction, zone:
             existing?.let {
                 ExistingActivityPreview(
                     it.title,
-                    it.startedAt.toLocalDateTime(zone).format(LOCAL_START),
+                    importStart(it.startedAt, zone),
                     it.device,
                     ActivityType(it.sport, it.subSport),
                     it.elapsedTime.seconds,

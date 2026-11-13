@@ -662,6 +662,13 @@ internal fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOpti
     return TimeZoneOption(zone.id, if (offset.totalSeconds == 0) "UTC" else "UTC$offset")
 }
 
+/** [at] as an import's start, on [zone]'s clock at that moment. */
+internal fun importStart(at: Instant, zone: TimeZone): ImportStart =
+    ImportStart(at.epochSeconds, zone.offsetAt(at).totalSeconds / SECONDS_PER_MINUTE)
+
+private const val SECONDS_PER_MINUTE = 60
+
+/** The import clock's zoneless start, as written ("2024-10-16 17:30"). */
 internal val LOCAL_START = LocalDateTime.Format {
     date(LocalDate.Formats.ISO)
     char(' ')
