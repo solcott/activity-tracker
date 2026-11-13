@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 
 /**
  * A slider with two thumbs choosing a range within [valueRange], such as a stretch along a route. Material's on every platform, coloured by
- * `AppTheme`: UIKit has no two-thumb slider for Calf to wrap. [onValueChangeFinished] fires when a drag ends.
+ * `AppTheme`. [onValueChangeFinished] fires when a drag ends.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
