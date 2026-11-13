@@ -80,9 +80,9 @@ class UploadsUiTest {
     fun refusedItemsCanBeSentAgainOrCancelled() = runComposeUiTest {
         val events = mutableListOf<UploadsEvent>()
         setContent { AppPreview { UploadsUi(UploadsSamples.refused.copy(eventSink = { events += it })) } }
-        onNodeWithText("Run, 2026-05-31").assertExists()
+        onNodeWithText("Run, May 31, 2026").assertExists()
         onNodeWithText("A like").assertExists()
-        onNodeWithContentDescription("Send Run, 2026-05-31 again").performClick()
+        onNodeWithContentDescription("Send Run, May 31, 2026 again").performClick()
         onNodeWithContentDescription("Cancel A like").performClick()
         assertEquals(listOf(UploadsEvent.SendAgain("3k5"), UploadsEvent.Cancel("3klike")), events)
     }

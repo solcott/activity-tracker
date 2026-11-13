@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.feedfilter
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
@@ -38,8 +39,8 @@ object FeedFilterTexts {
             is DateRange.Custom ->
                 AppText.named(
                     "feed_filter_custom_range",
-                    AppText.written(range.start.toString()),
-                    AppText.written(range.endInclusive.toString()),
+                    DateText.of(range.start),
+                    DateText.of(range.endInclusive),
                 )
         }
 

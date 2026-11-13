@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.text
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.datetime.LocalDate
 
 /** How a calendar date is written out (dev/shared-display-text). */
 class DateTextTest {
@@ -16,6 +17,21 @@ class DateTextTest {
     @Test
     fun anIsoDateIsWrittenOut() {
         assertEquals(DateText.date(2026, 10, 26), DateText.isoDate("2026-10-26"))
+    }
+
+    @Test
+    fun aCalendarDayIsWrittenOut() {
+        assertEquals(DateText.date(2026, 7, 1), DateText.of(LocalDate(2026, 7, 1)))
+        assertEquals(DateText.date(2026, 12, 31), DateText.of(LocalDate(2026, 12, 31)))
+        assertEquals(DateText.isoDate("1990-04-12"), DateText.of(LocalDate(1990, 4, 12)))
+    }
+
+    @Test
+    fun aShortDateIsItsMonthAndDay() {
+        assertEquals(
+            AppText.named("zones_history_date_short", AppText.named("month_short_3"), AppText.written("2")),
+            DateText.monthDay(3, 2),
+        )
     }
 
     @Test

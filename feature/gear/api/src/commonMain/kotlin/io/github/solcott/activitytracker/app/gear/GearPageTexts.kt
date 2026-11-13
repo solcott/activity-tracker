@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -134,6 +135,5 @@ object GearPageTexts {
         if (to == null) AppText.named("gear_component_since", day(from, zone))
         else AppText.named("gear_component_between", day(from, zone), day(to, zone))
 
-    // An ISO date, as the shared page has always written mount dates.
-    private fun day(instant: Instant, zone: TimeZone): AppText = AppText.written(instant.toLocalDateTime(zone).date.toString())
+    private fun day(instant: Instant, zone: TimeZone): AppText = DateText.of(instant.toLocalDateTime(zone).date)
 }

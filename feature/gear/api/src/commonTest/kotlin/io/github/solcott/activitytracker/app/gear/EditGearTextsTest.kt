@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.gear
 
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -125,12 +126,12 @@ class EditGearTextsTest {
     fun mountedAndRetiredLinesShowTheirDays() {
         val mounted = GearMountedOn("at://x", "Gravel bike", LocalDate(2026, 7, 1))
         assertEquals(
-            AppText.named("gear_mounted_on_since", AppText.written("Gravel bike"), AppText.written("2026-07-01")),
+            AppText.named("gear_mounted_on_since", AppText.written("Gravel bike"), DateText.date(2026, 7, 1)),
             base.copy(mountedOn = mounted).mountedOnLabel,
         )
         assertNull(state().mountedOnLabel)
         assertEquals(
-            AppText.named("gear_retired_on", AppText.written("2026-08-01")),
+            AppText.named("gear_retired_on", DateText.date(2026, 8, 1)),
             base.copy(retiredOn = LocalDate(2026, 8, 1)).retiredOnLabel,
         )
         assertTrue(base.copy(retiredOn = LocalDate(2026, 8, 1)).isRetired)

@@ -116,8 +116,7 @@ object ThresholdHistoryTexts {
     }
 
     /** "Mar 2". */
-    fun shortDate(date: HistoryDate): AppText =
-        AppText.named("zones_history_date_short", AppText.named("month_short_${date.month}"), AppText.written(date.day.toString()))
+    fun shortDate(date: HistoryDate): AppText = DateText.monthDay(date.month, date.day)
 
     /** "Mar 2, 2026". */
     fun longDate(date: HistoryDate): AppText = DateText.date(date.year, date.month, date.day)

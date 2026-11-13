@@ -55,9 +55,9 @@ class GearUiTest {
         show(GearSamples.components) {
             onNodeWithText("Components").assertExists()
             onNodeWithText("Chain #4").assertExists()
-            onNodeWithText("Since 2026-07-01").assertExists()
+            onNodeWithText("Since Jul 1, 2026").assertExists()
             onNodeWithText("Previous").assertExists()
-            onNodeWithText("2025-03-01 – 2026-07-01").assertExists()
+            onNodeWithText("Mar 1, 2025 – Jul 1, 2026").assertExists()
             onNodeWithText("Mount a component").assertExists()
             onNodeWithContentDescription("Actions for Chain #4").assertExists()
         }

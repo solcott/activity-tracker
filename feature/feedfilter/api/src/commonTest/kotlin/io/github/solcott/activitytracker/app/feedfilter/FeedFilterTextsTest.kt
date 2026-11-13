@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.feedfilter
 
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -45,7 +46,7 @@ class FeedFilterTextsTest {
         )
         assertEquals(AppText.named("feed_filter_this_year"), FeedFilterTexts.range(DateRange.ThisYear))
         assertEquals(
-            AppText.named("feed_filter_custom_range", AppText.written("2026-03-01"), AppText.written("2026-03-15")),
+            AppText.named("feed_filter_custom_range", DateText.date(2026, 3, 1), DateText.date(2026, 3, 15)),
             FeedFilterTexts.range(DateRange.Custom(LocalDate(2026, 3, 1), LocalDate(2026, 3, 15))),
         )
     }

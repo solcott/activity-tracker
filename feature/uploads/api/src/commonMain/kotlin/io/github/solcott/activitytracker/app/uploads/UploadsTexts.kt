@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.uploads
 
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.DurationText
 import io.github.solcott.activitytracker.app.text.LabelText
@@ -81,7 +82,7 @@ object UploadsTexts {
                 AppText.named(
                     "unsent_change_activity_named",
                     LabelText.sport(sport),
-                    AppText.written(startedAt.toLocalDateTime(zone).date.toString()),
+                    DateText.of(startedAt.toLocalDateTime(zone).date),
                 )
             else -> AppText.named("unsent_change_activity")
         }
