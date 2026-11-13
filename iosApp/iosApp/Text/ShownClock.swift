@@ -22,6 +22,9 @@ struct ShownClock: @unchecked Sendable {
         ShownClock(zone: zone) { Date(timeIntervalSince1970: TimeInterval(epochSeconds)) }
     }
 
+    /// The current time, for a date picker's bounds ("no later than today"), so a preview's fixed clock bounds it too.
+    var date: Date { currentDate() }
+
     /// The current time, as Kotlin reads one.
     var now: KotlinInstant {
         KotlinInstant.Companion.shared.fromEpochMilliseconds(epochMilliseconds: Int64(currentDate().timeIntervalSince1970 * 1000))

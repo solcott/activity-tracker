@@ -143,7 +143,12 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                     CountryField(state.country, { state.eventSink(EditProfileEvent.CountryChanged(it)) }, enabled = state.loaded)
                 }
                 DetailSection(DetailGroup.BirthDate, state) {
-                    BirthDateField(state.birthDate, { state.eventSink(EditProfileEvent.BirthDateChanged(it)) }, enabled = state.loaded)
+                    BirthDateField(
+                        state.birthDate,
+                        EditProfileTexts.birthDate(state)?.string().orEmpty(),
+                        { state.eventSink(EditProfileEvent.BirthDateChanged(it)) },
+                        enabled = state.loaded,
+                    )
                 }
                 DetailSection(DetailGroup.Gender, state) {
                     GenderField(state, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
@@ -368,16 +373,17 @@ private fun CountryField(
 /** Folds case and accents, so "cote" finds "Côte d'Ivoire". */
 private fun searchKey(text: String): String = stripDiacritics(text).lowercase()
 
-/** A past date from the date picker, shown as `YYYY-MM-DD`. [date] is empty when unset. */
+/** A past date from the date picker, stored as `YYYY-MM-DD` ([date], empty when unset) and [shown] written out. */
 @Composable
 private fun BirthDateField(
     date: String,
+    shown: String,
     onChange: (String) -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     PastDateField(
-        shown = date,
+        shown = shown,
         label = stringResource(Res.string.edit_profile_birth_date),
         chooseLabel = stringResource(Res.string.edit_profile_birth_date_choose),
         clearLabel = stringResource(Res.string.edit_profile_clear),

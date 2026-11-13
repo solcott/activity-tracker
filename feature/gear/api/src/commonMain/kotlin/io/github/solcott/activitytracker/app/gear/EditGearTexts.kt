@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -49,8 +50,8 @@ object EditGearTexts {
     /** "Retired 2026-08-01". */
     fun retiredOn(date: LocalDate): AppText = AppText.named("gear_retired_on", date(date))
 
-    /** A day as the forms show it: ISO, "2026-07-01". */
-    fun date(date: LocalDate): AppText = AppText.written(date.toString())
+    /** A day as the forms show it, written out as every date is: "Jul 1, 2026". */
+    fun date(date: LocalDate): AppText = DateText.of(date)
 }
 
 /** The longest each field of the gear and collection forms takes, in characters, as both UIs limit typing. */

@@ -42,7 +42,7 @@ struct SegmentLeaderboardView: View {
     private func row(_ entry: LeaderboardEntry) -> some View {
         RankRow(
             rank: RankBoardTexts.shared.rank(rank: entry.rank), accented: state.accents(entry: entry), athlete: entry.athlete,
-            detail: SegmentBoardTexts.shared.effortDay(entry: entry), value: Stats.duration(seconds: entry.effort.elapsed),
+            detail: SegmentBoardTexts.shared.effortDay(entry: entry), value: AppStrings.string(SegmentBoardTexts.shared.time(entry: entry)),
             opens: { send(SegmentLeaderboardEvent.OpenActivity(uri: entry.effort.activity)) })
     }
 

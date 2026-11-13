@@ -2046,6 +2046,30 @@ What building the host and the shell on Swift export showed, beyond the probes:
   a share (`ArchiveHandOffResult.Shared`), which only iOS's share sheet produced.
 - `IosResourcesTest`'s `check` run had failed since `checkIosScreenRegistry` joined `check` (its project had no registry); fixed here.
 
+### Text round 1 findings (dates and times, `shared-text-dates`)
+
+- The inventory (in Open items) is smaller than the roadmap's "about 120": earlier rounds moved most choices when a native view first needed
+  them. What is left is mostly the Compose activity charts, which still label themselves although the native chart already reads
+  `CardLines`, and dead dive code in `:app-common-ui` that no screen calls.
+- Dates were written two ways. Board, effort and threshold dates read "Jan 5, 2026". Gear's form and page dates, the feed filter's custom
+  range and the upload queue's unnamed activities read "2026-01-05", and the birth date showed its stored text. All of these now use
+  `DateText` (`DateText.of` for a `LocalDate`, `DateText.monthDay` for "Mar 2"). Visible on every platform: "Since Jul 1, 2026",
+  "Mar 1, 2025 – Jul 1, 2026", "Mounted on Gravel bike since Jul 1, 2026", "Retired Sep 1, 2026", the acquired day, "Mar 1, 2026 –
+  Mar 15, 2026" on the date chip, "Run, May 31, 2026", and "Apr 12, 1990" for the birth date. The combine picker, a lift's row and the
+  leaderboard's times read as before: those changes only switched each UI to the function the other already asked.
+- Android references changed for the gear page (components, chain) and every upload queue state with an untitled activity. No edit
+  profile, edit gear or feed filter reference shows a date, so none changed.
+- iOS 26.0 snapshots changed for the uploads list (twelve samples), the feed filter's custom chip, the gear page's component samples
+  (seven), and edit gear's `mountedRetired`. The first run that recorded them drew every edit gear sample's picker rows with raw catalog
+  keys (`gear_type`, `visibility_label`), and the next run drew them right. A recording made just after a fresh install can catch the
+  catalog unread, so look at a new reference before committing it, as the rule says.
+- A time of day is still formatted by each UI (`AppText.Time`), by contract. Compose pads a 24-hour hour ("07:05"), and Swift's
+  `.shortened` follows the locale's pattern. They agree for English locales; another locale's separator or marker could differ.
+- The one place a Swift date followed the machine and not the clock previews fix was a past-only picker's last day (`...Date()`).
+  `ShownClock.date` gives it, as `LocalClock` does in Compose.
+- Shared code can still choose a format a reader wouldn't expect: import's starts are ISO text built in the presenter, out of reach of
+  any `AppText` function (the "Import's start times" item).
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2132,11 +2156,93 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Snapshot references are true for iOS 26.0 simulators. CI's simulator is the newest the runner has, so CI compares them only when
   that is 26.0, and otherwise reports them skipped; they are a local check, as the Android references are on Linux.
 - The generated images ignore `autoMirrored`, and the catalog is English only, as `strings.xml` is.
-- About 120 composables still choose text for themselves (dates and times, the dive and stat tables, feature labels). Each moves to
-  an `AppText` function when a native view first needs it. A time of day is `AppText.Time` (`ios-native-account`); a rough length of
-  time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A calendar date written out is
-  `DateText`, and a segment's type `SegmentTexts` (`ios-native-segment-lists`). ~~The feed's start times, which read on the activity's own UTC offset~~: done (`StartText`, `ios-native-activity-card`). The
-  short date (`shortDate`) is still the shared UI's.
+- Text chosen by a rule outside shared code (`shared-text-dates`'s inventory, taken at `349d1eaa`). Most text already comes from an
+  `AppText` function both UIs resolve. What still chooses for itself is listed below by group, one round per group. `ac` is
+  `app/common/ui/…/app`, `ds` is `ui/designsystem/…/app/ui`, and `ios` is `iosApp/iosApp`. "Unused" means nothing calls it, tests
+  included: those entries are deletions, not moves.
+  - [x] **Dates and times** (`shared-text-dates`). Compose: `CombinePickerUi.kt:90-92` built its row from `startTime` and
+    `Format.duration`, which is now `CombinePickerTexts.detail`, as iOS asks. `ActivitySegmentsUi.kt:82,87` built a lift's rides and
+    time, which are now `ActivityPageTexts.liftRides`/`liftTime`, as iOS asks. `EditProfileUi.kt:370-389` showed the birth date's stored
+    `YYYY-MM-DD`, and iOS did the same (`EditProfileView.swift:152`); both now ask `EditProfileTexts.birthDate`. `ac/settings/HistoryDates.kt`
+    held an unused `monthName` and composable `longDate`, now removed. Swift: `SegmentLeaderboardView.swift:45` formatted an entry's
+    `elapsed` itself, and now asks `SegmentBoardTexts.time` as Compose does. Shared code wrote ISO dates in `EditGearTexts.date`,
+    `GearPageTexts.day`, `FeedFilterTexts.range` and `UploadsTexts`' activity name; these now use `DateText.of`. Threshold history's
+    `shortDate` is now `DateText.monthDay`. Not text, but in the group: iOS's past-only date pickers (`EditProfileView.swift:168`,
+    `EditGearView.swift:188`, `FeedFilterBar.swift:263`) ended at the device's `Date()`, and now end at `ShownClock.date`, as Compose's
+    end at `LocalClock`.
+  - [ ] **Import's start times** (found by `shared-text-dates`; shared presenter code, not a UI). The record presenter writes a start
+    as `yyyy-MM-dd HH:mm` text into `State` (`LOCAL_START`: `ImportActivityPresenter.kt:665`, `BatchImport.kt:239`,
+    `OwnActivities.kt:83`, `AddingRecording.kt:48`, `SingleImport.kt:34`), and `ImportActivityTexts` shows it as written: a duplicate's
+    "Already in your log", a batch's rows and the compare sheet. Both UIs read the same text, but it is ISO and on a 24-hour clock
+    whatever the device's setting. Moving it means the state carries the instant and its offset, and the texts write `DayText`/`DateText`
+    with an `AppText.Time`. The import clock's editable start field stays text.
+  - [ ] **Charts** (move the Compose activity charts onto `CardLines.chart`, as `SegmentProfileChart` did; the native chart already
+    draws `CardLines`):
+    - `ac/detail/ChartUnits.kt:38-48` `paceUnit` writes pace values and the axis with `Format.duration` (`StreamUnits.paceText`/`paceAxis`).
+    - `ChartUnits.kt:69-79` `rememberMarkerLabel` builds the readout by `%1`/`%2`/`%3` replacement (`CardLines.chart(…).readouts`).
+    - `ChartUnits.kt:96-107` `streamUnit` writes `formatDecimal` into the unit template (`StreamUnits.text`/`valueText`/`axis`).
+    - `ac/detail/ActivityChartsUi.kt`:
+      - `:246,338` x labels via `Format.duration` (`CardLines.timeTicks`).
+      - `:207-208` average and max (`CardLines.valueText`).
+      - `:213-227` header detail, whose `chart_avg_np_max` branch is unused.
+      - `:238-244` the description joined with " " (`CardLines.sentences`).
+      - `:145-159` `DepthChart` builds gas and alert marks (`CardLines.depthMarks`).
+      - `:279-313` `PowerCurve` rebuilds `CardLines.durationLabel` by replacing "1", interpolates the marker, and glues `unit_watts`
+        (`CardLines.powerCurve`).
+      - `:328-337` `Gears` rounds its own labels (`CardLines.gearText`/`gears`).
+    - `ds/chart/TimeSeriesChart.kt:259-266` `timeStep` spaces time labels on its own steps (60…7200 s). Its steps differ from
+      `CardLines.timeTicks` (60…43200 s, at most 4 gaps), so the two UIs' axes can differ.
+    - `ds/chart/TimeSeriesChart.kt:146-149` and `feature/segment/ui/…/SegmentProfileChart.kt:52-56` fall back to `formatDecimal(v, 0)`
+      while labels load (web).
+  - [ ] **Stats and units:**
+    - `ds/chart/ZoneBars.kt:36-46` writes a zone's percent ("<1%", "$rounded%", not localized), its label and its spoken sentence
+      itself. No shared function exists (`ZoneRows.of` gives only `fraction`), and iOS's zone rows are Kotlin's.
+    - `ac/detail/PageCardsUi.kt:134` decides `showsMin` itself (`FigureTexts.showsMin`).
+    - `PageCardsUi.kt:145-152` falls back to a dash (`StatText.missing`).
+    - `ac/ui/ActivityStats.kt:15-18` `elevationStat` (unused).
+    - `ac/ui/GearTimeChart.kt:47` (unused).
+    - Splitting a value into number and unit runs is written twice: `ac/detail/PageFigures.kt:29-64` (`withSmallUnits`, plus
+      `unbreakableUnit`) and `ios/Screens/ActivityPageCards.swift:16-46` (`FigureParts`). iOS has no `unbreakableUnit`, so a narrow
+      column can wrap inside a unit.
+    - Plurals: `ac/interactions/CommentThreadUi.kt:48` `view_more_replies`, whose count is not grouped (`CommentsTexts.moreReplies`);
+      `ac/interactions/CommentsUi.kt:123-125` `detail_comment_count` (`CommentsTexts.count`).
+  - [ ] **Dive tables and dead dive code** (Compose only; iOS reads `FigureTexts`, `CardLines` and `DetailTable`, all of them shared):
+    - `ac/ui/DiveStats.kt:52-160` `diveOverviewStats`, `conditions`, `gas`, `airUsed` and `consumption`: times, N₂, CNS, ppO₂, ascent
+      rate, gases, tank pressures and RMV/SAC (every one `FigureTexts.value`).
+    - `ac/ui/DiveSettingsStats.kt:25-66` ppO₂ limits, setpoints and the deco model (`FigureTexts.value`).
+    - `ac/ui/DepthProfile.kt:84-96` `rememberDepthLabel`.
+    - `ac/detail/LapTableUi.kt:49-57` `spokenRow` and `cell` (`LapTableTexts.spoken`, `StatText.missing`).
+    - All of these are unused: the round deletes them.
+  - [ ] **Feature labels:**
+    - `ac/detail/PageCardsUi.kt:52` a metric card's title (`FigureTexts.cardTitle`).
+    - `ac/ui/ShownNameLabel.kt:8,11` display name else `@handle`, which iOS repeats (`CommentsSection.swift:118-120`). No shared
+      function exists, and `shownName` falls back to the bare handle.
+    - `ac/ui/SportTypeList.kt:149` expanded or collapsed.
+    - `feature/gear/ui/…/GearListUi.kt:159` a section's header (`gear_retired` else the type).
+    - `feature/post/ui/…/PostPageUi.kt:101,116` Show or Hide likes and reposts (`PostPageTexts.likesToggle`/`repostsToggle`).
+    - Save or Saving in `EditActivityUi.kt:111`, `EditProfileUi.kt:179`, `ZonesUi.kt:103`, `SportZonesUi.kt:116` and
+      `ManualActivityUi.kt:86`. Only record has `ImportActivityTexts.save(saving)`.
+    - The tabs' titles, a `when` in `composeApp/…/nav/TopLevelDestinationLabels.kt` and a `switch` in
+      `ios/Shell/SessionView.swift:128-135`.
+    - The visibility help or locked note, chosen once in Compose (`ActivityVisibilityForm.kt:42`) and five times in Swift
+      (`RecordView.swift:49-53`, `ManualActivityView.swift:66-70`, `EditActivityView.swift:86`, `AcceptInviteView.swift:62`,
+      `ImportActivityView.swift:342`).
+    - A comment's confirm alert, chosen by `item.action == .Delete` in Swift (`CommentsSection.swift:60-74`).
+    - "None" or "All" choices: `SegmentBrowseView.swift:78-80`, `ImportBatchSections.swift:293,355-357,371` and `ZoneRows.swift:69-71`.
+    - The export states in Leave and Account (`LeaveView.swift:107-134,183-187`, `LeaveUi.kt:163-180`; `AccountView.swift:127-137`,
+      `AccountUi.kt:153,170,208`), and `SettingsUi.kt:72`'s sign-in-again summary. The same `when` is in each UI.
+  - [ ] **Other:**
+    - Sentences joined in each UI: `CreateSegmentUi.kt:97`/`CreateSegmentView.swift:99`, `CreateDiveSiteUi.kt:102`/
+      `CreateDiveSiteView.swift:94` (" "), and `AccountUi.kt:233`/`AccountView.swift:86` ("\n\n").
+    - Bullets: `AccountUi.kt:220`/`AccountView.swift:105` and `LeaveUi.kt:130`/`LeaveView.swift:79`.
+    - `ProfilePage.swift:235` looks a country's name up inline rather than through `CountryNames`.
+    - `ActivityPage.swift:329` passes `.Metric` for the start figure. It is harmless, since a start has no unit, but
+      `ImportActivityView.swift:209` passes the athlete's.
+    - `SwiftFitDecoder.swift:46,54` writes English failure text for `FitSupport.unreadable`. Whether it reaches a screen is unchecked.
+  - Not on the list, by design: `AppText.Time`, which each UI formats on the device's clock (`AppTexts.kt:41` with `timeFormat()`, and
+    `CatalogText.time`). Compose writes `H:mm` or `h:mm a` with its own `time_am`/`time_pm`, and pads a 24-hour hour ("07:05"). Swift's
+    `.shortened` follows the locale's own pattern, so a locale's separator or marker can differ. Date pickers and their bounds are the
+    platform's.
 - ~~Pictures from the network load through Nuke on native pages and through Coil on fallback pages~~: Coil left iOS with the fallback
   (`ios-drop-compose`); Nuke is the one cache. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.

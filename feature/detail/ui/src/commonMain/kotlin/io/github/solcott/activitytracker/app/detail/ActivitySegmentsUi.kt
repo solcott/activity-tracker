@@ -32,18 +32,16 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.segment.EffortRow
 import io.github.solcott.activitytracker.app.segment.SegmentKindIcon
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_lift_rides
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_lifts
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_segments
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import kotlinx.collections.immutable.ImmutableList
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The activity's segment efforts in a card after the laps, each opening its segment; nothing when it has none the viewer may see. */
@@ -79,12 +77,12 @@ fun LiftRidesCard(lifts: ImmutableList<LiftRides>, onOpen: (LiftRides) -> Unit, 
                     Column(Modifier.weight(1f)) {
                         Text(lift.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            pluralStringResource(Res.plurals.detail_lift_rides, lift.rides, lift.rides),
+                            ActivityPageTexts.liftRides(lift).string(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(Format.duration(lift.elapsedSeconds), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(ActivityPageTexts.liftTime(lift), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 }
             }
         }

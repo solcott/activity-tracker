@@ -19,7 +19,7 @@ struct FeedFilterTextTests {
 
         let custom = try #require(Samples.feedFilter["custom"]).filter
         #expect(read(FeedFilterTexts.shared.types(filter: custom)) == "Ride + 2 more")
-        #expect(read(FeedFilterTexts.shared.range(range: custom.range)) == "2026-03-01 – 2026-03-15")
+        #expect(read(FeedFilterTexts.shared.range(range: custom.range)) == "Mar 1, 2026 – Mar 15, 2026")
     }
 
     @Test func theDateMenuOffersAnyTimeThePresetsThenCustom() throws {

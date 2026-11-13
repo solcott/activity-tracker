@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.gear
 
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -160,16 +161,16 @@ class GearPageTextsTest {
             GearPageTexts.componentLine(past, metric),
         )
         assertEquals(
-            AppText.named("gear_component_between", AppText.written("2025-03-01"), AppText.written("2026-07-01")),
+            AppText.named("gear_component_between", DateText.date(2025, 3, 1), DateText.date(2026, 7, 1)),
             GearPageTexts.componentDates(past, TimeZone.UTC),
         )
         // The day the viewer's zone puts it on: midnight UTC is still the evening before in New York.
         assertEquals(
-            AppText.named("gear_component_since", AppText.written("2025-02-28")),
+            AppText.named("gear_component_since", DateText.date(2025, 2, 28)),
             GearPageTexts.componentDates(past.copy(to = null), TimeZone.of("America/New_York")),
         )
         assertEquals(
-            AppText.named("gear_component_since", AppText.written("2025-03-01")),
+            AppText.named("gear_component_since", DateText.date(2025, 3, 1)),
             GearPageTexts.mountDates(GearMountView(bike, from), TimeZone.UTC),
         )
         assertEquals(AppText.named("gear_component_actions", AppText.written("Chain #3")), GearPageTexts.componentActions(past))

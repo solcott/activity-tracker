@@ -84,7 +84,7 @@ struct UploadsTextTests {
         let state = try #require(Samples.uploads["refused"])
         let view = try queue("refused")
         let run = view.own[0]
-        #expect(read(UploadsTexts.shared.itemName(item: run, zone: clock.kotlinZone)) == "Run, 2026-05-31")
+        #expect(read(UploadsTexts.shared.itemName(item: run, zone: clock.kotlinZone)) == "Run, May 31, 2026")
         #expect(state.offersSendAgain(item: run))
         let like = try #require(view.refusedOther.first)
         let name = UploadsTexts.shared.changeName(change: like, zone: clock.kotlinZone)

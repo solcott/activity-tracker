@@ -39,13 +39,13 @@ struct GearItemTextTests {
         let now = try #require(bike.components.elements(as: GearComponent.self).first)
         let before = try #require(bike.previous.elements(as: GearComponent.self).first)
         #expect(read(GearPageTexts.shared.componentLine(component: now, units: .Metric)) == "Chain · 32 km")
-        #expect(read(GearPageTexts.shared.componentDates(component: now, zone: utc)) == "Since 2026-07-01")
-        #expect(read(GearPageTexts.shared.componentDates(component: before, zone: utc)) == "2025-03-01 – 2026-07-01")
+        #expect(read(GearPageTexts.shared.componentDates(component: now, zone: utc)) == "Since Jul 1, 2026")
+        #expect(read(GearPageTexts.shared.componentDates(component: before, zone: utc)) == "Mar 1, 2025 – Jul 1, 2026")
         #expect(read(GearPageTexts.shared.componentActions(component: now)) == "Actions for Chain #4")
         let chain = try page("chain")
         let mount = try #require(chain.mounts.elements(as: GearMountView.self).first)
         #expect(mount.parent.name == "Gravel bike")
-        #expect(read(GearPageTexts.shared.mountDates(mount: mount, zone: utc)) == "2025-03-01 – 2026-07-01")
+        #expect(read(GearPageTexts.shared.mountDates(mount: mount, zone: utc)) == "Mar 1, 2025 – Jul 1, 2026")
     }
 
     @Test func onlyTheOwnerManagesComponents() throws {

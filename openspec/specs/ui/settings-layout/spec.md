@@ -512,7 +512,7 @@ On iOS the form of a saved item SHALL also show what it is mounted on and since 
 
 #### Scenario: A mounted chain
 - **WHEN** alice edits Chain #4, mounted on her gravel bike since 1 July 2026
-- **THEN** the form reads "Mounted on Gravel bike since 2026-07-01", and tapping it opens the gravel bike's page
+- **THEN** the form reads "Mounted on Gravel bike since Jul 1, 2026", and tapping it opens the gravel bike's page
 
 #### Scenario: Asked before deleting
 - **WHEN** alice taps Delete on her gravel bike

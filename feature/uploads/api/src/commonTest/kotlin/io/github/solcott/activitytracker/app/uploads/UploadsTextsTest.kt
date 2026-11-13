@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.uploads
 
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.data.activity.ImportSaveStatus
 import io.github.solcott.activitytracker.data.activity.RejectedChange
 import io.github.solcott.activitytracker.data.activity.UploadImport
@@ -89,7 +90,11 @@ class UploadsTextsTest {
     fun anItemReadsByItsTitleOrSportAndDay() {
         assertEquals(written("Evening Run"), UploadsTexts.itemName(item(1, UploadState.Waiting, title = "Evening Run"), utc))
         assertEquals(
-            AppText.named("unsent_change_activity_named", AppText.Named("sport_ride", fallback = written("Ride")), written("2026-05-31")),
+            AppText.named(
+                "unsent_change_activity_named",
+                AppText.Named("sport_ride", fallback = written("Ride")),
+                DateText.date(2026, 5, 31),
+            ),
             UploadsTexts.itemName(item(1, UploadState.Waiting), utc),
         )
         assertEquals(

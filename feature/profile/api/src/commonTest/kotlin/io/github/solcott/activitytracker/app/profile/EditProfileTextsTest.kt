@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.profile
 
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -133,6 +134,12 @@ class EditProfileTextsTest {
         assertNull(state(birthDate = "1990-4-12").birthDay)
         assertEquals("1990-04-13", EditProfileEvent.BirthDateChanged(LocalDate(1990, 4, 13)).value)
         assertEquals("", EditProfileEvent.BirthDateChanged(null as LocalDate?).value)
+    }
+
+    @Test
+    fun theBirthdateReadsWrittenOut() {
+        assertEquals(DateText.date(1990, 4, 12), EditProfileTexts.birthDate(state()))
+        assertNull(EditProfileTexts.birthDate(state(birthDate = "")))
     }
 
     @Test

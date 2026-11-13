@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -42,6 +43,9 @@ object EditProfileTexts {
     /** The inches' label as a row of its own under the feet, as the native form lays them out: "Height (in)". */
     val inchesRow: AppText
         get() = AppText.named("edit_profile_height_in_row")
+
+    /** The birth date [state] holds, written out ("Apr 12, 1990"); null when none is set. */
+    fun birthDate(state: EditProfileState): AppText? = state.birthDay?.let(DateText::of)
 
     /** That [group] was public until now and anyone may already have a copy, named so it stands alone. */
     fun nowHidden(group: DetailGroup): AppText = AppText.named("edit_profile_now_hidden", LabelText.detailGroup(group))
