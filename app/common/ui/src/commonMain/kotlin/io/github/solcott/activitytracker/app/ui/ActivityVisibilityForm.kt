@@ -13,7 +13,6 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_heading
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_help
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -39,7 +38,7 @@ fun ActivityVisibilityForm(
             modifier = Modifier.fillMaxWidth(),
             enabled = canChoose,
         )
-        Note(if (fields.canChoose) stringResource(Res.string.activity_visibility_help) else VisibilityTexts.lockedNote(fields).string())
+        Note(VisibilityTexts.activityNote(fields).string())
         DetailVisibilityPicker(fields, Modifier.fillMaxWidth(), enabled = enabled)
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
@@ -23,8 +24,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.manual_duration_label
 import io.github.solcott.activitytracker.composeApp.resources.manual_title
@@ -83,7 +82,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                 onClick = { state.eventSink(ManualActivityEvent.Save) },
                 enabled = state.valid && !state.saving,
             ) {
-                Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                Text(LabelText.save(state.saving).string())
             }
         }
     }

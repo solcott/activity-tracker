@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.GearPicker
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
@@ -33,8 +34,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_body
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_confirm
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_title
@@ -108,7 +107,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
                 state.error?.let { ErrorText(it) }
                 AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
-                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                    Text(LabelText.save(state.saving).string())
                 }
             }
         }

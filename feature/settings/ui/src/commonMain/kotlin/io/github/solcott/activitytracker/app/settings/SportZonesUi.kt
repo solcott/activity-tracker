@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -26,8 +27,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.sport_zones_threshold_power
 import io.github.solcott.activitytracker.composeApp.resources.zones_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_threshold_heart_rate
@@ -113,7 +112,7 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
                 }
                 state.error?.let { ErrorText(it) }
                 AppButton(onClick = { state.eventSink(SportZonesEvent.Save) }, enabled = state.canSave) {
-                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                    Text(LabelText.save(state.saving).string())
                 }
                 if (state.saved) {
                     AppSecondaryButton(onClick = { state.eventSink(SportZonesEvent.Remove) }, enabled = !state.saving) {

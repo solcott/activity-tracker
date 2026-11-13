@@ -121,13 +121,13 @@ private fun BrowseHeader(state: SegmentBrowseState) {
             AppFilterChip(
                 selected = state.sport == null,
                 onClick = { state.eventSink(SegmentBrowseEvent.SportChanged(null)) },
-                label = { Text(SegmentBrowseTexts.allSports.string()) },
+                label = { Text(SegmentBrowseTexts.sportChoice(null).string()) },
             )
             for (sport in state.sports) {
                 AppFilterChip(
                     selected = state.sport == sport,
                     onClick = { state.eventSink(SegmentBrowseEvent.SportChanged(sport)) },
-                    label = { Text(SegmentBrowseTexts.sport(sport).string()) },
+                    label = { Text(SegmentBrowseTexts.sportChoice(sport).string()) },
                 )
             }
         }

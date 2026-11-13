@@ -25,7 +25,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.settings_account_needs_sign_in
 import io.github.solcott.activitytracker.composeApp.resources.settings_activity_defaults
 import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_gear
@@ -69,7 +68,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             AppListSection(stringResource(Res.string.settings_section_account)) {
                 AppListRow(
                     state.handle,
-                    summary = if (state.needsSignIn) stringResource(Res.string.settings_account_needs_sign_in) else null,
+                    summary = SettingsTexts.accountSummary(state)?.string(),
                     onClick = { open(AccountScreen) },
                     selected = row(AccountScreen),
                 )

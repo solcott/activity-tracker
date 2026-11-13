@@ -49,7 +49,6 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_collections_h
 import io.github.solcott.activitytracker.composeApp.resources.gear_empty
 import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_sensors
 import io.github.solcott.activitytracker.composeApp.resources.gear_more
-import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
@@ -156,7 +155,7 @@ private fun LazyListScope.collections(lists: GearLists, eventSink: (GearListEven
 private fun LazyListScope.section(key: String, type: String?, rows: List<GearRow>, eventSink: (GearListEvent) -> Unit) {
     item(key = "header/$key") {
         Text(
-            if (type == null) stringResource(Res.string.gear_retired) else gearTypeLabel(type),
+            GearListTexts.section(type).string(),
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
