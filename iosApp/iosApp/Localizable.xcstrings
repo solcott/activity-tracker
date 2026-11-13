@@ -20197,17 +20197,6 @@
         }
       }
     },
-    "stat_air_temp" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Air temp"
-          }
-        }
-      }
-    },
     "stat_air_used" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20351,17 +20340,6 @@
         }
       }
     },
-    "stat_desaturation" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desaturation"
-          }
-        }
-      }
-    },
     "stat_descent" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20395,17 +20373,6 @@
         }
       }
     },
-    "stat_dive_number" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dive #"
-          }
-        }
-      }
-    },
     "stat_dive_time" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20424,17 +20391,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elevation"
-          }
-        }
-      }
-    },
-    "stat_end_n2" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "N₂ load"
           }
         }
       }
@@ -20516,17 +20472,6 @@
         }
       }
     },
-    "stat_highest_ppo2" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Max ppO₂"
-          }
-        }
-      }
-    },
     "stat_hrv" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20556,17 +20501,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jumps"
-          }
-        }
-      }
-    },
-    "stat_max_ascent_rate" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Max ascent"
           }
         }
       }
@@ -20611,28 +20545,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Moving time"
-          }
-        }
-      }
-    },
-    "stat_n2_value" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@%% → %2$@%%"
-          }
-        }
-      }
-    },
-    "stat_no_fly" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No-fly"
           }
         }
       }
@@ -20930,17 +20842,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Water temp"
-          }
-        }
-      }
-    },
-    "stat_water_type" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Water"
           }
         }
       }
