@@ -11,34 +11,13 @@ enum FigureValueText {
     }
 }
 
-/// Where a value's numbers are, so its unit can read smaller than its number ("7.83" larger than "mi"), as the shared figure does: a
-/// number is digits joined by decimal, grouping or clock separators, with an optional sign.
-enum FigureParts {
-    struct Part: Equatable {
-        let text: String
-        let isNumber: Bool
-    }
-
-    static func split(_ value: String) -> [Part] {
-        guard let regex = try? NSRegularExpression(pattern: "[-−]?\\d(?:[.,:\\u00A0\\u202F]?\\d)*") else { return [Part(text: value, isNumber: false)] }
-        let string = value as NSString
-        var parts: [Part] = []
-        var at = 0
-        for match in regex.matches(in: value, range: NSRange(location: 0, length: string.length)) {
-            if match.range.location > at {
-                parts.append(Part(text: string.substring(with: NSRange(location: at, length: match.range.location - at)), isNumber: false))
-            }
-            parts.append(Part(text: string.substring(with: match.range), isNumber: true))
-            at = match.range.location + match.range.length
-        }
-        if at < string.length { parts.append(Part(text: string.substring(from: at), isNumber: false)) }
-        return parts
-    }
-
+/// A value's numbers larger than its unit ("7.83" larger than "mi"), in the runs Kotlin splits it into (`FigureParts`), which also keep a
+/// narrow column from wrapping inside the unit ("1:59" over "/100 yd"), as the shared figure does.
+enum FigureRuns {
     /// `value` with its numbers in `font` and the rest in `unitFont`; all in `font` when it holds no number (a device's name).
     static func text(_ value: String, font: Font, unitFont: Font) -> Text {
-        let parts = split(value)
-        guard parts.contains(where: \.isNumber) else { return Text(verbatim: value).font(font) }
+        let parts = FigureParts.shared.of(value: value)
+        guard parts.contains(where: \.isNumber) else { return Text(verbatim: parts.map(\.text).joined()).font(font) }
         return parts.reduce(Text(verbatim: "")) { text, part in
             text + Text(verbatim: part.text).font(part.isNumber ? font : unitFont)
         }
@@ -60,7 +39,7 @@ struct FigureBlock: View {
                 Text(FigureTexts.shared.label(figure: figure)).font(.caption).foregroundStyle(.secondary)
                 MarkBadge(mark: figure.mark)
             }
-            FigureParts.text(FigureValueText.string(figure.value, units: stats.units, clock: clock), font: font.weight(.semibold), unitFont: unitFont)
+            FigureRuns.text(FigureValueText.string(figure.value, units: stats.units, clock: clock), font: font.weight(.semibold), unitFont: unitFont)
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
