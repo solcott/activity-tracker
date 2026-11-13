@@ -2017,6 +2017,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The simulators write HEIC** (`CGImageDestination` with `UTType.heic`, on iOS 26.0 and 18.4), so the HEIC test makes its own.
 - **`ImportSnapshotTests` flaked under load** in this change's runs: a different snapshot each time (the zone sheet's search field
   before its clear button drew, the iPad page drawn about 20 points high). Not this change's screens; not rerun on the base commit.
+  The clear button's cause and fix are under "Search snapshot flake" below. The iPad page's is not known: it failed alone too
+  (`wide`, two runs of three after that fix), the whole page about 20 points higher than the reference and the same on every draw, so
+  settling can't catch it.
 
 ### Phase 5 findings (`ios-drop-compose`)
 
@@ -2151,6 +2154,25 @@ What building the host and the shell on Swift export showed, beyond the probes:
   failures, `SearchSnapshotTests` (`failed`, `noMatch`) and `UploadsSnapshotTests` (`stopped`), passed alone; none of their views changed.
 - Cloning the iOS 18.4 snapshot simulator failed in CoreSimulator ("device remained in Creating state"); a new iPhone 16 Pro on the
   18.4 runtime served instead, since 18.4 runs compare no snapshots.
+
+### Search snapshot flake (`search-snapshot-flake`)
+
+- **Symptom.** `SearchSnapshotTests` failed alone too, a different sample each run (`empty`, `failed`, light or dark; two runs of
+  thirteen here while other sessions kept the load average at 500 to 800), and passed again unchanged: the search field drawn without its
+  clear (×) button, which the references have. `ImportSnapshotTests`' zone sheet (`utc8`) failed the same way under a full run.
+- **Cause.** The clear button (`_UITextFieldClearButton`) draws its symbol with an `RBSymbolLayer`, which fades and grows it in over
+  three or four rendered frames. Each `drawHierarchy(afterScreenUpdates: true)` is one frame. The steps don't follow time: draws 50 ms or
+  250 ms apart took the same three changes, a single attached controller drawn eight times too. The view's `layer.speed = 0` doesn't
+  stop them, and the client's layers carry no animation for them (only the glass lens's `CAMatchMoveAnimation`). Under load the
+  transition can start a draw late. The first two draws then both lack the button and agree, and the old rule (two draws in a row the
+  same) settled on that: in every failing run seen, two draws were taken and they matched.
+- **What didn't stop it.** `UIView.setAnimationsEnabled(false)` around the draws, `removeAllSymbolEffects(options:animated: false)` on
+  every image view, and laying the controller out before the library puts it in the window. Nothing public turns off UIKit's own
+  transition, and the view itself has no say over it, so the fix is in the settling.
+- **Fix.** `Snapshotting.settledImage` now takes a draw only once `Snapshots.settledDraws` (three) draws in a row agree, within
+  `Snapshots.settleDraws` (nine). A transition a draw late leaves two matching draws before it, so the third differs and drawing goes
+  on. No tolerance or reference changed. It costs one more draw per image. Search then passed 10 runs in a row alone under the same
+  load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it; Import's `wide` iPad page, which still fails alone, has another (above).
 
 ## Open items
 
