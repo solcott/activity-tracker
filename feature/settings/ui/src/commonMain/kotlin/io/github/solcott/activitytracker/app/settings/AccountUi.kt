@@ -37,8 +37,6 @@ import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.account_did
-import io.github.solcott.activitytracker.composeApp.resources.account_did_copied
-import io.github.solcott.activitytracker.composeApp.resources.account_did_copy
 import io.github.solcott.activitytracker.composeApp.resources.account_handle
 import io.github.solcott.activitytracker.composeApp.resources.account_leave_summary
 import io.github.solcott.activitytracker.composeApp.resources.account_managed_by_server
@@ -168,7 +166,7 @@ private fun Identity(state: AccountState) {
                         copied = true
                     },
                 ) {
-                    Text(stringResource(if (copied) Res.string.account_did_copied else Res.string.account_did_copy))
+                    Text(AccountTexts.didCopy(copied).string())
                 }
             },
         )

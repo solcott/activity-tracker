@@ -101,4 +101,10 @@ class AccountTextsTest {
         assertEquals(listOf(tryAgain, cancel), AccountTexts.exportControls(DataExportStatus.Paused(null)))
         assertEquals(listOf(tryAgain, cancel), AccountTexts.exportControls(DataExportStatus.Failed))
     }
+
+    @Test
+    fun copyReadsCopiedOnceTapped() {
+        assertEquals(AppText.named("account_did_copy"), AccountTexts.didCopy(copied = false))
+        assertEquals(AppText.named("account_did_copied"), AccountTexts.didCopy(copied = true))
+    }
 }

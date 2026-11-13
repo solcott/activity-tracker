@@ -19,7 +19,7 @@ struct AccountView: View {
             Section {
                 AppListRow(Text(.accountHandle), summary: Text(verbatim: state.handle))
                 AppListRow(Text(.accountDid), summary: Text(verbatim: state.did)) {
-                    AppSecondaryButton(copied ? .accountDidCopied : .accountDidCopy, small: true) {
+                    AppSecondaryButton(AccountTexts.shared.didCopy(copied: copied), small: true) {
                         UIPasteboard.general.string = state.did
                         copied = true
                     }

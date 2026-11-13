@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.auth.LeaveStep
 import io.github.solcott.activitytracker.data.auth.PendingWork
@@ -98,5 +99,11 @@ class LeaveTextsTest {
             listOf(ExportControl(ExportAction.Save, AppText.named("leave_export_save"), primary = true)),
             LeaveTexts.exportControls(state().copy(export = LeaveExport.Ready)),
         )
+    }
+
+    @Test
+    fun aRunningLeaveSaysKeepOpenUntilItStops() {
+        assertEquals(AppText.named("leave_keep_open"), LeaveTexts.runNote(LeaveRun(LeaveStep.Repo)))
+        assertEquals(AppText.named("leave_stopped"), LeaveTexts.runNote(LeaveRun(LeaveStep.Repo, error = UiError(UiError.Kind.StartLeave))))
     }
 }

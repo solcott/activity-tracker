@@ -51,6 +51,9 @@ object AccountTexts {
             DataExportStatus.Failed -> listOf(AppText.named("export_data_failed"))
         }
 
+    /** The DID's Copy button, which reads Copied once tapped, until the page goes. */
+    fun didCopy(copied: Boolean): AppText = AppText.named(if (copied) "account_did_copied" else "account_did_copy")
+
     /**
      * The export's buttons under its lines: Export; Cancel while it runs; Save and Delete export once ready; Try again and Cancel once
      * stopped.

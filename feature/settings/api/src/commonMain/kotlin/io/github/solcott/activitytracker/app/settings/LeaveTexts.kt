@@ -56,6 +56,9 @@ object LeaveTexts {
     /** Until when the server asked it to wait, as a time of day on the device's clock, while it does. */
     fun paused(run: LeaveRun): AppText? = run.pausedUntil?.let { AppText.named("leave_paused", AppText.Time(it.epochSeconds)) }
 
+    /** The line under a running leave: keep the app open while it runs, or that it stopped (with Retry beside it) once it failed. */
+    fun runNote(run: LeaveRun): AppText = AppText.named(if (run.error == null) "leave_keep_open" else "leave_stopped")
+
     /** What the export section says: offering one, that one is running, or that the finished one is still to be saved. */
     fun exportLine(export: LeaveExport): AppText =
         AppText.named(

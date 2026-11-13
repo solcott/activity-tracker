@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
@@ -34,7 +35,9 @@ class ExportControlsTest {
                 LeaveExport.entries.flatMap { export ->
                     LeaveTexts.exportControls(leave.copy(export = export)).map { it.label } + LeaveTexts.exportLine(export)
                 } +
-                listOfNotNull(SettingsTexts.accountSummary(settings))
+                listOfNotNull(SettingsTexts.accountSummary(settings)) +
+                listOf(true, false).map(AccountTexts::didCopy) +
+                listOf(LeaveRun(), LeaveRun(error = UiError(UiError.Kind.StartLeave))).map(LeaveTexts::runNote)
         val missing = texts.map { (it as AppText.Named).name }.distinct().filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }

@@ -42,7 +42,6 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_prof
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_segments
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_settings
 import io.github.solcott.activitytracker.composeApp.resources.leave_intro
-import io.github.solcott.activitytracker.composeApp.resources.leave_keep_open
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_deleted
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_device
@@ -52,7 +51,6 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_section_stay
 import io.github.solcott.activitytracker.composeApp.resources.leave_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_account
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_other_apps
-import io.github.solcott.activitytracker.composeApp.resources.leave_stopped
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.ImmutableList
@@ -232,10 +230,8 @@ private fun Progress(run: LeaveRun, eventSink: (LeaveEvent) -> Unit) {
         }
         LeaveTexts.recordsDeleted(run)?.let { Text(it.string(), style = body) }
         LeaveTexts.paused(run)?.let { Text(it.string(), style = body) }
-        if (error == null) {
-            Text(stringResource(Res.string.leave_keep_open), style = body)
-        } else {
-            Text(stringResource(Res.string.leave_stopped), style = body)
+        Text(LeaveTexts.runNote(run).string(), style = body)
+        if (error != null) {
             AppButton(onClick = { eventSink(LeaveEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
         }
     }

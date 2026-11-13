@@ -182,10 +182,8 @@ struct LeaveView: View {
                 if let paused = LeaveTexts.shared.paused(run: run) {
                     Text(paused)
                 }
-                if run.error == nil {
-                    Text(.leaveKeepOpen)
-                } else {
-                    Text(.leaveStopped)
+                Text(LeaveTexts.shared.runNote(run: run))
+                if run.error != nil {
                     AppButton(.actionRetry) { state.eventSink(LeaveEvent.Retry.shared) }
                 }
             }
