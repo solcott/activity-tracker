@@ -17,7 +17,7 @@ None.
 
 ### Modified Capabilities
 
-- `dev/shared-display-text`: threshold history's chart is drawn by both UIs from the one shared `LineChart`, not only chosen by shared code.
+- `dev/shared-display-text`: adds that both UIs draw threshold history's chart from the one shared `LineChart`, not only that shared code chooses it.
 
 ## Impact
 
