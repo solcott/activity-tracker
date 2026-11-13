@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.detail.RecordingTexts
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.gear.deviceName
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.ErrorTexts
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
@@ -130,14 +131,14 @@ object ImportActivityTexts {
     fun mapLockDescription(page: ActivityPageContent): AppText? =
         page.mapMark?.let { VisibilityTexts.lockDescription(DetailCategory.MAP, it) }
 
-    /** "Adds this file as another recording of: Lunch loop · 2024-05-14 12:01 · Garmin Fenix 7". */
+    /** "Adds this file as another recording of: Lunch loop · May 14, 2024 at 12:01 PM · Garmin Fenix 7". */
     fun addingTo(target: ExistingActivityPreview): AppText = AppText.named("import_adding_to", described(target))
 
-    /** "Lunch loop · 2024-05-14 12:01 · Garmin Fenix 7", Untitled activity for one with no title. */
+    /** "Lunch loop · May 14, 2024 at 12:01 PM · Garmin Fenix 7", Untitled activity for one with no title. */
     private fun described(activity: ExistingActivityPreview): AppText =
         listOfNotNull(
                 activity.title?.let(AppText::written) ?: AppText.named("import_duplicate_untitled"),
-                AppText.written(activity.start),
+                start(activity.start),
                 activity.device?.let(AppText::written),
             )
             .let(::dotted)
@@ -285,11 +286,11 @@ object ImportActivityTexts {
     /** A row's title, else its default title. */
     fun rowTitle(row: ImportRow): AppText = row.title?.let(AppText::written) ?: defaultTitle(row.defaultTitle)
 
-    /** "2024-05-12 07:02 · Ride · 42.1 km · 1:32:10 · Edge 840": a dive's depth and number in place of distance. */
+    /** "May 12, 2024 at 7:02 AM · Ride · 42.1 km · 1:32:10 · Edge 840": a dive's depth and number in place of distance. */
     fun rowDetails(row: ImportRow, units: UnitSystem): AppText =
         dotted(
             listOfNotNull(
-                AppText.written(row.start),
+                start(row.start),
                 LabelText.activityType(row.type),
                 row.dive?.maxDepthMeters?.let { StatText.depth(it, units) } ?: row.distanceMeters?.let { StatText.distance(it, units) },
                 AppText.written(StatText.duration(row.elapsed.inWholeSeconds)),
@@ -357,7 +358,7 @@ object ImportActivityTexts {
     /** The five things a comparison lines up, any of them unknown. */
     private class CompareValues(
         val type: ActivityType?,
-        val start: String,
+        val start: ImportStart,
         val elapsed: Duration?,
         val meters: Double?,
         val device: String?,
@@ -367,7 +368,7 @@ object ImportActivityTexts {
             val missing = AppText.named("value_missing")
             return listOf(
                 type?.let(LabelText::activityType) ?: missing,
-                AppText.written(start),
+                ImportActivityTexts.start(start),
                 elapsed?.let { AppText.written(StatText.duration(it.inWholeSeconds)) } ?: missing,
                 meters?.let { StatText.distance(it, units) } ?: missing,
                 device?.let(AppText::written) ?: missing,
@@ -499,6 +500,9 @@ object ImportActivityTexts {
     /** "Sensors matched more than one Bike: Tarmac, Stumpjumper. Remove any you didn't use." */
     fun gearConflict(conflict: GearConflict): AppText =
         AppText.named("gear_conflict", GearTexts.type(conflict.type), commaList(conflict.names.map(AppText::written)))
+
+    /** "May 12, 2024 at 7:02 AM", on the clock of the zone it's read in; the time on the device's 12- or 24-hour clock. */
+    fun start(start: ImportStart): AppText = DateText.at(start.epochSeconds, start.utcOffsetMinutes)
 
     private fun whole(value: Int): AppText = AppText.written(formatWhole(value))
 

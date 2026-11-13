@@ -25,7 +25,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 
 /** A file a batch read activities from: [ref] finds it again. */
@@ -229,14 +228,15 @@ internal fun batchRows(
             val activity = placed[index]
             val override = selection.overrides[index]
             val type = item.type(override)
-            val local = activity.startedAt.toLocalDateTime(activity.localZone(zoneOf(item.file)))
+            val zone = activity.localZone(zoneOf(item.file))
+            val local = activity.startedAt.toLocalDateTime(zone)
             val match = matches.getOrNull(index)
             ImportRow(
                 index = index,
                 title = item.title(override),
                 defaultTitle = DefaultTitle(partOfDay(local.hour), type),
                 type = type,
-                start = local.format(LOCAL_START),
+                start = importStart(activity.startedAt, zone),
                 month = LocalDate(local.year, local.month, 1),
                 elapsed = activity.elapsed,
                 distanceMeters = activity.distanceMeters,

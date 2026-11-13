@@ -27,6 +27,9 @@ import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 
 private val typeField: ActivityTypeField
     get() =
@@ -217,8 +220,8 @@ object ImportActivitySamples {
             title = title,
             defaultTitle = DefaultTitle(PartOfDay.Morning, type),
             type = type,
-            start = start,
-            month = LocalDate.parse(start.substringBeforeLast('-') + "-01"),
+            start = startAt(start),
+            month = LocalDate.parse(start.substringBefore(' ').substringBeforeLast('-') + "-01"),
             elapsed = ROW_ELAPSED,
             distanceMeters = null,
             dive = null,
@@ -231,7 +234,7 @@ object ImportActivitySamples {
 
     private val logged =
         DuplicateInfo(
-            existing = ExistingActivityPreview("Lunch loop", "2024-05-14 12:01", "Garmin Fenix 7"),
+            existing = ExistingActivityPreview("Lunch loop", startAt("2024-05-14 12:01"), "Garmin Fenix 7"),
             inBatchIndex = null,
             hoursApart = 0,
             action = DuplicateAction.Combine,
@@ -312,7 +315,7 @@ object ImportActivitySamples {
                             matched =
                                 ExistingActivityPreview(
                                     title = null,
-                                    start = "2024-05-03 18:15",
+                                    start = startAt("2024-05-03 18:15"),
                                     device = "Garmin Forerunner 965",
                                     type = ActivityType(Sport.RIDE),
                                     elapsed = ROW_ELAPSED,
@@ -355,7 +358,7 @@ object ImportActivitySamples {
             state(false, preview)
                 .copy(page = ActivityDetailSamples.ridePage, details = details, gear = gear.copy(conflicts = persistentListOf()))
 
-    private val lunchLoop = ExistingActivityPreview("Lunch loop", "2024-05-14 12:01", "Garmin Fenix 7")
+    private val lunchLoop = ExistingActivityPreview("Lunch loop", startAt("2024-05-14 12:01"), "Garmin Fenix 7")
 
     /** Beyond [all]: what the native screen draws and the screenshots don't need again. */
     val variants: Map<String, ImportActivityState>
@@ -441,3 +444,7 @@ object ImportActivitySamples {
 }
 
 private val ROW_ELAPSED = 52.minutes
+
+/** A sample's start, [local] ("2024-05-14 12:01") on a UTC clock. */
+private fun startAt(local: String): ImportStart =
+    ImportStart(LocalDateTime.parse(local.replace(' ', 'T')).toInstant(TimeZone.UTC).epochSeconds, utcOffsetMinutes = 0)

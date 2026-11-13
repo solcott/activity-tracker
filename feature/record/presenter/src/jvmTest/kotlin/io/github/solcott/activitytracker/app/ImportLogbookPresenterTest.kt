@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.record.ExistingActivityPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.record.ImportStart
 import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
@@ -413,7 +414,14 @@ class ImportLogbookPresenterTest {
             val batch = assertNotNull(checked.batch)
             val duplicate = assertNotNull(batch.rows[0].duplicate)
             assertEquals(
-                ExistingActivityPreview("Blue Hole", "2026-09-20 10:00", "Garmin Descent Mk3", ActivityType(Sport.DIVE), 40.minutes),
+                ExistingActivityPreview(
+                    "Blue Hole",
+                    // Read in the file's zone, UTC: 10:00 on its clock.
+                    ImportStart(Instant.parse("2026-09-20T10:00:00Z").epochSeconds, utcOffsetMinutes = 0),
+                    "Garmin Descent Mk3",
+                    ActivityType(Sport.DIVE),
+                    40.minutes,
+                ),
                 duplicate.existing,
             )
             assertEquals(DuplicateAction.Combine, duplicate.action, "Combine is the default")

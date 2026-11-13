@@ -7,8 +7,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
+import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
 
@@ -39,6 +41,18 @@ class AppTextStringUiTest {
 
     /** 16:00 UTC is 9:00 AM at UTC-7, whatever the viewer's zone (feed/activity-start-time). */
     @Test fun aTimeInItsOwnOffset() = shows(AppText.Time(1_794_326_400, utcOffsetMinutes = -420), "9:00 AM", twentyFourHour = false)
+
+    /** 07:02 on 12 May 2024 at UTC+2, as an import's start reads (dev/shared-display-text). */
+    private val importStart = DateText.at(Instant.parse("2024-05-12T05:02:00Z").epochSeconds, utcOffsetMinutes = 120)
+
+    @Test fun aDateAndTimeOnATwelveHourClock() = shows(importStart, "May 12, 2024 at 7:02 AM", twentyFourHour = false)
+
+    @Test fun aDateAndTimeOnATwentyFourHourClock() = shows(importStart, "May 12, 2024 at 07:02", twentyFourHour = true)
+
+    /** 23:30 UTC is already the next day at UTC+2: the date and the time are both that offset's. */
+    @Test
+    fun aDateAndTimeOnAnotherOffset() =
+        shows(DateText.at(Instant.parse("2024-05-12T23:30:00Z").epochSeconds, 120), "May 13, 2024 at 1:30 AM", twentyFourHour = false)
 
     @Test fun aNamedStringWithItsArgument() = shows(AppText.named("unit_distance_mi", AppText.written("3.00")), "3.00 mi")
 

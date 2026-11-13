@@ -2092,6 +2092,24 @@ What building the host and the shell on Swift export showed, beyond the probes:
   Vico and its own drawing of the backdrop, other lines and marks; only their words are shared" is now true only of the drawing: the
   backdrop's scaling is shared too. Threshold history's Compose chart is the one Compose chart not drawn from its `LineChart`.
 
+### Text round 2 findings (import's start times, `shared-text-import-times`)
+
+- Neither UI read an import start directly: both drew `ImportActivityTexts`' choices, so moving the format into shared code changed no
+  Compose or Swift view, only the contract, the presenter, the samples and the tests.
+- Visible on every platform: a batch row starts "Apr 28, 2024 at 7:02 AM · Run · …", the compare sheet's starts, "Already in your log:
+  Lunch loop · May 14, 2024 at 12:01 PM · Garmin Fenix 7" and "Adds this file as another recording of: …" read the same way. On a 24-hour
+  device the time is "07:02" in Compose and the locale's short time in Swift. They were "2024-04-28 07:02" before.
+- iOS 26.0 snapshots changed for eleven import samples (`batch`, `batchExport`, `batchDuplicates`, `batchSaving`, `batchSaveFailed`,
+  `batchPreview`, `batchChecking`, `duplicate`, `duplicateUploading`, `addsRecording`, `tooFar`) and the opened row. No Android
+  reference changed: the phone-sized batch screenshots end above the rows, and the duplicate and adding-to samples are variants only iOS draws.
+- The written-out date is `DateText.at(epochSeconds, utcOffsetMinutes)`, not `DayText`: the texts take no current moment, and a batch is
+  already grouped under month headings. A start's day is the day in its own offset ("May 13" for 23:30 UTC read at UTC+2).
+- The import clock's `localStart` (a zoneless wall clock the zone notice quotes, "its start (2024-10-16 17:30)") still reads ISO and on a
+  24-hour clock. It is not a moment until a zone is picked, so it would need a `LocalDateTime` text of its own; left as the task asked.
+- The Compose Account page's "Did you keep the export?" dialog and `ArchiveHandOffResult.Shared` are gone; the contract, the
+  `exportSharedAsk` sample and the strings stay for the native Account view, and the sample left the Android screenshots (its reference is
+  deleted, since without the dialog it drew `exportReady`).
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2192,12 +2210,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
     `shortDate` is now `DateText.monthDay`. Not text, but in the group: iOS's past-only date pickers (`EditProfileView.swift:168`,
     `EditGearView.swift:188`, `FeedFilterBar.swift:263`) ended at the device's `Date()`, and now end at `ShownClock.date`, as Compose's
     end at `LocalClock`.
-  - [ ] **Import's start times** (found by `shared-text-dates`; shared presenter code, not a UI). The record presenter writes a start
-    as `yyyy-MM-dd HH:mm` text into `State` (`LOCAL_START`: `ImportActivityPresenter.kt:665`, `BatchImport.kt:239`,
-    `OwnActivities.kt:83`, `AddingRecording.kt:48`, `SingleImport.kt:34`), and `ImportActivityTexts` shows it as written: a duplicate's
-    "Already in your log", a batch's rows and the compare sheet. Both UIs read the same text, but it is ISO and on a 24-hour clock
-    whatever the device's setting. Moving it means the state carries the instant and its offset, and the texts write `DayText`/`DateText`
-    with an `AppText.Time`. The import clock's editable start field stays text.
+  - [x] **Import's start times** (`shared-text-import-times`). The record presenter wrote a start as `yyyy-MM-dd HH:mm` text into
+    `State` (`LOCAL_START`), and `ImportActivityTexts` showed it as written: a duplicate's "Already in your log", the recording a file is
+    added to, a batch's rows and the compare sheet. `ExistingActivityPreview.start` and `ImportRow.start` are now an `ImportStart` (epoch
+    seconds and the zone's UTC offset), and the texts write it with `DateText.at` ("May 12, 2024 at 7:02 AM", an `AppText.Time` in that
+    offset). The import clock (`ImportClock.localStart`, quoted by the zone notice) stays text.
   - [x] **Charts** (`shared-text-charts`). The Compose card (`ac/detail/ActivityChartsUi.kt`) now draws `CardLines.of` whole: each
     `CardLine`'s header and chart, the power curve and the gears, through `LineChartUi` (`ac/ui/chart/LineChartUi.kt`), which lays a
     `LineChart` out on Vico as `LineChartView` does on Swift Charts, and `SegmentProfileChart` draws through it too. `ChartUnits.kt`

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.text
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
 /** How a calendar date is written out (dev/shared-display-text). */
@@ -24,6 +25,20 @@ class DateTextTest {
         assertEquals(DateText.date(2026, 7, 1), DateText.of(LocalDate(2026, 7, 1)))
         assertEquals(DateText.date(2026, 12, 31), DateText.of(LocalDate(2026, 12, 31)))
         assertEquals(DateText.isoDate("1990-04-12"), DateText.of(LocalDate(1990, 4, 12)))
+    }
+
+    @Test
+    fun aMomentIsItsDateAtItsTimeOnItsOwnClock() {
+        val at = Instant.parse("2024-05-12T05:02:00Z").epochSeconds
+        assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 12), AppText.Time(at, 120)), DateText.at(at, 120))
+    }
+
+    @Test
+    fun aMomentsDateIsItsOffsets() {
+        // 23:30 UTC is 01:30 the next day at UTC+2, and 18:30 the same day at UTC-5.
+        val at = Instant.parse("2024-05-12T23:30:00Z").epochSeconds
+        assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 13), AppText.Time(at, 120)), DateText.at(at, 120))
+        assertEquals(AppText.named("page_start_value", DateText.date(2024, 5, 12), AppText.Time(at, -300)), DateText.at(at, -300))
     }
 
     @Test

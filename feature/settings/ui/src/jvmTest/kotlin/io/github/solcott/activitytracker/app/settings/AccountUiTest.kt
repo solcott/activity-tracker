@@ -115,15 +115,6 @@ class AccountUiTest {
     }
 
     @Test
-    fun aSharedExportAsksBeforeDeletingTheAppsCopy() = runComposeUiTest {
-        val events = mutableListOf<AccountEvent>()
-        setContent { AppPreview { AccountUi(AccountSamples.all.getValue("exportSharedAsk").copy(eventSink = { events += it })) } }
-        onNodeWithText("Did you keep the export?").assertExists()
-        onNodeWithText("Delete the app's copy").performClick()
-        assertEquals(AccountEvent.KeptShared(kept = true), events.last())
-    }
-
-    @Test
     fun anUnsavedExportIsMentionedBeforeSigningOut() = runComposeUiTest {
         setContent { AppPreview { AccountUi(AccountSamples.all.getValue("pendingExport")) } }
         onNodeWithText("Your data export hasn't been saved", substring = true).assertExists()

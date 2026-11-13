@@ -18,11 +18,11 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.ownActivitiesAround
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
-import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.offsetAt
 
 /**
  * The athlete's own activities around a file's, to find duplicates among; null while they load. [retry] searches again after a search that
@@ -80,7 +80,7 @@ internal fun duplicateInfo(match: ActivityMatch?, action: DuplicateAction, zone:
             existing?.let {
                 ExistingActivityPreview(
                     it.title,
-                    it.startedAt.toLocalDateTime(zone).format(LOCAL_START),
+                    importStart(it.startedAt, zone),
                     it.device,
                     ActivityType(it.sport, it.subSport),
                     it.elapsedTime.seconds,
@@ -123,3 +123,9 @@ internal fun List<ImportedActivity>.spans(): List<MatchSpan> = map { it.matchSpa
 internal fun ScannedBatch.spans(placed: List<ImportedActivity>): List<MatchSpan> = placed.mapIndexed { index, activity ->
     activity.matchSpan(items[index].type(null).sport)
 }
+
+/** [at] as an import's start, on [zone]'s clock at that moment. */
+internal fun importStart(at: Instant, zone: TimeZone): ImportStart =
+    ImportStart(at.epochSeconds, zone.offsetAt(at).totalSeconds / SECONDS_PER_MINUTE)
+
+private const val SECONDS_PER_MINUTE = 60
