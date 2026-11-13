@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui.chart
 
 import androidx.compose.runtime.Immutable
+import kotlin.math.abs
 
 /**
  * A point of a [TimeSeriesChart]: [x] in seconds from the start (or any unit its `xLabel` reads), [y] already in display units. [gapBefore]
@@ -13,3 +14,16 @@ import androidx.compose.runtime.Immutable
 
 /** [text] written above the point at [x], [y] of a [TimeSeriesChart]. */
 @Immutable data class SeriesLabel(val x: Double, val y: Double, val text: String)
+
+/** A label on a chart's axis: its [text] at [value], already resolved. */
+@Immutable data class AxisLabel(val value: Double, val text: String)
+
+/**
+ * The text of the label in [labels] at [value], or a blank. Vico asks only at the chart's own ticks, and refuses an empty label, which a
+ * string resource is on the web until resources load: the chart then shows nothing there rather than a number of its own.
+ */
+internal fun labelAt(labels: List<AxisLabel>, value: Double): String =
+    labels.firstOrNull { abs(it.value - value) < LABEL_MATCH }?.text?.ifEmpty { null } ?: BLANK_LABEL
+
+private const val LABEL_MATCH = 1e-6
+internal const val BLANK_LABEL = " "
