@@ -2038,10 +2038,12 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The data export's notification read Compose resources on iOS** (`getString(Res.string…)`), the one place iOS Kotlin did. It reads
   the generated String Catalog through `NSBundle` now.
 - **`checkModuleBoundaries` counts `:app-graph` as an app shell**, since the iOS graph aggregates every presenter's factories.
-- **Left for a cleanup**: `UiPlatform.Ios` and the shared theme's iOS look (`IosColors`, its shapes and type), `LocalPinnedOverContent`,
+- ~~**Left for a cleanup**: `UiPlatform.Ios` and the shared theme's iOS look (`IosColors`, its shapes and type), `LocalPinnedOverContent`,
   `LocalFloatingBottomBarHeight`, `AppIcon`'s Cupertino glyphs (and `calf-cupertino-icons`) and `AppShell`'s iOS branch compile into no
   build now but are still selectable by a preview; and `:ui-designsystem`'s `expect`s keep their Material `actual`s in `nonAppleMain`,
-  which now covers every target.
+  which now covers every target.~~ Done (`compose-ios-cleanup`): all of it removed, the wrappers folded into `commonMain`, and Calf
+  dropped from the build, since off iOS it only forwarded to Material. Left: the shared Account page's "did you keep it?" dialog after
+  a share (`ArchiveHandOffResult.Shared`), which only iOS's share sheet produced.
 - `IosResourcesTest`'s `check` run had failed since `checkIosScreenRegistry` joined `check` (its project had no registry); fixed here.
 
 ## Open items
