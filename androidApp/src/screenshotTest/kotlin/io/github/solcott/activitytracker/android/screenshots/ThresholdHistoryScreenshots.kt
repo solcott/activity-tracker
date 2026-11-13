@@ -23,3 +23,15 @@ private fun ThresholdHistoryStates(@PreviewParameter(ThresholdHistoryStates::cla
 }
 
 class ThresholdHistoryStates : OtherSamples<ThresholdHistoryState>(ThresholdHistorySamples.all)
+
+/** The charted samples only iOS drew before: steps with labelled dots expanded, sparklines collapsed, and a pace. */
+@PreviewTest
+@PreviewPhoneSize
+@PreviewScreenVariants
+@Composable
+private fun ThresholdHistoryCharts(@PreviewParameter(ThresholdHistoryCharted::class) state: ThresholdHistoryState) {
+    ScreenPreview { ThresholdHistoryUi(state) }
+}
+
+class ThresholdHistoryCharted :
+    OtherSamples<ThresholdHistoryState>(ThresholdHistorySamples.variants.filterKeys { it in setOf("charted", "collapsed", "pace") })
