@@ -19,14 +19,16 @@ the "Left for a cleanup" note in `openspec/explorations/ios-native-ui.md`.
   Symbol name, which the generated Swift `AppIcon` reads.
 - **The design system's `nonAppleMain` folds into `commonMain`**: each wrapper whose only `actual` was there becomes a plain
   `commonMain` function, and the source set goes. `core/textfield`'s `nonAppleMain` stays (that module still builds for iOS).
-- **Calf's iOS arguments go** from the wrappers that forward to it (alert actions, menu items, the tab bar). `calf-ui` itself stays:
-  Android, desktop and web still draw menus, sheets, switches, alerts and the date bounds through it.
+- **Calf leaves the build.** Off iOS every Calf call the app made (`AdaptiveBottomSheet`, `AdaptiveDropDown`, `AdaptiveSwitch`,
+  `AdaptiveBasicAlertDialog`, `AdaptiveNavigationBar`) only forwarded to the Material 3 widget with the same defaults, so the wrappers
+  call Material directly, and `DateBounds` (Calf's `SelectableDates` for a date range) becomes the design system's own.
 - Docs that describe the iOS Compose look (KDoc of the wrappers, `adaptive-ui.md`, `compose-screens.md`, `build-logic.md`, the
   `reuse-audit` skill, detekt's allowed composition locals, `CLAUDE.md`) stop describing it, and the roadmap's cleanup note is marked
   done.
 
-Out of scope: what Android, desktop and web show (their screenshot references stay as they are), and replacing `calf-ui` with
-Material's own widgets.
+Out of scope: what Android, desktop and web show (their screenshot references stay as they are), and the shared Account page's
+"did you keep it?" dialog after a share (`ArchiveHandOffResult.Shared`), which only iOS's share sheet produced but whose screen code
+another change is editing.
 
 ## Capabilities
 
@@ -41,5 +43,6 @@ None.
 ## Impact
 
 `:ui-designsystem` (theme, `ui/adaptive`, the `nonAppleMain` source set), `:app-common-ui` (`AppPreview`, `SportTypeList`),
-`:composeApp` (`AppShell`), `:feature-feed-ui`, `:feature-record-ui`, `gradle/libs.versions.toml`, `config/detekt/detekt.yml`, the
+`:composeApp` (`AppShell`), `:feature-feed-ui`, `:feature-record-ui`, the `DateBounds` imports in `:feature-feedfilter-ui` and `:feature-gear-ui`,
+`gradle/libs.versions.toml`, `config/detekt/detekt.yml`, the
 `IosResourcesTest` fixture, rules and docs. No lexicon, AppView or iOS app change; the generated `AppIcon.swift` is unchanged.
