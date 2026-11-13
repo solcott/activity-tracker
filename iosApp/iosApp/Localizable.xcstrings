@@ -21770,6 +21770,17 @@
         }
       }
     },
+    "text_bullet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "•"
+          }
+        }
+      }
+    },
     "text_dot_pair" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -21792,6 +21803,17 @@
         }
       }
     },
+    "text_paragraph_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@\n\n%2$@"
+          }
+        }
+      }
+    },
     "text_semicolon_pair" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -21799,6 +21821,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@; %2$@"
+          }
+        }
+      }
+    },
+    "text_sentence_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
           }
         }
       }
