@@ -2070,6 +2070,28 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Shared code can still choose a format a reader wouldn't expect: import's starts are ISO text built in the presenter, out of reach of
   any `AppText` function (the "Import's start times" item).
 
+### Text round 2 findings (charts, `shared-text-charts`)
+
+- The Compose card now asks the same `CardLines.of` the native card asks and draws each `LineChart` whole (`LineChartUi`,
+  `:app-common-ui`), so every word, tick and axis on an activity chart is chosen once. iOS changed nothing visible: it already drew these.
+  Visible on Android, desktop and web: time axes step at `CardLines.timeTicks` (a 20-minute step is gone; 3, 4, 6 and 12 hours are new),
+  the power curve labels only 5s, 1m, 5m, 20m and 1h and its readout gives the nearest duration on the curve rather than an interpolated
+  one, a chart of several tanks no longer repeats "Tank pressure" over itself, and a label still loading on the web is blank, not a number.
+- `TimeSeriesChart` lost every rule of its own (its time steps, its inversion, its own backdrop scaling, the `formatDecimal` fallback): it
+  takes an axis and resolved `AxisLabel`s. A `LineChart` already carries a pace or depth negated and its backdrop scaled onto the axis.
+- Vico gives a label exactly at its range's edge no width (`maxWidth` from the gap to the mirrored edge), so it never draws one: Compose
+  shows no 0:00 or end time, nor a segment profile's 0 and its length, where Swift Charts' plot padding (`ios-native-charts`) shows them.
+  `FixedXLabels` now leaves those out and gives room past the plot only to a label near an edge (the power curve's ends), so the time
+  charts lost the blank strip a half-label margin left at their right.
+- A readout for every point is too many `stringResource` calls for one composition (each line's readouts, on every card), so
+  `LineChartUi` reads them off the composition once (`AppText.load`, through Compose Resources' suspend `getString`). Layoutlib can't
+  read resources that way ("Asset repository is not set"), so a preview reads none; a screenshot never shows a readout.
+- Only the charts component and the segment profile's two samples have Android references with a chart; the activity page's screenshot
+  sample has no metric cards, so none of its references changed. The import preview has no chart sample either.
+- Left: `DepthProfile.kt` (dead dive code, the dive round) still uses `chart_marker` itself. The open item's line "The Compose charts keep
+  Vico and its own drawing of the backdrop, other lines and marks; only their words are shared" is now true only of the drawing: the
+  backdrop's scaling is shared too. Threshold history's Compose chart is the one Compose chart not drawn from its `LineChart`.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2176,24 +2198,13 @@ What building the host and the shell on Swift export showed, beyond the probes:
     "Already in your log", a batch's rows and the compare sheet. Both UIs read the same text, but it is ISO and on a 24-hour clock
     whatever the device's setting. Moving it means the state carries the instant and its offset, and the texts write `DayText`/`DateText`
     with an `AppText.Time`. The import clock's editable start field stays text.
-  - [ ] **Charts** (move the Compose activity charts onto `CardLines.chart`, as `SegmentProfileChart` did; the native chart already
-    draws `CardLines`):
-    - `ac/detail/ChartUnits.kt:38-48` `paceUnit` writes pace values and the axis with `Format.duration` (`StreamUnits.paceText`/`paceAxis`).
-    - `ChartUnits.kt:69-79` `rememberMarkerLabel` builds the readout by `%1`/`%2`/`%3` replacement (`CardLines.chart(…).readouts`).
-    - `ChartUnits.kt:96-107` `streamUnit` writes `formatDecimal` into the unit template (`StreamUnits.text`/`valueText`/`axis`).
-    - `ac/detail/ActivityChartsUi.kt`:
-      - `:246,338` x labels via `Format.duration` (`CardLines.timeTicks`).
-      - `:207-208` average and max (`CardLines.valueText`).
-      - `:213-227` header detail, whose `chart_avg_np_max` branch is unused.
-      - `:238-244` the description joined with " " (`CardLines.sentences`).
-      - `:145-159` `DepthChart` builds gas and alert marks (`CardLines.depthMarks`).
-      - `:279-313` `PowerCurve` rebuilds `CardLines.durationLabel` by replacing "1", interpolates the marker, and glues `unit_watts`
-        (`CardLines.powerCurve`).
-      - `:328-337` `Gears` rounds its own labels (`CardLines.gearText`/`gears`).
-    - `ds/chart/TimeSeriesChart.kt:259-266` `timeStep` spaces time labels on its own steps (60…7200 s). Its steps differ from
-      `CardLines.timeTicks` (60…43200 s, at most 4 gaps), so the two UIs' axes can differ.
-    - `ds/chart/TimeSeriesChart.kt:146-149` and `feature/segment/ui/…/SegmentProfileChart.kt:52-56` fall back to `formatDecimal(v, 0)`
-      while labels load (web).
+  - [x] **Charts** (`shared-text-charts`). The Compose card (`ac/detail/ActivityChartsUi.kt`) now draws `CardLines.of` whole: each
+    `CardLine`'s header and chart, the power curve and the gears, through `LineChartUi` (`ac/ui/chart/LineChartUi.kt`), which lays a
+    `LineChart` out on Vico as `LineChartView` does on Swift Charts, and `SegmentProfileChart` draws through it too. `ChartUnits.kt`
+    (`paceUnit`, `rememberMarkerLabel`, `streamUnit`), the card's own `LineChart`, `DepthChart`, `TankPressures`, `PowerCurve` and `Gears`,
+    the unused `chart_avg_np_max` branch and string, and the now-unused `diveAlertLabel` are gone. `ds/chart/TimeSeriesChart.kt` takes
+    the axis and resolved `AxisLabel`s (y at the gridlines, x exactly at `CardLines.timeTicks`), so its own `timeStep`, its inversion and
+    both `formatDecimal(v, 0)` fallbacks (its own and `SegmentProfileChart`'s) are gone: a label still loading on the web is blank.
   - [ ] **Stats and units:**
     - `ds/chart/ZoneBars.kt:36-46` writes a zone's percent ("<1%", "$rounded%", not localized), its label and its spoken sentence
       itself. No shared function exists (`ZoneRows.of` gives only `fraction`), and iOS's zone rows are Kotlin's.
