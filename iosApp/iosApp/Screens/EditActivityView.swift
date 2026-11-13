@@ -15,7 +15,7 @@ struct EditActivityView: View {
             }
         }
         .pageTitle(Text(.editActivityTitle), canGoBack: false) {
-            Button(.actionSave) { send(EditActivityEvent.Save.shared) }
+            Button { send(EditActivityEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
                 .fontWeight(.semibold)
                 .disabled(state.saving || state.details == nil)
         }
@@ -82,11 +82,7 @@ private struct EditActivityForm: View {
                     fields: visibility, heading: Text(.activityVisibilityHeading),
                     activityEnabled: enabled && visibility.canChoose, categoriesEnabled: enabled
                 ) {
-                    if visibility.canChoose {
-                        Text(.activityVisibilityHelp)
-                    } else {
-                        Text(VisibilityTexts.shared.lockedNote(fields: visibility))
-                    }
+                    Text(VisibilityTexts.shared.activityNote(fields: visibility))
                 } detailsNote: {
                     EmptyView()
                 }

@@ -125,15 +125,6 @@ private struct StackEntry: Hashable {
 }
 
 extension TopLevelDestination {
-    /// The tab's name, from the shared strings.
-    var title: LocalizedStringResource {
-        switch self {
-        case .Feed: .navFeed
-        case .Search: .navSearch
-        case .You: .navYou
-        }
-    }
-
     /// The tab's icon, as the shared design system names it; the tab bar fills the chosen one itself.
     var icon: AppIcon {
         switch self {

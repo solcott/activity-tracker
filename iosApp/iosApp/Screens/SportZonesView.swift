@@ -28,7 +28,7 @@ struct SportZonesView: View {
         }
         .pageTitle(Text(SportZonesTexts.shared.title(sport: state.sport)), back: { send(SportZonesEvent.Back.shared) }) {
             if state.loaded {
-                Button(.actionSave) { send(SportZonesEvent.Save.shared) }
+                Button { send(SportZonesEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
                     .fontWeight(.semibold)
                     .disabled(!state.canSave)
             }

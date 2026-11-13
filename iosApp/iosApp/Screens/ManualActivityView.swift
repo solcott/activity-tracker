@@ -63,11 +63,7 @@ struct ManualActivityView: View {
                 fields: state.visibility, heading: Text(.activityVisibilityHeading),
                 activityEnabled: enabled && state.visibility.canChoose, categoriesEnabled: enabled
             ) {
-                if state.visibility.canChoose {
-                    Text(.activityVisibilityHelp)
-                } else {
-                    Text(VisibilityTexts.shared.lockedNote(fields: state.visibility))
-                }
+                Text(VisibilityTexts.shared.activityNote(fields: state.visibility))
             } detailsNote: {
                 EmptyView()
             }
@@ -76,7 +72,7 @@ struct ManualActivityView: View {
             }
         }
         .pageTitle(Text(.manualTitle)) {
-            Button(.actionSave) { send(ManualActivityEvent.Save.shared) }
+            Button { send(ManualActivityEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
                 .fontWeight(.semibold)
                 .disabled(!state.valid || state.saving)
         }

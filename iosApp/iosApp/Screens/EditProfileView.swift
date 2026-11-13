@@ -47,7 +47,7 @@ struct EditProfileView: View {
             if state.loaded {
                 // Read here so typing, which changes no Kotlin state SwiftUI sees, redraws whether Save can be used.
                 let _ = typed
-                Button(.actionSave) { send(EditProfileEvent.Save.shared) }
+                Button { send(EditProfileEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
                     .fontWeight(.semibold)
                     .disabled(!state.canSave)
             }

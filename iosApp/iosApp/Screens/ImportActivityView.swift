@@ -338,11 +338,7 @@ struct ImportVisibilitySections: View {
         VisibilityFormSections(
             fields: fields, heading: heading, activityEnabled: enabled && fields.canChoose, categoriesEnabled: enabled
         ) {
-            if fields.canChoose {
-                Text(.activityVisibilityHelp)
-            } else {
-                Text(VisibilityTexts.shared.lockedNote(fields: fields))
-            }
+            Text(VisibilityTexts.shared.activityNote(fields: fields))
         } detailsNote: {
             EmptyView()
         }

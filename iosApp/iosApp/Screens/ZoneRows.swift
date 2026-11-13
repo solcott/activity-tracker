@@ -66,9 +66,7 @@ enum ZoneRows {
             name: String(localized: .zonesModel),
             selection: Binding(get: { model.token }, set: onPick),
             options: models.map(\.token),
-            optionLabel: { token in
-                models.first { $0.token == token }.map { AppStrings.string(ZoneTexts.shared.model(model: $0)) } ?? token
-            }
+            optionLabel: { token in AppStrings.string(ZoneTexts.shared.modelChoice(token: token)) }
         ) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(.zonesModel)

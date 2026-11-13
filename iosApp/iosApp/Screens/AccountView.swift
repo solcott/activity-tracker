@@ -122,19 +122,19 @@ struct AccountView: View {
                     ProgressView()
                     Text(AccountTexts.shared.running(export: running))
                 }
-                AppSecondaryButton(.exportDataCancel) { state.eventSink(AccountEvent.CancelExport.shared) }
             } else {
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in Text(line) }
-                if let ready = export as? DataExportStatus.Ready {
-                    AppButton(.exportDataSave) { save(ready.archive) }
-                        .disabled(share.sharing)
-                    AppSecondaryButton(.exportDataDelete) { state.eventSink(AccountEvent.CancelExport.shared) }
-                } else if export is DataExportStatus.Paused || export is DataExportStatus.Failed {
-                    AppButton(.exportDataTryAgain) { state.eventSink(AccountEvent.Export.shared) }
-                    AppSecondaryButton(.exportDataCancel) { state.eventSink(AccountEvent.CancelExport.shared) }
-                } else {
-                    AppButton(.exportData) { state.eventSink(AccountEvent.Export.shared) }
+            }
+            ForEach(Array(AccountTexts.shared.exportControls(export: export).enumerated()), id: \.offset) { _, control in
+                ExportControlButton(control: control) {
+                    switch control.action {
+                    case .Export: state.eventSink(AccountEvent.Export.shared)
+                    case .Cancel: state.eventSink(AccountEvent.CancelExport.shared)
+                    case .Save: if let ready = export as? DataExportStatus.Ready { save(ready.archive) }
+                    }
                 }
+                // Save waits while the share sheet is up.
+                .disabled(control.action == .Save && share.sharing)
             }
             if let error = state.exportError {
                 ErrorMessage(error, layout: .row)
@@ -170,3 +170,21 @@ struct AccountView: View {
         }
     }
 #endif
+
+/// One of a data export's buttons, as Kotlin chose it (`ExportControl`): the step's primary one filled, the others tinted. The Account
+/// and Leave pages both draw their export with it.
+struct ExportControlButton: View {
+    let control: ExportControl
+    let action: () -> Void
+
+    var body: some View {
+        Group {
+            if control.primary {
+                AppButton(control.label, action: action)
+            } else {
+                AppSecondaryButton(control.label, action: action)
+            }
+        }
+        .disabled(!control.enabled)
+    }
+}

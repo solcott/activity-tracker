@@ -15,7 +15,7 @@ struct SettingsView: View {
             Section {
                 AppListRow(
                     Text(verbatim: state.handle),
-                    summary: state.needsSignIn ? Text(.settingsAccountNeedsSignIn) : nil,
+                    summary: SettingsTexts.shared.accountSummary(state: state).map { Text($0) },
                     selected: layout.marks(SettingsRows.account),
                     opens: { open(SettingsRows.account) })
             } header: {
