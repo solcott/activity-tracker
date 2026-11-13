@@ -376,8 +376,16 @@ private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
 /** The steps an activity's time axis is labelled at, in seconds. */
 private val TIME_STEPS = listOf(60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 14400, 21600, 43200)
 
-/** Time in one zone as a row reads it: "Z2", its name, its range with its unit, its time, and its share of the time in all of them. */
-@Immutable class ZoneRow(val label: AppText, val name: AppText, val range: AppText, val time: AppText, val fraction: Double)
+/**
+ * Time in one zone as a row reads it: "Z2", its name, both as one [title] ("Z2 Endurance"), its range with its unit, its time, and its
+ * share of the time in all of them as a [fraction] and a [percent] ("58%", "<1%" for a sliver). [spoken] is the row as one sentence.
+ */
+@Immutable
+class ZoneRow(val label: AppText, val name: AppText, val range: AppText, val time: AppText, val fraction: Double) {
+    val title: AppText = AppText.named("chart_zone_title", label, name)
+    val percent: AppText = ZoneRows.percent(fraction)
+    val spoken: AppText = AppText.named("chart_zone_spoken", title, range, time, percent)
+}
 
 /** Time in heart rate or power zones (feed/activity-zones), as both UIs word it. */
 object ZoneRows {
@@ -412,9 +420,21 @@ object ZoneRows {
         }
     }
 
+    /** A zone's share of the time, rounded: never "0%" beside a sliver of bar, which reads "<1%". */
+    fun percent(fraction: Double): AppText {
+        val rounded = (fraction * PERCENT).roundToInt()
+        return if (rounded == 0 && fraction > 0) {
+            AppText.named("chart_zone_percent_under")
+        } else {
+            AppText.named("unit_percent", AppText.written(formatWhole(rounded.toLong())))
+        }
+    }
+
     /** Why the owner sees no zones, and the button to the zones screen. */
     val missing: AppText = AppText.named("charts_missing_zones")
     val setThresholds: AppText = AppText.named("charts_set_thresholds")
+
+    private const val PERCENT = 100
 }
 
 /** A table row: its cells in column order, and the sentence a screen reader says for it. */

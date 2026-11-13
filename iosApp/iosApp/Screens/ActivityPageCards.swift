@@ -178,7 +178,8 @@ struct MetricCardSection: View {
     }
 }
 
-/// Time in heart rate or power zones: each zone's label, name and range over a bar of its share, its time at the end; each one sentence.
+/// Time in heart rate or power zones: each zone's label, name and range over a bar of its share, its time and percent at the end; each
+/// read as Kotlin's sentence.
 struct ZoneTimesView: View {
     let heading: any AppText
     let rows: [ZoneRow]
@@ -194,6 +195,7 @@ struct ZoneTimesView: View {
                         Text(row.range).font(.caption).foregroundStyle(.secondary)
                         Spacer(minLength: 8)
                         Text(row.time).font(.footnote.weight(.medium)).monospacedDigit()
+                        Text(row.percent).font(.caption).foregroundStyle(.secondary).monospacedDigit()
                     }
                     GeometryReader { geometry in
                         Capsule().fill(Color(.secondarySystemFill))
@@ -203,7 +205,8 @@ struct ZoneTimesView: View {
                     }
                     .frame(height: 6)
                 }
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(row.spoken))
             }
         }
         .padding(.vertical, 4)

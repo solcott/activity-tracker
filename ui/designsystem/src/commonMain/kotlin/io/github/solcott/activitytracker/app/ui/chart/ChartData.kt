@@ -10,7 +10,9 @@ import kotlin.math.abs
 @Immutable data class SeriesPoint(val x: Double, val y: Double, val gapBefore: Boolean = false)
 
 /** One row of [ZoneBars]: [label] like "Z2", [name] like "Endurance", its [range] in words, and [fraction] of the time spent in it. */
-@Immutable data class ZoneBar(val label: String, val name: String, val range: String, val time: String, val fraction: Float)
+/** A zone's row as words already chosen: its [title] ("Z2 Endurance"), range, time, [percent] and the [spoken] sentence for the row. */
+@Immutable
+data class ZoneBar(val title: String, val range: String, val time: String, val percent: String, val spoken: String, val fraction: Float)
 
 /** [text] written above the point at [x], [y] of a [TimeSeriesChart]. */
 @Immutable data class SeriesLabel(val x: Double, val y: Double, val text: String)

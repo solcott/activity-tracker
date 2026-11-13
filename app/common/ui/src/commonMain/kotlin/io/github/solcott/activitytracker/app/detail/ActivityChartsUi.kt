@@ -100,10 +100,11 @@ private fun Zones(section: DetailSection, zones: ImmutableList<ZoneTime>) {
     val bars =
         ZoneRows.of(zones, section).map { row ->
             ZoneBar(
-                label = row.label.string(),
-                name = row.name.string(),
+                title = row.title.string(),
                 range = row.range.string(),
                 time = row.time.string(),
+                percent = row.percent.string(),
+                spoken = row.spoken.string(),
                 fraction = row.fraction.toFloat(),
             )
         }

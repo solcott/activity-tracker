@@ -20,30 +20,24 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * Time in each zone as horizontal bars, highest zone on top. Each row reads as one sentence to a screen reader. Zones are coloured from
- * cool to hot.
+ * Time in each zone as horizontal bars, highest zone on top, in words shared code chose. Each row reads as one sentence to a screen reader.
+ * Zones are coloured from cool to hot.
  */
 @Composable
 fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         zones.asReversed().forEachIndexed { reversed, zone ->
             val color = zoneColor(zones.size - 1 - reversed, zones.size)
-            // Rounded, and never 0% beside a sliver of bar.
-            val rounded = (zone.fraction * PERCENT).roundToInt()
-            val percent = if (rounded == 0 && zone.fraction > 0f) "<1%" else "$rounded%"
             Row(
-                Modifier.fillMaxWidth().clearAndSetSemantics {
-                    contentDescription = "${zone.label} ${zone.name}, ${zone.range}: ${zone.time}, $percent"
-                },
+                Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = zone.spoken },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Column(Modifier.width(LABEL_WIDTH.dp)) {
-                    Text("${zone.label} ${zone.name}", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    Text(zone.title, style = MaterialTheme.typography.labelMedium, maxLines = 1)
                     Text(zone.range, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box(Modifier.weight(1f).height(14.dp)) {
@@ -57,7 +51,7 @@ fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {
                 }
                 Text(zone.time, Modifier.width(TIME_WIDTH.dp), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
                 Text(
-                    percent,
+                    zone.percent,
                     Modifier.width(PERCENT_WIDTH.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -90,7 +84,6 @@ private val RED = Color(0xFFEF5350)
 private val PURPLE = Color(0xFFAB47BC)
 private val HOT = listOf(BLUE, GREEN, YELLOW, ORANGE, RED, PURPLE)
 
-private const val PERCENT = 100
 private const val MIN_BAR = 0.005f
 private const val LABEL_WIDTH = 132
 private const val TIME_WIDTH = 56

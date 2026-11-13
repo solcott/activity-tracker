@@ -206,9 +206,9 @@ class SharedTextNamesTest {
                             ),
                             section,
                         )
-                        .flatMap { listOf(it.label, it.range) } + ZoneRows.heading(section)
+                        .flatMap { listOf(it.label, it.range, it.title, it.percent, it.spoken) } + ZoneRows.heading(section)
                 } +
-                listOf(ZoneRows.missing, ZoneRows.setThresholds) +
+                listOf(ZoneRows.missing, ZoneRows.setThresholds, ZoneRows.percent(0.001)) +
                 UnitSystem.entries.flatMap { units ->
                     listOf(false, true).flatMap { ski ->
                         val laps =

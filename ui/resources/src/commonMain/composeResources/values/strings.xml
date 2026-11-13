@@ -1441,6 +1441,9 @@
     <string name="chart_zone_label">Z%1$s</string>
     <string name="chart_zone_range">%1$s–%2$s</string>
     <string name="chart_zone_range_open">%1$s+</string>
+    <string name="chart_zone_title">%1$s %2$s</string>
+    <string name="chart_zone_percent_under">&lt;1%</string>
+    <string name="chart_zone_spoken">%1$s, %2$s: %3$s, %4$s</string>
     <string name="unit_percent">%1$s%</string>
     <string name="unit_fluid_ml">%1$s ml</string>
     <string name="unit_fluid_fl_oz">%1$s fl oz</string>
