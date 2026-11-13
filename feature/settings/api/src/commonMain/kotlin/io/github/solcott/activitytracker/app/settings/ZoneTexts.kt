@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
  * Their signatures are also what gives [Zone] and [PrivacyZone] a Swift type: each appears in the contracts only as an immutable list's
  * element, whose type Swift export erases, and a native view reads those lists' elements as these classes (dev/ios-swift-interop).
  */
+@Suppress("TooManyFunctions") // One per thing the zones pages say, as the shared and the native pages ask them.
 object ZoneTexts {
     /** A computed zone's label: "Zone 2", "Zone 5a". */
     fun label(zone: Zone): AppText = AppText.named("zones_label", AppText.written(zone.label))
