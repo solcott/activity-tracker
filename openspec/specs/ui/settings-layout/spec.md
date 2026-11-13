@@ -182,17 +182,6 @@ On iOS, Settings SHALL show its list beside its page when the app's window gives
 - **WHEN** an athlete opens Settings on an iPhone on its side, whose window is 956 points wide and 440 tall, and taps Gear
 - **THEN** Gear replaces the list, and back returns to the list
 
-### Requirement: A page shows beside the iOS list whichever UI draws it
-On a wide iOS window a settings page SHALL show in the detail pane beside the native list whether the page is drawn natively or by the shared UI, with the same content and actions it has full width.
-
-#### Scenario: A page the shared UI draws
-- **WHEN** on a wide iOS window an athlete chooses Privacy zones, which the shared UI draws
-- **THEN** Privacy zones shows beside the list with its title and no back button, and the list marks Privacy zones
-
-#### Scenario: A deeper page
-- **WHEN** on a wide iOS window an athlete opens Training zones and then a sport's zones
-- **THEN** the sport's zones show in the detail pane with a back button that returns to Training zones, and the list still marks Training zones
-
 ### Requirement: Back beside a page on iOS leaves Settings
 On a wide iOS window Settings' back button, over its list, and a swipe from the window's leading edge SHALL both leave Settings, page and all. A deeper page in the detail pane SHALL go back with its own back button.
 
@@ -720,3 +709,14 @@ On iOS each value SHALL offer Remove from a menu, after which it is removed as o
 #### Scenario: Removing the current value
 - **WHEN** alice removes her current threshold power on the native page
 - **THEN** the row shows progress, and the threshold goes back to the value before it
+
+### Requirement: A settings page shows natively beside the iOS list
+On a wide iOS window a settings page SHALL show in the detail pane beside the native list, drawn natively, with the same content and actions it has full width.
+
+#### Scenario: Privacy zones beside the list
+- **WHEN** on a wide iOS window an athlete chooses Privacy zones
+- **THEN** Privacy zones shows beside the list with its title and no back button, and the list marks Privacy zones
+
+#### Scenario: A deeper page
+- **WHEN** on a wide iOS window an athlete opens Training zones and then a sport's zones
+- **THEN** the sport's zones show in the detail pane with a back button that returns to Training zones, and the list still marks Training zones
