@@ -23,8 +23,8 @@ This is the charts group of the shared-text checklist in the roadmap.
   branch and its string `chart_avg_np_max`.
 
 Visible text changes, Android, desktop and web only (iOS already draws these texts and changes nothing):
-- A chart over an activity's time labels its axis at `CardLines.timeTicks`' steps, placed exactly at each tick (a 1 h ride: 0:00,
-  15:00, 30:00, 45:00, 1:00:00), the same steps as iOS. A step of 20 minutes is no longer used; 3, 4, 6 and 12 hours are.
+- A chart over an activity's time labels its axis at `CardLines.timeTicks`' steps, placed exactly at each tick (a 1 h ride: 15:00,
+  30:00, 45:00), the same steps as iOS. Vico draws no label exactly at the axis's ends, as before. A step of 20 minutes is no longer used; 3, 4, 6 and 12 hours are.
 - The power curve labels only 5s, 1m, 5m, 20m and 1h, as iOS does, rather than every duration it has room for, and its readout gives
   the nearest duration on the curve rather than one interpolated between two.
 - A chart of several tanks no longer repeats "Tank pressure" over itself (the card's title names it); its header gives each tank's

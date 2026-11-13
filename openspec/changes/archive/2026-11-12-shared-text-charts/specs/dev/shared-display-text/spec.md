@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A chart's axis and labels are chosen once
-What a line chart shows SHALL be chosen once in shared code and drawn by each UI: the y axis's range and round step, the x labels' places and text, each label's text in the viewer's units, the readout for each point and the description read to assistive technology. This SHALL hold for the activity page's card charts (each line, the power curve and the gears) and the segment profile in every UI. No UI SHALL choose a time step, write a value or a duration itself, or write a stand-in label of its own while a label's text is loading.
+What a line chart shows SHALL be chosen once in shared code and drawn by each UI: the y axis's range and round step, the x labels' places and text, each label's text in the viewer's units, the readout for each point and the description read to assistive technology. This SHALL hold for the activity page's card charts and the segment profile. No UI SHALL choose a time step, write a value or duration itself, or write a stand-in while a label loads.
 
 #### Scenario: Distance labels
 - **WHEN** a segment 1.2 mi long is charted for a viewer in imperial units
@@ -9,7 +9,7 @@ What a line chart shows SHALL be chosen once in shared code and drawn by each UI
 
 #### Scenario: An hour's time labels
 - **WHEN** a one-hour ride's heart rate chart is shown
-- **THEN** every UI labels its time axis 0:00, 15:00, 30:00, 45:00 and 1:00:00
+- **THEN** every UI labels its time axis every 15 minutes (15:00, 30:00, 45:00), and none at another time
 
 #### Scenario: A pace readout
 - **WHEN** a viewer in metric units reads out a run's pace chart at 10:00, where the pace is 5:12 per kilometre
