@@ -468,9 +468,14 @@ Each phase leaves a shippable app.
      the Compose page asks too. Settings still offers it only off mobile, so nothing on iOS opens it; it is native so that every screen
      the host can show has a view, which `checkIosScreenRegistry` (in `check`) now holds for every `@CircuitSerializable` screen of a
      contract module. With it phase 4 is done: `FallbackScreen` has nothing left to draw.
-5. **Remove Compose rendering from iOS.** Delete the fallback host, the `*.ios.kt` actuals and the iOS targets of the UI modules; drop
-   Calf, Haze, Vico, Coil and MapLibre Compose from iOS; split the Metro graph so the iOS one needs no `Ui.Factory`; retire
-   `ui/ios-navigation-bar`.
+5. **Remove Compose rendering from iOS** (`ios-drop-compose`, done). `FallbackScreen`, `BackSwipe`, the Compose bridge
+   (`ScreenViewController`, `composeState`) and the UI modules' `*.ios.kt` actuals are gone; `activitytracker.kmp.compose` declares no iOS
+   targets, so the feature `-ui`s, `:app-common-ui`, `:ui-designsystem`, `:ui-resources` and `:composeApp` build for Android, desktop and
+   web only. `AppGraph` and `SessionGraph` moved to `:app-graph`, which names no UI and holds the iOS graph and host in its `iosMain`;
+   `:composeApp` contributes `AppCircuits` and `SessionCircuits`, so the iOS graph binds no `Ui.Factory` or `SubUiFactory`. The iOS text
+   field state is plain snapshot state. SubCircuit's published Compose UI dependencies are excluded on iOS, and `checkIosDependencies` (in
+   `check`) fails on Compose UI, Skia or a Compose-only UI library reaching the iOS export. Haze left the build; Calf, Vico, Coil and
+   MapLibre Compose stay on the other platforms only. `ui/ios-navigation-bar` is retired. Findings below.
 
 ## Recommended iOS stack
 
@@ -2013,6 +2018,32 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **`ImportSnapshotTests` flaked under load** in this change's runs: a different snapshot each time (the zone sheet's search field
   before its clear button drew, the iPad page drawn about 20 points high). Not this change's screens; not rerun on the base commit.
 
+### Phase 5 findings (`ios-drop-compose`)
+
+- **The Release app is 41% smaller.** The ad-hoc-signed Release simulator `.app` went from 180.1 MB to 106.2 MB, its binary from
+  182.5 MB to 108.1 MB, and `compose-resources/` left the bundle. The binary has no symbol of Skia, Skiko, Compose UI, Foundation or
+  Material, Coil, MapLibre, Vico or Calf (`nm -U`: 17,544 Skiko and 17,052 Compose UI symbols before, none after); the Compose
+  runtime's stay (4,569, from 7,538), since the presenters run on it. The iOS export's compile classpath went from 163 modules to 95.
+- **SubCircuit was the last way in.** Its published `api` dependencies are Compose UI and Foundation on every target, though only
+  `SubCircuitContent` and `SubUi` use them, so with every UI module gone Compose UI still resolved on iOS through the contracts. Excluding
+  the two groups from the iOS configurations works: the Kotlin/Native link reports no partial-linkage warning, since nothing iOS reaches
+  names them. `checkIosDependencies` holds it, so a Circuit upgrade that starts needing them fails `check` rather than the app.
+- **Contributed accessors keep the Circuits off the iOS graph.** `AppGraph` and `SessionGraph` name no UI; `:composeApp` contributes
+  `AppCircuits` and `SessionCircuits` to `AppScope` and `SessionScope`, which Metro merges into every graph generated where that module is
+  on the classpath (Android, desktop, web), and `App` reads them through a cast (`graph.circuits`). The iOS graph is generated in
+  `:app-graph`, where they are not. Metro warns there that the 51 contributed `CircuitSerializerRegistration`s are unused: the host saves
+  state with `rememberSaveable`, not Circuit's saver, so it is expected.
+- **The iOS text field state needs no Compose Foundation.** Snapshot state holding the text, saved by `rememberSaveable`; SwiftUI's field
+  owns the cursor and selection, so nothing else is kept.
+- **The data export's notification read Compose resources on iOS** (`getString(Res.string…)`), the one place iOS Kotlin did. It reads
+  the generated String Catalog through `NSBundle` now.
+- **`checkModuleBoundaries` counts `:app-graph` as an app shell**, since the iOS graph aggregates every presenter's factories.
+- **Left for a cleanup**: `UiPlatform.Ios` and the shared theme's iOS look (`IosColors`, its shapes and type), `LocalPinnedOverContent`,
+  `LocalFloatingBottomBarHeight`, `AppIcon`'s Cupertino glyphs (and `calf-cupertino-icons`) and `AppShell`'s iOS branch compile into no
+  build now but are still selectable by a preview; and `:ui-designsystem`'s `expect`s keep their Material `actual`s in `nonAppleMain`,
+  which now covers every target.
+- `IosResourcesTest`'s `check` run had failed since `checkIosScreenRegistry` joined `check` (its project had no registry); fixed here.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2052,7 +2083,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~Segment browse is still the shared UI's, embedded in the native Search tab's Segments mode (`ios-native-search`)~~: native
   (`ios-native-interactive-maps`), embedded through the host (`HostRecord.embed`); the Compose embed is gone. Its runs, a tap selecting
   one and opening a segment were not seen on a device: the walk had no tunnel to the AppView.
-- **What still goes through the shared Compose UI on iOS** (checked against `ScreenRegistry.app` after `ios-native-moderation`, and
+- ~~**What still goes through the shared Compose UI on iOS**~~: nothing, and the iOS app no longer contains it (`ios-drop-compose`). (Checked against `ScreenRegistry.app` after `ios-native-moderation`, and
   held by `checkIosScreenRegistry` in `check`): nothing. ~~`ModerationScreen`~~ is native (`ios-native-moderation`), and every
   `@CircuitSerializable` screen of a contract module has an entry. `ReportScreen`, `ProposePlaceNameScreen` and `FeedFilterScreen` are
   SubCircuits drawn natively through the host (`ReportSheet`, `ProposePlaceNameSheet`, `FeedFilterBar`). So phase 5 needs, in order:
@@ -2104,8 +2135,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   time is `DurationText.approximate`, and a day beside today `DayText` (`ios-native-uploads`). A calendar date written out is
   `DateText`, and a segment's type `SegmentTexts` (`ios-native-segment-lists`). ~~The feed's start times, which read on the activity's own UTC offset~~: done (`StartText`, `ios-native-activity-card`). The
   short date (`shortDate`) is still the shared UI's.
-- Pictures from the network load through Nuke on native pages and through Coil on fallback pages, two caches of the same images,
-  until phase 5 drops Coil from iOS. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
+- ~~Pictures from the network load through Nuke on native pages and through Coil on fallback pages~~: Coil left iOS with the fallback
+  (`ios-drop-compose`); Nuke is the one cache. A held photo (`heldphoto:`) on a native page was seen only in the probe, from bytes Swift made:
   the test account's gear has no photos. Avatars were seen only as initials, for the same reason.
 - `PagedList` asking for a second page was seen in its tests, not on a device: the test account's lists hold one account at most.
 - ~~The segment page (`SegmentScreen`) is still the shared UI's~~: native (`ios-native-charts`), with the native chart and map. ~~Its
