@@ -30,7 +30,9 @@ features share it:
   `profileLinkChoice` and `ZoneTexts.modelChoice`, each naming one option of a picker, its null option included.
 - **The export states**: `AccountTexts.exportControls(export)` and `LeaveTexts.exportLine(export)`/`exportControls(state)`, as
   `ExportControl`s (an `ExportAction`, its label, whether it is the primary button and whether it is enabled); and
-  `SettingsTexts.accountSummary(state)`, the account row's sign-in-again summary.
+  `SettingsTexts.accountSummary(state)`, the account row's sign-in-again summary. With them, two choices the item's line numbers
+  named: Leave's keep-open or stopped line under a running leave (`LeaveTexts.runNote`) and Account's Copy or Copied
+  (`AccountTexts.didCopy`).
 
 Where the two UIs said different things, the Compose wording wins: it is the clearer one in the one case (Save reads "Saving…" while a
 save runs).
