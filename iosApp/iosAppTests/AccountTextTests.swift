@@ -87,7 +87,7 @@ struct AccountTextTests {
         let busy = try leave("pendingWork")
         #expect(busy.showsDeviceWork)
         #expect(read(LeaveTexts.shared.deviceLines(state: busy)).count == 3)
-        #expect(read(LeaveTexts.shared.deletedLines).count == 7)
+        #expect(read(LeaveTexts.shared.deletedLines()).count == 7)
         #expect(read(LeaveTexts.shared.staysLines(handle: "alice.test")).count == 2)
         #expect(read(LabelText.shared.bullet) == "•")
         #expect(try !leave("loaded").showsDeviceWork)

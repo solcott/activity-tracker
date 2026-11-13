@@ -77,7 +77,9 @@ fun LeaveUi(state: LeaveState, modifier: Modifier = Modifier) {
 private fun Summary(state: LeaveState) {
     val body = MaterialTheme.typography.bodyMedium
     Text(stringResource(Res.string.leave_intro, state.handle), Modifier.padding(horizontal = 16.dp), style = body)
-    AppListSection(stringResource(Res.string.leave_section_deleted)) { Bullets(LeaveTexts.deletedLines.toImmutableList(), bulletsPadding) }
+    AppListSection(stringResource(Res.string.leave_section_deleted)) {
+        Bullets(LeaveTexts.deletedLines().toImmutableList(), bulletsPadding)
+    }
     AppListSection(stringResource(Res.string.leave_section_stays)) {
         Bullets(LeaveTexts.staysLines(state.handle).toImmutableList(), bulletsPadding)
     }

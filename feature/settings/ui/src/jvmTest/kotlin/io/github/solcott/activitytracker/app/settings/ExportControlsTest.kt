@@ -26,7 +26,7 @@ class ExportControlsTest {
 
     @Test
     fun everyBulletLineNamesAString() {
-        val names = (LeaveTexts.deletedLines + LeaveTexts.staysLines("alice.test")).map { (it as AppText.Named).name }
+        val names = (LeaveTexts.deletedLines() + LeaveTexts.staysLines("alice.test")).map { (it as AppText.Named).name }
         val missing = names.filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }

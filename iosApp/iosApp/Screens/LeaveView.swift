@@ -35,7 +35,7 @@ struct LeaveView: View {
             Text(.leaveIntro(state.handle))
         }
         Section {
-            bullets(LeaveTexts.shared.deletedLines)
+            bullets(LeaveTexts.shared.deletedLines())
         } header: {
             Text(.leaveSectionDeleted)
         }

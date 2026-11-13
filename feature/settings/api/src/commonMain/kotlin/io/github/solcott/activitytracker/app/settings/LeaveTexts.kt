@@ -11,7 +11,7 @@ import kotlinx.collections.immutable.persistentListOf
  */
 object LeaveTexts {
     /** What leaving deletes, a bullet each. */
-    val deletedLines: List<AppText> =
+    fun deletedLines(): List<AppText> =
         listOf(
                 "leave_deleted_activities",
                 "leave_deleted_profile",
