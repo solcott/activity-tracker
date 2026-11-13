@@ -29,7 +29,7 @@
 - [ ] 3.1 Split the library convention's setup so `activitytracker.kmp.compose` declares no iOS targets; TestKit: a Compose module has no
   iOS targets, a library module has both. Verify: `-p build-logic :convention:test`.
 - [ ] 3.2 Delete the UI modules' `iosMain` sources (`:ui-designsystem`, `:app-common-ui`, `LocationPermission.ios.kt` among them) and
-  `:composeApp`'s `iosMain`; fold `:ui-designsystem`'s `nonAppleMain` into `commonMain` and drop those `expect`s. Verify:
+  `:composeApp`'s `iosMain`; `:ui-designsystem`'s `nonAppleMain` actuals stay, now covering every target. Verify:
   `:ui-designsystem:jvmTest`, `:app-common-ui:jvmTest`.
 - [ ] 3.3 Remove Haze (`LocalBarBackdrop`, `rememberBarBackdrop`, the catalog entries). Verify: `:ui-designsystem:compileKotlinJvm`,
   screenshot tests in 5.1.

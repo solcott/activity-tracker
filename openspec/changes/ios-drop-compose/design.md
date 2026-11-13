@@ -58,9 +58,12 @@ binds no `Ui.Factory` or `SubUiFactory` and needs no `Circuit`.
 **3. The Compose convention declares no iOS targets.** `KmpLibraryConventionPlugin`'s setup becomes a function taking whether the
 module has iOS targets; `activitytracker.kmp.library` passes true, `activitytracker.kmp.compose` false and no longer applies the library
 plugin's id (it applies the same setup). Everything else (the hierarchy groups, Android, JVM, wasm) is shared. With no iOS targets,
-a `nonApple` group equals `commonMain`, so `:ui-designsystem`'s `nonAppleMain` actuals move into `commonMain` and their `expect`s become
-plain declarations; `nonWeb`, `nonAndroid` groups keep working with their native part empty. TestKit asserts a Compose module has no
-iOS targets and a library module still does.
+a `nonApple` group covers every target, so `:ui-designsystem`'s `expect`s keep their Material `actual`s in `nonAppleMain` and compile as
+before; `nonWeb`, `nonAndroid` groups keep working with their native part empty. TestKit asserts a Compose module has no iOS targets and
+a library module still does.
+- *Deferred: folding `nonAppleMain` into `commonMain`*: about twenty `expect`s carry the defaults and docs and their `actual`s the bodies,
+  so merging them is a hand edit of every wrapper with no change in behaviour; it belongs with removing `UiPlatform.Ios` and the theme's
+  iOS look, which no build uses now (proposal, out of scope).
 
 **4. SubCircuit's UI dependencies are excluded from iOS resolution.** The library convention, `activitytracker.swift.contract` and
 `activitytracker.swift.export` exclude `org.jetbrains.compose.ui` and `org.jetbrains.compose.foundation` (and their `androidx`
@@ -95,6 +98,4 @@ scaffold's content is drawn as on the other platforms.
   check, and record it.
 - [The cast in `SessionGraph.circuits` fails at run time on a graph without the contribution] → only graphs `:composeApp` generates call
   it; `:composeApp`'s JVM UI tests and the screenshot tests create real graphs and would fail first.
-- [A `nonApple`-to-common move changes the Material wrappers] → it is a file move with `actual` and `expect` dropped; screenshot tests
-  hold the output.
 - [Restored text field state on iOS loses its cursor] → SwiftUI owns the cursor; acceptable.
