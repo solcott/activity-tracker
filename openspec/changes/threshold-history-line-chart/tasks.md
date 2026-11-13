@@ -12,7 +12,7 @@
 
 ## 3. Verify and record
 
-- [ ] 3.1 Update Android screenshot references and review what changed
-- [ ] 3.2 `./gradlew check -Pkotlin.incremental=false`, the ad-hoc Release iOS build and `xcodebuild test` on an iOS 26.0 clone
-- [ ] 3.3 Look at the page on the desktop app if possible
-- [ ] 3.4 Record findings in `openspec/explorations/ios-native-ui.md` and tick the open item
+- [x] 3.1 Update Android screenshot references and review what changed
+- [x] 3.2 `./gradlew check -Pkotlin.incremental=false`, the ad-hoc Release iOS build and `xcodebuild test` on an iOS 26.0 clone
+- [x] 3.3 Look at the page on the desktop app if possible (tried: the app ran, but the hot-reload MCP never connected)
+- [x] 3.4 Record findings in `openspec/explorations/ios-native-ui.md` and tick the open item
