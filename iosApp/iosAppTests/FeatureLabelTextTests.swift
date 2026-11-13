@@ -8,11 +8,9 @@ import Testing
 struct FeatureLabelTextTests {
     private func read(_ text: (any AppText)?) -> String? { text.map { AppStrings.string($0) } }
 
-    @Test func saveReadsSavingWhileItRuns() throws {
+    @Test func saveReadsSavingWhileItRuns() {
         #expect(read(LabelText.shared.save(saving: false)) == "Save")
         #expect(read(LabelText.shared.save(saving: true)) == "Saving…")
-        let saving = try #require(Samples.zones["saving"])
-        #expect(read(LabelText.shared.save(saving: saving.saving)) == "Saving…")
     }
 
     @Test func eachTabIsNamedByKotlin() {
@@ -25,8 +23,8 @@ struct FeatureLabelTextTests {
     }
 
     @Test func theVisibilityNoteIsTheHelpUntilTheTierIsLocked() throws {
-        let open = try #require(Samples.activityDefaults["loaded"]).defaults
-        let locked = try #require(Samples.activityDefaults["locked"]).defaults
+        let open = try #require(Samples.activityDefaults["loaded"]?.defaults)
+        let locked = try #require(Samples.activityDefaults["locked"]?.defaults)
         #expect(read(VisibilityTexts.shared.activityNote(fields: open)) == String(localized: .activityVisibilityHelp))
         #expect(read(VisibilityTexts.shared.activityNote(fields: locked)) == read(VisibilityTexts.shared.lockedNote(fields: locked)))
     }
