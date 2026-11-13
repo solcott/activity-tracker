@@ -79,14 +79,14 @@ class AccountTextsTest {
     fun endingTheSessionSaysWhatWouldBeLeftBehind() {
         val signingOut = EndingSession(signInAgain = false, PendingWork(changes = 2, importSaving = false))
         assertEquals(AppText.named("account_end_title"), AccountTexts.endTitle(signingOut))
-        assertEquals(listOf(count("account_end_changes", 2)), AccountTexts.endLines(signingOut))
+        assertEquals(count("account_end_changes", 2), AccountTexts.endMessage(signingOut))
         assertEquals(AppText.named("account_end_sign_out_anyway"), AccountTexts.endAction(signingOut))
 
         val signingInAgain = EndingSession(signInAgain = true, PendingWork(changes = 0, importSaving = true, exportPending = true))
         assertEquals(AppText.named("account_end_title_sign_in_again"), AccountTexts.endTitle(signingInAgain))
         assertEquals(
-            listOf(AppText.named("account_end_import"), AppText.named("account_end_export")),
-            AccountTexts.endLines(signingInAgain),
+            AppText.named("text_paragraph_pair", AppText.named("account_end_import"), AppText.named("account_end_export")),
+            AccountTexts.endMessage(signingInAgain),
         )
         assertEquals(AppText.named("account_end_sign_in_again_anyway"), AccountTexts.endAction(signingInAgain))
     }

@@ -34,13 +34,6 @@ import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_confirm_label
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_activities
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_follows
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_gear
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_interactions
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_profile
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_segments
-import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_settings
 import io.github.solcott.activitytracker.composeApp.resources.leave_intro
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_deleted
@@ -49,12 +42,8 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_section_expo
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_places
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_stays
 import io.github.solcott.activitytracker.composeApp.resources.leave_sign_in_again
-import io.github.solcott.activitytracker.composeApp.resources.leave_stays_account
-import io.github.solcott.activitytracker.composeApp.resources.leave_stays_other_apps
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.data.di.SessionScope
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -88,26 +77,9 @@ fun LeaveUi(state: LeaveState, modifier: Modifier = Modifier) {
 private fun Summary(state: LeaveState) {
     val body = MaterialTheme.typography.bodyMedium
     Text(stringResource(Res.string.leave_intro, state.handle), Modifier.padding(horizontal = 16.dp), style = body)
-    AppListSection(stringResource(Res.string.leave_section_deleted)) {
-        Bullets(
-            persistentListOf(
-                stringResource(Res.string.leave_deleted_activities),
-                stringResource(Res.string.leave_deleted_profile),
-                stringResource(Res.string.leave_deleted_gear),
-                stringResource(Res.string.leave_deleted_follows),
-                stringResource(Res.string.leave_deleted_interactions),
-                stringResource(Res.string.leave_deleted_segments),
-                stringResource(Res.string.leave_deleted_settings),
-            ),
-        )
-    }
+    AppListSection(stringResource(Res.string.leave_section_deleted)) { Bullets(LeaveTexts.deletedLines.toImmutableList(), bulletsPadding) }
     AppListSection(stringResource(Res.string.leave_section_stays)) {
-        Bullets(
-            persistentListOf(
-                stringResource(Res.string.leave_stays_account, state.handle),
-                stringResource(Res.string.leave_stays_other_apps),
-            ),
-        )
+        Bullets(LeaveTexts.staysLines(state.handle).toImmutableList(), bulletsPadding)
     }
     AppListSection(stringResource(Res.string.leave_section_places)) { Places(state.places) }
     DeviceWork(state)
@@ -115,13 +87,8 @@ private fun Summary(state: LeaveState) {
     AppListSection(stringResource(Res.string.leave_section_confirm)) { Confirm(state) }
 }
 
-/** Lines of text, each as a bullet. */
-@Composable
-private fun Bullets(lines: ImmutableList<String>) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        lines.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-    }
-}
+/** Around a section's bullets. */
+private val bulletsPadding = Modifier.padding(16.dp)
 
 @Composable
 private fun Places(places: SharedPlacesSummary) {
@@ -146,7 +113,7 @@ private fun Places(places: SharedPlacesSummary) {
 private fun DeviceWork(state: LeaveState) {
     if (!state.showsDeviceWork) return
     AppListSection(stringResource(Res.string.leave_section_device)) {
-        Bullets(LeaveTexts.deviceLines(state).map { it.string() }.toImmutableList())
+        Bullets(LeaveTexts.deviceLines(state).toImmutableList(), bulletsPadding)
     }
 }
 

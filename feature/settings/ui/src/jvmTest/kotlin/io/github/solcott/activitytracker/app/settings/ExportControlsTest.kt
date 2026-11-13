@@ -25,6 +25,13 @@ class ExportControlsTest {
     }
 
     @Test
+    fun everyBulletLineNamesAString() {
+        val names = (LeaveTexts.deletedLines + LeaveTexts.staysLines("alice.test")).map { (it as AppText.Named).name }
+        val missing = names.filterNot { it in Res.allStringResources }
+        assertTrue(missing.isEmpty(), "No string for $missing")
+    }
+
+    @Test
     fun everyExportTextNamesAString() {
         val leave = LeaveState(handle = "alice.test", confirmHandle = textFieldStateOf(""), eventSink = {})
         val settings = SettingsState("alice.test", needsSignIn = true, UnitSystem.Metric, saving = false, error = null, eventSink = {})
