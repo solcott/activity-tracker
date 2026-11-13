@@ -8,10 +8,16 @@ import io.github.solcott.activitytracker.composeApp.resources.allPluralStringRes
 import io.github.solcott.activitytracker.composeApp.resources.allStringArrayResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
 import kotlinx.datetime.asTimeZone
 import kotlinx.datetime.format
+import kotlinx.datetime.format.DateTimeFormat
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.getPluralString
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.getStringArray
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
@@ -38,11 +44,36 @@ fun AppText.string(): String =
             val resource = Res.allPluralStringResources[name]
             if (resource != null) pluralStringResource(resource, quantity, *args.map { it.string() }.toTypedArray()) else name
         }
-        is AppText.Time -> {
-            val zone = utcOffsetMinutes?.let { UtcOffset(seconds = it * SECONDS_PER_MINUTE).asTimeZone() } ?: LocalTimeZone.current
-            Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(zone).format(timeFormat())
-        }
+        is AppText.Time -> format(LocalTimeZone.current, timeFormat())
     }
+
+/**
+ * This text as [string] reads it, but outside composition, for a UI that has too many texts to read in one (a chart's readout for each of
+ * its points). A time of day reads in [zone] (unless it carries its own offset) with [timeFormat], which the caller read in composition.
+ */
+@Suppress("SpreadOperator") // As in string().
+suspend fun AppText.load(zone: TimeZone, timeFormat: DateTimeFormat<LocalDateTime>): String =
+    when (this) {
+        is AppText.Written -> text
+        is AppText.Named -> {
+            val resource = Res.allStringResources[name]
+            when {
+                resource != null -> getString(resource, *args.map { it.load(zone, timeFormat) }.toTypedArray())
+                else -> loadArrayItem(name) ?: fallback?.load(zone, timeFormat) ?: name
+            }
+        }
+        is AppText.Plural -> {
+            val resource = Res.allPluralStringResources[name]
+            if (resource != null) getPluralString(resource, quantity, *args.map { it.load(zone, timeFormat) }.toTypedArray()) else name
+        }
+        is AppText.Time -> format(zone, timeFormat)
+    }
+
+/** The time of day, in its own offset when it carries one, else in [zone]. */
+private fun AppText.Time.format(zone: TimeZone, timeFormat: DateTimeFormat<LocalDateTime>): String {
+    val shown = utcOffsetMinutes?.let { UtcOffset(seconds = it * SECONDS_PER_MINUTE).asTimeZone() } ?: zone
+    return Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(shown).format(timeFormat)
+}
 
 /**
  * The item a name like `segment_rank_ordinals_2` names: the `<string-array>` before the last `_` and the index after it, the name the iOS
@@ -54,6 +85,14 @@ private fun arrayItem(name: String): String? {
     val index = name.substring(split + 1).toIntOrNull()
     val resource = if (split > 0) Res.allStringArrayResources[name.substring(0, split)] else null
     return if (resource == null || index == null) null else stringArrayResource(resource).getOrNull(index)
+}
+
+/** [arrayItem], outside composition. */
+private suspend fun loadArrayItem(name: String): String? {
+    val split = name.lastIndexOf('_')
+    val index = name.substring(split + 1).toIntOrNull()
+    val resource = if (split > 0) Res.allStringArrayResources[name.substring(0, split)] else null
+    return if (resource == null || index == null) null else getStringArray(resource).getOrNull(index)
 }
 
 /** Whether [name] is an item of a shared `<string-array>`, as [arrayItem] reads it. */

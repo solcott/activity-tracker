@@ -1156,17 +1156,6 @@
         }
       }
     },
-    "chart_avg_np_max" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avg %1$@ · Normalized %2$@ · Max %3$@"
-          }
-        }
-      }
-    },
     "chart_battery_used" : {
       "extractionState" : "manual",
       "localizations" : {

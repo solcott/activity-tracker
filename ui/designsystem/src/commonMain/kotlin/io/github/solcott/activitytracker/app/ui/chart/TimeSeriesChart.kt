@@ -31,70 +31,59 @@ import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
 import io.github.solcott.activitytracker.data.chart.ChartAxis
-import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.ceil
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * Values over an activity, filled beneath, with a few y labels from [yLabel] and, when [xLabel] is set, time labels at whole-minute steps
- * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
- * value until the next point, for values like gears. [pointLabels] write values above their points. [backdrop] is drawn as a grey
- * silhouette behind the line on a scale of its own (elevation behind an effort chart); it has no axis and the marker skips it. Hovering,
- * tapping or dragging across the chart shows [markerLabel] for the nearest point, in a [ChartReadout] over the chart. [inverted] puts zero
- * at the top and larger values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same scale,
- * unfilled and in their own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical
- * line, like a gas switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every
- * line, its fill and the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The
- * backdrop, and the fill of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself.
- * [lineBrush] and [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted
- * by grade ([GradeBands]); a line with gaps keeps its plain fill. [axis] is the y axis a caller chose with [ChartAxis]; without one the
- * chart takes [ChartAxis.of] its values.
+ * Values over an activity, filled beneath, on the y [axis] a caller chose ([ChartAxis]) with [yLabels] at its gridlines and [xLabels]
+ * exactly at their values across [xRange] (none when empty). Every label is resolved by the caller: the chart chooses no text and no tick.
+ * [average] draws a reference line. [step] holds each value until the next point, for values like gears. [pointLabels] write values above
+ * their points. [backdrop] is drawn as a grey silhouette behind the line, on the same axis (elevation behind an effort chart, already
+ * scaled onto it); the marker skips it. Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point, in a
+ * [ChartReadout] over the chart. A line read with larger values lower (a pace, a dive's depth) is given negated, on an axis chosen
+ * inverted. [fillAbove] fills from the line up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and
+ * in their own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas
+ * switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and
+ * the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The backdrop, and the fill
+ * of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself. [lineBrush] and
+ * [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted by grade
+ * ([GradeBands]); a line with gaps keeps its plain fill.
  */
 @Composable
+@Suppress("LongParameterList") // A chart's data, its labels and what it draws with them.
 fun TimeSeriesChart(
     points: ImmutableList<SeriesPoint>,
     xRange: ClosedFloatingPointRange<Double>,
     description: String,
-    yLabel: (Double) -> String,
-    xLabel: ((Double) -> String)?,
+    axis: ChartAxis,
+    yLabels: ImmutableList<AxisLabel>,
+    xLabels: ImmutableList<AxisLabel>,
     markerLabel: (x: Double, y: Double) -> String,
     modifier: Modifier = Modifier,
     average: Double? = null,
     step: Boolean = false,
-    xLabelsAt: ImmutableList<Double>? = null,
     pointLabels: ImmutableList<SeriesLabel> = persistentListOf(),
     backdrop: ImmutableList<SeriesPoint>? = null,
-    inverted: Boolean = false,
-    fillAbove: Boolean = inverted,
-    timeValues: Boolean = false,
+    fillAbove: Boolean = false,
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
     events: ImmutableList<SeriesLabel> = persistentListOf(),
     warnings: ImmutableList<SeriesLabel> = persistentListOf(),
     lineBrush: Brush? = null,
     areaBrush: Brush? = null,
     height: Dp = 140.dp,
-    axis: ChartAxis? = null,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
     val extra = remember(others) { others.filter { it.size >= 2 } }
     val behind = backdrop?.takeIf { it.size >= 2 }
-    // An inverted chart plots each value below zero; flip turns a plotted y back into the value (0.0 - so the surface isn't "-0").
-    val flip: (Double) -> Double = if (inverted) { y -> 0.0 - y } else { y -> y }
-    val plotted = remember(points, inverted) { if (inverted) points.map { it.copy(y = flip(it.y)) } else points }
-    val plottedExtra = remember(extra, inverted) { extra.map { line -> if (inverted) line.map { it.copy(y = flip(it.y)) } else line } }
     val gaps = remember(points) { gapsIn(points) }
     // A line with gaps draws its fill apart, under the line, with no area across each gap.
     val separateFill = gaps.isNotEmpty()
-    val model = remember(plotted, plottedExtra) { CartesianChartModel(linesModel(listOf(plotted) + plottedExtra)) }
-    val yAxis =
-        remember(points, extra, pointLabels.isEmpty(), inverted, timeValues, axis) {
-            yAxisOf(axis, points + extra.flatten(), pointLabels.isNotEmpty(), inverted, timeValues)
-        }
-    val minY = yAxis.min
-    val maxY = yAxis.max
+    val model = remember(points, extra) { CartesianChartModel(linesModel(listOf(points) + extra)) }
+    val minY = axis.min
+    val maxY = axis.max
     val connector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp
     val areaFill =
         remember(colors, minY, maxY, fillAbove, areaBrush) {
@@ -112,23 +101,16 @@ fun TimeSeriesChart(
             CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
         }
     val fillUnder =
-        remember(separateFill, plotted, minY, maxY, colors, fillAbove, step) {
-            if (separateFill) AreaUnderlay(plotted, minY, maxY, colors.area, fromTop = fillAbove, step = step) else null
+        remember(separateFill, points, minY, maxY, colors, fillAbove, step) {
+            if (separateFill) AreaUnderlay(points, minY, maxY, colors.area, fromTop = fillAbove, step = step) else null
         }
-    val backdropUnder = behind?.let { rememberBackdrop(it) }
+    val backdropUnder = behind?.let { rememberBackdrop(it, minY, maxY) }
     val otherLines = rememberOtherLines(remember(extra) { extra.map(::gapsIn).toImmutableList() })
     val frame = remember { ChartFrame() }
     val currentLabel by rememberUpdatedState(markerLabel)
     val readout =
-        remember(plotted, plottedExtra, minY, maxY, inverted, frame) {
-            ChartReadout(
-                frame,
-                plotted.toImmutableList(),
-                minY..maxY,
-                plottedExtra.map { it.toImmutableList() }.toImmutableList(),
-            ) { x, y ->
-                currentLabel(x, flip(y))
-            }
+        remember(points, extra, minY, maxY, frame) {
+            ChartReadout(frame, points, minY..maxY, extra.map { it.toImmutableList() }.toImmutableList()) { x, y -> currentLabel(x, y) }
         }
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
@@ -140,14 +122,9 @@ fun TimeSeriesChart(
             thickness = 1.dp,
             shape = remember { DashedShape(dashLength = 4.dp, gapLength = 3.dp) },
         )
-    // Vico rejects an empty label, and on web a label built from a string resource is empty until resources load: show the number then.
-    val yFormatter =
-        remember(yLabel, inverted) {
-            CartesianValueFormatter { _, value, _ -> yLabel(flip(value)).ifEmpty { formatDecimal(flip(value), 0) } }
-        }
-    val xFormatter =
-        remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value)?.ifEmpty { null } ?: formatDecimal(value, 0) } }
-    val xStep = if (xLabelsAt != null) xRange.endInclusive - xRange.start else timeStep(xRange.endInclusive - xRange.start)
+    val yFormatter = remember(yLabels) { CartesianValueFormatter { _, value, _ -> labelAt(yLabels, value) } }
+    val xFormatter = remember(xLabels) { CartesianValueFormatter { _, value, _ -> labelAt(xLabels, value) } }
+    val xStep = xRange.endInclusive - xRange.start
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val eventLine = rememberLineComponent(Fill(MaterialTheme.colorScheme.tertiary), thickness = 1.dp)
     val eventMarks = remember(events, label, eventLine) { EventMarks(events.map { EventMark(it.x, it.text) }, eventLine, label) }
@@ -173,28 +150,25 @@ fun TimeSeriesChart(
                     tick = null,
                     guideline = grid,
                     // Labels on whole steps, so each gridline is at the value its label shows.
-                    itemPlacer = remember(yAxis.step) { VerticalAxis.ItemPlacer.step({ yAxis.step }) },
+                    itemPlacer = remember(axis.step) { VerticalAxis.ItemPlacer.step({ axis.step }) },
                 ),
             bottomAxis =
                 HorizontalAxis.rememberBottom(
                     line = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp),
-                    label = label.takeIf { xLabel != null },
+                    label = label.takeIf { xLabels.isNotEmpty() },
                     valueFormatter = xFormatter,
                     tick = null,
                     guideline = null,
-                    itemPlacer =
-                        remember(xLabelsAt) {
-                            xLabelsAt?.let(::FixedXLabels) ?: HorizontalAxis.ItemPlacer.aligned(addExtremeLabelPadding = false)
-                        },
+                    itemPlacer = remember(xLabels) { FixedXLabels(xLabels.map { it.value }) },
                 ),
             decorations =
-                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, inverted, frame) {
+                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, frame) {
                     listOfNotNull(
                         // Under the layers in this order: the backdrop, then the line's fill.
                         backdropUnder,
                         fillUnder,
                         average?.let { avg ->
-                            HorizontalLine(y = { flip(avg) }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
+                            HorizontalLine(y = { avg }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
                         labelsAbove,
                         eventMarks.takeIf { events.isNotEmpty() },
@@ -207,17 +181,11 @@ fun TimeSeriesChart(
     StaticChart(chart, model, description, height, modifier, readout)
 }
 
-/** The caller's [axis], or the shared rule's for [values] ([ChartAxis.of]). */
-private fun yAxisOf(axis: ChartAxis?, values: List<SeriesPoint>, labelled: Boolean, inverted: Boolean, timeValues: Boolean): ChartAxis =
-    axis ?: ChartAxis.of(values.map { it.y }, labelled, inverted, timeValues)
-
 /** [brush] as a fill when there is one, else [color]. */
 private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(brush) else Fill(color)
 
 private const val FILL_ALPHA = 0.18f
 private const val BACKDROP_ALPHA = 0.12f
-private const val BACKDROP_HEIGHT = 0.6
-private const val MIN_BACKDROP_SPAN = 20.0
 
 private fun linesModel(lines: List<List<SeriesPoint>>) = LineCartesianLayerModel.build {
     lines.forEach { points -> series(points.map { it.x }, points.map { it.y }) }
@@ -240,35 +208,22 @@ private fun rememberOtherLines(gaps: ImmutableList<ImmutableList<Double>>): List
     }
 }
 
-/**
- * [points] as a grey area on a scale of its own, filling about [BACKDROP_HEIGHT] of the chart from the bottom so the line in front stays
- * readable. A span of at least [MIN_BACKDROP_SPAN] keeps a flat route flat instead of stretching its noise into hills.
- */
+/** [points] as a grey area on the chart's axis, from [minY] to [maxY]: already scaled so the line in front stays readable. */
 @Composable
-private fun rememberBackdrop(points: ImmutableList<SeriesPoint>): AreaUnderlay {
+private fun rememberBackdrop(points: ImmutableList<SeriesPoint>, minY: Double, maxY: Double): AreaUnderlay {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    return remember(points, color) {
-        val low = points.minOf { it.y }
-        val span = (points.maxOf { it.y } - low).coerceAtLeast(MIN_BACKDROP_SPAN)
-        AreaUnderlay(points, low, low + span / BACKDROP_HEIGHT, color.copy(alpha = BACKDROP_ALPHA))
-    }
+    return remember(points, minY, maxY, color) { AreaUnderlay(points, minY, maxY, color.copy(alpha = BACKDROP_ALPHA)) }
 }
 
-private const val X_LABELS = 4
-
-/** About [X_LABELS] labels across [seconds], on a whole number of minutes or hours. */
-private fun timeStep(seconds: Double): Double =
-    TIME_STEPS.firstOrNull { it * X_LABELS >= seconds } ?: (ceil(seconds / X_LABELS / HOUR) * HOUR)
-
-private const val HOUR = 3600.0
+/** How close to an edge, in x, a label counts as at it. */
+private const val EDGE = 1e-6
 
 /** Room each fixed x label needs, as a share of the widest label's width, so neighbours keep a gap. */
 private const val LABEL_ROOM = 1.3
-private val TIME_STEPS = listOf(60.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1800.0, 3600.0, 7200.0)
 
 /**
- * Labels exactly at [values], with half a label of room at each end so one at the edge isn't cut off. When they don't all fit, every nth is
- * kept, always the first and the last, so no two overlap.
+ * Labels exactly at [values] inside the range, with room past either end for a label near it, so it isn't cut off. When they don't all fit,
+ * every nth is kept, always the first and the last, so no two overlap.
  */
 private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.ItemPlacer {
     override fun getLabelValues(
@@ -277,7 +232,9 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
         fullXRange: ClosedFloatingPointRange<Double>,
         maxLabelWidth: Float,
     ): List<Double> {
-        val shown = values.filter { it in fullXRange }
+        // One exactly at an edge has no width to draw in.
+        val shown = values.filter { it in fullXRange && it > context.ranges.minX + EDGE && it < context.ranges.maxX - EDGE }
+        if (shown.isEmpty()) return shown
         val span = fullXRange.endInclusive - fullXRange.start
         val closest = shown.zipWithNext { a, b -> b - a }.minOrNull()?.takeIf { span > 0 }
         val every = closest?.let { ceil(maxLabelWidth * LABEL_ROOM / (it * context.layerBounds.width / span)).toInt() } ?: 1
@@ -320,12 +277,29 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
         layerDimensions: CartesianLayerDimensions,
         tickThickness: Float,
         maxLabelWidth: Float,
-    ): Float = maxLabelWidth / 2
+    ): Float {
+        val start = context.ranges.minX
+        val first = values.filter { it > start + EDGE }.minOrNull() ?: return 0f
+        return room(first - start, context, layerDimensions, maxLabelWidth)
+    }
 
     override fun getEndLayerMargin(
         context: CartesianMeasuringContext,
         layerDimensions: CartesianLayerDimensions,
         tickThickness: Float,
         maxLabelWidth: Float,
-    ): Float = maxLabelWidth / 2
+    ): Float {
+        val end = context.ranges.maxX
+        val last = values.filter { it < end - EDGE }.maxOrNull() ?: return 0f
+        return room(end - last, context, layerDimensions, maxLabelWidth)
+    }
+
+    /**
+     * Room past the plot for half of a label [distance] from its edge, so it isn't cut off. A label exactly at an edge gets none: Vico
+     * gives it no width to draw in, so it isn't drawn (as Compose's charts never drew the start and end of an activity's time).
+     */
+    private fun room(distance: Double, context: CartesianMeasuringContext, layerDimensions: CartesianLayerDimensions, width: Float): Float {
+        val pixels = (distance / context.ranges.xStep * layerDimensions.xSpacing).toFloat()
+        return (width / 2 - pixels).coerceAtLeast(0f)
+    }
 }

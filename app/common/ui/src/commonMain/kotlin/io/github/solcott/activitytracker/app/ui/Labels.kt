@@ -14,9 +14,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 /** The sub-sport's own name ("Mountain Bike Ride"), or the sport's when the type is generic or its sub-sport is unknown. */
 @Composable fun activityTypeLabel(type: ActivityType): String = LabelText.activityType(type).string()
 
-/** A dive computer's alert ("No-deco limit reached"), by its `DiveAlertKind` token; one the app doesn't name reads as its token. */
-@Composable fun diveAlertLabel(kind: String): String = LabelText.diveAlert(kind).string()
-
 /** What a sensor is ("Power meter"), by its lexicon kind; an open enum, so an unknown kind is just a sensor. */
 @Composable fun sensorTypeLabel(kind: String): String = LabelText.sensorType(kind).string()
 
