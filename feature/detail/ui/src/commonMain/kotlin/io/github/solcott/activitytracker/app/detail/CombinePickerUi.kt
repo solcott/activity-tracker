@@ -23,17 +23,15 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.ErrorText
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.ListScreen
+import io.github.solcott.activitytracker.app.ui.LocalClock
+import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.combine_row
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.activityType
-import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(CombinePickerScreen::class, SessionScope::class)
 @Composable
@@ -87,9 +85,8 @@ private fun Candidate(activity: ActivityView, combining: Boolean, enabled: Boole
         ActivityTypeIcon(record.activityType, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(CombinePickerTexts.heading(activity).string(), style = MaterialTheme.typography.titleSmall)
-            val start = startTime(FigureValue.StartTime(record.startedAt.epochSeconds, record.utcOffset, dateOnly = false))
             Text(
-                stringResource(Res.string.combine_row, start, Format.duration(record.elapsedTime)),
+                CombinePickerTexts.detail(activity, LocalClock.current.now(), LocalTimeZone.current).string(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
