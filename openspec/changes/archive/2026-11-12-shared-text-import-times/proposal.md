@@ -46,5 +46,6 @@ None.
   `ImportActivityTexts`), `:feature-record-presenter` (`LOCAL_START`'s callers), `:app-fixtures` (`RecordSamples`), with tests.
 - Compose: `AccountUi`, `ArchiveHandOff`, `AccountUiTest`, `AccountScreenshots`. The import UI reads only the texts.
 - Swift: `ImportTextTests`; the import views read only the texts.
-- Android screenshot references and iOS 26.0 snapshots of the import batch, duplicate and adding-to samples.
+- iOS 26.0 snapshots of the import batch, duplicate, adding-to and opened-row samples. No Android reference shows an import start
+  (the phone-sized batch screenshots end above the rows); the `exportSharedAsk` reference is deleted.
 - Roadmap `openspec/explorations/ios-native-ui.md`: the item ticked and a findings section.
