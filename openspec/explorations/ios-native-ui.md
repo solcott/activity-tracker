@@ -2017,7 +2017,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **The simulators write HEIC** (`CGImageDestination` with `UTType.heic`, on iOS 26.0 and 18.4), so the HEIC test makes its own.
 - **`ImportSnapshotTests` flaked under load** in this change's runs: a different snapshot each time (the zone sheet's search field
   before its clear button drew, the iPad page drawn about 20 points high). Not this change's screens; not rerun on the base commit.
-  The clear button's cause and fix are under "Search snapshot flake" below; the iPad page's is not known.
+  The clear button's cause and fix are under "Search snapshot flake" below. The iPad page's is not known: it failed alone too
+  (`wide`, two runs of three after that fix), the whole page about 20 points higher than the reference and the same on every draw, so
+  settling can't catch it.
 
 ### Phase 5 findings (`ios-drop-compose`)
 
@@ -2170,7 +2172,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **Fix.** `Snapshotting.settledImage` now takes a draw only once `Snapshots.settledDraws` (three) draws in a row agree, within
   `Snapshots.settleDraws` (nine). A transition a draw late leaves two matching draws before it, so the third differs and drawing goes
   on. No tolerance or reference changed. It costs one more draw per image. Search then passed 10 runs in a row alone under the same
-  load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it.
+  load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it; Import's `wide` iPad page, which still fails alone, has another (above).
 
 ## Open items
 
