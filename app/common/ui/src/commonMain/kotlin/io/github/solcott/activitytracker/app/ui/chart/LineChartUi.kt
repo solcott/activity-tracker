@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import io.github.solcott.activitytracker.app.chart.ChartTick
 import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.chart.LinePoint
@@ -25,10 +26,15 @@ fun LineChartUi(chart: LineChart, modifier: Modifier = Modifier) {
     val points = remember(chart) { chart.points.toSeries() }
     val yLabels = axisLabels(chart.yTicks)
     val xLabels = axisLabels(chart.xTicks)
-    // A readout for every point is too many texts to read in a composition: they are read once, off it, and shown when ready.
+    // A readout for every point is too many texts to read in a composition: they are read once, off it, and shown when ready. A preview
+    // (and layoutlib's screenshots, which can't read resources off a composition) shows no readout, so reads none.
     val zone = LocalTimeZone.current
     val format = timeFormat()
-    val readouts by produceState<List<String>?>(null, chart, zone, format) { value = chart.readouts.map { it.load(zone, format) } }
+    val preview = LocalInspectionMode.current
+    val readouts by
+        produceState<List<String>?>(null, chart, zone, format, preview) {
+            if (!preview) value = chart.readouts.map { it.load(zone, format) }
+        }
     val events = marks(chart, warning = false)
     val warnings = marks(chart, warning = true)
     val others = remember(chart) { chart.others.map { it.points.toSeries() }.toImmutableList() }

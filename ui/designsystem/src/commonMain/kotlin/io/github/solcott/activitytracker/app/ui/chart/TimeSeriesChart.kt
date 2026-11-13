@@ -215,12 +215,15 @@ private fun rememberBackdrop(points: ImmutableList<SeriesPoint>, minY: Double, m
     return remember(points, minY, maxY, color) { AreaUnderlay(points, minY, maxY, color.copy(alpha = BACKDROP_ALPHA)) }
 }
 
+/** How close to an edge, in x, a label counts as at it. */
+private const val EDGE = 1e-6
+
 /** Room each fixed x label needs, as a share of the widest label's width, so neighbours keep a gap. */
 private const val LABEL_ROOM = 1.3
 
 /**
- * Labels exactly at [values], with half a label of room at each end so one at the edge isn't cut off. When they don't all fit, every nth is
- * kept, always the first and the last, so no two overlap.
+ * Labels exactly at [values] inside the range, with room past either end for a label near it, so it isn't cut off. When they don't all fit,
+ * every nth is kept, always the first and the last, so no two overlap.
  */
 private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.ItemPlacer {
     override fun getLabelValues(
@@ -229,7 +232,9 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
         fullXRange: ClosedFloatingPointRange<Double>,
         maxLabelWidth: Float,
     ): List<Double> {
-        val shown = values.filter { it in fullXRange }
+        // One exactly at an edge has no width to draw in.
+        val shown = values.filter { it in fullXRange && it > context.ranges.minX + EDGE && it < context.ranges.maxX - EDGE }
+        if (shown.isEmpty()) return shown
         val span = fullXRange.endInclusive - fullXRange.start
         val closest = shown.zipWithNext { a, b -> b - a }.minOrNull()?.takeIf { span > 0 }
         val every = closest?.let { ceil(maxLabelWidth * LABEL_ROOM / (it * context.layerBounds.width / span)).toInt() } ?: 1
@@ -272,12 +277,29 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
         layerDimensions: CartesianLayerDimensions,
         tickThickness: Float,
         maxLabelWidth: Float,
-    ): Float = maxLabelWidth / 2
+    ): Float {
+        val start = context.ranges.minX
+        val first = values.filter { it > start + EDGE }.minOrNull() ?: return 0f
+        return room(first - start, context, layerDimensions, maxLabelWidth)
+    }
 
     override fun getEndLayerMargin(
         context: CartesianMeasuringContext,
         layerDimensions: CartesianLayerDimensions,
         tickThickness: Float,
         maxLabelWidth: Float,
-    ): Float = maxLabelWidth / 2
+    ): Float {
+        val end = context.ranges.maxX
+        val last = values.filter { it < end - EDGE }.maxOrNull() ?: return 0f
+        return room(end - last, context, layerDimensions, maxLabelWidth)
+    }
+
+    /**
+     * Room past the plot for half of a label [distance] from its edge, so it isn't cut off. A label exactly at an edge gets none: Vico
+     * gives it no width to draw in, so it isn't drawn (as Compose's charts never drew the start and end of an activity's time).
+     */
+    private fun room(distance: Double, context: CartesianMeasuringContext, layerDimensions: CartesianLayerDimensions, width: Float): Float {
+        val pixels = (distance / context.ranges.xStep * layerDimensions.xSpacing).toFloat()
+        return (width / 2 - pixels).coerceAtLeast(0f)
+    }
 }
