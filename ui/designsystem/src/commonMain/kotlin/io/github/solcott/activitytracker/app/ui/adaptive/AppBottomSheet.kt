@@ -1,39 +1,39 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.NonRestartableComposable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.mohamedrejeb.calf.ui.sheet.AdaptiveBottomSheet
-import com.mohamedrejeb.calf.ui.sheet.AdaptiveSheetState
-import com.mohamedrejeb.calf.ui.sheet.rememberAdaptiveSheetState
+import androidx.compose.ui.unit.dp
 
-/** State for an [AppBottomSheet]. It opens fully, or at half height (iOS's medium detent) when [halfHeight]. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun rememberAppSheetState(halfHeight: Boolean = false): AdaptiveSheetState = rememberAdaptiveSheetState(skipPartiallyExpanded = !halfHeight)
-
-/** A modal sheet: a native `UISheetPresentationController` sheet on iOS, Material's modal bottom sheet elsewhere. Shown while composed. */
+/** A modal sheet: Material's modal bottom sheet. Shown while composed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @NonRestartableComposable
 fun AppBottomSheet(
     onDismiss: () -> Unit,
-    sheetState: AdaptiveSheetState,
+    sheetState: AppSheetState,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    AdaptiveBottomSheet(onDismissRequest = onDismiss, adaptiveSheetState = sheetState, modifier = modifier, content = content)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState.material, modifier = modifier, content = content)
 }
 
 /**
- * A sheet's title row with Cancel and a confirming action. iOS lays it out like a sheet's navigation bar: Cancel leading, the title centred
- * and [confirmLabel] trailing in semibold, all as text. Material platforms put the title first, then a text Cancel and a filled
- * [confirmLabel] button. [confirmEnabled] false shows the confirming action as unavailable.
+ * A sheet's title row with Cancel and a confirming action: the title first, then a text Cancel and a filled [confirmLabel] button.
+ * [confirmEnabled] false shows the confirming action as unavailable.
  */
 @Composable
-expect fun AppSheetHeader(
+fun AppSheetHeader(
     title: String,
     cancelLabel: String,
     onCancel: () -> Unit,
@@ -41,4 +41,14 @@ expect fun AppSheetHeader(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
     confirmEnabled: Boolean = true,
-)
+) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        AppTextButton(onClick = onCancel) { Text(cancelLabel) }
+        AppButton(onClick = onConfirm, enabled = confirmEnabled) { Text(confirmLabel) }
+    }
+}

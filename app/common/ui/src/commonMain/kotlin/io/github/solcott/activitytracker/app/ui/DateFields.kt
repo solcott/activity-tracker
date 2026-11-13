@@ -10,11 +10,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.DateBounds
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 
