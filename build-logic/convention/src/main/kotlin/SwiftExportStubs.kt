@@ -190,7 +190,9 @@ abstract class SwiftContractsExtension(
 
 /**
  * `activitytracker.swift.export`: for the module whose Swift export Xcode builds. Adds the `swiftContracts` extension, which lists the
- * build's contract modules, and registers [CHECK_SWIFT_EXPORT_STUBS_TASK_NAME] failing on those modules' stubs.
+ * build's contract modules, and registers [CHECK_SWIFT_EXPORT_STUBS_TASK_NAME] failing on those modules' stubs. Keeps Compose UI out of the
+ * export's iOS configurations ([excludeComposeUiOnIos]) and checks they resolve none of it ([CHECK_IOS_DEPENDENCIES_TASK_NAME], in
+ * `check`).
  *
  * The task reads what the build's export tasks (`<target>SwiftExport`) generate, so it runs after them. Those tasks exist only when Gradle
  * is run from Xcode's build phase: run anywhere else, the task fails saying so, not passing on nothing.
@@ -201,6 +203,8 @@ class SwiftExportConventionPlugin : Plugin<Project> {
             val contracts = swiftContractModules(rootProject.childProjects.values.map { it.path })
             val projectDirs = rootProject.childProjects.values.associate { it.path to it.isolated.projectDirectory }
             extensions.create("swiftContracts", SwiftContractsExtension::class.java, contracts)
+            excludeComposeUiOnIos()
+            registerIosDependencyCheck()
             val exports = tasks.named { it.endsWith("SwiftExport") }
             tasks.register<CheckSwiftExportStubs>(CHECK_SWIFT_EXPORT_STUBS_TASK_NAME) {
                 group = JavaBasePlugin.VERIFICATION_GROUP

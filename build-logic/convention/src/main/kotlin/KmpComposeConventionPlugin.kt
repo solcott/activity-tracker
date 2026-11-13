@@ -11,14 +11,15 @@ import org.jetbrains.compose.resources.ResourcesExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 /**
- * Adds Compose Multiplatform on top of [KmpLibraryConventionPlugin], including Compose resources (`src/commonMain/composeResources`, read
- * through the generated `Res` in `<namespace>.resources`). A module that renders its UI in tests turns on `composeUiTests { jvm = true }`,
- * which gives `jvmTest` Compose's UI test library and Skia for this OS.
+ * Adds Compose Multiplatform on top of [KmpLibraryConventionPlugin]'s setup, without its iOS targets: a Compose UI module builds for
+ * Android, desktop and web only, since the iOS app draws natively and links no Compose UI (ui/ios-native-shell). Includes Compose resources
+ * (`src/commonMain/composeResources`, read through the generated `Res` in `<namespace>.resources`). A module that renders its UI in tests
+ * turns on `composeUiTests { jvm = true }`, which gives `jvmTest` Compose's UI test library and Skia for this OS.
  */
 class KmpComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
-            pluginManager.apply("activitytracker.kmp.library")
+            applyKmpLibrary(ios = false)
             pluginManager.apply("org.jetbrains.compose")
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
             val uiTests = extensions.create<ComposeUiTestsExtension>("composeUiTests").apply { jvm.convention(false) }

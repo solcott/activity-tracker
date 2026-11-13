@@ -60,11 +60,13 @@ private val FORBIDDEN_IN_SWIFT_EXPORT =
 
 /**
  * `activitytracker.swift.contract`: for a module the iOS app exports to Swift whole (the screen contracts and `:iosShell`). Registers
- * [CHECK_SWIFT_EXPORT_SOURCES_TASK_NAME] over every main source set and wires it into `check`.
+ * [CHECK_SWIFT_EXPORT_SOURCES_TASK_NAME] over every main source set and wires it into `check`, and keeps SubCircuit's Compose UI
+ * dependencies out of its iOS configurations ([excludeComposeUiOnIos]).
  */
 class SwiftExportContractConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
+            excludeComposeUiOnIos()
             val check =
                 tasks.register<CheckSwiftExportSources>(CHECK_SWIFT_EXPORT_SOURCES_TASK_NAME) {
                     group = JavaBasePlugin.VERIFICATION_GROUP
