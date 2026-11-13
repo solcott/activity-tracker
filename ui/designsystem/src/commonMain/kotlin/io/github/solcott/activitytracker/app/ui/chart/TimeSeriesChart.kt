@@ -22,6 +22,7 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.data.CartesianValueForm
 import com.patrykandpatrick.vico.multiplatform.cartesian.data.LineCartesianLayerModel
 import com.patrykandpatrick.vico.multiplatform.cartesian.decoration.HorizontalLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.CartesianLayerDimensions
+import com.patrykandpatrick.vico.multiplatform.cartesian.layer.CartesianLayerPadding
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
@@ -39,15 +40,16 @@ import kotlinx.collections.immutable.toImmutableList
 /**
  * Values over an activity, filled beneath, on the y [axis] a caller chose ([ChartAxis]) with [yLabels] at its gridlines and [xLabels]
  * exactly at their values across [xRange] (none when empty). Every label is resolved by the caller: the chart chooses no text and no tick.
- * [average] draws a reference line. [step] holds each value until the next point, for values like gears. [pointLabels] write values above
- * their points. [backdrop] is drawn as a grey silhouette behind the line, on the same axis (elevation behind an effort chart, already
- * scaled onto it); the marker skips it. Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point, in a
- * [ChartReadout] over the chart. A line read with larger values lower (a pace, a dive's depth) is given negated, on an axis chosen
- * inverted. [fillAbove] fills from the line up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and
- * in their own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas
- * switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and
- * the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The backdrop, and the fill
- * of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself. [lineBrush] and
+ * [average] draws a reference line. [step] holds each value until the next point, for values like gears. [dots] mark points of the line,
+ * filled or hollow, each with its label above it, kept inside the chart. [backdrop] is drawn as a grey silhouette behind the line, on the
+ * same axis (elevation behind an effort chart, already scaled onto it); the marker skips it. Hovering, tapping or dragging across an
+ * [interactive] chart shows [markerLabel] for the nearest point, in a [ChartReadout] over the chart; one that isn't (a sparkline) leaves
+ * every touch to what holds it. A line read with larger values lower (a pace, a dive's depth) is given negated, on an axis chosen inverted.
+ * [fillAbove] fills from the line up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and in their
+ * own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch,
+ * and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and the
+ * backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The backdrop, and the fill of
+ * a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself. [lineBrush] and
  * [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted by grade
  * ([GradeBands]); a line with gaps keeps its plain fill.
  */
@@ -64,7 +66,7 @@ fun TimeSeriesChart(
     modifier: Modifier = Modifier,
     average: Double? = null,
     step: Boolean = false,
-    pointLabels: ImmutableList<SeriesLabel> = persistentListOf(),
+    dots: ImmutableList<SeriesDot> = persistentListOf(),
     backdrop: ImmutableList<SeriesPoint>? = null,
     fillAbove: Boolean = false,
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
@@ -73,6 +75,7 @@ fun TimeSeriesChart(
     lineBrush: Brush? = null,
     areaBrush: Brush? = null,
     height: Dp = 140.dp,
+    interactive: Boolean = true,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
@@ -95,6 +98,7 @@ fun TimeSeriesChart(
             stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
             areaFill = areaFill.takeIf { !separateFill },
             pointConnector = remember(connector, gaps) { if (gaps.isEmpty()) connector else GapConnector(connector, gaps) },
+            pointProvider = rememberDots(dots, colors.line),
         )
     val rangeProvider =
         remember(minY, maxY, xRange) {
@@ -125,7 +129,7 @@ fun TimeSeriesChart(
     val yFormatter = remember(yLabels) { CartesianValueFormatter { _, value, _ -> labelAt(yLabels, value) } }
     val xFormatter = remember(xLabels) { CartesianValueFormatter { _, value, _ -> labelAt(xLabels, value) } }
     val xStep = xRange.endInclusive - xRange.start
-    val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
+    val labelsAbove = rememberDotLabels(dots)
     val eventLine = rememberLineComponent(Fill(MaterialTheme.colorScheme.tertiary), thickness = 1.dp)
     val eventMarks = remember(events, label, eventLine) { EventMarks(events.map { EventMark(it.x, it.text) }, eventLine, label) }
     val warningColor = MaterialTheme.colorScheme.error
@@ -135,6 +139,7 @@ fun TimeSeriesChart(
         remember(warnings, warningLabel, warningLine) {
             EventMarks(warnings.map { EventMark(it.x, it.text) }, warningLine, warningLabel, atBottom = true)
         }
+    val sideRoom = if (dots.isEmpty()) 0.dp else DOT_ROOM
     val chart =
         rememberCartesianChart(
             rememberLineCartesianLayer(
@@ -145,12 +150,12 @@ fun TimeSeriesChart(
             startAxis =
                 VerticalAxis.rememberStart(
                     line = null,
-                    label = label,
+                    label = label.takeIf { yLabels.isNotEmpty() },
                     valueFormatter = yFormatter,
                     tick = null,
                     guideline = grid,
-                    // Labels on whole steps, so each gridline is at the value its label shows.
-                    itemPlacer = remember(axis.step) { VerticalAxis.ItemPlacer.step({ axis.step }) },
+                    // Labels exactly at the chart's ticks, so each gridline is at the value its label shows.
+                    itemPlacer = remember(yLabels, axis.step) { TickYLabels(yLabels.map { it.value }, axis.step) },
                 ),
             bottomAxis =
                 HorizontalAxis.rememberBottom(
@@ -170,15 +175,17 @@ fun TimeSeriesChart(
                         average?.let { avg ->
                             HorizontalLine(y = { avg }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
-                        labelsAbove,
+                        labelsAbove.takeIf { dots.any { dot -> dot.label != null } },
                         eventMarks.takeIf { events.isNotEmpty() },
                         warningMarks.takeIf { warnings.isNotEmpty() },
                         frame,
                     )
                 },
             getXStep = { _, _, _ -> xStep },
+            // Room at each side for a dot on the first or last point.
+            layerPadding = remember(sideRoom) { { CartesianLayerPadding(unscalableStart = sideRoom, unscalableEnd = sideRoom) } },
         )
-    StaticChart(chart, model, description, height, modifier, readout)
+    StaticChart(chart, model, description, height, modifier, readout.takeIf { interactive })
 }
 
 /** [brush] as a fill when there is one, else [color]. */
@@ -301,5 +308,40 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
     private fun room(distance: Double, context: CartesianMeasuringContext, layerDimensions: CartesianLayerDimensions, width: Float): Float {
         val pixels = (distance / context.ranges.xStep * layerDimensions.xSpacing).toFloat()
         return (width / 2 - pixels).coerceAtLeast(0f)
+    }
+}
+
+/**
+ * Y labels and gridlines exactly at [values], the chart's ticks, which need not be whole [step]s of its axis (a threshold's lowest and
+ * highest). The margins are the step placer's, so a label at the top or bottom isn't cut off.
+ */
+private class TickYLabels(private val values: List<Double>, step: Double) :
+    VerticalAxis.ItemPlacer by VerticalAxis.ItemPlacer.step({ step }) {
+    override fun getLabelValues(
+        context: CartesianDrawingContext,
+        axisHeight: Float,
+        maxLabelHeight: Float,
+        position: Axis.Position.Vertical,
+    ): List<Double> = inRange(context.ranges.getYRange(position).let { it.minY..it.maxY })
+
+    override fun getWidthMeasurementLabelValues(
+        context: CartesianMeasuringContext,
+        axisHeight: Float,
+        maxLabelHeight: Float,
+        position: Axis.Position.Vertical,
+    ): List<Double> = inRange(context.ranges.getYRange(position).let { it.minY..it.maxY })
+
+    override fun getHeightMeasurementLabelValues(context: CartesianMeasuringContext, position: Axis.Position.Vertical): List<Double> =
+        inRange(context.ranges.getYRange(position).let { it.minY..it.maxY })
+
+    override fun getLineValues(
+        context: CartesianDrawingContext,
+        axisHeight: Float,
+        maxLabelHeight: Float,
+        position: Axis.Position.Vertical,
+    ): List<Double> = getLabelValues(context, axisHeight, maxLabelHeight, position)
+
+    private fun inRange(range: ClosedFloatingPointRange<Double>) = values.filter {
+        it >= range.start - EDGE && it <= range.endInclusive + EDGE
     }
 }
