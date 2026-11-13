@@ -1778,8 +1778,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - **Previews and snapshots read `\.liveMaps`**, false unless `SessionView` sets it, so they draw `RouteSketch` and never fetch tiles;
   sniffing the preview or test host would miss one or the other. `RouteShape`'s ends became optional so the stand-in honours hidden
   ends (a dive site's outline).
-- **The live Compose map keeps `cameraForBounds`**; only the feed's map images and the native map share `MapFrame`, so Android and
-  desktop are unchanged (open item).
+- ~~**The live Compose map keeps `cameraForBounds`**; only the feed's map images and the native map share `MapFrame`, so Android and
+  desktop are unchanged (open item).~~ It frames with `MapFrame` too now (`compose-map-frame`).
 - **Text the page shared with the segment page moved once**: `PlaceTexts` (creator, credit, licence, status and its help, whether Open
   the original shows) and `PlaceNameTexts` (the names section, including the vote a tap sends) in `:app-common-api`; `PlaceStatus` now
   takes the texts rather than string resources. One new string, `place_name_proposal_line`, joins a proposal's author and totals.
@@ -2227,6 +2227,39 @@ What building the host and the shell on Swift export showed, beyond the probes:
   iOS 26.0 a full run of 455 tests whose only failure, `ImportSnapshotTests` `zoneSheet("utc+8")` (the time zone sheet, unchanged),
   passed with its suite run alone. iOS 18.4 was not run.
 
+### Live Compose map framing (`compose-map-frame`)
+
+- **Every route map frames with `MapFrame` now.** The live Compose map (`ActivityMap.nonWeb.kt`: the activity, segment and dive site
+  pages and the enlarged map, on Android and desktop) measures itself (`onSizeChanged`, in dp, MapLibre's logical units) and sets its
+  camera from `RouteMap.frame(width, height, overlayTop)`, as the feed's map images and the iOS map do. Recenter flies to the same frame
+  (`animateCamera` with `CameraAnimation.Fly.Standard`, the flight `animateCameraToBounds` used). Web has no live map (the line preview).
+- **The jump doesn't wait for a viewport.** MapLibre Compose 0.20's `setCameraPosition` keeps a durable camera and applies it when the
+  surface attaches, so the camera goes in as soon as the map is measured; `cameraForBounds` suspended until MapLibre had a viewport.
+- **When it reframes:** on a new route (`RouteMap.key`, so a moving highlight still doesn't reframe) or `overlayTop`, and for a static map
+  on every new size, so a resized card stays framed. An interactive map reframes on size only once (its first measure), so resizing the
+  desktop window keeps the viewer's pan, as iOS reframes only on `key`.
+- **Visible change:** only a very short route. `cameraForBounds` had no closest zoom, so a route of a few metres filled the map with a
+  building or less; it now stops at zoom 16, like the iOS map and the feed's images. A longer route lands where it did: the same margin
+  (24) and the same Web Mercator fit, now with the top inset taken out of the height rather than given to MapLibre as padding.
+- **`RouteCamera.kt` shrank to the conversion** (`MapFrame.toCameraPosition()`, `toCameraUpdate()`), which the live map and
+  `RouteSnapshots` share; `RouteSnapshots` asks `RouteMap.frame` instead of rebuilding a `BoundingBox`. `fitCamera`, `FIT_MARGIN` and
+  `MAX_FIT_ZOOM` lost their callers, and `RouteCameraTest` went: its four cases were `RouteMapTest`'s frame tests through a wrapper that
+  only converted types.
+- **Looked at on desktop** through a throwaway harness window (not committed; the desktop app was signed out, and the hot-reload MCP
+  attaches only to the main checkout's app). It drew, side by side, the static live map and the feed image at 360 by 240 and an interactive
+  map at 480 by 360 with a 40 dp top inset, for a 5 km loop and a 15 m line, in dark mode. One screenshot was taken, with the emulator's
+  window over the static live maps' column: the loop sat inside the margin on the interactive map, below its inset, framed as on the feed
+  image beside it, and the 15 m line was drawn at the same scale on the feed image and the interactive live map (zoom 16, streets and
+  their names around it). The harness's log had MapLibre render all four live maps at their sizes (360x240 and 480x360 logical). Against the iOS map it was compared only by construction: both ask `MapFrame.fit`, which `RouteMapTest` and
+  the Swift `MapCamera` test hold.
+- **Not verified:** the Android emulator. It ran this build signed in as alice and drew feed cards' map images, but with the machine's
+  load average at 250 to 360 the app hit "isn't responding" before any page with a live map opened, so Android's live map, Recenter
+  there and a rotation were not seen. A second screenshot after the first desktop one was blocked by a macOS screen-recording prompt
+  ("bypass the system private window picker"), left for the user. Recenter was not tapped on desktop either: the harness had no input
+  driver once screenshots stopped.
+- No Android screenshot reference changed: previews and screenshot tests draw the line preview (`LocalInspectionMode`), never the live
+  map.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2383,8 +2416,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~The segment page (`SegmentScreen`) is still the shared UI's~~: native (`ios-native-charts`), with the native chart and map. ~~Its
   enlarged map and segment browse~~: native (`ios-native-interactive-maps`). The create-segment page and the highlighted stretch a new
   segment shows are still the shared UI's. ~~The dive site page~~: native (`ios-native-map`). The lists they open are native
-  (`ios-native-segment-lists`). The live Compose map still frames with MapLibre's
-  `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop.
+  (`ios-native-segment-lists`). ~~The live Compose map still frames with MapLibre's
+  `cameraForBounds` (no closest zoom); moving it onto `MapFrame` wants a look on Android and desktop~~: it frames with `RouteMap.frame`
+  (`compose-map-frame`).
 - ~~The activity page (`ActivityDetailScreen`) is still the shared UI's~~: native (`ios-native-activity-page`). ~~Still left on it:
   charts `LineChart` can't draw yet, the legs, lengths and sets tables, the edit-combination sheet, the chart source captions and the
   nested efforts' guide lines and span bars~~: done (`ios-native-activity-rest`), and ~~the media gallery, the enlarged route map and the

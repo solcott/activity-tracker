@@ -18,7 +18,6 @@ import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapSnapshotException
 import org.maplibre.compose.map.MapSnapshotter
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
  * Draws feed cards' map images offscreen: the one place that calls MapLibre's snapshotter. Each theme keeps one snapshotter for the
@@ -26,8 +25,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
  */
 @OptIn(ExperimentalAtomicApi::class)
 internal object RouteSnapshots {
-    /** A route ready to draw: the line, its markers, the colour and where it lies. */
-    private class Route(val routeJson: String, val markers: RouteMarkers<GeoPoint>?, val color: Color, val bounds: BoundingBox)
+    /** A route ready to draw: the line, its markers and the colour. */
+    private class Route(val routeJson: String, val markers: RouteMarkers<GeoPoint>?, val color: Color)
 
     private class Themed(style: String) {
         val route = mutableStateOf<Route?>(null)
@@ -60,7 +59,6 @@ internal object RouteSnapshots {
                 routeJson = lineJson(map.pieces.map { it.points }),
                 markers = RouteMarkers.of(map),
                 color = Color(snapshot.routeColor),
-                bounds = map.bounds.let { BoundingBox(west = it.west, south = it.south, east = it.east, north = it.north) },
             )
         val density = Density(snapshot.density)
         // The snapshotter lays maps out in whole dp and draws them at the density, so this is the size Coil asked for.
@@ -70,7 +68,7 @@ internal object RouteSnapshots {
             Snapshot.withMutableSnapshot { themed.route.value = route }
             try {
                 themed.snapshotter.capture(size) {
-                    cameraPosition = fitCamera(route.bounds, size)
+                    cameraPosition = map.frame(size.width.value.toDouble(), size.height.value.toDouble()).toCameraPosition()
                     this.density = density
                 }
             } catch (e: MapSnapshotException) {

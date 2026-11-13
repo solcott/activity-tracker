@@ -8,16 +8,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+import io.github.solcott.activitytracker.app.MapFrame
 import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -31,7 +38,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import org.maplibre.compose.camera.CameraFit
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
@@ -43,8 +50,6 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.util.DpPadding
-import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun ActivityMap(
@@ -68,7 +73,6 @@ actual fun ActivityMap(
     val map = remember(polyline, gaps, ends) { RouteMap.of(polyline, gaps, ends) } ?: return
     val routeJson = remember(map) { lineJson(map.pieces.map { it.points }) }
     val markers = remember(map) { RouteMarkers.of(map) }
-    val bounds = remember(map) { map.bounds.let { BoundingBox(west = it.west, south = it.south, east = it.east, north = it.north) } }
     val color = MaterialTheme.colorScheme.primary
     val highlightColor = MaterialTheme.colorScheme.tertiary
     val highlightJson =
@@ -94,12 +98,21 @@ actual fun ActivityMap(
                 }
             }
         }
-    val fit =
-        remember(overlayTop) {
-            CameraFit(fitPadding = DpPadding(left = FIT_MARGIN, top = FIT_MARGIN + overlayTop, right = FIT_MARGIN, bottom = FIT_MARGIN))
-        }
-    // Jump straight to the route; cameraForBounds waits until the map has a viewport.
-    LaunchedEffect(mapState, bounds, fit) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, fit)) }
+    // Framed by RouteMap for the map's own size (dev/shared-display-text), as the feed's map images and the iOS map are, so a very short
+    // route is drawn no closer than MapFrame.MAX_ZOOM. The camera is set as soon as the map is measured: MapLibre applies it when its
+    // surface attaches, so the map never waits for a viewport to land on the route.
+    val density = LocalDensity.current
+    var size by remember { mutableStateOf<DpSize?>(null) }
+    val frame: (DpSize) -> MapFrame = { dp ->
+        map.frame(dp.width.value.toDouble(), dp.height.value.toDouble(), overlayTop.value.toDouble())
+    }
+    // An interactive map frames again only for a new route, so resizing the window keeps the viewer's pan, as on iOS; a static one follows
+    // its size.
+    val sizeKey: Any? = if (interactive) size != null else size
+    DisposableEffect(mapState, map.key, overlayTop, sizeKey) {
+        size?.let { mapState.setCameraPosition(frame(it).toCameraPosition()) }
+        onDispose {}
+    }
     val currentOnExpand by rememberUpdatedState(onExpand)
     val interactions =
         remember(interactive, onExpand != null) {
@@ -129,7 +142,7 @@ actual fun ActivityMap(
         }
     val scope = rememberCoroutineScope()
     MaplibreMap(
-        modifier.fillMaxWidth().height(height),
+        modifier.fillMaxWidth().height(height).onSizeChanged { size = with(density) { it.toSize().toDpSize() } },
         state = mapState,
         interactions = interactions,
         overlay = {
@@ -139,7 +152,11 @@ actual fun ActivityMap(
                         MapButton(
                             AppIcon.Recenter,
                             Res.string.map_recenter,
-                            onClick = { scope.launch { mapState.animateCameraToBounds(bounds, fit) } },
+                            onClick = {
+                                size?.let {
+                                    scope.launch { mapState.animateCamera(frame(it).toCameraUpdate(), CameraAnimation.Fly.Standard) }
+                                }
+                            },
                             buttonModifier,
                         )
                     onExpand != null ->
