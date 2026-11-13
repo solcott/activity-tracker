@@ -29,6 +29,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.io.bytestring.ByteString
 
 /**
@@ -462,8 +463,8 @@ data class SensorPreview(
  */
 @Immutable
 data class ImportClock(
-    /** The device's clock at the start, as written ("2024-10-16 17:30"). The same in every zone; only the moment it means moves. */
-    val localStart: String,
+    /** The device's clock at the start, with no zone. The same in every zone; only the moment it means moves. */
+    val localStart: LocalDateTime,
     val zone: TimeZoneOption,
     /** Every zone the athlete can pick, by id. */
     val zones: ImmutableList<TimeZoneOption>,

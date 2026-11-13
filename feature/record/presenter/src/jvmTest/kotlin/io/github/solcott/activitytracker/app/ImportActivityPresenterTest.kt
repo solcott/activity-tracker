@@ -469,7 +469,7 @@ class ImportActivityPresenterTest {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
             val read = awaitUntil { it.preview != null }
             val clock = assertNotNull(read.preview?.clock)
-            assertEquals("2026-09-20 07:00", clock.localStart)
+            assertEquals(LocalDateTime(2026, 9, 20, 7, 0), clock.localStart)
             assertEquals(TimeZones.device().id, clock.zone.id, "starts in this device's zone")
             assertTrue(TimeZoneOption("America/New_York", "UTC-04:00") in clock.zones, "daylight saving on the day")
 

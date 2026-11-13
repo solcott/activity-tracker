@@ -69,10 +69,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Job
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format.char
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
@@ -660,15 +658,6 @@ internal fun zoneOptions(localStart: LocalDateTime): ImmutableList<TimeZoneOptio
 internal fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOption {
     val offset = zone.offsetAt(localStart.toInstant(zone))
     return TimeZoneOption(zone.id, if (offset.totalSeconds == 0) "UTC" else "UTC$offset")
-}
-
-/** The import clock's zoneless start, as written ("2024-10-16 17:30"). */
-internal val LOCAL_START = LocalDateTime.Format {
-    date(LocalDate.Formats.ISO)
-    char(' ')
-    hour()
-    char(':')
-    minute()
 }
 
 private val PEDALLED = setOf(Sport.RIDE, Sport.HANDCYCLE)

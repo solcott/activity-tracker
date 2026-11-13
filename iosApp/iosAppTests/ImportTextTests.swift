@@ -66,4 +66,11 @@ struct ImportTextTests {
         #expect(texts.zones(clock: clock, query: "utc+8").map(\.id) == ["Asia/Singapore"])
         #expect(read(texts.zone(zone: clock.zone)) == "America/Cancun (UTC-05:00)")
     }
+
+    @Test func theZoneNoticeQuotesTheFilesClockWrittenOut() throws {
+        let clock = try #require(Samples.importActivityVariants["diveZone"]?.preview?.clock)
+        let notice = try #require(read(texts.zoneNotice(clock: clock, fileName: nil)))
+        // The dive computer's 17:30, whatever the device's zone, on the device's clock.
+        #expect(notice.contains("its start (Oct 16, 2024 at \(time("2024-10-16T17:30:00Z")))"))
+    }
 }

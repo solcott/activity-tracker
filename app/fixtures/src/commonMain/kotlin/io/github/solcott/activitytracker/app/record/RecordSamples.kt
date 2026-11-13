@@ -269,7 +269,7 @@ object ImportActivitySamples {
                         fileName = "dives.uddf",
                         clock =
                             ImportClock(
-                                "2024-05-20 09:30",
+                                LocalDateTime(2024, 5, 20, 9, 30),
                                 TimeZoneOption("America/Denver", "UTC-06:00"),
                                 persistentListOf(TimeZoneOption("America/Denver", "UTC-06:00"), TimeZoneOption("UTC", "UTC+00:00")),
                             ),
@@ -383,7 +383,7 @@ object ImportActivitySamples {
                                 device = "Shearwater Perdix",
                                 clock =
                                     ImportClock(
-                                        "2024-10-16 17:30",
+                                        LocalDateTime(2024, 10, 16, 17, 30),
                                         TimeZoneOption("America/Cancun", "UTC-05:00"),
                                         persistentListOf(
                                             TimeZoneOption("America/Cancun", "UTC-05:00"),
