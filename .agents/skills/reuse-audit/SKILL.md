@@ -26,7 +26,7 @@ Each agent returns up to ~15 findings, each with a title, file:line, what repeat
 
 - An atproto SDK (Ozone etc.), or replacing the hand-written XRPC/OAuth/DPoP layer in `core/atproto`. That is a hard project rule.
 - A client library without a wasmJs target, unless the code sits in a platform source set the library covers.
-- Merging `expect`/`actual` pairs that differ on purpose (iOS vs `nonApple` adaptive wrappers), or lexicon mirrors that must match their JSON field for field.
+- Merging `expect`/`actual` pairs that differ on purpose (a platform's own API behind one signature), or lexicon mirrors that must match their JSON field for field.
 - Merging shapes that look alike but carry different privacy rules. Two queries that differ only in which tier they admit are not duplicates.
 
 Spot-check every finding you keep against the code. An agent's "duplicate" is a claim, not proof.

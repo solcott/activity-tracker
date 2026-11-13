@@ -6,26 +6,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mohamedrejeb.calf.ui.ExperimentalCalfUiApi
-import com.mohamedrejeb.calf.ui.dialog.AdaptiveBasicAlertDialog
-import com.mohamedrejeb.calf.ui.dialog.uikit.AlertDialogIosAction
-import com.mohamedrejeb.calf.ui.dialog.uikit.AlertDialogIosActionStyle
-import com.mohamedrejeb.calf.ui.dialog.uikit.AlertDialogIosProperties
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * Asks the athlete to confirm, shown while composed: a native `UIAlertController` on iOS, Material's alert dialog elsewhere. Any number of
- * [actions] (Calf's two-button alert can't offer a third choice), then [cancelLabel]; picking one runs it, and every way out dismisses.
+ * Asks the athlete to confirm, shown while composed: Material's alert dialog. Any number of [actions], then [cancelLabel]; picking one runs
+ * it, and every way out dismisses.
  */
-@OptIn(ExperimentalCalfUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppAlertDialog(
     title: String,
@@ -35,25 +31,7 @@ fun AppAlertDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val iosProperties =
-        remember(title, message, actions, cancelLabel, onDismiss) {
-            AlertDialogIosProperties(
-                title = title,
-                text = message,
-                actions =
-                    actions.map { action ->
-                        AlertDialogIosAction(
-                            title = action.label,
-                            style = if (action.destructive) AlertDialogIosActionStyle.Destructive else AlertDialogIosActionStyle.Default,
-                            onClick = {
-                                onDismiss()
-                                action.onClick()
-                            },
-                        )
-                    } + AlertDialogIosAction(cancelLabel, AlertDialogIosActionStyle.Cancel, onDismiss),
-            )
-        }
-    AdaptiveBasicAlertDialog(onDismissRequest = onDismiss, modifier = modifier, iosProperties = iosProperties) {
+    BasicAlertDialog(onDismissRequest = onDismiss, modifier = modifier) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall)

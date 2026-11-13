@@ -24,7 +24,8 @@ The harness SHALL let a test or preview choose:
 - the unit system
 - the window width class (compact, medium or expanded)
 
-The UI SHALL render with the choices made.
+The UI SHALL render with the choices made. The shared UI SHALL offer no other platform look: the iOS app draws its own screens, so
+the harness SHALL NOT offer an iOS look of the shared UI.
 
 #### Scenario: Dark theme
 - **WHEN** a screen renders in the harness with dark theme chosen, on a machine set to light mode
@@ -37,6 +38,10 @@ The UI SHALL render with the choices made.
 #### Scenario: Expanded width
 - **WHEN** a screen that lays out by window width renders at the expanded width
 - **THEN** it shows its expanded layout
+
+#### Scenario: No iOS look
+- **WHEN** a test or preview chooses a platform look for a shared screen
+- **THEN** the choices are Android, desktop and web, and each renders as that platform's app does
 
 ### Requirement: Time is provided, not read from the system
 A UI that shows or computes from the current time, time zone or 12/24-hour clock SHALL take them from values the harness can set. With the same state and the same values, it SHALL render the same on any machine, on any date, in any time zone.

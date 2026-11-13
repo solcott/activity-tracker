@@ -3,8 +3,6 @@ package io.github.solcott.activitytracker.app.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /*
@@ -91,65 +89,3 @@ val BrandDark: ColorScheme =
         surfaceContainerHigh = Color(0xFF252B2A),
         surfaceContainerHighest = Color(0xFF303635),
     )
-
-/**
- * The brand on iOS's grouped system surfaces: grey screens with white (or near-black) cards, iOS labels and separators, and the system red.
- * Cards read `surfaceContainerHighest`, so that's the iOS cell colour.
- */
-internal val IosLight: ColorScheme =
-    BrandLight.copy(
-        background = Color(0xFFF2F2F7),
-        onBackground = Color(0xFF000000),
-        surface = Color(0xFFF2F2F7),
-        onSurface = Color(0xFF000000),
-        onSurfaceVariant = Color(0xFF8A8A8E),
-        surfaceBright = Color(0xFFFFFFFF),
-        surfaceDim = Color(0xFFE5E5EA),
-        surfaceContainerLowest = Color(0xFFFFFFFF),
-        surfaceContainerLow = Color(0xFFFFFFFF),
-        surfaceContainer = Color(0xFFFFFFFF),
-        surfaceContainerHigh = Color(0xFFE5E5EA),
-        surfaceContainerHighest = Color(0xFFFFFFFF),
-        surfaceVariant = Color(0xFFE5E5EA),
-        outline = Color(0xFFC6C6C8),
-        outlineVariant = Color(0xFFC6C6C8),
-        error = Color(0xFFFF3B30),
-        onError = Color(0xFFFFFFFF),
-    )
-
-internal val IosDark: ColorScheme =
-    BrandDark.copy(
-        background = Color(0xFF000000),
-        onBackground = Color(0xFFFFFFFF),
-        surface = Color(0xFF000000),
-        onSurface = Color(0xFFFFFFFF),
-        onSurfaceVariant = Color(0xFF98989F),
-        surfaceBright = Color(0xFF2C2C2E),
-        surfaceDim = Color(0xFF000000),
-        surfaceContainerLowest = Color(0xFF000000),
-        surfaceContainerLow = Color(0xFF1C1C1E),
-        surfaceContainer = Color(0xFF1C1C1E),
-        surfaceContainerHigh = Color(0xFF2C2C2E),
-        surfaceContainerHighest = Color(0xFF1C1C1E),
-        surfaceVariant = Color(0xFF2C2C2E),
-        outline = Color(0xFF545458),
-        outlineVariant = Color(0xFF38383A),
-        error = Color(0xFFFF453A),
-        onError = Color(0xFFFFFFFF),
-    )
-
-/**
- * UIKit system colours with no Material role, for the iOS look of the adaptive components. Read through [LocalIosColors]; [AppTheme]
- * provides the light or dark set.
- */
-@Immutable
-data class IosColors(
-    /** `tertiarySystemFill`: translucent, so an unselected chip shows on a page and on a sheet alike. */
-    val tertiaryFill: Color,
-)
-
-internal val IosLightColors = IosColors(tertiaryFill = Color(0x1F767680))
-
-internal val IosDarkColors = IosColors(tertiaryFill = Color(0x3D767680))
-
-val LocalIosColors = staticCompositionLocalOf { IosLightColors }

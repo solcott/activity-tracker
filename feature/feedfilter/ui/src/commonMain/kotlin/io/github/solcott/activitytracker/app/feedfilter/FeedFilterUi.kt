@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
-import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
 import io.github.solcott.activitytracker.app.sport.SportTypeSearch
 import io.github.solcott.activitytracker.app.ui.LocalClock
@@ -41,6 +40,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTriStateCheckbox
+import io.github.solcott.activitytracker.app.ui.adaptive.DateBounds
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.pickedDate

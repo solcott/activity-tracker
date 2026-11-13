@@ -88,7 +88,7 @@ Area rules in `.agents/rules/` (mirrored in `.claude/rules/`) load when you work
 | `docker.md` | Local PDS → relay → Jetstream stack, pinned and patched images |
 | `activity-files.md` | FIT/GPX/TCX/Shearwater import, `ActivityFileReader`, per-platform FIT decoders, dive data |
 | `hot-reload.md` | Desktop app, Compose Hot Reload, its MCP server (screenshots, semantic tree, clicks) for verifying UI |
-| `adaptive-ui.md` | `AppTheme` per platform, the full `ui/adaptive` wrapper list, Calf, the iOS nav bar and Haze, `AppShell` and per-tab back stacks |
+| `adaptive-ui.md` | `AppTheme` per platform, the full `ui/adaptive` wrapper list, `AppShell` and per-tab back stacks, the iOS app's SwiftUI shell and design system |
 
 Use Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStateFlow(...)`), not `private val _x`; a hook blocks the latter. Hooks in `.agents/hooks/` (configured in `.agents/hooks.json` and `.claude/settings.json`) also guard generated files, committed migrations and Ozone imports.
 

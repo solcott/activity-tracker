@@ -168,8 +168,8 @@ private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did
             navStack = backStack,
             modifier = contentModifier,
             providedValues = rootFlags(backStack),
-            // Settings beside its page on a wide window; otherwise iOS's edge swipe back and Android's
-            // predictive back, and the default transition elsewhere.
+            // Settings beside its page on a wide window; otherwise Android's predictive back, and the
+            // default transition elsewhere.
             decoration = remember(circuit) { appNavDecoration(circuit) },
         )
     }

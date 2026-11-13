@@ -3,9 +3,14 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -16,42 +21,46 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.TestTags
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
 import kotlinx.collections.immutable.ImmutableList
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Whether this screen is the bottom of the back stack, which is a tab's root once signed in. `App` provides it per back-stack record. A
- * root's bar has no back button, and on iOS it shows a large title.
+ * root's bar has no back button.
  */
 val LocalIsNavRoot = compositionLocalOf { false }
 
 /**
  * Whether this screen is the first page of a detail pane shown beside its list (Settings on a wide window), where the list stays in view.
- * Its bar has no back button, but unlike [LocalIsNavRoot] no large title either.
+ * Its bar has no back button.
  */
 val LocalIsPaneRoot = compositionLocalOf { false }
 
 /**
  * How a screen's [AppTopBar] follows its content's scrolling. Pass it to the bar and put its `nestedScrollConnection` on the screen (or,
- * under pull to refresh, on the list inside it). At a tab's root on iOS the large title collapses into the bar as the content scrolls.
+ * under pull to refresh, on the list inside it).
  */
-@Composable expect fun rememberAppTopBarScrollBehavior(): TopAppBarScrollBehavior
+@Composable fun rememberAppTopBarScrollBehavior(): TopAppBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
 /**
- * A screen's title bar. Material platforms get Material 3's top app bar. iOS gets a navigation bar drawn in Compose (so it slides with the
- * screen and follows the swipe-back gesture): a back chevron, a centred title, tinted bar buttons, and a large title at a tab's root.
+ * A screen's title bar: Material 3's top app bar.
  *
  * [onBack] shows a back button unless this is the root screen ([LocalIsNavRoot]) or a detail pane's first page ([LocalIsPaneRoot]). Put
  * [AppIconButton]s and [AppMenu]s in [actions]. With a [scrollBehavior] ([rememberAppTopBarScrollBehavior]) the bar marks content scrolled
- * under it (Material's scrolled colour, iOS's hairline), and on iOS the large title collapses into the bar.
+ * under it.
  *
  * With a [titleMenu] the title is a button with a down chevron that opens it, for a screen whose title is a choice (the feed's scope).
  */
 @Composable
-expect fun AppTopBar(
+fun AppTopBar(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
@@ -59,7 +68,24 @@ expect fun AppTopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
     titleMenu: ImmutableList<AppMenuItem>? = null,
     actions: @Composable RowScope.() -> Unit = {},
-)
+) {
+    val back = onBack?.takeUnless { LocalIsNavRoot.current || LocalIsPaneRoot.current }
+    TopAppBar(
+        title = {
+            Column {
+                TopBarTitle(title, LocalTextStyle.current, titleMenu)
+                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        },
+        modifier = modifier,
+        navigationIcon = {
+            back?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it, Modifier.testTag(TestTags.BACK)) }
+        },
+        actions = actions,
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+        scrollBehavior = scrollBehavior,
+    )
+}
 
 /** The bar's title in [style]; with a [menu], a button that opens it, marked by a down chevron sized to the text. */
 @Composable

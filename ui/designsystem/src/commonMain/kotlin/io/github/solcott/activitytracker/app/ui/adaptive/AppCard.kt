@@ -1,11 +1,25 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 /**
- * A surface for one group of content, like a metric's card on an activity's page: an outlined Material card, or on iOS an inset grouped
- * section, the white (or near-black) rounded cell on the grey grouped background that iOS settings and Health use. It fills the width and
- * clips [content] to its shape; pad the content inside it.
+ * A surface for one group of content, like a metric's card on an activity's page: an outlined Material card. It fills the width and clips
+ * [content] to its shape; pad the content inside it.
  */
-@Composable expect fun AppCard(modifier: Modifier = Modifier, content: @Composable () -> Unit)
+@Composable
+fun AppCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Surface(
+        modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        content = content,
+    )
+}

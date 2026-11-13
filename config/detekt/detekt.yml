@@ -39,14 +39,10 @@ Compose:
   CompositionLocalAllowlist:
     active: true
     # The unit preference is ambient like the theme: every stat formatter reads it, so threading it through each State would add noise.
-    # LocalUiPlatform and LocalIosColors are part of the theme, and LocalIsNavRoot is navigation state App provides to every screen's top bar.
-    # LocalFloatingBottomBarHeight is AppShell's floating iOS tab bar, which every screen's AppScaffold pads for, and LocalBarBackdrop is
-    # the content AppScaffold hands its iOS top bar to blur. LocalPinnedOverContent tells the checkboxes in a sticky header to put their
-    # native iOS view over the Compose canvas, so rows scrolling under can't show through; threading it through every trailing slot would
-    # leak a UIKit layering detail into each picker. LocalTopBarEdge is where AppScaffold's iOS top bar ends, which native views over the
-    # canvas read to hide under it, for the same reason. LocalIsPaneRoot and LocalSettingsPane are navigation state too: the list-detail
-    # decoration tells a detail pane's first page to drop its back button, and the Settings list which page shows beside it.
-    allowedCompositionLocals: LocalUnitSystem,LocalClock,LocalTimeZone,LocalHourClock,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalIsPaneRoot,LocalSettingsPane,LocalFloatingBottomBarHeight,LocalBarBackdrop,LocalPinnedOverContent,LocalTopBarEdge
+    # LocalUiPlatform is part of the theme, and LocalIsNavRoot is navigation state App provides to every screen's top bar. LocalIsPaneRoot
+    # and LocalSettingsPane are navigation state too: the list-detail decoration tells a detail pane's first page to drop its back button,
+    # and the Settings list which page shows beside it.
+    allowedCompositionLocals: LocalUnitSystem,LocalClock,LocalTimeZone,LocalHourClock,LocalUiPlatform,LocalIsNavRoot,LocalIsPaneRoot,LocalSettingsPane
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true

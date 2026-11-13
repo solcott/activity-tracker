@@ -153,20 +153,16 @@ class IosResourcesTest {
         """
         enum class AppIcon(
             val material: ImageVector,
-            internal val cupertino: Int,
             val sfSymbol: String,
             internal val filledMaterial: ImageVector = material,
-            internal val filledCupertino: Int = cupertino,
             val filledSfSymbol: String = sfSymbol,
         ) {
-            Back(Icons.AutoMirrored.Filled.ArrowBack, CupertinoIcons.chevronBack, "chevron.backward"),
-            Import(Icons.Filled.AddCircle, CupertinoIcons.trayArrowDown, "tray.and.arrow.down"),
+            Back(Icons.AutoMirrored.Filled.ArrowBack, "chevron.backward"),
+            Import(Icons.Filled.AddCircle, "tray.and.arrow.down"),
             Like(
                 Icons.Outlined.ThumbUp,
-                CupertinoIcons.handThumbsup,
                 "hand.thumbsup",
                 Icons.Filled.ThumbUp,
-                CupertinoIcons.handThumbsupFill,
                 "hand.thumbsup.fill",
             ),
         }

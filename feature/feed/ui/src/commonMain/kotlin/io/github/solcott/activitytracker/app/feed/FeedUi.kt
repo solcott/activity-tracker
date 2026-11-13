@@ -109,7 +109,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                     if (platform.hasPointer) {
                         AppIconButton(AppIcon.Refresh, stringResource(Res.string.feed_refresh), { state.eventSink(FeedEvent.Refresh) })
                     }
-                    AddActivityMenu(state, recordInMenu = platform == UiPlatform.Ios)
+                    AddActivityMenu(state)
                 },
             )
         },
@@ -140,7 +140,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                 outerEventSink = { event ->
                     if (event is FeedFilterOuterEvent.Changed) state.eventSink(FeedEvent.FilterChanged(event.filter))
                 },
-                // Not the list's padding: its bottom clears iOS's floating tab bar, which would open a gap under the control.
+                // Not the list's padding, whose bottom would open a gap under the control.
                 modifier =
                     Modifier.padding(
                             start = listPadding.calculateStartPadding(layoutDirection),
@@ -294,12 +294,12 @@ private fun GroupsPrompt(state: FeedState, modifier: Modifier = Modifier) {
     }
 }
 
-/** "+": record (when [recordInMenu] and this device can), add an activity by hand, or import a file. */
+/** "+": add an activity by hand, or import a file (Android records from its button, and desktop and web can't). */
 @Composable
-private fun AddActivityMenu(state: FeedState, recordInMenu: Boolean, modifier: Modifier = Modifier) {
+private fun AddActivityMenu(state: FeedState, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     val items =
-        FeedTexts.addChoices(state, recordInMenu)
+        FeedTexts.addChoices(state, recordInMenu = false)
             .map { choice -> AppMenuItem(choice.label.string(), addIcon(choice.kind)) { state.eventSink(choice.event) } }
             .toImmutableList()
     Box(modifier) {
