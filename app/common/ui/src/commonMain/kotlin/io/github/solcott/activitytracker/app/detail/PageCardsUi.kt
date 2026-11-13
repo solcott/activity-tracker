@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.string
@@ -28,7 +29,6 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_min
 import io.github.solcott.activitytracker.composeApp.resources.page_all_stats
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_max_heading
 import io.github.solcott.activitytracker.composeApp.resources.page_training_load
-import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -131,7 +131,7 @@ private fun StatsGroupCard(group: StatsGroup, modifier: Modifier = Modifier, onO
 @Composable
 fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Modifier) {
     if (rows.isEmpty()) return
-    val showsMin = rows.any { it.min != null }
+    val showsMin = FigureTexts.showsMin(rows)
     AppCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CardTitle(stringResource(Res.string.page_avg_max_heading), mark = null)
@@ -142,7 +142,7 @@ fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Modifier) {
                 stringResource(Res.string.detail_max),
                 MaterialTheme.typography.labelMedium,
             )
-            val missing = stringResource(Res.string.value_missing)
+            val missing = StatText.missing.string()
             rows.forEach { row ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 AvgMaxLine(

@@ -81,6 +81,23 @@ class CardLinesTest {
     }
 
     @Test
+    fun aZoneReadsItsShareAndOneSentence() {
+        val zones = listOf(ZoneTime("2", ZoneName.Aerobic, 120, 145, 2_100), ZoneTime("5", ZoneName.Aerobic, 175, null, 9))
+        val rows = ZoneRows.of(zones, DetailSection.HeartRate)
+        assertEquals(named("unit_percent", written("100")), rows[0].percent)
+        assertEquals(named("chart_zone_percent_under"), rows[1].percent)
+        assertEquals(named("chart_zone_title", named("chart_zone_label", written("2")), rows[0].name), rows[0].title)
+        assertEquals(named("chart_zone_spoken", rows[0].title, rows[0].range, rows[0].time, rows[0].percent), rows[0].spoken)
+    }
+
+    @Test
+    fun aZoneShareRoundsAndNoneReadsZero() {
+        assertEquals(named("unit_percent", written("58")), ZoneRows.percent(0.584))
+        assertEquals(named("unit_percent", written("0")), ZoneRows.percent(0.0))
+        assertEquals(named("unit_percent", written("1")), ZoneRows.percent(0.005))
+    }
+
+    @Test
     fun aSkiDaysLapsAreRunsAndLifts() {
         val run =
             LapRow(1, elapsedSeconds = 200, movingSeconds = null, distance = 1.2, speed = 30.0, null, null, null, null, descent = 300.0)

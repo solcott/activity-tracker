@@ -1761,6 +1761,17 @@
         }
       }
     },
+    "chart_zone_percent_under" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "<1%"
+          }
+        }
+      }
+    },
     "chart_zone_range" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1779,6 +1790,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@+"
+          }
+        }
+      }
+    },
+    "chart_zone_spoken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@: %3$@, %4$@"
+          }
+        }
+      }
+    },
+    "chart_zone_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
           }
         }
       }

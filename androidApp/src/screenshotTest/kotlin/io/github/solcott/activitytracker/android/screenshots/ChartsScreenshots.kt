@@ -18,11 +18,11 @@ private fun Charts() {
         LineChartUi(LineChartSamples.pace)
         ZoneBars(
             persistentListOf(
-                ZoneBar("Z1", "Recovery", "< 120 bpm", "5:00", 0.08f),
-                ZoneBar("Z2", "Endurance", "120–145 bpm", "35:00", 0.58f),
-                ZoneBar("Z3", "Tempo", "145–160 bpm", "15:00", 0.25f),
-                ZoneBar("Z4", "Threshold", "160–175 bpm", "5:00", 0.08f),
-                ZoneBar("Z5", "Anaerobic", "> 175 bpm", "0:10", 0.003f),
+                ZoneBar("Z1 Recovery", "< 120 bpm", "5:00", "8%", "Z1 Recovery, < 120 bpm: 5:00, 8%", 0.08f),
+                ZoneBar("Z2 Endurance", "120–145 bpm", "35:00", "58%", "Z2 Endurance, 120–145 bpm: 35:00, 58%", 0.58f),
+                ZoneBar("Z3 Tempo", "145–160 bpm", "15:00", "25%", "Z3 Tempo, 145–160 bpm: 15:00, 25%", 0.25f),
+                ZoneBar("Z4 Threshold", "160–175 bpm", "5:00", "8%", "Z4 Threshold, 160–175 bpm: 5:00, 8%", 0.08f),
+                ZoneBar("Z5 Anaerobic", "> 175 bpm", "0:10", "<1%", "Z5 Anaerobic, > 175 bpm: 0:10, <1%", 0.003f),
             ),
         )
     }

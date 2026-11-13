@@ -2199,6 +2199,34 @@ What building the host and the shell on Swift export showed, beyond the probes:
   A first full run's only failure outside Account was `ImportSnapshotTests` (`zoneSheet(query:)`, a 0.1% pixel miss under load), which
   passed alone and in the final full run.
 
+### Text round 4 findings (stats and units, `shared-text-stats`)
+
+- One visible change, on iOS: an activity's heart rate and power zone rows now show each zone's percent after its time (a fixed-width
+  column, so the times line up, as Compose's bars do), and VoiceOver reads a row as Compose's sentence ("Z2 Endurance, 120–145 bpm:
+  35:00, 58%") rather than the combined labels. The native rows keep the label and name in two weights; `ZoneRow.title`, their single
+  line, is Compose's. On Android, desktop and web "View n more replies" now groups a count over 999; nothing else reads differently.
+- iOS 26.0 snapshots changed for every sample that shows zones, and only in the zone rows: `ActivityPageSnapshotTests` `ownRide` and
+  `ownRideOnAnIPad`, `ActivityRestSnapshotTests` `combined`, and `ImportSnapshotTests` `page`, `duplicate`, `duplicateChecking`,
+  `duplicateUploading`, `tooFar`, `saving`, `saveFailed`, `addsRecording` and `wide` (light and dark each, 24 images). No Android
+  reference changed: the Compose bars read the same words, and the charts screenshot's `ZoneBar` sample was rewritten with the same text.
+- `FigureParts.unbreakable` keeps the old Compose rule exactly, including for a value with no number: every space is then non-breaking
+  ("Road bike" stays on one line). Only the hero and a card's headline (`FigureBlock` in both UIs) draw runs; a figure row's value is
+  plain text in both, so neither wraps it any differently than before.
+- `ZoneBar` (`:ui-designsystem`) takes `title`, `percent` and `spoken` strings in place of `label` and `name`, so the design system still
+  sees no `AppText`. The percent rounds `fraction * 100` half up: an exact 0 reads "0%", any share under 0.5% "<1%"
+  (`chart_zone_percent_under`).
+- Checked by name across every Kotlin and Swift source set, tests and the screenshot suite: `elevationStat` and `GearTimeChart` had no
+  caller. `showsLength` in `:app-common-ui` was a wrapper only `elevationStat` and its own test used; the test now checks
+  `CardStatsText.showsLength` in `:app-common-api`. `GearTimePreview` stays: the import state and its presenter test use it, though no
+  UI draws its gears now. `stat_elevation` stays (the record texts name it).
+- The Swift helper that concatenates the runs is now `FigureRuns`, since the Kotlin object `FigureParts` takes its old name through
+  `KotlinTypes.swift`.
+- detekt's `LongParameterList` caps a constructor at six, so `ZoneRow`'s derived texts are body properties, and the stability check
+  flags a `Regex` held by an object, so the number pattern is a file-level `val`.
+- Checks: `check -Pkotlin.incremental=false` (Android screenshots included, no reference changed), the ad-hoc Release build, and on
+  iOS 26.0 a full run of 455 tests whose only failure, `ImportSnapshotTests` `zoneSheet("utc+8")` (the time zone sheet, unchanged),
+  passed with its suite run alone. iOS 18.4 was not run.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2311,18 +2339,15 @@ What building the host and the shell on Swift export showed, beyond the probes:
     the unused `chart_avg_np_max` branch and string, and the now-unused `diveAlertLabel` are gone. `ds/chart/TimeSeriesChart.kt` takes
     the axis and resolved `AxisLabel`s (y at the gridlines, x exactly at `CardLines.timeTicks`), so its own `timeStep`, its inversion and
     both `formatDecimal(v, 0)` fallbacks (its own and `SegmentProfileChart`'s) are gone: a label still loading on the web is blank.
-  - [ ] **Stats and units:**
-    - `ds/chart/ZoneBars.kt:36-46` writes a zone's percent ("<1%", "$rounded%", not localized), its label and its spoken sentence
-      itself. No shared function exists (`ZoneRows.of` gives only `fraction`), and iOS's zone rows are Kotlin's.
-    - `ac/detail/PageCardsUi.kt:134` decides `showsMin` itself (`FigureTexts.showsMin`).
-    - `PageCardsUi.kt:145-152` falls back to a dash (`StatText.missing`).
-    - `ac/ui/ActivityStats.kt:15-18` `elevationStat` (unused).
-    - `ac/ui/GearTimeChart.kt:47` (unused).
-    - Splitting a value into number and unit runs is written twice: `ac/detail/PageFigures.kt:29-64` (`withSmallUnits`, plus
-      `unbreakableUnit`) and `ios/Screens/ActivityPageCards.swift:16-46` (`FigureParts`). iOS has no `unbreakableUnit`, so a narrow
-      column can wrap inside a unit.
-    - Plurals: `ac/interactions/CommentThreadUi.kt:48` `view_more_replies`, whose count is not grouped (`CommentsTexts.moreReplies`);
-      `ac/interactions/CommentsUi.kt:123-125` `detail_comment_count` (`CommentsTexts.count`).
+  - [x] **Stats and units** (`shared-text-stats`). A zone row's title ("Z2 Endurance"), its percent (rounded, "<1%" for a sliver,
+    through `unit_percent` and `chart_zone_percent_under`) and its spoken sentence are `ZoneRow.title`, `percent` and `spoken`, chosen in
+    `ZoneRows.of`; the Compose bars (`ZoneBar` now takes those strings) and the native rows draw them, so iOS's zone rows now show the
+    percent and VoiceOver reads the Compose sentence. Compose's avg/max table asks `FigureTexts.showsMin` and `StatText.missing`, as iOS
+    did. A figure's number and unit runs are `FigureParts.of` (`:app-common-api`, over `FigureParts.unbreakable`), which Compose's
+    `withSmallUnits` and Swift's `FigureRuns.text` (formerly its own `FigureParts`) draw, so iOS no longer wraps inside a unit. Compose's
+    "View n more replies" asks `CommentsTexts.moreReplies` (its count now grouped) and the comments header `CommentsTexts.count`. The
+    unused `elevationStat` (with the `showsLength` wrapper only it used; its test now checks `CardStatsText.showsLength`) and
+    `GearTimeChart` are deleted.
   - [x] **Dive tables and dead dive code** (`shared-text-dive`). Nothing called any of it, so all of it is deleted: `ac/ui/DiveStats.kt`
     (`diveCardStats`, `diveOverviewStats`, `conditions`, `gas`, `airUsed`, `consumption`), `ac/ui/DiveSettingsStats.kt` (ppO₂ limits,
     setpoints, the deco model, `bar`, `decoModelName`), `ac/ui/DepthProfile.kt` whole (with `rememberDepthLabel`), `ac/ui/DiveFormat.kt`,

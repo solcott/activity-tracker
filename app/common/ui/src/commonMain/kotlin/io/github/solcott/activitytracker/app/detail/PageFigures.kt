@@ -23,42 +23,11 @@ internal fun figureText(value: FigureValue): String =
     FigureTexts.value(value, LocalUnitSystem.current, LocalClock.current.now(), LocalTimeZone.current).string()
 
 /**
- * [value] with its numbers in the value's own style and everything else (units, separators) at [unit]: "7.83" larger than "mi". A value
- * without a number, like a device's name, reads in the value's style throughout.
+ * [value] with its numbers in the value's own style and everything else (units, separators) at [unit]: "7.83" larger than "mi", split by
+ * [FigureParts.of] as the native figure is. A value without a number, like a device's name, reads in the value's style throughout.
  */
 internal fun withSmallUnits(value: String, unit: SpanStyle): AnnotatedString {
-    val text = unbreakableUnit(value)
-    val numbers = NUMBER.findAll(text).toList()
-    if (numbers.isEmpty()) return AnnotatedString(text)
-    return buildAnnotatedString {
-        var at = 0
-        for (match in numbers) {
-            if (match.range.first > at) withStyle(unit) { append(text.substring(at, match.range.first)) }
-            append(match.value)
-            at = match.range.last + 1
-        }
-        if (at < text.length) withStyle(unit) { append(text.substring(at)) }
-    }
+    val parts = FigureParts.of(value)
+    if (parts.none { it.isNumber }) return AnnotatedString(parts.joinToString("") { it.text })
+    return buildAnnotatedString { parts.forEach { if (it.isNumber) append(it.text) else withStyle(unit) { append(it.text) } } }
 }
-
-/**
- * [value] that a narrow column may break only between its number and its unit ("1:59" over "/100 yd"), never inside the unit: every space
- * but the first after the number is non-breaking, and nothing breaks after a slash.
- */
-internal fun unbreakableUnit(value: String): String {
-    val first = NUMBER.find(value)?.let { value.indexOf(' ', it.range.last) } ?: -1
-    return buildString {
-        value.forEachIndexed { i, c ->
-            when {
-                c == ' ' && i != first -> append(NO_BREAK_SPACE)
-                c == '/' -> append(c).append(WORD_JOINER)
-                else -> append(c)
-            }
-        }
-    }
-}
-
-private const val NO_BREAK_SPACE = '\u00A0'
-private const val WORD_JOINER = '\u2060'
-// Digits joined by decimal, grouping (including the no-break spaces some locales group with) and clock separators.
-private val NUMBER = Regex("""[-−]?\d(?:[.,:\u00A0\u202F]?\d)*""")

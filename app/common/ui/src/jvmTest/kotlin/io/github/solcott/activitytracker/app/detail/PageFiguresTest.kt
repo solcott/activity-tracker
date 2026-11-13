@@ -25,12 +25,6 @@ class PageFiguresTest {
 
     @AfterTest fun restoreLocale() = Locale.setDefault(locale)
 
-    @Test fun `a swim pace breaks only before its unit`() = assertEquals("1:59 /⁠100 yd", unbreakableUnit("1:59 /100 yd"))
-
-    @Test fun `a distance keeps its one space breakable`() = assertEquals("7.83 mi", unbreakableUnit("7.83 mi"))
-
-    @Test fun `a time has nothing to break`() = assertEquals("2:16:25", unbreakableUnit("2:16:25"))
-
     @Test fun `a count is grouped`() = assertEquals("6,676", text(FigureValue.Count(6676)))
 
     @Test fun `a quantity is grouped`() = assertEquals("1,000 W", text(FigureValue.Quantity(1000, FigureUnit.Watts)))

@@ -56,19 +56,27 @@ struct ActivityPageSnapshotTests {
     }
 }
 
-/// How a figure's value splits for its unit to read smaller (feed/activity-page-layout "Readable figures").
+/// How a figure's value splits for its unit to read smaller (feed/activity-page-layout "Readable figures"), as Kotlin splits it.
 struct FigurePartsTests {
+    private func runs(_ value: String) -> [String] {
+        FigureParts.shared.of(value: value).map { "\($0.isNumber ? "#" : "")\($0.text)" }
+    }
+
     @Test func aNumberAndItsUnitSplit() {
-        #expect(FigureParts.split("7.83 mi") == [.init(text: "7.83", isNumber: true), .init(text: " mi", isNumber: false)])
+        #expect(runs("7.83 mi") == ["#7.83", " mi"])
     }
 
     @Test func aTimeIsOneNumber() {
-        #expect(FigureParts.split("1:02:03").count == 1)
+        #expect(runs("1:02:03") == ["#1:02:03"])
+    }
+
+    @Test func aUnitDoesNotBreakInside() {
+        #expect(runs("1:59 /100 yd") == ["#1:59", " /\u{2060}", "#100", "\u{00A0}yd"])
     }
 
     @Test func textWithoutANumberIsOnePart() {
-        #expect(FigureParts.split("Edge 840").first?.isNumber == false)
-        #expect(FigureParts.split("Road bike").count == 1)
+        #expect(runs("Edge 840").first == "Edge\u{00A0}")
+        #expect(runs("Road bike") == ["Road\u{00A0}bike"])
     }
 
     @Test func theOwnersMenuHasAnIconForEveryAction() {
