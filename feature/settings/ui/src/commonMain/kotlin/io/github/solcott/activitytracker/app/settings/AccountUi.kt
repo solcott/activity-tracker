@@ -56,10 +56,6 @@ import io.github.solcott.activitytracker.composeApp.resources.export_data_cancel
 import io.github.solcott.activitytracker.composeApp.resources.export_data_delete
 import io.github.solcott.activitytracker.composeApp.resources.export_data_keep_open
 import io.github.solcott.activitytracker.composeApp.resources.export_data_save
-import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_delete
-import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_keep
-import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_message
-import io.github.solcott.activitytracker.composeApp.resources.export_data_shared_title
 import io.github.solcott.activitytracker.composeApp.resources.export_data_try_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
@@ -115,7 +111,6 @@ fun AccountUi(state: AccountState, modifier: Modifier = Modifier) {
         }
     }
     state.confirming?.let { EndDialog(it, state.eventSink) }
-    if (state.askingKeptShared) KeptSharedDialog(state.eventSink)
 }
 
 /** The data export (auth/data-export): what it holds, then its progress, or the finished archive to save. */
@@ -124,7 +119,6 @@ private fun ExportSection(state: AccountState) {
     val handOff = rememberArchiveHandOff { result ->
         when (result) {
             ArchiveHandOffResult.Saved -> state.eventSink(AccountEvent.ExportSaved)
-            ArchiveHandOffResult.Shared -> state.eventSink(AccountEvent.ExportShared)
             ArchiveHandOffResult.Failed -> state.eventSink(AccountEvent.ExportSaveFailed)
             ArchiveHandOffResult.Dismissed -> Unit
         }
@@ -169,23 +163,6 @@ private fun ExportSection(state: AccountState) {
 private fun RetryOrCancel(state: AccountState) {
     AppButton(onClick = { state.eventSink(AccountEvent.Export) }) { Text(stringResource(Res.string.export_data_try_again)) }
     AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) { Text(stringResource(Res.string.export_data_cancel)) }
-}
-
-/** iOS's share sheet doesn't say whether the zip was kept, so the athlete says whether the app's copy can go. */
-@Composable
-private fun KeptSharedDialog(eventSink: (AccountEvent) -> Unit) {
-    AppAlertDialog(
-        title = stringResource(Res.string.export_data_shared_title),
-        message = stringResource(Res.string.export_data_shared_message),
-        actions =
-            persistentListOf(
-                AppDialogAction(stringResource(Res.string.export_data_shared_delete), destructive = true) {
-                    eventSink(AccountEvent.KeptShared(kept = true))
-                },
-            ),
-        cancelLabel = stringResource(Res.string.export_data_shared_keep),
-        onDismiss = { eventSink(AccountEvent.KeptShared(kept = false)) },
-    )
 }
 
 @Composable

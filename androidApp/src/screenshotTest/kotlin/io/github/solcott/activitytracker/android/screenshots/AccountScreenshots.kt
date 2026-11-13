@@ -33,6 +33,9 @@ private fun AccountExportStates(@PreviewParameter(AccountExportStates::class) st
 
 class AccountStates : OtherSamples<AccountState>(AccountSamples.all.filterKeys { !it.startsWith(EXPORT) })
 
-class AccountExportStates : OtherSamples<AccountState>(AccountSamples.all.filterKeys { it.startsWith(EXPORT) })
+// The "did you keep it?" question after a share is iOS's alone (its native view draws it): this page never shows it.
+class AccountExportStates : OtherSamples<AccountState>(AccountSamples.all.filterKeys { it.startsWith(EXPORT) && it != SHARED_ASK })
 
 private const val EXPORT = "export"
+
+private const val SHARED_ASK = "exportSharedAsk"
