@@ -96,7 +96,7 @@ private struct CreateSegmentForm: View {
                 AppTextField(label: .segmentCreateName, model: name, state: state.name, layout: .row)
                     .disabled(state.publishing)
             } footer: {
-                Text(verbatim: texts.publicNote(namesActivity: state.namesActivity).map(AppStrings.string).joined(separator: " "))
+                Text(texts.publicNote(namesActivity: state.namesActivity))
             }
         }
     }

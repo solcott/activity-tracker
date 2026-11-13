@@ -91,7 +91,7 @@ private struct CreateDiveSiteForm: View {
                 AppTextField(label: .createDiveSiteName, model: name, state: state.name, layout: .row)
                     .disabled(state.publishing)
             } footer: {
-                Text(verbatim: CreateDiveSiteTexts.shared.publicNote(namesDive: state.namesDive).map(AppStrings.string).joined(separator: " "))
+                Text(CreateDiveSiteTexts.shared.publicNote(namesDive: state.namesDive))
             }
         }
     }

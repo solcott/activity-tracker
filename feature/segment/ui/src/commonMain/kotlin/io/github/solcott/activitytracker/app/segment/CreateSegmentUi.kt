@@ -94,7 +94,7 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            CreateSegmentTexts.publicNote(state.namesActivity).map { it.string() }.joinToString(" "),
+            CreateSegmentTexts.publicNote(state.namesActivity).string(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

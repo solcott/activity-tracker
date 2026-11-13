@@ -43,8 +43,12 @@ class CreateSegmentTextsTest {
 
     @Test
     fun thePublicNoteLinksTheActivityOnlyWhenItWill() {
-        assertEquals(1, CreateSegmentTexts.publicNote(namesActivity = false).size)
-        assertEquals(AppText.named("segment_create_links_activity"), CreateSegmentTexts.publicNote(namesActivity = true).last())
+        val public = AppText.named("segment_create_public")
+        assertEquals(public, CreateSegmentTexts.publicNote(namesActivity = false))
+        assertEquals(
+            AppText.named("text_sentence_pair", public, AppText.named("segment_create_links_activity")),
+            CreateSegmentTexts.publicNote(namesActivity = true),
+        )
     }
 
     @Test

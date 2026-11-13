@@ -47,12 +47,11 @@ object CreateSegmentTexts {
             },
         )
 
-    /** What publishing makes public, then, when the segment [namesActivity], that it links to the activity: sentences read in order. */
-    fun publicNote(namesActivity: Boolean): List<AppText> =
-        listOfNotNull(
-            AppText.named("segment_create_public"),
-            AppText.named("segment_create_links_activity").takeIf { namesActivity },
-        )
+    /** What publishing makes public, then, when the segment [namesActivity], that it links to the activity: one paragraph. */
+    fun publicNote(namesActivity: Boolean): AppText {
+        val public = AppText.named("segment_create_public")
+        return AppText.sentences(listOfNotNull(public, AppText.named("segment_create_links_activity").takeIf { namesActivity })) ?: public
+    }
 
     /** An existing segment the stretch duplicates: its name and length ("Ridge climb · 1.0 km"). */
     fun duplicate(segment: SegmentView, units: UnitSystem): AppText =
