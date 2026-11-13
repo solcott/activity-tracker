@@ -16,10 +16,9 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.comment_unavailable
-import io.github.solcott.activitytracker.composeApp.resources.view_more_replies
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** In place of a top-level comment that isn't listed for the viewer, while some of its replies are. It says nothing more about it. */
@@ -45,7 +44,7 @@ fun MoreReplies(thread: CommentThread, eventSink: (CommentEvent) -> Unit, modifi
             Box(modifier) {
                 AppTextButton(onClick = load) {
                     Text(
-                        pluralStringResource(Res.plurals.view_more_replies, thread.moreReplies, thread.moreReplies),
+                        CommentsTexts.moreReplies(thread.moreReplies).string(),
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }

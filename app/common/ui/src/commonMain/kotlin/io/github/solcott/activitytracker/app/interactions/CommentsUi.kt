@@ -44,20 +44,17 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_replying_to
-import io.github.solcott.activitytracker.composeApp.resources.detail_comment_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 // A subject's comments, an activity's or a post's (feed/comments): lazy items, threads paged as the viewer scrolls.
@@ -120,9 +117,8 @@ fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizonta
 private fun CommentsHeader(state: CommentsState, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        val count = state.count.toInt()
         Text(
-            pluralStringResource(Res.plurals.detail_comment_count, count, formatWhole(count)),
+            CommentsTexts.count(state).string(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
