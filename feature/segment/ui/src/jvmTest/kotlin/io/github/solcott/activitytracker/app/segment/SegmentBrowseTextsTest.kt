@@ -14,6 +14,12 @@ import kotlin.test.assertTrue
 /** What segment browse lists and says, and a segment's credit (segments/segment-browse, dev/shared-display-text). */
 class SegmentBrowseTextsTest {
     @Test
+    fun theSportChipNamesEachGroupOrAll() {
+        assertEquals(SegmentBrowseTexts.allSports, SegmentBrowseTexts.sportChoice(null))
+        assertEquals(SegmentBrowseTexts.sport("ride"), SegmentBrowseTexts.sportChoice("ride"))
+    }
+
+    @Test
     fun theListShowsWhatTheBrowseStateCallsFor() {
         assertEquals(BrowseList.Area, SegmentBrowseSamples.loaded.listShows(mapSupported = true))
         assertEquals(BrowseList.WebPrompt, SegmentBrowseSamples.loaded.listShows(mapSupported = false))

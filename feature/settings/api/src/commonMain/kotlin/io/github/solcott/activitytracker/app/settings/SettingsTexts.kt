@@ -13,6 +13,9 @@ import kotlinx.collections.immutable.persistentListOf
  * A row's summary is null until its page's setting has been read: it is left out, never guessed (ui/settings-layout).
  */
 object SettingsTexts {
+    /** The account row's summary: that the session needs signing in again, else nothing. */
+    fun accountSummary(state: SettingsState): AppText? = if (state.needsSignIn) AppText.named("settings_account_needs_sign_in") else null
+
     /** The Activity defaults row: who new activities are shown to, a `Visibility` value. */
     fun defaultVisibility(visibility: String?): AppText? = visibility?.let(LabelText::visibility)
 

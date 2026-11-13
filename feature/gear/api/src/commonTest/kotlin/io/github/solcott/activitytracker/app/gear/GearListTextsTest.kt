@@ -33,6 +33,12 @@ class GearListTextsTest {
     }
 
     @Test
+    fun aSectionIsHeadedByItsTypeOrRetired() {
+        assertEquals(GearTexts.type(GearType.BIKE), GearListTexts.section(GearType.BIKE))
+        assertEquals(AppText.named("gear_retired"), GearListTexts.section(null))
+    }
+
+    @Test
     fun retiredShowsOnlyWhereAsked() {
         val retired = bike.copy(retired = true)
         val detail = joined(GearTexts.type(GearType.BIKE), LabelText.visibility(Visibility.PUBLIC))

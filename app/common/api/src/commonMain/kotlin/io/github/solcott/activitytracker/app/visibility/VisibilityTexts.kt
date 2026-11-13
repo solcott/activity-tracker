@@ -32,6 +32,10 @@ object VisibilityTexts {
     fun followersNote(selected: String?, approvesFollowers: Boolean): AppText? =
         if (selected == Visibility.FOLLOWERS && !approvesFollowers) AppText.named("visibility_followers_open_note") else null
 
+    /** The note under the activity's visibility: what the tiers mean while it can be chosen, else why it can't ([lockedNote]). */
+    fun activityNote(fields: VisibilityFields): AppText =
+        if (fields.canChoose) AppText.named("activity_visibility_help") else lockedNote(fields)
+
     /** Why [fields] can't be chosen: a session to sign in again, or a PDS without spaces, where signing in again wouldn't help. */
     fun lockedNote(fields: VisibilityFields): AppText =
         AppText.named(if (fields.spacesUnsupported) "activity_visibility_unsupported" else "activity_visibility_sign_in_again")

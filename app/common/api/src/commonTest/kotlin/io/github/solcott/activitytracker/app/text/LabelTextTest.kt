@@ -1,8 +1,12 @@
 package io.github.solcott.activitytracker.app.text
 
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Gender
+import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -66,6 +70,28 @@ class LabelTextTest {
     }
 
     @Test fun aHandle() = assertEquals("@alice.test", LabelText.handle("alice.test").read())
+
+    @Test
+    fun aShownNameFallsBackToTheHandleWithItsAt() {
+        val carol = ProfileViewBasic(Did("did:plc:carol"), Handle("carol.test"))
+        assertEquals("@carol.test", LabelText.shownName(carol).read())
+        assertEquals("Carol", LabelText.shownName(carol.copy(displayName = "Carol")).read())
+        val bob = ProfileView(Did("did:plc:bob"), Handle("bob.test"))
+        assertEquals("@bob.test", LabelText.shownName(bob).read())
+        assertEquals("Bob", LabelText.shownName(bob.copy(displayName = "Bob")).read())
+    }
+
+    @Test
+    fun aDisclosureState() {
+        assertEquals(AppText.named("detail_section_expanded"), LabelText.expanded(true))
+        assertEquals(AppText.named("detail_section_collapsed"), LabelText.expanded(false))
+    }
+
+    @Test
+    fun saveReadsSavingWhileItRuns() {
+        assertEquals(AppText.named("action_save"), LabelText.save(saving = false))
+        assertEquals(AppText.named("action_saving"), LabelText.save(saving = true))
+    }
 
     @Test
     fun aGender() {

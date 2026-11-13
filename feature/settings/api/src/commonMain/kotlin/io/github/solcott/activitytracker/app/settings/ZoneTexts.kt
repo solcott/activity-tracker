@@ -66,7 +66,10 @@ object ZoneTexts {
         )
 
     /** A zone model's name, by its token; one another client saved that the app has no name for shows as its token. */
-    fun model(model: ZoneModel): AppText = AppText.Named("zone_model_${model.token}", fallback = AppText.written(model.token))
+    fun model(model: ZoneModel): AppText = modelChoice(model.token)
+
+    /** One choice of a model picker, which names its options by token: the model's name, else the token as it is. */
+    fun modelChoice(token: String): AppText = AppText.Named("zone_model_$token", fallback = AppText.written(token))
 
     /** What a model's zones are a share of: "Lactate threshold". */
     fun basis(basis: ZoneBasis): AppText =

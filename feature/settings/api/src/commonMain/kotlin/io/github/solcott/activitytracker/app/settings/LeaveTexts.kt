@@ -56,6 +56,27 @@ object LeaveTexts {
     /** Until when the server asked it to wait, as a time of day on the device's clock, while it does. */
     fun paused(run: LeaveRun): AppText? = run.pausedUntil?.let { AppText.named("leave_paused", AppText.Time(it.epochSeconds)) }
 
+    /** What the export section says: offering one, that one is running, or that the finished one is still to be saved. */
+    fun exportLine(export: LeaveExport): AppText =
+        AppText.named(
+            when (export) {
+                LeaveExport.None -> "leave_export_none"
+                LeaveExport.Running -> "leave_export_running"
+                LeaveExport.Ready -> "leave_export_ready"
+            },
+        )
+
+    /** The export section's button: Export data (held while leaving starts), Cancel while one runs, or Save once it's ready. */
+    fun exportControls(state: LeaveState): List<ExportControl> =
+        listOf(
+            when (state.export) {
+                LeaveExport.None ->
+                    ExportControl(ExportAction.Export, AppText.named("export_data"), primary = false, enabled = !state.starting)
+                LeaveExport.Running -> ExportControl(ExportAction.Cancel, AppText.named("export_data_cancel"), primary = false)
+                LeaveExport.Ready -> ExportControl(ExportAction.Save, AppText.named("leave_export_save"), primary = true)
+            },
+        )
+
     private fun count(name: String, quantity: Int): AppText? =
         if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.written(formatWhole(quantity)))) else null
 }

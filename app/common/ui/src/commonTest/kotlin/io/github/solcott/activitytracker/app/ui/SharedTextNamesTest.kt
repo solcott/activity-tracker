@@ -129,6 +129,8 @@ class SharedTextNamesTest {
                 listOf(Gender.FEMALE, Gender.MALE, Gender.NON_BINARY).map(LabelText::gender) +
                 Visibility.all.map(LabelText::visibility) +
                 LabelText.handle("alice.test") +
+                listOf(false, true).flatMap { listOf(LabelText.expanded(it), LabelText.save(it)) } +
+                VisibilityTexts.activityNote(VisibilityFields(canChoose = true)) +
                 DetailCategory.all.map(LabelText::detailCategory) +
                 DetailCategory.all.mapNotNull(VisibilityTexts::categoryHelp) +
                 VisibilityTexts.categoryName(VisibilityFields(runningForm = false), DetailCategory.CADENCE) +

@@ -49,7 +49,7 @@ object ProfileTexts {
     fun title(profile: ProfileView?): AppText = profile?.let { AppText.written(it.shownName) } ?: AppText.named("profile_title")
 
     /** The athlete as a sentence names them (the block confirmation): their display name, or their handle with its `@`. */
-    fun name(profile: ProfileView): AppText = profile.displayName?.let(AppText::written) ?: LabelText.handle(profile.handle.value)
+    fun name(profile: ProfileView): AppText = LabelText.shownName(profile)
 
     /** "12 activities", a missing count as none. */
     fun activities(count: Long?): AppText = countText("profile_activities_count", count)

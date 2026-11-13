@@ -13,8 +13,7 @@ object ModerationSubjectTexts {
     fun visibility(visibility: String): AppText = AppText.named("moderation_visibility", LabelText.visibility(visibility))
 
     /** The comment's author: their display name, else their `@handle`. */
-    fun commentAuthor(comment: CommentView): AppText =
-        comment.author.displayName?.let(AppText::written) ?: LabelText.handle(comment.author.handle.value)
+    fun commentAuthor(comment: CommentView): AppText = LabelText.shownName(comment.author)
 
     /** Open is held while a subject opens. */
     fun canOpen(state: ModerationState): Boolean = !state.loading

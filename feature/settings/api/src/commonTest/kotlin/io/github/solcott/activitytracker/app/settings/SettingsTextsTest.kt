@@ -55,4 +55,11 @@ class SettingsTextsTest {
     @Test
     fun aSaveInProgressReplacesTheNote() =
         assertEquals(AppText.named("settings_saving"), SettingsTexts.unitsNote(UnitSystem.Imperial, saving = true))
+
+    @Test
+    fun theAccountRowSaysOnlyThatItNeedsSigningIn() {
+        val state = SettingsState("alice.test", needsSignIn = false, UnitSystem.Metric, saving = false, error = null, eventSink = {})
+        assertNull(SettingsTexts.accountSummary(state))
+        assertEquals(AppText.named("settings_account_needs_sign_in"), SettingsTexts.accountSummary(state.copy(needsSignIn = true)))
+    }
 }

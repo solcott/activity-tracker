@@ -89,6 +89,9 @@ class ZonesPagesTextsTest {
         // Another client's model reads as its token.
         val unknown = ZoneModel("someoneElses", ZoneBasis.MaxHeartRate, emptyList())
         assertEquals(written("someoneElses"), (ZoneTexts.model(unknown) as AppText.Named).fallback)
+        // A model picker names its options by token, the same way.
+        assertEquals(ZoneTexts.model(ZoneModels.defaultHeartRate), ZoneTexts.modelChoice(ZoneModels.defaultHeartRate.token))
+        assertEquals(ZoneTexts.model(unknown), ZoneTexts.modelChoice("someoneElses"))
         assertEquals(AppText.named("zones_basis_reserve"), ZoneTexts.basis(ZoneBasis.HeartRateReserve))
         assertEquals(AppText.named("zones_needs_ftp"), ZoneTexts.missing(ZoneBasis.FunctionalThresholdPower))
     }

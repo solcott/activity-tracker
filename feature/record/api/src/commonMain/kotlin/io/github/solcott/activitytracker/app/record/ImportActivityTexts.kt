@@ -90,7 +90,7 @@ object ImportActivityTexts {
         )
 
     /** A single activity's Save, or Saving… while it saves. */
-    fun save(saving: Boolean): AppText = AppText.named(if (saving) "action_saving" else "action_save")
+    fun save(saving: Boolean): AppText = LabelText.save(saving)
 
     fun savingProgress(saving: SavingImport): AppText =
         AppText.named("import_saving_progress", whole(saving.progress.queued), whole(saving.progress.total))
@@ -485,17 +485,26 @@ object ImportActivityTexts {
     fun gearKinds(type: String): List<String> = GearType.kinds(type)
 
     /** The card's kind, None when it has none. */
-    fun deviceKind(card: NewDeviceCard): AppText = card.kind?.let { GearTexts.kind(card.type, it) } ?: deviceKindNone
+    fun deviceKind(card: NewDeviceCard): AppText = deviceKindChoice(card.type, card.kind)
+
+    /** One choice of a [type]'s kind picker: the [kind]'s name, or None for no kind (null). */
+    fun deviceKindChoice(type: String, kind: String?): AppText = kind?.let { GearTexts.kind(type, it) } ?: deviceKindNone
 
     /** What the new item is mounted on, Nothing when it isn't. */
-    fun deviceMount(card: NewDeviceCard, fields: NewDevicesFields): AppText =
-        fields.mountOptions.firstOrNull { it.uri == card.mountOn }?.name?.let(AppText::written) ?: deviceMountNone
+    fun deviceMount(card: NewDeviceCard, fields: NewDevicesFields): AppText = deviceMountChoice(fields, card.mountOn?.value)
+
+    /** One choice of the mount picker: the item at [uri], or Nothing for none (null, or an item no longer offered). */
+    fun deviceMountChoice(fields: NewDevicesFields, uri: String?): AppText =
+        fields.mountOptions.firstOrNull { it.uri.value == uri }?.name?.let(AppText::written) ?: deviceMountNone
 
     fun profileLinkTitle(offer: ProfileLinkOffer): AppText = AppText.named("profile_link_title", AppText.written(offer.name))
 
     /** The item the profile links to, Don't link while none. */
-    fun profileLinked(offer: ProfileLinkOffer): AppText =
-        offer.options.firstOrNull { it.uri == offer.chosen }?.name?.let(AppText::written) ?: profileLinkNone
+    fun profileLinked(offer: ProfileLinkOffer): AppText = profileLinkChoice(offer, offer.chosen?.value)
+
+    /** One choice of the profile's link picker: the item at [uri], or Don't link for none (null, or an item no longer offered). */
+    fun profileLinkChoice(offer: ProfileLinkOffer, uri: String?): AppText =
+        offer.options.firstOrNull { it.uri.value == uri }?.name?.let(AppText::written) ?: profileLinkNone
 
     /** "Sensors matched more than one Bike: Tarmac, Stumpjumper. Remove any you didn't use." */
     fun gearConflict(conflict: GearConflict): AppText =

@@ -54,6 +54,16 @@ class VisibilityTextsTest {
     }
 
     @Test
+    fun theActivityNoteIsTheHelpUntilTheTierIsLocked() {
+        assertEquals(AppText.named("activity_visibility_help"), VisibilityTexts.activityNote(VisibilityFields(canChoose = true)))
+        assertEquals(AppText.named("activity_visibility_sign_in_again"), VisibilityTexts.activityNote(VisibilityFields(canChoose = false)))
+        assertEquals(
+            AppText.named("activity_visibility_unsupported"),
+            VisibilityTexts.activityNote(VisibilityFields(canChoose = false, spacesUnsupported = true)),
+        )
+    }
+
+    @Test
     fun theLockedNoteSaysWhy() {
         assertEquals(AppText.named("activity_visibility_sign_in_again"), VisibilityTexts.lockedNote(VisibilityFields(canChoose = false)))
         assertEquals(

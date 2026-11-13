@@ -1,10 +1,13 @@
 package io.github.solcott.activitytracker.app.record
 
+import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.TextSource
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.test.Test
@@ -141,6 +144,28 @@ class ImportActivityTextsTest {
         assertEquals(mapOf(1 to "default_title_morning:sport_ride"), event.defaultTitles)
         val save = state(preview = ImportPreview("a.fit", 1.minutes, null, null, dive = null, clock = null)).saveEvent(source)
         assertEquals(ImportActivityEvent.Save("default_title_evening:sport_ride"), save)
+    }
+
+    @Test
+    fun saveReadsSavingWhileItRuns() {
+        assertEquals(AppText.named("action_save"), ImportActivityTexts.save(saving = false))
+        assertEquals(AppText.named("action_saving"), ImportActivityTexts.save(saving = true))
+    }
+
+    @Test
+    fun aNewDevicesPickersNameEachChoiceAndTheirNone() {
+        val t = ImportActivityTexts
+        assertEquals(t.deviceKindNone, t.deviceKindChoice(GearType.BIKE, null))
+        assertEquals(GearTexts.kind(GearType.BIKE, "gravel"), t.deviceKindChoice(GearType.BIKE, "gravel"))
+        val tarmac = GearOption(AtUri("at://did:plc:alice/app.activitytracker.gear.item/1"), "Tarmac", GearType.BIKE, visibility = "public")
+        val fields = NewDevicesFields(mountOptions = persistentListOf(tarmac))
+        assertEquals(t.deviceMountNone, t.deviceMountChoice(fields, null))
+        assertEquals(AppText.written("Tarmac"), t.deviceMountChoice(fields, tarmac.uri.value))
+        assertEquals(t.deviceMountNone, t.deviceMountChoice(fields, "at://did:plc:alice/app.activitytracker.gear.item/gone"))
+        val offer = ProfileLinkOffer("Bike", persistentListOf(tarmac))
+        assertEquals(t.profileLinkNone, t.profileLinkChoice(offer, null))
+        assertEquals(AppText.written("Tarmac"), t.profileLinkChoice(offer, tarmac.uri.value))
+        assertEquals(t.profileLinkChoice(offer, tarmac.uri.value), t.profileLinked(offer.copy(chosen = tarmac.uri)))
     }
 
     @Test
