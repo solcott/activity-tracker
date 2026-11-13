@@ -17,6 +17,9 @@ data class ZoneBar(val title: String, val range: String, val time: String, val p
 /** [text] written above the point at [x], [y] of a [TimeSeriesChart]. */
 @Immutable data class SeriesLabel(val x: Double, val y: Double, val text: String)
 
+/** A dot on the point at [x], [y] of a [TimeSeriesChart]: [filled] (the current value) or hollow, with [label] above it when given. */
+@Immutable data class SeriesDot(val x: Double, val y: Double, val filled: Boolean, val label: String? = null)
+
 /** A label on a chart's axis: its [text] at [value], already resolved. */
 @Immutable data class AxisLabel(val value: Double, val text: String)
 

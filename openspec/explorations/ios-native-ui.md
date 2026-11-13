@@ -2093,7 +2093,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
   sample has no metric cards, so none of its references changed. The import preview has no chart sample either.
 - Left: `DepthProfile.kt` (dead dive code, the dive round) still uses `chart_marker` itself. The open item's line "The Compose charts keep
   Vico and its own drawing of the backdrop, other lines and marks; only their words are shared" is now true only of the drawing: the
-  backdrop's scaling is shared too. Threshold history's Compose chart is the one Compose chart not drawn from its `LineChart`.
+  backdrop's scaling is shared too. Threshold history's Compose chart is the one Compose chart not drawn from its `LineChart` (since
+  `threshold-history-line-chart`, none is).
 
 ### Text round 2 findings (import's start times, `shared-text-import-times`)
 
@@ -2260,6 +2261,30 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - No Android screenshot reference changed: previews and screenshot tests draw the line preview (`LocalInspectionMode`), never the live
   map.
 
+### Threshold history's chart on `LineChart` (`threshold-history-line-chart`)
+
+- **Every Compose chart now draws its `LineChart`.** The threshold page asks `ThresholdHistoryTexts.chart(section, detailed)`, as iOS
+  does, and lays it out with `LineChartUi`; `ThresholdHistoryChart.kt` (`ThresholdStepChart`, `ThresholdDots`), the page's
+  `chartDescription` and `pointLabel` wrappers and `WholeRangeXStep` (left only in a test, now inlined there) are gone.
+- **`TimeSeriesChart` grew what the chart needed:** `dots` (`SeriesDot`, `ChartDots.kt`: a filled or hollow Vico point on the main line
+  by x, 12 and 9 dp as `LineChartView`'s, the hollow one in the surface colour, and its label 4 dp above, the current one in `onSurface`),
+  side room for an edge dot, `interactive` (no readout, so no overlay or gesture) and a `height` through `LineChartUi`. Its unused
+  `pointLabels` went. **Its y labels and gridlines now sit at the chart's `yTicks`** (`TickYLabels`, the step placer's margins with the
+  values given) rather than at Vico's whole steps: a threshold's lowest and highest aren't on whole steps of its axis. For every other
+  chart the ticks are `axis.ticks`, which the step placer also chose, and no other Android reference changed.
+- **What the Compose page shows differently** (Android, desktop and web; iOS none): the chart has no box of its own, the lowest and
+  highest values are its y labels on gridlines at those values, where a column beside it put them at its top and bottom, out of line with
+  the points; the gridlines are only there, not at quarters; the shared 1.5 dp line, fill and baseline replace its own 2.25 dp line; dots
+  are slightly smaller; the start date sits under the chart's left edge. A sparkline gains the baseline under it, as iOS's has.
+- **No Android reference showed a chart before:** the loaded sample's only threshold has one dated value. `ThresholdHistoryCharts` now
+  renders the `charted`, `collapsed` and `pace` variants (phone, dark, large text), first committed as drawn by the old chart, then
+  updated, so the diff shows the change.
+- Verified: `check -Pkotlin.incremental=false`; the ad-hoc Release build; `xcodebuild test` on an iOS 26.0 clone, 455 tests, where only
+  `ImportSnapshotTests` `wide` (iPad, light) failed in the full run (62% of pixels matching, the page drawn whole) and passed alone, five
+  of five: no Swift or contract changed here, so it is the import page's, under a full run's load. The desktop app ran (`hotRun --auto`),
+  but the hot-reload MCP never connected to it, so the page wasn't looked at there.
+- Don't run `gradlew --stop` to clean up a temporary worktree: it stops every daemon of that Gradle version, other sessions' builds too.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2324,8 +2349,8 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - ~~Training zones, threshold history and Privacy zones are still the shared UI's, waiting for native charts and a map~~: neither
   needed (`ios-native-zones-pages`). Training zones, the default and sport zones and Privacy zones are native, and a zone row's name and
   range are `AppText` (`ZoneNameText`, `ZoneTexts.range`). ~~Threshold history is still the shared UI's~~: native
-  (`ios-native-leftovers`), with step charts, dots and labels on `LineChart` and the sparklines. Its Compose page keeps its Vico chart
-  over `ThresholdChart`; only its text moved to `ThresholdHistoryTexts`.
+  (`ios-native-leftovers`), with step charts, dots and labels on `LineChart` and the sparklines. ~~Its Compose page keeps its Vico chart
+  over `ThresholdChart`~~: done (`threshold-history-line-chart`), it draws the same `LineChart` through `LineChartUi`.
 - `Following`'s fix has no regression test: it would need a Kotlin flow the test target can change.
 - Phase 2 was walked signed in only on the iOS 26 iPhone simulator. Still to see with an account: the shell on an iPad and on iOS 18,
   sign out and in, a leave started from Settings, and sign-in's expired, sign-in-again and left messages. The app's own Cancel while

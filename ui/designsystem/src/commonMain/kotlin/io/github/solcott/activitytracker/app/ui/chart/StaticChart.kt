@@ -46,12 +46,6 @@ fun StaticChart(
     }
 }
 
-/**
- * The x step for a chart without an x axis: the whole range is one step. Vico's default is the GCD of the x gaps, which is tiny for
- * fractional or per-second x values.
- */
-val WholeRangeXStep: (CartesianChartModel, Double, Double) -> Double = { _, minX, maxX -> (maxX - minX).takeIf { it > 0 } ?: 1.0 }
-
 /** Holds each value until the next point: across, then up or down. */
 val StepConnector = LineCartesianLayer.PointConnector { _, path, _, y1, x2, y2 ->
     path.lineTo(x2, y1)

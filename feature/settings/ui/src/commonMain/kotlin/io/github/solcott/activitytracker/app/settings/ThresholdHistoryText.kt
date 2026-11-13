@@ -7,14 +7,6 @@ import io.github.solcott.activitytracker.app.ui.string
 
 @Composable internal fun changeText(section: ThresholdHistorySection): String? = ThresholdHistoryTexts.change(section)?.string()
 
-@Composable
-internal fun chartDescription(section: ThresholdHistorySection, chart: ThresholdChart): String =
-    ThresholdHistoryTexts.chartDescription(section, chart).string()
-
-/** A chart value without its unit: "233", or "8:12" for a pace. */
-@Composable
-internal fun pointLabel(section: ThresholdHistorySection, value: Long): String = ThresholdHistoryTexts.pointLabel(section, value).string()
-
 @Composable internal fun thresholdLabel(threshold: String): String = ThresholdHistoryTexts.label(threshold).string()
 
 @Composable

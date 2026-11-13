@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -57,6 +57,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.zones_history
@@ -67,7 +68,6 @@ import io.github.solcott.activitytracker.composeApp.resources.zones_history_remo
 import io.github.solcott.activitytracker.composeApp.resources.zones_history_today
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ThresholdHistoryScreen::class, SessionScope::class)
@@ -218,7 +218,7 @@ private fun OverviewTile(section: ThresholdHistorySection, modifier: Modifier = 
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        section.chart?.let { ThresholdStepChart(it, chartDescription(section, it), height = 26.dp) }
+        ThresholdHistoryTexts.chart(section, detailed = false)?.let { LineChartUi(it, height = SPARKLINE_HEIGHT, interactive = false) }
         ChangeText(section, MaterialTheme.typography.labelSmall)
     }
 }
@@ -238,7 +238,7 @@ private fun ThresholdBlock(section: ThresholdHistorySection, state: ThresholdHis
                 ChangeText(section, MaterialTheme.typography.labelMedium)
             }
         }
-        section.chart?.let { ChartPanel(section, it) }
+        section.chart?.let { placed -> ThresholdHistoryTexts.chart(section, detailed = true)?.let { ChartPanel(section, placed, it) } }
         Column {
             section.shownRows.forEach { row ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = DIVIDER_ALPHA))
@@ -253,34 +253,14 @@ private fun ThresholdBlock(section: ThresholdHistorySection, state: ThresholdHis
     }
 }
 
-/** The chart with its highest and lowest values beside it, and its first date and today beneath. */
+/** The chart, with its lowest and highest values on its axis, and its first date, any undated values and today beneath. */
 @Composable
-private fun ChartPanel(section: ThresholdHistorySection, chart: ThresholdChart, modifier: Modifier = Modifier) {
+private fun ChartPanel(section: ThresholdHistorySection, placed: ThresholdChart, chart: LineChart, modifier: Modifier = Modifier) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val labels = chart.points.map { pointLabel(section, it.value) }.toImmutableList()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LineChartUi(chart, height = CHART_HEIGHT)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(
-                Modifier.width(AXIS_WIDTH).heightIn(min = CHART_HEIGHT).padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(pointLabel(section, chart.highest), style = MaterialTheme.typography.labelSmall, color = muted)
-                Spacer(Modifier.weight(1f))
-                Text(pointLabel(section, chart.lowest), style = MaterialTheme.typography.labelSmall, color = muted)
-            }
-            ThresholdStepChart(
-                chart,
-                chartDescription(section, chart),
-                Modifier.weight(1f)
-                    .background(MaterialTheme.colorScheme.surfaceContainerLowest, RoundedCornerShape(10.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = DIVIDER_ALPHA), RoundedCornerShape(10.dp)),
-                labels = labels,
-                height = CHART_HEIGHT,
-            )
-        }
-        Row(Modifier.padding(start = AXIS_WIDTH + 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(ThresholdHistoryTexts.chartStart(chart).string(), style = MaterialTheme.typography.labelSmall, color = muted)
+            Text(ThresholdHistoryTexts.chartStart(placed).string(), style = MaterialTheme.typography.labelSmall, color = muted)
             Text(
                 ThresholdHistoryTexts.undated(section)?.string().orEmpty(),
                 Modifier.weight(1f),
@@ -378,6 +358,6 @@ private fun ChangeText(section: ThresholdHistorySection, style: TextStyle, modif
 private const val EXPANDED_ROTATION = 90f
 private const val DIVIDER_ALPHA = 0.5f
 private val OVERVIEW_TILE_WIDTH = 165.dp
-private val AXIS_WIDTH = 40.dp
 private val VALUE_WIDTH = 92.dp
 private val CHART_HEIGHT = 150.dp
+private val SPARKLINE_HEIGHT = 26.dp

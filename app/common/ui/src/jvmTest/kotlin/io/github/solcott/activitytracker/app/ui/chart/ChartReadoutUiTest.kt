@@ -64,7 +64,8 @@ class ChartReadoutUiTest {
                     rangeProvider = remember { CartesianLayerRangeProvider.fixed(minY = 0.0, maxY = 100.0) },
                 ),
                 decorations = remember(frame) { listOf(scene.counter, frame) },
-                getXStep = WholeRangeXStep,
+                // The whole range is one step: Vico's default, the GCD of the x gaps, is tiny for per-second x values.
+                getXStep = { _, minX, maxX -> (maxX - minX).takeIf { it > 0 } ?: 1.0 },
             )
         val model = remember { CartesianChartModel(LineCartesianLayerModel.build { series(points.map { it.x }, points.map { it.y }) }) }
         val readout =
