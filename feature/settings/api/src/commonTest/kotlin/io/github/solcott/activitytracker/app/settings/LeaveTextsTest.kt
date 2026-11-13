@@ -33,6 +33,16 @@ class LeaveTextsTest {
     }
 
     @Test
+    fun theDeletedAndStaysListsAreInThePagesOrder() {
+        assertEquals(7, LeaveTexts.deletedLines().size)
+        assertEquals(AppText.named("leave_deleted_activities"), LeaveTexts.deletedLines().first())
+        assertEquals(
+            listOf(AppText.named("leave_stays_account", AppText.written("alice.test")), AppText.named("leave_stays_other_apps")),
+            LeaveTexts.staysLines("alice.test"),
+        )
+    }
+
+    @Test
     fun theDeviceSectionListsOnlyWhatWouldBeLost() {
         assertFalse(state().showsDeviceWork)
         assertFalse(state().copy(pending = PendingWork(changes = 0, importSaving = false)).showsDeviceWork)

@@ -37,6 +37,9 @@ object LabelText {
     /** The name of a sport picker group. */
     fun sportCategory(category: SportCategory): AppText = AppText.named("sport_category_${category.name}")
 
+    /** The mark before each line of a bulleted list ("•"), which each UI draws with the line hanging beside it. */
+    val bullet: AppText = AppText.named("text_bullet")
+
     /** An account handle with its `@` prefix. */
     fun handle(handle: String): AppText = AppText.named("handle_format", AppText.written(handle))
 

@@ -21,7 +21,9 @@ object CreateDiveSiteTexts {
             },
         )
 
-    /** What publishing makes public, then, when the site [namesDive], that it names the dive as its source: sentences read in order. */
-    fun publicNote(namesDive: Boolean): List<AppText> =
-        listOfNotNull(AppText.named("create_dive_site_public"), AppText.named("create_dive_site_names_dive").takeIf { namesDive })
+    /** What publishing makes public, then, when the site [namesDive], that it names the dive as its source: one paragraph. */
+    fun publicNote(namesDive: Boolean): AppText {
+        val public = AppText.named("create_dive_site_public")
+        return AppText.sentences(listOfNotNull(public, AppText.named("create_dive_site_names_dive").takeIf { namesDive })) ?: public
+    }
 }

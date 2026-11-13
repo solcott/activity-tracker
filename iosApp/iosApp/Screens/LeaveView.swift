@@ -35,15 +35,12 @@ struct LeaveView: View {
             Text(.leaveIntro(state.handle))
         }
         Section {
-            bullets([
-                Text(.leaveDeletedActivities), Text(.leaveDeletedProfile), Text(.leaveDeletedGear), Text(.leaveDeletedFollows),
-                Text(.leaveDeletedInteractions), Text(.leaveDeletedSegments), Text(.leaveDeletedSettings),
-            ])
+            bullets(LeaveTexts.shared.deletedLines())
         } header: {
             Text(.leaveSectionDeleted)
         }
         Section {
-            bullets([Text(.leaveStaysAccount(state.handle)), Text(.leaveStaysOtherApps)])
+            bullets(LeaveTexts.shared.staysLines(handle: state.handle))
         } header: {
             Text(.leaveSectionStays)
         }
@@ -54,7 +51,7 @@ struct LeaveView: View {
         }
         if state.showsDeviceWork {
             Section {
-                bullets(LeaveTexts.shared.deviceLines(state: state).map { Text($0) })
+                bullets(LeaveTexts.shared.deviceLines(state: state))
             } header: {
                 Text(.leaveSectionDevice)
             }
@@ -72,16 +69,8 @@ struct LeaveView: View {
     }
 
     /// Lines of text, each as a bullet, in one row.
-    private func bullets(_ lines: [Text]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(verbatim: "•")
-                    line
-                }
-            }
-        }
-        .padding(.vertical, 4)
+    private func bullets(_ lines: [any AppText]) -> some View {
+        BulletList(lines: lines).padding(.vertical, 4)
     }
 
     private var places: some View {

@@ -42,6 +42,12 @@ sealed interface AppText {
 
         /** [texts] as a list, each next one joined on by `text_list_pair` ("Ride, Run, Swim"); null for none. */
         fun joined(texts: List<AppText>): AppText? = texts.reduceOrNull { list, next -> named("text_list_pair", list, next) }
+
+        /** [texts] as sentences of one paragraph, each next one joined on by `text_sentence_pair` (a space); null for none. */
+        fun sentences(texts: List<AppText>): AppText? = texts.reduceOrNull { first, next -> named("text_sentence_pair", first, next) }
+
+        /** [texts] as paragraphs, each next one joined on by `text_paragraph_pair` (a blank line); null for none. */
+        fun paragraphs(texts: List<AppText>): AppText? = texts.reduceOrNull { first, next -> named("text_paragraph_pair", first, next) }
     }
 }
 

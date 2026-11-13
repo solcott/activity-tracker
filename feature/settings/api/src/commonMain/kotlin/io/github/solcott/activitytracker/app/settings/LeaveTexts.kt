@@ -10,6 +10,23 @@ import kotlinx.collections.immutable.persistentListOf
  * (dev/shared-display-text).
  */
 object LeaveTexts {
+    /** What leaving deletes, a bullet each. */
+    fun deletedLines(): List<AppText> =
+        listOf(
+                "leave_deleted_activities",
+                "leave_deleted_profile",
+                "leave_deleted_gear",
+                "leave_deleted_follows",
+                "leave_deleted_interactions",
+                "leave_deleted_segments",
+                "leave_deleted_settings",
+            )
+            .map(AppText::named)
+
+    /** What stays after leaving, a bullet each: the account at [handle], and other apps' data. */
+    fun staysLines(handle: String): List<AppText> =
+        listOf(AppText.named("leave_stays_account", AppText.written(handle)), AppText.named("leave_stays_other_apps"))
+
     /**
      * The shared places section's lines: that they're being counted, that they couldn't be (under the failure, which each UI draws as an
      * error), that there are none, or each count that isn't zero: those that stay first, then those deleted.

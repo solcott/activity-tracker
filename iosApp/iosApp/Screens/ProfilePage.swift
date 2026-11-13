@@ -232,7 +232,7 @@ struct ProfileHeader: View {
     }
 
     @ViewBuilder private func detailLines(_ details: ProfileDetails) -> some View {
-        let country = details.location?.country.flatMap { Locale.current.localizedString(forRegionCode: $0) ?? $0 }
+        let country = details.location?.country.flatMap { CountryNames.name(of: $0) }
         let location = ProfileTexts.shared.location(details: details, countryName: country)
         let facts = ProfileTexts.shared.facts(details: details, now: clock.now, units: stats.units)
         if location != nil || facts != nil {

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.text
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** A choice of text read by a platform's strings (dev/shared-display-text). */
 class AppTextTest {
@@ -67,6 +68,21 @@ class AppTextTest {
     @Test
     fun equalChoicesAreEqual() =
         assertEquals(AppText.named("unit_distance_mi", AppText.written("3.00")), AppText.named("unit_distance_mi", AppText.written("3.00")))
+
+    @Test
+    fun sentencesAndParagraphsJoinEachNextOneOnThroughTheirStrings() {
+        val a = AppText.written("One.")
+        val b = AppText.written("Two.")
+        val c = AppText.written("Three.")
+        assertNull(AppText.sentences(emptyList()))
+        assertNull(AppText.paragraphs(emptyList()))
+        assertEquals(a, AppText.sentences(listOf(a)))
+        assertEquals(
+            AppText.named("text_sentence_pair", AppText.named("text_sentence_pair", a, b), c),
+            AppText.sentences(listOf(a, b, c)),
+        )
+        assertEquals(AppText.named("text_paragraph_pair", a, b), AppText.paragraphs(listOf(a, b)))
+    }
 
     private fun argsOf(vararg texts: String) = kotlinx.collections.immutable.persistentListOf(*texts.map(AppText::written).toTypedArray())
 }

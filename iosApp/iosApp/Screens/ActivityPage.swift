@@ -291,6 +291,7 @@ private struct ActivityHeader: View {
     let page: ActivityDetailPage
 
     @Environment(\.clock) private var clock
+    @Environment(\.stats) private var stats
     /// The owner's combination sheet is open; a split that leaves nothing combined closes it.
     @State private var editing = false
 
@@ -326,7 +327,7 @@ private struct ActivityHeader: View {
             }
             if let start = page.page.start {
                 HStack(spacing: 8) {
-                    Text(verbatim: FigureValueText.string(start.value, units: .Metric, clock: clock)).font(.footnote).foregroundStyle(.secondary)
+                    Text(verbatim: FigureValueText.string(start.value, units: stats.units, clock: clock)).font(.footnote).foregroundStyle(.secondary)
                     MarkBadge(mark: start.mark)
                 }
             }

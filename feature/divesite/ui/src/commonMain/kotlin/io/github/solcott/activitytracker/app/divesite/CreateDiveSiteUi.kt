@@ -99,7 +99,7 @@ private fun Form(state: CreateDiveSiteState, outline: String, padding: PaddingVa
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            CreateDiveSiteTexts.publicNote(state.namesDive).map { it.string() }.joinToString(" "),
+            CreateDiveSiteTexts.publicNote(state.namesDive).string(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -97,13 +97,15 @@ object AccountTexts {
     fun endTitle(ending: EndingSession): AppText =
         AppText.named(if (ending.signInAgain) "account_end_title_sign_in_again" else "account_end_title")
 
-    /** What would be left behind, a paragraph each. */
-    fun endLines(ending: EndingSession): List<AppText> =
-        listOfNotNull(
-            count("account_end_changes", ending.pending.changes),
-            if (ending.pending.importSaving) AppText.named("account_end_import") else null,
-            if (ending.pending.exportPending) AppText.named("account_end_export") else null,
-        )
+    /** The question's message: what would be left behind, a paragraph each (empty text with nothing pending, when it isn't asked). */
+    fun endMessage(ending: EndingSession): AppText =
+        AppText.paragraphs(
+            listOfNotNull(
+                count("account_end_changes", ending.pending.changes),
+                if (ending.pending.importSaving) AppText.named("account_end_import") else null,
+                if (ending.pending.exportPending) AppText.named("account_end_export") else null,
+            ),
+        ) ?: AppText.written("")
 
     /** The question's destructive answer. */
     fun endAction(ending: EndingSession): AppText =

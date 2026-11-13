@@ -2091,6 +2091,12 @@
     <string name="gear_total_joined">%1$s · %2$s</string>
     <!-- A list of names, each next one joined on: "Ride, Run". -->
     <string name="text_list_pair">%1$s, %2$s</string>
+    <!-- Sentences of one paragraph, each next one joined on: "Segments are public. It links the activity." -->
+    <string name="text_sentence_pair">%1$s %2$s</string>
+    <!-- Paragraphs, each next one joined on after a blank line. -->
+    <string name="text_paragraph_pair">%1$s\n\n%2$s</string>
+    <!-- The mark before each line of a bulleted list. -->
+    <string name="text_bullet">•</string>
     <string name="text_arrow_pair">%1$s → %2$s</string>
     <string name="text_dot_pair">%1$s · %2$s</string>
     <string name="text_space_pair">%1$s %2$s</string>

@@ -254,7 +254,12 @@ class SharedTextNamesTest {
     fun everyTypePickerHeadingAndAJoinedListNameAString() {
         val texts =
             (SportTypeGroups.allTypes + SportTypeGroups.gearSports).map { it.label } +
-                listOfNotNull(AppText.joined(listOf(AppText.written("Ride"), AppText.written("Run"))))
+                listOfNotNull(
+                    AppText.joined(listOf(AppText.written("Ride"), AppText.written("Run"))),
+                    AppText.sentences(listOf(AppText.written("One."), AppText.written("Two."))),
+                    AppText.paragraphs(listOf(AppText.written("One."), AppText.written("Two."))),
+                    LabelText.bullet,
+                )
         assertAllExist(texts)
     }
 

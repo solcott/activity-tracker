@@ -47,8 +47,11 @@ struct AccountTextTests {
         let ending = try #require(try account("pendingUploads").confirming)
         #expect(read(AccountTexts.shared.endTitle(ending: ending)) == "Sign out?")
         #expect(
-            read(AccountTexts.shared.endLines(ending: ending))
-                == ["3 changes haven't uploaded yet. They stay on this device and upload when you sign in here again."])
+            read(AccountTexts.shared.endMessage(ending: ending))
+                == "3 changes haven't uploaded yet. They stay on this device and upload when you sign in here again.")
+        let both = try #require(try account("pendingImport").confirming)
+        // A paragraph each, a blank line between them.
+        #expect(read(AccountTexts.shared.endMessage(ending: both)).contains(".\n\nAn import is still saving"))
         #expect(read(AccountTexts.shared.endAction(ending: ending)) == "Sign out anyway")
     }
 
@@ -84,6 +87,9 @@ struct AccountTextTests {
         let busy = try leave("pendingWork")
         #expect(busy.showsDeviceWork)
         #expect(read(LeaveTexts.shared.deviceLines(state: busy)).count == 3)
+        #expect(read(LeaveTexts.shared.deletedLines()).count == 7)
+        #expect(read(LeaveTexts.shared.staysLines(handle: "alice.test")).count == 2)
+        #expect(read(LabelText.shared.bullet) == "•")
         #expect(try !leave("loaded").showsDeviceWork)
     }
 

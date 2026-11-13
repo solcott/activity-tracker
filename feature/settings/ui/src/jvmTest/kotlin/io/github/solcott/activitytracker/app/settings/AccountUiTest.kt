@@ -70,7 +70,8 @@ class AccountUiTest {
         val events = mutableListOf<AccountEvent>()
         setContent { AppPreview { AccountUi(AccountSamples.all.getValue("pendingImport").copy(eventSink = { events += it })) } }
         onNodeWithText("12 changes haven't uploaded yet", substring = true).assertExists()
-        onNodeWithText("An import is still saving", substring = true).assertExists()
+        // A paragraph each, a blank line between them (`text_paragraph_pair`).
+        onNodeWithText("\n\nAn import is still saving", substring = true).assertExists()
         onNodeWithText("Sign out anyway").performClick()
         // The dialog dismisses itself before its action runs, so the confirmation carries the choice.
         assertEquals(listOf(AccountEvent.Dismiss, AccountEvent.Confirm(signInAgain = false)), events.takeLast(2))

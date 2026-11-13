@@ -2174,6 +2174,31 @@ What building the host and the shell on Swift export showed, beyond the probes:
   on. No tolerance or reference changed. It costs one more draw per image. Search then passed 10 runs in a row alone under the same
   load, and a full run on iOS 26.0 passed. The zone sheet's flake has the same cause and is fixed with it; Import's `wide` iPad page, which still fails alone, has another (above).
 
+### Text round 4 findings (other, `shared-text-other`)
+
+- The item's Account lines had moved since it was written: the "\n\n" join at `AccountUi.kt:233`/`AccountView.swift:86` and round 3's
+  `AccountUi.kt:208` were by then the same end dialog, so one function (`AccountTexts.endMessage`) covers both. Compose resources and
+  `generateIosResources` both undo `\n` in `strings.xml`; a Compose UI test and a Swift text test check the blank line arrives.
+- Bullets were drawn three ways ("• " written before the line in Compose and Swift's Account, a hanging `HStack` in Swift's Leave), and
+  Leave's deleted and stays lines were listed in each UI. Both UIs now hang the line beside the mark. Visible change: a wrapped bullet
+  line wraps under its text, not under the mark, on Android, desktop and web (Account's missing features, Leave's lists), and the gap
+  after the mark on iOS Account is 6 points rather than a space.
+- Android references changed: Account's `noSpaceScope`, `outdated` and `signInAgainPending`, and every Leave summary (`LeaveLoaded` at
+  each size, dark and large text, and the tall-phone `LeaveSummaryStates`). iOS 26.0 snapshots changed: Account's `ending`,
+  `noSpaceScope`, `outdated` and `signInAgainPending` (light and dark), each of which lists a missing feature. iOS Leave already hung
+  its bullets and is unchanged. An empty `BulletList` still takes a stack's spacing, so Account draws it only when something is missing.
+- `SwiftFitDecoder`'s messages ("Not a FIT file", "FIT file is corrupt or truncated", "Couldn't read FIT file: …") reach no screen. The
+  import presenter turns a read failure into `UiError.of(ReadActivityFile, e)` (or `UnsupportedActivityFile`), whose text
+  (`ErrorTexts.of`) is the kind and a classified reason, never the failure's message; a batch scan turns one into a `SkipReason`
+  (`Damaged` for these); and no Swift view reads an error's `localizedDescription`. They stay as developer text in the exception.
+- The start figure's units changed nothing shown: a start has no unit. `ProfilePage` now uses the same lookup as Edit profile without
+  building every country's name.
+- `LeaveTexts.deletedLines` is a function, not a `val`: the `-api` modules' strict stability check fails a `List` property on a
+  texts object, as it would on a `State`.
+- Checks: `check -Pkotlin.incremental=false` (screenshot tests included), the ad-hoc Release build, and 454/454 on an iOS 26.0 clone.
+  A first full run's only failure outside Account was `ImportSnapshotTests` (`zoneSheet(query:)`, a 0.1% pixel miss under load), which
+  passed alone and in the final full run.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2314,14 +2339,14 @@ What building the host and the shell on Swift export showed, beyond the probes:
     `ImportActivityTexts.deviceKindChoice`/`deviceMountChoice`/`profileLinkChoice`, `ZoneTexts.modelChoice`), the export steps as
     `ExportControl`s (`AccountTexts.exportControls`, `LeaveTexts.exportLine`/`exportControls`, drawn by `ExportButton` and
     `ExportControlButton`), Leave's `runNote`, Account's `didCopy`, and `SettingsTexts.accountSummary`.
-  - [ ] **Other:**
-    - Sentences joined in each UI: `CreateSegmentUi.kt:97`/`CreateSegmentView.swift:99`, `CreateDiveSiteUi.kt:102`/
-      `CreateDiveSiteView.swift:94` (" "), and `AccountUi.kt:233`/`AccountView.swift:86` ("\n\n").
-    - Bullets: `AccountUi.kt:220`/`AccountView.swift:105` and `LeaveUi.kt:130`/`LeaveView.swift:79`.
-    - `ProfilePage.swift:235` looks a country's name up inline rather than through `CountryNames`.
-    - `ActivityPage.swift:329` passes `.Metric` for the start figure. It is harmless, since a start has no unit, but
-      `ImportActivityView.swift:209` passes the athlete's.
-    - `SwiftFitDecoder.swift:46,54` writes English failure text for `FitSupport.unreadable`. Whether it reaches a screen is unchecked.
+  - [x] **Other** (`shared-text-other`). Text put together from pieces is put together once in Kotlin: `AppText.sentences` and
+    `AppText.paragraphs` (`:app-common-api`) fold a list through `text_sentence_pair` (a space) and `text_paragraph_pair` (a blank line),
+    as `AppText.joined` does names, so `CreateSegmentTexts.publicNote` and `CreateDiveSiteTexts.publicNote` return the joined note and
+    `AccountTexts.endMessage` (which replaces `endLines`) the end dialog's paragraphs; both UIs show them as they are. A bullet's mark is
+    `LabelText.bullet` (`text_bullet`), Leave's deleted and stays lines are `LeaveTexts.deletedLines` and `staysLines(handle)`, and each
+    UI draws a list one way, the mark with its line hanging beside it (`Bullets` in `:feature-settings-ui`, `BulletList` in Swift). The
+    profile names its country through `CountryNames.name(of:)` (now static), and the activity page's start passes `stats.units`, as the
+    import page does. The iOS FIT decoder's English messages reach no screen (see the round 4 findings), so they are left as they are.
   - Not on the list, by design: `AppText.Time`, which each UI formats on the device's clock (`AppTexts.kt:41` with `timeFormat()`, and
     `CatalogText.time`). Compose writes `H:mm` or `h:mm a` with its own `time_am`/`time_pm`, and pads a 24-hour hour ("07:05"). Swift's
     `.shortened` follows the locale's own pattern, so a locale's separator or marker can differ. Date pickers and their bounds are the

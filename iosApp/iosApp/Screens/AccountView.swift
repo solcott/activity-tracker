@@ -83,7 +83,7 @@ struct AccountView: View {
             }
             Button(.actionCancel, role: .cancel) {}
         } message: { ending in
-            Text(verbatim: AccountTexts.shared.endLines(ending: ending).map { AppStrings.string($0) }.joined(separator: "\n\n"))
+            Text(AccountTexts.shared.endMessage(ending: ending))
         }
         .alert(
             Text(.exportDataSharedTitle),
@@ -101,9 +101,8 @@ struct AccountView: View {
     private var grant: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(AccountTexts.shared.signIn(grant: state.grant))
-            ForEach(Array(AccountTexts.shared.missingFeatures(grant: state.grant).enumerated()), id: \.offset) { _, feature in
-                Text(verbatim: "• " + AppStrings.string(feature))
-            }
+            let missing = AccountTexts.shared.missingFeatures(grant: state.grant)
+            if !missing.isEmpty { BulletList(lines: missing) }
             if state.offersSignInAgain {
                 AppSecondaryButton(.actionSignInAgain) { state.eventSink(AccountEvent.SignInAgain.shared) }
                     .disabled(state.ending)

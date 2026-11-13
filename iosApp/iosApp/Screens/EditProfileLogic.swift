@@ -34,6 +34,12 @@ struct CountryNames {
 
     /// The name of the country with `code`, or nil for none.
     func name(of code: String) -> String? {
+        Self.name(of: code, locale: locale)
+    }
+
+    /// The name of the country with `code` in `locale`, falling back to the code, or nil for none: the one lookup Edit profile's
+    /// choice and the profile's location line make, without building every country's name.
+    static func name(of code: String, locale: Locale = .current) -> String? {
         code.isEmpty ? nil : (locale.localizedString(forRegionCode: code) ?? code)
     }
 

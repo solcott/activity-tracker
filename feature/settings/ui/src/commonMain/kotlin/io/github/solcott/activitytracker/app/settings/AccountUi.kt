@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -178,7 +179,7 @@ private fun Identity(state: AccountState) {
 private fun Grant(state: AccountState) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(AccountTexts.signIn(state.grant).string(), style = MaterialTheme.typography.bodyMedium)
-        AccountTexts.missingFeatures(state.grant).forEach { Text("• " + it.string(), style = MaterialTheme.typography.bodyMedium) }
+        AccountTexts.missingFeatures(state.grant).takeIf { it.isNotEmpty() }?.let { Bullets(it.toImmutableList()) }
         if (state.offersSignInAgain) {
             AppSecondaryButton(onClick = { state.eventSink(AccountEvent.SignInAgain) }, enabled = !state.ending) {
                 Text(stringResource(Res.string.action_sign_in_again))
@@ -191,7 +192,7 @@ private fun Grant(state: AccountState) {
 private fun EndDialog(ending: EndingSession, eventSink: (AccountEvent) -> Unit) {
     AppAlertDialog(
         title = AccountTexts.endTitle(ending).string(),
-        message = AccountTexts.endLines(ending).map { it.string() }.joinToString("\n\n"),
+        message = AccountTexts.endMessage(ending).string(),
         actions =
             persistentListOf(
                 AppDialogAction(AccountTexts.endAction(ending).string(), destructive = true) {
