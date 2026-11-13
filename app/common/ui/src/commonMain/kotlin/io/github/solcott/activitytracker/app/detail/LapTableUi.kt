@@ -15,12 +15,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.table_row_description
-import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Each lap's time, distance, speed and effort, a row per lap, read by a screen reader as one sentence each, with its intensity when the
@@ -45,16 +41,6 @@ internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false) {
         }
     }
 }
-
-/** A table row as a screen reader says it: its [name], then each header and value. */
-@Composable
-internal fun spokenRow(name: String, headers: ImmutableList<String>, cells: ImmutableList<String>): String =
-    stringResource(Res.string.table_row_description, name, headers.zip(cells).joinToString(", ") { (h, v) -> "$h $v" })
-
-/** [value] as [text] puts it, a dash when the row has none, or null when the column isn't [shown]. */
-@Composable
-internal fun <T : Any> cell(value: T?, shown: Boolean = true, text: @Composable (T) -> String): String? =
-    if (!shown) null else value?.let { text(it) } ?: stringResource(Res.string.value_missing)
 
 /**
  * A row of a table: its first cell [firstWidth] wide (a number or short name), the rest sharing the width, the [wideColumn] (a name) twice

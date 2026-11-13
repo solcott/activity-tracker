@@ -10,8 +10,8 @@ import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.math.roundToLong
 
 /**
- * How a dive's gases, surface interval, tank pressures and air consumption read in the viewer's units (dev/shared-display-text). The shared
- * UI's `DiveFormat` and the native page both resolve these.
+ * How a dive's gases, surface interval, tank pressures and air consumption read in the viewer's units (dev/shared-display-text). Shared
+ * texts such as `FigureTexts` build on these, and both UIs resolve them.
  */
 object DiveText {
     private const val RATE_DECIMALS = 1

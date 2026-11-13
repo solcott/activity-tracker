@@ -95,7 +95,6 @@ Choices made while implementing the change that its tasks didn't settle. Each on
 
 - **Logbook notes are dropped.** A single file's notes start the import screen's description, but in a logbook batch they're dropped rather than published, because the athlete never sees them before publishing. To keep them, show each dive's notes in the batch list or let the athlete edit them there.
 - **Training load rides on `getActivityStreams`.** The AppView serves the zones record's training load as a new `trainingLoad` field on the `getActivityStreams` output (only to viewers the zones record admits), which the change's tasks didn't name. The lexicon has it; add it to the change's spec, or move it to its own query if zones get one.
-- **Gas-switch markers are on the detail depth chart only.** They're drawn on the activity page's depth chart; the import screen's preview (`ui/DepthProfile.kt`, which task 7.1 named) has none. Add them there if the preview should show switches before publishing.
 
 ## Automated content moderation
 
