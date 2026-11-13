@@ -157,7 +157,6 @@ object ImportActivitySamples {
             elapsed = 65.minutes,
             device = "Garmin Edge 840",
             polyline = Fixed.POLYLINE,
-            dive = null,
             clock = null,
         )
 

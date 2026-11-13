@@ -18,7 +18,6 @@ import io.github.solcott.activitytracker.activityfile.ByteArrayImportSource
 import io.github.solcott.activitytracker.activityfile.EntryRef
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
-import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.ImportedPower
 import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.SkipReason
@@ -50,7 +49,6 @@ import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
-import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -633,7 +631,6 @@ internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones:
         device = device,
         polyline = line?.polyline,
         polylineGaps = line?.gaps?.toImmutableList(),
-        dive = dive?.toPreview(),
         elevationLossMeters = elevationLossMeters,
         // A run's cadence is strides, not revolutions.
         cadence =
@@ -679,29 +676,4 @@ private fun ImportedShifting.toPreview() =
     ShiftingPreview(
         frontShifts = frontShifts,
         rearShifts = rearShifts,
-        gears = timeInGears.map { GearTimePreview(it.gear, it.seconds) }.toImmutableList(),
     )
-
-private fun ImportedDive.toPreview() =
-    with(header) {
-        DivePreview(
-            maxDepthMeters = maxDepthMeters,
-            avgDepthMeters = avgDepthMeters,
-            minWaterTempCelsius = minWaterTempCelsius,
-            diveNumber = diveNumber,
-            surfaceIntervalMinutes = surfaceIntervalMinutes,
-            gradientFactorLow = gradientFactorLow,
-            gradientFactorHigh = gradientFactorHigh,
-            startCns = startCns,
-            endCns = endCns,
-            gases = gases.map { DiveGasPreview(it.oxygenPercent, it.heliumPercent) }.toImmutableList(),
-            closedCircuit = closedCircuit,
-            profile = StreamAnalytics.everyNth(profile).map { DepthPreviewPoint(it.seconds, it.depthMeters) }.toImmutableList(),
-            bottomTimeSeconds = bottomTimeSeconds?.roundToLong(),
-            oxygenToxicityOtu = oxygenToxicityOtu,
-            rmvLitersPerMinute = rmvLitersPerMinute,
-            sacBarPerMinute = sacBarPerMinute,
-            tanks = tanks.map { DiveTankPreview(it.startPressureBar, it.endPressureBar) }.toImmutableList(),
-            site = (entry ?: exit)?.let { DiveSitePreview(it.latitude, it.longitude) },
-        )
-    }

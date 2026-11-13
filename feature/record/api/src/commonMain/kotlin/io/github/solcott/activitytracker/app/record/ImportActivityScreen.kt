@@ -391,8 +391,6 @@ data class ImportPreview(
     val polyline: String?,
     /** Where [polyline] breaks (`feed.activity#polylineGaps`); null when it's one line. */
     val polylineGaps: ImmutableList<Int>? = null,
-    /** Null unless a dive computer recorded the file. */
-    val dive: DivePreview?,
     /** Null unless the file's times have no zone, so the athlete has to say where it happened. */
     val clock: ImportClock?,
     val elevationLossMeters: Double? = null,
@@ -432,8 +430,6 @@ data class PowerPreview(
 data class ShiftingPreview(
     val frontShifts: Int?,
     val rearShifts: Int?,
-    /** By rear gear number, 1 being the largest cog. */
-    val gears: ImmutableList<GearTimePreview>,
 )
 
 @Immutable
@@ -472,46 +468,6 @@ data class ImportClock(
 
 /** A region zone ("America/Cancun") and its offset from UTC ("UTC-05:00") when the activity started. */
 @Immutable data class TimeZoneOption(val id: String, val offset: String)
-
-/** A dive's own data, in SI units. Shown on the import screen only; records don't carry it yet. */
-@Immutable
-data class DivePreview(
-    val maxDepthMeters: Double?,
-    val avgDepthMeters: Double?,
-    val minWaterTempCelsius: Double?,
-    /** The dive computer's own count. */
-    val diveNumber: Int?,
-    val surfaceIntervalMinutes: Int?,
-    val gradientFactorLow: Int?,
-    val gradientFactorHigh: Int?,
-    /** Central nervous system oxygen toxicity, in percent of the limit. */
-    val startCns: Int?,
-    val endCns: Int?,
-    /** In order of first use. */
-    val gases: ImmutableList<DiveGasPreview>,
-    val closedCircuit: Boolean,
-    /** Depth over time, thinned for drawing. */
-    val profile: ImmutableList<DepthPreviewPoint>,
-    /** Time from leaving the surface to the start of the final ascent. */
-    val bottomTimeSeconds: Long?,
-    /** Whole-body oxygen exposure, in oxygen toxicity units. */
-    val oxygenToxicityOtu: Int?,
-    /** Air consumption by volume; needs the tank's size. */
-    val rmvLitersPerMinute: Double?,
-    /** Air consumption by tank pressure, for when the tank's size isn't known. */
-    val sacBarPerMinute: Double?,
-    val tanks: ImmutableList<DiveTankPreview>,
-    /** Where the diver went in, or else came out: the dive site. */
-    val site: DiveSitePreview?,
-)
-
-/** Whole percents; air is 21/0. */
-@Immutable data class DiveGasPreview(val oxygenPercent: Int, val heliumPercent: Int)
-
-/** Pressures in bar. */
-@Immutable data class DiveTankPreview(val startPressureBar: Double?, val endPressureBar: Double?)
-
-@Immutable data class DiveSitePreview(val latitude: Double, val longitude: Double)
 
 sealed interface ImportActivityEvent {
     /** The athlete picked one file, read whole ([bytes]); [name] is shown in the preview. The format comes from the content. */

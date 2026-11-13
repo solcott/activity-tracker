@@ -122,14 +122,6 @@ object StreamAnalytics {
         return maxOf(CombinedRoute.BREAK_SECONDS, GAP_INTERVALS * (gaps.getOrNull(gaps.size / 2) ?: 0))
     }
 
-    /** Every nth item so about [max] remain, keeping the last so a chart ends where the activity did. */
-    fun <T> everyNth(items: List<T>, max: Int = MAX_CHART_POINTS): List<T> {
-        if (items.size <= max) return items
-        val step = (items.size + max - 1) / max
-        val kept = items.filterIndexed { i, _ -> i % step == 0 }
-        return if (kept.last() == items.last()) kept else kept + items.last()
-    }
-
     /** About this many points draw a smooth line; a four-hour ride at one sample a second logs 14,400. */
     const val MAX_CHART_POINTS = 300
 
