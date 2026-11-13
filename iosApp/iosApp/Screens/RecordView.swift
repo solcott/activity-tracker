@@ -46,11 +46,7 @@ struct RecordView: View {
                 fields: state.visibility, heading: Text(.activityVisibilityHeading),
                 activityEnabled: enabled && state.visibility.canChoose, categoriesEnabled: enabled
             ) {
-                if state.visibility.canChoose {
-                    Text(.activityVisibilityHelp)
-                } else {
-                    Text(VisibilityTexts.shared.lockedNote(fields: state.visibility))
-                }
+                Text(VisibilityTexts.shared.activityNote(fields: state.visibility))
             } detailsNote: {
                 EmptyView()
             }

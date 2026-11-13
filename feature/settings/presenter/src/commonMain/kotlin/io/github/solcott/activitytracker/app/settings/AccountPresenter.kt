@@ -27,7 +27,7 @@ import kotlinx.datetime.TimeZone
 private object EndSession
 
 /** The one flight for starting, cancelling and finishing with the export, so a double tap does each once. */
-private object ExportAction
+private object ExportFlight
 
 @Suppress("LongParameterList", "CyclomaticComplexMethod") // Circuit's navigator, then what Metro injects; one branch per event.
 @CircuitInject(AccountScreen::class, SessionScope::class)
@@ -68,7 +68,7 @@ fun AccountPresenter(
 
     fun exportAction(kind: UiError.Kind, block: suspend () -> Unit) {
         exportError = null
-        flights.launch(ExportAction) { runSuspendCatching { block() }.onFailure { exportError = UiError.of(kind, it) } }
+        flights.launch(ExportFlight) { runSuspendCatching { block() }.onFailure { exportError = UiError.of(kind, it) } }
     }
 
     return AccountState(

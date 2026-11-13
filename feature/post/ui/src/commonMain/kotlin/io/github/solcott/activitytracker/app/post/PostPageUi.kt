@@ -29,13 +29,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
-import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
-import io.github.solcott.activitytracker.composeApp.resources.post_hide_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_page_title
 import io.github.solcott.activitytracker.composeApp.resources.post_show_quotes
-import io.github.solcott.activitytracker.composeApp.resources.post_show_reposts
 import io.github.solcott.activitytracker.composeApp.resources.post_unavailable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
@@ -98,7 +95,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                         onClick = { state.eventSink(PostPageEvent.ToggleLikesList) },
                         modifier = Modifier.padding(horizontal = CARD_PADDING),
                     ) {
-                        Text(stringResource(if (page.likesList != null) Res.string.detail_hide_likes else Res.string.detail_show_likes))
+                        Text(PostPageTexts.likesToggle(shown = page.likesList != null).string())
                     }
                 }
             }
@@ -113,7 +110,7 @@ private fun Loaded(state: PostPageState, page: PostPage, padding: PaddingValues,
                         onClick = { state.eventSink(PostPageEvent.ToggleRepostsList) },
                         modifier = Modifier.padding(horizontal = CARD_PADDING),
                     ) {
-                        Text(stringResource(if (page.repostsList != null) Res.string.post_hide_reposts else Res.string.post_show_reposts))
+                        Text(PostPageTexts.repostsToggle(shown = page.repostsList != null).string())
                     }
                 }
             }

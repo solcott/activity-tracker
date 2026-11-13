@@ -34,7 +34,7 @@ struct GearListView: View {
                 Section {
                     items(group.items.elements(as: GearRow.self))
                 } header: {
-                    Text(GearTexts.shared.type(type: group.type))
+                    Text(GearListTexts.shared.section(type: group.type))
                 }
             }
             let retired = lists.retired.elements(as: GearRow.self)
@@ -42,7 +42,7 @@ struct GearListView: View {
                 Section {
                     items(retired)
                 } header: {
-                    Text(.gearRetired)
+                    Text(GearListTexts.shared.section(type: nil))
                 }
             }
         }

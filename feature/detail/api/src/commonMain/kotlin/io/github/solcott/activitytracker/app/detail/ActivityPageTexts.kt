@@ -239,8 +239,7 @@ object ActivityPageTexts {
     val report: AppText = AppText.named("report_activity")
 
     /** Whom a report names: the author's display name, or their handle with its `@`. */
-    fun reportName(activity: ActivityView): AppText =
-        activity.author.displayName?.let(AppText::written) ?: LabelText.handle(activity.author.handle.value)
+    fun reportName(activity: ActivityView): AppText = LabelText.shownName(activity.author)
 
     /** Someone else's page offers Report, when reporting is available. */
     fun offersReport(page: ActivityDetailPage): Boolean = !page.isOwn && page.reporting.available

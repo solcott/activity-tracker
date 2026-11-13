@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Gender
+import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
@@ -37,6 +39,23 @@ object LabelText {
 
     /** An account handle with its `@` prefix. */
     fun handle(handle: String): AppText = AppText.named("handle_format", AppText.written(handle))
+
+    /**
+     * Whom a line names on its own (a report, a block, a moderated comment): the athlete's display name, or their handle with its `@` when
+     * they have none. `shownName`, which drops the `@`, is for a name shown above its own handle line.
+     */
+    fun shownName(account: ProfileViewBasic): AppText = shownName(account.displayName, account.handle.value)
+
+    /** Whom a line names on its own: the athlete's display name, or their handle with its `@` when they have none. */
+    fun shownName(account: ProfileView): AppText = shownName(account.displayName, account.handle.value)
+
+    private fun shownName(displayName: String?, handle: String): AppText = displayName?.let(AppText::written) ?: handle(handle)
+
+    /** A disclosure's state as spoken: Expanded, or Collapsed. */
+    fun expanded(expanded: Boolean): AppText = AppText.named(if (expanded) "detail_section_expanded" else "detail_section_collapsed")
+
+    /** A form's Save, which reads Saving… while its save runs. */
+    fun save(saving: Boolean): AppText = AppText.named(if (saving) "action_saving" else "action_save")
 
     /** A known [Gender] value's label, or the athlete's own description as written. */
     fun gender(gender: String): AppText =

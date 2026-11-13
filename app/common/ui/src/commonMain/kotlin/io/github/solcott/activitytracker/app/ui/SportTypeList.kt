@@ -29,14 +29,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.sport.SportTypeGroup
 import io.github.solcott.activitytracker.app.sport.nestsIn
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.detail_section_collapsed
-import io.github.solcott.activitytracker.composeApp.resources.detail_section_expanded
 import io.github.solcott.activitytracker.composeApp.resources.type_picker_toggle_sport
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -142,7 +141,7 @@ private fun CategoryHeader(
 /** Shows or hides [sport]'s sub-sports. Separate from the row's own click, which selects. */
 @Composable
 private fun ExpandButton(sport: String, expanded: Boolean, onToggle: () -> Unit) {
-    val stateText = stringResource(if (expanded) Res.string.detail_section_expanded else Res.string.detail_section_collapsed)
+    val stateText = LabelText.expanded(expanded).string()
     AppIconButton(
         AppIcon.Chevron,
         contentDescription = stringResource(Res.string.type_picker_toggle_sport, sportLabel(sport)),

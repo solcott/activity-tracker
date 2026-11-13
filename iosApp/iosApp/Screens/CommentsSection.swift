@@ -22,9 +22,10 @@ struct CommentsSection: View {
         _draft = State(initialValue: TextFieldModel(state.draft))
     }
 
+    /// A chosen item that asks first, with what it asks (`CommentsTexts.confirmation`).
     private struct Confirmation {
         let item: CommentMenuItem
-        let author: any AppText
+        let texts: CommentConfirmation
     }
 
     var body: some View {
@@ -57,11 +58,11 @@ struct CommentsSection: View {
             Button(role: .destructive) {
                 if let event = confirmation.item.event() { send(event) }
             } label: {
-                Text(confirmation.item.action == .Delete ? CommentsTexts.shared.label(action: .Delete) : CommentsTexts.shared.blockConfirm)
+                Text(confirmation.texts.confirm)
             }
             Button(role: .cancel) {} label: { Text(CommentsTexts.shared.cancel) }
         } message: { confirmation in
-            Text(confirmation.item.action == .Delete ? CommentsTexts.shared.deleteMessage : CommentsTexts.shared.blockMessage)
+            Text(confirmation.texts.message)
         }
         Section {
             field
@@ -70,8 +71,7 @@ struct CommentsSection: View {
 
     private var confirmTitle: Text {
         guard let confirming else { return Text(verbatim: "") }
-        return confirming.item.action == .Delete
-            ? Text(CommentsTexts.shared.deleteTitle) : Text(CommentsTexts.shared.blockTitle(author: confirming.author))
+        return Text(confirming.texts.title)
     }
 
     @ViewBuilder private var loading: some View {
@@ -117,7 +117,7 @@ struct CommentsSection: View {
 
     /// The author as the report sheet names them, as the shared list does: their display name, else their `@handle`.
     private static func reportName(_ author: ProfileViewBasic) -> String {
-        author.displayName ?? AppStrings.string(LabelText.shared.handle(handle: author.handle.value))
+        AppStrings.string(LabelText.shared.shownName(account: author))
     }
 
     private func choose(_ item: CommentMenuItem, row: CommentRow, author: any AppText) {
@@ -125,8 +125,8 @@ struct CommentsSection: View {
             if let reporting, let comment = row.comment {
                 reporting.eventSink(reporting.reportComment(comment: comment, authorName: Self.reportName(comment.author)))
             }
-        } else if item.confirms {
-            confirming = Confirmation(item: item, author: author)
+        } else if let texts = CommentsTexts.shared.confirmation(action: item.action, author: author) {
+            confirming = Confirmation(item: item, texts: texts)
         } else if let event = item.event() {
             send(event)
         }

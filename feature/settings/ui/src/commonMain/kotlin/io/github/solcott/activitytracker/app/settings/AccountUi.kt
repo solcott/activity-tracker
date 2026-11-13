@@ -37,8 +37,6 @@ import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.account_did
-import io.github.solcott.activitytracker.composeApp.resources.account_did_copied
-import io.github.solcott.activitytracker.composeApp.resources.account_did_copy
 import io.github.solcott.activitytracker.composeApp.resources.account_handle
 import io.github.solcott.activitytracker.composeApp.resources.account_leave_summary
 import io.github.solcott.activitytracker.composeApp.resources.account_managed_by_server
@@ -51,12 +49,7 @@ import io.github.solcott.activitytracker.composeApp.resources.account_server
 import io.github.solcott.activitytracker.composeApp.resources.account_title
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
-import io.github.solcott.activitytracker.composeApp.resources.export_data
-import io.github.solcott.activitytracker.composeApp.resources.export_data_cancel
-import io.github.solcott.activitytracker.composeApp.resources.export_data_delete
 import io.github.solcott.activitytracker.composeApp.resources.export_data_keep_open
-import io.github.solcott.activitytracker.composeApp.resources.export_data_save
-import io.github.solcott.activitytracker.composeApp.resources.export_data_try_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -127,42 +120,33 @@ private fun ExportSection(state: AccountState) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val export = state.export
         val lines = AccountTexts.exportLines(export)
-        when (export) {
-            DataExportStatus.None -> {
-                lines.forEach { Text(it.string(), style = body) }
-                AppButton(onClick = { state.eventSink(AccountEvent.Export) }) { Text(stringResource(Res.string.export_data)) }
+        if (export is DataExportStatus.Running) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppProgressIndicator(small = true)
+                Text(AccountTexts.running(export).string(), style = body)
             }
-            is DataExportStatus.Running -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AppProgressIndicator(small = true)
-                    Text(AccountTexts.running(export).string(), style = body)
+            if (LocalUiPlatform.current == UiPlatform.Web) Text(stringResource(Res.string.export_data_keep_open), style = body)
+        } else {
+            lines.forEach { Text(it.string(), style = body) }
+        }
+        AccountTexts.exportControls(export).forEach { control ->
+            ExportButton(control) {
+                when (control.action) {
+                    ExportAction.Export -> state.eventSink(AccountEvent.Export)
+                    ExportAction.Cancel -> state.eventSink(AccountEvent.CancelExport)
+                    ExportAction.Save -> (export as? DataExportStatus.Ready)?.let { handOff(it.archive) }
                 }
-                if (LocalUiPlatform.current == UiPlatform.Web) Text(stringResource(Res.string.export_data_keep_open), style = body)
-                AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) {
-                    Text(stringResource(Res.string.export_data_cancel))
-                }
-            }
-            is DataExportStatus.Ready -> {
-                lines.forEach { Text(it.string(), style = body) }
-                AppButton(onClick = { handOff(export.archive) }) { Text(stringResource(Res.string.export_data_save)) }
-                AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) {
-                    Text(stringResource(Res.string.export_data_delete))
-                }
-            }
-            is DataExportStatus.Paused,
-            DataExportStatus.Failed -> {
-                lines.forEach { Text(it.string(), style = body) }
-                RetryOrCancel(state)
             }
         }
         state.exportError?.let { Text(errorText(it), style = body, color = MaterialTheme.colorScheme.error) }
     }
 }
 
+/** An export step's button: the primary one filled, the others outlined. */
 @Composable
-private fun RetryOrCancel(state: AccountState) {
-    AppButton(onClick = { state.eventSink(AccountEvent.Export) }) { Text(stringResource(Res.string.export_data_try_again)) }
-    AppSecondaryButton(onClick = { state.eventSink(AccountEvent.CancelExport) }) { Text(stringResource(Res.string.export_data_cancel)) }
+internal fun ExportButton(control: ExportControl, onClick: () -> Unit) {
+    if (control.primary) AppButton(onClick = onClick, enabled = control.enabled) { Text(control.label.string()) }
+    else AppSecondaryButton(onClick = onClick, enabled = control.enabled) { Text(control.label.string()) }
 }
 
 @Composable
@@ -182,7 +166,7 @@ private fun Identity(state: AccountState) {
                         copied = true
                     },
                 ) {
-                    Text(stringResource(if (copied) Res.string.account_did_copied else Res.string.account_did_copy))
+                    Text(AccountTexts.didCopy(copied).string())
                 }
             },
         )

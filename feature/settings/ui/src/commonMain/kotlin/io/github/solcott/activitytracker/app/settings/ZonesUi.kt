@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.MenuField
@@ -34,8 +35,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.zones_auto_update
 import io.github.solcott.activitytracker.composeApp.resources.zones_auto_update_help
 import io.github.solcott.activitytracker.composeApp.resources.zones_default_help
@@ -100,7 +99,7 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
                 )
                 state.error?.let { ErrorText(it) }
                 AppButton(onClick = { state.eventSink(ZonesEvent.Save) }, enabled = state.canSave) {
-                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                    Text(LabelText.save(state.saving).string())
                 }
             }
         }

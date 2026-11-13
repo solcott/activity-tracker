@@ -31,8 +31,7 @@ fun CommentMenu(
     onReport: () -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
-    var confirming by remember { mutableStateOf(false) }
-    var confirmingBlock by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf<CommentAction?>(null) }
     val delete = CommentsTexts.label(CommentAction.Delete).string()
     val hide = CommentsTexts.label(CommentAction.Hide).string()
     val unhide = CommentsTexts.label(CommentAction.Unhide).string()
@@ -48,9 +47,9 @@ fun CommentMenu(
                         CommentAction.Reply -> null // A button under the comment.
                         CommentAction.Hide -> AppMenuItem(hide, AppIcon.Hide) { eventSink(CommentEvent.Hide(comment)) }
                         CommentAction.Unhide -> AppMenuItem(unhide, AppIcon.Unhide) { eventSink(CommentEvent.Unhide(comment)) }
-                        CommentAction.Delete -> AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true }
+                        CommentAction.Delete -> AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = action }
                         CommentAction.MuteAuthor -> AppMenuItem(mute) { eventSink(CommentEvent.MuteAuthor(comment)) }
-                        CommentAction.BlockAuthor -> AppMenuItem(block, destructive = true) { confirmingBlock = true }
+                        CommentAction.BlockAuthor -> AppMenuItem(block, destructive = true) { confirming = action }
                         CommentAction.Report -> AppMenuItem(report) { onReport() }
                     }
                 }
@@ -60,23 +59,16 @@ fun CommentMenu(
         AppIconButton(AppIcon.More, CommentsTexts.more.string(), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
-    if (confirming) {
+    val asking = confirming
+    val confirmation = asking?.let { CommentsTexts.confirmation(it, AppText.written(author)) }
+    if (asking != null && confirmation != null) {
+        val event = if (asking == CommentAction.Delete) CommentEvent.Delete(comment) else CommentEvent.BlockAuthor(comment)
         AppAlertDialog(
-            title = CommentsTexts.deleteTitle.string(),
-            message = CommentsTexts.deleteMessage.string(),
-            actions = persistentListOf(AppDialogAction(delete, destructive = true) { eventSink(CommentEvent.Delete(comment)) }),
+            title = confirmation.title.string(),
+            message = confirmation.message.string(),
+            actions = persistentListOf(AppDialogAction(confirmation.confirm.string(), destructive = true) { eventSink(event) }),
             cancelLabel = CommentsTexts.cancel.string(),
-            onDismiss = { confirming = false },
-        )
-    }
-    if (confirmingBlock) {
-        val confirm = CommentsTexts.blockConfirm.string()
-        AppAlertDialog(
-            title = CommentsTexts.blockTitle(AppText.written(author)).string(),
-            message = CommentsTexts.blockMessage.string(),
-            actions = persistentListOf(AppDialogAction(confirm, destructive = true) { eventSink(CommentEvent.BlockAuthor(comment)) }),
-            cancelLabel = CommentsTexts.cancel.string(),
-            onDismiss = { confirmingBlock = false },
+            onDismiss = { confirming = null },
         )
     }
 }

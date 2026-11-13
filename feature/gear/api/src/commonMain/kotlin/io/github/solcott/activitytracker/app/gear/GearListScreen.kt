@@ -98,6 +98,9 @@ object GearListTexts {
         return if (showRetired && row.retired) AppText.named("gear_total_joined", detail, AppText.named("gear_retired")) else detail
     }
 
+    /** A section's header: the gear [type]'s name, or Retired for the section of retired items, whose type is null. */
+    fun section(type: String?): AppText = type?.let(GearTexts::type) ?: AppText.named("gear_retired")
+
     /** The item's one total in [units], or null while its totals are unknown, when the row shows none. */
     fun total(row: GearRow, units: UnitSystem): AppText? = row.totals?.let { GearTexts.mainTotal(row.mainTotal, it, units) }
 

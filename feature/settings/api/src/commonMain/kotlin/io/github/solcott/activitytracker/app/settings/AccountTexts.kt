@@ -51,6 +51,30 @@ object AccountTexts {
             DataExportStatus.Failed -> listOf(AppText.named("export_data_failed"))
         }
 
+    /** The DID's Copy button, which reads Copied once tapped, until the page goes. */
+    fun didCopy(copied: Boolean): AppText = AppText.named(if (copied) "account_did_copied" else "account_did_copy")
+
+    /**
+     * The export's buttons under its lines: Export; Cancel while it runs; Save and Delete export once ready; Try again and Cancel once
+     * stopped.
+     */
+    fun exportControls(export: DataExportStatus): List<ExportControl> =
+        when (export) {
+            DataExportStatus.None -> listOf(ExportControl(ExportAction.Export, AppText.named("export_data"), primary = true))
+            is DataExportStatus.Running -> listOf(cancelExport)
+            is DataExportStatus.Ready ->
+                listOf(
+                    ExportControl(ExportAction.Save, AppText.named("export_data_save"), primary = true),
+                    ExportControl(ExportAction.Cancel, AppText.named("export_data_delete"), primary = false),
+                )
+            is DataExportStatus.Paused,
+            DataExportStatus.Failed ->
+                listOf(ExportControl(ExportAction.Export, AppText.named("export_data_try_again"), primary = true), cancelExport)
+        }
+
+    private val cancelExport: ExportControl
+        get() = ExportControl(ExportAction.Cancel, AppText.named("export_data_cancel"), primary = false)
+
     /** The running export's one line, by the step it's on. */
     fun running(export: DataExportStatus.Running): AppText =
         when (export.phase) {

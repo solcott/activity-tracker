@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.text.AppText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,6 +24,14 @@ class TopLevelDestinationTest {
         TopLevelDestination.entries.forEach { assertEquals(it, TopLevelDestination.of(it.screen(viewer), viewer)) }
         assertEquals(TopLevelDestination.Feed, TopLevelDestination.of(FeedScreen, viewer))
         assertEquals(TopLevelDestination.Search, TopLevelDestination.of(AthleteSearchScreen, viewer))
+    }
+
+    @Test
+    fun eachTabIsNamedOnceForBothShells() {
+        assertEquals(
+            listOf(AppText.named("nav_feed"), AppText.named("nav_search"), AppText.named("nav_you")),
+            TopLevelDestination.entries.map { it.title },
+        )
     }
 
     @Test

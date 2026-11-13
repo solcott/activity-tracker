@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.fakeComment
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.interactions.CommentAction
+import io.github.solcott.activitytracker.app.interactions.CommentConfirmation
 import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.app.interactions.CommentRowKind
 import io.github.solcott.activitytracker.app.interactions.CommentThread
@@ -217,6 +218,31 @@ class PostCardContentTest {
         assertTrue(rows[5].repliesLoading)
         assertNull(rows[5].more)
         assertEquals(rows.size, rows.map { it.key }.distinct().size)
+    }
+
+    @Test
+    fun onlyDeleteAndBlockAskFirst() {
+        val carol = AppText.written("Carol")
+        assertEquals(
+            CommentConfirmation(
+                AppText.named("delete_comment_title"),
+                AppText.named("delete_comment_message"),
+                AppText.named("detail_delete"),
+            ),
+            CommentsTexts.confirmation(CommentAction.Delete, carol),
+        )
+        assertEquals(
+            CommentConfirmation(
+                AppText.named("block_confirm_title", carol),
+                AppText.named("block_confirm_message"),
+                AppText.named("action_block"),
+            ),
+            CommentsTexts.confirmation(CommentAction.BlockAuthor, carol),
+        )
+        val asking = CommentAction.entries.filter { CommentsTexts.confirmation(it, carol) != null }
+        assertEquals(listOf(CommentAction.Delete, CommentAction.BlockAuthor), asking)
+        val menu = CommentsTexts.menu(CommentAction.entries.toSet(), AtUri("at://did:plc:carol/app.activitytracker.feed.comment/1"))
+        assertEquals(menu.filter { it.confirms }.map { it.action }, asking, "the items that confirm are the ones with a confirmation")
     }
 
     @Test

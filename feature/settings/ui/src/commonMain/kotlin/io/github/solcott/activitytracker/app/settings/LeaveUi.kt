@@ -32,8 +32,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
-import io.github.solcott.activitytracker.composeApp.resources.export_data
-import io.github.solcott.activitytracker.composeApp.resources.export_data_cancel
 import io.github.solcott.activitytracker.composeApp.resources.leave_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_confirm_label
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_activities
@@ -43,12 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_inte
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_profile
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_segments
 import io.github.solcott.activitytracker.composeApp.resources.leave_deleted_settings
-import io.github.solcott.activitytracker.composeApp.resources.leave_export_none
-import io.github.solcott.activitytracker.composeApp.resources.leave_export_ready
-import io.github.solcott.activitytracker.composeApp.resources.leave_export_running
-import io.github.solcott.activitytracker.composeApp.resources.leave_export_save
 import io.github.solcott.activitytracker.composeApp.resources.leave_intro
-import io.github.solcott.activitytracker.composeApp.resources.leave_keep_open
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_confirm
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_deleted
 import io.github.solcott.activitytracker.composeApp.resources.leave_section_device
@@ -58,7 +51,6 @@ import io.github.solcott.activitytracker.composeApp.resources.leave_section_stay
 import io.github.solcott.activitytracker.composeApp.resources.leave_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_account
 import io.github.solcott.activitytracker.composeApp.resources.leave_stays_other_apps
-import io.github.solcott.activitytracker.composeApp.resources.leave_stopped
 import io.github.solcott.activitytracker.composeApp.resources.leave_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.ImmutableList
@@ -162,25 +154,24 @@ private fun DeviceWork(state: LeaveState) {
 private fun Export(state: LeaveState) {
     val body = MaterialTheme.typography.bodyMedium
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        when (state.export) {
-            LeaveExport.None -> {
-                Text(stringResource(Res.string.leave_export_none), style = body)
-                AppSecondaryButton(onClick = { state.eventSink(LeaveEvent.Export) }, enabled = !state.starting) {
-                    Text(stringResource(Res.string.export_data))
-                }
+        val line = LeaveTexts.exportLine(state.export).string()
+        if (state.export == LeaveExport.Running) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppProgressIndicator(small = true)
+                Text(line, style = body)
             }
-            LeaveExport.Running -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AppProgressIndicator(small = true)
-                    Text(stringResource(Res.string.leave_export_running), style = body)
-                }
-                AppSecondaryButton(onClick = { state.eventSink(LeaveEvent.CancelExport) }) {
-                    Text(stringResource(Res.string.export_data_cancel))
-                }
-            }
-            LeaveExport.Ready -> {
-                Text(stringResource(Res.string.leave_export_ready), style = body)
-                AppButton(onClick = { state.eventSink(LeaveEvent.SaveExport) }) { Text(stringResource(Res.string.leave_export_save)) }
+        } else {
+            Text(line, style = body)
+        }
+        LeaveTexts.exportControls(state).forEach { control ->
+            ExportButton(control) {
+                state.eventSink(
+                    when (control.action) {
+                        ExportAction.Export -> LeaveEvent.Export
+                        ExportAction.Cancel -> LeaveEvent.CancelExport
+                        ExportAction.Save -> LeaveEvent.SaveExport
+                    },
+                )
             }
         }
     }
@@ -239,10 +230,8 @@ private fun Progress(run: LeaveRun, eventSink: (LeaveEvent) -> Unit) {
         }
         LeaveTexts.recordsDeleted(run)?.let { Text(it.string(), style = body) }
         LeaveTexts.paused(run)?.let { Text(it.string(), style = body) }
-        if (error == null) {
-            Text(stringResource(Res.string.leave_keep_open), style = body)
-        } else {
-            Text(stringResource(Res.string.leave_stopped), style = body)
+        Text(LeaveTexts.runNote(run).string(), style = body)
+        if (error != null) {
             AppButton(onClick = { eventSink(LeaveEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
         }
     }

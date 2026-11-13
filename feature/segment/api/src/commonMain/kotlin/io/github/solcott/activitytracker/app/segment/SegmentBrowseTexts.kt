@@ -36,6 +36,9 @@ object SegmentBrowseTexts {
     /** A sport group's chip ("Ride"). */
     fun sport(sport: String): AppText = SegmentTexts.sportGroup(sport)
 
+    /** One choice of the sport chip: a sport group's name, or All for every group (null). */
+    fun sportChoice(sport: String?): AppText = sport?.let(::sport) ?: allSports
+
     /** Where a name search looks: "This area" or "Everywhere". */
     fun scope(scope: NameScope): AppText =
         AppText.named(

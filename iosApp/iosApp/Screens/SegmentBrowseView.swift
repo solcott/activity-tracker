@@ -75,9 +75,7 @@ struct SegmentBrowseView: View {
                 nil, filled: state.sport != nil,
                 selection: Binding(get: { state.sport ?? "" }, set: { send(SegmentBrowseEvent.SportChanged(sport: $0.isEmpty ? nil : $0)) }),
                 options: [""] + state.sports,
-                optionLabel: { sport in
-                    AppStrings.string(sport.isEmpty ? SegmentBrowseTexts.shared.allSports : SegmentBrowseTexts.shared.sport(sport: sport))
-                })
+                optionLabel: { sport in AppStrings.string(SegmentBrowseTexts.shared.sportChoice(sport: sport.isEmpty ? nil : sport)) })
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

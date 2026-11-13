@@ -36,6 +36,7 @@ import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
@@ -63,8 +64,6 @@ import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.app.ui.visibilityScopeLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_save
-import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_approve_followers
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_approve_followers_help
@@ -181,7 +180,7 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                     }
                 }
                 AppButton(onClick = { state.eventSink(EditProfileEvent.Save) }, enabled = state.canSave) {
-                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                    Text(LabelText.save(state.saving).string())
                 }
             }
         }

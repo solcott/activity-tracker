@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
  * Their signatures are also what gives [Zone] and [PrivacyZone] a Swift type: each appears in the contracts only as an immutable list's
  * element, whose type Swift export erases, and a native view reads those lists' elements as these classes (dev/ios-swift-interop).
  */
+@Suppress("TooManyFunctions") // One per thing the zones pages say, as the shared and the native pages ask them.
 object ZoneTexts {
     /** A computed zone's label: "Zone 2", "Zone 5a". */
     fun label(zone: Zone): AppText = AppText.named("zones_label", AppText.written(zone.label))
@@ -66,7 +67,10 @@ object ZoneTexts {
         )
 
     /** A zone model's name, by its token; one another client saved that the app has no name for shows as its token. */
-    fun model(model: ZoneModel): AppText = AppText.Named("zone_model_${model.token}", fallback = AppText.written(model.token))
+    fun model(model: ZoneModel): AppText = modelChoice(model.token)
+
+    /** One choice of a model picker, which names its options by token: the model's name, else the token as it is. */
+    fun modelChoice(token: String): AppText = AppText.Named("zone_model_$token", fallback = AppText.written(token))
 
     /** What a model's zones are a share of: "Lactate threshold". */
     fun basis(basis: ZoneBasis): AppText =

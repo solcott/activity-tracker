@@ -104,20 +104,22 @@ struct LeaveView: View {
 
     private var export: some View {
         VStack(alignment: .leading, spacing: 8) {
-            switch state.export {
-            case .None:
-                Text(.leaveExportNone)
-                AppSecondaryButton(.exportData) { state.eventSink(LeaveEvent.Export.shared) }
-                    .disabled(state.starting)
-            case .Running:
+            if state.export == .Running {
                 HStack(spacing: 12) {
                     ProgressView()
-                    Text(.leaveExportRunning)
+                    Text(LeaveTexts.shared.exportLine(export: state.export))
                 }
-                AppSecondaryButton(.exportDataCancel) { state.eventSink(LeaveEvent.CancelExport.shared) }
-            case .Ready:
-                Text(.leaveExportReady)
-                AppButton(.leaveExportSave) { state.eventSink(LeaveEvent.SaveExport.shared) }
+            } else {
+                Text(LeaveTexts.shared.exportLine(export: state.export))
+            }
+            ForEach(Array(LeaveTexts.shared.exportControls(state: state).enumerated()), id: \.offset) { _, control in
+                ExportControlButton(control: control) {
+                    switch control.action {
+                    case .Export: state.eventSink(LeaveEvent.Export.shared)
+                    case .Cancel: state.eventSink(LeaveEvent.CancelExport.shared)
+                    case .Save: state.eventSink(LeaveEvent.SaveExport.shared)
+                    }
+                }
             }
         }
         .padding(.vertical, 4)
@@ -180,10 +182,8 @@ struct LeaveView: View {
                 if let paused = LeaveTexts.shared.paused(run: run) {
                     Text(paused)
                 }
-                if run.error == nil {
-                    Text(.leaveKeepOpen)
-                } else {
-                    Text(.leaveStopped)
+                Text(LeaveTexts.shared.runNote(run: run))
+                if run.error != nil {
                     AppButton(.actionRetry) { state.eventSink(LeaveEvent.Retry.shared) }
                 }
             }

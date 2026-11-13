@@ -12,15 +12,27 @@ import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
+import io.github.solcott.activitytracker.app.text.AppText
 
 /**
- * The signed-in app's tabs (sidebar entries on wide desktop and web). Each keeps its own back stack. Each shell gives them their label and
- * icon: the Compose shell in `:composeApp`, the iOS shell in Swift.
+ * The signed-in app's tabs (sidebar entries on wide desktop and web). Each keeps its own back stack. Both shells name them by [title]; each
+ * gives them its own icon: the Compose shell in `:composeApp`, the iOS shell in Swift.
  */
 enum class TopLevelDestination {
     Feed,
     Search,
     You;
+
+    /** The tab's name in the bar, rail or sidebar. */
+    val title: AppText
+        get() =
+            AppText.named(
+                when (this) {
+                    Feed -> "nav_feed"
+                    Search -> "nav_search"
+                    You -> "nav_you"
+                },
+            )
 
     /** The root screen of this tab's back stack. */
     fun screen(viewerDid: String): Screen =

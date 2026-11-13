@@ -290,7 +290,7 @@ struct NewDevicesSections: View {
                         set: { uri in fields.eventSink(NewDeviceEvent.LinkProfile(uri: options.first { $0.uri.value == uri }?.uri)) }
                     ),
                     options: [nil] + options.map { Optional($0.uri.value) },
-                    optionLabel: { uri in options.first { $0.uri.value == uri }?.name ?? AppStrings.string(texts.profileLinkNone) }
+                    optionLabel: { uri in AppStrings.string(texts.profileLinkChoice(offer: offer, uri: uri)) }
                 ) {
                     Text(texts.profileLinkTitle(offer: offer))
                 }
@@ -352,9 +352,7 @@ struct NewDeviceSection: View {
                         name: AppStrings.string(texts.deviceKindLabel),
                         selection: Binding(get: { card.kind }, set: { send(NewDeviceEvent.KindChanged(id: id, kind: $0)) }),
                         options: [nil] + kinds.map { Optional($0) },
-                        optionLabel: { kind in
-                            AppStrings.string(kind.map { GearTexts.shared.kind(type: card.type, kind: $0) } ?? texts.deviceKindNone)
-                        }
+                        optionLabel: { kind in AppStrings.string(texts.deviceKindChoice(type: card.type, kind: kind)) }
                     ) {
                         Text(texts.deviceKindLabel)
                     }
@@ -368,7 +366,7 @@ struct NewDeviceSection: View {
                             set: { uri in send(NewDeviceEvent.MountOn(id: id, uri: mounts.first { $0.uri.value == uri }?.uri)) }
                         ),
                         options: [nil] + mounts.map { Optional($0.uri.value) },
-                        optionLabel: { uri in mounts.first { $0.uri.value == uri }?.name ?? AppStrings.string(texts.deviceMountNone) }
+                        optionLabel: { uri in AppStrings.string(texts.deviceMountChoice(fields: fields, uri: uri)) }
                     ) {
                         Text(texts.deviceMountLabel)
                     }

@@ -54,6 +54,9 @@ data class CommentMenuItem(val label: AppText, val action: CommentAction, val co
         }
 }
 
+/** What a comment action asks before it's done: the alert's [title] and [message], and its destructive [confirm] button. */
+@Immutable data class CommentConfirmation(val title: AppText, val message: AppText, val confirm: AppText)
+
 /**
  * One row of a subject's comment list as both UIs order it (feed/comments): a comment, a placeholder, a just-sent comment, or a thread's
  * "View more replies". [key] is stable across pages; [uri] is the comment's, or the thread's for a placeholder or the more row.
@@ -225,6 +228,17 @@ object CommentsTexts {
 
     val cancel: AppText
         get() = AppText.named("action_cancel")
+
+    /**
+     * What [action] asks before it's done, naming the comment's [author] where it needs to: Delete and Block author ask
+     * ([CommentMenuItem.confirms]); every other action is done at once, and asks nothing.
+     */
+    fun confirmation(action: CommentAction, author: AppText): CommentConfirmation? =
+        when (action) {
+            CommentAction.Delete -> CommentConfirmation(deleteTitle, deleteMessage, label(CommentAction.Delete))
+            CommentAction.BlockAuthor -> CommentConfirmation(blockTitle(author), blockMessage, blockConfirm)
+            else -> null
+        }
 
     private fun commentRow(key: String, comment: CommentView, isReply: Boolean, state: CommentsState, report: Boolean): CommentRow {
         val actions = actions(comment, state, report)

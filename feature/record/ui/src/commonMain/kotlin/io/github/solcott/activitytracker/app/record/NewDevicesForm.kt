@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.gear.deviceName
-import io.github.solcott.activitytracker.app.gear.gearKindLabel
 import io.github.solcott.activitytracker.app.gear.gearTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
@@ -110,12 +109,12 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
                 value = ImportActivityTexts.deviceKind(card).string(),
                 items =
                     (listOf(
-                            AppMenuItem(ImportActivityTexts.deviceKindNone.string(), checked = card.kind == null) {
+                            AppMenuItem(ImportActivityTexts.deviceKindChoice(card.type, null).string(), checked = card.kind == null) {
                                 send(NewDeviceEvent.KindChanged(card.id, null))
                             },
                         ) +
                             kinds.map { kind ->
-                                AppMenuItem(gearKindLabel(card.type, kind), checked = kind == card.kind) {
+                                AppMenuItem(ImportActivityTexts.deviceKindChoice(card.type, kind).string(), checked = kind == card.kind) {
                                     send(NewDeviceEvent.KindChanged(card.id, kind))
                                 }
                             })
@@ -129,7 +128,7 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
                 value = ImportActivityTexts.deviceMount(card, fields).string(),
                 items =
                     (listOf(
-                            AppMenuItem(ImportActivityTexts.deviceMountNone.string(), checked = card.mountOn == null) {
+                            AppMenuItem(ImportActivityTexts.deviceMountChoice(fields, null).string(), checked = card.mountOn == null) {
                                 send(NewDeviceEvent.MountOn(card.id, null))
                             },
                         ) +
@@ -174,7 +173,7 @@ private fun ProfileLink(offer: ProfileLinkOffer, send: (NewDeviceEvent) -> Unit,
                 value = ImportActivityTexts.profileLinked(offer).string(),
                 items =
                     (listOf(
-                            AppMenuItem(ImportActivityTexts.profileLinkNone.string(), checked = offer.chosen == null) {
+                            AppMenuItem(ImportActivityTexts.profileLinkChoice(offer, null).string(), checked = offer.chosen == null) {
                                 send(NewDeviceEvent.LinkProfile(null))
                             },
                         ) +

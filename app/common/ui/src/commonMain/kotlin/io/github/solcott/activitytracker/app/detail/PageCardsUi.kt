@@ -20,8 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.chart_pace
 import io.github.solcott.activitytracker.composeApp.resources.detail_avg
 import io.github.solcott.activitytracker.composeApp.resources.detail_max
 import io.github.solcott.activitytracker.composeApp.resources.detail_min
@@ -49,7 +49,7 @@ fun MetricCardUi(
 ) {
     AppCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-            CardTitle(if (card.pace != null) stringResource(Res.string.chart_pace) else sectionTitle(card.section), card.mark)
+            CardTitle(FigureTexts.cardTitle(card).string(), card.mark)
             sources?.let { ChartSourceCaption(it) }
             if (card.headline.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(ROW_GAP)) {

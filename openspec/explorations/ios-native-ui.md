@@ -2127,6 +2127,31 @@ What building the host and the shell on Swift export showed, beyond the probes:
   text, so it is left for a cleanup of the import state (whether the rest of `ImportPreview.dive` is still read is unchecked).
   The backlog's "gas-switch markers are on the detail depth chart only" named the deleted preview chart, and is removed.
 
+### Text round 3 findings (feature labels, `shared-text-labels`)
+
+- Only one label read differently in the two UIs: the native forms' Save stayed "Save" (greyed) while saving, where Compose reads
+  "Saving…". Both now ask `LabelText.save`, so on iOS Edit activity, Edit profile, Default zones, Sport zones and Manual entry read
+  "Saving…" in the bar while a save runs. Every other label reads as it did on every platform: the moves only made one UI ask the
+  function the other already used, or put a choice both wrote into one function.
+- iOS 26.0 snapshots changed for the five forms' `saving` samples (light and dark). No Android reference changed: Compose already read
+  "Saving…", and every other Compose label is the same text.
+- The item's line numbers also covered two choices its summary didn't name: Leave's keep-open or stopped line (`LeaveView.swift:183-187`,
+  now `LeaveTexts.runNote`) and Account's Copy or Copied (`AccountUi.kt:170`, now `AccountTexts.didCopy`). `AccountUi.kt:208`, the end
+  dialog's lines joined with "\n\n", belongs to the Other group's joined sentences and is left there.
+- Swift export resolves a contract's name in its bridge by package, not module: the settings presenter's file-private `object ExportAction`
+  (a single-flight key, same package as the new `ExportAction` enum) made the generated bridge fail to compile ("it is private in file").
+  The key is now `ExportFlight`. A private declaration in a presenter can shadow a contract type of the same name for Swift export, though
+  every JVM build passes.
+- New contract types a view names (`ExportControl`, `ExportAction`, `CommentConfirmation`) need their alias in `KotlinTypes.swift`; the
+  Debug build fails with "cannot find type" until they have one.
+- `shownName` (display name else the bare handle) stays where a name sits above its own `@handle` line (rows, avatars, cards), and as
+  text inside `AppText.written` in several texts. `LabelText.shownName` is for a name standing alone (reports, blocks, a moderated comment).
+- SwiftUI's `DisclosureGroup` speaks its own expanded state, so `LabelText.expanded` is asked by Compose alone.
+- Checks: `check -Pkotlin.incremental=false`, the ad-hoc Release build, 454/454 on iOS 18.4, and on iOS 26.0 a full run whose only
+  failures, `SearchSnapshotTests` (`failed`, `noMatch`) and `UploadsSnapshotTests` (`stopped`), passed alone; none of their views changed.
+- Cloning the iOS 18.4 snapshot simulator failed in CoreSimulator ("device remained in Creating state"); a new iPhone 16 Pro on the
+  18.4 runtime served instead, since 18.4 runs compare no snapshots.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2256,24 +2281,17 @@ What building the host and the shell on Swift export showed, beyond the probes:
     setpoints, the deco model, `bar`, `decoModelName`), `ac/ui/DepthProfile.kt` whole (with `rememberDepthLabel`), `ac/ui/DiveFormat.kt`,
     whose only caller was `DiveStats.kt`, and `ac/detail/LapTableUi.kt`'s `spokenRow` and `cell`. Both UIs read a dive through
     `FigureTexts`, `CardLines` and `LapTableTexts`. Nine strings only that code used are gone. No visible text changed.
-  - [ ] **Feature labels:**
-    - `ac/detail/PageCardsUi.kt:52` a metric card's title (`FigureTexts.cardTitle`).
-    - `ac/ui/ShownNameLabel.kt:8,11` display name else `@handle`, which iOS repeats (`CommentsSection.swift:118-120`). No shared
-      function exists, and `shownName` falls back to the bare handle.
-    - `ac/ui/SportTypeList.kt:149` expanded or collapsed.
-    - `feature/gear/ui/…/GearListUi.kt:159` a section's header (`gear_retired` else the type).
-    - `feature/post/ui/…/PostPageUi.kt:101,116` Show or Hide likes and reposts (`PostPageTexts.likesToggle`/`repostsToggle`).
-    - Save or Saving in `EditActivityUi.kt:111`, `EditProfileUi.kt:179`, `ZonesUi.kt:103`, `SportZonesUi.kt:116` and
-      `ManualActivityUi.kt:86`. Only record has `ImportActivityTexts.save(saving)`.
-    - The tabs' titles, a `when` in `composeApp/…/nav/TopLevelDestinationLabels.kt` and a `switch` in
-      `ios/Shell/SessionView.swift:128-135`.
-    - The visibility help or locked note, chosen once in Compose (`ActivityVisibilityForm.kt:42`) and five times in Swift
-      (`RecordView.swift:49-53`, `ManualActivityView.swift:66-70`, `EditActivityView.swift:86`, `AcceptInviteView.swift:62`,
-      `ImportActivityView.swift:342`).
-    - A comment's confirm alert, chosen by `item.action == .Delete` in Swift (`CommentsSection.swift:60-74`).
-    - "None" or "All" choices: `SegmentBrowseView.swift:78-80`, `ImportBatchSections.swift:293,355-357,371` and `ZoneRows.swift:69-71`.
-    - The export states in Leave and Account (`LeaveView.swift:107-134,183-187`, `LeaveUi.kt:163-180`; `AccountView.swift:127-137`,
-      `AccountUi.kt:153,170,208`), and `SettingsUi.kt:72`'s sign-in-again summary. The same `when` is in each UI.
+  - [x] **Feature labels** (`shared-text-labels`). Compose's metric card asks `FigureTexts.cardTitle`, and its post page
+    `PostPageTexts.likesToggle`/`repostsToggle`, as iOS did. New shared functions both UIs ask: `LabelText.shownName` (a display name
+    else `@handle`, behind `shownNameLabel`, Swift's comment report name, `ProfileTexts.name`, `ActivityPageTexts.reportName` and
+    `ModerationSubjectTexts.commentAuthor`; `shownName`, the bare-handle form, stays), `LabelText.expanded` (the type list's toggle,
+    Compose only), `LabelText.save` (the five forms' Save, and `ImportActivityTexts.save`), `GearListTexts.section`,
+    `TopLevelDestination.title` (`:app-host`; `TopLevelDestinationLabels.kt` is now `TopLevelDestinationIcons.kt`), `VisibilityTexts.activityNote`
+    (once in Compose, the five Swift forms), `CommentsTexts.confirmation` (a `CommentConfirmation`; the Compose menu keeps one
+    `confirming` action), the pickers' choices with their null option (`SegmentBrowseTexts.sportChoice`,
+    `ImportActivityTexts.deviceKindChoice`/`deviceMountChoice`/`profileLinkChoice`, `ZoneTexts.modelChoice`), the export steps as
+    `ExportControl`s (`AccountTexts.exportControls`, `LeaveTexts.exportLine`/`exportControls`, drawn by `ExportButton` and
+    `ExportControlButton`), Leave's `runNote`, Account's `didCopy`, and `SettingsTexts.accountSummary`.
   - [ ] **Other:**
     - Sentences joined in each UI: `CreateSegmentUi.kt:97`/`CreateSegmentView.swift:99`, `CreateDiveSiteUi.kt:102`/
       `CreateDiveSiteView.swift:94` (" "), and `AccountUi.kt:233`/`AccountView.swift:86` ("\n\n").

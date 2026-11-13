@@ -36,6 +36,7 @@ import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.popUntil
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.app_name
@@ -96,7 +97,7 @@ fun AppShell(
                                 selected = destination == current,
                                 onClick = { select(destination) },
                                 icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
-                                label = { Text(stringResource(destination.label)) },
+                                label = { Text(destination.title.string()) },
                                 modifier = Modifier.handCursor(),
                             )
                         }
@@ -128,7 +129,7 @@ private fun BottomBar(current: TopLevelDestination?, select: (TopLevelDestinatio
                 selected = destination == current,
                 onClick = { select(destination) },
                 icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
-                label = { Text(stringResource(destination.label)) },
+                label = { Text(destination.title.string()) },
                 modifier = Modifier.handCursor(),
             )
         }
@@ -152,7 +153,7 @@ private fun Sidebar(current: TopLevelDestination?, select: (TopLevelDestination)
             )
             TopLevelDestination.entries.forEach { destination ->
                 NavigationDrawerItem(
-                    label = { Text(stringResource(destination.label)) },
+                    label = { Text(destination.title.string()) },
                     selected = destination == current,
                     onClick = { select(destination) },
                     icon = { PlatformIcon(destination.icon, null, filled = destination == current) },

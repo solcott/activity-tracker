@@ -90,4 +90,21 @@ class AccountTextsTest {
         )
         assertEquals(AppText.named("account_end_sign_in_again_anyway"), AccountTexts.endAction(signingInAgain))
     }
+
+    @Test
+    fun theExportOffersExportThenCancelThenTryAgain() {
+        val export = ExportControl(ExportAction.Export, AppText.named("export_data"), primary = true)
+        val cancel = ExportControl(ExportAction.Cancel, AppText.named("export_data_cancel"), primary = false)
+        val tryAgain = ExportControl(ExportAction.Export, AppText.named("export_data_try_again"), primary = true)
+        assertEquals(listOf(export), AccountTexts.exportControls(DataExportStatus.None))
+        assertEquals(listOf(cancel), AccountTexts.exportControls(DataExportStatus.Running(5, 0, 0, 0, 0)))
+        assertEquals(listOf(tryAgain, cancel), AccountTexts.exportControls(DataExportStatus.Paused(null)))
+        assertEquals(listOf(tryAgain, cancel), AccountTexts.exportControls(DataExportStatus.Failed))
+    }
+
+    @Test
+    fun copyReadsCopiedOnceTapped() {
+        assertEquals(AppText.named("account_did_copy"), AccountTexts.didCopy(copied = false))
+        assertEquals(AppText.named("account_did_copied"), AccountTexts.didCopy(copied = true))
+    }
 }
