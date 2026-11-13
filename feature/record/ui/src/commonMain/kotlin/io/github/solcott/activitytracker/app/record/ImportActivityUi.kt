@@ -39,8 +39,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
-import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.vinceglb.filekit.dialogs.FileKitMode
@@ -64,9 +62,8 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
     val preview = state.preview
     val defaultTitle = state.defaultTitle?.let { defaultTitleLabel(it) }
     val save = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }
-    val ios = LocalUiPlatform.current == UiPlatform.Ios
     WithWindowWidth(modifier) { width ->
-        // Below 840dp the save panel follows the preview, so Save stays in reach: in the navigation bar on iOS, a bottom bar elsewhere.
+        // Below 840dp the save panel follows the preview, so Save stays in reach, in a bottom bar.
         val wide = width == WindowWidth.Expanded
         // Once saved, the after-save panel replaces the form, and Save with it.
         val pinnedSave = preview != null && !wide && state.afterImport == null
@@ -77,14 +74,9 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                     title = ImportActivityTexts.title(state.addsRecording).string(),
                     onBack = { state.eventSink(ImportActivityEvent.Back) },
                     scrollBehavior = scrollBehavior,
-                    actions = {
-                        if (pinnedSave && ios) {
-                            AppTextButton(onClick = save, enabled = state.canSave) { Text(saveLabel(state)) }
-                        }
-                    },
                 )
             },
-            bottomBar = { if (pinnedSave && !ios) SaveBar(state, save) },
+            bottomBar = { if (pinnedSave) SaveBar(state, save) },
         ) { padding ->
             val saved = state.savedSuggestions
             val after = state.afterImport

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationRail
@@ -26,37 +27,23 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.mohamedrejeb.calf.ui.ExperimentalCalfUiApi
-import com.mohamedrejeb.calf.ui.navigation.AdaptiveNavigationBar
-import com.mohamedrejeb.calf.ui.navigation.UIKitTabBarConfiguration
-import com.mohamedrejeb.calf.ui.navigation.UIKitUITabBarItem
-import com.mohamedrejeb.calf.ui.uikit.UIKitImage
 import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.popUntil
-import io.github.solcott.activitytracker.app.ui.adaptive.LocalFloatingBottomBarHeight
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
-import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.app_name
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The signed-in app's navigation chrome around [content] (the navigable screens): iOS's native tab bar; Material's navigation bar on phones
- * and narrow windows, its rail on tablets and mid-width windows; and a sidebar on wide desktop and web windows. Full-screen flows
+ * The signed-in app's navigation chrome around [content] (the navigable screens): Material's navigation bar on phones and narrow windows,
+ * its rail on tablets and mid-width windows; and a sidebar on wide desktop and web windows. Full-screen flows
  * ([TopLevelDestination.showsNavigation]) hide it.
  *
  * Choosing a tab swaps in its back stack (saving the current one), so each tab keeps its place. Choosing the current tab again goes back to
@@ -88,32 +75,17 @@ fun AppShell(
         val style =
             when {
                 !showNavigation -> null
-                platform == UiPlatform.Ios || maxWidth < COMPACT_MAX -> NavigationStyle.Bar
+                maxWidth < COMPACT_MAX -> NavigationStyle.Bar
                 platform.hasPointer && maxWidth >= SIDEBAR_MIN -> NavigationStyle.Sidebar
                 else -> NavigationStyle.Rail
             }
         when (style) {
             null -> screens(Modifier.fillMaxSize())
-            NavigationStyle.Bar if platform == UiPlatform.Ios -> {
-                // UIKit's tab bar floats over the screens: they run to the bottom edge and scroll under its glass, padding their content
-                // clear of it (AppScaffold). Calf lays out a placeholder the size of the native bar, which gives its height.
-                var barHeight by remember { mutableStateOf(0.dp) }
-                val density = LocalDensity.current
-                Box(Modifier.fillMaxSize()) {
-                    CompositionLocalProvider(LocalFloatingBottomBarHeight provides barHeight) {
-                        // The bar's height includes the home indicator, so screens mustn't pad for that too.
-                        screens(Modifier.fillMaxSize().consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)))
-                    }
-                    Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { barHeight = with(density) { it.height.toDp() } }) {
-                        NavigationBar(current, select)
-                    }
-                }
-            }
             NavigationStyle.Bar ->
                 Column(Modifier.fillMaxSize()) {
                     // The bar pads itself clear of the home indicator / gesture area, so screens above it mustn't.
                     screens(Modifier.weight(1f).consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)))
-                    NavigationBar(current, select)
+                    BottomBar(current, select)
                 }
             NavigationStyle.Rail ->
                 Row(Modifier.fillMaxSize()) {
@@ -147,32 +119,16 @@ private enum class NavigationStyle {
     Sidebar,
 }
 
-/** iOS: a native `UITabBar` tinted with the brand. Elsewhere: Material's navigation bar. */
-@OptIn(ExperimentalCalfUiApi::class)
+/** Material's navigation bar. */
 @Composable
-private fun NavigationBar(current: TopLevelDestination?, select: (TopLevelDestination) -> Unit) {
-    val destinations = TopLevelDestination.entries
-    val labels = destinations.map { stringResource(it.label) }
-    AdaptiveNavigationBar(
-        iosItems =
-            destinations.mapIndexed { i, destination ->
-                UIKitUITabBarItem(
-                    title = labels[i],
-                    image = UIKitImage.SystemName(destination.icon.sfSymbol),
-                    selectedImage = UIKitImage.SystemName(destination.icon.filledSfSymbol),
-                )
-            },
-        iosSelectedIndex = current?.ordinal ?: 0,
-        iosOnItemSelected = { select(destinations[it]) },
-        iosConfiguration = UIKitTabBarConfiguration(selectedItemColor = MaterialTheme.colorScheme.primary),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        destinations.forEachIndexed { i, destination ->
+private fun BottomBar(current: TopLevelDestination?, select: (TopLevelDestination) -> Unit) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
                 selected = destination == current,
                 onClick = { select(destination) },
                 icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
-                label = { Text(labels[i]) },
+                label = { Text(stringResource(destination.label)) },
                 modifier = Modifier.handCursor(),
             )
         }

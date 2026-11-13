@@ -82,7 +82,6 @@ kotlin {
             implementation(projects.featureUploadsUi)
             implementation(projects.uiDesignsystem)
             implementation(projects.uiResources)
-            implementation(libs.calf.ui)
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)
