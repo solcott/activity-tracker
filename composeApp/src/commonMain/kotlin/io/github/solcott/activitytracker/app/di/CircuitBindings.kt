@@ -66,10 +66,36 @@ object SessionCircuitBindings {
         SubCircuit.builder().addPresenterFactories(presenters).addUiFactories(uis).build()
 }
 
-/** Declares the sub-screen factory sets so the graph is valid before (and without) any `@SubCircuitInject` contribution. */
+/**
+ * Declares the sub-screens' UI factories so the graph is valid before (and without) any `@SubCircuitInject` contribution. Their presenter
+ * factories are declared with the session graph (`SubPresenterMultibinds`), since the iOS host runs them too.
+ */
 @ContributesTo(SessionScope::class)
-interface SubCircuitMultibinds {
-    @Multibinds(allowEmpty = true) fun subPresenterFactories(): Set<SubPresenterFactory>
-
+interface SubUiMultibinds {
     @Multibinds(allowEmpty = true) fun subUiFactories(): Set<SubUiFactory>
 }
+
+/**
+ * The Compose apps' Circuit for signed-out screens. Contributed here, not declared on [AppGraph], so the graphs this module's platforms
+ * declare (Android, desktop, web) implement it and the iOS graph, generated where this module isn't on the classpath, binds no `Ui.Factory`
+ * (ui/ios-native-shell).
+ */
+@ContributesTo(AppScope::class)
+interface AppCircuits {
+    val appCircuit: AppCircuit
+}
+
+/** The Compose apps' Circuit for signed-in screens and their sub-screens, contributed for the reason [AppCircuits] is. */
+@ContributesTo(SessionScope::class)
+interface SessionCircuits {
+    val sessionCircuit: SessionCircuit
+    val subCircuit: SubCircuit
+}
+
+/** This graph's [AppCircuits]. Every graph the Compose apps create implements it, since Metro merges what this module contributes. */
+val AppGraph.circuits: AppCircuits
+    get() = this as AppCircuits
+
+/** This session graph's [SessionCircuits], on any session graph a Compose app's graph creates. */
+val SessionGraph.circuits: SessionCircuits
+    get() = this as SessionCircuits

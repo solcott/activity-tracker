@@ -2,21 +2,7 @@ plugins {
     id("activitytracker.kmp.compose")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.metro)
-    id("activitytracker.native.oauth")
 }
-
-val generateNetworkConfig =
-    tasks.register<GenerateNetworkConfig>("generateNetworkConfig") {
-        description = "Generate the local stack's network config for every client"
-        packageName = "io.github.solcott.activitytracker.app"
-        appviewUrl = nativeOAuth.appviewUrl
-        appviewPublicUrl = nativeOAuth.appviewPublicUrl
-        redirectScheme = nativeOAuth.redirectScheme
-        labelerDid = nativeOAuth.labelerDid
-        plcUrl = nativeOAuth.plcUrl
-        handleResolverUrl = nativeOAuth.handleResolverUrl
-        outputDir = layout.buildDirectory.dir("generated/networkConfig/kotlin")
-    }
 
 // The strings and drawables live in :ui-resources, whose Res keeps this module's old package, so this module must not generate its own.
 compose.resources { generateResClass = never }
@@ -28,11 +14,9 @@ kotlin {
     // SubCircuit is experimental. Opted in module-wide so Metro's generated sub-factories compile too.
     compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     sourceSets {
-        commonMain { kotlin.srcDir(generateNetworkConfig) }
         commonMain.dependencies {
-            // api: AppGraph and SessionGraph name the host's types (the requests, the session runner), which the app shells that
-            // declare or use a graph then see.
-            api(projects.appHost)
+            // api: the platform graphs here and in :desktopApp and :webApp extend AppGraph, and the shells use NetworkConfigs.
+            api(projects.appGraph)
 
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
@@ -110,8 +94,6 @@ kotlin {
             implementation(libs.compose.material3.adaptive)
             implementation(libs.compose.material3.adaptive.layout)
             implementation(libs.filekit.dialogs.compose)
-            implementation(libs.haze)
-            implementation(libs.haze.blur)
             implementation(libs.vico.multiplatform)
         }
         androidMain.dependencies {
@@ -126,11 +108,6 @@ kotlin {
         // RoutePreview (see ActivityMap and BACKLOG.md). On each non-web target rather than nonWebMain: this module has no nonWebMain
         // sources, so the convention doesn't declare that group here.
         // Desktop's native runtime is picked per OS in :desktopApp.
-        iosMain.dependencies {
-            // FitDecoder, which iosApp's Swift implements and hands to the iOS graph (see :iosShell).
-            implementation(projects.coreActivityfile)
-            implementation(libs.maplibre.compose)
-        }
         jvmMain.dependencies { implementation(libs.maplibre.compose) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
         jvmTest.dependencies {

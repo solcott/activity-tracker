@@ -27,6 +27,7 @@ import com.slack.circuit.foundation.rememberCircuitNavigator
 import com.slack.circuit.subcircuit.LocalSubCircuit
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.di.SessionGraph
+import io.github.solcott.activitytracker.app.di.circuits
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
@@ -71,7 +72,7 @@ fun App(
         if (!restored) return@AppTheme
         val current = session
         if (current == null) {
-            CircuitCompositionLocals(graph.appCircuit.circuit) { CircuitContent(LoginScreen) }
+            CircuitCompositionLocals(graph.circuits.appCircuit.circuit) { CircuitContent(LoginScreen) }
         } else {
             key(current.did) {
                 val sessionGraph = remember { graph.createSessionGraph(current) }
@@ -88,8 +89,8 @@ fun App(
                 LaunchedEffect(runner) { runner.run() }
                 val mode by runner.mode.collectAsState()
                 val units by sessionGraph.unitsRepository.units.collectAsState()
-                CompositionLocalProvider(LocalUnitSystem provides units, LocalSubCircuit provides sessionGraph.subCircuit) {
-                    CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
+                CompositionLocalProvider(LocalUnitSystem provides units, LocalSubCircuit provides sessionGraph.circuits.subCircuit) {
+                    CircuitCompositionLocals(sessionGraph.circuits.sessionCircuit.circuit) {
                         when (mode) {
                             SessionMode.Unknown -> Unit
                             // Only the leave, which resumes; nothing else runs, since it would write behind the leave.
@@ -131,7 +132,7 @@ internal fun UseHeldPhotoImageLoader() {
 /** The signed-in app: the navigable screens in the shell, from the feed. */
 @Composable
 private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did, onRootPop: () -> Unit) {
-    val circuit = sessionGraph.sessionCircuit.circuit
+    val circuit = sessionGraph.circuits.sessionCircuit.circuit
     val backStack = rememberSaveableBackStack(root = FeedScreen)
     val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
     // An unfinished recording of this account's, from before the app stopped, is offered back first, and one

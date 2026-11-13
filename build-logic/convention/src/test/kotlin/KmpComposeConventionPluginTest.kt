@@ -39,6 +39,11 @@ class KmpComposeConventionPluginTest {
                         doLast { println("androidResources.enable=${'$'}enabled") }
                     }
 
+                    tasks.register("printTargets") {
+                        val names = kotlin.targets.names.sorted()
+                        doLast { println("targets=${'$'}names") }
+                    }
+
                     tasks.register("printStabilityCheckDependencies") {
                         val check = tasks.named("composeStabilityCheck")
                         val names = provider { check.get().let { t -> t.taskDependencies.getDependencies(t).map { it.name }.sorted() } }
@@ -71,6 +76,13 @@ class KmpComposeConventionPluginTest {
         val result = runner(":feature:printAndroidResources").build()
 
         assertContains(result.output, "androidResources.enable=true")
+    }
+
+    @Test
+    fun `a Compose module builds for Android, desktop and web, not iOS`() {
+        val result = runner(":feature:printTargets").build()
+
+        assertContains(result.output, "targets=[android, jvm, metadata, wasmJs]")
     }
 
     @Test

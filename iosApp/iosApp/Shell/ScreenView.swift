@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// One of the host's screens: its native view where the registry has one, and the shared Compose UI otherwise.
+/// One of the host's screens, drawn by its native view. Every screen has one (`checkIosScreenRegistry`).
 struct ScreenView: View {
     let record: HostRecord
-    let controllers: FallbackControllers
     /// Drawn in a column beside another screen, under a navigation bar that isn't its own (`SettingsColumns`).
     var inPane = false
 
@@ -17,19 +16,11 @@ struct ScreenView: View {
             .onDisappear { record.setVisible(visible: false) }
     }
 
-    @ViewBuilder private var screen: some View {
-        if ScreenRegistry.app.hasView(forScreenNamed: record.screenName) {
-            // A native page in a column titles itself in a header there (`pageTitle`), since the bar is the other screen's.
-            // Its header there has a back button once it is deeper than the column's first page.
-            Following(record.paneRoot) { paneRoot in
-                NativeScreen(record: record).environment(\.inPane, inPane).environment(\.paneRoot, paneRoot)
-            }
-        } else {
-            // Compose lays the screen out against the whole window and pads for the bars and the keyboard itself, and draws its own
-            // navigation bar. So the stack's bar is hidden, unless it belongs to the screen this one is drawn beside.
-            FallbackScreen(record: record, controllers: controllers)
-                .ignoresSafeArea()
-                .toolbar(inPane ? .automatic : .hidden, for: .navigationBar)
+    private var screen: some View {
+        // A native page in a column titles itself in a header there (`pageTitle`), since the bar is the other screen's.
+        // Its header there has a back button once it is deeper than the column's first page.
+        Following(record.paneRoot) { paneRoot in
+            NativeScreen(record: record).environment(\.inPane, inPane).environment(\.paneRoot, paneRoot)
         }
     }
 }
@@ -52,10 +43,9 @@ private struct NativeScreen: View {
 /// A screen shown on its own, with no stack around it: sign-in, a leave in progress, the choice after leaving elsewhere.
 struct SingleScreen: View {
     let record: HostRecord
-    @State private var controllers = FallbackControllers()
 
     var body: some View {
-        ScreenView(record: record, controllers: controllers)
+        ScreenView(record: record)
     }
 }
 

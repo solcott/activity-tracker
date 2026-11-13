@@ -22,12 +22,6 @@ struct StackPathTests {
         #expect(StackPath.size(afterWriting: [], over: ["feed"]) == nil)
     }
 
-    @Test func aStackKeepsThePageARecordShowsBesideItToo() {
-        // Settings' page until a row is chosen is drawn, though it isn't on the stack.
-        #expect(StackPath.drawable([("profile", nil), ("settings", "defaults"), ("zones", nil)]) == ["profile", "settings", "defaults", "zones"])
-        #expect(StackPath.drawable([("feed", nil)]) == ["feed"])
-    }
-
     @Test func goingBackFromSettingsBesideAPageClosesThePageToo() {
         // Beside a page the path ends at Settings, while Kotlin holds the page above it: shortening to the profile drops both.
         #expect(StackPath.size(afterWriting: [], over: ["profile", "settings"]) == 1)

@@ -10,16 +10,14 @@ kotlin {
             // AppTextField takes the app's TextFieldState, as the contracts do.
             api(projects.coreTextfield)
             api(projects.uiResources)
-            // api: the adaptive wrappers take and return Calf and Haze types.
+            // api: the adaptive wrappers take and return Calf types.
             api(libs.calf.ui)
-            api(libs.haze)
             api(libs.kotlinx.collections.immutable)
             api(libs.vico.multiplatform)
 
             // SF Symbols-style glyphs for the Compose-drawn iOS chrome (the native bars take SF Symbol names instead).
             implementation(libs.calf.cupertino.icons)
             implementation(libs.compose.material.icons.core)
-            implementation(libs.haze.blur)
         }
     }
 }

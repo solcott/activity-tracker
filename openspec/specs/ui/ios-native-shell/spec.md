@@ -1,7 +1,7 @@
 # ui/ios-native-shell Specification
 
 ## Purpose
-How the iOS app's navigation behaves now that the system's own tabs, stacks and transitions hold its screens, whether a screen is drawn natively or still by the shared UI, and what its native sign-in screen shows.
+How the iOS app's navigation behaves now that the system's own tabs, stacks and transitions hold its screens, all drawn natively with no Compose UI in the app, and what its native sign-in screen shows.
 
 ## Requirements
 
@@ -31,25 +31,6 @@ Each tab SHALL keep its own stack of screens. Choosing another tab and coming ba
 - **WHEN** an athlete with a profile and an activity open on the You tab taps You again
 - **THEN** the tab shows their own profile, with nothing left to go back to
 
-### Requirement: Swipe back works on every screen
-An athlete SHALL be able to go back by swiping from the screen's leading edge on every screen that has one to go back to, whether the screen is drawn natively or by the shared UI. The swipe SHALL follow the finger and SHALL be cancellable.
-
-#### Scenario: A screen drawn by the shared UI
-- **WHEN** an athlete swipes from the left edge of an activity's page, which the shared UI draws
-- **THEN** the page follows the finger, the feed shows beneath it, and letting go past half way returns to the feed
-
-#### Scenario: Cancelled
-- **WHEN** an athlete starts the swipe and lets go near the edge
-- **THEN** the activity's page settles back and stays open
-
-#### Scenario: A tab's first screen
-- **WHEN** an athlete swipes from the left edge of the feed
-- **THEN** nothing closes and the app keeps responding
-
-#### Scenario: A map
-- **WHEN** an athlete swipes from the left edge of the full-screen route map
-- **THEN** the map screen goes back and the map itself doesn't pan
-
 ### Requirement: A covered screen is as it was left
 A screen that another screen covered, or whose tab the athlete left, SHALL show what it showed before when the athlete returns: the same content at the same scroll position, without loading again from empty.
 
@@ -63,21 +44,6 @@ The tabs SHALL NOT show over a flow that takes the whole window: recording, addi
 #### Scenario: Recording
 - **WHEN** an athlete opens Record from the feed
 - **THEN** the tabs are hidden, and they show again when Record closes
-
-### Requirement: Screens without a native view are unchanged
-Every screen SHALL be reachable on iOS whether or not it has a native view. A screen without one SHALL be drawn by the shared UI and SHALL look and behave as it did before: its own navigation bar with its title and actions, its sheets, menus and alerts, its text fields, and its content ending clear of the tabs while scrolling under them.
-
-#### Scenario: Every screen opens
-- **WHEN** an athlete opens any screen of the app that has no native view
-- **THEN** it shows its content and its navigation bar as it did before the native shell
-
-#### Scenario: Under the tabs
-- **WHEN** an athlete scrolls the feed to its end
-- **THEN** the last activity rests above the tabs, and earlier ones scroll beneath them
-
-#### Scenario: A sub-screen
-- **WHEN** an athlete opens the feed's filter
-- **THEN** the filter shows and changing it changes the feed, as before
 
 ### Requirement: The app follows the session
 The iOS app SHALL show the sign-in screen while signed out and the tabs, starting on Feed, once signed in. While a leave of the account is in progress it SHALL show only the leave, and after the athlete left on another device only the choice to discard or rejoin. Signing out SHALL forget every tab's stack.
@@ -135,15 +101,42 @@ The native sign-in screen SHALL show the same messages, in the same words, as th
 - **WHEN** `alice.test` has just left Activity Tracker
 - **THEN** the screen says she left and that her atproto account `alice.test` is unchanged, with the handle field empty
 
-### Requirement: The iOS app turns with the device
-The iOS app SHALL show upright and on either side on an iPhone, and any way up on an iPad, turning with the device on every screen, whether a native view or the shared UI draws it. Turning SHALL keep each tab's stack, the screen on top and what it shows.
+### Requirement: Every screen has a native view
+Every screen the iOS app can show (each serializable screen of a screen contract) SHALL have a native view registered in the app's
+screen registry, and `./gradlew check` SHALL fail naming any screen that has none.
+
+#### Scenario: A new screen without its view
+- **WHEN** a feature adds a screen to its contract and registers no native view for it
+- **THEN** `./gradlew check` fails and names the screen
+
+### Requirement: Swipe back works on every native screen
+An athlete SHALL be able to go back by swiping from the screen's leading edge on every screen that has one to go back to. The swipe SHALL follow the finger and SHALL be cancellable.
+
+#### Scenario: An activity's page
+- **WHEN** an athlete swipes from the left edge of an activity's page
+- **THEN** the page follows the finger, the feed shows beneath it, and letting go past half way returns to the feed
+
+#### Scenario: Cancelled
+- **WHEN** an athlete starts the swipe and lets go near the edge
+- **THEN** the activity's page settles back and stays open
+
+#### Scenario: A tab's first screen
+- **WHEN** an athlete swipes from the left edge of the feed
+- **THEN** nothing closes and the app keeps responding
+
+#### Scenario: A map
+- **WHEN** an athlete swipes from the left edge of the full-screen route map
+- **THEN** the map screen goes back and the map itself doesn't pan
+
+### Requirement: Every native screen turns with the device
+The iOS app SHALL show upright and on either side on an iPhone, and any way up on an iPad, turning with the device on every screen. Turning SHALL keep each tab's stack, the screen on top and what it shows.
 
 #### Scenario: An iPhone turned on the feed
 - **WHEN** an athlete turns an iPhone showing the feed onto its side
 - **THEN** the feed and the tabs lay out across the wider screen, at the same place in the feed
 
-#### Scenario: A screen the shared UI draws
-- **WHEN** an athlete turns an iPhone showing an activity, which the shared UI draws, onto its side
+#### Scenario: An activity turned
+- **WHEN** an athlete turns an iPhone showing an activity onto its side
 - **THEN** the activity lays out across the wider screen, and back returns to the screen it was opened from
 
 #### Scenario: An iPad upside down
@@ -154,10 +147,17 @@ The iOS app SHALL show upright and on either side on an iPhone, and any way up o
 - **WHEN** an athlete turns an iPhone upside down
 - **THEN** the app stays as it was
 
-### Requirement: Every screen has a native view
-Every screen the iOS app can show (each serializable screen of a screen contract) SHALL have a native view registered in the app's
-screen registry, and `./gradlew check` SHALL fail naming any screen that has none.
+### Requirement: The iOS app draws nothing with Compose
+The iOS app SHALL draw every screen, sheet and sub-screen natively, and SHALL ship none of Compose UI, Compose Foundation, Compose Material, Skia or a library that only draws Compose UI. The presenters SHALL still run on the Compose runtime. `./gradlew check` SHALL fail when the iOS app's Kotlin would resolve any of those UI libraries.
 
-#### Scenario: A new screen without its view
-- **WHEN** a feature adds a screen to its contract and registers no native view for it
-- **THEN** `./gradlew check` fails and names the screen
+#### Scenario: A UI library reaches the iOS build
+- **WHEN** a module the iOS app links adds a dependency that brings Compose UI with it
+- **THEN** `./gradlew check` fails and names the library and the module path that brought it
+
+#### Scenario: The release app
+- **WHEN** the Release app is built for iOS
+- **THEN** its binary holds no Skia or Compose UI symbols and its bundle no Compose resources
+
+#### Scenario: Other platforms
+- **WHEN** the Android, desktop or web app is built
+- **THEN** it draws its screens with the shared Compose UI exactly as before

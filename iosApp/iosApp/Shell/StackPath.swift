@@ -9,12 +9,6 @@ enum StackPath {
         Array(keys.dropFirst())
     }
 
-    /// The keys of every record a stack can still draw: its own, and the page each may show beside it without it being on the stack
-    /// (`HostRecord.paneDefault`). What a stack's cache of fallback screens keeps.
-    static func drawable(_ records: [(key: String, beside: String?)]) -> [String] {
-        records.flatMap { [$0.key] + ($0.beside.map { [$0] } ?? []) }
-    }
-
     /// What SwiftUI writing `newPath` asks of a stack with these keys: the number of records to shorten it to, or nil when the write
     /// changes nothing or isn't a shorter version of what is there.
     static func size(afterWriting newPath: [String], over keys: [String]) -> Int? {

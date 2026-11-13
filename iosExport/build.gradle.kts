@@ -5,13 +5,8 @@ import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
 
 plugins {
     kotlin("multiplatform")
-    // For its resources tasks alone: this module has no Compose code, but the plugin of the module Xcode's task runs in is what copies
-    // every dependency's strings, drawables and fonts into the app. Without it the app builds without them. It refuses to apply
-    // without the Compose compiler plugin.
-    id("org.jetbrains.compose")
-    id("org.jetbrains.kotlin.plugin.compose")
     id("activitytracker.quality")
-    // checkSwiftExportStubs, and the list of contract modules this build exports.
+    // checkSwiftExportStubs, checkIosDependencies (no Compose UI on iOS), and the list of contract modules this build exports.
     id("activitytracker.swift.export")
 }
 

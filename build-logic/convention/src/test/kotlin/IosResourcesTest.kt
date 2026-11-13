@@ -266,6 +266,8 @@ class IosResourcesTest {
                 .resolve("AppIcon.kt")
                 .writeText(appIcon)
             resolve("ui/resources/src/commonMain/composeResources/drawable").apply { mkdirs() }.resolve("directions_run.xml").writeText(run)
+            // checkIosScreenRegistry, also in check, reads the registry; with no contract modules here it has nothing to find.
+            resolve("iosApp/iosApp/Shell/ScreenRegistry.swift").apply { parentFile.mkdirs() }.writeText("struct ScreenRegistry {}\n")
         }
     }
 

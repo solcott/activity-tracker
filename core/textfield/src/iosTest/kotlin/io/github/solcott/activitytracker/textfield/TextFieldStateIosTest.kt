@@ -1,8 +1,7 @@
 package io.github.solcott.activitytracker.textfield
 
-import androidx.compose.foundation.text.input.TextFieldState as ComposeTextFieldState
+import androidx.compose.runtime.saveable.SaverScope
 import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.ui.text.TextRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,23 +40,13 @@ class TextFieldStateIosTest {
     }
 
     @Test
-    fun `setting the value it already holds leaves the selection alone`() {
-        val state = textFieldStateOf("hello")
-        val compose = state.composeState as ComposeTextFieldState
-        compose.edit { selection = TextRange(2) }
+    fun `a saved field comes back with its text`() {
+        val state = textFieldStateOf("Morning ride")
 
-        state.value = "hello"
+        val saved = with(TextFieldStateSaver) { SaverScope { true }.save(state) }
+        val restored = TextFieldStateSaver.restore(checkNotNull(saved))
 
-        assertEquals(TextRange(2), compose.selection)
-    }
-
-    @Test
-    fun `the Compose field and Swift edit one text`() {
-        val state = textFieldStateOf("al")
-
-        (state.composeState as ComposeTextFieldState).edit { append("ice") }
-
-        assertEquals("alice", state.value)
+        assertEquals("Morning ride", restored?.value)
     }
 
     @Test

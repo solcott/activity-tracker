@@ -99,8 +99,11 @@ internal fun Project.configureModuleBoundaries() {
     plugins.withType(LifecycleBasePlugin::class.java) { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(check) } }
 }
 
-/** The apps, which depend on every feature's presenter and UI modules so their Metro graphs aggregate the factories. */
-private val APP_SHELLS = setOf(":composeApp", ":androidApp", ":webApp", ":desktopApp")
+/**
+ * The apps, which depend on every feature's presenter and UI modules so their Metro graphs aggregate the factories, and `:app-graph`, which
+ * declares the iOS graph and so depends on every presenter (never a UI: `checkIosDependencies` refuses one on iOS).
+ */
+private val APP_SHELLS = setOf(":composeApp", ":androidApp", ":webApp", ":desktopApp", ":app-graph")
 
 private val DECLARING_CONFIGURATIONS = listOf("api", "implementation", "compileOnly", "runtimeOnly")
 

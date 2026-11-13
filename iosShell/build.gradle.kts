@@ -5,9 +5,9 @@ plugins {
     id("activitytracker.swift.contract")
 }
 
-// The Kotlin entry points iosApp's Swift calls, in signatures Swift export can carry: a UIViewController, FitDecoder with its DTOs, and
-// plain values. :iosExport exports this module to Swift; :composeApp, which does the work behind it, is not exported, because a Compose
-// type anywhere in an exported API breaks the iOS build (dev/ios-swift-interop).
+// The Kotlin entry points iosApp's Swift calls, in signatures Swift export can carry: the presenter host, FitDecoder with its DTOs, and
+// plain values. :iosExport exports this module to Swift; :app-graph, which does the work behind it, is not exported, because a Metro graph
+// or a Compose runtime type in an exported API breaks the iOS build (dev/ios-swift-interop).
 kotlin {
     iosArm64()
     iosSimulatorArm64()
@@ -23,9 +23,8 @@ kotlin {
             // api, so Swift sees ByteString, which IosApp.heldPhoto returns and Swift turns into Data (toNSData).
             api(libs.kotlinx.io.bytestring)
 
-            // compressAvatar, which IosApp runs for a photo the native edit profile picks.
-            implementation(projects.appCommonUi)
-            implementation(projects.composeApp)
+            // The iOS graph and host, and the background tasks.
+            implementation(projects.appGraph)
             // EditProfileLimits, the avatar's size and quality.
             implementation(projects.featureProfileApi)
         }

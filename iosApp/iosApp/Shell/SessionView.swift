@@ -56,23 +56,19 @@ private struct TabsView: View {
 /// in a second column (ui/settings-layout).
 private struct StackView: View {
     let stack: TabStack
-    @State private var controllers = FallbackControllers()
-
     var body: some View {
         Following(stack.shown) { shown in
             let pushed = shown.pushed
-            let drawable = StackPath.drawable(shown.records.map { ($0.key, $0.paneDefault?.key) })
             NavigationStack(path: path(of: pushed)) {
                 // The first record is the stack's root. It changes only when the stack is replaced, and then the view is new too.
-                ScreenView(record: pushed[0], controllers: controllers)
+                ScreenView(record: pushed[0])
                     .environment(\.tabRoot, true)
                     .id(pushed[0].key)
                     .navigationDestination(for: StackEntry.self) { entry in
-                        StackDestination(record: entry.record, stack: stack, controllers: controllers)
+                        StackDestination(record: entry.record, stack: stack)
                     }
             }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { stack.setSize(width: Double($0.width), height: Double($0.height)) }
-            .onChange(of: drawable) { _, keys in controllers.keep(only: keys) }
         }
     }
 
@@ -94,22 +90,21 @@ private struct StackView: View {
 private struct StackDestination: View {
     let record: HostRecord
     let stack: TabStack
-    let controllers: FallbackControllers
 
     var body: some View {
         if record.paneDefault == nil {
-            ScreenView(record: record, controllers: controllers)
+            ScreenView(record: record)
         } else {
             Following(stack.shown) { shown in
                 // Only the Settings on top of the stack is beside a page; one further down is covered and draws as a list.
                 let split = shown.split.flatMap { $0.settings.key == record.key ? $0 : nil }
                 SettingsColumns(
                     list: {
-                        ScreenView(record: record, controllers: controllers)
+                        ScreenView(record: record)
                             .environment(\.settingsLayout, split.map { SettingsLayout(pane: $0.pane) } ?? .single)
                     },
                     // A page replaces the one before it: each record's screen is its own view.
-                    page: split.map { ScreenView(record: $0.page, controllers: controllers, inPane: true).id($0.page.key) })
+                    page: split.map { ScreenView(record: $0.page, inPane: true).id($0.page.key) })
             }
         }
     }
