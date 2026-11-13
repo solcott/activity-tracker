@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Which screens have a native view. A screen with no entry is drawn by the shared Compose UI (`FallbackScreen`), so every screen works
-/// whether or not it has been written in SwiftUI, and writing one is a view and an entry here.
+/// Which native view draws each screen. Every screen the host can show has an entry (`checkIosScreenRegistry`, in `check`), so a new
+/// screen is a view and an entry here.
 ///
 /// A screen is found by its class name (`HostRecord.screenName`), never by reading the Kotlin screen object. Swift export hands Swift an
 /// interface-typed value through the Swift class generated for its Kotlin class, and Xcode links only the generated modules this
