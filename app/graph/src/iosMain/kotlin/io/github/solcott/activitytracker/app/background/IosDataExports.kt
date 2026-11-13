@@ -3,16 +3,13 @@ package io.github.solcott.activitytracker.app.background
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.appGraph
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.export_data_ready_notification_text
-import io.github.solcott.activitytracker.composeApp.resources.export_data_ready_notification_title
 import io.github.solcott.activitytracker.data.account.AccountJobLauncher
 import io.github.solcott.activitytracker.data.db.DataExportEntity
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.MainScope
-import org.jetbrains.compose.resources.getString
 import platform.BackgroundTasks.BGProcessingTask
+import platform.Foundation.NSBundle
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationState
 import platform.UserNotifications.UNAuthorizationOptionAlert
@@ -75,8 +72,8 @@ object IosDataExports {
     /** Says the export is ready, unless the app is in front, where the Account page already says so. */
     private suspend fun notifyReady() {
         if (UIApplication.sharedApplication.applicationState == UIApplicationState.UIApplicationStateActive) return
-        val title = getString(Res.string.export_data_ready_notification_title)
-        val body = getString(Res.string.export_data_ready_notification_text)
+        val title = localized("export_data_ready_notification_title")
+        val body = localized("export_data_ready_notification_text")
         val center = UNUserNotificationCenter.currentNotificationCenter()
         // Provisional: delivered quietly to Notification Center without asking first; a choice the athlete made already stands.
         center.requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionProvisional) { _, _ ->
@@ -112,3 +109,6 @@ object IosDataExports {
         }
     }
 }
+
+/** The app's String Catalog entry [key], which `generateIosResources` makes from the shared `strings.xml` (dev/ios-native-resources). */
+private fun localized(key: String): String = NSBundle.mainBundle.localizedStringForKey(key, value = null, table = null)

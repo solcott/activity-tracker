@@ -14,14 +14,13 @@ import io.github.solcott.activitytracker.location.ActivityRecorder
 /**
  * Common view of the app graph. Each platform declares the real `@DependencyGraph(AppScope::class)` (`AndroidAppGraph`, `IosAppGraph`,
  * `WebAppGraph`, `DesktopAppGraph`) extending this, so contributions from platform source sets (database, location, auth browser) are
- * visible to it.
+ * visible to it. It names no UI: the Compose apps reach their Circuit through what `:composeApp` contributes (`AppCircuits`), which the iOS
+ * graph never sees.
  *
  * `@Stable` because `App` takes it as a param: there's one instance for the app's lifetime and its bindings never change.
  */
 @Stable
 interface AppGraph : SessionGraph.Factory {
-    val appCircuit: AppCircuit
-
     /** The app's screens run with no UI, for a shell that draws them natively (dev/presenter-host). Unused by the Compose shell. */
     val appHost: AppHost
     val authRepository: AuthRepository

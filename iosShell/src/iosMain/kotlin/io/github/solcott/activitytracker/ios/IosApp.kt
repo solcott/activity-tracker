@@ -4,29 +4,28 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.HeldPhotoBytes
 import io.github.solcott.activitytracker.app.IosAppHost
-import io.github.solcott.activitytracker.app.ScreenViewController
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
 import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
 import io.github.solcott.activitytracker.app.host.AppHost
-import io.github.solcott.activitytracker.app.host.HostRecord
 import io.github.solcott.activitytracker.app.profile.EditProfileLimits
-import io.github.solcott.activitytracker.app.ui.compressAvatar as compressForAvatar
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.export.ExportArchive
 import io.github.solcott.activitytracker.data.export.writeToPath
 import io.github.solcott.activitytracker.data.importsave.PickedFileSource
+import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.ImageFormat
 import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.compressImage
 import kotlinx.io.bytestring.ByteString
 import platform.Foundation.NSURL
-import platform.UIKit.UIViewController
 
 /**
- * Everything `iosApp`'s Swift calls in Kotlin. Swift export turns this into Swift, so a signature here uses only types it can carry: a
- * `UIViewController`, the presenter host's types, [FitDecoder] with its DTOs, a `ByteString`, a data export's archive, and plain values. A
- * type from a module that isn't exported (Compose, Circuit, Metro, `:composeApp` itself) would compile to a stub that stops the app when
- * called (dev/ios-swift-interop).
+ * Everything `iosApp`'s Swift calls in Kotlin. Swift export turns this into Swift, so a signature here uses only types it can carry: the
+ * presenter host's types, [FitDecoder] with its DTOs, a `ByteString`, a data export's archive, and plain values. A type from a module that
+ * isn't exported (Compose, Circuit, Metro, `:app-graph` itself) would compile to a stub that stops the app when called
+ * (dev/ios-swift-interop).
  *
  * Each function takes the app's `SwiftFitDecoder`, because whichever runs first creates the app's graph: the UI, or a background task when
  * iOS launches the app for one.
@@ -67,17 +66,23 @@ object IosApp {
 
     /**
      * A profile photo the native edit profile picked, ready to attach: [image] (any format the platform decodes, a HEIC included) as a JPEG
-     * scaled and re-encoded by the same `compressAvatar` the shared UI's pick runs, at [EditProfileLimits]' size and quality, so the photo
-     * saved is the same on every platform. Null when [image] can't be read as a picture. Swift awaits it and sends the result in
-     * `EditProfileEvent.AvatarPicked`.
+     * scaled and re-encoded by FileKit at [EditProfileLimits]' size and quality, the call the shared UI's `compressAvatar` makes on Android
+     * and desktop, so the photo saved is the same on every platform. Null when [image] can't be read as a picture. Swift awaits it and
+     * sends the result in `EditProfileEvent.AvatarPicked`.
      */
     suspend fun compressAvatar(image: ByteString): ByteString? = runSuspendCatching {
-        ByteString(compressForAvatar(image.toByteArray(), EditProfileLimits.avatarPixels, EditProfileLimits.avatarQuality))
+        val pixels = EditProfileLimits.avatarPixels
+        ByteString(
+            FileKit.compressImage(
+                image.toByteArray(),
+                imageFormat = ImageFormat.JPEG,
+                quality = EditProfileLimits.avatarQuality,
+                maxWidth = pixels,
+                maxHeight = pixels,
+            ),
+        )
     }
         .getOrNull()
-
-    /** A screen drawn by the shared Compose UI, for one the shell has no native view for. Call [host] first. */
-    fun screenViewController(record: HostRecord): UIViewController = ScreenViewController(record)
 
     /**
      * Registers the handlers of the app's background tasks: uploading queued writes (data/outbox), finishing batch saves
