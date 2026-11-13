@@ -7,6 +7,7 @@ import SwiftUI
 /// and a failed save shows at the top. It opens full width over Settings.
 struct EditGearView: View {
     let state: EditGearState
+    @Environment(\.clock) private var clock
 
     @State private var name: TextFieldModel
     @State private var brand: TextFieldModel
@@ -180,12 +181,12 @@ struct EditGearView: View {
         .popover(isPresented: $pickingDate) {
             DatePicker(
                 selection: Binding(
-                    get: { state.acquiredOn.map { CalendarDay($0).date(in: calendar) } ?? Date() },
+                    get: { state.acquiredOn.map { CalendarDay($0).date(in: calendar) } ?? clock.date },
                     set: { picked in
                         pickingDate = false
                         send(EditGearEvent.AcquiredChanged(date: CalendarDay(picked, in: calendar).localDate))
                     }),
-                in: ...Date(), displayedComponents: .date
+                in: ...clock.date, displayedComponents: .date
             ) {
                 Text(.gearAcquired)
             }

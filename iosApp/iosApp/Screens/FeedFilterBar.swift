@@ -255,12 +255,13 @@ struct CustomRangeSheet: View {
     let range: CustomRangeState
     let eventSink: (any FeedFilterEvent) -> Void
     @Environment(\.calendar) private var calendar
+    @Environment(\.clock) private var clock
     @State private var picked = Date()
 
     var body: some View {
         let start = range.start.map { CalendarDay($0).date(in: calendar) }
         NavigationStack {
-            DatePicker(selection: $picked, in: (start ?? .distantPast)...Date(), displayedComponents: .date) {
+            DatePicker(selection: $picked, in: (start ?? .distantPast)...clock.date, displayedComponents: .date) {
                 Text(.feedFilterCustom)
             }
             .datePickerStyle(.graphical)

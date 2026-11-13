@@ -51,14 +51,14 @@ struct GearEditorsTextTests {
 
     @Test func aMountedRetiredChainSaysSo() throws {
         let state = try #require(Samples.editGearVariants["mountedRetired"])
-        #expect(read(state.mountedOnLabel) == "Mounted on Gravel bike since 2026-07-01")
-        #expect(read(state.retiredOnLabel) == "Retired 2026-09-01")
+        #expect(read(state.mountedOnLabel) == "Mounted on Gravel bike since Jul 1, 2026")
+        #expect(read(state.retiredOnLabel) == "Retired Sep 1, 2026")
         #expect(state.isRetired)
         #expect(read(state.kindLabel) == "Chain")
         #expect(read(state.photoAction) == "Change photo")
         #expect(read(state.followersNote) != nil)
         #expect(state.photo is GearPhoto.Saved)
-        #expect(read(EditGearTexts.shared.date(date: try #require(state.acquiredOn))) == "2026-06-20")
+        #expect(read(EditGearTexts.shared.date(date: try #require(state.acquiredOn))) == "Jun 20, 2026")
     }
 
     @Test func saveShowsOnlyOnceTheFormHasLoaded() throws {

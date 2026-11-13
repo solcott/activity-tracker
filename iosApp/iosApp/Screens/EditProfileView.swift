@@ -7,6 +7,7 @@ import SwiftUI
 /// the need to sign in again shows at the top. It is pushed over the athlete's own profile.
 struct EditProfileView: View {
     let state: EditProfileState
+    @Environment(\.clock) private var clock
 
     @State private var displayName: TextFieldModel
     @State private var bio: TextFieldModel
@@ -144,12 +145,12 @@ struct EditProfileView: View {
         }
     }
 
-    /// The birthdate as stored, from a calendar of past days in a popover, and clearing it.
+    /// The birthdate written out (Kotlin's), from a calendar of past days in a popover, and clearing it.
     private var birthDate: some View {
         HStack(spacing: 12) {
             Text(.editProfileBirthDate).frame(maxWidth: .infinity, alignment: .leading)
-            if state.birthDay != nil {
-                Button { pickingBirthDate = true } label: { Text(verbatim: state.birthDate) }
+            if let shown = EditProfileTexts.shared.birthDate(state: state) {
+                Button { pickingBirthDate = true } label: { Text(shown) }
                     .accessibilityHint(Text(.editProfileBirthDateChoose))
                 AppIconButton(.clear, label: .editProfileClear) { send(EditProfileEvent.BirthDateChanged(value: "")) }
                     .foregroundStyle(.secondary)
@@ -161,12 +162,12 @@ struct EditProfileView: View {
         .popover(isPresented: $pickingBirthDate) {
             DatePicker(
                 selection: Binding(
-                    get: { state.birthDay.map { CalendarDay($0).date(in: calendar) } ?? Date() },
+                    get: { state.birthDay.map { CalendarDay($0).date(in: calendar) } ?? clock.date },
                     set: { picked in
                         pickingBirthDate = false
                         send(EditProfileEvent.BirthDateChanged(date: CalendarDay(picked, in: calendar).localDate))
                     }),
-                in: ...Date(), displayedComponents: .date
+                in: ...clock.date, displayedComponents: .date
             ) {
                 Text(.editProfileBirthDate)
             }

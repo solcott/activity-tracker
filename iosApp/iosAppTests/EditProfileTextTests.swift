@@ -76,6 +76,12 @@ struct EditProfileTextTests {
         #expect(String(localized: .editProfileBirthDateChoose) == "Choose birthdate")
     }
 
+    @Test func theBirthdateReadsWrittenOut() throws {
+        let loaded = try #require(Samples.editProfile["loaded"])
+        #expect(AppStrings.string(try #require(EditProfileTexts.shared.birthDate(state: loaded))) == "Apr 12, 1990")
+        #expect(EditProfileTexts.shared.birthDate(state: try #require(Samples.editProfileVariants["imperial"])) == nil)
+    }
+
     @Test func genderOffersTheSharedChoices() throws {
         let choices = GenderChoices.shared
         #expect(choices.all.map { read(choices.label(choice: $0)) } == ["Not set", "Female", "Male", "Non-binary", "Self-describe"])
