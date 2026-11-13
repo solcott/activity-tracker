@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A written-out date reads the same in both UIs
-A calendar date a UI shows, as a board entry, a segment effort, a threshold history row, the gear form's acquired, mounted-on and retired dates, the gear page's mount dates, the upload queue's unnamed activities and edit profile's birth date show it, SHALL be chosen by shared code: the short month name, the day and the year, never grouped. A `YYYY-MM-DD` text that doesn't parse SHALL read as itself. No UI SHALL write a date as `YYYY-MM-DD`.
+A calendar date a UI shows, as a board entry, a segment effort, a threshold history row, the gear form's acquired, mounted-on and retired dates, the gear page's mount dates, the feed filter's custom range, the upload queue's unnamed activities and edit profile's birth date show it, SHALL be chosen by shared code: the short month name, the day and the year, never grouped. A `YYYY-MM-DD` text that doesn't parse SHALL read as itself. No UI SHALL write a date as `YYYY-MM-DD`.
 
 #### Scenario: An effort's day
 - **WHEN** an effort's date is `2026-01-05`
@@ -18,6 +18,10 @@ A calendar date a UI shows, as a board entry, a segment effort, a threshold hist
 #### Scenario: A component's mounts on the gear page
 - **WHEN** a component was mounted from 2026-03-01 to 2026-06-01 and again since 2026-06-01, in the viewer's time zone
 - **THEN** both UIs read "Mar 1, 2026 – Jun 1, 2026" and "Since Jun 1, 2026"
+
+#### Scenario: A custom range in the feed filter
+- **WHEN** the athlete limits the feed to 2026-03-01 through 2026-03-15
+- **THEN** the date chip reads "Mar 1, 2026 – Mar 15, 2026" in both UIs
 
 #### Scenario: An unnamed activity in the upload queue
 - **WHEN** an untitled ride that started on 2026-10-26 in the viewer's time zone waits in the queue

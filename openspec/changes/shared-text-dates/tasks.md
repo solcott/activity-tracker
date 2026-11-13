@@ -8,7 +8,7 @@
 
 - [ ] 2.1 Add `DateText.of(date: LocalDate)` and test it in `:app-common-api` (`DateTextTest`: a day, a single-digit day, a year never grouped)
 - [ ] 2.2 Write gear's form dates (`EditGearTexts.date`, so acquired, mounted-on and retired) and the gear page's mount dates (`GearPageTexts`) with it; update `EditGearTextsTest` and `GearPageTextsTest`
-- [ ] 2.3 Write the upload queue's unnamed activity date with it (`UploadsTexts`); update `UploadsTextsTest`
+- [ ] 2.3 Write the upload queue's unnamed activity date (`UploadsTexts`) and the feed filter's custom range (`FeedFilterTexts`) with it; move threshold history's short date to `DateText.monthDay`; update `UploadsTextsTest`, `FeedFilterTextsTest`, `DateTextTest`
 - [ ] 2.4 Add `EditProfileTexts.birthDate(state)` with tests (set, unset)
 
 ## 3. Compose

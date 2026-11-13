@@ -5,7 +5,7 @@
 Most dates and times in both UIs already come from shared `AppText` functions (`StartText`, `DayText`, `DateText`, `DurationText`,
 `AppText.Time`), since earlier native rounds moved each one when a native view first needed it. The inventory found the rest. A few
 places in Compose still format a date or length of time themselves, though a shared function already exists for it and the native view
-asks that function. One Swift view does the same. And shared `-api` code writes four kinds of dates as ISO text (`LocalDate.toString()`).
+asks that function. One Swift view does the same. And shared `-api` code writes five kinds of dates as ISO text (`LocalDate.toString()`).
 Edit profile keeps its birth date as `YYYY-MM-DD` text in `State`, and both UIs show that text as it is.
 
 ## Goals / Non-Goals
@@ -25,7 +25,8 @@ Edit profile keeps its birth date as `YYYY-MM-DD` text in `State`, and both UIs 
 ## Decisions
 
 - **`DateText.of(date: LocalDate)`** joins `date(year, month, day)` and `isoDate(text)`. It is a named function and not an overload of
-  `date`, so Swift export gives it a clear name. `EditGearTexts.date`, `GearPageTexts.day` and `UploadsTexts`' activity name call it. An
+  `date`, so Swift export gives it a clear name. `EditGearTexts.date`, `GearPageTexts.day`, `FeedFilterTexts.range` and `UploadsTexts`' activity name call it. Threshold history's
+  `shortDate` ("Mar 2") moves into `DateText` as `monthDay`, so every date rule has one home. An
   alternative was to keep ISO in forms ("a form shows what it stores"). That was rejected because the same gear date read "Jul 1, 2026"
   on a board and "2026-07-01" on its own form, and both date pickers already present a calendar.
 - **Edit profile's birth date: `EditProfileTexts.birthDate(state): AppText?`.** It reads `state.birthDay` (the parsed `LocalDate`) and is
