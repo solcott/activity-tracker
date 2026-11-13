@@ -2110,6 +2110,23 @@ What building the host and the shell on Swift export showed, beyond the probes:
   `exportSharedAsk` sample and the strings stay for the native Account view, and the sample left the Android screenshots (its reference is
   deleted, since without the dialog it drew `exportReady`).
 
+### Text round 3 findings (dive tables and dead dive code, `shared-text-dive`)
+
+- Checked by name across every Kotlin and Swift source set, tests, fixtures and the Android screenshot tests, and for strings both
+  `Res.string.*` and `AppText.named("…")` (`FigureTexts`' `LABELS` map names labels that way): none of the listed code had a caller
+  outside the four files. The whole files went, not only the listed lines: `diveCardStats` (`DiveStats.kt:46`, card figures now
+  `CardStatsText`) and `DiveFormat` were dead too. `DepthProfile`'s chart helpers (`ChartFrame`, `ChartReadout`, `StaticChart`,
+  `WholeRangeXStep`, `chartColors`) stay: threshold history's chart and `TimeSeriesChart` use them.
+- Strings removed: `stat_air_temp`, `stat_desaturation`, `stat_dive_number`, `stat_end_n2`, `stat_highest_ppo2`, `stat_max_ascent_rate`,
+  `stat_n2_value`, `stat_no_fly` and `stat_water_type` (the page names these figures `page_*`). The String Catalog is regenerated. The
+  other strings the code used (`chart_marker`, `table_row_description`, `value_missing`, the units and the other `stat_*` dive labels)
+  stay: shared code names them. No drawable or test used the deleted code.
+- No visible text changed on any platform, and no Android reference or iOS snapshot changed.
+- Left: `DivePreview.profile` (`:feature-record-api`), which `DepthProfile` drew on the old import screen, is still filled by the record
+  presenter and tested there, but no UI draws it since the import preview became the activity page. It is contract and presenter, not
+  text, so it is left for a cleanup of the import state (whether the rest of `ImportPreview.dive` is still read is unchecked).
+  The backlog's "gas-switch markers are on the detail depth chart only" named the deleted preview chart, and is removed.
+
 ## Open items
 
 - A background task running on Swift export, which needs a device, and the signed-in app on iOS 18, which needs a simulator runtime
@@ -2234,13 +2251,11 @@ What building the host and the shell on Swift export showed, beyond the probes:
       column can wrap inside a unit.
     - Plurals: `ac/interactions/CommentThreadUi.kt:48` `view_more_replies`, whose count is not grouped (`CommentsTexts.moreReplies`);
       `ac/interactions/CommentsUi.kt:123-125` `detail_comment_count` (`CommentsTexts.count`).
-  - [ ] **Dive tables and dead dive code** (Compose only; iOS reads `FigureTexts`, `CardLines` and `DetailTable`, all of them shared):
-    - `ac/ui/DiveStats.kt:52-160` `diveOverviewStats`, `conditions`, `gas`, `airUsed` and `consumption`: times, N₂, CNS, ppO₂, ascent
-      rate, gases, tank pressures and RMV/SAC (every one `FigureTexts.value`).
-    - `ac/ui/DiveSettingsStats.kt:25-66` ppO₂ limits, setpoints and the deco model (`FigureTexts.value`).
-    - `ac/ui/DepthProfile.kt:84-96` `rememberDepthLabel`.
-    - `ac/detail/LapTableUi.kt:49-57` `spokenRow` and `cell` (`LapTableTexts.spoken`, `StatText.missing`).
-    - All of these are unused: the round deletes them.
+  - [x] **Dive tables and dead dive code** (`shared-text-dive`). Nothing called any of it, so all of it is deleted: `ac/ui/DiveStats.kt`
+    (`diveCardStats`, `diveOverviewStats`, `conditions`, `gas`, `airUsed`, `consumption`), `ac/ui/DiveSettingsStats.kt` (ppO₂ limits,
+    setpoints, the deco model, `bar`, `decoModelName`), `ac/ui/DepthProfile.kt` whole (with `rememberDepthLabel`), `ac/ui/DiveFormat.kt`,
+    whose only caller was `DiveStats.kt`, and `ac/detail/LapTableUi.kt`'s `spokenRow` and `cell`. Both UIs read a dive through
+    `FigureTexts`, `CardLines` and `LapTableTexts`. Nine strings only that code used are gone. No visible text changed.
   - [ ] **Feature labels:**
     - `ac/detail/PageCardsUi.kt:52` a metric card's title (`FigureTexts.cardTitle`).
     - `ac/ui/ShownNameLabel.kt:8,11` display name else `@handle`, which iOS repeats (`CommentsSection.swift:118-120`). No shared
