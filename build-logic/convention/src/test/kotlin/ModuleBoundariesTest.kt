@@ -63,6 +63,8 @@ class ModuleBoundariesTest {
         assertNull(boundaryViolation(":feature-search-ui", ":app-fixtures"))
         assertNull(boundaryViolation(":composeApp", ":feature-search-presenter"))
         assertNull(boundaryViolation(":composeApp", ":feature-search-ui"))
+        // The iOS graph's module aggregates every presenter's factories.
+        assertNull(boundaryViolation(":app-graph", ":feature-search-presenter"))
         assertNull(boundaryViolation(":androidApp", ":feature-search-ui"))
     }
 
