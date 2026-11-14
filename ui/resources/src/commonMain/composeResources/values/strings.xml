@@ -700,7 +700,7 @@
     <string name="settings_segments_on">Matching on</string>
     <string name="settings_segments_off">Matching off</string>
     <string name="feed_segments_title">Find segments on your activities?</string>
-    <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities, unless you keep off them in Settings. You can change this in Settings.</string>
+    <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. You can turn either off in Settings.</string>
     <string name="feed_segments_turn_on">Turn on</string>
     <string name="feed_segments_not_now">Not now</string>
     <string name="feed_groups_title">Link activities you do together?</string>

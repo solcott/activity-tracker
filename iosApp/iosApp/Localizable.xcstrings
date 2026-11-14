@@ -7619,7 +7619,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities, unless you keep off them in Settings. You can change this in Settings."
+            "value" : "To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. You can turn either off in Settings."
           }
         }
       }

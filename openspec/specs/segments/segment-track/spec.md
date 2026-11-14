@@ -30,7 +30,7 @@ The app SHALL ask an athlete who has never chosen whether to turn segment matchi
 
 #### Scenario: Leaderboards explained
 - **WHEN** an athlete is asked
-- **THEN** the prompt says their efforts can appear on leaderboards, and that they can keep off them in Settings
+- **THEN** the prompt says their efforts can appear on leaderboards, and that they can turn matching or leaderboards off in Settings
 
 ### Requirement: Saving the setting is a direct call
 Saving the segment matching setting SHALL write to the PDS at once and report a failure, not queue the save for later. A failed save SHALL leave the earlier setting in force. A session without the `space:` scope for the setting SHALL NOT offer it.
