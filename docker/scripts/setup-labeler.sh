@@ -112,7 +112,7 @@ fi
 
 # The PDS caches DID documents (for an hour before it even refreshes in the background) and cached moderation.test's when it created
 # it, before the labeler entries existed; it would refuse to proxy reports ("could not resolve proxy did service url"). Drop the entry.
-"${COMPOSE[@]}" exec -T -w /app/packages/pds pds node -e '
+"${COMPOSE[@]}" exec -T -w /app/services/pds/node_modules/@atproto/pds pds node -e '
   const db = new (require("better-sqlite3"))("/pds/did_cache.sqlite")
   db.prepare("delete from did_doc where did = ?").run(process.argv[1])
 ' "$did"

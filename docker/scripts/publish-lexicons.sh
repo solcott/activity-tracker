@@ -53,7 +53,7 @@ done < <(find ../lexicons -name '*.json' | sort)
 # The PDS keeps each declaration it resolved in its database, across restarts, and grants new sessions' space: scopes from that
 # copy until it refreshes on its own schedule, so a collection added here would be refused as ScopeMissingError. Drop the
 # copies of what was just published; the next sign-in resolves them again.
-docker compose -f compose.yaml exec -T -w /app/packages/pds pds node -e '
+docker compose -f compose.yaml exec -T -w /app/services/pds/node_modules/@atproto/pds pds node -e '
   const db = new (require("better-sqlite3"))("/pds/account.sqlite")
   const drop = db.prepare("delete from lexicon where nsid = ?")
   for (const nsid of process.argv.slice(1)) drop.run(nsid)
