@@ -2306,7 +2306,7 @@ What building the host and the shell on Swift export showed, beyond the probes:
   of it is deleted, with the presenter's mapping, the emptied `ImportPreviewCharts.kt` (`:app-common-api`) and
   `StreamAnalytics.everyNth`, whose only caller was the depth profile. A batch row's `DiveRowExtras` (depth and dive number) is another
   type, which the row texts read, and stays. No picture changed.
-- **Left: more of `ImportPreview` no UI reads.** The same check by name finds no UI reading `elapsed`, `device`, `elevationLossMeters`,
+- **Left: more of `ImportPreview` no UI reads** (done in `import-preview-trim`, below). The same check by name finds no UI reading `elapsed`, `device`, `elevationLossMeters`,
   `cadence`, `power`, `shifting` (its shift counts), `mtb` or `hasStreams`: the page draws those from the activity it builds, not from
   the preview. The presenter fills them and only its tests read them; outside this change's scope, so left for a later cleanup.
 - **Import's `wide` iPad page.** Cause: swift-snapshot-testing's key-window path lays the controller out at the window's origin, under
@@ -2332,6 +2332,23 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - Checks: `check -Pkotlin.incremental=false` (Android screenshots with the four new references), the ad-hoc Release simulator build,
   and `xcodebuild test` on my own clones: iOS 26.0 (iPhone 17) 456 tests passed in one full run, iOS 18.4 (iPhone 16 Pro) 456 passed.
   `ImportSnapshotTests` alone: 5 of 5 after the fix.
+
+### Import preview trimmed (`import-preview-trim`)
+
+- **What went.** `ImportPreview` keeps only what a UI reads: `fileName`, `polyline` and `polylineGaps` (the map), `clock` (the zone
+  notice) and `duplicate` (its notice and save). `elapsed`, `device`, `elevationLossMeters`, `cadence`, `power`, `shifting`, `mtb`,
+  `sensors` and `hasStreams` go, with `CadencePreview`, `PowerPreview`, `ShiftingPreview`, `MtbPreview` and `SensorPreview` and the
+  presenter's mapping (`PEDALLED`, `JOULES_PER_KILOJOULE`, the power and shifting `toPreview`s). `sensors` wasn't on the earlier list
+  but nothing read it either: the page's Device section lists the record's sensors. Checked by name across every Kotlin and Swift
+  source set, `:app-fixtures`, the Android screenshot tests and the Swift tests.
+- **The tests follow the page.** The presenter tests that checked those fields now check the figures of the page the import builds
+  (`page`): a mountain-bike ride's descent, cadence, power, jumps, grit, flow, device and its two sensors; a run's page has no power,
+  shift, jump or sensor figures. A run's "no pedalling cadence" check goes: it held only for the preview's own cadence; the page
+  words a run's cadence as its own stat. The draft and page code that carry these figures were already covered
+  (`ActivityPagePreviewTest`, `ActivityDraft`'s tests).
+- No picture changed: no sample or screenshot drew the removed fields.
+- Checks: `check -Pkotlin.incremental=false`, the ad-hoc Release simulator build, and `xcodebuild test` on iOS 26.0 and 18.4: 456
+  tests passed on each.
 
 ## Open items
 
