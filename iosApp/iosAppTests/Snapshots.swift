@@ -77,14 +77,15 @@ extension Snapshotting where Value == UIViewController, Format == UIImage {
 /// little differently on each run: the glass behind a bar's buttons on iOS 26 differs by a few levels over a few hundred pixels, so a
 /// screen with buttons in its bar passes `Snapshots.barButtons`.
 ///
-/// `keepsSafeArea` draws the view with the window's safe area wherever the library places it (`KeptSafeArea`). Without it, a list under
-/// a bar is drawn with the inset it was laid out with, under the window's status bar, after the library has moved the view off screen
-/// and the bar has moved up: the list's new inset arrives a run-loop turn later, and a slow draw (an iPad-sized page) sometimes catches
-/// it, the whole list then 52 points higher (dev/ios-snapshot-tests). Only the iPad import page takes it so far, since every other
-/// reference was recorded the old way.
+/// The safe area is fixed, never left to when the system passes a change on. The library lays the view out under the window's status
+/// bar, then moves it off screen, where it has none; a list under a bar got its new inset only a run-loop turn later, which a slow draw
+/// sometimes caught, the whole list then 52 points higher (dev/ios-snapshot-tests). So a navigation stack, which reads its safe area
+/// from UIKit, keeps the window's (`KeptSafeArea`): its bar sits under the status bar and its list right below the bar, as on a device.
+/// The view's own SwiftUI content takes none (`safeAreaRegions`), so a component in a small frame is drawn whole, where it would be
+/// inside a screen, and not pushed down under a status bar it never sits under.
 @MainActor
 func assertAppSnapshot(
-    of view: some View, size: CGSize = Snapshots.screen, named name: String, precision: Float = 1, keepsSafeArea: Bool = false,
+    of view: some View, size: CGSize = Snapshots.screen, named name: String, precision: Float = 1,
     fileID: StaticString = #fileID, file filePath: StaticString = #filePath, testName: String = #function, line: UInt = #line,
     column: UInt = #column
 ) {
@@ -97,8 +98,10 @@ func assertAppSnapshot(
         let hosting = UIHostingController(rootView: view.frame(width: size.width, height: size.height))
         // Time stands still in the view, so a spinner is drawn at the same turn on every run.
         hosting.view.layer.speed = 0
+        // A component lays out in its whole frame; a stack inside still reads the kept safe area from UIKit.
+        hosting.safeAreaRegions = []
         assertSnapshot(
-            of: keepsSafeArea ? KeptSafeArea(hosting) : hosting,
+            of: KeptSafeArea(hosting),
             // Drawn in the app's window, where lists and materials look as they do on screen; off screen a list's rows draw apart.
             as: .settledImage(precision: precision, perceptualPrecision: 0.98, size: size, traits: traits),
             named: "\(name).\(appearance)", fileID: fileID, file: filePath, testName: testName, line: line, column: column)
