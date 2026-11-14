@@ -92,12 +92,12 @@ A subject with `!takedown` SHALL NOT be served to anyone but its author, signed-
 While an account DID carries `!takedown`, the AppView, as managing app of that account's tier spaces, SHALL refuse read access to everyone but the account. It SHALL admit readers again under the usual rules once the label is negated or expires.
 
 #### Scenario: Taken-down account's Followers tier
-- **WHEN** bob's DID carries `!takedown` and bob's PDS asks `checkUserAccess` whether alice, an effective follower, may read bob's Followers space
-- **THEN** the AppView refuses
+- **WHEN** bob's DID carries `!takedown` and bob's PDS asks `checkAccess` whether alice, an effective follower, may read bob's Followers space
+- **THEN** the AppView answers `read: false`
 
 #### Scenario: Takedown negated
 - **WHEN** the `!takedown` on bob's DID is negated
-- **THEN** `checkUserAccess` admits alice to bob's Followers space again
+- **THEN** `checkAccess` admits alice to bob's Followers space again
 
 ### Requirement: Hide keeps content reachable behind a warning
 A subject with `!hide` SHALL be left out of feeds, lists, counts and search for viewers other than its author. A direct lookup SHALL still return it carrying the label. Clients SHALL show it collapsed behind a warning the viewer can open.

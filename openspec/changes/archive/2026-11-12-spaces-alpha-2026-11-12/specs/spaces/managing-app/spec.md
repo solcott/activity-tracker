@@ -1,0 +1,164 @@
+# Spec Delta
+
+## MODIFIED Requirements
+
+### Requirement: Access check endpoint
+The AppView SHALL serve `com.atproto.managedspace.checkAccess` as a query taking `space`, an optional `repo` (the account asking) and an optional `clientId`, answering `{"read": <boolean>, "write": <boolean>}`. Every access decision, including a denial, SHALL be a 200 response; errors are only for failed authentication or invalid parameters. A check without `repo`, as the PDS sends for a request with no delegation token, SHALL be answered `read: false` for every key, `public` included.
+
+#### Scenario: Denial is a 200
+- **WHEN** an authenticated callout asks about an account the space's tier doesn't admit
+- **THEN** the AppView answers `200` with `{"read": false, "write": false}`
+
+#### Scenario: Missing parameter
+- **WHEN** an authenticated callout omits `space`, or sends a `space` that isn't a space reference or a `repo` that isn't a DID
+- **THEN** the AppView answers `400 InvalidRequest`
+
+#### Scenario: No account
+- **WHEN** an authenticated callout omits `repo`
+- **THEN** the answer is `read: false` and `write: false`, whatever the space's key
+
+#### Scenario: Client id is ignored
+- **WHEN** a callout includes a `clientId`
+- **THEN** the decision is the same as without it
+
+#### Scenario: Old method name
+- **WHEN** a request calls `com.atproto.managedspace.checkUserAccess` or `com.atproto.simplespace.checkUserAccess`
+- **THEN** the AppView doesn't serve it
+
+### Requirement: Callouts authenticated as the space's authority
+The endpoint SHALL require a service-auth JWT signed by the issuer's DID-document key, addressed to the managing-app id (`<serviceDid>#activitytracker_space`) and not expired, whose `lxm` is `com.atproto.managedspace.checkAccess`. A valid token whose issuer isn't the space's authority SHALL get `read: false`.
+
+#### Scenario: Callout from the authority's PDS
+- **WHEN** a PDS calls with a token whose `iss` is the space's authority and `aud` is the managing-app id
+- **THEN** the AppView decides by the space's tier
+
+#### Scenario: No token
+- **WHEN** a request has no `Authorization` header
+- **THEN** the AppView answers `401` and makes no decision
+
+#### Scenario: Token for the AppView itself
+- **WHEN** a token's `aud` is the AppView's service DID or `<serviceDid>#activity_appview`
+- **THEN** the endpoint rejects it with `401`
+
+#### Scenario: Managing-app token on other routes
+- **WHEN** a token addressed to the managing-app id is sent to any other `app.activitytracker.*` route
+- **THEN** that route rejects it with `401`
+
+#### Scenario: Issuer isn't the authority
+- **WHEN** a validly signed token's `iss` is a DID other than the space's authority
+- **THEN** the AppView answers `{"read": false, "write": false}`
+
+#### Scenario: Token without lxm
+- **WHEN** a callout's token is from the space's authority and addressed to the managing-app id but has no `lxm`, or an `lxm` other than `com.atproto.managedspace.checkAccess` (the old `com.atproto.managedspace.checkUserAccess` included)
+- **THEN** the AppView answers `401` and makes no decision
+
+### Requirement: Read access by tier
+For a space of type `app.activitytracker.space.athlete`, the `read` answer SHALL be decided by the space key: `public` admits any account; `followers` admits an account whose follow of the authority is effective in this app's follow graph; `mutuals` admits an account whose follow of the authority is effective and whom the authority effectively follows; `self`, `interactions` and every other key admit no one. Any other space type SHALL be denied.
+
+#### Scenario: Public tier
+- **WHEN** any account not in a block with the authority is checked for `read` on the authority's `public` space
+- **THEN** the answer is `read: true`, even if neither follows the other
+
+#### Scenario: Effective follower reads the followers tier
+- **WHEN** an account whose follow of the authority is effective (the authority's policy is `open`, or the authority approved them) is checked for `read` on the `followers` space
+- **THEN** the answer is `read: true`
+
+#### Scenario: Pending follower
+- **WHEN** an account follows the authority, the authority's policy is `approve`, and the authority hasn't approved them
+- **THEN** a check on the `followers` space or the `mutuals` space answers `read: false`
+
+#### Scenario: Non-follower and the followers tier
+- **WHEN** an account that doesn't follow the authority is checked for `read` on the `followers` space
+- **THEN** the answer is `read: false`
+
+#### Scenario: Removed follower
+- **WHEN** the authority deletes their approval of a follower and the AppView has indexed the deletion
+- **THEN** a later check for that follower on the `followers` space answers `read: false`
+
+#### Scenario: Mutual reads the mutuals tier
+- **WHEN** an account that follows the authority, and whom the authority follows, is checked for `read` on the `mutuals` space, and both follows are effective
+- **THEN** the answer is `read: true`
+
+#### Scenario: One-way follower
+- **WHEN** an account follows the authority but the authority doesn't follow them back, or the reverse
+- **THEN** a check on the `mutuals` space answers `read: false`
+
+#### Scenario: Unfollow takes effect
+- **WHEN** either side of a mutual follow deletes their follow record and the AppView has indexed the deletion
+- **THEN** a later check on the `mutuals` space answers `read: false`
+
+#### Scenario: Only-me tier
+- **WHEN** any account other than the authority and the AppView, mutual or not, is checked for `read` on the `self` space
+- **THEN** the answer is `read: false`
+
+#### Scenario: Interactions space
+- **WHEN** any account other than the authority and the AppView, mutual or not, is checked for `read` on the authority's `interactions` space
+- **THEN** the answer is `read: false`
+
+#### Scenario: Unknown tier
+- **WHEN** a check names a space of type `app.activitytracker.space.athlete` with a key other than `public`, `followers`, `mutuals`, `self` or `interactions`
+- **THEN** the answer is `read: false`
+
+#### Scenario: Other space type
+- **WHEN** a check names a space of any other type
+- **THEN** the answer is `read: false`
+
+#### Scenario: Bluesky follows don't count
+- **WHEN** two accounts follow each other only with `app.bsky.graph.follow` records
+- **THEN** a check on the `followers` or `mutuals` space answers `read: false`
+
+### Requirement: Blocks deny read access
+An account in a block with the authority, made by either of them, SHALL be denied `read` on every key of the authority's spaces, `public` included.
+
+#### Scenario: Blocked user
+- **WHEN** the authority blocks an account, or the account blocks the authority, with either an `app.activitytracker.graph.block` or an `app.bsky.graph.block`, and the AppView has indexed it
+- **THEN** a check for that account on any of the authority's spaces, `public` included, answers `read: false`
+
+#### Scenario: Unblocked user
+- **WHEN** that block is deleted and the AppView has indexed the deletion
+- **THEN** checks for the account are decided by tier again
+
+### Requirement: AppView reads the spaces it syncs
+The AppView's own service DID SHALL be admitted for `read` on an athlete's `public`, `followers`, `mutuals`, `self` and `interactions` spaces, whatever the follow graph says, so it can sync them. It SHALL be denied `read` on any other key, like anyone else.
+
+#### Scenario: AppView reads every tier
+- **WHEN** the AppView's own service DID is checked as `repo` on the authority's `public`, `followers`, `mutuals` or `self` space
+- **THEN** the answer is `read: true`, whatever the follow graph says
+
+#### Scenario: AppView reads the interactions space
+- **WHEN** the AppView's own service DID is checked as `repo` on the authority's `interactions` space
+- **THEN** the answer is `read: true`
+
+#### Scenario: AppView and an unknown tier
+- **WHEN** the AppView's own service DID is checked on a space of type `app.activitytracker.space.athlete` with a key other than the four tiers and `interactions`
+- **THEN** the answer is `read: false`
+
+### Requirement: Only the authority writes
+The `write` answer SHALL be `false` for every account, key and check, the AppView's own service DID included. Under a `managedspace` policy the PDS asks before accepting a write by anyone but the authority, and uses the `write` answer; a check prompted by a write carries no `clientId`.
+
+#### Scenario: Mutual asks to write
+- **WHEN** a mutual of the authority is checked on any of the authority's spaces
+- **THEN** the answer is `write: false`, whatever its `read`
+
+#### Scenario: AppView asks to write
+- **WHEN** the AppView's own service DID is checked on any of the authority's spaces
+- **THEN** the answer is `write: false`
+
+#### Scenario: Reader can't write
+- **WHEN** a mutual of the authority is checked on the authority's `mutuals` space
+- **THEN** the answer is `read: true` and `write: false`
+
+#### Scenario: Authority writes without a check
+- **WHEN** the authority writes to one of their own spaces
+- **THEN** the PDS admits the write without asking the AppView, and the write succeeds
+
+### Requirement: Managing-app spaces readable end to end
+On the local stack with the tunnel, a viewer the tier admits SHALL be able to obtain a credential and read a record from an athlete's managing-app space, and a viewer it doesn't admit SHALL be refused.
+
+#### Scenario: Mutual reads through the PDS
+- **WHEN** alice creates her `mutuals` space with the AppView as managing app, and bob, her mutual, reads a record from it
+- **THEN** alice's PDS calls `checkAccess` with bob as `repo`, the AppView answers `read: true`, and bob reads the record
+
+#### Scenario: Non-mutual refused through the PDS
+- **WHEN** carol, who isn't alice's mutual, reads from alice's `mutuals` space
+- **THEN** the PDS refuses the credential and carol's client reports no access
