@@ -139,13 +139,16 @@ internal constructor(
                 current().goTo(RecordScreen)
             }
         }
-        // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page.
+        // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page. A Settings already in the
+        // stack is gone back to, rather than a second one opened above what's on it.
         launch {
             accountRequests.requests.collect {
                 accountRequests.handled()
-                if (current().peek() != AccountScreen) {
-                    current().goTo(SettingsScreen)
-                    current().goTo(AccountScreen)
+                val stack = current()
+                if (stack.peek() != AccountScreen) {
+                    val settings = stack.records.value.indexOfLast { record -> record.screen == SettingsScreen }
+                    if (settings >= 0) stack.popTo(settings + 1) else stack.goTo(SettingsScreen)
+                    stack.goTo(AccountScreen)
                 }
             }
         }

@@ -24,6 +24,7 @@ import com.slack.circuit.foundation.CircuitContent
 import com.slack.circuit.foundation.NavigableCircuitContent
 import com.slack.circuit.foundation.navstack.ProvidedValues
 import com.slack.circuit.foundation.rememberCircuitNavigator
+import com.slack.circuit.runtime.popUntil
 import com.slack.circuit.subcircuit.LocalSubCircuit
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.di.SessionGraph
@@ -152,12 +153,14 @@ private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did
             if (backStack.topRecord?.screen != RecordScreen) navigator.goTo(RecordScreen)
         }
     }
-    // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page.
+    // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page. A Settings already in the
+    // stack is gone back to, rather than a second one opened above what's on it.
     LaunchedEffect(Unit) {
         graph.accountScreenRequests.requests.collect {
             graph.accountScreenRequests.handled()
             if (backStack.topRecord?.screen != AccountScreen) {
-                navigator.goTo(SettingsScreen)
+                if (backStack.any { record -> record.screen == SettingsScreen }) navigator.popUntil { screen -> screen == SettingsScreen }
+                else navigator.goTo(SettingsScreen)
                 navigator.goTo(AccountScreen)
             }
         }

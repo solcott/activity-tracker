@@ -333,6 +333,18 @@ class SessionHostTest {
     }
 
     @Test
+    fun anAccountRequestGoesBackToASettingsAlreadyOpen() = runTest {
+        start()
+        feed.goTo(SettingsScreen)
+        feed.goTo(ActivityDefaultsScreen)
+
+        accountRequests.request()
+        runCurrent()
+
+        assertEquals(listOf(FeedScreen, SettingsScreen, AccountScreen), feed.screens)
+    }
+
+    @Test
     fun anUnfinishedRecordingOpensRecordOverTheFeed() = runTest {
         recovered = true
         start()
