@@ -245,7 +245,8 @@ private struct ActivitySections {
                 ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                     let rows = group.rows.elements(as: SegmentEffortRow.self)
                     // Every bar in a group starts past its deepest indent, so the bars share one axis and their spans line up.
-                    let barIndent = CGFloat(rows.map(\.depth).max() ?? 0) * EffortGuides.indent
+                    let deepest: Int = rows.map { Int($0.depth) }.max() ?? 0
+                    let barIndent: CGFloat = CGFloat(deepest) * EffortGuides.indent
                     ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                         SegmentEffortRowView(row: row, barIndent: barIndent) { send(texts.openEffort(effort: row.effort)) }
                     }

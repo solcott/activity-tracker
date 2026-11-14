@@ -33,100 +33,17 @@ struct LineChartView: View {
 
     var body: some View {
         let points = chart.points.elements(as: LinePoint.self)
-        let pieces = ChartPieces.of(points)
         let axis = chart.axis
         let labels = ChartLabels(chart: chart)
-        let style = ChartTint(chart: chart)
-        let shape: InterpolationMethod = chart.steps ? .stepEnd : .linear
-        let dots = chart.dots.elements(as: ChartDot.self)
-        let backdrop = ChartPieces.of(chart.backdrop.elements(as: LinePoint.self))
-        let others = (0..<chart.otherCount).map { chart.otherAt(index: $0) }
-        let marks = (0..<chart.markCount).map { chart.markAt(index: $0) }
-        let fillTo = chart.fillAbove ? axis.max : axis.min
+        // Each layer is its own typed builder: one builder holding them all took the type checker seconds, past CI's limit.
         Chart {
-            // The backdrop first, so everything else is drawn over it.
-            ForEach(Array(backdrop.enumerated()), id: \.offset) { index, piece in
-                ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
-                    AreaMark(
-                        x: .value("x", point.x), yStart: .value("y", axis.min), yEnd: .value("y", point.y),
-                        series: .value("piece", "backdrop \(index)")
-                    )
-                    .foregroundStyle(Color(.label).opacity(0.12))
-                }
-            }
-            ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
-                    AreaMark(
-                        x: .value("x", point.x), yStart: .value("y", fillTo), yEnd: .value("y", point.y),
-                        series: .value("piece", "line \(index)")
-                    )
-                    .foregroundStyle(style.area)
-                    .interpolationMethod(shape)
-                    LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", "line \(index)"))
-                        .interpolationMethod(shape)
-                        .foregroundStyle(style.line)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                }
-            }
-            ForEach(Array(others.enumerated()), id: \.offset) { line, other in
-                let color = ChartOtherColors.color(Int(other.tone))
-                ForEach(Array(ChartPieces.of(other.points.elements(as: LinePoint.self)).enumerated()), id: \.offset) { index, piece in
-                    ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
-                        LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", "other \(line) \(index)"))
-                            .interpolationMethod(shape)
-                            .foregroundStyle(color)
-                            .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                    }
-                }
-            }
-            // Each marked moment, labelled beside its line inside the plot: a switch at the top, a warning in red at the bottom.
-            ForEach(Array(marks.enumerated()), id: \.offset) { _, mark in
-                RuleMark(x: .value("x", mark.x))
-                    .foregroundStyle(mark.warning ? Color.red : Color(.systemTeal))
-                    .lineStyle(StrokeStyle(lineWidth: 1))
-                    .annotation(
-                        position: .trailing, alignment: mark.warning ? .bottom : .top, spacing: 3,
-                        overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))
-                    ) {
-                        Text(mark.label)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(mark.warning ? Color.red : Color(.systemTeal))
-                            .fixedSize()
-                    }
-            }
-            // The average, dashed across the chart, where the chart has one (an activity card's line).
-            if let average = chart.average {
-                RuleMark(y: .value("y", average))
-                    .foregroundStyle(Color(.secondaryLabel))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            }
-            // The bottom axis's line, which the shared chart draws as its baseline.
-            RuleMark(y: .value("y", axis.min)).foregroundStyle(Color(.separator)).lineStyle(StrokeStyle(lineWidth: 1))
-            ForEach(dots, id: \.index) { dot in
-                if Int(dot.index) < points.count {
-                    let point = points[Int(dot.index)]
-                    PointMark(x: .value("x", point.x), y: .value("y", point.y))
-                        .symbol { ChartDotSymbol(filled: dot.filled) }
-                        .annotation(position: .top, spacing: 4, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                            if let label = dot.label {
-                                Text(label)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(dot.filled ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                                    .fixedSize()
-                            }
-                        }
-                }
-            }
-            if let selected, Int(selected) < points.count {
-                let point = points[Int(selected)]
-                RuleMark(x: .value("x", point.x)).foregroundStyle(Color(.secondaryLabel)).lineStyle(StrokeStyle(lineWidth: 1))
-                PointMark(x: .value("x", point.x), y: .value("y", point.y))
-                    .foregroundStyle(Color.accentColor)
-                    .symbolSize(48)
-                    .annotation(position: .top, spacing: 6, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                        ChartReadoutLabel(text: AppStrings.string(chart.readouts.elements(as: (any AppText).self)[Int(selected)]))
-                    }
-            }
+            backdropMarks()
+            lineMarks(points)
+            otherLineMarks()
+            momentMarks()
+            guideMarks()
+            dotMarks(points)
+            selectionMarks(points)
         }
         // Half a label of room at each end, as the shared chart keeps, so a label at either end isn't cut off.
         .chartXScale(domain: chart.xMin...max(chart.xMax, chart.xMin + 1e-9), range: .plotDimension(startPadding: 18, endPadding: 18))
@@ -160,6 +77,134 @@ struct LineChartView: View {
         .frame(height: height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(chart.description))
+    }
+
+    private var shape: InterpolationMethod { chart.steps ? .stepEnd : .linear }
+
+    /// The backdrop, drawn first so everything else is drawn over it.
+    @ChartContentBuilder
+    private func backdropMarks() -> some ChartContent {
+        let bottom = chart.axis.min
+        let pieces: [[LinePoint]] = ChartPieces.of(chart.backdrop.elements(as: LinePoint.self))
+        ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+            let series = "backdrop \(index)"
+            ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
+                AreaMark(x: .value("x", point.x), yStart: .value("y", bottom), yEnd: .value("y", point.y), series: .value("piece", series))
+                    .foregroundStyle(Color(.label).opacity(0.12))
+            }
+        }
+    }
+
+    /// The chart's own line, filled below it (or above it, up to the top).
+    @ChartContentBuilder
+    private func lineMarks(_ points: [LinePoint]) -> some ChartContent {
+        let pieces: [[LinePoint]] = ChartPieces.of(points)
+        let style = ChartTint(chart: chart)
+        let shape = self.shape
+        let fillTo = chart.fillAbove ? chart.axis.max : chart.axis.min
+        ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+            let series = "line \(index)"
+            ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
+                AreaMark(x: .value("x", point.x), yStart: .value("y", fillTo), yEnd: .value("y", point.y), series: .value("piece", series))
+                    .foregroundStyle(style.area)
+                    .interpolationMethod(shape)
+                LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", series))
+                    .interpolationMethod(shape)
+                    .foregroundStyle(style.line)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+
+    /// The other lines on the same scale, each in its colour.
+    @ChartContentBuilder
+    private func otherLineMarks() -> some ChartContent {
+        let others: [ChartLine] = (0..<chart.otherCount).map { chart.otherAt(index: $0) }
+        ForEach(Array(others.enumerated()), id: \.offset) { line, other in
+            otherLineMarks(other, line: line)
+        }
+    }
+
+    @ChartContentBuilder
+    private func otherLineMarks(_ other: ChartLine, line: Int) -> some ChartContent {
+        let color: Color = ChartOtherColors.color(Int(other.tone))
+        let shape = self.shape
+        let pieces: [[LinePoint]] = ChartPieces.of(other.points.elements(as: LinePoint.self))
+        ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+            let series = "other \(line) \(index)"
+            ForEach(Array(piece.enumerated()), id: \.offset) { _, point in
+                LineMark(x: .value("x", point.x), y: .value("y", point.y), series: .value("piece", series))
+                    .interpolationMethod(shape)
+                    .foregroundStyle(color)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+
+    /// Each marked moment, labelled beside its line inside the plot: a switch at the top, a warning in red at the bottom.
+    @ChartContentBuilder
+    private func momentMarks() -> some ChartContent {
+        let marks: [ChartMark] = (0..<chart.markCount).map { chart.markAt(index: $0) }
+        ForEach(Array(marks.enumerated()), id: \.offset) { _, mark in
+            let color: Color = mark.warning ? Color.red : Color(.systemTeal)
+            let alignment: Alignment = mark.warning ? .bottom : .top
+            RuleMark(x: .value("x", mark.x))
+                .foregroundStyle(color)
+                .lineStyle(StrokeStyle(lineWidth: 1))
+                .annotation(
+                    position: .trailing, alignment: alignment, spacing: 3,
+                    overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))
+                ) {
+                    Text(mark.label).font(.caption2.weight(.semibold)).foregroundStyle(color).fixedSize()
+                }
+        }
+    }
+
+    /// The average, dashed across the chart where the chart has one (an activity card's line), and the bottom axis's line, which the
+    /// shared chart draws as its baseline.
+    @ChartContentBuilder
+    private func guideMarks() -> some ChartContent {
+        if let average = chart.average {
+            RuleMark(y: .value("y", average))
+                .foregroundStyle(Color(.secondaryLabel))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        }
+        RuleMark(y: .value("y", chart.axis.min)).foregroundStyle(Color(.separator)).lineStyle(StrokeStyle(lineWidth: 1))
+    }
+
+    /// Kotlin's dots, filled or hollow, with their labels over them.
+    @ChartContentBuilder
+    private func dotMarks(_ points: [LinePoint]) -> some ChartContent {
+        let dots: [ChartDot] = chart.dots.elements(as: ChartDot.self)
+        ForEach(dots, id: \.index) { dot in
+            if Int(dot.index) < points.count {
+                let point = points[Int(dot.index)]
+                let labelStyle: AnyShapeStyle = dot.filled ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary)
+                PointMark(x: .value("x", point.x), y: .value("y", point.y))
+                    .symbol { ChartDotSymbol(filled: dot.filled) }
+                    .annotation(position: .top, spacing: 4, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                        if let label = dot.label {
+                            Text(label).font(.caption2.weight(.semibold)).foregroundStyle(labelStyle).fixedSize()
+                        }
+                    }
+            }
+        }
+    }
+
+    /// The marked point, with Kotlin's readout for it over the chart.
+    @ChartContentBuilder
+    private func selectionMarks(_ points: [LinePoint]) -> some ChartContent {
+        if let selected, Int(selected) < points.count {
+            let point = points[Int(selected)]
+            let readout: String = AppStrings.string(chart.readouts.elements(as: (any AppText).self)[Int(selected)])
+            RuleMark(x: .value("x", point.x)).foregroundStyle(Color(.secondaryLabel)).lineStyle(StrokeStyle(lineWidth: 1))
+            PointMark(x: .value("x", point.x), y: .value("y", point.y))
+                .foregroundStyle(Color.accentColor)
+                .symbolSize(48)
+                .annotation(position: .top, spacing: 6, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                    ChartReadoutLabel(text: readout)
+                }
+        }
     }
 
     /// Marks the point nearest the finger at `location`, or none.
