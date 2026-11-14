@@ -77,12 +77,35 @@ object ChartsBuilder {
     }
 
     /** [charts] for an activity of [sport]: a ski or snowboard day counts its runs, the laps that aren't lift rides. */
-    fun forSport(charts: ActivityCharts, sport: String): ActivityCharts =
-        if ((sport == Sport.SKI || sport == Sport.SNOWBOARD) && charts.laps.isNotEmpty()) {
-            charts.copy(skiRuns = charts.laps.count { !it.isRest })
-        } else {
-            charts
-        }
+    fun forSport(charts: ActivityCharts, sport: String): ActivityCharts {
+        val skied =
+            if ((sport == Sport.SKI || sport == Sport.SNOWBOARD) && charts.laps.isNotEmpty()) {
+                charts.copy(skiRuns = charts.laps.count { !it.isRest })
+            } else {
+                charts
+            }
+        // On foot the stored cadence is one foot's strides and the page reads both feet's steps; a swim's is strokes, read as stored.
+        val kind = cadenceKindOf(sport)
+        if (kind == StreamKind.Cadence) return skied
+        val factor = if (kind == StreamKind.StepCadence) STEPS_PER_STRIDE else 1
+        return skied.copy(
+            lines = skied.lines.map { if (it.kind == StreamKind.Cadence) it.readAs(kind, factor) else it }.toImmutableList(),
+            laps = skied.laps.map { lap -> lap.copy(avgCadence = lap.avgCadence?.times(factor)) }.toImmutableList(),
+            cadenceKind = kind,
+        )
+    }
+
+    /** A cadence line read as [kind], its values times [factor]. */
+    private fun LineSeries.readAs(kind: StreamKind, factor: Int): LineSeries {
+        val scale = factor.toDouble()
+        return copy(
+            kind = kind,
+            points = points.map { it.copy(value = it.value * scale) }.toImmutableList(),
+            average = average?.times(scale),
+            max = max?.times(scale),
+            min = min?.times(scale),
+        )
+    }
 
     /** Lines in a fixed order: the everyday metrics, then the rarer device metrics, then a dive's. */
     private fun lines(data: ActivityStreamData): List<LineSeries> {

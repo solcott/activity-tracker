@@ -24,7 +24,9 @@ object StreamUnits {
             StreamKind.HeartRate -> "chart_heart_rate"
             StreamKind.Power -> "chart_power"
             StreamKind.Speed -> "chart_speed"
-            StreamKind.Cadence -> "chart_cadence"
+            StreamKind.Cadence,
+            StreamKind.StepCadence,
+            StreamKind.StrokeCadence -> "chart_cadence"
             StreamKind.Elevation -> "chart_elevation"
             StreamKind.Grade -> "chart_grade"
             StreamKind.Temperature -> "chart_temperature"
@@ -61,6 +63,8 @@ object StreamUnits {
             StreamKind.Power,
             StreamKind.FormPower -> "unit_watts"
             StreamKind.Cadence -> "unit_rpm"
+            StreamKind.StepCadence -> "unit_spm"
+            StreamKind.StrokeCadence -> "unit_strokes_per_minute"
             StreamKind.Grade,
             StreamKind.VerticalRatio,
             StreamKind.StanceTimeBalance,

@@ -73,7 +73,7 @@ data class ActivityDraft(
     /** Photos to upload with it, in order. */
     val photos: List<NewPhoto> = emptyList(),
     val elevationLossMeters: Double? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val avgCadence: Int? = null,
     val maxCadence: Int? = null,
     val avgPowerWatts: Int? = null,

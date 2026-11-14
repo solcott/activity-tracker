@@ -210,6 +210,8 @@ object FigureTexts {
             FigureUnit.Watts -> "unit_watts"
             FigureUnit.Bpm -> "unit_bpm"
             FigureUnit.Rpm -> "unit_rpm"
+            FigureUnit.Spm -> "unit_spm"
+            FigureUnit.StrokesPerMinute -> "unit_strokes_per_minute"
             FigureUnit.Kilocalories -> "unit_kcal"
             FigureUnit.Kilojoules -> "unit_kj"
             FigureUnit.Milliseconds -> "unit_ms"

@@ -276,9 +276,9 @@ data class ActivityRecord(
     val media: List<ActivityMedia>? = null,
     /** Set when this activity combines several of the athlete's own recordings of one activity, which feeds then show only as this. */
     val combined: CombinedActivity? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val avgCadence: Int? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val maxCadence: Int? = null,
     /** Watts. */
     val avgPower: Int? = null,
@@ -400,9 +400,9 @@ data class ActivityDetailsRecord(
     val maxSpeed: Long? = null,
     val avgHeartRate: Int? = null,
     val maxHeartRate: Int? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val avgCadence: Int? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val maxCadence: Int? = null,
     /** Watts. */
     val avgPower: Int? = null,
@@ -1076,7 +1076,7 @@ data class ActivityStreamData(
     val heartRate: List<Int?>? = null,
     /** Watts. */
     val power: List<Int?>? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val cadence: List<Int?>? = null,
     /** Tenths of a degree Celsius. */
     val temperature: List<Int?>? = null,
@@ -1337,7 +1337,7 @@ data class Lap(
     val maxHeartRate: Int? = null,
     /** Watts. */
     val avgPower: Int? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val avgCadence: Int? = null,
     /** Meters. */
     val ascent: Int? = null,
@@ -1446,7 +1446,7 @@ data class Leg(
     val maxHeartRate: Int? = null,
     /** Watts. */
     val avgPower: Int? = null,
-    /** Revolutions or steps per minute. */
+    /** Revolutions per minute, or on foot one foot's strides per minute, as files record it (apps show twice it as steps). */
     val avgCadence: Int? = null,
     /** Meters. */
     val ascent: Int? = null,

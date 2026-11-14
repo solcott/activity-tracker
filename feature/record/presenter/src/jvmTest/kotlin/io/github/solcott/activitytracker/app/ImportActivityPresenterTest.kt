@@ -415,15 +415,19 @@ class ImportActivityPresenterTest {
     }
 
     @Test
-    fun aRunShowsNoRideFigures() = runTest {
+    fun aRunShowsItsCadenceAndNoRideFigures() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { run }) }) {
+        val stepping = run.copy(records = run.records.map { it.copy(cadence = 85) })
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { stepping }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
-            val keys = pageFigures(assertNotNull(awaitUntil { it.page != null }.page)).map { it.key }.toSet()
+            val figures = pageFigures(assertNotNull(awaitUntil { it.page != null }.page))
+            val keys = figures.map { it.key }.toSet()
             val ride =
                 setOf(FigureKey.AvgPower, FigureKey.Shifts, FigureKey.FrontShifts, FigureKey.RearShifts, FigureKey.Jumps, FigureKey.Sensor)
             assertTrue(keys.intersect(ride).isEmpty(), keys.toString())
+            // The file's 85 strides a minute, as both feet's steps.
+            assertEquals(FigureValue.Quantity(170, FigureUnit.Spm), figures.first { it.key == FigureKey.AvgCadence }.value)
             cancelAndIgnoreRemainingEvents()
         }
     }

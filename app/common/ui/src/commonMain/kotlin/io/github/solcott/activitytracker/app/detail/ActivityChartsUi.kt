@@ -61,7 +61,7 @@ private fun CardExtras(card: MetricCard, charts: ActivityCharts, missingZones: B
             if (zones != null) Zones(card.section, zones) else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
         }
 
-        DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null)
+        DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null, cadence = charts.cadenceKind)
 
         DetailSection.Legs -> LegTable(charts.legs)
 

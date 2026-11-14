@@ -170,7 +170,8 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         assertEquals(1.0, imperial.first().distance!!, 0.001, "miles")
         assertEquals(12.0, imperial.first().speed!!, 0.01, "mph")
         assertEquals(98.4, imperial.first().ascent!!, 0.1, "feet")
-        assertEquals(210 to 88, imperial.last().avgPower to imperial.last().avgCadence)
+        // A run's lap cadence reads as both feet's steps: the stored 88 strides a minute, doubled.
+        assertEquals(210 to 176, imperial.last().avgPower to imperial.last().avgCadence)
     }
 
     @Test

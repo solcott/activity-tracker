@@ -23,8 +23,8 @@ import kotlinx.collections.immutable.toImmutableList
  * laps record one. A [ski] day's laps are its runs, numbered, with their descent, and its lift rides.
  */
 @Composable
-internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false) {
-    val table = LapTableTexts.of(laps, ski, LocalUnitSystem.current)
+internal fun LapTable(laps: ImmutableList<LapRow>, ski: Boolean = false, cadence: StreamKind = StreamKind.Cadence) {
+    val table = LapTableTexts.of(laps, ski, LocalUnitSystem.current, cadence)
     val firstWidth = if (ski) RUN_NAME_WIDTH else LAP_NUMBER_WIDTH
     val wideColumn = if (table.wideFirst) 0 else -1
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

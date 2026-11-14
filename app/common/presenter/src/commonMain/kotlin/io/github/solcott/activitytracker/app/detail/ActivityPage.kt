@@ -170,6 +170,17 @@ internal class Figures(
 
     fun line(kind: StreamKind): LineSeries? = charts?.lines?.firstOrNull { it.kind == kind }
 
+    /** How the page reads the stored cadence ([cadenceKindOf]). */
+    val cadenceKind: StreamKind = cadenceKindOf(sport)
+
+    /** A stored cadence as the stats list gives it: on foot, doubled to steps per minute; in a swim, strokes per minute; else rpm. */
+    private fun cadence(stored: Int): FigureValue =
+        when (cadenceKind) {
+            StreamKind.StepCadence -> FigureValue.Quantity(stored.toLong() * STEPS_PER_STRIDE, FigureUnit.Spm)
+            StreamKind.StrokeCadence -> FigureValue.Quantity(stored.toLong(), FigureUnit.StrokesPerMinute)
+            else -> FigureValue.Quantity(stored.toLong(), FigureUnit.Rpm)
+        }
+
     /** What the sport's pace is per; null for a sport timed by speed or without a rate. */
     fun paceKind(): PaceKind? =
         when (rate) {
@@ -222,8 +233,8 @@ internal class Figures(
                     ),
                 StatsGroupKind.Cadence to
                     listOf(
-                        record.avgCadence?.let { Figure(FigureKey.AvgCadence, FigureValue.Quantity(it.toLong(), FigureUnit.Rpm)) },
-                        record.maxCadence?.let { Figure(FigureKey.MaxCadence, FigureValue.Quantity(it.toLong(), FigureUnit.Rpm)) },
+                        record.avgCadence?.let { Figure(FigureKey.AvgCadence, cadence(it)) },
+                        record.maxCadence?.let { Figure(FigureKey.MaxCadence, cadence(it)) },
                     ),
                 StatsGroupKind.Elevation to elevationRows(),
                 StatsGroupKind.WorkEnergy to
@@ -287,8 +298,8 @@ internal class Figures(
                 AvgMaxRow(if (paced) AvgMaxMetric.Pace else AvgMaxMetric.Speed, speedValue(speed.first), speedValue(speed.second)),
                 AvgMaxRow(
                     AvgMaxMetric.Cadence,
-                    stream(StreamKind.Cadence, average(StreamKind.Cadence)),
-                    stream(StreamKind.Cadence, max(StreamKind.Cadence)),
+                    stream(cadenceKind, average(cadenceKind)),
+                    stream(cadenceKind, max(cadenceKind)),
                 ),
                 AvgMaxRow(
                     AvgMaxMetric.Temperature,
@@ -311,6 +322,8 @@ internal class Figures(
             StreamKind.Power -> record.avgPower?.toDouble()
             StreamKind.Speed -> record.avgSpeed?.toDouble()
             StreamKind.Cadence -> record.avgCadence?.toDouble()
+            StreamKind.StepCadence -> record.avgCadence?.let { it * STEPS_PER_STRIDE.toDouble() }
+            StreamKind.StrokeCadence -> record.avgCadence?.toDouble()
             StreamKind.Temperature -> record.avgTemperature?.toDouble()
             else -> null
         } ?: line(kind)?.average
@@ -321,6 +334,8 @@ internal class Figures(
             StreamKind.Power -> record.maxPower?.toDouble()
             StreamKind.Speed -> record.maxSpeed?.toDouble()
             StreamKind.Cadence -> record.maxCadence?.toDouble()
+            StreamKind.StepCadence -> record.maxCadence?.let { it * STEPS_PER_STRIDE.toDouble() }
+            StreamKind.StrokeCadence -> record.maxCadence?.toDouble()
             else -> null
         } ?: line(kind)?.max
 
@@ -468,3 +483,17 @@ internal class Figures(
 }
 
 internal fun watts(value: Int) = FigureValue.Quantity(value.toLong(), FigureUnit.Watts)
+
+/** Steps in a stride: a foot sport's file records one foot's strides, and a runner counts both feet's steps. */
+internal const val STEPS_PER_STRIDE = 2
+
+/**
+ * How the page reads [sport]'s stored cadence: on foot, both feet's steps ([StreamKind.StepCadence]); in a swim, strokes, as stored
+ * ([StreamKind.StrokeCadence]); else revolutions, as stored.
+ */
+internal fun cadenceKindOf(sport: String): StreamKind =
+    when (SportFamily.of(sport)) {
+        SportFamily.OnFoot -> StreamKind.StepCadence
+        SportFamily.Swim -> StreamKind.StrokeCadence
+        else -> StreamKind.Cadence
+    }

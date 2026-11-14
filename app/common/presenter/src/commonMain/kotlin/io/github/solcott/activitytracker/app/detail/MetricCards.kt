@@ -63,7 +63,7 @@ internal object MetricCards {
 
             DetailSection.Speed -> (figures.paceKind()?.let { paces(it, figures) } ?: avgMax(StreamKind.Speed, figures)) to emptyList()
 
-            DetailSection.Cadence -> avgMax(StreamKind.Cadence, figures) to emptyList()
+            DetailSection.Cadence -> avgMax(figures.cadenceKind, figures) to emptyList()
 
             DetailSection.Elevation -> {
                 val elevation = figures.line(StreamKind.Elevation)
@@ -217,7 +217,16 @@ private fun withHeadline(series: LineSeries, figures: Figures): LineSeries =
     }
 
 /** Lines whose average and maximum an activity can store, which its headline prefers to the stream's. */
-private val STORED = setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Temperature)
+private val STORED =
+    setOf(
+        StreamKind.HeartRate,
+        StreamKind.Power,
+        StreamKind.Speed,
+        StreamKind.Cadence,
+        StreamKind.StepCadence,
+        StreamKind.StrokeCadence,
+        StreamKind.Temperature,
+    )
 
 /** The section each line belongs in. */
 internal fun sectionOf(kind: StreamKind): DetailSection =
@@ -226,7 +235,9 @@ internal fun sectionOf(kind: StreamKind): DetailSection =
         StreamKind.Power,
         StreamKind.LeftRightBalance -> DetailSection.Power
         StreamKind.Speed -> DetailSection.Speed
-        StreamKind.Cadence -> DetailSection.Cadence
+        StreamKind.Cadence,
+        StreamKind.StepCadence,
+        StreamKind.StrokeCadence -> DetailSection.Cadence
         StreamKind.Elevation,
         StreamKind.Grade -> DetailSection.Elevation
         StreamKind.Temperature -> DetailSection.Temperature

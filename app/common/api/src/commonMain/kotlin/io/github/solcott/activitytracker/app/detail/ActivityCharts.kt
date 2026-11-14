@@ -45,6 +45,11 @@ data class ActivityCharts(
     val skiRuns: Int? = null,
     /** The activity's training load, only when the viewer may see its zones record. */
     val trainingLoad: TrainingLoadStats? = null,
+    /**
+     * How the cadence line and the laps' cadence read: [StreamKind.StepCadence] on foot, [StreamKind.StrokeCadence] in a swim, else
+     * [StreamKind.Cadence] as stored.
+     */
+    val cadenceKind: StreamKind = StreamKind.Cadence,
 )
 
 /** A stream drawn as a line. */
@@ -58,8 +63,14 @@ enum class StreamKind {
     /** Millimeters per second. */
     Speed,
 
-    /** Revolutions or steps per minute. */
+    /** Revolutions or strides per minute, as the activity stores it: on foot, files record one foot's strides. */
     Cadence,
+
+    /** Steps per minute: a foot sport's cadence, both feet's steps, twice the strides it stores ([Cadence]). */
+    StepCadence,
+
+    /** Strokes per minute: a swim's cadence, as it stores it ([Cadence]). */
+    StrokeCadence,
 
     /** Meters above sea level. */
     Elevation,

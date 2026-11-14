@@ -4,10 +4,14 @@ import io.github.solcott.activitytracker.app.detail.ActivityCharts
 import io.github.solcott.activitytracker.app.detail.ActivityPage
 import io.github.solcott.activitytracker.app.detail.AvgMaxMetric
 import io.github.solcott.activitytracker.app.detail.ChartSample
+import io.github.solcott.activitytracker.app.detail.ChartsBuilder
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.Figure
 import io.github.solcott.activitytracker.app.detail.FigureKey
+import io.github.solcott.activitytracker.app.detail.FigureUnit
 import io.github.solcott.activitytracker.app.detail.FigureValue
+import io.github.solcott.activitytracker.app.detail.LapRow
+import io.github.solcott.activitytracker.app.detail.LapTableTexts
 import io.github.solcott.activitytracker.app.detail.LineSeries
 import io.github.solcott.activitytracker.app.detail.PaceKind
 import io.github.solcott.activitytracker.app.detail.SetRow
@@ -15,7 +19,9 @@ import io.github.solcott.activitytracker.app.detail.StatsGroupKind
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.detail.TrainingLoadStats
 import io.github.solcott.activitytracker.app.detail.ZoneTime
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.training.ZoneName
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
@@ -351,6 +357,56 @@ class ActivityPageTest {
         val temperature = cards.single { it.section == DetailSection.Temperature }.series.single()
         assertEquals(200.0, temperature.average)
         assertEquals(190.0, temperature.max)
+    }
+
+    @Test
+    fun `a run's cadence reads in steps per minute, twice what it stores`() {
+        val run = record(Sport.RUN).copy(distance = 10_000, movingTime = 3000, avgSpeed = 3333, avgCadence = 85, maxCadence = 92)
+        val lap = LapRow(1, 600, null, 1.0, 10.0, null, null, avgCadence = 84, null, null)
+        val stored =
+            charts().copy(lines = persistentListOf(line(StreamKind.Cadence, 80.0)), laps = persistentListOf(lap, lap.copy(number = 2)))
+        val page = ActivityPage.build(run, ChartsBuilder.forSport(stored, Sport.RUN))
+
+        val cadence = page.stats.first { it.kind == StatsGroupKind.Cadence }.rows
+        assertEquals(listOf(FigureValue.Quantity(170, FigureUnit.Spm), FigureValue.Quantity(184, FigureUnit.Spm)), cadence.map { it.value })
+        val card = page.cards.single { it.section == DetailSection.Cadence }
+        val series = card.series.single()
+        assertEquals(StreamKind.StepCadence, series.kind)
+        assertEquals(listOf(160.0, 180.0), series.points.map { it.value })
+        assertEquals(170.0, series.average)
+        assertEquals(FigureValue.Stream(StreamKind.StepCadence, 170.0), card.headline.first().value)
+        val row = page.avgMax.single { it.metric == AvgMaxMetric.Cadence }
+        assertEquals(FigureValue.Stream(StreamKind.StepCadence, 184.0), row.max)
+        val laps = LapTableTexts.of(assertNotNull(page.charts), UnitSystem.Metric)
+        assertEquals(AppText.named("unit_spm", AppText.written("168")), laps.rows.first().cells.last())
+    }
+
+    @Test
+    fun `a swim's cadence reads as strokes per minute, as stored`() {
+        val swim = record(Sport.SWIM).copy(distance = 1500, movingTime = 1800, avgSpeed = 833, avgCadence = 30, maxCadence = 36)
+        val lap = LapRow(1, 600, null, 0.5, 3.0, null, null, avgCadence = 31, null, null)
+        val stored =
+            charts().copy(lines = persistentListOf(line(StreamKind.Cadence, 28.0)), laps = persistentListOf(lap, lap.copy(number = 2)))
+        val page = ActivityPage.build(swim, ChartsBuilder.forSport(stored, Sport.SWIM))
+
+        val cadence = page.stats.first { it.kind == StatsGroupKind.Cadence }.rows
+        assertEquals(
+            listOf(FigureValue.Quantity(30, FigureUnit.StrokesPerMinute), FigureValue.Quantity(36, FigureUnit.StrokesPerMinute)),
+            cadence.map { it.value },
+        )
+        val series = page.cards.single { it.section == DetailSection.Cadence }.series.single()
+        assertEquals(StreamKind.StrokeCadence, series.kind)
+        assertEquals(listOf(28.0, 38.0), series.points.map { it.value })
+        val laps = LapTableTexts.of(assertNotNull(page.charts), UnitSystem.Metric)
+        assertEquals(AppText.named("unit_strokes_per_minute", AppText.written("31")), laps.rows.first().cells.last())
+    }
+
+    @Test
+    fun `a ride's cadence stays as stored, in rpm`() {
+        val page = ActivityPage.build(mtb, ChartsBuilder.forSport(rideCharts(), Sport.RIDE))
+        val cadence = page.stats.first { it.kind == StatsGroupKind.Cadence }.rows
+        assertEquals(FigureValue.Quantity(75, FigureUnit.Rpm), cadence.first().value)
+        assertEquals(StreamKind.Cadence, page.cards.single { it.section == DetailSection.Cadence }.series.single().kind)
     }
 
     private fun record(sport: String) = ActivityRecord(sport, START, 3600, START)

@@ -1328,6 +1328,8 @@
     <string name="unit_bpm">%1$s bpm</string>
     <string name="unit_watts">%1$s W</string>
     <string name="unit_rpm">%1$s rpm</string>
+    <string name="unit_spm">%1$s spm</string>
+    <string name="unit_strokes_per_minute">%1$s strokes/min</string>
     <string name="unit_seconds_decimal">%1$s s</string>
     <string name="stat_descent">Descent</string>
     <string name="stat_avg_cadence">Avg cadence</string>

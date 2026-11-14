@@ -24,7 +24,7 @@ fun detailSections(record: ActivityRecord, charts: ActivityCharts?, hasGear: Boo
                 DetailSection.Power -> StreamKind.Power in kinds
                 DetailSection.CyclingDynamics -> CYCLING_DYNAMICS.any { it in kinds }
                 DetailSection.Speed -> StreamKind.Speed in kinds
-                DetailSection.Cadence -> StreamKind.Cadence in kinds
+                DetailSection.Cadence -> CADENCES.any { it in kinds }
                 DetailSection.Elevation -> StreamKind.Elevation in kinds || StreamKind.Grade in kinds
                 DetailSection.Temperature -> StreamKind.Temperature in kinds
                 DetailSection.Physiology -> PHYSIOLOGY.any { it in kinds }
@@ -75,3 +75,6 @@ val CYCLING_DYNAMICS = setOf(StreamKind.TorqueEffectiveness, StreamKind.PedalSmo
 val PHYSIOLOGY = setOf(StreamKind.CoreTemperature, StreamKind.SmO2, StreamKind.TotalHemoglobin)
 
 val E_BIKE = setOf(StreamKind.EbikeBattery, StreamKind.EbikeAssistMode, StreamKind.EbikeAssistLevel)
+
+/** The kinds a cadence line can read as ([ActivityCharts.cadenceKind]). */
+private val CADENCES = setOf(StreamKind.Cadence, StreamKind.StepCadence, StreamKind.StrokeCadence)

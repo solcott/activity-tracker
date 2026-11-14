@@ -374,7 +374,16 @@ object CardLines {
 
 /** Lines that read against the climbs; not elevation itself, nor a dive's depth. */
 private val OVER_ELEVATION =
-    setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Grade, StreamKind.Temperature)
+    setOf(
+        StreamKind.HeartRate,
+        StreamKind.Power,
+        StreamKind.Speed,
+        StreamKind.Cadence,
+        StreamKind.StepCadence,
+        StreamKind.StrokeCadence,
+        StreamKind.Grade,
+        StreamKind.Temperature,
+    )
 
 /** The power curve's labelled durations. */
 private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
@@ -464,17 +473,20 @@ class DetailTable(
  */
 object LapTableTexts {
     /** [charts]' laps, a ski day's as runs and lifts. */
-    fun of(charts: ActivityCharts, units: UnitSystem): DetailTable = of(charts.laps, ski = charts.skiRuns != null, units)
+    fun of(charts: ActivityCharts, units: UnitSystem): DetailTable =
+        of(charts.laps, ski = charts.skiRuns != null, units, cadence = charts.cadenceKind)
 
+    /** [laps] as a table, their cadence read as [cadence] ([ActivityCharts.cadenceKind]). */
     @Suppress("LongMethod", "CyclomaticComplexMethod") // A column at a time, each shown or not.
-    fun of(laps: List<LapRow>, ski: Boolean, units: UnitSystem): DetailTable {
+    fun of(laps: List<LapRow>, ski: Boolean, units: UnitSystem, cadence: StreamKind = StreamKind.Cadence): DetailTable {
         val intensity = !ski && laps.any { it.intensity != null }
         val power = laps.any { it.avgPower != null }
         val heartRate = laps.any { it.avgHeartRate != null }
         val ascent = !ski && laps.any { it.ascent != null }
         val descent = ski && laps.any { it.descent != null }
         // Cadence only when there's no power, which says more.
-        val cadence = !power && laps.any { it.avgCadence != null }
+        val cadenced = !power && laps.any { it.avgCadence != null }
+        val cadenceUnit = StreamUnits.unitName(cadence, units)
         val metric = units == UnitSystem.Metric
         val height = if (metric) "unit_elevation_m" else "unit_elevation_ft"
         val headers =
@@ -486,7 +498,7 @@ object LapTableTexts {
                 AppText.named("lap_speed"),
                 AppText.named("lap_heart_rate").takeIf { heartRate },
                 AppText.named("lap_power").takeIf { power },
-                AppText.named("lap_cadence").takeIf { cadence },
+                AppText.named("lap_cadence").takeIf { cadenced },
                 AppText.named("lap_ascent").takeIf { ascent },
                 AppText.named("lap_descent").takeIf { descent },
             )
@@ -510,7 +522,7 @@ object LapTableTexts {
                     },
                     cell(lap.avgHeartRate, heartRate) { AppText.named("unit_bpm", AppText.written(formatWhole(it))) },
                     cell(lap.avgPower, power) { AppText.named("unit_watts", AppText.written(formatWhole(it))) },
-                    cell(lap.avgCadence, cadence) { AppText.named("unit_rpm", AppText.written(formatWhole(it))) },
+                    cell(lap.avgCadence, cadenced) { AppText.named(cadenceUnit, AppText.written(formatWhole(it))) },
                     cell(lap.ascent, ascent) { AppText.named(height, AppText.written(formatDecimal(it, 0))) },
                     // A lift ride has no descent worth showing.
                     if (!descent) null

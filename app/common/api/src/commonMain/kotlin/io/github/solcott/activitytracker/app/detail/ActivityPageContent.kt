@@ -239,6 +239,12 @@ enum class FigureUnit {
     Watts,
     Bpm,
     Rpm,
+
+    /** Steps per minute: a foot sport's cadence. */
+    Spm,
+
+    /** Strokes per minute: a swim's cadence. */
+    StrokesPerMinute,
     Kilocalories,
     Kilojoules,
     Milliseconds,
