@@ -50,7 +50,7 @@ created=$(xrpc com.atproto.space.createSpace POST "${auth[@]}" -H 'Content-Type:
   \"spaceType\":\"$space_type\",\"skey\":\"smoke\",
   \"policy\":{\"\$type\":\"com.atproto.memberspace.policy\"}}")
 allow=""
-[[ $created == *SpaceAlreadyExists* ]] && echo "ok   createSpace: already exists" || echo "ok   createSpace: $(json_field uri <<<"$created")"
+[[ $created == *SpaceAlreadyExists* ]] && echo "ok   createSpace: already exists" || echo "ok   createSpace: $(json_field space <<<"$created")"
 
 xrpc com.atproto.space.getSpace GET "${auth[@]}" -G --data "space=$(urlencode "$space")" >/dev/null
 echo "ok   getSpace"

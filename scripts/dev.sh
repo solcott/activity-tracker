@@ -720,7 +720,7 @@ cmd_up() {
     ensure_local_properties
   else
     step "cloudflared tunnel"
-    warn "skipped: the PDS can't reach the AppView's Spaces checkUserAccess without it"
+    warn "skipped: the PDS can't reach the AppView's Spaces checkAccess without it"
   fi
   ensure_signing_key
   ensure_appview
@@ -760,7 +760,7 @@ cmd_status() {
       warn "device mode ($device), but the named tunnel isn't running (scripts/dev.sh starts it)"
     fi
   elif [[ -z $host ]]; then
-    warn "not running (the PDS can't reach the AppView's Spaces checkUserAccess without it)"
+    warn "not running (the PDS can't reach the AppView's Spaces checkAccess without it)"
   elif tunnel_alive "$host"; then
     ok "https://$host"
   else

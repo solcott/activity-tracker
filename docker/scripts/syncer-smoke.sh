@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Spike for add-activity-visibility: checks that a service with its own did:web can sync an atproto Spaces space on the local
-# PDS. Starts a stub (syncer-smoke.py) on a second quick tunnel, so the PDS can resolve its DID document and reach its
-# notifyWrite endpoint, then runs the check as <name>.test. --blob also round-trips a blob through a space record.
+# PDS. Starts a stub (syncer-smoke.py) on a second quick tunnel, so the PDS can resolve its DID document and reach the
+# confirmRegistration and notifySpaceUpdate endpoint its registration names, then runs the check as <name>.test. --blob also
+# round-trips a blob through a space record.
 # Usage: docker/scripts/syncer-smoke.sh alice [--blob] [pds-url]
 set -euo pipefail
 
