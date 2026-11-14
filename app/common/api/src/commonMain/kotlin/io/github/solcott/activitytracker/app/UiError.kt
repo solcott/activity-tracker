@@ -178,6 +178,9 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** The activity still has writes waiting to be sent, so it can't be exported yet. */
         ExportNotSent,
 
+        /** An activity's exported file couldn't be written for the share sheet (no room on the device). */
+        ShareActivityExport,
+
         /** The activity's original file couldn't be read for download. */
         DownloadOriginal,
 

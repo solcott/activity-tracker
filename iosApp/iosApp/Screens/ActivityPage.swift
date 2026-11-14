@@ -71,12 +71,16 @@ private struct ActivityPageBody: View {
                 ActivityExportSheet(export: export, send: send)
             }
         }
-        // The presenter built the file: offer it, then say it was handed off, whatever came of it.
+        // The presenter built the file: offer it, then say it was handed off, whatever came of it. A file that couldn't be written for
+        // the share sheet is never offered: the sheet stays open and says so.
         .task(id: page.export?.file?.name) {
             guard let file = page.export?.file else { return }
-            await ActivityExportHandOff.share(file)
-            exporting = false
-            send(ActivityDetailEvent.ExportHandedOff.shared)
+            if await ActivityExportHandOff.share(file) {
+                exporting = false
+                send(ActivityDetailEvent.ExportHandedOff.shared)
+            } else {
+                send(ActivityDetailEvent.ExportShareFailed.shared)
+            }
         }
         .alert(
             Text(page.combineSuggestion.map { texts.combineCue(cue: $0.cue) } ?? texts.title),

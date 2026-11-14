@@ -168,15 +168,16 @@ struct ActivityExportSheet: View {
 /// Handing a built export file to the share sheet: Kotlin writes it into the caches folder, the system's sheet offers it, and the copy
 /// goes once the sheet has closed, whether it was shared, saved or cancelled.
 enum ActivityExportHandOff {
+    /// Whether the file was written and offered; false when it couldn't be written, so nothing was offered.
     @MainActor
-    static func share(_ file: ExportedFile) async {
+    static func share(_ file: ExportedFile) async -> Bool {
         let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appending(path: file.name)
         // Kotlin's classes aren't Sendable to Swift; the file is immutable on Kotlin's side.
         nonisolated(unsafe) let file = file
         let written = (try? await IosApp.shared.writeExport(file: file, path: url.path(percentEncoded: false))) ?? false
-        if written {
-            _ = await ArchiveShare.presentShareSheet(url)
-            try? FileManager.default.removeItem(at: url)
-        }
+        guard written else { return false }
+        _ = await ArchiveShare.presentShareSheet(url)
+        try? FileManager.default.removeItem(at: url)
+        return true
     }
 }

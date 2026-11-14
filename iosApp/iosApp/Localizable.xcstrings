@@ -6260,6 +6260,17 @@
         }
       }
     },
+    "error_share_activity_export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't get the file ready to share. Check there's room on this device, and try again."
+          }
+        }
+      }
+    },
     "error_sign_in_again" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -22591,6 +22602,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ mph"
+          }
+        }
+      }
+    },
+    "unit_spm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ spm"
+          }
+        }
+      }
+    },
+    "unit_strokes_per_minute" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ strokes/min"
           }
         }
       }

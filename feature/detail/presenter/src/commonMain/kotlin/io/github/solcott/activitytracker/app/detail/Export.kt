@@ -29,6 +29,7 @@ internal class Export(
     val export: (ExportFormat) -> Unit,
     val downloadOriginal: () -> Unit,
     val handedOff: () -> Unit,
+    val shareFailed: () -> Unit,
 )
 
 /** What the owner's loaded [track] and streams allow, UDDF only on a dive ([isDive]), in [ExportFormat] order. */
@@ -60,7 +61,7 @@ internal fun rememberExport(
             outcomeFlow { exporter.originalInfo(own)?.let { OriginalFile(it.fileName, it.format) } }
         }
         .data
-    if (activity == null || (formats.isEmpty() && original == null)) return Export(null, {}, {}, {})
+    if (activity == null || (formats.isEmpty() && original == null)) return Export(null, {}, {}, {}, {})
     // The export and the download share one flight: one file at a time.
     val key = ActivityDetailEvent.Export::class
     fun run(notSent: UiError.Kind, failed: UiError.Kind, build: suspend () -> ExportedFile) =
@@ -76,5 +77,9 @@ internal fun rememberExport(
         export = { format -> run(UiError.Kind.ExportNotSent, UiError.Kind.ExportActivity) { exporter.export(activity, format) } },
         downloadOriginal = { run(UiError.Kind.OriginalNotSent, UiError.Kind.DownloadOriginal) { exporter.original(activity) } },
         handedOff = { file = null },
+        shareFailed = {
+            file = null
+            error = UiError(UiError.Kind.ShareActivityExport)
+        },
     )
 }

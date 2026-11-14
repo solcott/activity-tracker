@@ -443,4 +443,7 @@ sealed interface ActivityDetailEvent {
 
     /** The UI handed [ActivityExportState.file] to the platform, whether it was shared, saved or cancelled. */
     data object ExportHandedOff : ActivityDetailEvent
+
+    /** The UI couldn't hand [ActivityExportState.file] to the platform: it was never offered, and [ActivityExportState.error] says so. */
+    data object ExportShareFailed : ActivityDetailEvent
 }

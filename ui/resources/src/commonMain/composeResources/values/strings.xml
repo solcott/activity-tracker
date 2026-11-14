@@ -116,6 +116,7 @@
     <string name="error_writes_pending">Some of your changes haven't been sent yet. Try again once you're back online.</string>
     <string name="error_export_activity">Couldn't export this activity. Check your connection and try again.</string>
     <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
+    <string name="error_share_activity_export">Couldn't get the file ready to share. Check there's room on this device, and try again.</string>
     <string name="error_download_original">Couldn't download the original file. Check your connection and try again.</string>
     <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
     <string name="error_start_data_export">Couldn't start the export. Try again.</string>

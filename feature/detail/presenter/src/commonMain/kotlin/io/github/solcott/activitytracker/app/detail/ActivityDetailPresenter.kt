@@ -242,6 +242,8 @@ fun ActivityDetailPresenter(
 
             ActivityDetailEvent.ExportHandedOff -> export.handedOff()
 
+            ActivityDetailEvent.ExportShareFailed -> export.shareFailed()
+
             ActivityDetailEvent.LeaveGroup,
             ActivityDetailEvent.RejoinGroup,
             ActivityDetailEvent.LeaveCopyGroup -> ownCopy.on(event, ownGroup)

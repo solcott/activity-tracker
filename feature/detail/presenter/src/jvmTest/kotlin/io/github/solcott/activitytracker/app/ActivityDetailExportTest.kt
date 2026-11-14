@@ -140,6 +140,23 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun aFileThatCouldNotBeSharedSaysSo() = runTest {
+        author = staleAlice
+        track = route
+        streams = heartRate
+        detail(repos()) {
+            val ready = awaitUntil { it.loaded()?.export?.formats?.size == 3 }.loaded()!!
+            ready.eventSink(ActivityDetailEvent.Export(ExportFormat.GPX))
+            val built = awaitUntil { it.loaded()?.export?.file != null }
+            built.eventSink(ActivityDetailEvent.ExportShareFailed)
+            val failed = awaitUntil { it.loaded()?.export?.error != null }.loaded()!!.export!!
+            assertNull(failed.file)
+            assertEquals(UiError.Kind.ShareActivityExport, failed.error?.kind)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun anUnsentActivitySaysSo() = runTest {
         author = staleAlice
         track = route
