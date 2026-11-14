@@ -60,7 +60,8 @@ extension Snapshotting where Value == UIViewController, Format == UIImage {
                 // A draw the library finishes later (a web view's) isn't one this app has: leave it to the library.
                 guard let image = drawn else { return base.snapshot(controller) }
                 let png = image.pngData()
-                agreeing = last?.png == png ? agreeing + 1 : 1
+                // A draw that couldn't be encoded never agrees, or two such would pass for a settled view.
+                agreeing = png != nil && last?.png == png ? agreeing + 1 : 1
                 if agreeing == Snapshots.settledDraws { return Async(value: image) }
                 last = (image, png)
                 usleep(50_000)
@@ -136,10 +137,22 @@ final class KeptSafeArea: UIViewController {
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
+        keepWindowsSafeArea()
+    }
+
+    // Off screen its own insets stay none, so a change to the window's (another size or orientation) comes only with a layout.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        keepWindowsSafeArea()
+    }
+
+    private func keepWindowsSafeArea() {
         guard let window = view.window else { return }
         let kept = window.safeAreaInsets, own = view.safeAreaInsets
-        child.additionalSafeAreaInsets = UIEdgeInsets(
+        let additional = UIEdgeInsets(
             top: max(0, kept.top - own.top), left: max(0, kept.left - own.left), bottom: max(0, kept.bottom - own.bottom),
             right: max(0, kept.right - own.right))
+        // Setting the same insets again would lay the child out again for nothing.
+        if child.additionalSafeAreaInsets != additional { child.additionalSafeAreaInsets = additional }
     }
 }
