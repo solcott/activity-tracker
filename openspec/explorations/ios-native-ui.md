@@ -1802,8 +1802,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   it where it was (seen on the iPad). A request with a new id still moves it once.
 - **`onMapCameraChange(frequency: .onEnd)`** reports the region on first layout and after each pan, which `MapViewport.ofDegrees` turns
   into the presenter's 1e-7 box, as MapLibre's `awaitViewport` and camera-stop do.
-- **A browse snapshot at an iPad's landscape size renders offset by the test host's safe area** (the name field's label at the top
-  edge), in or out of a `NavigationStack`; on the iPad itself the layout is right. The phone snapshots aren't affected.
+- ~~**A browse snapshot at an iPad's landscape size renders offset by the test host's safe area**~~ (the name field's label at the top
+  edge), in or out of a `NavigationStack`; on the iPad itself the layout is right. Fixed with every snapshot's safe area
+  (`snapshot-kept-safe-area`): the rerecorded iPad browse draws the label whole under the status bar.
 - **The shared iOS location request answers granted at once** (the tracker asks the system), so the native view does the same when
   `askLocation` is set; the system's own prompt then shows once.
 - **On a `Map`, a plain or simultaneous tap gesture never fires** (iOS 26; a log showed no call), so selecting a run needs a
@@ -2326,9 +2327,9 @@ What building the host and the shell on Swift export showed, beyond the probes:
   alone, three of them while `./gradlew check` loaded the machine (it had failed 2 of 3 alone before).
 - **A second iPad flake, seen once before the fix:** the heart-rate chart drawn 1 pixel (a third of a point) higher in its card, the
   rest identical. Not seen in the five runs after; recorded here in case it returns.
-- **Open: every other suite has the same exposure.** Any snapshot with a list under a bar draws the inset laid out for the status bar,
-  and would fail the same way if a draw came after SwiftUI's update; only the iPad page was slow enough to be seen doing so. Passing
-  `keepsSafeArea` everywhere means rerecording every such reference (each list 52 points higher, the bar under the status bar).
+- ~~**Open: every other suite has the same exposure.**~~ Done (`snapshot-kept-safe-area`, "Snapshot safe area everywhere" below): every
+  snapshot's safe area is fixed and the references are rerecorded. Any snapshot with a list under a bar drew the inset laid out for the
+  status bar, and would fail the same way if a draw came after SwiftUI's update; only the iPad page was slow enough to be seen doing so.
 - Checks: `check -Pkotlin.incremental=false` (Android screenshots with the four new references), the ad-hoc Release simulator build,
   and `xcodebuild test` on my own clones: iOS 26.0 (iPhone 17) 456 tests passed in one full run, iOS 18.4 (iPhone 16 Pro) 456 passed.
   `ImportSnapshotTests` alone: 5 of 5 after the fix.
@@ -2349,6 +2350,29 @@ What building the host and the shell on Swift export showed, beyond the probes:
 - No picture changed: no sample or screenshot drew the removed fields.
 - Checks: `check -Pkotlin.incremental=false`, the ad-hoc Release simulator build, and `xcodebuild test` on iOS 26.0 and 18.4: 456
   tests passed on each.
+
+### Snapshot safe area everywhere (`snapshot-kept-safe-area`)
+
+- **Keeping the window's safe area for everything was wrong for components.** With `KeptSafeArea` alone around every snapshot, 1,364
+  of 1,376 references changed: the screens as intended, but every component too, pushed down 31 points in its frame (half the 62-point
+  status bar, centred), and the short ones cut off at the bottom (the design gallery's large avatar and image, the dive site's route
+  map stand-in). A component never sits under the status bar.
+- **Fix: a fixed safe area, by how each part reads it.** `assertAppSnapshot` always wraps the hosting controller in `KeptSafeArea` and
+  sets `hosting.safeAreaRegions = []`. The view's own SwiftUI content then takes no safe area, so a component lays out in its whole frame
+  as its references already showed, and a navigation stack, which reads its safe area from UIKit (`safeAreaRegions` changed nothing for
+  it in `import-leftovers`), keeps the window's. Import's `wide` iPad reference, recorded with `KeptSafeArea` alone, matched unchanged,
+  so the two agree for stack screens. Nothing in a call's size tells a screen from a component (120-point chips, 820-point iPad pages),
+  so no per-call choice was added; `keepsSafeArea` is gone.
+- **1,226 references rerecorded** (iOS 26.0), in 33 suites; 150 kept, every plain component among them. Checked against the old ones row
+  by row (each new row matched to an identical old row and the offsets counted) and by looking at the outliers side by side with a
+  pixel diff: every change is a vertical shift of what's under a bar (6 points for a form under an inline bar, 17 for a list, 52 for a
+  sheet's list, the bar itself from y 10 to under the status bar), with rows that don't match exactly only in glass, blur and stand-in
+  maps, whose route refits the shorter area under the bar. The iPad activity page's old reference had the bar's menu button cut off at
+  the top and segment browse on an iPad its name field's label; both draw whole now. No tolerance, sample or settle count changed.
+- **A comparing run is about three times quicker than a failing one** (593 s against 1,743 s for the 456 tests): each mismatch draws all
+  nine settle draws and writes its failure images.
+- Checks: `xcodebuild test` on my own clones, iOS 26.0 (iPhone 17) 456 passed with every snapshot matching, iOS 18.4 456 passed with
+  the snapshots skipped; the ad-hoc Release simulator build; `check -Pkotlin.incremental=false`.
 
 ## Open items
 

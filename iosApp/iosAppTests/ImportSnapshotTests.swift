@@ -37,8 +37,7 @@ struct ImportSnapshotTests {
     @Test func wide() throws {
         let state = try #require(Samples.importActivityVariants["page"])
         assertAppSnapshot(
-            of: screen(state).environment(\.horizontalSizeClass, .regular), size: Self.iPad, named: "iPad", precision: Snapshots.barButtons,
-            keepsSafeArea: true)
+            of: screen(state).environment(\.horizontalSizeClass, .regular), size: Self.iPad, named: "iPad", precision: Snapshots.barButtons)
     }
 
     @Test func openedRow() throws {
