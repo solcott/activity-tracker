@@ -497,7 +497,7 @@ Each phase leaves a shippable app.
 MapKit was first set aside for maps because it can't render the OpenFreeMap styles the other platforms use. `ios-native-map` took it
 anyway: it is the system's own (no package, binary framework or style URL), follows the appearance, carries Apple's credit and legal
 link itself, and its `MapPolyline` and `Annotation` draw every mark a route map needs; the marks are the same everywhere and only the
-tiles look like Apple Maps. Feed thumbnails stay the line preview on the native card.
+tiles look like Apple Maps. Feed thumbnails were the line preview on the native card until `ios-feed-map-images` gave them MapKit snapshots.
 
 ## Spike findings
 
@@ -2373,6 +2373,45 @@ What building the host and the shell on Swift export showed, beyond the probes:
   nine settle draws and writes its failure images.
 - Checks: `xcodebuild test` on my own clones, iOS 26.0 (iPhone 17) 456 passed with every snapshot matching, iOS 18.4 456 passed with
   the snapshots skipped; the ad-hoc Release simulator build; `check -Pkotlin.incremental=false`.
+
+### Review fixes and a run's cadence (`run-cadence-steps`)
+
+- **Review of the branch against `main`** (high effort, logic-heavy files: map framing, the snapshot harness, the presenter host, the FIT
+  decoder, shared chart text, export). Seven findings, all fixed: a failed iOS export write now says so in the export sheet
+  (`ActivityDetailEvent.ExportShareFailed`, `UiError.Kind.ShareActivityExport`) instead of closing it silently; a route across the
+  antimeridian is boxed the short way (`MapBounds.of`) and framed close, its centre brought back into -180 until 180; a pace chart
+  that never moves isn't drawn, and a standstill average caps stops at the slowest moving pace; `KeptSafeArea` also keeps the window's
+  safe area after layout, and a draw that can't be encoded never counts as settled; the export-ready notification goes back to a
+  Settings already in the stack (host and Compose shell alike).
+- **A run's cadence read "85 rpm"** (on `main` too). Files record a foot sport's cadence per foot, as strides (FIT `cadence`, TCX
+  `RunCadence`, GPX `gpxtpx:cad`), and runners read twice it as steps. The page now shows run, walk and hike cadence doubled in spm
+  (`StreamKind.StepCadence`, `FigureUnit.Spm`, `ActivityCharts.stepCadence` for the laps table), set once in `ChartsBuilder.forSport`
+  and `Figures`; storage and exports are unchanged, and the lexicon's cadence descriptions now say what's stored on foot. Swimming's
+  stroke rate still reads rpm, which is wrong in its own way; left for its own look.
+- No picture changed: no sample draws a foot sport's cadence.
+- Checks: `check -Pkotlin.incremental=false`, the ad-hoc Release simulator build, and `xcodebuild test` on iOS 26.0 and 18.4: 456
+  tests passed on each.
+
+### A swim's stroke rate (`swim-stroke-rate`)
+
+- **A swim's cadence read "rpm".** FIT records it as strokes per minute and Garmin shows it as recorded, so the number stays and only
+  its unit changes: `StreamKind.StrokeCadence`, `FigureUnit.StrokesPerMinute`, "strokes/min". `ActivityCharts.cadenceKind` replaces
+  `run-cadence-steps`' `stepCadence` flag, so the laps table takes its unit from the same kind as the chart (`StreamUnits.unitName`),
+  and `cadenceKindOf(sport)` (by `SportFamily`) is the one place a sport's cadence reading is chosen.
+- No picture changed. Checks: `check -Pkotlin.incremental=false`, the Release build, `xcodebuild test` on iOS 26.0 and 18.4 (456 each).
+
+### Map images on iOS feed cards (`ios-feed-map-images`)
+
+- **The feed's route tile is a still map.** `RouteMapImage` asks `MKMapSnapshotter` for the region `RouteMap.frame` gives at the tile's
+  size (through `MapCamera`, the live map's conversion), in the current appearance with points of interest left out, and draws the
+  route over it with Core Graphics at `snapshot.point(for:)`: the cased line, a highlight, dashed connectors and the markers, in
+  `RouteMarkerStyle`'s sizes and the catalog's colours resolved for the appearance. Images are kept in an `NSCache` by route key, size
+  and appearance, so scrolling back and switching back show them at once. `ActivityCardContent.routeMap` hands Swift the route.
+- **The line preview stays in its place** while an image draws, when the snapshot fails, and outside a session (`\.liveMaps`), so
+  previews and snapshot tests fetch nothing and no reference changed. Import cards' small sketches stay line previews.
+- Seen on a signed-in iPhone 17 Pro (iOS 26) against the local stack: the run's card drew its map a moment after the preview, and the
+  dark appearance redrew the dark style with the accent's dark line. The snapshot carries Apple's mark, not its legal link.
+- Checks: `check -Pkotlin.incremental=false`, the Release build, `xcodebuild test` on iOS 26.0 and 18.4 (456 each).
 
 ## Open items
 
