@@ -16,6 +16,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Url
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.sync.Mutex
@@ -70,8 +71,11 @@ internal class PasswordSession(
                 contentType(ContentType.Application.Json)
                 setBody(AtJson.encodeToString(CreateSession.Input.serializer(), CreateSession.Input(identifier, password)))
             }
-        if (!response.status.isSuccess())
-            throw SignInFailed("$identifier can't sign in at $pdsUrl: ${response.status} ${errorOf(response)}")
+        if (!response.status.isSuccess()) {
+            // A reset local stack has no importer account until scripts/dev.sh (docker/scripts/setup-importer.sh) recreates it.
+            val hint = if (Url(pdsUrl).host == "localhost") "; run scripts/dev.sh to recreate the local importer account" else ""
+            throw SignInFailed("$identifier can't sign in at $pdsUrl: ${response.status} ${errorOf(response)}$hint")
+        }
         return AtJson.decodeFromString(CreateSession.Output.serializer(), response.bodyAsText())
     }
 

@@ -239,6 +239,17 @@ ensure_labeler() {
   fi
 }
 
+# The segment importer's account, importer.test (docker/scripts/setup-importer.sh), which scripts/segment-import.sh signs in as. A reset
+# deletes it, so every run makes sure it exists; a changed DID restarts the AppView, which reads SEGMENT_IMPORTER_DID when it starts.
+ensure_importer() {
+  step "Segment importer"
+  local did previous
+  previous=$(env_value SEGMENT_IMPORTER_DID)
+  did=$(docker/scripts/setup-importer.sh 2> >(sed 's/^/    /' >&2)) || die "importer setup failed"
+  [[ $did != "$previous" ]] && RESTART_APPVIEW=1
+  ok "importer.test ($did)"
+}
+
 # ---------------------------------------------------------------- AppView signing key
 
 # The AppView's P-256 key (APPVIEW_SIGNING_KEY in docker/.env), which it publishes as #atproto and signs Spaces
@@ -711,6 +722,7 @@ cmd_up() {
   ensure_docker
   ensure_lexicons
   ensure_labeler
+  ensure_importer
   if [[ -n $host ]]; then
     check_named_tunnel "$host"
     ensure_device_properties
