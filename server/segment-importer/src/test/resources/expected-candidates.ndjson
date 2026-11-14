@@ -52,6 +52,7 @@
 {"id":"ptsdia2alegyhdu45yrousaz6j","region":"test-region","sport":"ride","name":"Rush from Canyon Hollow","line":"cbxusA~`yqiCipQ?","lengthMeters":1056,"source":"osm","license":"ODbL-1.0","osmWays":[173,174]}
 {"id":"pyg4wzpbt5zfv2jnlgauv57ray","region":"test-region","sport":"ride","name":"Oak (part 1)","line":"_w}tsA~dgtiCcjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
 {"id":"qbew2jhgliedzk6m2b2rq35y23","region":"test-region","sport":"run","name":"Oak (southbound)","line":"i_dwsA~dgtiChgeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"qygjgzvwalqiietwjowo52vi7z","region":"test-region","sport":"ride","name":"Rush - Tom Sawyer","line":"_w}tsA~`yqiCaxG?","lengthMeters":500,"source":"osm","license":"ODbL-1.0","osmWays":[170]}
 {"id":"rbvaini4uwsoehpsxz7c6rjrrp","region":"test-region","sport":"run","name":"Oak (northbound)","line":"_w}tsA~dgtiCigeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
 {"id":"rd6zp5vbmhjpexht3us3o56po7","region":"test-region","sport":"run","name":"Oak (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
 {"id":"rof4tavffoqf7d66tvdsyldkv3","region":"test-region","sport":"hike","name":"Ridge Loop (southbound)","line":"{pmusA~b`siCzxN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[152,151,150]}

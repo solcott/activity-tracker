@@ -418,6 +418,14 @@ class CandidateCutterTest {
         assertTrue(line.length <= CandidateCutter.MAX_LINE_CHARS, "${line.length} chars")
     }
 
+    @Test
+    fun aSimplifiedLineIsTheOneTheAppViewDecodes() {
+        // Positions off the polyline's 1e-5 degree grid: measured unrounded, a line can sit just over a minimum the decoded one misses.
+        val trail = (0..10).map { i -> GeoPoint(north(44.4, i * 20.0) + 0.000004, -72.7 + (i % 2) * 0.000006) }
+        val line = CandidateCutter.simplified(trail)
+        assertEquals(SegmentGeometry.decodePolyline(SegmentGeometry.encodePolyline(line)), line)
+    }
+
     private val metersPerLngDegree = 111_195.0 * cos(44.4 * Math.PI / 180)
 
     /** Meters from [p] to the nearest point of [line], on a local flat projection. */

@@ -219,14 +219,19 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
         private const val EIGHTH_TURN = 45.0
         private val COMPASS = listOf("northbound", "eastbound", "southbound", "westbound")
 
-        /** [points] simplified at [TOLERANCE_M], coarser only as far as its encoding needs to fit a record (`TrackMath.simplifyToFit`). */
+        /**
+         * [points] simplified at [TOLERANCE_M], coarser only as far as its encoding needs to fit a record (`TrackMath.simplifyToFit`), and
+         * at the polyline's precision, so its length is the one the AppView checks.
+         */
         fun simplified(points: List<GeoPoint>): List<GeoPoint> {
             val samples = points.map { LocationSample(it.lat, it.lng, null, null, null, Instant.DISTANT_PAST) }
             val line =
                 TrackMath.simplifyToFit(listOf(samples), TOLERANCE_M, MAX_LINE_CHARS) {
                     SegmentGeometry.encodePolyline(it.single().map(::geoPoint))
                 }
-            return line.single().map(::geoPoint)
+            // As the AppView decodes it: encoding rounds each position to the polyline's precision, about a metre, which can take a line
+            // measured just over its group's minimum length under it, and the AppView measures the decoded line.
+            return checkNotNull(SegmentGeometry.decodePolyline(SegmentGeometry.encodePolyline(line.single().map(::geoPoint))))
         }
 
         private fun geoPoint(sample: LocationSample) = GeoPoint(sample.latitude, sample.longitude)
