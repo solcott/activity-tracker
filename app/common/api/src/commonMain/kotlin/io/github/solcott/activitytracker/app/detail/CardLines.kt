@@ -115,13 +115,19 @@ object CardLines {
         elevation: LineSeries? = null,
         dive: ActivityCharts? = null,
     ): LineChart? {
-        if (series.points.size < 2) return null
+        // A pace with no moving sample is a standstill throughout, infinite everywhere: there's nothing to chart.
+        if (series.points.size < 2 || (pace != null && series.points.none { it.value > 0 })) return null
         val convert = { v: Double ->
             if (pace != null) StreamUnits.paceSeconds(pace, v, units) else StreamUnits.convert(series.kind, v, units)
         }
         val average = series.average?.let(convert)
         // A standstill's pace is infinite: past 1.5 times the average, a stop would flatten the rest of the line.
-        val ceiling = average?.takeIf { pace != null }?.let { it * PACE_CEILING } ?: Double.MAX_VALUE
+        // Without a moving average (it rounds to a standstill), the slowest moving sample sets it instead.
+        val ceiling =
+            if (pace == null) Double.MAX_VALUE
+            else
+                (average?.takeIf { it < Double.MAX_VALUE } ?: series.points.filter { it.value > 0 }.maxOf { convert(it.value) }) *
+                    PACE_CEILING
         val inverted = pace != null || series.kind == StreamKind.Depth
         val values = series.points.map { convert(it.value).coerceAtMost(ceiling) }
         val sign = if (inverted) -1.0 else 1.0

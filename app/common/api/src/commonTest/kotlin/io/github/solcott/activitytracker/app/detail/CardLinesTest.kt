@@ -65,6 +65,21 @@ class CardLinesTest {
     }
 
     @Test
+    fun aPaceThatNeverMovesHasNoChart() {
+        val still = LineSeries(StreamKind.Speed, samples(0.0, 0.0), average = 0.0, max = 0.0)
+        assertNull(CardLines.chart(still, 600, PaceKind.Distance, UnitSystem.Metric))
+    }
+
+    @Test
+    fun aStandstillAverageCapsStopsAtTheSlowestMovingPace() {
+        // 3 m/s is 5:33 /km; the stop is held at 1.5 times that, not drawn at an infinite pace.
+        val speed = LineSeries(StreamKind.Speed, samples(3_000.0, 0.0), average = 0.0, max = 3_000.0)
+        val chart = CardLines.chart(speed, 600, PaceKind.Distance, UnitSystem.Metric)!!
+        assertEquals(chart.points[0].y * 1.5, chart.points[1].y, 1e-6)
+        assertTrue(chart.axis.min > -10_000, "${chart.axis.min}")
+    }
+
+    @Test
     fun timeTicksStepRoundly() {
         assertEquals(listOf(0.0, 600.0, 1200.0, 1800.0, 2400.0), CardLines.timeTicks(2_700).map { it.value })
         assertEquals(written("10:00"), CardLines.timeTicks(2_700)[1].label)
