@@ -282,14 +282,17 @@ struct NewDevicesSections: View {
         }
         if let offer = fields.profileOffer {
             let options = offer.options.elements(as: GearOption.self)
+            // Typed apart from the row: inline, the binding and the options array outran the type checker on CI.
+            let uris: [String?] = [nil] + options.map { $0.uri.value }
+            let link: Binding<String?> = Binding(
+                get: { offer.chosen?.value },
+                set: { uri in fields.eventSink(NewDeviceEvent.LinkProfile(uri: options.first { $0.uri.value == uri }?.uri)) }
+            )
             Section {
                 AppPickerRow(
                     name: AppStrings.string(texts.profileLinkTitle(offer: offer)),
-                    selection: Binding(
-                        get: { offer.chosen?.value },
-                        set: { uri in fields.eventSink(NewDeviceEvent.LinkProfile(uri: options.first { $0.uri.value == uri }?.uri)) }
-                    ),
-                    options: [nil] + options.map { Optional($0.uri.value) },
+                    selection: link,
+                    options: uris,
                     optionLabel: { uri in AppStrings.string(texts.profileLinkChoice(offer: offer, uri: uri)) }
                 ) {
                     Text(texts.profileLinkTitle(offer: offer))
@@ -359,13 +362,16 @@ struct NewDeviceSection: View {
                 }
                 let mounts = fields.mountOptions.elements(as: GearOption.self)
                 if !mounts.isEmpty {
+                    // Typed apart from the row, as the profile link's are, for the type checker.
+                    let uris: [String?] = [nil] + mounts.map { $0.uri.value }
+                    let mountOn: Binding<String?> = Binding(
+                        get: { card.mountOn?.value },
+                        set: { uri in send(NewDeviceEvent.MountOn(id: id, uri: mounts.first { $0.uri.value == uri }?.uri)) }
+                    )
                     AppPickerRow(
                         name: AppStrings.string(texts.deviceMountLabel),
-                        selection: Binding(
-                            get: { card.mountOn?.value },
-                            set: { uri in send(NewDeviceEvent.MountOn(id: id, uri: mounts.first { $0.uri.value == uri }?.uri)) }
-                        ),
-                        options: [nil] + mounts.map { Optional($0.uri.value) },
+                        selection: mountOn,
+                        options: uris,
                         optionLabel: { uri in AppStrings.string(texts.deviceMountChoice(fields: fields, uri: uri)) }
                     ) {
                         Text(texts.deviceMountLabel)
