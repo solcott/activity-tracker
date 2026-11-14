@@ -22,7 +22,10 @@ if ! git cat-file -e "$base^{commit}" 2>/dev/null && ! git fetch --quiet --no-ta
   exit 0
 fi
 
-if git diff --name-only "$base" "$head" | grep -qvE '(\.md$|^openspec/|^\.agents/|^\.claude/)'; then
+# List the files first: piping git diff into grep -q lets grep exit at the first match, git diff dies of SIGPIPE on a
+# large diff, and pipefail then reads that as "no code changed".
+changed=$(git diff --name-only "$base" "$head")
+if grep -qvE '(\.md$|^openspec/|^\.agents/|^\.claude/)' <<< "$changed"; then
   echo true
 else
   echo false
