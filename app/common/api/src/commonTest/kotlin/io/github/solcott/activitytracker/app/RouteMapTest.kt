@@ -81,6 +81,13 @@ class RouteMapTest {
     }
 
     @Test
+    fun aRouteAcrossTheAntimeridianIsBoxedTheShortWay() {
+        val map = assertNotNull(RouteMap.of(encode(listOf(GeoPoint(-16.8, 179.98), GeoPoint(-16.8, -179.99), GeoPoint(-16.7, -179.97)))))
+        assertEquals(179.98, map.bounds.west, 1e-9)
+        assertEquals(180.03, map.bounds.east, 1e-9)
+    }
+
+    @Test
     fun theSketchMarksWhatTheMapMarks() {
         val hidden = assertNotNull(RouteMap.of(polyline, ends = RouteEnds.HIDDEN)?.sketch(200.0, 100.0, 12.0))
         assertNull(hidden.start)
@@ -136,5 +143,12 @@ class MapFrameTest {
         assertTrue(inset.zoom < plain.zoom, "${inset.zoom} vs ${plain.zoom}")
         // The centre moves north, so the route sits lower in the map, below the inset.
         assertTrue(inset.latitude > plain.latitude, "${inset.latitude} vs ${plain.latitude}")
+    }
+
+    @Test
+    fun aBoxAcrossTheAntimeridianIsFramedCloseAndCentredOnIt() {
+        val frame = MapFrame.fit(MapBounds(179.98, -16.8, 180.03, -16.7), 400.0, 300.0)
+        assertTrue(frame.zoom > 10, "${frame.zoom}")
+        assertEquals(-179.995, frame.longitude, 1e-6)
     }
 }

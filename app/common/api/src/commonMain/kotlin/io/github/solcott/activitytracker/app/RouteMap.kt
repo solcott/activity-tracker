@@ -21,8 +21,32 @@ import kotlinx.collections.immutable.toImmutableList
 /** A break in a route's line on a map: the last position before it, where recording stopped, and the first after it, where it resumed. */
 @Immutable data class MapBreak(val stop: GeoPoint, val resume: GeoPoint)
 
-/** The box a route lies in, in degrees. */
-@Immutable data class MapBounds(val west: Double, val south: Double, val east: Double, val north: Double)
+/** The box a route lies in, in degrees. A box across the antimeridian has an [east] past 180, so it's always east of [west]. */
+@Immutable
+data class MapBounds(val west: Double, val south: Double, val east: Double, val north: Double) {
+    companion object {
+        /**
+         * The box around [points], taken the short way round: a route crossing the antimeridian (Fiji, Chukotka) spans a few degrees past
+         * 180, not the whole world the other way.
+         */
+        fun of(points: List<GeoPoint>): MapBounds {
+            val west = points.minOf { it.lng }
+            val east = points.maxOf { it.lng }
+            val south = points.minOf { it.lat }
+            val north = points.maxOf { it.lat }
+            if (east - west <= HALF_TURN) return MapBounds(west, south, east, north)
+            // Measured eastwards from 0, the western hemisphere's longitudes come after 180.
+            val shifted = points.map { if (it.lng < 0) it.lng + FULL_TURN else it.lng }
+            val wrappedWest = shifted.min()
+            val wrappedEast = shifted.max()
+            return if (wrappedEast - wrappedWest < east - west) MapBounds(wrappedWest, south, wrappedEast, north)
+            else MapBounds(west, south, east, north)
+        }
+
+        private const val FULL_TURN = 360.0
+        private const val HALF_TURN = 180.0
+    }
+}
 
 /**
  * A north-up camera: the map's centre at [latitude], [longitude] and its [zoom], where zoom 0 draws the Web Mercator world [WORLD] units
@@ -59,7 +83,9 @@ data class MapFrame(val latitude: Double, val longitude: Double, val zoom: Doubl
             // The route sits in the middle of the room below [top], so the map's centre is half of [top] above the route's.
             val shift = top / 2 / (WORLD * pow2(zoom))
             val centreY = (north + south) / 2 - shift
-            return MapFrame(latitude = latitude(centreY), longitude = (west + east) / 2 * FULL_TURN - HALF_TURN, zoom = zoom)
+            // A box across the antimeridian centres past 180; brought back into -180 until 180.
+            val longitude = ((west + east) / 2 * FULL_TURN).mod(FULL_TURN) - HALF_TURN
+            return MapFrame(latitude = latitude(centreY), longitude = longitude, zoom = zoom)
         }
 
         private fun pow2(zoom: Double): Double = exp(zoom * ln(2.0))
@@ -156,13 +182,7 @@ private constructor(
                 start = if (ends == null) drawn.first().first() else ends.start,
                 end = if (ends == null) drawn.last().last() else ends.end,
                 breaks = drawn.zipWithNext { before, after -> MapBreak(before.last(), after.first()) }.toImmutableList(),
-                bounds =
-                    MapBounds(
-                        west = points.minOf { it.lng },
-                        south = points.minOf { it.lat },
-                        east = points.maxOf { it.lng },
-                        north = points.maxOf { it.lat },
-                    ),
+                bounds = MapBounds.of(points),
                 highlight = stretch?.let { MapLine(RouteCurve.smooth(it).toImmutableList()) },
             )
         }
