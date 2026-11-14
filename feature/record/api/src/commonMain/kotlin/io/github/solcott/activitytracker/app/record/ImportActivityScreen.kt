@@ -6,8 +6,6 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.ImportSource
-import io.github.solcott.activitytracker.activityfile.SensorBattery
-import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
@@ -381,76 +379,18 @@ enum class PartOfDay {
     Night,
 }
 
-/** The read file's own details beyond what [ImportActivityState.page] shows, in SI units like the records it becomes. */
+/** The read file's own details beyond what [ImportActivityState.page] shows: its name, its line, its clock and whether it's a duplicate. */
 @Immutable
 data class ImportPreview(
     val fileName: String,
-    val elapsed: Duration,
-    val device: String?,
     /** Null for indoor activities. */
     val polyline: String?,
     /** Where [polyline] breaks (`feed.activity#polylineGaps`); null when it's one line. */
     val polylineGaps: ImmutableList<Int>? = null,
     /** Null unless the file's times have no zone, so the athlete has to say where it happened. */
     val clock: ImportClock?,
-    val elevationLossMeters: Double? = null,
-    /** Null unless a ride recorded cadence. */
-    val cadence: CadencePreview? = null,
-    /** Null without a power meter. */
-    val power: PowerPreview? = null,
-    /** Null without electronic shifting. */
-    val shifting: ShiftingPreview? = null,
-    /** Null unless the device recorded mountain bike dynamics. */
-    val mtb: MtbPreview? = null,
-    /** The sensors paired with [device]. */
-    val sensors: ImmutableList<SensorPreview> = persistentListOf(),
-    /** The file has per-sample data to chart, published with the activity. */
-    val hasStreams: Boolean = false,
     /** Null unless it's already in the athlete's log; saving then follows [DuplicateInfo.action]. */
     val duplicate: DuplicateInfo? = null,
-)
-
-/** Revolutions per minute; the average leaves out coasting. */
-@Immutable data class CadencePreview(val avg: Int?, val max: Int?)
-
-/** Watts. Shown on the import screen only; records don't carry it yet, and some of it may need to stay private. */
-@Immutable
-data class PowerPreview(
-    val avgWatts: Int?,
-    val maxWatts: Int?,
-    val normalizedWatts: Int?,
-    val workKilojoules: Long?,
-    /** The athlete's FTP as the device had it; [intensityFactor] and [trainingStressScore] are relative to it. */
-    val ftpWatts: Int?,
-    val intensityFactor: Double?,
-    val trainingStressScore: Double?,
-)
-
-@Immutable
-data class ShiftingPreview(
-    val frontShifts: Int?,
-    val rearShifts: Int?,
-)
-
-@Immutable
-data class MtbPreview(
-    val jumps: Int?,
-    val longestHangTimeSeconds: Double?,
-    val longestJumpMeters: Double?,
-    /** Garmin's trail difficulty score. */
-    val grit: Double?,
-    /** Garmin's trail smoothness score; lower is smoother. */
-    val flow: Double?,
-)
-
-/** [model] is null when only its maker can name it; the UI then names it by [kind]. */
-@Immutable
-data class SensorPreview(
-    val kind: SensorKind,
-    val manufacturer: String?,
-    val model: String?,
-    val battery: SensorBattery?,
-    val batteryPercent: Int?,
 )
 
 /**

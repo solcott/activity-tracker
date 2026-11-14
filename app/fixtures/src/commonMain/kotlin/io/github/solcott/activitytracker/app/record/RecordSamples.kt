@@ -154,8 +154,6 @@ object ImportActivitySamples {
     private val preview =
         ImportPreview(
             fileName = "morning-ride.fit",
-            elapsed = 65.minutes,
-            device = "Garmin Edge 840",
             polyline = Fixed.POLYLINE,
             clock = null,
         )
@@ -379,7 +377,6 @@ object ImportActivitySamples {
                             preview.copy(
                                 fileName = "blue-hole.xml",
                                 polyline = null,
-                                device = "Shearwater Perdix",
                                 clock =
                                     ImportClock(
                                         LocalDateTime(2024, 10, 16, 17, 30),

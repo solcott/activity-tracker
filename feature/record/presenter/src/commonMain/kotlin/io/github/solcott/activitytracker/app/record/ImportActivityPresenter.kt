@@ -18,8 +18,6 @@ import io.github.solcott.activitytracker.activityfile.ByteArrayImportSource
 import io.github.solcott.activitytracker.activityfile.EntryRef
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
-import io.github.solcott.activitytracker.activityfile.ImportedPower
-import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.TimeZones
@@ -60,7 +58,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.textfield.clearText
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
-import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -627,19 +624,8 @@ internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones:
     val line = ActivityDraft.polylineOf(samples)
     return ImportPreview(
         fileName = fileName,
-        elapsed = elapsed,
-        device = device,
         polyline = line?.polyline,
         polylineGaps = line?.gaps?.toImmutableList(),
-        elevationLossMeters = elevationLossMeters,
-        // A run's cadence is strides, not revolutions.
-        cadence =
-            if (type.sport in PEDALLED && (avgCadence != null || maxCadence != null)) CadencePreview(avgCadence, maxCadence) else null,
-        power = power?.toPreview(),
-        shifting = shifting?.toPreview(),
-        mtb = mtb?.let { MtbPreview(it.jumps, it.longestHangTimeSeconds, it.longestJumpMeters, it.grit, it.flow) },
-        sensors = sensors.map { SensorPreview(it.kind, it.manufacturer, it.model, it.battery, it.batteryPercent) }.toImmutableList(),
-        hasStreams = streams != null,
         clock = localStart?.let { importClock(it, zone, zones) },
     )
 }
@@ -656,24 +642,3 @@ internal fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOpti
     val offset = zone.offsetAt(localStart.toInstant(zone))
     return TimeZoneOption(zone.id, if (offset.totalSeconds == 0) "UTC" else "UTC$offset")
 }
-
-private val PEDALLED = setOf(Sport.RIDE, Sport.HANDCYCLE)
-
-private const val JOULES_PER_KILOJOULE = 1000
-
-private fun ImportedPower.toPreview() =
-    PowerPreview(
-        avgWatts = avgWatts,
-        maxWatts = maxWatts,
-        normalizedWatts = normalizedWatts,
-        workKilojoules = workJoules?.let { (it / JOULES_PER_KILOJOULE).roundToLong() },
-        ftpWatts = ftpWatts,
-        intensityFactor = intensityFactor,
-        trainingStressScore = trainingStressScore,
-    )
-
-private fun ImportedShifting.toPreview() =
-    ShiftingPreview(
-        frontShifts = frontShifts,
-        rearShifts = rearShifts,
-    )

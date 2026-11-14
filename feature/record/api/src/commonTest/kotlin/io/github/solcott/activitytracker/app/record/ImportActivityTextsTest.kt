@@ -154,7 +154,7 @@ class ImportActivityTextsTest {
         val batch = ImportBatch(rows = persistentListOf(row(0, "2024-04-28 07:02", title = "Easy"), row(1, "2024-05-03 18:15")))
         val event = state(batch = batch).saveBatchEvent(source) as ImportActivityEvent.SaveBatch
         assertEquals(mapOf(1 to "default_title_morning:sport_ride"), event.defaultTitles)
-        val save = state(preview = ImportPreview("a.fit", 1.minutes, null, null, clock = null)).saveEvent(source)
+        val save = state(preview = ImportPreview("a.fit", null, clock = null)).saveEvent(source)
         assertEquals(ImportActivityEvent.Save("default_title_evening:sport_ride"), save)
     }
 
@@ -182,7 +182,7 @@ class ImportActivityTextsTest {
 
     @Test
     fun saveFollowsTheState() {
-        val preview = ImportPreview("a.fit", 1.minutes, null, null, clock = null)
+        val preview = ImportPreview("a.fit", null, clock = null)
         assertTrue(state(preview = preview).canSave)
         assertFalse(state(preview = preview.copy(duplicate = dup().copy(action = DuplicateAction.Ignore))).canSave)
         assertFalse(state(preview = preview).copy(addsRecording = true).canSave)

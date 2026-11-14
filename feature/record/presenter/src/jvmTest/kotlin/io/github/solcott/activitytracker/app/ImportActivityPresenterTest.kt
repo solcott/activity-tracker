@@ -18,10 +18,9 @@ import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.FitDecoder
-import io.github.solcott.activitytracker.activityfile.SensorBattery
-import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureUnit
 import io.github.solcott.activitytracker.app.detail.FigureValue
@@ -29,15 +28,11 @@ import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.BatchSaveRunner
-import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
-import io.github.solcott.activitytracker.app.record.MtbPreview
 import io.github.solcott.activitytracker.app.record.PartOfDay
-import io.github.solcott.activitytracker.app.record.PowerPreview
-import io.github.solcott.activitytracker.app.record.SensorPreview
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.training.ThresholdChange
@@ -133,7 +128,6 @@ class ImportActivityPresenterTest {
             val hero = assertNotNull(awaitUntil { it.page != null }.page).hero
             assertEquals(FigureValue.Distance(5000.0), hero.first { it.key == FigureKey.Distance }.value)
             assertEquals(FigureValue.Quantity(152, FigureUnit.Bpm), hero.first { it.key == FigureKey.AvgHeartRate }.value)
-            assertEquals("Garmin Fenix 7", preview.device)
             assertNotNull(preview.polyline)
             assertNull(preview.clock, "a FIT file's times are UTC")
             assertEquals(ActivityType(Sport.RUN), read.type.selected)
@@ -220,7 +214,6 @@ class ImportActivityPresenterTest {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             // Threshold changes show once the athlete's training has loaded.
             val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
-            assertTrue(read.preview!!.hasStreams)
             read.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.MUTUALS))
             val mutuals = awaitUntil { it.visibility.tierOf(DetailCategory.HEART_RATE) == Visibility.MUTUALS }
             mutuals.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
@@ -394,46 +387,49 @@ class ImportActivityPresenterTest {
         val ride = mtbRide()
         presenterTestOf({ presenter(repos, navigator, ActivityFileReader { ride }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
-            val read = awaitUntil { it.preview != null }
-            val preview = assertNotNull(read.preview)
-            assertEquals("Garmin Edge 840", preview.device)
+            val read = awaitUntil { it.page != null }
             val offered = read.visibility.categories.map { it.category }
             assertTrue(DetailCategory.DIVE !in offered && DetailCategory.PHYSIOLOGY !in offered, offered.toString())
             assertTrue(DetailCategory.POWER in offered && DetailCategory.CADENCE in offered, offered.toString())
             assertTrue(DetailCategory.GEAR !in offered, "no gear picked: $offered")
             assertEquals(false, read.visibility.runningForm, "pedalling cadence only")
-            assertEquals(82.0, preview.elevationLossMeters)
-            assertEquals(CadencePreview(75, 115), preview.cadence)
-            assertEquals(PowerPreview(180, 640, 205, 108L, 250, 0.82, 11.2), preview.power)
-            val shifting = assertNotNull(preview.shifting)
-            assertEquals(2, shifting.rearShifts)
-            assertEquals(MtbPreview(1, 0.6, 4.0, 9.5, 3.1), preview.mtb)
-            assertEquals(
-                listOf(
-                    SensorPreview(SensorKind.Power, "SRAM", null, SensorBattery.Low, null),
-                    SensorPreview(SensorKind.HeartRate, "Garmin", "HRM 200", SensorBattery.Good, 80),
-                ),
-                preview.sensors,
-            )
+            // The page draws the file's figures, from the activity it would publish.
+            val figures = pageFigures(assertNotNull(read.page))
+            val keys = figures.map { it.key }.toSet()
+            val expected =
+                setOf(
+                    FigureKey.Descent,
+                    FigureKey.AvgCadence,
+                    FigureKey.AvgPower,
+                    FigureKey.NormalizedPower,
+                    FigureKey.Jumps,
+                    FigureKey.Grit,
+                    FigureKey.Flow,
+                    FigureKey.Device,
+                    FigureKey.Sensor,
+                )
+            assertTrue(keys.containsAll(expected), "missing ${expected - keys}")
+            assertEquals(2, figures.count { it.key == FigureKey.Sensor }, figures.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun aRunHasNoPedallingCadence() = runTest {
+    fun aRunShowsNoRideFigures() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        val stepping = run.copy(records = run.records.map { it.copy(cadence = 85) })
-        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { stepping }) }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { run }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
-            val preview = assertNotNull(awaitUntil { it.preview != null }.preview)
-            assertNull(preview.cadence, "a run's cadence is strides, not revolutions")
-            assertNull(preview.power)
-            assertNull(preview.shifting)
-            assertTrue(preview.sensors.isEmpty())
+            val keys = pageFigures(assertNotNull(awaitUntil { it.page != null }.page)).map { it.key }.toSet()
+            val ride =
+                setOf(FigureKey.AvgPower, FigureKey.Shifts, FigureKey.FrontShifts, FigureKey.RearShifts, FigureKey.Jumps, FigureKey.Sensor)
+            assertTrue(keys.intersect(ride).isEmpty(), keys.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    private fun pageFigures(page: ActivityPageContent) =
+        page.hero + page.trainingLoad + page.stats.flatMap { it.rows } + page.cards.flatMap { it.headline + it.rows }
 
     @Test
     fun aZonelessClockIsPlacedInThePickedZone() = runTest {
