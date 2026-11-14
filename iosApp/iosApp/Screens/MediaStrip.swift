@@ -13,6 +13,8 @@ struct MediaStrip: View {
     var showsRoute = true
     let open: (Int32) -> Void
 
+    @Environment(\.liveMaps) private var liveMaps
+
     static let height: CGFloat = 160
     private static let gap: CGFloat = 8
     private static let corner: CGFloat = 12
@@ -42,8 +44,13 @@ struct MediaStrip: View {
 
     private var tile: RoundedRectangle { RoundedRectangle(cornerRadius: Self.corner, style: .continuous) }
 
-    private var route: some View {
-        RouteSketch { size in content.routeShape(width: size.width, height: size.height, pad: 12) }
+    /// The route on a map image in a signed-in session (`\.liveMaps`); elsewhere, as previews and snapshots draw it, the line preview.
+    @ViewBuilder private var route: some View {
+        if liveMaps, let map = content.routeMap {
+            RouteMapImage(map: map)
+        } else {
+            RouteSketch { size in content.routeShape(width: size.width, height: size.height, pad: 12) }
+        }
     }
 
     /// The shared clamp on a photo's shape, so a panorama or a tall photo stays a reasonable tile.

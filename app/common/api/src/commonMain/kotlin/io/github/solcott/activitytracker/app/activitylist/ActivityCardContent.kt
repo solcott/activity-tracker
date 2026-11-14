@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.activitylist
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.RouteShape
 import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.app.media.mediaItems
@@ -78,6 +79,9 @@ class ActivityCardContent(val activity: ActivityView, val isOwn: Boolean) {
     /** Whether it has a route the viewer was served. */
     val hasRoute: Boolean
         get() = record.polyline != null
+
+    /** Its route as a map draws it, broken at its gaps, for a native card's map image; null without one to draw. */
+    val routeMap: RouteMap? = record.polyline?.let { RouteMap.of(it, record.polylineGaps) }
 
     /** Its route placed on a tile [width] by [height] with [pad] kept clear, broken at its gaps; null without one to draw. */
     fun routeShape(width: Double, height: Double, pad: Double): RouteShape? =
