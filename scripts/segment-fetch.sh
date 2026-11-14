@@ -66,22 +66,25 @@ echo "    $trails ($(size "$trails"))"
 feature_service() { # <service url> <layer>
   echo "$1/FeatureServer/$2/query?where=1%3D1&outFields=*&geometry=$west,$south,$east,$north&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&f=json"
 }
+# Every agency layer becomes WGS 84 lines in the box. Curves (USFS) are linearized and dates kept as text, which the importer never reads,
+# and GDAL doesn't warn about picking among NAD83 -> WGS 84 transformations, whose differences of about a metre don't matter for trails.
+ogr=(-f GeoJSONSeq -t_srs EPSG:4326 -spat "$west" "$south" "$east" "$north" -spat_srs EPSG:4326
+  -nlt CONVERT_TO_LINEAR -mapFieldType "DateTime=String,Date=String,Time=String" -ct_opt WARN_ABOUT_DIFFERENT_COORD_OP=NO)
 for kind in $AGENCIES; do
   out="$dir/$kind.geojsonl"
   rm -f "$out.part"
   echo "==> $kind"
   case "$kind" in
     usfs)
-      CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.zip,.gdb,.gdbtable,.gdbtablx,.gdbindexes,.spx,.atx,.freelist ogr2ogr -f GeoJSONSeq \
-        -t_srs EPSG:4326 -spat "$west" "$south" "$east" "$north" -spat_srs EPSG:4326 "$out.part" \
+      CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.zip,.gdb,.gdbtable,.gdbtablx,.gdbindexes,.spx,.atx,.freelist ogr2ogr "${ogr[@]}" "$out.part" \
         /vsizip//vsicurl/https://data.fs.usda.gov/geodata/edw/edw_resources/fc/S_USA.TrailNFS_Publish.gdb.zip TrailNFS_Publish
       ;;
     nps)
-      ogr2ogr -f GeoJSONSeq -t_srs EPSG:4326 -spat "$west" "$south" "$east" "$north" -spat_srs EPSG:4326 "$out.part" \
+      ogr2ogr "${ogr[@]}" "$out.part" \
         "$(feature_service https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/National_Park_Service_Trails 0)"
       ;;
     blm)
-      ogr2ogr -f GeoJSONSeq -t_srs EPSG:4326 -spat "$west" "$south" "$east" "$north" -spat_srs EPSG:4326 "$out.part" \
+      ogr2ogr "${ogr[@]}" "$out.part" \
         "$(feature_service https://services1.arcgis.com/KbxwQRRfWyEYLgp4/arcgis/rest/services/BLM_Natl_GTLF_Public_Managed_Trails 2)"
       ;;
     *)
