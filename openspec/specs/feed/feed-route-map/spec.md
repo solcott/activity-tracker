@@ -7,7 +7,7 @@ How a feed card shows an activity's route: a map image on phones and desktop, dr
 ## Requirements
 
 ### Requirement: Feed cards show the route on a map
-On Android, iOS and desktop, a feed card with a route SHALL show it as a still image of the route drawn over a map. The image SHALL frame the whole route with a margin, north-up. It SHALL draw the line, breaks, dashed connectors and markers as the activity's page draws them for that viewer, so the existing route-markers, map-breaks and route-line-detail requirements hold for the image. A native iOS card SHALL show the route as the line preview instead, without a map, until native maps exist.
+On Android, iOS and desktop, a feed card with a route SHALL show it as a still image of the route drawn over a map. The image SHALL frame the whole route with a margin, north-up. It SHALL draw the line, breaks, dashed connectors and markers as the activity's page draws them for that viewer, so the existing route-markers, map-breaks and route-line-detail requirements hold for the image. A native iOS card SHALL draw its image from the system map's snapshot of the same frame.
 
 #### Scenario: Ride in the feed
 - **WHEN** a follower's feed on Android shows a ride with a route
@@ -22,8 +22,12 @@ On Android, iOS and desktop, a feed card with a route SHALL show it as a still i
 - **THEN** the map image is the first tile of its media row, at the size the row gives the map
 
 #### Scenario: Native card on iOS
-- **WHEN** a native iOS page lists a ride with a route
-- **THEN** its card draws the ride's line preview with its markers, and fetches no map tiles
+- **WHEN** a native iOS page lists a ride with a route, in a signed-in session
+- **THEN** its card shows the ride's line and markers over a map of the area it covers
+
+#### Scenario: Native previews and snapshots
+- **WHEN** a native iOS card is drawn outside a signed-in session, as previews and snapshot tests are
+- **THEN** it draws the line preview and fetches no map tiles
 
 ### Requirement: The map shows only the route the viewer was served
 A feed card's map image SHALL be drawn on the viewer's device from the polyline and breaks the viewer was served for that activity, and from nothing else. A viewer not served the activity's map SHALL see no map tile. The route SHALL NOT be sent to any service to draw the image; only the map's tiles and style are fetched.
