@@ -229,7 +229,7 @@ class EditActivityPresenterTest {
 
                     "/xrpc/com.atproto.space.createSpace" -> {
                         val tier = AtJson.parseToJsonElement(body(request)).jsonObject.getValue("skey").jsonPrimitive.content
-                        respond("""{"uri":"at://${alice.value}/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
+                        respond("""{"space":"at://${alice.value}/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
                     }
 
                     "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> respond("{}", headers = json)

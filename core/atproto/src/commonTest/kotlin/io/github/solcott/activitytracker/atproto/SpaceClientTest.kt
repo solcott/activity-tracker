@@ -80,8 +80,9 @@ class SpaceClientTest {
             request.headers["Signature-Input"],
         )
         assertTrue(request.headers["Signature"].orEmpty().startsWith("atproto-space-credential=:"))
-        val wantMac = request.headers["Atproto-Space-Want-Mac"].orEmpty()
-        assertTrue(wantMac.startsWith("""type="atproto-space-record", ver=1, key_share="did:key:z"""), wantMac)
+        val wantMac = request.headers["Accept-Signature"].orEmpty()
+        assertTrue(wantMac.startsWith("""mac=("atproto-space-record";sf);keyid="did:key:z"""), wantMac)
+        assertTrue(wantMac.endsWith(""";tag="atproto-space-record""""), wantMac)
         assertEquals(f.aliceSpace.value, request.url.parameters["space"])
         assertEquals("self", request.url.parameters["rkey"])
     }
@@ -94,7 +95,7 @@ class SpaceClientTest {
         assertEquals(1, f.exchanges)
         val requests = f.requestsTo(getRecord)
         assertEquals(3, requests.size)
-        assertEquals(3, requests.map { it.headers["Atproto-Space-Want-Mac"] }.toSet().size, "a fresh key share per request")
+        assertEquals(3, requests.map { it.headers["Accept-Signature"] }.toSet().size, "a fresh key share per request")
     }
 
     @Test
@@ -140,8 +141,8 @@ class SpaceClientTest {
 
     @Test
     fun refusedCredentialIsNoAccess() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
-            respondJson("""{"error":"UserNotAuthorized","message":"not a mutual"}""", HttpStatusCode.BadRequest)
+        f.network.on("alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync") {
+            respondJson("""{"error":"AccountNotAuthorized","message":"not a mutual"}""", HttpStatusCode.BadRequest)
         }
         assertEquals(SpaceRead.NoAccess, viewer().getRecord(f.aliceSpace, f.alice, collection, "self"))
         assertTrue(f.requestsTo(getRecord).isEmpty())
@@ -149,7 +150,7 @@ class SpaceClientTest {
 
     @Test
     fun refusalAnsweredAsSpaceNotFoundIsNotFound() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync") {
             respondJson("""{"error":"SpaceNotFound","message":"space not found"}""", HttpStatusCode.BadRequest)
         }
         assertEquals(SpaceRead.NotFound, viewer().getRecord(f.aliceSpace, f.alice, collection, "self"))
@@ -158,7 +159,7 @@ class SpaceClientTest {
 
     @Test
     fun undisclosedRefusalIsNoAccess() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync") {
             respondJson("""{"error":"NotAuthorized","message":"no"}""", HttpStatusCode.BadRequest)
         }
         assertEquals(SpaceRead.NoAccess, viewer().getRecord(f.aliceSpace, f.alice, collection, "self"))
@@ -199,7 +200,7 @@ class SpaceClientTest {
         assertEquals(0, f.exchanges)
         val request = f.requestsTo(getRecord).single()
         assertNull(request.headers["Atproto-Space-Audience"])
-        assertNull(request.headers["Atproto-Space-Want-Mac"])
+        assertNull(request.headers["Accept-Signature"])
     }
 
     @Test
@@ -228,7 +229,7 @@ class SpaceClientTest {
 
     @Test
     fun createSpaceSendsThePolicy() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.space.createSpace") { respondJson("""{"uri":"${f.aliceSpace.value}"}""") }
+        f.network.on("alicepds.test/xrpc/com.atproto.space.createSpace") { respondJson("""{"space":"${f.aliceSpace.value}"}""") }
         val result = owner().createSpace(Nsid.SPACE_ATHLETE, "mutuals", SpacePolicy.Managed("did:web:appview.test#activitytracker_space"))
         assertEquals(CreateSpaceResult.Created(f.aliceSpace), result)
         val body = f.requestsTo("alicepds.test/xrpc/com.atproto.space.createSpace").single().jsonBody()
@@ -252,7 +253,7 @@ class SpaceClientTest {
     fun getSpaceReturnsThePolicy() = runTest {
         f.network.on("alicepds.test/xrpc/com.atproto.space.getSpace") {
             respondJson(
-                """{"uri":"${f.aliceSpace.value}","policy":""" +
+                """{"space":"${f.aliceSpace.value}","policy":""" +
                     """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}""",
             )
         }

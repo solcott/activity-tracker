@@ -162,7 +162,7 @@ class ProfileRepositoryTest {
                     "pds.test/xrpc/com.atproto.space.createSpace" -> {
                         val tier = AtJson.parseToJsonElement(body()).jsonObject.getValue("skey").jsonPrimitive.content
                         spacesEnsured += tier
-                        respond("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
+                        respond("""{"space":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
                     }
 
                     "pds.test/xrpc/com.atproto.space.getRecord" -> {
@@ -219,8 +219,8 @@ class ProfileRepositoryTest {
                         )
                     }
 
-                    "bobpds.test/xrpc/com.atproto.space.getSpaceCredential" -> {
-                        if (bobRefusesAlice) error(SpaceErrors.USER_NOT_AUTHORIZED)
+                    "bobpds.test/xrpc/com.atproto.space.authorizeSpaceSync" -> {
+                        if (bobRefusesAlice) error(SpaceErrors.ACCOUNT_NOT_AUTHORIZED)
                         else respond("""{"credential":"$credential"}""", headers = json)
                     }
 
@@ -278,12 +278,12 @@ class ProfileRepositoryTest {
         val p = request.url.parameters
         val uri = AtUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
         val cid = Cid(MEMBER_RECORD_CID)
-        val mac = SpaceMacHost.recordMacHeader(bobKem(), request.headers[SpaceMac.WANT_MAC_HEADER], uri, cid).orEmpty()
+        val mac = SpaceMacHost.recordMacHeaders(bobKem(), request.headers[SpaceMac.ACCEPT_SIGNATURE], uri, cid).orEmpty()
         return respond(
             """{"uri":"$uri","cid":"${cid.value}","value":${
                 AtJson.encodeToString(PrivateDetailsRecord.serializer(), PrivateDetailsRecord(details))
             }}""",
-            headers = headersOf("Content-Type" to listOf("application/json"), SpaceMac.MAC_HEADER to listOf(mac)),
+            headers = headersOf("Content-Type" to listOf("application/json"), *mac.map { (k, v) -> k to listOf(v) }.toTypedArray()),
         )
     }
 

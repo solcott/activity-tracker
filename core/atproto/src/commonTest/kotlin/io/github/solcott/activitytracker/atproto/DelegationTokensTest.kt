@@ -62,9 +62,9 @@ class DelegationTokensTest {
         val credential = SpaceCredentials(source, f.network.client, f.identity, { key }, f.clock).get(f.aliceSpace)
         assertTrue(credential.token.isNotEmpty())
         assertEquals(emptyList(), f.requestsTo("pds.test/xrpc/com.atproto.space.getDelegationToken"), "no viewer PDS involved")
-        val exchange = f.requestsTo("alicepds.test/xrpc/com.atproto.space.getSpaceCredential").single()
+        val exchange = f.requestsTo("alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync").single()
         val body = (exchange.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
         assertTrue(""""delegationToken":"own-token-for-mutuals"""" in body, body)
-        assertTrue(""""credentialKid":"${key.didKey}"""" in body, body)
+        assertTrue(""""credentialKey":"${key.didKey}"""" in body, body)
     }
 }

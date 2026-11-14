@@ -16,12 +16,18 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import java.util.Base64
 import kotlin.test.Test
@@ -31,10 +37,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -52,10 +54,14 @@ class SpaceSyncTest : SpaceSyncFixture() {
         runDue()
 
         assertEquals(mapOf("3kf1" to (Visibility.FOLLOWERS to aliceFollowers.value)), activities())
+        // The credential request registers the AppView for the space's updates, with a token of its own for that space.
         val registration = pds.registrations.single()
         assertEquals(aliceFollowers.value, registration["space"]?.jsonPrimitive?.content)
-        assertEquals("$service#activitytracker_space_syncer", registration["service"]?.jsonPrimitive?.content)
-        val exchange = pds.requests.first { it.url.encodedPath.endsWith("getSpaceCredential") }
+        val notify = registration["notify"]!!.jsonObject
+        assertEquals(ENDPOINT, notify["endpoint"]?.jsonPrimitive?.content)
+        assertEquals(tokenOf(aliceFollowers), notify["token"]?.jsonPrimitive?.content)
+        assertTrue(tokenOf(aliceFollowers)!!.length >= 40, "32 random bytes")
+        val exchange = pds.requests.first { it.url.encodedPath.endsWith("authorizeSpaceSync") }
         assertEquals(null, exchange.headers[HttpHeaders.Authorization], "the delegation travels in the body")
         val delegation = exchange.jsonBody()["delegationToken"]!!.jsonPrimitive.content
         val (header, payload) =
@@ -66,8 +72,8 @@ class SpaceSyncTest : SpaceSyncFixture() {
         assertEquals(pds.rev(aliceFollowers), syncState(aliceFollowers)!![SpaceSync.repoRev])
         val pulls = pds.requests.filter { it.url.encodedPath.endsWith("listRepoOps") }
         assertTrue(pulls.isNotEmpty())
-        val shares = pulls.map { it.headers[SpaceMac.WANT_MAC_HEADER].orEmpty() }
-        assertTrue(shares.all { it.startsWith("""type="atproto-space-repo", ver=1, key_share="did:key:z""") }, shares.toString())
+        val shares = pulls.map { it.headers[SpaceMac.ACCEPT_SIGNATURE].orEmpty() }
+        assertTrue(shares.all { it.startsWith("""mac=("atproto-space-commit";sf);keyid="did:key:z""") }, shares.toString())
         assertEquals(shares.size, shares.toSet().size, "a fresh key share per page")
     }
 
@@ -182,14 +188,20 @@ class SpaceSyncTest : SpaceSyncFixture() {
         runDue()
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
         // Not yet due again, so only a valid notification triggers a pull.
-        val before = pds.requests.size
 
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, issuer = null).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, issuer = bob).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, aud = config.managingAppService).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, aud = service).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, lxm = null).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, lxm = NotifySpace.method.nsid).status)
+        // These calls carry no service auth: only the token the AppView issued for this space admits them.
+        client.notifySpace(space(alice, AthleteSpace.MUTUALS))
+        runDue()
+        val mutualsToken = tokenOf(space(alice, AthleteSpace.MUTUALS))
+        val before = pds.requests.size
+        assertEquals(HttpStatusCode.BadRequest, client.notifyWrite(aliceFollowers, token = null).status)
+        assertEquals(HttpStatusCode.BadRequest, client.notifyWrite(aliceFollowers, token = "guess").status)
+        assertEquals(HttpStatusCode.BadRequest, client.notifyWrite(aliceFollowers, token = tokenOf(aliceFollowers)!!.dropLast(1)).status)
+        assertEquals(HttpStatusCode.BadRequest, client.notifyWrite(aliceFollowers, token = mutualsToken).status, "another space's")
+        assertEquals(
+            HttpStatusCode.BadRequest,
+            client.notifyWrite(space(carol, AthleteSpace.FOLLOWERS), token = "guess", rev = "3m").status,
+        )
         runDue()
         assertEquals(before, pds.requests.size, "nothing fetched")
         assertEquals(emptyMap(), activities())
@@ -232,12 +244,89 @@ class SpaceSyncTest : SpaceSyncFixture() {
         client.notifySpace(aliceFollowers)
         runDue()
         assertEquals(1, pds.registrations.size)
-        clock.now += 15.minutes
+        // The registration lasts as long as its credential, 10 minutes, so each sync within 6 of its expiry reauthorizes.
+        clock.now += 3.minutes
+        syncer.sync(aliceFollowers)
+        assertEquals(1, pds.registrations.size, "7 minutes left")
+        clock.now += 2.minutes
+        syncer.sync(aliceFollowers)
+        assertEquals(2, pds.registrations.size, "5 minutes left")
+        val (first, second) = pds.registrations.map { it["notify"] }
+        assertEquals(first, second, "the same endpoint and token, so it renews the one registration")
+        assertEquals(
+            (clock.now + 10.minutes).toEpochMilliseconds() / 1000,
+            syncState(aliceFollowers)!![SpaceSync.registeredUntil]!! / 1000,
+            "registered until the new credential expires",
+        )
+    }
+
+    @Test
+    fun theRegistrationIsConfirmedOnlyForItsToken() = testApplication {
+        start()
+        client.notifySpace(aliceFollowers)
         runDue()
-        assertEquals(1, pds.registrations.size, "24 h left")
-        clock.now += 22.hours
+        suspend fun confirm(token: String?, space: SpaceUri = aliceFollowers) =
+            client.post("/xrpc/${Space.ConfirmRegistration.method.nsid}") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"space":"${space.value}","token":"${token.orEmpty()}","challenge":"c4a11enge"}""")
+            }
+
+        val confirmed = confirm(tokenOf(aliceFollowers))
+        assertEquals(HttpStatusCode.OK, confirmed.status)
+        assertEquals("""{"challenge":"c4a11enge"}""", confirmed.bodyAsText())
+        assertEquals(HttpStatusCode.BadRequest, confirm("guess").status)
+        assertEquals(HttpStatusCode.BadRequest, confirm(null).status)
+        assertEquals(HttpStatusCode.BadRequest, confirm(tokenOf(aliceFollowers), space(alice, AthleteSpace.MUTUALS)).status)
+    }
+
+    @Test
+    fun anUnconfirmedRegistrationBacksOffAndKeepsTheSpace() = testApplication {
+        start()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        client.notifySpace(aliceFollowers)
         runDue()
-        assertEquals(2, pds.registrations.size, "within 2 h of expiring")
+        for (error in listOf(SpaceErrors.REGISTRATION_NOT_CONFIRMED, SpaceErrors.UPSTREAM_FAILURE)) {
+            pds.credentialErrors[aliceFollowers] = error
+            credentials.invalidate(aliceFollowers)
+            syncer.sync(aliceFollowers)
+            assertEquals(setOf("3kf1"), activities().keys, error)
+            assertEquals(1, syncState(aliceFollowers)!![SpaceSync.failures], error)
+            pds.credentialErrors.remove(aliceFollowers)
+            syncer.sync(aliceFollowers)
+            assertEquals(0, syncState(aliceFollowers)!![SpaceSync.failures], error)
+        }
+    }
+
+    @Test
+    fun aLapsedRegistrationReauthorizesAtOnce() = testApplication {
+        start()
+        client.notifySpace(aliceFollowers)
+        runDue()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        val expired = """{"${'$'}type":"com.atproto.space.notifySpaceUpdate#registrationExpired","spaceRev":"${pds.rev(aliceFollowers)}"}"""
+        assertEquals(HttpStatusCode.OK, client.notifySpaceUpdate(aliceFollowers, expired).status)
+        runDue()
+        assertEquals(2, pds.registrations.size, "registered again, though the credential hadn't expired")
+        assertEquals(setOf("3kf1"), activities().keys, "and caught up")
+    }
+
+    @Test
+    fun otherReposAndUnknownUpdatesFetchNothing() = testApplication {
+        start()
+        client.notifySpace(aliceFollowers)
+        runDue()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        val before = pds.requests.size
+        assertEquals(HttpStatusCode.OK, client.notifyWrite(aliceFollowers, repo = bob).status)
+        val removed = """{"${'$'}type":"com.atproto.space.defs#repoRemoved","repo":"$bob","spaceRev":"3m"}"""
+        assertEquals(HttpStatusCode.OK, client.notifySpaceUpdate(aliceFollowers, removed).status)
+        assertEquals(
+            HttpStatusCode.OK,
+            client.notifySpaceUpdate(aliceFollowers, """{"${'$'}type":"com.atproto.space.defs#repoMoved"}""").status,
+        )
+        runDue()
+        assertEquals(before, pds.requests.size, "nothing fetched")
+        assertEquals(emptyMap(), activities())
     }
 
     @Test
@@ -258,7 +347,7 @@ class SpaceSyncTest : SpaceSyncFixture() {
     }
 
     @Test
-    fun deletionNotificationDropsTheSpaceAtOnce() = testApplication {
+    fun deletionNoticeDropsTheSpaceOnlyOnceAuthorizationConfirmsIt() = testApplication {
         start()
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
         client.notifySpace(aliceFollowers)
@@ -270,15 +359,22 @@ class SpaceSyncTest : SpaceSyncFixture() {
         assertEquals(setOf("3kf1"), activities().keys)
         assertEquals(setOf("3kc1"), comments().keys)
 
-        pds.deleted += aliceFollowers
-        // No sync runs: the notification alone drops the space, before it's answered.
+        // The notice alone drops nothing: a space that isn't gone keeps its data.
         assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(aliceFollowers).status)
+        assertEquals(setOf("3kf1"), activities().keys)
+        runDue()
+        assertEquals(setOf("3kf1"), activities().keys, "reauthorized, and the space is still there")
+
+        // Once deleted, the notice makes it due at once, and the reauthorization's SpaceDeleted drops it.
+        pds.deleted += aliceFollowers
+        val token = tokenOf(aliceFollowers)
+        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(aliceFollowers).status)
+        runDue()
         assertEquals(emptyMap(), activities())
         assertEquals(null, syncState(aliceFollowers))
         assertEquals(setOf("3kc1"), comments().keys, "bob's space is untouched")
-        // A repeat, and a space the AppView never synced, succeed with nothing to do.
-        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(aliceFollowers).status)
-        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(space(alice, AthleteSpace.MUTUALS)).status)
+        // A repeat now names a space the AppView doesn't sync: refused, which unregisters it at the host.
+        assertEquals(HttpStatusCode.BadRequest, client.notifySpaceDeleted(aliceFollowers, token = token).status)
         assertEquals(setOf(bobInteractions.value), transaction(db) { SpaceSync.selectAll().map { it[SpaceSync.space] }.toSet() })
     }
 
@@ -288,32 +384,15 @@ class SpaceSyncTest : SpaceSyncFixture() {
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
         client.notifySpace(aliceFollowers)
         runDue()
+        pds.deleted += aliceFollowers
+        val before = pds.requests.size
 
-        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, issuer = null).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, issuer = bob).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, aud = config.managingAppService).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, aud = service).status)
+        assertEquals(HttpStatusCode.BadRequest, client.notifySpaceDeleted(aliceFollowers, token = null).status)
+        assertEquals(HttpStatusCode.BadRequest, client.notifySpaceDeleted(aliceFollowers, token = "guess").status)
+        runDue()
+        assertEquals(before, pds.requests.size, "not made due")
         assertEquals(setOf("3kf1"), activities().keys)
         assertTrue(syncState(aliceFollowers) != null, "still synced")
-    }
-
-    @Test
-    fun aDeletionDuringAPullLeavesNothingBehind() = testApplication {
-        start()
-        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
-        client.notifySpace(aliceFollowers)
-        runDue()
-        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity())
-        var purge: Job? = null
-        pds.duringNextPull = {
-            // Runs until it waits on the space's lock, which the pull holds, so it purges only after the pull has indexed 3kf2.
-            purge = CoroutineScope(Job()).launch(start = CoroutineStart.UNDISPATCHED) { syncer.deleted(aliceFollowers) }
-        }
-        client.notifyWrite(aliceFollowers)
-        runDue()
-        runBlocking { purge!!.join() }
-        assertEquals(emptyMap(), activities())
-        assertEquals(null, syncState(aliceFollowers))
     }
 
     @Test
@@ -322,17 +401,22 @@ class SpaceSyncTest : SpaceSyncFixture() {
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
         client.notifySpace(aliceFollowers)
         runDue()
+        val oldToken = tokenOf(aliceFollowers)
+        pds.deleted += aliceFollowers
         client.notifySpaceDeleted(aliceFollowers)
+        runDue()
+        assertEquals(null, syncState(aliceFollowers))
         val registrations = pds.registrations.size
 
         // Alice deletes the space and creates it again at the same URI, holding only a new activity.
+        pds.deleted -= aliceFollowers
         pds.delete(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1")
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity())
-        credentials.invalidate(aliceFollowers)
         client.notifySpace(aliceFollowers)
         runDue()
         assertEquals(setOf("3kf2"), activities().keys)
         assertEquals(registrations + 1, pds.registrations.size, "registered again")
+        assertTrue(tokenOf(aliceFollowers) != oldToken, "with a new token")
     }
 
     @Test

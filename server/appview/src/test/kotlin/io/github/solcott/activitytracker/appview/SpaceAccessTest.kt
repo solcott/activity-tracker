@@ -11,7 +11,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
-import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckUserAccess
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -31,7 +31,7 @@ import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 
-/** `checkUserAccess`: alice's PDS asks whether a user may read or write one of her tier spaces. */
+/** `checkAccess`: alice's PDS asks whether an account may read and write one of her tier spaces. */
 class SpaceAccessTest {
     private val service = "did:web:localhost%3A8081"
     private val alice = "did:plc:alice"
@@ -48,7 +48,7 @@ class SpaceAccessTest {
     private val indexer = Indexer(db, HandleLookup { did -> did.value.substringAfterLast(':') + ".test" })
     private val config = AppViewConfig.fromEnv(emptyMap())
     private val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
-    private val nsid = CheckUserAccess.method.nsid
+    private val nsid = CheckAccess.method.nsid
 
     private fun commit(did: String, collection: String, rkey: String, record: String?, op: String = "create") = runBlocking {
         indexer.handle(
@@ -85,35 +85,45 @@ class SpaceAccessTest {
     /** A callout as alice's PDS makes it: signed by [issuer], addressed to [aud]. */
     @Suppress("LongParameterList") // One named default per part of the callout a test varies.
     private suspend fun HttpClient.check(
-        user: String,
+        repo: String?,
         tier: String = AthleteSpace.MUTUALS,
-        access: String? = CheckUserAccess.READ,
-        space: String = space(tier),
+        space: String? = space(tier),
         issuer: String? = alice,
         aud: String = config.managingAppService,
         clientId: String? = null,
         lxm: String? = nsid,
     ): HttpResponse =
         get("/xrpc/$nsid") {
-            parameter("space", space)
-            parameter("user", user)
-            access?.let { parameter("access", it) }
+            space?.let { parameter("space", it) }
+            repo?.let { parameter("repo", it) }
             clientId?.let { parameter("clientId", it) }
             issuer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, lxm)}") }
         }
 
-    @Suppress("LongParameterList") // As check.
-    private suspend fun HttpClient.authorized(
-        user: String,
+    /** The managing app's whole answer about [repo]. */
+    private suspend fun HttpClient.access(
+        repo: String?,
         tier: String = AthleteSpace.MUTUALS,
-        access: String = CheckUserAccess.READ,
+        space: String = space(tier),
+        issuer: String = alice,
+        clientId: String? = null,
+    ): CheckAccess.Output {
+        val response = check(repo, tier, space, issuer, clientId = clientId)
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        return AtJson.decodeFromString(CheckAccess.method.output, response.bodyAsText())
+    }
+
+    /** Whether [repo] may read, asserting that nobody may ever write. */
+    private suspend fun HttpClient.authorized(
+        repo: String?,
+        tier: String = AthleteSpace.MUTUALS,
         space: String = space(tier),
         issuer: String = alice,
         clientId: String? = null,
     ): Boolean {
-        val response = check(user, tier, access, space, issuer, clientId = clientId)
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        return AtJson.decodeFromString(CheckUserAccess.method.output, response.bodyAsText()).authorized
+        val answer = access(repo, tier, space, issuer, clientId)
+        assertEquals(false, answer.write, "only the athlete writes to their spaces")
+        return answer.read
     }
 
     private fun ApplicationTestBuilder.start() {
@@ -328,29 +338,28 @@ class SpaceAccessTest {
         assertEquals(false, client.authorized(bob, AthleteSpace.INTERACTIONS), "bob is a mutual")
         assertEquals(false, client.authorized(carol, AthleteSpace.INTERACTIONS))
         assertEquals(true, client.authorized(config.serviceDid, AthleteSpace.INTERACTIONS))
-        assertEquals(false, client.authorized(config.serviceDid, AthleteSpace.INTERACTIONS, access = CheckUserAccess.WRITE))
-        assertEquals(false, client.authorized(bob, AthleteSpace.INTERACTIONS, access = CheckUserAccess.WRITE))
+        assertEquals(false, client.access(config.serviceDid, AthleteSpace.INTERACTIONS).write)
+        assertEquals(false, client.access(bob, AthleteSpace.INTERACTIONS).write)
     }
 
     @Test
     fun appViewIsDeniedWritesUnknownTiersAndOtherTypes() = testApplication {
         start()
         val appView = config.serviceDid
-        assertEquals(false, client.authorized(appView, AthleteSpace.FOLLOWERS, access = CheckUserAccess.WRITE))
-        assertEquals(false, client.authorized(appView, AthleteSpace.SELF, access = CheckUserAccess.WRITE))
+        assertEquals(false, client.access(appView, AthleteSpace.FOLLOWERS).write)
+        assertEquals(false, client.access(appView, AthleteSpace.SELF).write)
         assertEquals(false, client.authorized(appView, "friends"))
         assertEquals(false, client.authorized(appView, space = space(AthleteSpace.SELF, type = "app.activitytracker.space.other")))
         assertEquals(false, client.authorized(appView, AthleteSpace.SELF, issuer = carol), "only the authority's PDS asks")
     }
 
     @Test
-    fun onlyReadsAreEverAuthorized() = testApplication {
+    fun nobodyMayEverWrite() = testApplication {
         start()
         follow(alice, bob)
         follow(bob, alice)
-        assertEquals(false, client.authorized(bob, access = CheckUserAccess.WRITE))
-        assertEquals(false, client.authorized(bob, AthleteSpace.PUBLIC, access = CheckUserAccess.WRITE))
-        assertEquals(false, client.authorized(bob, access = "admin"))
+        assertEquals(false, client.access(bob).write)
+        assertEquals(false, client.access(bob, AthleteSpace.PUBLIC).write)
     }
 
     @Test
@@ -373,7 +382,7 @@ class SpaceAccessTest {
     @Test
     fun malformedParamsAreBadRequests() = testApplication {
         start()
-        assertEquals(HttpStatusCode.BadRequest, client.check(bob, access = null).status)
+        assertEquals(HttpStatusCode.BadRequest, client.check(bob, space = null).status)
         assertEquals(HttpStatusCode.BadRequest, client.check("bob.test").status)
         assertEquals(HttpStatusCode.BadRequest, client.check(bob, space = "at://$alice/app.activitytracker.feed.activity/3k").status)
     }
@@ -386,18 +395,30 @@ class SpaceAccessTest {
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, aud = "$service#activity_appview").status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = null).status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = GetProfile.method.nsid).status)
-        assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = "com.atproto.simplespace.checkUserAccess").status)
+        assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = "com.atproto.managedspace.checkUserAccess").status)
+    }
+
+    @Test
+    fun noAccountReadsNothing() = testApplication {
+        start()
+        follow(alice, bob)
+        follow(bob, alice)
+        // A request with no delegation token is asked about with no repo: no athlete space, public included, is readable anonymously.
+        for (tier in
+            listOf(AthleteSpace.PUBLIC, AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF, AthleteSpace.INTERACTIONS)) {
+            assertEquals(CheckAccess.Output(read = false, write = false), client.access(null, tier), tier)
+        }
     }
 
     @Test
     fun theOldMethodNameIsNotServed() = testApplication {
         start()
-        val old = "com.atproto.simplespace.checkUserAccess"
+        val old = "com.atproto.managedspace.checkUserAccess"
         val response =
             client.get("/xrpc/$old") {
                 parameter("space", space(AthleteSpace.MUTUALS))
                 parameter("user", bob)
-                parameter("access", CheckUserAccess.READ)
+                parameter("access", "read")
                 header(HttpHeaders.Authorization, "Bearer ${keys.getValue(alice).serviceJwt(alice, config.managingAppService, old)}")
             }
         assertEquals(HttpStatusCode.NotFound, response.status)

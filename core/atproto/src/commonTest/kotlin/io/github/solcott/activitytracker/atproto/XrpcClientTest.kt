@@ -49,10 +49,10 @@ class XrpcClientTest {
                 headersOf(HttpHeaders.ContentType to listOf("application/json"), "Atproto-Space-Mac" to listOf("type=\"t\"")),
             )
         }
-        val response = client.queryWithHeaders(GetTimeline.method, GetTimeline.Params(), mapOf("Atproto-Space-Want-Mac" to "ver=1"))
+        val response = client.queryWithHeaders(GetTimeline.method, GetTimeline.Params(), mapOf("Accept-Signature" to "mac=()"))
         assertEquals("next", response.value.cursor)
         assertEquals("type=\"t\"", response.headers["atproto-space-mac"])
-        assertEquals("ver=1", network.requests.single().headers["Atproto-Space-Want-Mac"])
+        assertEquals("mac=()", network.requests.single().headers["Accept-Signature"])
     }
 
     @Test

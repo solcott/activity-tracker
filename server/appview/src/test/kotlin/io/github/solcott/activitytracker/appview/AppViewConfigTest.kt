@@ -24,12 +24,6 @@ class AppViewConfigTest {
     }
 
     @Test
-    fun syncerServiceFollowsServiceDid() {
-        val config = AppViewConfig.fromEnv(mapOf("APPVIEW_DID" to "did:web:appview.example.com"))
-        assertEquals("did:web:appview.example.com#activitytracker_space_syncer", config.syncerService)
-    }
-
-    @Test
     fun signingKeyIsOptional() {
         assertEquals(null, AppViewConfig.fromEnv(emptyMap()).signingKey)
         assertEquals(null, AppViewConfig.fromEnv(mapOf("APPVIEW_SIGNING_KEY" to "  ")).signingKey)

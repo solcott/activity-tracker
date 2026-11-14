@@ -24,7 +24,6 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.util.Base64
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -33,14 +32,15 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * The Spaces side of an athlete's PDS, as the AppView's syncer sees it: credentials, `registerNotify`, `listRepoOps` and `listRecords` for
- * the authority's repo in each space. Every athlete is on `http://<name>pds.test`, resolved through `http://plc.test`, whose DID document
- * publishes a `#atproto_kem` key ([rotateKem] replaces it). `listRepoOps` answers as the Oct 22 alpha does: it requires
- * `Atproto-Space-Want-Mac` and MACs the commit, which [macMode] and [commitSpace] can spoil. The commit's `data` is the repo's real set
- * hash ([LtHash]), as the Oct 29 alpha's is, which [clear] and [migrate] change the way `clearRecords` and an account move do. Writes go
- * straight into the op log; nothing is sent to the AppView unless a test calls `notifyWrite` itself.
+ * The Spaces side of an athlete's PDS, as the AppView's syncer sees it: `authorizeSpaceSync` (recording each `notify` registration it
+ * carries), `listRepoOps` and `listRecords` for the authority's repo in each space. Every athlete is on `http://<name>pds.test`, resolved
+ * through `http://plc.test`, whose DID document publishes a `#atproto_kem` key ([rotateKem] replaces it). `listRepoOps` answers as the Nov
+ * 12 alpha does: it requires an `Accept-Signature` MAC request, answers `InvalidSpaceMac` without one and `RepoNotFound` for a repo never
+ * written, and MACs the commit on every page, which [macMode] and [commitSpace] can spoil. The commit's `data` is the repo's real set hash
+ * ([LtHash]), which [clear] and [migrate] change the way `clearRecords` and an account move do. Writes go straight into the op log; nothing
+ * is sent to the AppView unless a test calls `notifySpaceUpdate` itself, and registrations are taken as confirmed.
  */
-/** [clock] dates notification registrations; credentials use real time, as [SpaceCredentials] reads them with its own clock. */
+/** [clock] dates the credentials it issues, so pass the same clock to the [SpaceCredentials] reading them. */
 class FakeSpacesPds(private val clock: Clock = Clock.System) {
     private class Op(
         val rev: String,
@@ -64,13 +64,16 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
     private val repos = mutableMapOf<SpaceUri, Repo>()
     private var tick = 0
 
-    /** Spaces whose `getSpaceCredential` answers `SpaceDeleted`. */
+    /** Spaces whose `authorizeSpaceSync` answers `SpaceDeleted`. */
     val deleted = mutableSetOf<SpaceUri>()
 
-    /** Spaces whose `getSpaceCredential` answers `SpaceNotFound`: missing, or refusing the AppView (the managing app unreachable). */
+    /** Spaces whose `authorizeSpaceSync` answers `SpaceNotFound`: missing, or refusing the AppView. */
     val notFound = mutableSetOf<SpaceUri>()
 
-    /** Spaces whose `getSpaceCredential` answers with the given error, such as `RepoTakendown` for a suspended authority. */
+    /**
+     * Spaces whose `authorizeSpaceSync` answers with the given error, such as `RepoTakendown` for a suspended authority or
+     * `UpstreamFailure` when the managing app can't be reached.
+     */
     val credentialErrors = mutableMapOf<SpaceUri, String>()
 
     /** Spaces whose commits carry a `data` their records don't fold to, as a host that lost track would. */
@@ -98,7 +101,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         /** With some other key: a forged response, or a stale one. */
         WRONG_KEY,
 
-        /** No `Atproto-Space-Mac` at all. */
+        /** No MAC headers at all. */
         OMITTED,
     }
 
@@ -116,7 +119,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         kems[did.value] = SpaceMacHost.generateKemKey()
     }
 
-    /** Every `registerNotify` input, in order. */
+    /** Every `authorizeSpaceSync` input that carried `notify`, in order: registrations and their renewals. */
     val registrations = mutableListOf<JsonObject>()
     val requests = mutableListOf<HttpRequestData>()
 
@@ -147,7 +150,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         repo.head = nextRev()
     }
 
-    /** The current revision of [space]'s authority repo, for a `notifyWrite`. */
+    /** The current revision of [space]'s authority repo, for a `repoWrite` notice. */
     fun rev(space: SpaceUri): String = repo(space).head!!
 
     private fun write(space: SpaceUri, collection: String, rkey: String, record: Record?) {
@@ -174,31 +177,31 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         when {
             host == "plc.test" -> didDocument(path.removePrefix("/"))
             unreachable.any { host == "${name(it.value)}pds.test" } -> throw IOException("$host unreachable")
-            path == "/xrpc/com.atproto.space.getSpaceCredential" -> {
+            path == "/xrpc/com.atproto.space.authorizeSpaceSync" -> {
                 val input = body(request)
                 val space = SpaceUri(input.getValue("space").jsonPrimitive.content)
-                val kid = input["credentialKid"]?.jsonPrimitive?.content.orEmpty()
+                val key = input["credentialKey"]?.jsonPrimitive?.content.orEmpty()
                 when {
-                    // The Oct 22 exchange is unauthenticated and binds the credential to a P-256 did:key.
-                    request.headers[HttpHeaders.Authorization] != null || !kid.startsWith(P256_DID_KEY) -> error("InvalidRequest")
+                    // The exchange is unauthenticated and binds the credential to a P-256 did:key.
+                    request.headers[HttpHeaders.Authorization] != null || !key.startsWith(P256_DID_KEY) -> error("InvalidRequest")
+                    // A deleted space answers so before anything else is checked.
                     space in deleted -> error("SpaceDeleted")
                     space in notFound -> error("SpaceNotFound")
                     space in credentialErrors -> error(credentialErrors.getValue(space))
-                    else -> json("""{"credential":"${credential()}"}""")
+                    else -> {
+                        if (input["notify"] != null) registrations += input
+                        val spaceRev = repo(space).head?.let { ""","spaceRev":"$it"""" }.orEmpty()
+                        json("""{"credential":"${credential()}"$spaceRev}""")
+                    }
                 }
-            }
-            path == "/xrpc/com.atproto.space.registerNotify" -> {
-                registrations += body(request)
-                json("""{"expiresAt":"${clock.now() + 24.hours}"}""")
             }
             path == "/xrpc/com.atproto.space.listRepoOps" -> {
                 val params = request.url.parameters
-                val wantMac = request.headers[SpaceMac.WANT_MAC_HEADER]
-                if (wantMac == null) return@run error("BadSpaceMac")
-                val (answer, mac) = listRepoOps(params, wantMac)
+                val accept = request.headers[SpaceMac.ACCEPT_SIGNATURE] ?: return@run error("InvalidSpaceMac")
+                val (answer, mac) = listRepoOps(params, accept) ?: return@run error("RepoNotFound")
                 // The write lands after the log was read, as a notification racing a pull would.
                 if (params["since"] != null) duringNextPull?.also { duringNextPull = null }?.invoke()
-                json(answer.toString(), extraHeaders = listOfNotNull(mac?.let { SpaceMac.MAC_HEADER to it }))
+                json(answer.toString(), extraHeaders = mac.orEmpty().toList())
             }
             path == "/xrpc/com.atproto.space.listRecords" -> {
                 duringNextListing?.also { duringNextListing = null }?.invoke()
@@ -217,26 +220,23 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         )
 
     /**
-     * The ops after `since`, values and all unless `excludeValues`, and the head as the commit, with the `Atproto-Space-Mac` for it under
-     * [macMode] (none when there's no commit).
+     * The ops after `since`, values and all unless `excludeValues`, and the head as the commit, with its MAC headers under [macMode]; null
+     * for a repo never written.
      */
-    private suspend fun listRepoOps(params: Parameters, wantMac: String): Pair<JsonObject, String?> {
+    private suspend fun listRepoOps(params: Parameters, accept: String): Pair<JsonObject, Map<String, String>?>? {
         val space = SpaceUri(params["space"]!!)
         val repo = Did(params["repo"]!!)
         val since = params["since"]
         val held = repo(space)
-        val commit =
-            held.head?.let {
-                val data = if (space in wrongData) MessageDigest.getInstance("SHA-256").digest(it.toByteArray()) else held.hash.digest()
-                Space.ListRepoOps.Commit(ver = 1, repo = repo, space = commitSpace ?: space, rev = it, data = LexBytes.of(data))
-            }
-        val mac = commit?.let {
+        val head = held.head ?: return null
+        val data = if (space in wrongData) MessageDigest.getInstance("SHA-256").digest(head.toByteArray()) else held.hash.digest()
+        val commit = Space.ListRepoOps.Commit(ver = 1, repo = repo, space = commitSpace ?: space, rev = head, data = LexBytes.of(data))
+        val mac =
             when (macMode) {
-                MacMode.VALID -> SpaceMacHost.commitMacHeader(kem(repo.value), wantMac, it)
-                MacMode.WRONG_KEY -> SpaceMacHost.commitMacHeader(SpaceMacHost.generateKemKey(), wantMac, it)
+                MacMode.VALID -> SpaceMacHost.commitMacHeaders(kem(repo.value), accept, commit)
+                MacMode.WRONG_KEY -> SpaceMacHost.commitMacHeaders(SpaceMacHost.generateKemKey(), accept, commit)
                 MacMode.OMITTED -> null
             }
-        }
         return buildJsonObject {
             put(
                 "ops",
@@ -258,7 +258,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                         }
                 },
             )
-            commit?.let { put("commit", AtJson.encodeToJsonElement(Space.ListRepoOps.Commit.serializer(), it)) }
+            put("commit", AtJson.encodeToJsonElement(Space.ListRepoOps.Commit.serializer(), commit))
         } to mac
     }
 
@@ -303,7 +303,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
 
     private fun credential(): String {
         val b64 = Base64.getUrlEncoder().withoutPadding()
-        val exp = Clock.System.now().epochSeconds + 600
+        val exp = clock.now().epochSeconds + CREDENTIAL_SECONDS
         return b64.encodeToString("""{"alg":"ES256K"}""".toByteArray()) +
             "." +
             b64.encodeToString("""{"exp":$exp}""".toByteArray()) +
@@ -313,6 +313,9 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
     private companion object {
         /** Digits after the `3m` prefix: fixed width, so revisions sort as strings like TIDs. */
         const val REV_DIGITS = 11
+
+        /** The reference host's credential lifetime: a registration lasts as long. */
+        const val CREDENTIAL_SECONDS = 600
 
         /** Every P-256 `did:key` starts so (the `0x1200` multicodec in base58btc). */
         const val P256_DID_KEY = "did:key:zDn"

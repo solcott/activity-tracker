@@ -29,8 +29,11 @@ import kotlinx.serialization.json.long
  * itself), exchanged at the PDS of the space's authority together with a fresh P-256 key ([newKey]) the credential is then bound to, so no
  * two credentials share a key. Each is reused until [REFRESH_MARGIN] before it expires, and concurrent callers share one exchange.
  *
- * A refused exchange (`UserNotAuthorized` and friends) throws and is never cached, so a new follow counts on the next read. Everything is
- * in memory and lives as long as the session (or the AppView process).
+ * A syncer passes [notify]: each exchange for a space it names a [Space.AuthorizeSpaceSync.Notify] for also registers (or renews) that
+ * notification endpoint, so the syncer keeps it alive by exchanging again before each credential expires.
+ *
+ * A refused exchange (`AccountNotAuthorized` and friends) throws and is never cached, so a new follow counts on the next read. Everything
+ * is in memory and lives as long as the session (or the AppView process).
  */
 class SpaceCredentials(
     private val delegation: DelegationTokenSource,
@@ -38,6 +41,8 @@ class SpaceCredentials(
     private val identity: IdentityResolver,
     private val newKey: suspend () -> DpopKey = DpopKey::generate,
     private val clock: Clock = Clock.System,
+    /** The notification registration to carry with each exchange for a space, or null for none. */
+    private val notify: suspend (SpaceUri) -> Space.AuthorizeSpaceSync.Notify? = { null },
 ) {
     /** A signed-in viewer's credentials, with delegation tokens from their PDS. */
     constructor(
@@ -48,8 +53,11 @@ class SpaceCredentials(
         clock: Clock = Clock.System,
     ) : this(DelegationTokenSource.pds(viewerPds), http, identity, newKey, clock)
 
-    /** A space credential and the key it's bound to; reads with it are signed with [key]. In memory only. */
-    class Credential(val token: String, val expiresAt: Instant, val key: DpopKey)
+    /**
+     * A space credential and the key it's bound to; reads with it are signed with [key]. [spaceRev] is the space's revision when it was
+     * issued, null before the space's first update. In memory only.
+     */
+    class Credential(val token: String, val expiresAt: Instant, val key: DpopKey, val spaceRev: String? = null)
 
     private val mutex = Mutex()
     private val cache = mutableMapOf<SpaceUri, Credential>()
@@ -124,14 +132,20 @@ class SpaceCredentials(
             null
         }
 
-    /** An unauthenticated POST: the delegation token and the new key travel in the body. */
+    /** An unauthenticated POST: the delegation token, the new key and any notification registration travel in the body. */
     private suspend fun exchange(space: SpaceUri): Credential {
         val key = newKey()
         val authority = XrpcClient(http, pdsUrl(space.authority))
-        val input = Space.GetSpaceCredential.Input(space, credentialKid = key.didKey, delegationToken = delegation.token(space))
-        val token = authority.procedure(Space.GetSpaceCredential.method, input).credential
-        val exp = jwtPayload(token)["exp"]?.jsonPrimitive?.long ?: error("Space credential has no exp")
-        return Credential(token, Instant.fromEpochSeconds(exp), key)
+        val input =
+            Space.AuthorizeSpaceSync.Input(
+                space,
+                credentialKey = key.didKey,
+                delegationToken = delegation.token(space),
+                notify = notify(space),
+            )
+        val output = authority.procedure(Space.AuthorizeSpaceSync.method, input)
+        val exp = jwtPayload(output.credential)["exp"]?.jsonPrimitive?.long ?: error("Space credential has no exp")
+        return Credential(output.credential, Instant.fromEpochSeconds(exp), key, output.spaceRev)
     }
 
     private companion object {

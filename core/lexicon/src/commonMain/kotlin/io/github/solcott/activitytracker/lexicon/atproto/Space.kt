@@ -9,7 +9,6 @@ import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.OpenUnionSerializer
 import kotlin.io.encoding.Base64
 import kotlin.jvm.JvmInline
-import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -66,15 +65,18 @@ value class SpaceUri(val value: String) {
  */
 object SpaceErrors {
     /**
-     * The authority refused this user. The reference authority answers [SPACE_NOT_FOUND] instead, so a refusal discloses nothing; other
-     * authorities may still send this.
+     * `authorizeSpaceSync`: the authority refused this account. The reference authority answers [SPACE_NOT_FOUND] instead, so a refusal
+     * discloses nothing; other authorities may still send this.
      */
-    const val USER_NOT_AUTHORIZED = "UserNotAuthorized"
+    const val ACCOUNT_NOT_AUTHORIZED = "AccountNotAuthorized"
 
     /** The authority refused this app. */
     const val APP_NOT_AUTHORIZED = "AppNotAuthorized"
 
-    /** The authority refused without saying whether the user or the app failed. */
+    /**
+     * The authority refused without saying whether the account or the app failed; also what the authority-only methods (`updateSpace`,
+     * `deleteSpace`, `getSpace`, …) answer anyone else.
+     */
     const val NOT_AUTHORIZED = "NotAuthorized"
 
     /** The credential has expired; get a new one. */
@@ -86,7 +88,7 @@ object SpaceErrors {
     /** The `Authorization` scheme or credential wasn't accepted (the pre-Oct 22 `Atproto-Space` scheme among them). */
     const val INVALID_TOKEN = "InvalidToken"
 
-    /** `getSpaceCredential`: the delegation token was malformed, expired or already used (HTTP 400). */
+    /** `authorizeSpaceSync`: the delegation token was malformed, expired or already used (HTTP 400). */
     const val INVALID_DELEGATION_TOKEN = "InvalidDelegationToken"
 
     /** A credentialed read's HTTP message signature didn't verify against the credential's key. */
@@ -95,32 +97,38 @@ object SpaceErrors {
     /** A credentialed read's `Atproto-Space-Audience` wasn't the repo owner (or, at a space host, the authority). */
     const val BAD_SPACE_AUDIENCE = "BadSpaceAudience"
 
-    /** A credentialed read of a MAC'd method came without a usable `Atproto-Space-Want-Mac` (HTTP 400). */
-    const val BAD_SPACE_MAC = "BadSpaceMac"
+    /** A credentialed read of a MAC'd method came without a usable `Accept-Signature` MAC request (HTTP 400). */
+    const val INVALID_SPACE_MAC = "InvalidSpaceMac"
+
+    /**
+     * `authorizeSpaceSync` with `notify`: the space host couldn't confirm the registration with `confirmRegistration` at the endpoint
+     * named. No credential is issued.
+     */
+    const val REGISTRATION_NOT_CONFIRMED = "RegistrationNotConfirmed"
+
+    /** The space host couldn't get an answer from the space's managing app (unreachable, an error, or 10 s without one). */
+    const val UPSTREAM_FAILURE = "UpstreamFailure"
 
     /** The OAuth session wasn't granted the `space:` scope this call needs. */
     const val SCOPE_MISSING = "ScopeMissingError"
 
     const val SPACE_ALREADY_EXISTS = "SpaceAlreadyExists"
-    /** No such space, or (from `getSpaceCredential`) the authority refused the user: the two look the same on purpose. */
+    /** No such space, or (from `authorizeSpaceSync`) the authority refused the account: the two look the same on purpose. */
     const val SPACE_NOT_FOUND = "SpaceNotFound"
 
-    /** From `getSpaceCredential`: the space was deleted, and a syncer should drop it. */
+    /** From `authorizeSpaceSync`: the space was deleted, and a syncer should drop it. */
     const val SPACE_DELETED = "SpaceDeleted"
 
     /**
-     * From `getSpaceCredential` (HTTP 400): the authority is taken down. The space is suspended, not deleted, and resumes if the authority
+     * From `authorizeSpaceSync` (HTTP 400): the authority is taken down. The space is suspended, not deleted, and resumes if the authority
      * is reinstated, so a syncer keeps it and retries.
      */
     const val REPO_TAKENDOWN = "RepoTakendown"
 
-    /** From `getSpaceCredential` (HTTP 400): the authority is deactivated. Suspended like [REPO_TAKENDOWN]. */
+    /** From `authorizeSpaceSync` (HTTP 400): the authority is deactivated. Suspended like [REPO_TAKENDOWN]. */
     const val REPO_DEACTIVATED = "RepoDeactivated"
     const val RECORD_NOT_FOUND = "RecordNotFound"
     const val BLOB_NOT_FOUND = "BlobNotFound"
-
-    /** `updateSpace`: the caller isn't the space's authority. */
-    const val NOT_SPACE_OWNER = "NotSpaceOwner"
 
     /** `createSpace`/`updateSpace`: the host doesn't implement the requested policy. */
     const val UNSUPPORTED_POLICY = "UnsupportedPolicy"
@@ -129,7 +137,7 @@ object SpaceErrors {
     const val POLICY_MISMATCH = "PolicyMismatch"
 
     /** Errors meaning the viewer may not read the space. */
-    val denials = setOf(USER_NOT_AUTHORIZED, APP_NOT_AUTHORIZED, NOT_AUTHORIZED)
+    val denials = setOf(ACCOUNT_NOT_AUTHORIZED, APP_NOT_AUTHORIZED, NOT_AUTHORIZED)
 }
 
 /**
@@ -148,13 +156,14 @@ sealed interface SpacePolicy {
     }
 
     /**
-     * `com.atproto.memberspace.policy`: members the authority adds with `memberspace.putMember`, or anyone with [publicRead]/[publicWrite].
+     * `com.atproto.memberspace.policy`: members the authority adds with `memberspace.putMembers`, or anyone with
+     * [publicRead]/[publicWrite].
      */
     @Serializable
     data class Member(
         val publicRead: Boolean = false,
         val publicWrite: Boolean = false,
-        /** Attested OAuth client ids that may read; null admits any app without an attestation. Doesn't apply to writes. */
+        /** Attested OAuth client ids (URIs) that may read; null admits any app without an attestation. Doesn't apply to writes. */
         val allowedApps: List<String>? = null,
         /** Publishes the policy as a `com.atproto.space.policy` record in the authority's repo in the space. */
         val publishPolicy: Boolean = false,
@@ -167,10 +176,13 @@ sealed interface SpacePolicy {
         }
     }
 
-    /** `com.atproto.managedspace.policy`: the PDS asks [managingApp] about every read and write through `managedspace.checkUserAccess`. */
+    /** `com.atproto.managedspace.policy`: the PDS asks [managingApp] about every read and write through `managedspace.checkAccess`. */
     @Serializable
     data class Managed(
-        /** Service identifier of the managing app: a DID plus an optional service fragment (`did:web:host#activitytracker_space`). */
+        /**
+         * The managing app's service, a `did#serviceId` reference (`did:web:host#activitytracker_space`). `createSpace` and `updateSpace`
+         * reject a bare DID.
+         */
         val managingApp: String,
         /** Publishes the policy as a `com.atproto.space.policy` record in the authority's repo in the space. */
         val publishPolicy: Boolean = false,
@@ -217,7 +229,7 @@ object Space {
             val policy: SpacePolicy,
         )
 
-        @Serializable data class Output(val uri: SpaceUri)
+        @Serializable data class Output(val space: SpaceUri)
 
         val method = XrpcProcedure("com.atproto.space.createSpace", Input.serializer(), Output.serializer())
     }
@@ -226,7 +238,7 @@ object Space {
     object GetSpace {
         @Serializable data class Params(val space: SpaceUri)
 
-        @Serializable data class Output(val uri: SpaceUri, val policy: SpacePolicy)
+        @Serializable data class Output(val space: SpaceUri, val policy: SpacePolicy)
 
         val method = XrpcQuery("com.atproto.space.getSpace", Params.serializer(), Output.serializer())
     }
@@ -262,22 +274,34 @@ object Space {
     }
 
     /**
-     * On the authority's PDS, unauthenticated: a credential for reading the space, bound to [Input.credentialKid] (a fresh P-256
-     * `did:key`). [Input.delegationToken] names the reader; without one only a public space answers. The output carries no expiry; it's the
-     * credential JWT's `exp`.
+     * On the authority's PDS, unauthenticated: a credential for reading the space, bound to [Input.credentialKey] (a fresh P-256
+     * `did:key`). [Input.delegationToken] names the reader; without one the managing app is asked with no account. The output carries no
+     * expiry; it's the credential JWT's `exp`. Calling it again before then (reauthorizing) works the same as the first time.
+     *
+     * With [Input.notify], it also registers the syncer at [Notify.endpoint] for [NotifySpaceUpdate]s, confirmed first with
+     * [ConfirmRegistration] (else [SpaceErrors.REGISTRATION_NOT_CONFIRMED]). A registration lives only while the credential of its latest
+     * authorization is valid, so a syncer keeps reauthorizing with the same [Notify] to keep it.
      */
-    object GetSpaceCredential {
+    object AuthorizeSpaceSync {
         @Serializable
         data class Input(
             val space: SpaceUri,
-            val credentialKid: String,
+            val credentialKey: String,
             val delegationToken: String? = null,
             val clientAttestation: String? = null,
+            val notify: Notify? = null,
         )
 
-        @Serializable data class Output(val credential: String)
+        /**
+         * Where the space host sends [NotifySpaceUpdate]: [endpoint] is a base URL (`{endpoint}/xrpc/…`), and [token] an opaque secret of
+         * at most 512 characters, one per space and kept stable, which authenticates the host's calls to it.
+         */
+        @Serializable data class Notify(val endpoint: String, val token: String)
 
-        val method = XrpcProcedure("com.atproto.space.getSpaceCredential", Input.serializer(), Output.serializer())
+        /** [spaceRev] is the space's current revision, absent before its first update. */
+        @Serializable data class Output(val credential: String, val spaceRev: String? = null)
+
+        val method = XrpcProcedure("com.atproto.space.authorizeSpaceSync", Input.serializer(), Output.serializer())
     }
 
     object GetRecord {
@@ -298,7 +322,6 @@ object Space {
             /** 1–1000; the PDS defaults to 50. */
             val limit: Int? = null,
             val cursor: String? = null,
-            val reverse: Boolean? = null,
         )
 
         @Serializable data class Record(val collection: String, val rkey: String, val cid: Cid, val value: JsonObject? = null)
@@ -341,7 +364,8 @@ object Space {
 
     /**
      * A repo's operation log in a space, after a revision: how a syncer keeps up. The host may compact the log, so with no `since` it
-     * returns only what it retained; a syncer backfills with [ListRecords] and follows ops from the head revision ([Output.commit]).
+     * returns only what it retained; a syncer backfills with [ListRecords] and follows ops from the head revision ([Output.commit]). A repo
+     * never written is `RepoNotFound`.
      */
     object ListRepoOps {
         @Serializable
@@ -369,82 +393,144 @@ object Space {
         )
 
         /**
-         * `com.atproto.space.defs#commit`, unsigned: the repo host authenticates it with the `Atproto-Space-Mac` response header, which
-         * covers [space], [repo], [rev] and [data] (the sha256 of the repo's LtHash state).
+         * `com.atproto.space.defs#commit`, unsigned: the repo host authenticates it with a MAC over its `Atproto-Space-Commit` response
+         * header, which repeats [ver], [repo], [space], [rev] and [data] (the sha256 of the repo's LtHash state).
          */
         @Serializable data class Commit(val ver: Int, val repo: Did, val space: SpaceUri, val rev: String, val data: LexBytes)
 
-        /** [commit] is present once the page reaches the head of the log, and [cursor] until then. */
-        @Serializable data class Output(val ops: List<Op>, val commit: Commit? = null, val cursor: String? = null)
+        /**
+         * Every page carries the repo's current [commit]. [cursor] is set whenever the page is full, so the last page (the first without
+         * one) may be empty; its commit is what the ops fold to.
+         */
+        @Serializable data class Output(val ops: List<Op>, val commit: Commit, val cursor: String? = null)
 
         val method = XrpcQuery("com.atproto.space.listRepoOps", Params.serializer(), Output.serializer())
     }
 
     /**
-     * On the authority's PDS, with a space credential: notify [Input.service] of writes to the space for 24 h. Renew before
-     * [Output.expiresAt].
+     * Served by the syncer, not the PDS, with no service auth: before creating a registration, the space host asks the syncer at the
+     * `notify` endpoint of an [AuthorizeSpaceSync] to echo [Input.challenge] for [Input.token], which proves the syncer issued that token
+     * for [Input.space].
      */
-    object RegisterNotify {
-        @Serializable data class Input(val space: SpaceUri, val service: String)
+    object ConfirmRegistration {
+        @Serializable data class Input(val space: SpaceUri, val token: String, val challenge: String)
 
-        @Serializable data class Output(val expiresAt: Instant)
+        @Serializable data class Output(val challenge: String)
 
-        val method = XrpcProcedure("com.atproto.space.registerNotify", Input.serializer(), Output.serializer())
+        val method = XrpcProcedure("com.atproto.space.confirmRegistration", Input.serializer(), Output.serializer())
     }
 
     /**
-     * Sent by the authority's PDS to each registered service, with service auth from the authority addressed to the service id: a repo in
-     * the space advanced. Delivered once, with no retry, so a syncer also pulls periodically.
+     * Served by the syncer, with no service auth: the space host tells a registered syncer of an [Input.update] to the space. [Input.token]
+     * is the one the syncer registered, which authenticates the call. `repoWrite`/`repoRemoved` are best effort; expiry and deletion
+     * notices are retried with backoff.
      */
-    object NotifyWrite {
-        @Serializable
-        data class Input(
-            val space: SpaceUri,
-            val repo: Did,
-            val repoRev: String,
-            /** The repo's state digest; not read. */
-            val data: LexBytes? = null,
-            val spaceRev: String? = null,
-            val prevSpaceRev: String? = null,
-        )
+    object NotifySpaceUpdate {
+        @Serializable data class Input(val space: SpaceUri, val token: String, val update: SpaceUpdate)
 
-        val method = XrpcProcedure("com.atproto.space.notifyWrite", Input.serializer(), JsonObject.serializer())
+        val method = XrpcProcedure("com.atproto.space.notifySpaceUpdate", Input.serializer(), JsonObject.serializer())
+    }
+}
+
+/** The `update` union of [Space.NotifySpaceUpdate]: match its `$type` in full. An open union, so a newer kind decodes as [Unknown]. */
+@Serializable(with = SpaceUpdateSerializer::class)
+sealed interface SpaceUpdate {
+    /** `com.atproto.space.defs#repoWrite`: [repo] in the space advanced to [repoRev]; sync it from its host. */
+    @Serializable
+    data class RepoWrite(
+        val repo: Did,
+        val repoRev: String,
+        /** The repo's state digest; not read. */
+        val data: LexBytes? = null,
+        val spaceRev: String,
+        val prevSpaceRev: String? = null,
+        @SerialName("\$type") val type: String = TYPE,
+    ) : SpaceUpdate {
+        companion object {
+            const val TYPE = "com.atproto.space.defs#repoWrite"
+        }
+    }
+
+    /** `com.atproto.space.defs#repoRemoved`: [repo] left the space's writer set. */
+    @Serializable
+    data class RepoRemoved(
+        val repo: Did,
+        val spaceRev: String,
+        val prevSpaceRev: String? = null,
+        @SerialName("\$type") val type: String = TYPE,
+    ) : SpaceUpdate {
+        companion object {
+            const val TYPE = "com.atproto.space.defs#repoRemoved"
+        }
     }
 
     /**
-     * Sent by the authority's PDS to each registered service, authenticated like [NotifyWrite]: the space was deleted, so drop its copy.
-     * Retried until delivered or the registration expires.
+     * `com.atproto.space.notifySpaceUpdate#spaceDeleted`: the space may be gone. Only an [Space.AuthorizeSpaceSync] answered
+     * [SpaceErrors.SPACE_DELETED] confirms it, so a syncer reauthorizes rather than dropping data on the notice.
      */
-    object NotifySpaceDeleted {
-        @Serializable data class Input(val space: SpaceUri)
-
-        val method = XrpcProcedure("com.atproto.space.notifySpaceDeleted", Input.serializer(), JsonObject.serializer())
+    @Serializable
+    data class SpaceDeleted(@SerialName("\$type") val type: String = TYPE) : SpaceUpdate {
+        companion object {
+            const val TYPE = "com.atproto.space.notifySpaceUpdate#spaceDeleted"
+        }
     }
+
+    /**
+     * `com.atproto.space.notifySpaceUpdate#registrationExpired`: the registration lapsed at [spaceRev]. Reauthorize with `notify` and catch
+     * up.
+     */
+    @Serializable
+    data class RegistrationExpired(val spaceRev: String, @SerialName("\$type") val type: String = TYPE) : SpaceUpdate {
+        companion object {
+            const val TYPE = "com.atproto.space.notifySpaceUpdate#registrationExpired"
+        }
+    }
+
+    data class Unknown(val json: JsonObject) : SpaceUpdate
+}
+
+internal object SpaceUpdateSerializer : OpenUnionSerializer<SpaceUpdate>("SpaceUpdate") {
+    override fun memberFor(type: String?) =
+        when (type) {
+            SpaceUpdate.RepoWrite.TYPE -> SpaceUpdate.RepoWrite.serializer()
+            SpaceUpdate.RepoRemoved.TYPE -> SpaceUpdate.RepoRemoved.serializer()
+            SpaceUpdate.SpaceDeleted.TYPE -> SpaceUpdate.SpaceDeleted.serializer()
+            SpaceUpdate.RegistrationExpired.TYPE -> SpaceUpdate.RegistrationExpired.serializer()
+            else -> null
+        }
+
+    override fun unknown(json: JsonObject) = SpaceUpdate.Unknown(json)
+
+    override fun encode(encoder: JsonEncoder, value: SpaceUpdate) =
+        when (value) {
+            is SpaceUpdate.RepoWrite -> encoder.encodeSerializableValue(SpaceUpdate.RepoWrite.serializer(), value)
+            is SpaceUpdate.RepoRemoved -> encoder.encodeSerializableValue(SpaceUpdate.RepoRemoved.serializer(), value)
+            is SpaceUpdate.SpaceDeleted -> encoder.encodeSerializableValue(SpaceUpdate.SpaceDeleted.serializer(), value)
+            is SpaceUpdate.RegistrationExpired -> encoder.encodeSerializableValue(SpaceUpdate.RegistrationExpired.serializer(), value)
+            is SpaceUpdate.Unknown -> encoder.encodeJsonElement(value.json)
+        }
 }
 
 /** `com.atproto.managedspace.*`: the callout to the managing app of a space governed by [SpacePolicy.Managed]. */
 object ManagedSpace {
     /**
-     * Served by the managing app, not the PDS: the space authority's PDS asks whether [Params.user] may read or write the space.
-     * Authenticated with a service-auth token from the authority, addressed to the managing app, whose `lxm` is this method.
+     * Served by the managing app, not the PDS: the space authority's PDS asks whether [Params.repo] may read and write the space, and uses
+     * whichever answer it needs. Authenticated with a service-auth token from the authority, addressed to the managing app, whose `lxm` is
+     * this method. Without a delegation token the PDS asks with no [Params.repo]: `read` there admits anyone.
      */
-    object CheckUserAccess {
+    object CheckAccess {
         @Serializable
         data class Params(
             val space: SpaceUri,
-            val user: Did,
-            /** [READ] or [WRITE]; an open set. */
-            val access: String,
-            /** The attested OAuth client, when the viewer's client presented an attestation; never sent for writes. */
+            /** The account asking; absent for a request with no delegation token. */
+            val repo: Did? = null,
+            /** The attested OAuth client (a URI), when the request presented an attestation; never sent for a check prompted by a write. */
             val clientId: String? = null,
         )
 
-        @Serializable data class Output(val authorized: Boolean)
+        @Serializable data class Output(val read: Boolean, val write: Boolean)
 
-        const val READ = "read"
-        const val WRITE = "write"
-
-        val method = XrpcQuery("com.atproto.managedspace.checkUserAccess", Params.serializer(), Output.serializer())
+        val method = XrpcQuery("com.atproto.managedspace.checkAccess", Params.serializer(), Output.serializer())
     }
 }
 

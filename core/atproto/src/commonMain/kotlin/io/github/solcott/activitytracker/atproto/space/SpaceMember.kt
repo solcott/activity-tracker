@@ -20,12 +20,12 @@ class SpaceMacException(message: String) : Exception(message)
 
 /**
  * Calls made as a member of a space, with its credential from [credentials]: reads of any repo in it (at that repo's PDS) and, for a
- * syncer, `registerNotify` and `listRepoOps` at the authority's. Each request is signed with its credential's key and addressed to the repo
- * it touches. A call the PDS answers with an expired or revoked credential is retried once with a new one.
+ * syncer, `listRepoOps` at the authority's. Each request is signed with its credential's key and addressed to the repo it touches. A call
+ * the PDS answers with an expired or revoked credential is retried once with a new one.
  *
  * `getRecord` and `listRepoOps` carry MACs ([getRecord], [listRepoOps]): each request agrees a fresh key with the repo owner's
- * `#atproto_kem` key, and a response is returned only once its `Atproto-Space-Mac` verifies. A failed check re-resolves the owner's DID
- * document (the key may have rotated) and tries once more, then throws [SpaceMacException].
+ * `#atproto_kem` key and asks for a MAC with `Accept-Signature`, and a response is returned only once its MAC verifies. A failed check
+ * re-resolves the owner's DID document (the key may have rotated) and tries once more, then throws [SpaceMacException].
  */
 class SpaceMember(private val credentials: SpaceCredentials, private val http: HttpClient) {
     /** Runs [call] against [repo]'s PDS with [space]'s credential. XRPC errors other than a stale credential are thrown as they are. */
@@ -44,6 +44,15 @@ class SpaceMember(private val credentials: SpaceCredentials, private val http: H
         }
     }
 
+    /**
+     * [space]'s credential, exchanged again first when [renew]: reauthorizing, which for a syncer whose [SpaceCredentials] carry a
+     * notification registration also renews it. Throws what the exchange answers, such as `SpaceDeleted`.
+     */
+    suspend fun authorize(space: SpaceUri, renew: Boolean): SpaceCredentials.Credential {
+        if (renew) credentials.invalidate(space)
+        return credentials.get(space)
+    }
+
     /** `getRecord` from [repo]'s copy of [space], returned only with a verified record MAC. */
     suspend fun getRecord(space: SpaceUri, repo: Did, collection: String, rkey: String): Space.GetRecord.Output {
         val uri = AtUri("${space.value}/${repo.value}/$collection/$rkey")
@@ -54,37 +63,31 @@ class SpaceMember(private val credentials: SpaceCredentials, private val http: H
                     it.queryWithHeaders(
                         Space.GetRecord.method,
                         Space.GetRecord.Params(space, repo, collection, rkey),
-                        mapOf(SpaceMac.WANT_MAC_HEADER to verifier.wantMacHeader),
+                        mapOf(SpaceMac.ACCEPT_SIGNATURE to verifier.acceptSignature),
                     )
                 }
             val record = response.value
             val result =
                 if (record.uri != uri) SpaceMacResult.Malformed("Response is for ${record.uri}")
-                else verifier.verify(response.headers[SpaceMac.MAC_HEADER], record.cid)
+                else verifier.verify(response.headers, record.cid)
             record to result
         }
     }
 
-    /**
-     * One `listRepoOps` page of [repo]'s copy of [space]. A page that carries a commit is returned only once its MAC verifies and it names
-     * [space] and [repo]; one without a commit carries no MAC.
-     */
+    /** One `listRepoOps` page of [repo]'s copy of [space], returned only once its commit's MAC verifies and it names [space] and [repo]. */
     suspend fun listRepoOps(space: SpaceUri, repo: Did, params: Space.ListRepoOps.Params): Space.ListRepoOps.Output =
         verified(repo, "ops of $repo in $space") { kem ->
             val verifier = SpaceMac.forCommit(kem, space, repo)
             val response =
                 call(space, repo) {
-                    it.queryWithHeaders(Space.ListRepoOps.method, params, mapOf(SpaceMac.WANT_MAC_HEADER to verifier.wantMacHeader))
+                    it.queryWithHeaders(Space.ListRepoOps.method, params, mapOf(SpaceMac.ACCEPT_SIGNATURE to verifier.acceptSignature))
                 }
             val page = response.value
             val commit = page.commit
             val result =
-                when {
-                    commit == null -> SpaceMacResult.Valid
-                    commit.space != space || commit.repo != repo ->
-                        SpaceMacResult.Malformed("Commit is for ${commit.repo} in ${commit.space}")
-                    else -> verifier.verify(response.headers[SpaceMac.MAC_HEADER], commit.rev, commit.data.decode())
-                }
+                if (commit.space != space || commit.repo != repo)
+                    SpaceMacResult.Malformed("Commit is for ${commit.repo} in ${commit.space}")
+                else verifier.verify(response.headers, commit)
             page to result
         }
 

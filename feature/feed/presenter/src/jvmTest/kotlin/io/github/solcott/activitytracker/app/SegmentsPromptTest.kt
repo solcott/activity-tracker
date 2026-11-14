@@ -84,7 +84,7 @@ class SegmentsPromptTest {
                             headers = json,
                         )
                     "/xrpc/com.atproto.space.createSpace" ->
-                        respond("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
+                        respond("""{"space":"at://$did/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
                     "/xrpc/com.atproto.space.getRecord" -> {
                         val value = if (collection == Nsid.ACTOR_GROUP_PREFS) groups else prefs
                         when {

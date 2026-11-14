@@ -54,7 +54,7 @@ class SpaceFixtures {
             )
         }
         network.on("pds.test/xrpc/com.atproto.space.getDelegationToken") { respondJson("""{"token":"delegation-${++delegations}"}""") }
-        network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
+        network.on("alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync") {
             exchanges++
             respondJson("""{"credential":"${credential(clock.now().epochSeconds + credentialLifetime, exchanges)}"}""")
         }
@@ -74,9 +74,9 @@ class SpaceFixtures {
         uri: AtUri = recordUri(request),
     ): HttpResponseData {
         val mac =
-            if (withMac) SpaceMacHost.recordMacHeader(macKem ?: aliceKem(), request.headers[SpaceMac.WANT_MAC_HEADER], uri, RECORD_CID)
+            if (withMac) SpaceMacHost.recordMacHeaders(macKem ?: aliceKem(), request.headers[SpaceMac.ACCEPT_SIGNATURE], uri, RECORD_CID)
             else null
-        val headers = listOfNotNull(mac?.let { SpaceMac.MAC_HEADER to it })
+        val headers = mac.orEmpty().toList()
         return respondJson("""{"uri":"$uri","cid":"${RECORD_CID.value}","value":$value}""", extraHeaders = headers.toTypedArray())
     }
 

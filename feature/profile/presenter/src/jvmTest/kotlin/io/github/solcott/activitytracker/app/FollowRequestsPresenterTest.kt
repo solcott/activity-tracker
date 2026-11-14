@@ -99,7 +99,7 @@ class FollowRequestsPresenterTest {
 
                     "pds.test/xrpc/com.atproto.space.createSpace" ->
                         if (scopeMissing) error(SpaceErrors.SCOPE_MISSING, HttpStatusCode.Forbidden)
-                        else respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
+                        else respond("""{"space":"at://$alice/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
 
                     "pds.test/xrpc/com.atproto.space.putRecord",
                     "pds.test/xrpc/com.atproto.space.deleteRecord" ->

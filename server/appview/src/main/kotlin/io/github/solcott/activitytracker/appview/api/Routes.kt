@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
+import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -65,6 +66,7 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUpdate
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -123,9 +125,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetBlocks.method, verifier) { params, viewer -> graph.blocks(requireViewer(viewer), params) }
     xrpcQuery(GetMutes.method, verifier) { params, viewer -> graph.mutes(requireViewer(viewer), params) }
     // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
-    xrpcQuery(ManagedSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
-        spaceAccess.check(requireViewer(issuer), params)
-    }
+    xrpcQuery(ManagedSpace.CheckAccess.method, managingAppVerifier) { params, issuer -> spaceAccess.check(requireViewer(issuer), params) }
 }
 
 /** Segments and the efforts on them ([SegmentViews]). */
@@ -166,35 +166,45 @@ fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: Se
 }
 
 /**
- * Athletes' tier spaces, which the AppView syncs as a member ([SpaceSyncer]; null when no signing key is configured, and then nothing is
- * joined):
+ * Athletes' tier spaces, which the AppView syncs as a member ([SpaceSyncer] and its [SyncRegistrations]; both null when no signing key is
+ * configured, and then nothing is joined):
  * - `notifySpace`: an athlete announces one of their tier spaces, with service auth for the AppView;
- * - `notifyWrite`: the authority's PDS says the space advanced, with service auth addressed to [syncerVerifier]'s syncer service id, so a
- *   token for the AppView or the managing app never works here, or the reverse;
- * - `notifySpaceDeleted`: the authority's PDS says the space was deleted, authenticated the same way, and the AppView drops it before
- *   answering. The PDS retries until delivered, so a repeat, or a space the AppView doesn't sync, succeeds with nothing to do.
+ * - `confirmRegistration`: before registering the AppView for a space's updates, the authority's PDS asks it to echo a challenge for the
+ *   token its `authorizeSpaceSync` carried;
+ * - `notifySpaceUpdate`: the authority's PDS says the space changed. Neither carries service auth: the token, which the AppView issued for
+ *   that space alone, is what authenticates them, and any other is refused with a 400 (also how a syncer unregisters, by refusing an expiry
+ *   notice). A write by the authority, a removal, a lapsed registration or a deletion notice makes the space due; only the sync's own
+ *   `SpaceDeleted` answer drops it.
  */
-fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, verifier: ServiceAuthVerifier, syncerVerifier: ServiceAuthVerifier) {
+fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, registrations: SyncRegistrations?, verifier: ServiceAuthVerifier) {
     xrpcProcedure(NotifySpace.method, verifier) { input, caller ->
         syncer?.announce(announced(input.space, requireViewer(caller)))
         JsonObject(emptyMap())
     }
-    xrpcProcedure(Space.NotifyWrite.method, syncerVerifier) { input, issuer ->
-        requireAuthority(input.space, issuer, Space.NotifyWrite.method.nsid)
-        // Only the authority writes to an athlete's space; a notification for another repo has nothing for the AppView.
-        if (input.repo == input.space.authority) syncer?.notified(input.space)
-        JsonObject(emptyMap())
+    unauthenticatedProcedure(Space.ConfirmRegistration.method) { input ->
+        requireIssued(registrations, input.space, input.token)
+        Space.ConfirmRegistration.Output(input.challenge)
     }
-    xrpcProcedure(Space.NotifySpaceDeleted.method, syncerVerifier) { input, issuer ->
-        requireAuthority(input.space, issuer, Space.NotifySpaceDeleted.method.nsid)
-        syncer?.deleted(input.space)
+    unauthenticatedProcedure(Space.NotifySpaceUpdate.method) { input ->
+        requireIssued(registrations, input.space, input.token)
+        val space = input.space
+        when (val update = input.update) {
+            // Only the authority writes to an athlete's space; another repo's update has nothing for the AppView.
+            is SpaceUpdate.RepoWrite -> if (update.repo == space.authority) syncer?.notified(space)
+            is SpaceUpdate.RepoRemoved -> if (update.repo == space.authority) syncer?.notified(space)
+            is SpaceUpdate.SpaceDeleted,
+            is SpaceUpdate.RegistrationExpired -> syncer?.notified(space, reauthorize = true)
+            is SpaceUpdate.Unknown -> Unit
+        }
         JsonObject(emptyMap())
     }
 }
 
-/** Only the space's authority, whose PDS hosts the space, sends its notifications. */
-private fun requireAuthority(space: SpaceUri, issuer: Did?, nsid: String) {
-    if (requireViewer(issuer) != space.authority) throw AuthException("$nsid from ${issuer?.value}, not ${space.authority}")
+/** A call back from a space host is answered only with the token this AppView registered for [space]. */
+private suspend fun requireIssued(registrations: SyncRegistrations?, space: SpaceUri, token: String) {
+    if (registrations?.issued(space, token) != true) {
+        throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidToken", "Not a registration of this AppView for $space")
+    }
 }
 
 /** [space], if [caller] may announce it: it must be one of their own athlete tier or interactions spaces. */
@@ -250,17 +260,29 @@ private fun <I, O> Route.xrpcProcedure(
 ) {
     post("/xrpc/${method.nsid}") {
         val caller = requireViewer(call.viewer(verifier, method.nsid))
-        val bytes = call.receiveChannel().readBuffer(MAX_PROCEDURE_BODY_BYTES + 1).readByteArray()
-        if (bytes.size > MAX_PROCEDURE_BODY_BYTES) {
-            throw XrpcError(HttpStatusCode.PayloadTooLarge.value, "PayloadTooLarge", "The input is too large")
-        }
-        val body = bytes.decodeToString()
-        val input = runCatching {
-            AtJson.decodeFromString(method.input, body)
-        }
-            .getOrElse { e -> throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", e.message ?: "Invalid input", cause = e) }
+        val input = call.procedureInput(method)
         call.respondText(AtJson.encodeToString(method.output, handler(input, caller)), ContentType.Application.Json)
     }
+}
+
+/**
+ * Serves a procedure that carries no service auth, as a space host's calls to a syncer don't: the handler authenticates the input itself.
+ */
+private fun <I, O> Route.unauthenticatedProcedure(method: XrpcProcedure<I, O>, handler: suspend (input: I) -> O) {
+    post("/xrpc/${method.nsid}") {
+        val input = call.procedureInput(method)
+        call.respondText(AtJson.encodeToString(method.output, handler(input)), ContentType.Application.Json)
+    }
+}
+
+/** A procedure's input, refused when it's too large or doesn't decode. */
+private suspend fun <I> ApplicationCall.procedureInput(method: XrpcProcedure<I, *>): I {
+    val bytes = receiveChannel().readBuffer(MAX_PROCEDURE_BODY_BYTES + 1).readByteArray()
+    if (bytes.size > MAX_PROCEDURE_BODY_BYTES) {
+        throw XrpcError(HttpStatusCode.PayloadTooLarge.value, "PayloadTooLarge", "The input is too large")
+    }
+    return runCatching { AtJson.decodeFromString(method.input, bytes.decodeToString()) }
+        .getOrElse { e -> throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", e.message ?: "Invalid input", cause = e) }
 }
 
 private suspend fun ApplicationCall.viewer(verifier: ServiceAuthVerifier, nsid: String): Did? {
@@ -341,19 +363,11 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
                 put("serviceEndpoint", config.publicUrl)
             },
         )
-        // Athletes' spaces name this service as their managingApp, so their PDSes call checkUserAccess here.
+        // Athletes' spaces name this service as their managingApp, so their PDSes call checkAccess here.
         add(
             buildJsonObject {
                 put("id", "#${AppViewConfig.MANAGING_APP_FRAGMENT}")
                 put("type", "AtprotoSpaceService")
-                put("serviceEndpoint", config.publicUrl)
-            },
-        )
-        // The AppView registers this id for athletes' tier spaces, so their PDSes send notifyWrite here.
-        add(
-            buildJsonObject {
-                put("id", "#${AppViewConfig.SYNCER_FRAGMENT}")
-                put("type", "AtprotoSpaceSyncer")
                 put("serviceEndpoint", config.publicUrl)
             },
         )

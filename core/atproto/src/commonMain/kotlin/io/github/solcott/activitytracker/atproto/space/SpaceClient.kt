@@ -98,7 +98,7 @@ class SpaceClient(
     /** Creates one of the athlete's spaces governed by [policy], or reports that it already exists, so callers can create spaces lazily. */
     suspend fun createSpace(type: String, skey: String, policy: SpacePolicy): CreateSpaceResult =
         try {
-            CreateSpaceResult.Created(pds.procedure(Space.CreateSpace.method, Space.CreateSpace.Input(type, skey, policy)).uri)
+            CreateSpaceResult.Created(pds.procedure(Space.CreateSpace.method, Space.CreateSpace.Input(type, skey, policy)).space)
         } catch (e: XrpcException) {
             if (e.error != SpaceErrors.SPACE_ALREADY_EXISTS) throw e
             CreateSpaceResult.AlreadyExists(SpaceUri.of(did, type, skey))

@@ -658,7 +658,8 @@ class AppViewTest {
         assertEquals(config.serviceDid, method.getValue("controller").jsonPrimitive.content)
         assertEquals(key.publicMultibase, method.getValue("publicKeyMultibase").jsonPrimitive.content)
         val ids = (doc.getValue("service") as JsonArray).map { it.jsonObject.getValue("id").jsonPrimitive.content }
-        assertEquals(listOf("#activity_appview", "#activitytracker_space", "#activitytracker_space_syncer"), ids)
+        // Space hosts call a syncer at the endpoint its registration names, so there's no syncer service to publish.
+        assertEquals(listOf("#activity_appview", "#activitytracker_space"), ids)
     }
 
     @Test
@@ -675,7 +676,6 @@ class AppViewTest {
                 }
         assertEquals("ActivityTrackerAppView" to config.publicUrl, services["#activity_appview"])
         assertEquals("AtprotoSpaceService" to config.publicUrl, services["#activitytracker_space"])
-        assertEquals("AtprotoSpaceSyncer" to config.publicUrl, services["#activitytracker_space_syncer"])
         // Without a signing key there's nothing for a PDS to verify delegation tokens against.
         assertEquals(null, doc["verificationMethod"])
         val metadata = client.get("/oauth/client-metadata.json").bodyAsText()

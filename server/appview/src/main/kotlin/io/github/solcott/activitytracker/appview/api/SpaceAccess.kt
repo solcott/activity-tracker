@@ -4,14 +4,15 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
-import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckUserAccess
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckAccess
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.LoggerFactory
 
 /**
- * Answers `com.atproto.managedspace.checkUserAccess`, the managing-app callout: an athlete's PDS asks whether a user may read or write one
- * of the athlete's spaces, each governed by a `managedspace` policy naming this AppView. The PDS asks about writes as well as reads (a
- * write check carries no `clientId`), and denies whenever this AppView can't be reached or answers an error. Each
+ * Answers `com.atproto.managedspace.checkAccess`, the managing-app callout: an athlete's PDS asks whether an account may read and write one
+ * of the athlete's spaces, each governed by a `managedspace` policy naming this AppView, and uses whichever answer it needs (a check
+ * prompted by a write carries no `clientId`). A request with no delegation token is asked about with no account: no athlete space is
+ * readable that way, so it's denied. When this AppView can't be reached or answers an error, the PDS fails with `UpstreamFailure`. Each
  * `app.activitytracker.space.athlete` space is one visibility tier, named by its key. Every decision is an answer, never an error, and
  * anything this AppView doesn't recognise is denied. The PDS admits the authority itself without asking. The AppView's own DID ([self]) may
  * read every tier, so it can sync the activities in them; it serves each one only to the viewers its tier admits. It alone may also read
@@ -21,22 +22,25 @@ import org.slf4j.LoggerFactory
 class SpaceAccess(private val db: Database, private val self: Did) {
     private val log = LoggerFactory.getLogger(SpaceAccess::class.java)
 
-    /** [issuer] is the verified caller, which must be the space's authority. */
-    suspend fun check(issuer: Did, params: CheckUserAccess.Params): CheckUserAccess.Output {
+    /**
+     * [issuer] is the verified caller, which must be the space's authority. Only the athlete writes to their spaces, so `write` is false.
+     */
+    suspend fun check(issuer: Did, params: CheckAccess.Params): CheckAccess.Output {
         val space = params.space
-        val authorized =
+        val repo = params.repo
+        val read =
             when {
                 space.authority != issuer -> {
-                    log.warn("checkUserAccess for {} from {}, not its authority", space, issuer)
+                    log.warn("checkAccess for {} from {}, not its authority", space, issuer)
                     false
                 }
                 space.type != Nsid.SPACE_ATHLETE -> false
-                // Only the athlete writes to their spaces.
-                params.access != CheckUserAccess.READ -> false
-                params.user == self -> space.skey in SELF_READS
-                else -> canRead(space.authority, space.skey, params.user)
+                // No account: nothing in an athlete's spaces is readable anonymously.
+                repo == null -> false
+                repo == self -> space.skey in SELF_READS
+                else -> canRead(space.authority, space.skey, repo)
             }
-        return CheckUserAccess.Output(authorized)
+        return CheckAccess.Output(read = read, write = false)
     }
 
     /** Every other key, [AthleteSpace.SELF] and [AthleteSpace.INTERACTIONS] included, admits no one, and a block admits no one to any. */

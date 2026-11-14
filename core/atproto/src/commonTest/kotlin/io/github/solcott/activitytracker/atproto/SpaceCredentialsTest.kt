@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.atproto
 
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
+import io.github.solcott.activitytracker.atproto.space.DelegationTokenSource
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpStatusCode
@@ -26,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 class SpaceCredentialsTest {
     private val f = SpaceFixtures()
 
-    private val exchangePath = "alicepds.test/xrpc/com.atproto.space.getSpaceCredential"
+    private val exchangePath = "alicepds.test/xrpc/com.atproto.space.authorizeSpaceSync"
 
     private suspend fun credentials(key: DpopKey? = null) =
         SpaceCredentials(f.viewerPds, f.network.client, f.identity, { key ?: DpopKey.generate() }, f.clock)
@@ -46,8 +48,33 @@ class SpaceCredentialsTest {
         assertNull(exchange.headers["Signature"])
         val body = exchange.jsonBody()
         assertEquals(f.aliceSpace.value, body["space"]?.jsonPrimitive?.content)
-        assertEquals(key.didKey, body["credentialKid"]?.jsonPrimitive?.content)
+        assertEquals(key.didKey, body["credentialKey"]?.jsonPrimitive?.content)
         assertEquals("delegation-1", body["delegationToken"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun aSyncersExchangeCarriesItsRegistrationAndReturnsTheSpaceRev() = runTest {
+        f.network.on(exchangePath) {
+            respondJson("""{"credential":"${SpaceFixtures.credential(f.clock.now.epochSeconds + 600)}","spaceRev":"3mspacerev22"}""")
+        }
+        val other = SpaceUri.of(f.alice, Nsid.SPACE_ATHLETE, "followers")
+        val credentials =
+            SpaceCredentials(
+                DelegationTokenSource.pds(f.viewerPds),
+                f.network.client,
+                f.identity,
+                clock = f.clock,
+                notify = { space ->
+                    Space.AuthorizeSpaceSync.Notify("https://appview.test", "token-${space.skey}").takeIf { space != other }
+                },
+            )
+
+        assertEquals("3mspacerev22", credentials.get(f.aliceSpace).spaceRev)
+        credentials.get(other)
+
+        val (first, second) = f.requestsTo(exchangePath).map { it.jsonBody() }
+        assertEquals("""{"endpoint":"https://appview.test","token":"token-${f.aliceSpace.skey}"}""", first["notify"].toString())
+        assertNull(second["notify"])
     }
 
     @Test
@@ -59,9 +86,9 @@ class SpaceCredentialsTest {
         f.clock.now += 600.seconds
         val refreshed = credentials.get(f.aliceSpace)
 
-        val kids = f.requestsTo(exchangePath).map { it.jsonBody()["credentialKid"]?.jsonPrimitive?.content }
-        assertEquals(listOf(first.key.didKey, second.key.didKey, refreshed.key.didKey), kids)
-        assertEquals(3, kids.toSet().size)
+        val keys = f.requestsTo(exchangePath).map { it.jsonBody()["credentialKey"]?.jsonPrimitive?.content }
+        assertEquals(listOf(first.key.didKey, second.key.didKey, refreshed.key.didKey), keys)
+        assertEquals(3, keys.toSet().size)
     }
 
     @Test
@@ -136,13 +163,13 @@ class SpaceCredentialsTest {
         f.network.on(exchangePath) {
             f.exchanges++
             if (refuse) {
-                respondJson("""{"error":"UserNotAuthorized","message":"not a mutual"}""", HttpStatusCode.BadRequest)
+                respondJson("""{"error":"AccountNotAuthorized","message":"not a mutual"}""", HttpStatusCode.BadRequest)
             } else {
                 respondJson("""{"credential":"${SpaceFixtures.credential(f.clock.now.epochSeconds + 600)}"}""")
             }
         }
         val credentials = credentials()
-        assertEquals("UserNotAuthorized", assertFailsWith<XrpcException> { credentials.get(f.aliceSpace) }.error)
+        assertEquals("AccountNotAuthorized", assertFailsWith<XrpcException> { credentials.get(f.aliceSpace) }.error)
         refuse = false
         credentials.get(f.aliceSpace)
         assertEquals(2, f.exchanges)

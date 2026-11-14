@@ -51,6 +51,7 @@ import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.TerrainTiles
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
+import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
@@ -106,11 +107,9 @@ fun main() {
 
     val indexer = indexerOf(config, db, identity)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
-    val member = signingKey?.let { key ->
-        val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
-        SpaceMember(SpaceCredentials(tokens, guarded, identity), guarded)
-    }
-    val syncer = member?.let { SpaceSyncer(db, indexer, it, config.syncerService) }
+    val registrations = signingKey?.let { SyncRegistrations(db, config.publicUrl) }
+    val member = signingKey?.let { spaceMember(config, it, checkNotNull(registrations), guarded, identity) }
+    val syncer = member?.let { SpaceSyncer(db, indexer, it) }
     val spaceBlobs = member?.let(::MemberSpaceBlobs)
 
     embeddedServer(Netty, port = config.port) {
@@ -134,6 +133,7 @@ fun main() {
                 spaceBlobs,
                 ozone = ozone,
                 segmentJobs = indexer.segmentJobs,
+                registrations = registrations,
             )
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, guarded, pds).start(this)
@@ -146,6 +146,21 @@ fun main() {
             ModerationAccessLog(db).start(this)
         }
         .start(wait = true)
+}
+
+/**
+ * The AppView's membership of athletes' spaces, with delegation tokens it signs itself. Each authorization of a synced space also registers
+ * the AppView for its updates ([registrations]), at its public URL.
+ */
+private fun spaceMember(
+    config: AppViewConfig,
+    key: AppViewSigningKey,
+    registrations: SyncRegistrations,
+    http: HttpClient,
+    identity: IdentityResolver,
+): SpaceMember {
+    val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
+    return SpaceMember(SpaceCredentials(tokens, http, identity, notify = registrations::notifyFor), http)
 }
 
 private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer, blobs: SpaceBlobs) =
@@ -203,6 +218,8 @@ fun Application.appView(
     ozone: OzoneClient? = null,
     /** The matcher's queue, which staging a candidate fills; the indexer's in production, so each enqueue wakes the matcher. */
     segmentJobs: SegmentJobs = SegmentJobs(),
+    /** The syncer's notification tokens, which `confirmRegistration` and `notifySpaceUpdate` are checked against; null with no syncer. */
+    registrations: SyncRegistrations? = null,
 ) {
     // Labels from these sources apply to what's served; with none configured, none do.
     LabelSources.trusted = listOfNotNull(config.labeler?.did, config.bskyLabeler?.did)
@@ -259,7 +276,7 @@ fun Application.appView(
         segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
         diveSiteRoutes(DiveSiteViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
-        spaceSyncRoutes(syncer, verifier, verifier.forAudiences(setOf(config.syncerService)))
+        spaceSyncRoutes(syncer, registrations, verifier)
         avatarRoutes(db, pds)
         mediaRoutes(db, pds, spaceBlobs, mediaTokens)
     }

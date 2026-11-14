@@ -144,7 +144,7 @@ class ProfilePresenterTest {
                     }
 
                     "/xrpc/com.atproto.space.createSpace" -> {
-                        respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/interactions"}""", headers = json)
+                        respond("""{"space":"at://$alice/space/${Nsid.SPACE_ATHLETE}/interactions"}""", headers = json)
                     }
 
                     "/xrpc/com.atproto.space.putRecord" -> {

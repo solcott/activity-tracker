@@ -4,14 +4,13 @@ import io.github.solcott.activitytracker.lexicon.atproto.DescribeServer
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUpdate
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.time.Instant
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -78,7 +77,7 @@ class SpaceSerializationTest {
 
     @Test
     fun syncerPayloadsDecode() {
-        // Shapes as the Oct 22 lexicons in the pinned PDS image define them.
+        // Shapes as the Nov 12 lexicons in the pinned PDS image define them.
         val ops =
             AtJson.decodeFromString(
                 Space.ListRepoOps.Output.serializer(),
@@ -89,7 +88,7 @@ class SpaceSerializationTest {
             )
         assertEquals(listOf("bafyput", null), ops.ops.map { it.cid?.value })
         assertEquals(null, ops.ops[1].value)
-        val commit = assertNotNull(ops.commit)
+        val commit = ops.commit
         assertEquals("3mxtoijsskd2r", commit.rev)
         assertEquals(1, commit.ver)
         assertEquals(space, commit.space)
@@ -103,25 +102,63 @@ class SpaceSerializationTest {
             ),
         )
         assertEquals(null, ops.cursor)
+    }
 
-        val notify =
+    @Test
+    fun notifySpaceUpdateDecodesEveryUpdate() {
+        fun update(json: String) =
             AtJson.decodeFromString(
-                Space.NotifyWrite.Input.serializer(),
-                """{"space":"${space.value}","repo":"did:plc:alice","repoRev":"3mxtoijnsfd2r",""" +
-                    """"data":{"${'$'}bytes":"7DDo6UqL"},"spaceRev":"3mxtoijoa2t2r"}""",
+                    Space.NotifySpaceUpdate.Input.serializer(),
+                    """{"space":"${space.value}","token":"t0k","update":$json}""",
+                )
+                .also { assertEquals("t0k", it.token) }
+                .update
+
+        val write =
+            assertIs<SpaceUpdate.RepoWrite>(
+                update(
+                    """{"${'$'}type":"com.atproto.space.defs#repoWrite","repo":"did:plc:alice","repoRev":"3mxtoijnsfd2r",""" +
+                        """"data":{"${'$'}bytes":"7DDo6UqL"},"spaceRev":"3mxtoijoa2t2r"}""",
+                ),
             )
-        assertEquals(space, notify.space)
-        assertEquals("3mxtoijnsfd2r", notify.repoRev)
-        assertEquals(null, notify.prevSpaceRev)
-        assertEquals("7DDo6UqL", notify.data?.base64)
+        assertEquals("3mxtoijnsfd2r", write.repoRev)
+        assertEquals(null, write.prevSpaceRev)
+        assertEquals("7DDo6UqL", write.data?.base64)
+        val removed =
+            assertIs<SpaceUpdate.RepoRemoved>(
+                update("""{"${'$'}type":"com.atproto.space.defs#repoRemoved","repo":"did:plc:bob","spaceRev":"3m","prevSpaceRev":"3l"}"""),
+            )
+        assertEquals(Did("did:plc:bob"), removed.repo)
+        assertEquals("3l", removed.prevSpaceRev)
+        assertIs<SpaceUpdate.SpaceDeleted>(update("""{"${'$'}type":"com.atproto.space.notifySpaceUpdate#spaceDeleted"}"""))
+        assertEquals(
+            "3n",
+            assertIs<SpaceUpdate.RegistrationExpired>(
+                    update("""{"${'$'}type":"com.atproto.space.notifySpaceUpdate#registrationExpired","spaceRev":"3n"}"""),
+                )
+                .spaceRev,
+        )
+        // Only a full $type matches: the bare fragment, or a newer kind, is unknown and round-trips.
+        val unknown = assertIs<SpaceUpdate.Unknown>(update("""{"${'$'}type":"#spaceDeleted"}"""))
+        assertEquals(unknown.json, AtJson.encodeToJsonElement(SpaceUpdate.serializer(), unknown))
+        assertEquals(
+            """{"repo":"did:plc:alice","spaceRev":"3m","${'$'}type":"com.atproto.space.defs#repoRemoved"}""",
+            AtJson.encodeToString(SpaceUpdate.serializer(), SpaceUpdate.RepoRemoved(alice, "3m")),
+        )
+    }
 
-        val deleted = Space.NotifySpaceDeleted.Input(space)
-        val deletedJson = AtJson.encodeToString(Space.NotifySpaceDeleted.Input.serializer(), deleted)
-        assertEquals("""{"space":"${space.value}"}""", deletedJson)
-        assertEquals(deleted, AtJson.decodeFromString(Space.NotifySpaceDeleted.Input.serializer(), deletedJson))
-
-        val registered = AtJson.decodeFromString(Space.RegisterNotify.Output.serializer(), """{"expiresAt":"2026-10-15T13:43:16.061Z"}""")
-        assertEquals(Instant.parse("2026-10-15T13:43:16.061Z"), registered.expiresAt)
+    @Test
+    fun confirmRegistrationRoundTrips() {
+        val input =
+            AtJson.decodeFromString(
+                Space.ConfirmRegistration.method.input,
+                """{"space":"${space.value}","token":"t0k","challenge":"c4a11"}""",
+            )
+        assertEquals(Space.ConfirmRegistration.Input(space, "t0k", "c4a11"), input)
+        assertEquals(
+            """{"challenge":"c4a11"}""",
+            AtJson.encodeToString(Space.ConfirmRegistration.method.output, Space.ConfirmRegistration.Output("c4a11")),
+        )
     }
 
     @Test
@@ -186,7 +223,7 @@ class SpaceSerializationTest {
         val output =
             AtJson.decodeFromString(
                 Space.GetSpace.method.output,
-                """{"uri":"${space.value}","policy":""" +
+                """{"space":"${space.value}","policy":""" +
                     """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}""",
             )
         assertEquals(Space.GetSpace.Output(space, SpacePolicy.Managed("did:web:a.test#x")), output)
@@ -218,10 +255,17 @@ class SpaceSerializationTest {
         assertEquals("false", putJson["validate"]?.jsonPrimitive?.content)
         assertEquals(put, AtJson.decodeFromJsonElement(Space.PutRecord.Input.serializer(), putJson))
 
-        val credential = Space.GetSpaceCredential.Input(space, "did:key:zDnaeKey", delegationToken = "eyJ.e30.c2ln")
-        val credentialJson = AtJson.encodeToJsonElement(Space.GetSpaceCredential.Input.serializer(), credential).jsonObject
-        assertEquals(setOf("space", "credentialKid", "delegationToken"), credentialJson.keys)
-        assertEquals(credential, AtJson.decodeFromJsonElement(Space.GetSpaceCredential.Input.serializer(), credentialJson))
+        val credential = Space.AuthorizeSpaceSync.Input(space, "did:key:zDnaeKey", delegationToken = "eyJ.e30.c2ln")
+        val credentialJson = AtJson.encodeToJsonElement(Space.AuthorizeSpaceSync.Input.serializer(), credential).jsonObject
+        assertEquals(setOf("space", "credentialKey", "delegationToken"), credentialJson.keys)
+        assertEquals(credential, AtJson.decodeFromJsonElement(Space.AuthorizeSpaceSync.Input.serializer(), credentialJson))
+
+        val notified = credential.copy(notify = Space.AuthorizeSpaceSync.Notify("https://appview.test", "t0k"))
+        val notifiedJson = AtJson.encodeToJsonElement(Space.AuthorizeSpaceSync.Input.serializer(), notified).jsonObject
+        assertEquals("""{"endpoint":"https://appview.test","token":"t0k"}""", notifiedJson["notify"].toString())
+        val output = AtJson.decodeFromString(Space.AuthorizeSpaceSync.method.output, """{"credential":"eyJ","spaceRev":"3m"}""")
+        assertEquals("3m", output.spaceRev)
+        assertEquals(null, AtJson.decodeFromString(Space.AuthorizeSpaceSync.method.output, """{"credential":"eyJ"}""").spaceRev)
     }
 
     @Test
@@ -236,35 +280,37 @@ class SpaceSerializationTest {
     }
 
     @Test
-    fun checkUserAccessParamsDecodeFromQuery() {
-        val query = mapOf("space" to listOf(space.value), "user" to listOf("did:plc:bob"), "access" to listOf("read"))
-        val params = XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query)
-        assertEquals(ManagedSpace.CheckUserAccess.Params(space, Did("did:plc:bob"), ManagedSpace.CheckUserAccess.READ), params)
+    fun checkAccessParamsDecodeFromQuery() {
+        val query = mapOf("space" to listOf(space.value), "repo" to listOf("did:plc:bob"))
+        val params = XrpcParams.decode(ManagedSpace.CheckAccess.method.params, query)
+        assertEquals(ManagedSpace.CheckAccess.Params(space, Did("did:plc:bob")), params)
 
-        val withClient = XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query + ("clientId" to listOf("https://app.test/c")))
+        val withClient = XrpcParams.decode(ManagedSpace.CheckAccess.method.params, query + ("clientId" to listOf("https://app.test/c")))
         assertEquals("https://app.test/c", withClient.clientId)
+        // A request with no delegation token is asked about with no account.
+        assertEquals(null, XrpcParams.decode(ManagedSpace.CheckAccess.method.params, query - "repo").repo)
     }
 
     @Test
-    fun checkUserAccessRejectsMalformedParams() {
-        val valid = mapOf("space" to listOf(space.value), "user" to listOf("did:plc:bob"), "access" to listOf("read"))
+    fun checkAccessRejectsMalformedParams() {
+        val valid = mapOf("space" to listOf(space.value), "repo" to listOf("did:plc:bob"))
         listOf(
                 valid + ("space" to listOf("at://did:plc:alice/app.activitytracker.feed.activity/3k")),
-                valid + ("user" to listOf("bob.test")),
-                valid - "access",
+                valid + ("repo" to listOf("bob.test")),
+                valid - "space",
             )
             .forEach { query ->
                 assertFailsWith<IllegalArgumentException>(query.toString()) {
-                    XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query)
+                    XrpcParams.decode(ManagedSpace.CheckAccess.method.params, query)
                 }
             }
     }
 
     @Test
-    fun checkUserAccessOutputRoundTrips() {
+    fun checkAccessOutputRoundTrips() {
         val json =
-            AtJson.encodeToString(ManagedSpace.CheckUserAccess.method.output, ManagedSpace.CheckUserAccess.Output(authorized = false))
-        assertEquals("""{"authorized":false}""", json)
-        assertEquals(true, AtJson.decodeFromString(ManagedSpace.CheckUserAccess.method.output, """{"authorized":true}""").authorized)
+            AtJson.encodeToString(ManagedSpace.CheckAccess.method.output, ManagedSpace.CheckAccess.Output(read = true, write = false))
+        assertEquals("""{"read":true,"write":false}""", json)
+        assertEquals(true, AtJson.decodeFromString(ManagedSpace.CheckAccess.method.output, """{"read":true,"write":true}""").write)
     }
 }

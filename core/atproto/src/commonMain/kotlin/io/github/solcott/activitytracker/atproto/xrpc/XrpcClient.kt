@@ -50,8 +50,8 @@ class XrpcClient(
     suspend fun <P, O> query(method: XrpcQuery<P, O>, params: P): O = queryWithHeaders(method, params).value
 
     /**
-     * [query] that also returns the response's headers (a Spaces read's `Atproto-Space-Mac`). [headers] are sent with this call only, after
-     * the client's own. A browser reads only the response headers the server lists in `Access-Control-Expose-Headers`.
+     * [query] that also returns the response's headers (a Spaces read's MAC signature headers). [headers] are sent with this call only,
+     * after the client's own. A browser reads only the response headers the server lists in `Access-Control-Expose-Headers`.
      */
     suspend fun <P, O> queryWithHeaders(method: XrpcQuery<P, O>, params: P, headers: Map<String, String> = emptyMap()): XrpcResponse<O> {
         val response =

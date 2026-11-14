@@ -82,20 +82,13 @@ data class AppViewConfig(
      */
     data class Labeler(val did: String, val url: String? = null)
 
-    /** Service id athletes' spaces name as their `managingApp`; PDSes call `checkUserAccess` on it. */
+    /** Service id athletes' spaces name as their `managingApp`; PDSes call `checkAccess` on it. */
     val managingAppService: String
         get() = "$serviceDid#$MANAGING_APP_FRAGMENT"
-
-    /** Service id the AppView registers for athletes' spaces' write notifications; PDSes call `notifyWrite` on it. */
-    val syncerService: String
-        get() = "$serviceDid#$SYNCER_FRAGMENT"
 
     companion object {
         /** Fragment of the `AtprotoSpaceService` entry in the DID document. */
         const val MANAGING_APP_FRAGMENT = "activitytracker_space"
-
-        /** Fragment of the space-syncer entry in the DID document. */
-        const val SYNCER_FRAGMENT = "activitytracker_space_syncer"
 
         /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
         const val DEFAULT_TERRAIN_ZOOM = 12

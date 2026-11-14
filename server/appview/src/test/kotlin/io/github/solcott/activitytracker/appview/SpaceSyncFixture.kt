@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
+import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
@@ -47,6 +48,11 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** The AppView as a member and syncer of athletes' spaces, against a fake Spaces PDS: what [SpaceSyncTest] and [SpaceSyncMacTest] share. */
 open class SpaceSyncFixture {
+    protected companion object {
+        /** The AppView's public URL, which its registrations name as their endpoint. */
+        const val ENDPOINT = "https://appview.test"
+    }
+
     protected val service = "did:web:localhost%3A8081"
     protected val alice = "did:plc:alice"
     protected val bob = "did:plc:bob"
@@ -65,13 +71,16 @@ open class SpaceSyncFixture {
     protected val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
     protected val pds = FakeSpacesPds(clock)
     protected val key = AppViewSigningKey(TEST_SIGNING_KEY)
+    protected val registrations = SyncRegistrations(db, ENDPOINT)
     protected val credentials =
         SpaceCredentials(
             SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign),
             pds.client,
             IdentityResolver(pds.client, "http://plc.test", null),
+            clock = clock,
+            notify = registrations::notifyFor,
         )
-    protected val syncer = SpaceSyncer(db, indexer, SpaceMember(credentials, pds.client), config.syncerService, clock)
+    protected val syncer = SpaceSyncer(db, indexer, SpaceMember(credentials, pds.client), clock)
 
     protected fun space(did: String, tier: String) = SpaceUri.of(Did(did), Nsid.SPACE_ATHLETE, tier)
 
@@ -159,38 +168,37 @@ open class SpaceSyncFixture {
             setBody("""{"space":"${space.value}"}""")
         }
 
-    protected suspend fun HttpClient.notifyWrite(
-        space: SpaceUri,
-        issuer: String? = space.authority.value,
-        aud: String = config.syncerService,
-        rev: String = pds.rev(space),
-        lxm: String? = Space.NotifyWrite.method.nsid,
-    ): HttpResponse =
-        post("/xrpc/${Space.NotifyWrite.method.nsid}") {
-            issuer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, lxm)}") }
+    /** The token the AppView registered for [space]'s notifications, or null before its first sync. */
+    protected fun tokenOf(space: SpaceUri): String? = syncState(space)?.get(SpaceSync.notifyToken)
+
+    /** The authority's PDS sending `notifySpaceUpdate` with [update] (an `update` JSON object) and [token]. */
+    protected suspend fun HttpClient.notifySpaceUpdate(space: SpaceUri, update: String, token: String? = tokenOf(space)): HttpResponse =
+        post("/xrpc/${Space.NotifySpaceUpdate.method.nsid}") {
             contentType(ContentType.Application.Json)
-            setBody(
-                """{"space":"${space.value}","repo":"${space.authority.value}","repoRev":"$rev",""" +
-                    """"data":{"${'$'}bytes":"AAAA"},"spaceRev":"$rev"}""",
-            )
+            setBody("""{"space":"${space.value}","token":"${token.orEmpty()}","update":$update}""")
         }
 
-    protected suspend fun HttpClient.notifySpaceDeleted(
+    /** A `repoWrite` notice for [repo] in [space] at [rev]. */
+    protected suspend fun HttpClient.notifyWrite(
         space: SpaceUri,
-        issuer: String? = space.authority.value,
-        aud: String = config.syncerService,
+        token: String? = tokenOf(space),
+        rev: String = pds.rev(space),
+        repo: String = space.authority.value,
     ): HttpResponse =
-        post("/xrpc/${Space.NotifySpaceDeleted.method.nsid}") {
-            issuer?.let {
-                header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, Space.NotifySpaceDeleted.method.nsid)}")
-            }
-            contentType(ContentType.Application.Json)
-            setBody("""{"space":"${space.value}"}""")
-        }
+        notifySpaceUpdate(
+            space,
+            """{"${'$'}type":"com.atproto.space.defs#repoWrite","repo":"$repo","repoRev":"$rev",""" +
+                """"data":{"${'$'}bytes":"AAAA"},"spaceRev":"$rev"}""",
+            token,
+        )
+
+    /** A `spaceDeleted` notice for [space], which only makes it due: only an authorization answered `SpaceDeleted` drops it. */
+    protected suspend fun HttpClient.notifySpaceDeleted(space: SpaceUri, token: String? = tokenOf(space)): HttpResponse =
+        notifySpaceUpdate(space, """{"${'$'}type":"com.atproto.space.notifySpaceUpdate#spaceDeleted"}""", token)
 
     protected fun HttpRequestData.jsonBody() = AtJson.parseToJsonElement((body as TextContent).text).jsonObject
 
     protected fun ApplicationTestBuilder.start() {
-        application { appView(config, db, verifier, syncer = syncer) }
+        application { appView(config, db, verifier, syncer = syncer, registrations = registrations) }
     }
 }

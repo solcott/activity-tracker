@@ -9,7 +9,7 @@ import io.ktor.http.isSuccess
 
 /**
  * The AppView as managing app of athletes' spaces: the id a space's `managingAppPolicy` names, which the PDS resolves to call
- * `checkUserAccess`.
+ * `checkAccess`.
  */
 object ManagingApp {
     const val FRAGMENT = "activitytracker_space"

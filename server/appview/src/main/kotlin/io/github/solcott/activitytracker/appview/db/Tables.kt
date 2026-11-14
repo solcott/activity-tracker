@@ -877,8 +877,16 @@ object SpaceSync : Table("space_sync") {
     val authorityDid = varchar("authority_did", 255)
     /** The authority repo's last indexed revision; null until the first backfill finishes. */
     val repoRev = varchar("repo_rev", 32).nullable()
-    /** When the `notifyWrite` registration expires, epoch millis; null when not registered. */
+    /**
+     * When the notification registration lapses, epoch millis: the expiry of the credential its latest `authorizeSpaceSync` issued. Null
+     * before the first one.
+     */
     val registeredUntil = long("registered_until").nullable()
+    /**
+     * The opaque secret this AppView registered for the space's notifications: the space host sends it back on `confirmRegistration` and
+     * `notifySpaceUpdate`, which carry no service auth. Null until the space's first sync; kept stable after that.
+     */
+    val notifyToken = varchar("notify_token", 64).nullable()
     /** Consecutive failed syncs, for backoff. */
     val failures = integer("failures").default(0)
     /** When the last sync succeeded, epoch millis; null before the first one. */

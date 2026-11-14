@@ -61,9 +61,9 @@ class AthleteSpacesTest {
                         when {
                             failCreate -> respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                             exists -> respond("""{"error":"SpaceAlreadyExists"}""", HttpStatusCode.BadRequest, json)
-                            else -> respond("""{"uri":"$space"}""", headers = json).also { exists = true }
+                            else -> respond("""{"space":"$space"}""", headers = json).also { exists = true }
                         }
-                    "com.atproto.space.getSpace" -> respond("""{"uri":"$space","policy":$storedPolicy}""", headers = json)
+                    "com.atproto.space.getSpace" -> respond("""{"space":"$space","policy":$storedPolicy}""", headers = json)
                     "com.atproto.space.updateSpace" -> respond("{}", headers = json)
                     "com.atproto.space.putRecord" -> respond("""{"uri":"$space/x","cid":"bafyrec"}""", headers = json)
                     "com.atproto.space.deleteRecord" -> respond("{}", headers = json)

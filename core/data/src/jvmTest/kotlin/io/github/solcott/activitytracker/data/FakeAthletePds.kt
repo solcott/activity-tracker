@@ -308,7 +308,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     val tier = request.url.parameters["space"].orEmpty().substringAfterLast('/')
                                     if (!spaceExists(tier)) return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
                                     json(
-                                        """{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier",""" +
+                                        """{"space":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier",""" +
                                             """"policy":{"${'$'}type":"com.atproto.managedspace.policy",""" +
                                             """"managingApp":"did:web:appview.test#activitytracker_space"}}""",
                                     )
@@ -368,7 +368,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     val tier = body(request).getValue("skey").jsonPrimitive.content
                                     deletedSpaces.remove(tier)
                                     created += tier
-                                    json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
+                                    json("""{"space":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
                                 }
                                 path == "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
                                     announced += body(request).getValue("space").jsonPrimitive.content.substringAfterLast('/')

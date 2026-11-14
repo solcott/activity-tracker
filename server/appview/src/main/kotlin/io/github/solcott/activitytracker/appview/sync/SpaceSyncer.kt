@@ -42,17 +42,17 @@ import org.slf4j.LoggerFactory
 /**
  * Keeps the activities in athletes' tier spaces, and the likes in their interactions spaces, indexed, as a member of each space (design
  * decision 4):
- * - an athlete's client announces a space ([announce]); the AppView joins it with its own credential, registers for `notifyWrite` at
- *   [service], and backfills it;
+ * - an athlete's client announces a space ([announce]); the AppView joins it with its own credential (`authorizeSpaceSync`), whose request
+ *   also registers for `notifySpaceUpdate` with the space's token ([SyncRegistrations]), and backfills it;
  * - each notification ([notified]) pulls the space's ops since the last indexed revision, and applies them only once the commit ending the
  *   pull has a verified MAC ([SpaceMember.listRepoOps]) and its `data` matches the stored set hash ([LtHash]) with the ops folded in; a
  *   mismatch, which is how a `clearRecords` shows, backfills the space instead;
- * - every space is also pulled every [reconcileInterval], since the authority's PDS sends each notification once, and its registration is
- *   renewed within [renewalMargin] of expiring;
- * - a deleted space is dropped when the authority's PDS says so ([deleted]), or else when a sync is answered `SpaceDeleted`. A sync
- *   answered `SpaceNotFound`, which is also how the authority refuses a user (such as when it can't reach the managing app), keeps the
- *   space and backs off, and drops it only once every sync for [notFoundGrace] has been answered so. `RepoTakendown` and `RepoDeactivated`
- *   (a suspended authority) are ordinary failures: the space is kept, backing off, until it resumes.
+ * - every space is also pulled every [reconcileInterval], since update notices are best effort. A registration lives only as long as its
+ *   latest credential (10 minutes), so a sync within [renewalMargin] of its expiry reauthorizes first, which renews it;
+ * - a space is dropped only when a sync's authorization is answered `SpaceDeleted`: a `spaceDeleted` notice only makes it due. A sync
+ *   answered `SpaceNotFound`, which is also how the authority refuses an account, keeps the space and backs off, and drops it only once
+ *   every sync for [notFoundGrace] has been answered so. `RepoTakendown` and `RepoDeactivated` (a suspended authority) and
+ *   `UpstreamFailure` (it couldn't reach the managing app) are ordinary failures: the space is kept, backing off, until it resumes.
  *
  * Only the authority writes to an athlete's space, so the authority's repo is the only one synced. Ops go through the [Indexer], which
  * keeps only what [Indexer.spaceCollections] allows for the space's key. A space whose sync fails is retried with backoff; it never holds
@@ -65,11 +65,9 @@ class SpaceSyncer(
     private val db: Database,
     private val indexer: Indexer,
     private val member: SpaceMember,
-    /** The id this AppView registers for notifications: `<serviceDid>#activitytracker_space_syncer`. */
-    private val service: String,
     private val clock: Clock = Clock.System,
-    private val reconcileInterval: Duration = 15.minutes,
-    private val renewalMargin: Duration = 2.hours,
+    private val reconcileInterval: Duration = 5.minutes,
+    private val renewalMargin: Duration = 6.minutes,
     private val resyncAfter: Duration = 1.hours,
     private val notFoundGrace: Duration = 24.hours,
     parallelism: Int = 4,
@@ -104,19 +102,18 @@ class SpaceSyncer(
         dueNow(space)
     }
 
-    /** A verified `notifyWrite` for [space]: pull it soon. Returns false for a space this AppView doesn't sync. */
-    suspend fun notified(space: SpaceUri): Boolean {
-        val known = isSynced(db, space)
-        if (known) dueNow(space)
-        return known
-    }
-
     /**
-     * A verified `notifySpaceDeleted` for [space]: drop it now, as a sync that finds it deleted does, rather than at its next sync. Waits
-     * for a sync of it in progress, so nothing that sync indexes outlives the drop. Does nothing for a space this AppView doesn't sync.
+     * A `notifySpaceUpdate` for [space] whose token checked out: pull it soon. Its next sync reauthorizes when [reauthorize] (a lapsed
+     * registration, or a deletion notice, which only an answer of `SpaceDeleted` confirms). Returns false for a space this AppView doesn't
+     * sync.
      */
-    suspend fun deleted(space: SpaceUri) {
-        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space, "was deleted") }
+    suspend fun notified(space: SpaceUri, reauthorize: Boolean = false): Boolean {
+        val known = isSynced(db, space)
+        if (known) {
+            if (reauthorize) db.tx { SpaceSync.update({ SpaceSync.space eq space.value }) { it[registeredUntil] = null } }
+            dueNow(space)
+        }
+        return known
     }
 
     /**
@@ -173,14 +170,9 @@ class SpaceSyncer(
                     try {
                         val now = clock.now()
                         val registeredUntil = state[SpaceSync.registeredUntil]
-                        val renewed =
-                            if (
-                                registeredUntil == null || registeredUntil - renewalMargin.inWholeMilliseconds <= now.toEpochMilliseconds()
-                            ) {
-                                register(member, space, service)
-                            } else {
-                                registeredUntil
-                            }
+                        val renew =
+                            registeredUntil == null || registeredUntil - renewalMargin.inWholeMilliseconds <= now.toEpochMilliseconds()
+                        val renewed = member.authorize(space, renew).expiresAt.toEpochMilliseconds()
                         val synced = pullOrBackfill(space, state, now)
                         db.tx {
                             SpaceSync.update({ SpaceSync.space eq space.value }) {
@@ -289,16 +281,16 @@ class SpaceSyncer(
     }
 
     /**
-     * Reads every page of ops after [since], folding each into the set hash [stored] (as of [since]), then, once the commit ending them has
-     * a verified MAC and its `data` matches the folded hash, applies them in order and returns the commit's revision and hash. A failed MAC
-     * throws before anything is applied; a pull that reaches no commit applies nothing and keeps [since]. A `data` mismatch (a cleared
-     * repo, or anything else that left the hash behind) applies nothing and returns null, so the caller backfills.
+     * Reads every page of ops after [since], folding each into the set hash [stored] (as of [since]), then, once the commit on the last
+     * page (the first with no cursor) has a verified MAC and its `data` matches the folded hash, applies them in order and returns the
+     * commit's revision and hash. A failed MAC throws before anything is applied. A `data` mismatch (a cleared repo, or anything else that
+     * left the hash behind) applies nothing and returns null, so the caller backfills.
      */
     private suspend fun pull(space: SpaceUri, since: String, stored: ByteArray): Synced? {
         val ops = mutableListOf<Space.ListRepoOps.Op>()
         val hash = LtHash(stored)
-        var head: Space.ListRepoOps.Commit? = null
         var cursor: String? = null
+        var commit: Space.ListRepoOps.Commit
         do {
             val page = member.listRepoOps(space, space.authority, Space.ListRepoOps.Params(space, space.authority, since, PAGE, cursor))
             for (op in page.ops) {
@@ -306,15 +298,10 @@ class SpaceSyncer(
                 op.cid?.let { hash.add(LtHash.element(op.collection, op.rkey, it.value)) }
             }
             ops += page.ops
-            page.commit?.let { head = it }
+            commit = page.commit
             cursor = page.cursor
         } while (cursor != null)
-        val commit = head
         return when {
-            commit == null -> {
-                if (ops.isNotEmpty()) log.warn("{} listed {} ops after {} but no commit; none applied", space, ops.size, since)
-                Synced(since, stored)
-            }
             !hash.digest().contentEquals(commit.data.decode()) -> {
                 log.info("{} at {} doesn't match its set hash after {} ops since {}; backfilling", space, commit.rev, ops.size, since)
                 null
@@ -391,7 +378,6 @@ class SpaceSyncer(
             space.type == Nsid.SPACE_ATHLETE && (space.skey in TIERS || space.skey == AthleteSpace.INTERACTIONS)
 
         private const val PAGE = 100
-        internal const val MAX_PAGE = 1000
         internal const val REPO_NOT_FOUND = "RepoNotFound"
         private val POLL_INTERVAL = 30.seconds
         private val BACKOFF_BASE = 1.minutes
@@ -410,37 +396,22 @@ private class Synced(val rev: String?, val state: ByteArray)
 /** A backfill's records never folded to its head commit's `data`. */
 class SetHashMismatchException(message: String) : Exception(message)
 
-/** The head commit of [space]'s authority repo, with a verified MAC, or null if the repo was never written. */
-private suspend fun headCommit(member: SpaceMember, space: SpaceUri): Space.ListRepoOps.Commit? {
-    var cursor: String? = null
-    while (true) {
-        val page =
-            try {
-                member.listRepoOps(
-                    space,
-                    space.authority,
-                    Space.ListRepoOps.Params(space, space.authority, limit = SpaceSyncer.MAX_PAGE, cursor = cursor, excludeValues = true),
-                )
-            } catch (e: XrpcException) {
-                if (e.error != SpaceSyncer.REPO_NOT_FOUND) throw e
-                return null
-            }
-        if (page.commit != null || page.cursor == null) return page.commit
-        cursor = page.cursor
+/**
+ * The head commit of [space]'s authority repo, with a verified MAC, or null if the repo was never written (or its host discarded it once
+ * emptied, which reads the same). Every page carries it, so one op is enough.
+ */
+private suspend fun headCommit(member: SpaceMember, space: SpaceUri): Space.ListRepoOps.Commit? =
+    try {
+        member.listRepoOps(space, space.authority, Space.ListRepoOps.Params(space, space.authority, limit = 1, excludeValues = true)).commit
+    } catch (e: XrpcException) {
+        if (e.error != SpaceSyncer.REPO_NOT_FOUND) throw e
+        null
     }
-}
 
 /** Whether this AppView syncs [space]. */
 private suspend fun isSynced(db: Database, space: SpaceUri): Boolean = db.tx {
     SpaceSync.select(SpaceSync.space).where { SpaceSync.space eq space.value }.any()
 }
-
-/** Registers [service] for [space]'s `notifyWrite`s and returns when the registration expires, epoch millis. */
-private suspend fun register(member: SpaceMember, space: SpaceUri, service: String): Long =
-    member
-        .call(space, space.authority) { pds -> pds.procedure(Space.RegisterNotify.method, Space.RegisterNotify.Input(space, service)) }
-        .expiresAt
-        .toEpochMilliseconds()
 
 /** Whether this `space_sync` row last synced within [window] of [now]. */
 private fun ResultRow.syncedWithin(window: Duration, now: Instant): Boolean =
