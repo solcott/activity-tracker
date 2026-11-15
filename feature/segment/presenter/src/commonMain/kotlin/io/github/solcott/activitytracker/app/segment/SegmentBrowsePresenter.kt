@@ -2,10 +2,8 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -14,14 +12,13 @@ import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.app.browse.MapBrowse
+import io.github.solcott.activitytracker.app.browse.NAME_SEARCH_DEBOUNCE
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
@@ -35,20 +32,10 @@ import io.github.solcott.uistate.OnKeyChange
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withTimeoutOrNull
-
-/** How long typing must pause before a name search runs, so each keystroke isn't a request. */
-internal val NAME_SEARCH_DEBOUNCE = 300.milliseconds
-
-/** How long browsing waits for a first location fix before opening at the latest activity instead. */
-internal val LOCATION_TIMEOUT = 5.seconds
 
 @CircuitInject(SegmentBrowseScreen::class, SessionScope::class)
 @Composable
@@ -61,18 +48,19 @@ fun SegmentBrowsePresenter(
     // Saveable, so the query (and with it the results) is still there on coming back from a segment.
     val query = rememberTextFieldState()
     val trimmed = query.text.trim().toString()
-    val browse = rememberRetained { BrowseControls(initialPermission(tracker)) }
+    val browse = rememberRetained { MapBrowse(MapBrowse.initialPermission(tracker)) }
+    // Only segments of this `SegmentSportGroup`; null for every group.
+    var sport by rememberRetained { mutableStateOf<String?>(null) }
 
     // Where to open, once: the athlete's location, else where their latest activity with a map started, else nowhere.
     LaunchedEffect(browse.permission) { browse.locate(tracker, feed) }
 
     // The area's segments, while no name is searched and the map is close enough. A new area keeps the last one's lines until it answers;
     // a new sport group drops them (ui/content-loading).
-    val areaRequest = browse.viewport?.takeIf { trimmed.isEmpty() && !it.tooWide && browse.start != BrowseStart.Locating }
+    val areaRequest = browse.areaRequest(searching = trimmed.isNotEmpty())
     val currentAreaRequest by rememberUpdatedState(areaRequest)
     val area =
-        key(browse.sport) {
-            val sport = browse.sport
+        key(sport) {
             snapshotFlow { currentAreaRequest }
                 .filterNotNull()
                 .produceRetainedContentState(AreaRuns(), sport, browse.areaRetry) { request ->
@@ -85,7 +73,6 @@ fun SegmentBrowsePresenter(
     // into that first page's query.
     val currentViewport by rememberUpdatedState(browse.viewport)
     val scope = browse.scope
-    val sport = browse.sport
     val results =
         key(scope, sport) {
             rememberRetainedPaging(
@@ -101,7 +88,7 @@ fun SegmentBrowsePresenter(
                         delay(NAME_SEARCH_DEBOUNCE)
                         browse.nameViewport = currentViewport
                     }
-                    emit(segments.namesPage(nameParams(trimmed, scope, sport, browse.nameViewport, cursor)))
+                    emit(segments.namesPage(nameParams(trimmed, browse.nameBox(browse.nameViewport), sport, browse.nameViewport, cursor)))
                 }
             }
         }
@@ -136,71 +123,12 @@ fun SegmentBrowsePresenter(
             is SegmentBrowseEvent.Open -> navigator.goTo(SegmentScreen(event.uri.value))
             SegmentBrowseEvent.LoadMore -> results.loadMore()
             SegmentBrowseEvent.Retry -> if (trimmed.isNotEmpty()) results.retry() else browse.areaRetry++
-            else -> browse.onEvent(event)
-        }
-    }
-}
-
-/** Whether location may be read: false where there's none, true once granted, null until the athlete is asked. */
-private fun initialPermission(tracker: LocationTracker): Boolean? =
-    when {
-        !tracker.isSupported -> false
-        tracker.hasPermission() -> true
-        else -> null
-    }
-
-/** What segment browse keeps between compositions, and the events that only change it (segments/segment-browse). */
-@Stable
-internal class BrowseControls(permission: Boolean?) {
-    /** Only segments of this `SegmentSportGroup`; null for every group. */
-    var sport by mutableStateOf<String?>(null)
-    var scope by mutableStateOf(NameScope.ThisArea)
-    var viewport by mutableStateOf<MapViewport?>(null)
-    var selected by mutableStateOf<AtUri?>(null)
-    var camera by mutableStateOf<MapCameraRequest?>(null)
-    var start by mutableStateOf(BrowseStart.Locating)
-    var permission by mutableStateOf(permission)
-    var areaRetry by mutableIntStateOf(0)
-
-    /** The map's area when the current name search's first page loaded, which its later pages search too. */
-    var nameViewport: MapViewport? = null
-
-    fun onEvent(event: SegmentBrowseEvent) {
-        when (event) {
-            is SegmentBrowseEvent.ViewportChanged -> {
-                viewport = event.viewport
-                // The athlete found somewhere themselves.
-                if (start == BrowseStart.Nowhere && !event.viewport.tooWide) start = BrowseStart.Placed
-            }
-            is SegmentBrowseEvent.PermissionResult -> permission = event.granted
-            is SegmentBrowseEvent.Select -> selected = event.uri
-            is SegmentBrowseEvent.ScopeChanged -> scope = event.scope
+            is SegmentBrowseEvent.ViewportChanged -> browse.viewportChanged(event.viewport)
+            is SegmentBrowseEvent.PermissionResult -> browse.permission = event.granted
+            is SegmentBrowseEvent.Select -> browse.selected = event.uri
+            is SegmentBrowseEvent.ScopeChanged -> browse.scope = event.scope
             is SegmentBrowseEvent.SportChanged -> sport = event.sport
-            SegmentBrowseEvent.SearchEverywhere -> scope = NameScope.Everywhere
-            else -> Unit
-        }
-    }
-
-    /**
-     * Finds where to open, once permission is known: a first location fix within [LOCATION_TIMEOUT] when granted, else where the latest
-     * activity with a map started, else nowhere.
-     */
-    suspend fun locate(tracker: LocationTracker, feed: FeedRepository) {
-        val granted = permission ?: return
-        if (start != BrowseStart.Locating) return
-        val here =
-            if (granted) withTimeoutOrNull(LOCATION_TIMEOUT) { runSuspendCatching { tracker.updates().first() }.getOrNull() } else null
-        val at = here?.let { GeoPoint(it.latitude, it.longitude) } ?: feed.latestOwnStart()
-        // The athlete may have moved the map meanwhile.
-        if (start == BrowseStart.Locating) placeAt(at)
-    }
-
-    private fun placeAt(at: GeoPoint?) {
-        if (at == null) {
-            start = BrowseStart.Nowhere
-        } else {
-            camera = MapCameraRequest(id = (camera?.id ?: 0) + 1, lat = at.lat, lng = at.lng)
-            start = BrowseStart.Placed
+            SegmentBrowseEvent.SearchEverywhere -> browse.scope = NameScope.Everywhere
         }
     }
 }
@@ -210,12 +138,11 @@ private fun MapViewport.toSearchBox(sport: String?) =
     SearchSegments.Params(minLat = minLat, minLng = minLng, maxLat = maxLat, maxLng = maxLng, sport = sport)
 
 /**
- * A name search's parameters: in This area, the map's box when it has one close enough to search; the map's centre to order by when there
- * is one. Without a map (web), everywhere and by match alone.
+ * A name search's parameters: the [box] it covers (This area's, or none for everywhere), and the map's centre to order by when there is
+ * one. Without a map (web), everywhere and by match alone.
  */
-internal fun nameParams(q: String, scope: NameScope, sport: String?, viewport: MapViewport?, cursor: String?): SearchSegmentNames.Params {
-    val box = viewport?.takeIf { scope == NameScope.ThisArea && !it.tooWide }
-    return SearchSegmentNames.Params(
+internal fun nameParams(q: String, box: MapViewport?, sport: String?, viewport: MapViewport?, cursor: String?): SearchSegmentNames.Params =
+    SearchSegmentNames.Params(
         q = q,
         minLat = box?.minLat,
         minLng = box?.minLng,
@@ -226,7 +153,6 @@ internal fun nameParams(q: String, scope: NameScope, sport: String?, viewport: M
         sport = sport,
         cursor = cursor,
     )
-}
 
 /** The area's runs, nearest the viewport's centre first, and its lifts as map lines (segments/segment-browse). */
 internal fun areaRunsOf(found: List<SegmentView>, viewport: MapViewport, capped: Boolean): AreaRuns {
