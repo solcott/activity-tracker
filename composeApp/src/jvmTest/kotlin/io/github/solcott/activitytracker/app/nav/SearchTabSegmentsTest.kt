@@ -15,6 +15,7 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.presenter.presenterOf
+import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchPresenter
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
@@ -64,6 +65,15 @@ class SearchTabSegmentsTest {
                 .addUi<SegmentBrowseScreen, BrowseStub> { state, modifier ->
                     Text("browse ${state.created}", modifier.clickable { state.open() })
                 }
+                .addPresenter<DiveSiteBrowseScreen, BrowseStub> { _, navigator, _ ->
+                    presenterOf {
+                        val id = rememberRetained { ++created }
+                        BrowseStub(id) { navigator.goTo(ProfileScreen("did:plc:carol")) }
+                    }
+                }
+                .addUi<DiveSiteBrowseScreen, BrowseStub> { state, modifier ->
+                    Text("sites ${state.created}", modifier.clickable { state.open() })
+                }
                 .addPresenter<ProfileScreen, ProfileStub> { _, _, _ -> presenterOf { ProfileStub } }
                 .addUi<ProfileScreen, ProfileStub> { _, modifier -> Text("profile", modifier) }
                 .build()
@@ -86,5 +96,13 @@ class SearchTabSegmentsTest {
         runOnIdle { tab.pop() }
         onNodeWithText("browse 1").assertExists()
         assertEquals(1, created, "the same browse screen, not a new one")
+
+        // Dive sites mode shows its own browse screen, which opens on the tab the same way (dive-sites/site-browse).
+        onNodeWithText("Dive sites").performClick()
+        onNodeWithText("sites 2").performClick()
+        onNodeWithText("profile").assertExists()
+        runOnIdle { tab.pop() }
+        onNodeWithText("sites 2").assertExists()
+        assertEquals(2, created, "the same dive site browse screen, not a new one")
     }
 }

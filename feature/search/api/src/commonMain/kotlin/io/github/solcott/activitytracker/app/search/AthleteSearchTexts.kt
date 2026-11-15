@@ -4,12 +4,13 @@ import io.github.solcott.activitytracker.app.text.AppText
 
 /** What the Search tab says that follows a rule, chosen here for the shared and the native UI (dev/shared-display-text). */
 object AthleteSearchTexts {
-    /** The tab's title: finding athletes, or the tab's own name while it browses segments. */
+    /** The tab's title: finding athletes, or the tab's own name while it browses segments or dive sites. */
     fun title(mode: SearchMode): AppText =
         AppText.named(
             when (mode) {
                 SearchMode.Athletes -> "search_title"
-                SearchMode.Segments -> "search_tab_title"
+                SearchMode.Segments,
+                SearchMode.DiveSites -> "search_tab_title"
             },
         )
 
@@ -19,6 +20,7 @@ object AthleteSearchTexts {
             when (mode) {
                 SearchMode.Athletes -> "search_mode_athletes"
                 SearchMode.Segments -> "search_mode_segments"
+                SearchMode.DiveSites -> "search_mode_dive_sites"
             },
         )
 

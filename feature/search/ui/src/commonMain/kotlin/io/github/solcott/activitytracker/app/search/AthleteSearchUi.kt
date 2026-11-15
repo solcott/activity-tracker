@@ -26,6 +26,7 @@ import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.screen.PopResult
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseScreen
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
@@ -70,9 +71,16 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
                 onSelect = { state.eventSink(AthleteSearchEvent.ModeChanged(SearchMode.entries[it])) },
                 modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            if (state.mode == SearchMode.Segments) {
-                SegmentsMode(state, Modifier.fillMaxSize())
-                return@AppScaffold
+            when (state.mode) {
+                SearchMode.Athletes -> Unit
+                SearchMode.Segments -> {
+                    BrowseMode(state, SegmentBrowseScreen, Modifier.fillMaxSize())
+                    return@AppScaffold
+                }
+                SearchMode.DiveSites -> {
+                    BrowseMode(state, DiveSiteBrowseScreen, Modifier.fillMaxSize())
+                    return@AppScaffold
+                }
             }
             SearchField(
                 state.query,
@@ -103,11 +111,11 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
 }
 
 /**
- * The segment browse screen, in place of athlete search. What it opens goes on this tab's back stack, through this screen's presenter, as
- * if it were the tab's own screen.
+ * A browse [screen] (segments or dive sites), in place of athlete search. What it opens goes on this tab's back stack, through this
+ * screen's presenter, as if it were the tab's own screen.
  */
 @Composable
-private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifier) {
+private fun BrowseMode(state: AthleteSearchState, screen: Screen, modifier: Modifier = Modifier) {
     // The sink is a new lambda on each of the tab presenter's recompositions; reading the latest keeps the navigator, and with it the
     // browse presenter CircuitContent keys on it, the same.
     val sink by rememberUpdatedState(state.eventSink)
@@ -124,7 +132,7 @@ private fun SegmentsMode(state: AthleteSearchState, modifier: Modifier = Modifie
             }
         }
     }
-    CircuitContent(SegmentBrowseScreen, modifier = modifier, navigator = navigator)
+    CircuitContent(screen, modifier = modifier, navigator = navigator)
 }
 
 /** What the results say when empty: that nothing matched; none before a query, which shows the prompt instead. */
