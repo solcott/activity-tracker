@@ -222,8 +222,8 @@ class SegmentViews(
      * from.
      */
     suspend fun searchNames(viewer: Did?, params: SearchSegmentNames.Params): SearchSegmentNames.Output {
-        val box = nameSearchBox(params)
-        val near = nameSearchCentre(params)
+        val box = nameSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
+        val near = nameSearchCentre(params.nearLat, params.nearLng)
         val q = params.q.trim().take(SearchSegmentNames.MAX_QUERY_LENGTH).lowercase()
         if (q.isEmpty()) return SearchSegmentNames.Output(emptyList())
         val limit = Paging.clamp(params.limit)
@@ -251,7 +251,10 @@ class SegmentViews(
                         )
                 } ?: Op.TRUE
             // Within a match, nearest the centre first, or by name without one.
-            val within: Expression<*> = near?.let { (lat, lng) -> BoxDistance(lat, lng) } ?: name
+            val within: Expression<*> =
+                near?.let { (lat, lng) ->
+                    BoxDistance(lat, lng, Segments.minLatE7, Segments.maxLatE7, Segments.minLngE7, Segments.maxLngE7)
+                } ?: name
             val rows =
                 Segments.selectAll()
                     .where {
@@ -703,26 +706,6 @@ class SegmentViews(
         }
     }
 
-    /** A name search's box, checked like [search]'s: all four sides or none, else `InvalidRequest`. */
-    private fun nameSearchBox(params: SearchSegmentNames.Params): SearchBox? {
-        val given = listOfNotNull(params.minLat, params.minLng, params.maxLat, params.maxLng)
-        if (given.isEmpty()) return null
-        if (given.size != BOX_SIDES) invalidRequest("Give all four sides of the box, or none")
-        val box = SearchBox(given[0], given[1], given[2], given[3])
-        requireSearchBox(box.minLat, box.minLng, box.maxLat, box.maxLng)
-        return box
-    }
-
-    /** A name search's centre, both coordinates or none, on the globe, else `InvalidRequest`. */
-    private fun nameSearchCentre(params: SearchSegmentNames.Params): Pair<Int, Int>? {
-        val lat = params.nearLat
-        val lng = params.nearLng
-        if (lat == null && lng == null) return null
-        if (lat == null || lng == null) invalidRequest("Give both nearLat and nearLng, or neither")
-        if (!validPositionE7(lat, lng)) invalidRequest("The centre is outside the globe")
-        return lat to lng
-    }
-
     /** Whether the precision-6 [line] has a point (every [SegmentGeometry.REFERENCE_SPACING_M]) in the box, in 1e-7 degrees. */
     private fun crosses(line: String, minLat: Int, minLng: Int, maxLat: Int, maxLng: Int): Boolean =
         SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty()).any {
@@ -734,11 +717,6 @@ class SegmentViews(
         private const val SEARCH_BATCHES = 3
 
         /** How well a name matches a name search: the whole name, its start, a word's start, anywhere. Lower is better. */
-        private const val NAME_WHOLE = 0
-        private const val NAME_PREFIX = 1
-        private const val NAME_WORD = 2
-        private const val NAME_ANYWHERE = 3
-        private const val BOX_SIDES = 4
 
         /** The ranks an activity's efforts show (segments/segment-efforts). */
         private const val TOP_RANKS = 10
@@ -785,22 +763,59 @@ internal data class DateWindow(val since: String?, val until: String?)
 private const val LAST_DAYS = 90L
 
 /** A search box, 1e-7 degrees. */
-private data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)
+internal data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)
+
+/** How well a name matches a name search: the whole name, its start, a word's start, anywhere. Lower is better. */
+internal const val NAME_WHOLE = 0
+internal const val NAME_PREFIX = 1
+internal const val NAME_WORD = 2
+internal const val NAME_ANYWHERE = 3
+private const val BOX_SIDES = 4
+
+/** A name search's box, checked like an area search's: all four sides or none, else `InvalidRequest`. */
+internal fun nameSearchBox(minLat: Int?, minLng: Int?, maxLat: Int?, maxLng: Int?): SearchBox? {
+    val given = listOfNotNull(minLat, minLng, maxLat, maxLng)
+    if (given.isEmpty()) return null
+    if (given.size != BOX_SIDES) invalidRequest("Give all four sides of the box, or none")
+    val box = SearchBox(given[0], given[1], given[2], given[3])
+    requireSearchBox(box.minLat, box.minLng, box.maxLat, box.maxLng)
+    return box
+}
+
+/** The centre a name search orders by, 1e-7 degrees. */
+internal data class NameSearchCentre(val lat: Int, val lng: Int)
+
+/** A name search's centre, both coordinates or none, on the globe, else `InvalidRequest`. */
+internal fun nameSearchCentre(lat: Int?, lng: Int?): NameSearchCentre? {
+    if (lat == null && lng == null) return null
+    if (lat == null || lng == null) invalidRequest("Give both nearLat and nearLng, or neither")
+    if (!validPositionE7(lat, lng)) invalidRequest("The centre is outside the globe")
+    return NameSearchCentre(lat, lng)
+}
 
 /**
- * How far a segment's bounding box lies from a point ([lat], [lng], 1e-7 degrees), for ordering only: the gap to the box along each axis
- * (zero inside it), longitude scaled by the cosine at [lat] in thousandths. Plain `GREATEST` and `BIGINT` arithmetic, so H2 runs it too.
+ * How far a bounding box ([minLat]..[maxLat], [minLng]..[maxLng] columns) lies from a point ([lat], [lng], 1e-7 degrees), for ordering
+ * only: the gap to the box along each axis (zero inside it), longitude scaled by the cosine at [lat] in thousandths. A point is a box whose
+ * sides are one column. Plain `GREATEST` and `BIGINT` arithmetic, so H2 runs it too.
  */
-private class BoxDistance(private val lat: Int, private val lng: Int) : ExpressionWithColumnType<Long>() {
+@Suppress("LongParameterList") // A point and a box's four sides.
+internal class BoxDistance(
+    private val lat: Int,
+    private val lng: Int,
+    private val minLat: Expression<Int>,
+    private val maxLat: Expression<Int>,
+    private val minLng: Expression<Int>,
+    private val maxLng: Expression<Int>,
+) : ExpressionWithColumnType<Long>() {
     override val columnType = LongColumnType()
 
     private val lngScale = (cos(Math.toRadians(lat / 1e7)) * PER_MILLE).roundToLong()
 
     override fun toQueryBuilder(queryBuilder: QueryBuilder) {
         queryBuilder {
-            gap(Segments.minLatE7, Segments.maxLatE7, lat)
+            gap(minLat, maxLat, lat)
             append(" * $PER_MILLE + ")
-            gap(Segments.minLngE7, Segments.maxLngE7, lng)
+            gap(minLng, maxLng, lng)
             append(" * $lngScale")
         }
     }

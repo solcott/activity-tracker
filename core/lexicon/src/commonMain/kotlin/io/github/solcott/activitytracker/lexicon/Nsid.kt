@@ -126,6 +126,7 @@ object Nsid {
     const val FEED_DIVE_SITE = "$NAMESPACE.feed.diveSite"
     const val FEED_GET_DIVE_SITE = "$NAMESPACE.feed.getDiveSite"
     const val FEED_SEARCH_DIVE_SITES = "$NAMESPACE.feed.searchDiveSites"
+    const val FEED_SEARCH_DIVE_SITE_NAMES = "$NAMESPACE.feed.searchDiveSiteNames"
     const val FEED_CHECK_DIVE_SITE = "$NAMESPACE.feed.checkDiveSite"
     const val FEED_GET_DIVE_SITE_DIVES = "$NAMESPACE.feed.getDiveSiteDives"
     const val FEED_GET_DIVE_SITE_CONDITIONS = "$NAMESPACE.feed.getDiveSiteConditions"

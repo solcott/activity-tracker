@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.searchDiveSiteNames",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Dive sites whose current name contains q, ignoring case, best match first: the whole name, then names starting with q, then names with a word starting with q, then the rest; within a match, nearest the given centre first, or by name without one. Serves the sites searchDiveSites would serve the viewer. With a box, only sites whose centre lies in it. Keep paging while there is a cursor.",
+      "parameters": {
+        "type": "params",
+        "required": ["q"],
+        "properties": {
+          "q": { "type": "string", "maxLength": 100, "description": "Search text, case-insensitive. A blank query returns no sites." },
+          "minLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees. The box is optional, but all four of its sides or none." },
+          "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "nearLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees. The centre results are ordered from within a match, with nearLng or not at all." },
+          "nearLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["sites"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "sites": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#diveSiteView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "Only some of the box's sides, or only one of nearLat and nearLng; a box with min above max, or wider than 1 degree on either side." }]
+    }
+  }
+}

@@ -36,6 +36,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
@@ -45,6 +46,8 @@ import io.ktor.http.HttpStatusCode
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.time.Clock
+import org.jetbrains.exposed.v1.core.Case
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -55,8 +58,11 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
@@ -123,6 +129,55 @@ class DiveSiteViews(
                     .toList()
             val next = rows.takeIf { it.size == limit }?.last()?.let { cursorOf(it[DiveSites.indexedAt], it[DiveSites.uri]) }
             SearchDiveSites.Output(diveSiteViews(rows, avatars), next)
+        }
+    }
+
+    /**
+     * Sites whose current name contains the query, ignoring case: the whole name, then its start, then a word's start, then anywhere, then
+     * nearest the centre or by name, paged by offset (dive-sites/site-records). The same sites [search] serves; with a box, only those
+     * whose centre is in it.
+     */
+    suspend fun searchNames(viewer: Did?, params: SearchDiveSiteNames.Params): SearchDiveSiteNames.Output {
+        val box = nameSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
+        val near = nameSearchCentre(params.nearLat, params.nearLng)
+        val q = params.q.trim().take(SearchDiveSiteNames.MAX_QUERY_LENGTH).lowercase()
+        if (q.isEmpty()) return SearchDiveSiteNames.Output(emptyList())
+        val limit = Paging.clamp(params.limit)
+        val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
+        return db.tx {
+            val name = DiveSites.currentName.lowerCase()
+            val match = NameMatch(q)
+            val rank =
+                Case()
+                    .When(name eq q, intLiteral(NAME_WHOLE))
+                    .When(name like match.prefix, intLiteral(NAME_PREFIX))
+                    .When(name like match.wordPrefix, intLiteral(NAME_WORD))
+                    .Else(intLiteral(NAME_ANYWHERE))
+            val inBox =
+                box?.let { b ->
+                    (DiveSites.latE7 greaterEq b.minLat) and
+                        (DiveSites.latE7 lessEq b.maxLat) and
+                        (DiveSites.lngE7 greaterEq b.minLng) and
+                        (DiveSites.lngE7 lessEq b.maxLng)
+                } ?: Op.TRUE
+            // Within a match, nearest the centre first, or by name without one.
+            val within: Expression<*> =
+                near?.let { (lat, lng) -> BoxDistance(lat, lng, DiveSites.latE7, DiveSites.latE7, DiveSites.lngE7, DiveSites.lngE7) }
+                    ?: name
+            val rows =
+                DiveSites.selectAll()
+                    .where {
+                        diveSiteServed(viewer) and
+                            unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
+                            listedTo(viewer) and
+                            (name like match.anywhere) and
+                            inBox
+                    }
+                    .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
+                    .limit(limit)
+                    .offset(offset)
+                    .toList()
+            SearchDiveSiteNames.Output(diveSiteViews(rows, avatars), (offset + limit).toString().takeIf { rows.size == limit })
         }
     }
 

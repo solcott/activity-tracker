@@ -61,6 +61,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
@@ -147,6 +148,7 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
 fun Route.diveSiteRoutes(sites: DiveSiteViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetDiveSite.method, verifier) { params, viewer -> sites.site(viewer, params) }
     xrpcQuery(SearchDiveSites.method, verifier) { params, viewer -> sites.search(viewer, params) }
+    xrpcQuery(SearchDiveSiteNames.method, verifier) { params, viewer -> sites.searchNames(viewer, params) }
     xrpcQuery(GetDiveSiteConditions.method, verifier) { params, viewer -> sites.conditions(viewer, params) }
     xrpcQuery(GetDiveSiteRegulars.method, verifier) { params, viewer -> sites.regulars(viewer, params) }
     xrpcProcedure(CheckDiveSite.method, verifier) { input, caller -> sites.check(requireViewer(caller), input) }

@@ -858,6 +858,33 @@ object SearchDiveSites {
 }
 
 /**
+ * Dive sites whose current name contains `q`, best match first and then nearest `near` (dive-sites/site-records), serving the sites
+ * [SearchDiveSites] would. The box (1e-7 degrees, holding the site's centre) and the centre are each optional but whole, else
+ * `InvalidRequest`.
+ */
+object SearchDiveSiteNames {
+    @Serializable
+    data class Params(
+        val q: String,
+        val minLat: Int? = null,
+        val minLng: Int? = null,
+        val maxLat: Int? = null,
+        val maxLng: Int? = null,
+        val nearLat: Int? = null,
+        val nearLng: Int? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val sites: List<DiveSiteView>, val cursor: String? = null)
+
+    /** The lexicon's `maxLength` for [Params.q]. */
+    const val MAX_QUERY_LENGTH = 100
+
+    val method = XrpcQuery(Nsid.FEED_SEARCH_DIVE_SITE_NAMES, Params.serializer(), Output.serializer())
+}
+
+/**
  * Checks a centre before the caller publishes it as a dive site: the proposed or active sites it would duplicate, earliest indexed first,
  * and how many more new sites the caller may create today. Needs a signed-in caller.
  */
