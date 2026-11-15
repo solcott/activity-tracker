@@ -1,10 +1,10 @@
 import IosShell
 import SwiftUI
 
-/// The Search tab's root (segments/segment-browse), drawn from the states `AthleteSearchPresenter` publishes: Athletes and Segments as a
-/// segmented choice, the list's first row; in Athletes mode the system's search field over the matching accounts, a page at a time, the prompt
-/// while nothing is typed and the message when nothing matched; in Segments mode the native segment browse (`SegmentBrowseView`), which
-/// the host runs as a screen this page's record embeds, so what it opens goes on the Search tab. What it says that follows a rule is Kotlin's (`AthleteSearchTexts`), shared with the Compose page. The query, the mode
+/// The Search tab's root (segments/segment-browse), drawn from the states `AthleteSearchPresenter` publishes: Athletes, Segments and Dive
+/// sites as a segmented choice, the list's first row; in Athletes mode the system's search field over the matching accounts, a page at a time, the prompt
+/// while nothing is typed and the message when nothing matched; in Segments mode the native segment browse (`SegmentBrowseView`), and in
+/// Dive sites mode the native dive site browse (`DiveSiteBrowseView`), each of which the host runs as a screen this page's record embeds, so what it opens goes on the Search tab. What it says that follows a rule is Kotlin's (`AthleteSearchTexts`), shared with the Compose page. The query, the mode
 /// and the results are the presenter's, so they are kept while the athlete visits other tabs.
 struct AthleteSearchView: View {
     let state: AthleteSearchState
@@ -13,6 +13,8 @@ struct AthleteSearchView: View {
     /// Where segment browse's map was left, kept with this page, so switching modes back and forth reopens it there, as the shared tab
     /// does; its query and lists are kept by the host with this page's record.
     @State private var browseMap = SegmentsMapMemory()
+    /// Where dive site browse's map was left, kept the same way (dive-sites/site-browse).
+    @State private var sitesMap = SegmentsMapMemory()
     @Environment(\.hostRecord) private var record
 
     init(state: AthleteSearchState) {
@@ -26,25 +28,38 @@ struct AthleteSearchView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if state.mode == .Segments {
-            // No list to scroll: the choice stays over the browse screen.
-            VStack(spacing: 0) {
-                modes.padding(.horizontal, 16).padding(.vertical, 8)
-                if let record {
-                    EmbeddedScreenView(record, screen: SegmentBrowseScreen.shared) { (browse: SegmentBrowseState) in
-                        SegmentBrowseView(state: browse, memory: browseMap)
-                    }
-                } else {
-                    // Outside the host, as in a preview or a snapshot, there is no record to run browse in; its own previews show it.
-                    Spacer()
+        switch state.mode {
+        case .Segments:
+            browse {
+                EmbeddedScreenView($0, screen: SegmentBrowseScreen.shared) { (browse: SegmentBrowseState) in
+                    SegmentBrowseView(state: browse, memory: browseMap)
                 }
             }
-        } else {
+        case .DiveSites:
+            browse {
+                EmbeddedScreenView($0, screen: DiveSiteBrowseScreen.shared) { (browse: DiveSiteBrowseState) in
+                    DiveSiteBrowseView(state: browse, memory: sitesMap)
+                }
+            }
+        default:
             athletes
         }
     }
 
-    /// Athletes, then Segments, in the order Kotlin declares them.
+    /// A browse mode: the choice over the browse screen this page's record embeds, with no list to scroll.
+    private func browse(@ViewBuilder _ screen: @escaping (HostRecord) -> some View) -> some View {
+        VStack(spacing: 0) {
+            modes.padding(.horizontal, 16).padding(.vertical, 8)
+            if let record {
+                screen(record)
+            } else {
+                // Outside the host, as in a preview or a snapshot, there is no record to run browse in; its own previews show it.
+                Spacer()
+            }
+        }
+    }
+
+    /// Athletes, Segments and Dive sites, in the order Kotlin declares them.
     private var modes: some View {
         Picker(selection: Binding(get: { state.mode }, set: { send(AthleteSearchEvent.ModeChanged(mode: $0)) })) {
             ForEach(SearchMode.allCases, id: \.self) { mode in

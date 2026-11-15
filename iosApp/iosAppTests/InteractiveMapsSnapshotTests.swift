@@ -3,8 +3,8 @@ import Testing
 
 @testable import ActivityTracker
 
-/// The enlarged segment map, segment browse and Accept invite in each of their sample states against their references
-/// (segments/segment-map-viewer, segments/segment-browse, feed/activity-invites, dev/ios-snapshot-tests). Snapshots run outside a session,
+/// The enlarged segment map, segment and dive site browse and Accept invite in each of their sample states against their references
+/// (segments/segment-map-viewer, segments/segment-browse, dive-sites/site-browse, feed/activity-invites, dev/ios-snapshot-tests). Snapshots run outside a session,
 /// so every map draws its stand-in and loads no tiles (`\.liveMaps`).
 @MainActor
 @Suite(.enabled(if: Snapshots.comparesHere, Snapshots.skipped))
@@ -35,6 +35,17 @@ struct InteractiveMapsSnapshotTests {
         assertAppSnapshot(of: browse(state), size: Self.iPad, named: "selected", precision: Snapshots.barButtons)
     }
 
+    @Test(arguments: browseSamples)
+    func diveSiteBrowse(sample: String) throws {
+        let state = try #require(Samples.diveSiteBrowse[sample])
+        assertAppSnapshot(of: sitesBrowse(state), named: sample, precision: Snapshots.barButtons)
+    }
+
+    @Test func diveSiteBrowseOnAnIPad() throws {
+        let state = try #require(Samples.diveSiteBrowse["selected"])
+        assertAppSnapshot(of: sitesBrowse(state), size: Self.iPad, named: "selected", precision: Snapshots.barButtons)
+    }
+
     @Test(arguments: inviteSamples)
     func acceptInvite(sample: String) throws {
         let state = try #require(Samples.acceptInvite[sample])
@@ -46,6 +57,13 @@ struct InteractiveMapsSnapshotTests {
     private func browse(_ state: SegmentBrowseState) -> some View {
         NavigationStack {
             SegmentBrowseView(state: state, memory: SegmentsMapMemory()).navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    /// Dive site browse, held the same way (dive-sites/site-browse).
+    private func sitesBrowse(_ state: DiveSiteBrowseState) -> some View {
+        NavigationStack {
+            DiveSiteBrowseView(state: state, memory: SegmentsMapMemory()).navigationBarTitleDisplayMode(.inline)
         }
     }
 }

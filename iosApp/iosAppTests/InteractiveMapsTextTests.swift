@@ -40,6 +40,21 @@ struct InteractiveMapsTextTests {
         #expect(state.isSelected(segment: state.areaRuns[1].segment))
     }
 
+    @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {
+        let state = try #require(Samples.diveSiteBrowse["loaded"])
+        #expect(state.listShows(mapSupported: true) == .Area)
+        #expect(state.areaSites.count == 3)
+        let details = AppStrings.string(DiveSiteBrowseTexts.shared.details(browsed: state.areaSites[0], units: .Metric))
+        #expect(details.hasSuffix("away"))
+        #expect(details.contains(" · "))
+    }
+
+    @Test func aTapOnTheSiteMapSelectsThroughKotlin() throws {
+        let state = try #require(Samples.diveSiteBrowse["selected"])
+        #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
+        #expect(state.isSelected(site: state.areaSites[1].site))
+    }
+
     @Test func anOsmCreditLinksAndNamesItsLicence() throws {
         let state = try #require(Samples.segmentMap["credited"])
         let content = try #require(state.content.data as? SegmentMapContent)

@@ -75,7 +75,7 @@ struct ScreenRegistryTests {
         }
         // A segment's page with the native chart (ios-native-charts), its enlarged map, segment browse and accepting an invite
         // (ios-native-interactive-maps).
-        for screen in ["SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen", "AcceptInviteScreen"] {
+        for screen in ["SegmentScreen", "SegmentMapScreen", "SegmentBrowseScreen", "DiveSiteBrowseScreen", "AcceptInviteScreen"] {
             #expect(ScreenRegistry.app.hasView(forScreenNamed: screen))
         }
         // The activity page, with the native map, charts and comments (ios-native-activity-page).
@@ -127,6 +127,7 @@ struct ScreenRegistryTests {
         #expect(String(describing: ActivityTracker.LeftElsewhereScreen.self) == "LeftElsewhereScreen")
         #expect(String(describing: ActivityTracker.SegmentMapScreen.self) == "SegmentMapScreen")
         #expect(String(describing: ActivityTracker.SegmentBrowseScreen.self) == "SegmentBrowseScreen")
+        #expect(String(describing: ActivityTracker.DiveSiteBrowseScreen.self) == "DiveSiteBrowseScreen")
         #expect(String(describing: ActivityTracker.AcceptInviteScreen.self) == "AcceptInviteScreen")
         #expect(String(describing: ActivityTracker.EditGearScreen.self) == "EditGearScreen")
         #expect(String(describing: ActivityTracker.EditGearCollectionScreen.self) == "EditGearCollectionScreen")
