@@ -7,7 +7,7 @@ Lets a signed-in athlete discover segments: browse the ones around a place on a 
 ## Requirements
 
 ### Requirement: Segments mode in the Search tab
-The Search tab SHALL offer a switch between Athletes and Segments. Athletes SHALL be the athlete search it shows today, and SHALL be selected the first time the tab opens. Segments SHALL show the segment browse screen. The tab SHALL keep the chosen mode, and each mode's query and results, while the athlete visits other tabs and comes back.
+The Search tab SHALL offer a switch between Athletes, Segments and Dive sites. Athletes SHALL be the athlete search it shows today, and SHALL be selected the first time the tab opens. Segments SHALL show the segment browse screen, and Dive sites the dive site browse screen (`dive-sites/site-browse`). The tab SHALL keep the chosen mode, and each mode's query and results, while the athlete visits other tabs and comes back.
 
 #### Scenario: Switching to segments
 - **WHEN** an athlete on the Search tab chooses Segments
@@ -117,7 +117,7 @@ When the segments for an area or a name query can't be loaded, the browse screen
 
 ### Requirement: The Search tab is native on iOS
 On iOS the Search tab's root SHALL be drawn with the system's navigation bar under a large title ("Find athletes" in Athletes mode,
-"Search" in Segments mode), with Athletes and Segments as a segmented choice under the bar.
+"Search" in Segments and Dive sites modes), with Athletes, Segments and Dive sites as a segmented choice under the bar.
 
 #### Scenario: Switching mode
 - **WHEN** alice chooses Segments on the native Search tab

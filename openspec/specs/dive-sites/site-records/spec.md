@@ -79,6 +79,21 @@ The AppView SHALL index at most 10 new sites per creator in any 24 hours and SHA
 - **WHEN** a viewer asks for the URI of a deleted site the importer has republished
 - **THEN** the view is the republished site's, under its own URI
 
+### Requirement: Sites can be found by name
+`feed.searchDiveSiteNames` SHALL return the sites whose current name contains a query, ignoring case, at most 100 per page with a cursor, serving exactly the sites `feed.searchDiveSites` would serve the same viewer: `active` ones to everyone, `proposed` ones only to their creator and athletes with a visit, never `duplicate`, `archived`, hidden or taken-down ones. It SHALL order them by how well the name matches (the whole name, then its start, then a word's start, then anywhere), then nearest a given centre, else by name. A box, when given, SHALL hold the site's centre and be at most 1 degree a side; a box or centre given in part SHALL be `InvalidRequest`. A blank query SHALL return nothing.
+
+#### Scenario: Current name
+- **WHEN** a site recorded as "Reef 7" has adopted the name "Shark Alley"
+- **THEN** searching "shark" finds it and searching "reef 7" doesn't
+
+#### Scenario: Prefix before anywhere
+- **WHEN** a viewer searches "hole" and "Hole in the Wall" and "Blue Hole" match
+- **THEN** "Hole in the Wall" comes before "Blue Hole"
+
+#### Scenario: Proposed site
+- **WHEN** a proposed site's name matches
+- **THEN** its creator and athletes with a visit to it get it, and other viewers don't
+
 ### Requirement: Editing or deleting a site updates it everywhere
 Re-writing a site record SHALL replace its indexed version and recompute its visits when its centre or radius changed. Deleting it SHALL remove the site, its visits, its name proposals, their votes and its name history, except what a handoff keeps for an `active` site that isn't the importer's (`dive-sites/site-handoffs`).
 
