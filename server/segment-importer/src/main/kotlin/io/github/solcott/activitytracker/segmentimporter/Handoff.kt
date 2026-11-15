@@ -27,9 +27,9 @@ internal data class HandoffResult(
 /**
  * Republishes every pending handoff `importer.getHandoffs` lists (segments/segment-handoffs, dive-sites/site-handoffs): a segment as a
  * `feed.segment`, a site as a `feed.diveSite`, in the service account's repo under the handoff's id, with `source` `athlete`, `CC0-1.0` and
- * no attribution. The AppView lists only handoffs no live subject covers, so there is no duplicate check here. A key the repo already holds
- * is never written again. An entry of an unknown kind, or missing what its kind needs, is skipped. Stops at the first failed call, keeping
- * what it did; running again carries on.
+ * no attribution, through [Clients.writer]. The AppView lists only handoffs no live subject covers, so there is no duplicate check here. A
+ * key the repo already holds is never written again. An entry of an unknown kind, or missing what its kind needs, is skipped. Stops at the
+ * first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun handoff(clients: Clients, clock: Clock = Clock.System): HandoffResult {
     val published = mutableListOf<String>()
@@ -42,20 +42,17 @@ internal suspend fun handoff(clients: Clients, clock: Clock = Clock.System): Han
             val page = clients.asImporter {
                 clients.appView.query(GetHandoffs.method, GetHandoffs.Params(SegmentCandidates.MAX_BATCH, cursor))
             }
-            for (handoff in page.handoffs) {
-                val (collection, record) =
-                    recordOf(handoff, clock)
-                        ?: run {
-                            skipped += handoff.id
-                            null
-                        }
-                        ?: continue
-                when {
-                    exists(clients, repo, handoff.id, collection) -> present += handoff.id
-                    createIfAbsent(clients, repo, collection, handoff.id, record) -> published += handoff.id
-                    else -> present += handoff.id
+            val drafts =
+                page.handoffs.mapNotNull { handoff ->
+                    val (collection, record) =
+                        recordOf(handoff, clock)
+                            ?: run {
+                                skipped += handoff.id
+                                return@mapNotNull null
+                            }
+                    Draft(collection, handoff.id, record)
                 }
-            }
+            clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey else present += draft.rkey }
             cursor = page.cursor
         } while (cursor != null)
     }

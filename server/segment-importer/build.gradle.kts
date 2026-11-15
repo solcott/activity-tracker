@@ -26,6 +26,7 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
                     "SEGMENT_IMPORTER_IDENTIFIER",
                     "SEGMENT_IMPORTER_PASSWORD",
                     "SEGMENT_IMPORTER_PDS_URL",
+                    "SEGMENT_IMPORTER_COMMITS_PER_HOUR",
                     "APPVIEW_URL",
                     "APPVIEW_DID",
                 )) {

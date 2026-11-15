@@ -24,6 +24,7 @@ import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -37,8 +38,19 @@ class PublishTest {
             override fun now() = Instant.parse("2026-10-21T12:00:00Z")
         }
 
-    /** Records in the fake repo, by rkey. */
-    private val repo = mutableMapOf<String, String>()
+    /** Records in the fake repo, by collection and rkey. */
+    private val repo = mutableMapOf<Pair<String, String>, JsonObject>()
+
+    /** The rkeys of the segments in [repo]. */
+    private val keys
+        get() = repo.keys.map { it.second }.toSet()
+
+    private fun key(rkey: String) = Nsid.FEED_SEGMENT to rkey
+
+    private fun obj(text: String) = AtJson.parseToJsonElement(text).jsonObject
+
+    /** The segment [repo] holds under [rkey]. */
+    private fun written(rkey: String) = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), repo.getValue(key(rkey)))
 
     /** An athlete's active segment, which [appView] reports as the duplicate of a candidate. */
     private val athleteSegment =
@@ -99,17 +111,7 @@ class PublishTest {
                     }
             json(AtJson.encodeToString(CheckSegmentCandidates.Output.serializer(), CheckSegmentCandidates.Output(checked)))
         }
-        fake.on("com.atproto.repo.getRecord") { call ->
-            val rkey = call.params.getValue("rkey")
-            repo[rkey]?.let { json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/$rkey","value":$it}""") }
-                ?: error(HttpStatusCode.BadRequest, "RecordNotFound")
-        }
-        fake.on("com.atproto.repo.createRecord") { call ->
-            val rkey = call.body!!.getValue("rkey").jsonPrimitive.content
-            if (rkey in repo) return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Record already exists")
-            repo[rkey] = call.body.getValue("record").toString()
-            json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/$rkey","cid":"bafy$rkey"}""")
-        }
+        fake.serveRepo(repo)
     }
 
     @Test
@@ -118,13 +120,13 @@ class PublishTest {
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1"), result.published)
         assertNull(result.stoppedBy)
-        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
+        val commit = fake.calls(FakeServices.APPLY_WRITES).single().body!!
         assertEquals(
-            FakeServices.DID to Nsid.FEED_SEGMENT,
-            create.getValue("repo").jsonPrimitive.content to create.getValue("collection").jsonPrimitive.content,
+            FakeServices.DID to "false",
+            commit.getValue("repo").jsonPrimitive.content to commit.getValue("validate").jsonPrimitive.content,
         )
-        assertEquals("c1" to "false", create.getValue("rkey").jsonPrimitive.content to create.getValue("validate").jsonPrimitive.content)
-        val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), create.getValue("record").jsonObject)
+        assertEquals(listOf(listOf(Triple("create", Nsid.FEED_SEGMENT, "c1"))), fake.commits())
+        val record = written("c1")
         assertEquals(
             SegmentRecord("Trail c1", "ride", "line-c1", "osm", "ODbL-1.0", Instant.parse("2026-10-21T12:00:00Z")),
             record,
@@ -139,8 +141,7 @@ class PublishTest {
     fun aLiftIsPublishedWithItsKind() = runTest {
         appView(listOf("lift-1"))
         assertEquals(listOf("lift-1"), publish(clients, "us-vermont", clock).published)
-        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
-        val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), create.getValue("record").jsonObject)
+        val record = written("lift-1")
         assertEquals(Triple("alpine", "lift", "Summit Quad"), Triple(record.sport, record.kind, record.name))
     }
 
@@ -148,7 +149,6 @@ class PublishTest {
     fun anAgencyCandidateIsPublishedWithItsSourceLicenceAndAttribution() = runTest {
         appView(listOf("usfs-1"))
         assertEquals(listOf("usfs-1"), publish(clients, "us-vermont", clock).published)
-        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
         assertEquals(
             SegmentRecord(
                 "Trail usfs-1",
@@ -159,7 +159,7 @@ class PublishTest {
                 Instant.parse("2026-10-21T12:00:00Z"),
                 attribution = "USDA Forest Service",
             ),
-            AtJson.decodeFromJsonElement(SegmentRecord.serializer(), create.getValue("record").jsonObject),
+            written("usfs-1"),
         )
     }
 
@@ -168,7 +168,7 @@ class PublishTest {
         appView(listOf("c1", "c2"), duplicates = setOf("c1"))
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1") to listOf("c2"), result.duplicates to result.published)
-        assertEquals(setOf("c2"), repo.keys)
+        assertEquals(setOf("c2"), keys)
     }
 
     @Test
@@ -182,7 +182,7 @@ class PublishTest {
             ids,
             fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().body!!.getValue("ids").jsonArray.map { it.jsonPrimitive.content },
         )
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls("com.atproto.repo.createRecord"))
+        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls(FakeServices.APPLY_WRITES))
     }
 
     @Test
@@ -191,7 +191,7 @@ class PublishTest {
         assertEquals(listOf("c1"), publish(clients, "us-vermont", clock).duplicates)
         liveDuplicates.clear()
         assertEquals(listOf("c1"), publish(clients, "us-vermont", clock).published)
-        assertEquals(setOf("c1"), repo.keys)
+        assertEquals(setOf("c1"), keys)
     }
 
     @Test
@@ -199,45 +199,57 @@ class PublishTest {
         appView(listOf("c1", "c2"), unstaged = setOf("c1"))
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1") to listOf("c2"), result.gone to result.published)
-        assertEquals(setOf("c2"), repo.keys)
+        assertEquals(setOf("c2"), keys)
     }
 
     @Test
     fun aCandidateWhoseOwnSegmentIsIndexedCountsAsPublishedNotDuplicate() = runTest {
         appView(listOf("c1", "c2"), duplicates = setOf("c2"))
-        repo["c1"] = """{"name":"Trail c1"}"""
+        repo[key("c1")] = obj("""{"name":"Trail c1"}""")
         indexed += setOf("c1", "c2")
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1", "c2") to emptyList<String>(), result.present to result.duplicates)
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls("com.atproto.repo.createRecord"))
+        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls(FakeServices.APPLY_WRITES))
     }
 
     @Test
-    fun anExistingRecordIsNeverRewritten() = runTest {
-        appView(listOf("c1"))
-        repo["c1"] = """{"name":"Old line"}"""
+    fun anExistingRecordIsNeverRewrittenAndTheRestOfItsCommitIsSentAgain() = runTest {
+        appView(listOf("c1", "c2"))
+        repo[key("c1")] = obj("""{"name":"Old line"}""")
         val result = publish(clients, "us-vermont", clock)
-        assertEquals(listOf("c1"), result.present)
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.createRecord"))
-        assertEquals("""{"name":"Old line"}""", repo["c1"])
+        assertEquals(listOf("c1") to listOf("c2"), result.present to result.published)
+        assertEquals(obj("""{"name":"Old line"}"""), repo[key("c1")])
+        assertEquals(
+            listOf(
+                listOf(Triple("create", Nsid.FEED_SEGMENT, "c1"), Triple("create", Nsid.FEED_SEGMENT, "c2")),
+                listOf(Triple("create", Nsid.FEED_SEGMENT, "c2")),
+            ),
+            fake.commits(),
+            "the refused commit, then the one without c1",
+        )
     }
 
     @Test
     fun aKeyCreatedMeanwhileCountsAsPresent() = runTest {
         appView(listOf("c1"))
         // Another run creates c1 between this run's check and its write.
-        var checks = 0
-        fake.on("com.atproto.repo.getRecord") { call ->
-            val rkey = call.params.getValue("rkey")
-            if (checks++ == 0) {
-                repo[rkey] = """{"name":"Theirs"}"""
-                return@on error(HttpStatusCode.BadRequest, "RecordNotFound")
-            }
-            json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/$rkey","value":${repo.getValue(rkey)}}""")
+        fake.serveRepo(repo) { commit ->
+            if (commit == 1) repo[key("c1")] = obj("""{"name":"Theirs"}""")
+            null
         }
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1") to emptyList<String>(), result.present to result.published)
-        assertEquals("""{"name":"Theirs"}""", repo["c1"])
+        assertEquals(obj("""{"name":"Theirs"}"""), repo[key("c1")])
+    }
+
+    @Test
+    fun aRefusedCommitWithNoHeldKeyStopsTheRun() = runTest {
+        appView(listOf("c1", "c2"))
+        fake.serveRepo(repo) { error(HttpStatusCode.InternalServerError, "InternalServerError") }
+        val result = publish(clients, "us-vermont", clock)
+        assertEquals(500, assertIs<XrpcException>(result.stoppedBy).status)
+        assertEquals(emptyList(), result.published + result.present)
+        assertEquals(emptySet(), keys)
     }
 
     @Test
@@ -246,24 +258,21 @@ class PublishTest {
         appView(ids)
         val result = publish(clients, "us-vermont", clock)
         assertEquals(501, result.published.size)
+        assertEquals(listOf(100, 100, 100, 100, 100, 1), fake.commits().map { it.size }, "a page's segments, 100 to a commit")
         assertEquals(listOf(null, "c1499"), fake.calls(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES).map { it.params["cursor"] })
         assertEquals(listOf("500"), fake.calls(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES).map { it.params["limit"] }.distinct())
     }
 
     @Test
     fun aRateLimitStopsTheRunKeepingWhatItDid() = runTest {
-        appView(listOf("c1", "c2", "c3"))
-        var creates = 0
-        fake.on("com.atproto.repo.createRecord") { call ->
-            if (++creates == 2) return@on error(HttpStatusCode.TooManyRequests, "RateLimitExceeded")
-            val rkey = call.body!!.getValue("rkey").jsonPrimitive.content
-            repo[rkey] = call.body.getValue("record").toString()
-            json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/$rkey","cid":"bafy$rkey"}""")
-        }
+        val ids = (100 until 250).map { "c$it" }
+        appView(ids)
+        fake.serveRepo(repo) { commit -> if (commit == 2) error(HttpStatusCode.TooManyRequests, "RateLimitExceeded") else null }
         val result = publish(clients, "us-vermont", clock)
-        assertEquals(listOf("c1"), result.published)
+        assertEquals(ids.take(100), result.published)
         assertEquals(429, assertIs<XrpcException>(result.stoppedBy).status)
-        assertEquals(setOf("c1"), repo.keys)
+        assertEquals(ids.take(100).toSet(), keys)
+        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord"), "a rate limit is never taken for a held key")
     }
 
     @Test
@@ -272,7 +281,7 @@ class PublishTest {
         val every = listOf("c1", "c2", "c3").map { SegmentCandidate(it, "ride", "Trail $it", "line-$it", "osm", "ODbL-1.0") }
         val result = publish(clients, "us-vermont", clock, every)
         assertEquals(Triple(listOf("c2"), listOf("c1"), listOf("c3")), Triple(result.published, result.duplicates, result.gone))
-        assertEquals(setOf("c2"), repo.keys)
+        assertEquals(setOf("c2"), keys)
         assertEquals(emptyList(), fake.calls(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES), "the file, not the ridden list")
     }
 
@@ -281,7 +290,7 @@ class PublishTest {
         appView(emptyList())
         val stale = SegmentCandidate("c1", "ride", "Old name", "old-line", "osm", "ODbL-1.0")
         assertEquals(listOf("c1"), publish(clients, "us-vermont", clock, listOf(stale)).published)
-        val record = AtJson.decodeFromString(SegmentRecord.serializer(), repo.getValue("c1"))
+        val record = written("c1")
         assertEquals("Trail c1" to "line-c1", record.name to record.line)
     }
 

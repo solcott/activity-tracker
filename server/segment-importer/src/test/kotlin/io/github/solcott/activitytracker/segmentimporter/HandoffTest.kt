@@ -6,15 +6,13 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteRecord
 import io.github.solcott.activitytracker.lexicon.app.GetHandoffs
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
-import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonObject
 
 /** `handoff` (segments/segment-handoffs, dive-sites/site-handoffs): pending handoffs republished under their ids, never twice. */
 class HandoffTest {
@@ -26,7 +24,7 @@ class HandoffTest {
         }
 
     /** Records in the fake repo, by collection and rkey. */
-    private val repo = mutableMapOf<Pair<String, String>, String>()
+    private val repo = mutableMapOf<Pair<String, String>, JsonObject>()
 
     private val segment =
         SubjectHandoff(
@@ -43,17 +41,7 @@ class HandoffTest {
         fake.on(Nsid.IMPORTER_GET_HANDOFFS) {
             json(AtJson.encodeToString(GetHandoffs.Output.serializer(), GetHandoffs.Output(pending.toList())))
         }
-        fake.on("com.atproto.repo.getRecord") { call ->
-            val key = call.params.getValue("collection") to call.params.getValue("rkey")
-            repo[key]?.let { json("""{"uri":"at://${FakeServices.DID}/${key.first}/${key.second}","value":$it}""") }
-                ?: error(HttpStatusCode.BadRequest, "RecordNotFound")
-        }
-        fake.on("com.atproto.repo.createRecord") { call ->
-            val key = call.body!!.getValue("collection").jsonPrimitive.content to call.body.getValue("rkey").jsonPrimitive.content
-            if (key in repo) return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Record already exists")
-            repo[key] = call.body.getValue("record").toString()
-            json("""{"uri":"at://${FakeServices.DID}/${key.first}/${key.second}","cid":"bafy${key.second}"}""")
-        }
+        fake.serveRepo(repo)
     }
 
     @Test
@@ -62,11 +50,7 @@ class HandoffTest {
         val result = handoff(clients, clock)
         assertEquals(listOf("handoff-aa"), result.published)
         assertNull(result.stoppedBy)
-        val record =
-            AtJson.decodeFromJsonElement(
-                SegmentRecord.serializer(),
-                fake.calls("com.atproto.repo.createRecord").single().body!!.getValue("record").jsonObject,
-            )
+        val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), repo.getValue(Nsid.FEED_SEGMENT to "handoff-aa"))
         assertEquals(
             SegmentRecord(
                 name = "Hogback Climb",
@@ -91,10 +75,7 @@ class HandoffTest {
         handoff(clients, clock)
         assertEquals(
             DiveSiteRecord("Blue Hole", 274_000_000, 340_000_000, 100, "athlete", "CC0-1.0", Instant.parse("2026-11-06T12:00:00Z")),
-            AtJson.decodeFromJsonElement(
-                DiveSiteRecord.serializer(),
-                repo.getValue(Nsid.FEED_DIVE_SITE to "handoff-bb").let { AtJson.parseToJsonElement(it).jsonObject },
-            ),
+            AtJson.decodeFromJsonElement(DiveSiteRecord.serializer(), repo.getValue(Nsid.FEED_DIVE_SITE to "handoff-bb")),
         )
     }
 
@@ -102,17 +83,19 @@ class HandoffTest {
     fun aSecondRunWritesNothing() = runTest {
         services(segment, site)
         handoff(clients, clock)
+        val written = repo.toMap()
         val again = handoff(clients, clock)
         assertEquals(emptyList(), again.published)
         assertEquals(listOf("handoff-aa", "handoff-bb"), again.present)
-        assertEquals(2, fake.calls("com.atproto.repo.createRecord").size)
+        assertEquals(written, repo)
+        assertEquals(listOf(2, 2), fake.commits().map { it.size }, "the first run's commit, then the second's, refused")
     }
 
     @Test
     fun anUnknownKindIsSkipped() = runTest {
         services(SubjectHandoff("handoff-cc", "route", "Mystery"))
         assertEquals(listOf("handoff-cc"), handoff(clients, clock).skipped)
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.createRecord"))
+        assertEquals(emptyList(), fake.calls(FakeServices.APPLY_WRITES))
     }
 
     @Test

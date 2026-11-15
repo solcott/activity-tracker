@@ -2,10 +2,8 @@
 
 package io.github.solcott.activitytracker.segmentimporter
 
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
@@ -13,8 +11,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
-import io.github.solcott.activitytracker.lexicon.atproto.CreateRecord
-import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
@@ -41,8 +37,9 @@ internal data class PublishResult(
  * of becomes a `feed.segment` in the service account's repo, keyed by its id, with its own source, licence and attribution. Each page is
  * checked in one call, so a run's AppView calls grow with its pages, not with the duplicates it lists again every run; the check also
  * leaves out a candidate no longer staged, which is reported [PublishResult.gone], and gives each one as staged, which is what's published
- * (a stale [every] file's copy never is). A key the repo already holds is never written again, so a published segment is never doubled or
- * rewritten. Stops at the first failed call, keeping what it did; running again carries on.
+ * (a stale [every] file's copy never is). Each page's segments go out through [Clients.writer], batched and paced; a key the repo already
+ * holds is never written again, so a published segment is never doubled or rewritten. Stops at the first failed call, keeping what it did;
+ * running again carries on.
  */
 internal suspend fun publish(
     clients: Clients,
@@ -59,6 +56,7 @@ internal suspend fun publish(
         val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
         pages.collect { page ->
             val checks = check(clients, region, page)
+            val drafts = mutableListOf<Draft>()
             for (listed in page) {
                 val check = checks[listed.id]
                 // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
@@ -68,11 +66,10 @@ internal suspend fun publish(
                     // The importer's own segment for this candidate is live, so the check lists it: already published.
                     AtUri.of(repo, Nsid.FEED_SEGMENT, listed.id) in check.duplicates -> present += listed.id
                     check.duplicates.isNotEmpty() -> duplicates += listed.id
-                    exists(clients, repo, listed.id) -> present += listed.id
-                    createIfAbsent(clients, repo, Nsid.FEED_SEGMENT, listed.id, segmentRecord(candidate, clock)) -> published += listed.id
-                    else -> present += listed.id
+                    else -> drafts += Draft(Nsid.FEED_SEGMENT, listed.id, segmentRecord(candidate, clock))
                 }
             }
+            clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey else present += draft.rkey }
         }
     }
     return PublishResult(published, duplicates, present, gone, stoppedBy)
@@ -106,16 +103,6 @@ private suspend fun check(clients: Clients, region: String, page: List<SegmentCa
             .associateBy { it.id }
     }
 
-/** Whether [repo] already holds a record of [collection] (a segment unless given) under [rkey]. */
-internal suspend fun exists(clients: Clients, repo: Did, rkey: String, collection: String = Nsid.FEED_SEGMENT): Boolean =
-    try {
-        clients.pds.query(GetRecord.method, GetRecord.Params(repo.value, collection, rkey))
-        true
-    } catch (e: XrpcException) {
-        if (e.error != RECORD_NOT_FOUND) throw e
-        false
-    }
-
 /** [candidate] as a `feed.segment` record created now, with its own source, licence and attribution. */
 private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElement =
     AtJson.encodeToJsonElement(
@@ -131,19 +118,6 @@ private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElemen
             kind = candidate.kind,
         ),
     )
-
-/**
- * Creates [record] in [repo]'s [collection] under [rkey]; false when a concurrent run created it first (`createRecord` refuses a key that
- * exists, and a re-check finds it). Every command that publishes goes through it, so none ever overwrites a record.
- */
-internal suspend fun createIfAbsent(clients: Clients, repo: Did, collection: String, rkey: String, record: JsonElement): Boolean =
-    try {
-        clients.pds.procedure(CreateRecord.method, CreateRecord.Input(repo, collection, record, rkey, false))
-        true
-    } catch (e: XrpcException) {
-        if (e.status != CLIENT_ERROR || !exists(clients, repo, rkey, collection)) throw e
-        false
-    }
 
 /**
  * Runs [block], a command's whole run, and returns the error that stopped it, or null when it finished; cancellation still propagates. A
@@ -179,4 +153,3 @@ internal suspend fun publishRegion(clients: Clients, region: String, every: File
 }
 
 internal const val RECORD_NOT_FOUND = "RecordNotFound"
-internal const val CLIENT_ERROR = 400

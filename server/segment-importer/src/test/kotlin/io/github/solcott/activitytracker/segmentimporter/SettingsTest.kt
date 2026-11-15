@@ -27,6 +27,15 @@ class SettingsTest {
     }
 
     @Test
+    fun theCommitRateDefaultsUnderARelaysLimitAndMustBePositive() {
+        assertEquals(RepoWriter.DEFAULT_COMMITS_PER_HOUR, Settings.fromEnv(account).commitsPerHour)
+        assertEquals(10_000, Settings.fromEnv(account + ("SEGMENT_IMPORTER_COMMITS_PER_HOUR" to "10000")).commitsPerHour)
+        for (bad in listOf("0", "-5", "fast")) {
+            assertFailsWith<Settings.Invalid> { Settings.fromEnv(account + ("SEGMENT_IMPORTER_COMMITS_PER_HOUR" to bad)) }
+        }
+    }
+
+    @Test
     fun eachMissingAccountSettingIsNamed() {
         val missing = assertFailsWith<Settings.Missing> { Settings.fromEnv(mapOf("SEGMENT_IMPORTER_PASSWORD" to " ")) }
         assertEquals(listOf("SEGMENT_IMPORTER_IDENTIFIER", "SEGMENT_IMPORTER_PASSWORD", "SEGMENT_IMPORTER_PDS_URL"), missing.names)

@@ -17,9 +17,9 @@ import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /** `publish-sites` (dive-sites/site-import): extracted sites that duplicate nothing become dive sites, never doubled or rewritten. */
 class PublishSitesTest {
@@ -30,8 +30,14 @@ class PublishSitesTest {
             override fun now() = Instant.parse("2026-10-21T12:00:00Z")
         }
 
-    /** Records in the fake repo, by rkey. */
-    private val repo = mutableMapOf<String, String>()
+    /** Records in the fake repo, by collection and rkey. */
+    private val repo = mutableMapOf<Pair<String, String>, JsonObject>()
+
+    /** The rkeys of the sites in [repo]. */
+    private val keys
+        get() = repo.keys.map { it.second }.toSet()
+
+    private fun key(rkey: String) = Nsid.FEED_DIVE_SITE to rkey
 
     /** Sites [appView]'s check reports as within 50 m of an athlete's live site. */
     private val nearAthleteSite = mutableSetOf<String>()
@@ -53,17 +59,7 @@ class PublishSitesTest {
                 }
             json(AtJson.encodeToString(CheckDiveSites.Output.serializer(), CheckDiveSites.Output(checked)))
         }
-        fake.on("com.atproto.repo.getRecord") { call ->
-            val rkey = call.params.getValue("rkey")
-            repo[rkey]?.let { json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_DIVE_SITE}/$rkey","value":$it}""") }
-                ?: error(HttpStatusCode.BadRequest, "RecordNotFound")
-        }
-        fake.on("com.atproto.repo.createRecord") { call ->
-            val rkey = call.body!!.getValue("rkey").jsonPrimitive.content
-            if (rkey in repo) return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Record already exists")
-            repo[rkey] = call.body.getValue("record").toString()
-            json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_DIVE_SITE}/$rkey","cid":"bafy$rkey"}""")
-        }
+        fake.serveRepo(repo)
     }
 
     @Test
@@ -72,12 +68,10 @@ class PublishSitesTest {
         val result = publishSites(clients, listOf(site("osm-node-1", "SS Thistlegorm")), clock)
         assertEquals(listOf("osm-node-1"), result.published)
         assertNull(result.stoppedBy)
-        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
-        assertEquals(Nsid.FEED_DIVE_SITE, create.getValue("collection").jsonPrimitive.content)
-        assertEquals("osm-node-1", create.getValue("rkey").jsonPrimitive.content)
+        assertEquals(listOf(listOf(Triple("create", Nsid.FEED_DIVE_SITE, "osm-node-1"))), fake.commits())
         assertEquals(
             DiveSiteRecord("SS Thistlegorm", 274_000_000, 340_000_000, 150, "osm", "ODbL-1.0", Instant.parse("2026-10-21T12:00:00Z")),
-            AtJson.decodeFromJsonElement(DiveSiteRecord.serializer(), create.getValue("record").jsonObject),
+            AtJson.decodeFromJsonElement(DiveSiteRecord.serializer(), repo.getValue(key("osm-node-1"))),
         )
         assertEquals(
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_CHECK_DIVE_SITES}",
@@ -92,7 +86,7 @@ class PublishSitesTest {
         val result = publishSites(clients, listOf(site("osm-node-1"), site("osm-node-2")), clock)
         assertEquals(listOf("osm-node-1"), result.duplicates)
         assertEquals(listOf("osm-node-2"), result.published)
-        assertEquals(setOf("osm-node-2"), repo.keys)
+        assertEquals(setOf("osm-node-2"), keys)
     }
 
     @Test
@@ -105,18 +99,19 @@ class PublishSitesTest {
         val again = publishSites(clients, sites, clock)
         assertEquals(emptyList(), again.published)
         assertEquals(listOf("osm-node-1", "osm-way-2"), again.present)
-        assertEquals(2, fake.calls("com.atproto.repo.createRecord").size)
+        assertEquals(listOf(2, 1), fake.commits().map { it.size }, "the first run's commit, then the unindexed site's, refused")
         assertEquals(written, repo)
     }
 
     @Test
     fun aPublishedSiteIsNeverRewrittenEvenWhenTheFileChanged() = runTest {
         appView()
-        repo["osm-node-1"] = """{"name":"Old name"}"""
+        val old = AtJson.parseToJsonElement("""{"name":"Old name"}""").jsonObject
+        repo[key("osm-node-1")] = old
         val result = publishSites(clients, listOf(site("osm-node-1", "New name")), clock)
         assertEquals(listOf("osm-node-1"), result.present)
-        assertEquals("""{"name":"Old name"}""", repo["osm-node-1"])
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.createRecord"))
+        assertEquals(old, repo[key("osm-node-1")])
+        assertEquals(listOf("create"), fake.commits().flatten().map { it.first }.distinct(), "creates only, never an update or delete")
         assertEquals(emptyList(), fake.calls("com.atproto.repo.putRecord") + fake.calls("com.atproto.repo.deleteRecord"))
     }
 
@@ -143,6 +138,7 @@ class PublishSitesTest {
         assertEquals(500, result.published.size)
         assertIs<Exception>(result.stoppedBy)
         assertEquals(500, repo.size)
+        assertEquals(List(5) { 100 }, fake.commits().map { it.size })
     }
 
     @Test

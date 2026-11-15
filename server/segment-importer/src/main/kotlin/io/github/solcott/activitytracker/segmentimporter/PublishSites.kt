@@ -24,10 +24,10 @@ internal data class PublishSitesResult(
 
 /**
  * Publishes a sites file's [sites] (dive-sites/site-import): each one `importer.checkDiveSites` finds no live site within 50 m of becomes a
- * `feed.diveSite` in the service account's repo, keyed by its id. Each page of [SegmentCandidates.MAX_BATCH] is checked in one call. A key
- * the repo already holds is never written again, so a published site is never doubled, moved or renamed, and nothing is ever deleted; the
- * importer's own live site is the duplicate the check finds for it, which counts as already published. Stops at the first failed call,
- * keeping what it did; running again carries on.
+ * `feed.diveSite` in the service account's repo, keyed by its id, through [Clients.writer]. Each page of [SegmentCandidates.MAX_BATCH] is
+ * checked in one call. A key the repo already holds is never written again, so a published site is never doubled, moved or renamed, and
+ * nothing is ever deleted; the importer's own live site is the duplicate the check finds for it, which counts as already published. Stops
+ * at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun publishSites(clients: Clients, sites: List<SiteEntry>, clock: Clock = Clock.System): PublishSitesResult {
     val published = mutableListOf<String>()
@@ -37,16 +37,16 @@ internal suspend fun publishSites(clients: Clients, sites: List<SiteEntry>, cloc
         val repo = clients.session.did()
         for (page in sites.chunked(SegmentCandidates.MAX_BATCH)) {
             val checks = checkSites(clients, page)
+            val drafts = mutableListOf<Draft>()
             for (site in page) {
                 val found = checks[site.id]?.duplicates.orEmpty()
                 when {
                     AtUri.of(repo, Nsid.FEED_DIVE_SITE, site.id) in found -> present += site.id
                     found.isNotEmpty() -> duplicates += site.id
-                    exists(clients, repo, site.id, Nsid.FEED_DIVE_SITE) -> present += site.id
-                    createIfAbsent(clients, repo, Nsid.FEED_DIVE_SITE, site.id, siteRecord(site, clock)) -> published += site.id
-                    else -> present += site.id
+                    else -> drafts += Draft(Nsid.FEED_DIVE_SITE, site.id, siteRecord(site, clock))
                 }
             }
+            clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey else present += draft.rkey }
         }
     }
     return PublishSitesResult(published, duplicates, present, stoppedBy)

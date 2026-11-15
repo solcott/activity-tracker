@@ -15,17 +15,26 @@ internal data class Settings(
     val appViewUrl: String,
     /** The AppView's DID, the `aud` of its service-auth tokens (`APPVIEW_DID`). */
     val appViewDid: String,
+    /** The most commits the importer writes to the repo an hour (`SEGMENT_IMPORTER_COMMITS_PER_HOUR`); see [RepoWriter]. */
+    val commitsPerHour: Int = RepoWriter.DEFAULT_COMMITS_PER_HOUR,
 ) {
     override fun toString() = "Settings($identifier at $pdsUrl, AppView $appViewDid at $appViewUrl)"
 
     /** Settings that can't be used, naming each missing variable. */
     class Missing(val names: List<String>) : Exception("Set ${names.joinToString()} for the importer's service account")
 
+    /** A setting whose value can't be used. */
+    class Invalid(name: String, value: String) : Exception("$name must be a positive whole number, not \"$value\"")
+
     companion object {
         const val DEFAULT_APPVIEW_URL = "http://localhost:8081"
         const val DEFAULT_APPVIEW_DID = "did:web:localhost%3A8081"
+        private const val COMMITS_PER_HOUR = "SEGMENT_IMPORTER_COMMITS_PER_HOUR"
 
-        /** The settings in [env]; throws [Missing] when the account's identifier, password or PDS isn't set. */
+        /**
+         * The settings in [env]; throws [Missing] when the account's identifier, password or PDS isn't set, and [Invalid] when the commit
+         * rate isn't a positive number.
+         */
         fun fromEnv(env: Map<String, String> = System.getenv()): Settings {
             fun value(key: String) = env[key]?.trim()?.takeIf { it.isNotEmpty() }
             val required = listOf("SEGMENT_IMPORTER_IDENTIFIER", "SEGMENT_IMPORTER_PASSWORD", "SEGMENT_IMPORTER_PDS_URL")
@@ -37,6 +46,9 @@ internal data class Settings(
                 pdsUrl = pdsUrl.trimEnd('/'),
                 appViewUrl = (value("APPVIEW_URL") ?: DEFAULT_APPVIEW_URL).trimEnd('/'),
                 appViewDid = value("APPVIEW_DID") ?: DEFAULT_APPVIEW_DID,
+                commitsPerHour =
+                    value(COMMITS_PER_HOUR)?.let { it.toIntOrNull()?.takeIf { n -> n > 0 } ?: throw Invalid(COMMITS_PER_HOUR, it) }
+                        ?: RepoWriter.DEFAULT_COMMITS_PER_HOUR,
             )
         }
     }

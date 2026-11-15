@@ -22,6 +22,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -74,7 +75,7 @@ class RefineTest {
 
     private fun file(vararg candidates: SegmentCandidate) = CandidatesFile("us-utah", candidates.toList())
 
-    /** The fake PDS lists [repo] [pageSize] at a time and stores each put in it; [failPuts] refuses them. */
+    /** The fake PDS lists [repo] [pageSize] at a time and applies each commit's updates to it; [failPuts] refuses them. */
     private fun pds(pageSize: Int = 100, failPuts: Boolean = false) {
         fake.on("com.atproto.repo.listRecords") { call ->
             assertEquals(FakeServices.DID, call.params["repo"])
@@ -89,13 +90,16 @@ class RefineTest {
             val cursor = if (from + page.size < keys.size) ""","cursor":"${page.last()}"""" else ""
             json("""{"records":[$records]$cursor}""")
         }
-        fake.on("com.atproto.repo.putRecord") { call ->
+        fake.on(FakeServices.APPLY_WRITES) { call ->
             if (failPuts) return@on error(HttpStatusCode.InternalServerError, "InternalServerError")
             val body = call.body!!
             assertEquals(FakeServices.DID, body["repo"]?.jsonPrimitive?.content)
-            val rkey = body["rkey"]!!.jsonPrimitive.content
-            repo[rkey] = body["record"]!!.jsonObject
-            json("""{"uri":"at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/$rkey","cid":"bafynew"}""")
+            for (write in body.getValue("writes").jsonArray.map { it.jsonObject }) {
+                assertEquals("com.atproto.repo.applyWrites#update", write["\$type"]?.jsonPrimitive?.content)
+                assertEquals(Nsid.FEED_SEGMENT, write["collection"]?.jsonPrimitive?.content)
+                repo[write.getValue("rkey").jsonPrimitive.content] = write.getValue("value").jsonObject
+            }
+            json("""{"results":[]}""")
         }
     }
 
@@ -123,7 +127,7 @@ class RefineTest {
         val result = refine(clients, file(candidate("c1")))
 
         assertEquals(listOf("c1"), result.moved)
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.putRecord"))
+        assertEquals(emptyList(), fake.commits())
     }
 
     @Test
@@ -134,7 +138,7 @@ class RefineTest {
         val result = refine(clients, file(candidate("c1")))
 
         assertEquals(listOf("gone"), result.missing)
-        assertEquals(emptyList(), fake.calls("com.atproto.repo.putRecord"))
+        assertEquals(emptyList(), fake.commits())
     }
 
     @Test
@@ -143,12 +147,12 @@ class RefineTest {
         repo["c2"] = segment(coarse)
         pds(pageSize = 1)
         refine(clients, file(candidate("c1"), candidate("c2")))
-        assertEquals(2, fake.calls("com.atproto.repo.putRecord").size, "both pages")
+        assertEquals(2, fake.commits().size, "both pages")
 
         val again = refine(clients, file(candidate("c1"), candidate("c2")))
 
         assertEquals(listOf("c1", "c2"), again.unchanged)
-        assertEquals(2, fake.calls("com.atproto.repo.putRecord").size)
+        assertEquals(2, fake.commits().size)
     }
 
     @Test
@@ -187,10 +191,10 @@ class RefineTest {
 
         assertEquals(listOf("c1"), result.refined)
         assertEquals(listOf("c1"), result.renamed.map { it.id })
-        assertEquals(1, fake.calls("com.atproto.repo.putRecord").size)
+        assertEquals(1, fake.commits().size)
         assertEquals(segment(fine), repo.getValue("c1"))
         assertTrue(refine(clients, file(candidate("c1"))).renamed.isEmpty(), "a second run renames nothing")
-        assertEquals(1, fake.calls("com.atproto.repo.putRecord").size)
+        assertEquals(1, fake.commits().size)
     }
 
     @Test

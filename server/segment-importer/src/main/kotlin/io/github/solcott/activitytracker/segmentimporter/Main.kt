@@ -40,7 +40,8 @@ Commands:
 
 stage, publish, publish-sites, handoff and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one (Gradle's run task gives the local
-one its DID, device mode included)."""
+one its DID, device mode included). Their repo writes go out in commits of up to 100 records, at most 2,400 commits an hour (under a
+relay's limits for a PDS it doesn't trust) unless SEGMENT_IMPORTER_COMMITS_PER_HOUR says otherwise."""
 
 private val REGION_ID = Regex("[a-z0-9-]{1,64}")
 
@@ -71,6 +72,8 @@ private fun asServiceAccount(block: suspend (Clients) -> Unit) {
             HttpClient(CIO) { expectSuccess = false }.use { http -> runBlocking { block(Clients(http, settings)) } }
             null
         } catch (e: Settings.Missing) {
+            e.message
+        } catch (e: Settings.Invalid) {
             e.message
         } catch (e: PasswordSession.SignInFailed) {
             e.message

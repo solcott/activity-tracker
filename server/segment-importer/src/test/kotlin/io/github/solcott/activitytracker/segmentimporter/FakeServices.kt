@@ -11,8 +11,11 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import kotlin.test.assertEquals
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * A fake PDS (at [PDS]) and AppView (at [APPVIEW]) on Ktor's `MockEngine`. The PDS signs in [ACCOUNT] with [PASSWORD] and mints service
@@ -41,6 +44,53 @@ internal class FakeServices {
     }
 
     fun calls(nsid: String) = calls.filter { it.nsid == nsid }
+
+    /** The writes each `applyWrites` call carried, refused ones too: each write's `$type` suffix, collection and rkey. */
+    fun commits(): List<List<Triple<String, String, String>>> =
+        calls(APPLY_WRITES).map { call ->
+            call.body!!.getValue("writes").jsonArray.map {
+                val write = it.jsonObject
+                Triple(
+                    write.getValue("\$type").jsonPrimitive.content.substringAfter('#'),
+                    write.getValue("collection").jsonPrimitive.content,
+                    write.getValue("rkey").jsonPrimitive.content,
+                )
+            }
+        }
+
+    /**
+     * Serves [records], the repo by collection and rkey, as a PDS does: `getRecord`, and `applyWrites`, all or nothing, refusing a whole
+     * call that creates a key the repo holds or updates one it doesn't. [refuse] may answer the nth `applyWrites` (from 1) itself.
+     */
+    fun serveRepo(
+        records: MutableMap<Pair<String, String>, JsonObject>,
+        refuse: MockRequestHandleScope.(Int) -> HttpResponseData? = { null },
+    ) {
+        on("com.atproto.repo.getRecord") { call ->
+            val key = call.params.getValue("collection") to call.params.getValue("rkey")
+            records[key]?.let { json("""{"uri":"at://$DID/${key.first}/${key.second}","value":$it}""") }
+                ?: error(HttpStatusCode.BadRequest, "RecordNotFound")
+        }
+        var commits = 0
+        on(APPLY_WRITES) { call ->
+            refuse(++commits)?.let {
+                return@on it
+            }
+            val body = call.body!!
+            assertEquals(DID, body.getValue("repo").jsonPrimitive.content)
+            val writes = body.getValue("writes").jsonArray.map { it.jsonObject }
+            for (write in writes) {
+                val key = write.getValue("collection").jsonPrimitive.content to write.getValue("rkey").jsonPrimitive.content
+                val create = write.getValue("\$type").jsonPrimitive.content.endsWith("#create")
+                if (create == key in records) return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Bad write: $key")
+            }
+            for (write in writes) {
+                val key = write.getValue("collection").jsonPrimitive.content to write.getValue("rkey").jsonPrimitive.content
+                records[key] = write.getValue("value").jsonObject
+            }
+            json("""{"results":[]}""")
+        }
+    }
 
     @Suppress("ReturnCount") // Each refusal a real PDS answers with.
     private suspend fun MockRequestHandleScope.handle(request: HttpRequestData): HttpResponseData {
@@ -89,6 +139,7 @@ internal class FakeServices {
         const val ACCOUNT = "importer.test"
         const val PASSWORD = "app-password"
         const val DID = "did:plc:importer"
+        const val APPLY_WRITES = "com.atproto.repo.applyWrites"
     }
 }
 

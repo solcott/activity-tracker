@@ -5,7 +5,6 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
-import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.io.File
 import kotlinx.serialization.json.JsonObject
@@ -43,8 +42,9 @@ private const val PAGE = 100
  * Gives the service account's published segments [file]'s finer lines and names (segments/segment-import): each `feed.segment` in its repo
  * whose rkey is a candidate id in [file] gets the candidate's line when the lines differ and lie within [REFINE_MAX_M] of each other
  * everywhere ([SegmentGeometry.hausdorffMeters]), and the candidate's name when the names differ, in one write, every other field kept as
- * stored. A trail that moved further keeps its line, as it does for `publish`, but still takes the name. Nothing is deleted, and only the
- * account's own repo is read or written. Stops at the first failed call, keeping what it did; running again carries on.
+ * stored; a page's writes go out through [Clients.writer], batched and paced. A trail that moved further keeps its line, as it does for
+ * `publish`, but still takes the name. Nothing is deleted, and only the account's own repo is read or written. Stops at the first failed
+ * call, keeping what it did; running again carries on.
  */
 internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResult {
     val candidates = file.candidates.associateBy { it.id }
@@ -58,21 +58,25 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
         var cursor: String? = null
         do {
             val page = clients.pds.query(ListRecords.method, ListRecords.Params(repo.value, Nsid.FEED_SEGMENT, PAGE, cursor))
+            // A page's rewrites go out together, so its records count only once they have.
+            val rewrites = mutableListOf<Draft>()
+            val outcomes = mutableListOf<() -> Unit>()
             for (record in page.records) {
                 val rkey = record.uri.rkey ?: continue
                 val (line, changes) = candidates[rkey]?.let { refinementOf(record.value, it) } ?: (null to emptyMap())
-                if (changes.isNotEmpty()) {
-                    val rewritten = JsonObject(record.value + changes)
-                    clients.pds.procedure(PutRecord.method, PutRecord.Input(repo, Nsid.FEED_SEGMENT, rkey, rewritten))
+                if (changes.isNotEmpty()) rewrites += Draft(Nsid.FEED_SEGMENT, rkey, JsonObject(record.value + changes))
+                outcomes += {
+                    when (line) {
+                        null -> missing += rkey
+                        LineChange.UNCHANGED -> unchanged += rkey
+                        LineChange.MOVED -> moved += rkey
+                        LineChange.REFINED -> refined += rkey
+                    }
+                    changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
                 }
-                when (line) {
-                    null -> missing += rkey
-                    LineChange.UNCHANGED -> unchanged += rkey
-                    LineChange.MOVED -> moved += rkey
-                    LineChange.REFINED -> refined += rkey
-                }
-                changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
             }
+            clients.writer.update(repo, rewrites)
+            outcomes.forEach { it() }
             cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
         } while (cursor != null)
     }
