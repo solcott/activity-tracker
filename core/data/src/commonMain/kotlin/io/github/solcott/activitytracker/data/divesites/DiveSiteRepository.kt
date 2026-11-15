@@ -17,6 +17,9 @@ import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteDives
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
+import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import kotlinx.coroutines.flow.Flow
@@ -71,10 +74,45 @@ class DiveSiteRepository(private val clients: SessionClients) {
         Page(output.entries, RegularsMeta(output.viewer), output.cursor)
     }
 
+    /**
+     * The sites whose centre lies in [box] that the viewer may see, following `searchDiveSites` cursors until there are none, or until
+     * [cap] sites or [maxRequests] requests, which marks the result [AreaSites.capped] (dive-sites/site-browse).
+     */
+    suspend fun areaSites(box: SearchDiveSites.Params, cap: Int = AREA_CAP, maxRequests: Int = AREA_MAX_REQUESTS): Outcome<AreaSites> =
+        outcomeOf {
+            val found = LinkedHashMap<AtUri, DiveSiteView>()
+            var cursor: String? = null
+            var requests = 0
+            do {
+                val page = clients.appView.query(SearchDiveSites.method, box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
+                requests++
+                page.sites.forEach { found.getOrPut(it.uri) { it } }
+                cursor = page.cursor
+            } while (cursor != null && found.size < cap && requests < maxRequests)
+            AreaSites(found.values.take(cap), capped = cursor != null || found.size > cap)
+        }
+
+    /** One page of sites whose current name contains [params]' query, best match first (dive-sites/site-records). */
+    suspend fun namesPage(params: SearchDiveSiteNames.Params): Outcome<Page<DiveSiteView, Unit>> = outcomeOf {
+        val output = clients.appView.query(SearchDiveSiteNames.method, params)
+        Page(output.sites, Unit, output.cursor)
+    }
+
     /** The live sites within 50 m of ([lat], [lng]), in 1e-7 degrees, and how many more sites the athlete may create today. */
     suspend fun check(lat: Int, lng: Int): CheckDiveSite.Output =
         clients.appView.procedure(CheckDiveSite.method, CheckDiveSite.Input(lat, lng))
+
+    private companion object {
+        /** The most sites one area holds for browsing (dive-sites/site-browse). */
+        const val AREA_CAP = 300
+
+        /** The most `searchDiveSites` requests one area makes. */
+        const val AREA_MAX_REQUESTS = 10
+    }
 }
+
+/** The sites in an area, and whether there were more than [DiveSiteRepository.areaSites] read. */
+data class AreaSites(val sites: List<DiveSiteView>, val capped: Boolean)
 
 /** A Regulars page's meta: the viewer's own entry, null when they aren't on the board. */
 @Immutable data class RegularsMeta(val viewer: DiveSiteRegularEntry? = null)
