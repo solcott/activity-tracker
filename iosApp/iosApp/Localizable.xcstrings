@@ -4357,6 +4357,94 @@
         }
       }
     },
+    "dive_site_browse_capped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More dive sites here than shown. Zoom in to see them all."
+          }
+        }
+      }
+    },
+    "dive_site_browse_no_results" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No dive sites match “%1$@”."
+          }
+        }
+      }
+    },
+    "dive_site_browse_no_results_here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No dive sites here match “%1$@”."
+          }
+        }
+      }
+    },
+    "dive_site_browse_none_here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No dive sites here yet"
+          }
+        }
+      }
+    },
+    "dive_site_browse_nowhere" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move the map to a place, or search dive sites by name."
+          }
+        }
+      }
+    },
+    "dive_site_browse_search_label" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dive site name"
+          }
+        }
+      }
+    },
+    "dive_site_browse_web_prompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search dive sites by name."
+          }
+        }
+      }
+    },
+    "dive_site_browse_zoom_in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom in to see dive sites"
+          }
+        }
+      }
+    },
     "dive_site_conditions" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5479,6 +5567,17 @@
         }
       }
     },
+    "error_load_area_dive_sites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load the dive sites here"
+          }
+        }
+      }
+    },
     "error_load_area_segments" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6234,6 +6333,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't search athletes"
+          }
+        }
+      }
+    },
+    "error_search_dive_sites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't search dive sites"
           }
         }
       }
@@ -16629,6 +16739,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Athletes"
+          }
+        }
+      }
+    },
+    "search_mode_dive_sites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dive sites"
           }
         }
       }

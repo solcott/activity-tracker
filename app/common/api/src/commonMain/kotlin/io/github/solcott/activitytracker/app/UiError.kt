@@ -36,6 +36,10 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadDiveSiteDives,
         LoadRegulars,
 
+        /** The dive sites in the browse map's area (dive-sites/site-browse). */
+        LoadAreaDiveSites,
+        SearchDiveSites,
+
         /** A dive's own track couldn't be read, so its entry position, a new dive site's centre, isn't known. */
         LoadDivePosition,
 

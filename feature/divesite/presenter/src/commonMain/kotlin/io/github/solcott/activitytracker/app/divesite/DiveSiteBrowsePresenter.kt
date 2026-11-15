@@ -1,0 +1,157 @@
+package io.github.solcott.activitytracker.app.divesite
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
+import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.MapSegmentLine
+import io.github.solcott.activitytracker.app.MapViewport
+import io.github.solcott.activitytracker.app.browse.MapBrowse
+import io.github.solcott.activitytracker.app.browse.NAME_SEARCH_DEBOUNCE
+import io.github.solcott.activitytracker.app.segment.NameScope
+import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
+import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
+import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.siteOutline
+import io.github.solcott.activitytracker.textfield.rememberTextFieldState
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.OnKeyChange
+import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
+import kotlin.math.roundToInt
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
+
+@CircuitInject(DiveSiteBrowseScreen::class, SessionScope::class)
+@Composable
+fun DiveSiteBrowsePresenter(
+    navigator: Navigator,
+    sites: DiveSiteRepository,
+    feed: FeedRepository,
+    tracker: LocationTracker,
+): DiveSiteBrowseState {
+    // Saveable, so the query (and with it the results) is still there on coming back from a site.
+    val query = rememberTextFieldState()
+    val trimmed = query.text.trim().toString()
+    val browse = rememberRetained { MapBrowse(MapBrowse.initialPermission(tracker)) }
+
+    // Where to open, once: the athlete's location, else where their latest activity with a map started, else nowhere.
+    LaunchedEffect(browse.permission) { browse.locate(tracker, feed) }
+
+    // The area's sites, while no name is searched and the map is close enough. A new area keeps the last one's outlines until it answers.
+    val currentAreaRequest by rememberUpdatedState(browse.areaRequest(searching = trimmed.isNotEmpty()))
+    val area = snapshotFlow {
+        currentAreaRequest
+    }
+        .filterNotNull()
+        .produceRetainedContentState(SiteArea(), browse.areaRetry) { request ->
+            flow { emit(sites.areaSites(request.toSearchBox()).mapData { siteAreaOf(it.sites, request, it.capped) }) }
+        }
+
+    // Name results: a new query keeps the last results until it answers; a new scope drops them. The area and centre are read when the
+    // first page loads, so moving the map doesn't restart a search, and kept for the later pages, whose cursor is an offset into it.
+    val currentViewport by rememberUpdatedState(browse.viewport)
+    val scope = browse.scope
+    val results =
+        rememberRetainedPaging(
+            trimmed,
+            scope,
+            idOf = DiveSiteView::uri,
+            onKeyChange = OnKeyChange.KeepItems,
+            enabled = trimmed.isNotEmpty(),
+        ) { cursor ->
+            flow {
+                if (cursor == null) {
+                    delay(NAME_SEARCH_DEBOUNCE)
+                    browse.nameViewport = currentViewport
+                }
+                emit(sites.namesPage(siteNameParams(trimmed, browse.nameBox(browse.nameViewport), browse.nameViewport, cursor)))
+            }
+        }
+
+    val searching = trimmed.isNotEmpty()
+    val mapLines =
+        remember(searching, results.state.items, area.data) {
+            val shown = if (searching) results.state.items else area.data.sites.map { it.site }
+            shown.map { it.mapOutline() }.toImmutableList()
+        }
+
+    return DiveSiteBrowseState(
+        query = query,
+        scope = scope,
+        hasArea = browse.viewport != null,
+        tooWide = browse.viewport?.tooWide == true,
+        start = browse.start,
+        area = area,
+        results = results.state,
+        mapLines = mapLines,
+        selected = browse.selected,
+        camera = browse.camera,
+        askLocation = browse.permission == null,
+    ) { event ->
+        when (event) {
+            DiveSiteBrowseEvent.Back -> navigator.pop()
+            is DiveSiteBrowseEvent.Open -> navigator.goTo(DiveSiteScreen(event.uri.value))
+            DiveSiteBrowseEvent.LoadMore -> results.loadMore()
+            DiveSiteBrowseEvent.Retry -> if (trimmed.isNotEmpty()) results.retry() else browse.areaRetry++
+            is DiveSiteBrowseEvent.ViewportChanged -> browse.viewportChanged(event.viewport)
+            is DiveSiteBrowseEvent.PermissionResult -> browse.permission = event.granted
+            is DiveSiteBrowseEvent.Select -> browse.selected = event.uri
+            is DiveSiteBrowseEvent.ScopeChanged -> browse.scope = event.scope
+            DiveSiteBrowseEvent.SearchEverywhere -> browse.scope = NameScope.Everywhere
+        }
+    }
+}
+
+/** The viewport's box, as `feed.searchDiveSites` asks for it. */
+private fun MapViewport.toSearchBox() = SearchDiveSites.Params(minLat = minLat, minLng = minLng, maxLat = maxLat, maxLng = maxLng)
+
+/**
+ * A name search's parameters: the [box] it covers (This area's, or none for everywhere), and the map's centre to order by when there is
+ * one. Without a map (web), everywhere and by match alone.
+ */
+internal fun siteNameParams(q: String, box: MapViewport?, viewport: MapViewport?, cursor: String?) =
+    SearchDiveSiteNames.Params(
+        q = q,
+        minLat = box?.minLat,
+        minLng = box?.minLng,
+        maxLat = box?.maxLat,
+        maxLng = box?.maxLng,
+        nearLat = viewport?.centerLat,
+        nearLng = viewport?.centerLng,
+        cursor = cursor,
+    )
+
+/** The area's sites, nearest the viewport's centre first (dive-sites/site-browse). */
+internal fun siteAreaOf(found: List<DiveSiteView>, viewport: MapViewport, capped: Boolean): SiteArea {
+    val centre = GeoPoint(viewport.centerLat / E7, viewport.centerLng / E7)
+    return SiteArea(
+        sites =
+            found
+                .map { site ->
+                    val at = GeoPoint(site.record.lat / E7, site.record.lng / E7)
+                    BrowsedSite(site, SegmentGeometry.distanceMeters(at, centre).roundToInt())
+                }
+                .sortedWith(compareBy(BrowsedSite::metersAway).thenBy { it.site.currentName })
+                .toImmutableList(),
+        capped = capped,
+    )
+}
+
+/** [this] site as the browse map draws it: its radius as a closed outline. */
+internal fun DiveSiteView.mapOutline(): MapSegmentLine = MapSegmentLine(uri.value, siteOutline(record.lat, record.lng, record.radius))
+
+private const val E7 = 1e7

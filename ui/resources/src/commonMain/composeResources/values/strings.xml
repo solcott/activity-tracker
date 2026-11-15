@@ -24,6 +24,8 @@
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
     <string name="error_load_area_segments">Couldn't load the segments here</string>
     <string name="error_search_segments">Couldn't search segments</string>
+    <string name="error_load_area_dive_sites">Couldn't load the dive sites here</string>
+    <string name="error_search_dive_sites">Couldn't search dive sites</string>
     <string name="error_load_leaderboard">Couldn't load the leaderboard</string>
     <string name="error_load_dive_site">Couldn't load the dive site</string>
     <string name="error_load_dive_site_dives">Couldn't load the dives at this site</string>
@@ -991,6 +993,7 @@
     <string name="search_no_results">No athletes match “%1$s”.</string>
     <string name="search_mode_athletes">Athletes</string>
     <string name="search_mode_segments">Segments</string>
+    <string name="search_mode_dive_sites">Dive sites</string>
     <string name="search_tab_title">Search</string>
     <string name="segment_browse_search_label">Segment name</string>
     <string name="segment_browse_all_sports">All</string>
@@ -1007,6 +1010,14 @@
     <string name="segment_browse_search_everywhere">Search everywhere</string>
     <string name="segment_browse_away">%1$s away</string>
     <string name="segment_browse_details">%1$s · %2$s</string>
+    <string name="dive_site_browse_search_label">Dive site name</string>
+    <string name="dive_site_browse_nowhere">Move the map to a place, or search dive sites by name.</string>
+    <string name="dive_site_browse_web_prompt">Search dive sites by name.</string>
+    <string name="dive_site_browse_zoom_in">Zoom in to see dive sites</string>
+    <string name="dive_site_browse_none_here">No dive sites here yet</string>
+    <string name="dive_site_browse_capped">More dive sites here than shown. Zoom in to see them all.</string>
+    <string name="dive_site_browse_no_results">No dive sites match “%1$s”.</string>
+    <string name="dive_site_browse_no_results_here">No dive sites here match “%1$s”.</string>
 
     <!-- Record / manual entry -->
     <string name="record_title">Record</string>

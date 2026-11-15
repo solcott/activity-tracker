@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.app.fixtures.fakeRegularEntry
 import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.app.names.PlaceNameTexts
+import io.github.solcott.activitytracker.app.segment.BrowseList
+import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.app.segment.PlaceTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -117,6 +119,30 @@ class DiveSiteTextNamesTest {
         assertTrue(entry.args.contains(AppText.written(formatWhole(1_204))), "${entry.args}")
         assertFalse(PlaceNameTexts.shows(0, 0, canPropose = false, PlaceNameFields()))
         assertTrue(PlaceNameTexts.shows(0, 0, canPropose = true, PlaceNameFields()))
+    }
+
+    @Test
+    fun everyNameBrowseChoosesHasItsString() {
+        val browse = DiveSiteBrowseSamples
+        val texts =
+            UnitSystem.entries.flatMap { units ->
+                listOf(
+                    DiveSiteBrowseTexts.details(browse.sites.first(), units),
+                    DiveSiteBrowseTexts.details(browse.sites.first().site, units),
+                )
+            } +
+                BrowseList.entries.mapNotNull(DiveSiteBrowseTexts::message) +
+                NameScope.entries.map(DiveSiteBrowseTexts::scope) +
+                listOf(
+                    DiveSiteBrowseTexts.searchLabel,
+                    DiveSiteBrowseTexts.capped,
+                    DiveSiteBrowseTexts.noneHere,
+                    DiveSiteBrowseTexts.searchEverywhere,
+                    DiveSiteBrowseTexts.noResults(browse.nothingHere),
+                    DiveSiteBrowseTexts.noResults(browse.nothingHere.copy(scope = NameScope.Everywhere)),
+                )
+        val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources }
+        assertTrue(missing.isEmpty(), "No string for $missing")
     }
 
     private fun names(text: AppText): List<String> =
