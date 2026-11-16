@@ -30,6 +30,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 
@@ -220,10 +222,12 @@ class OAuthSessionManagerTest {
         signedIn()
         tokensIssued()
         val bothSent = CompletableDeferred<Unit>()
+        // The engine handles both requests at once, on different threads, so the count is kept under a lock.
+        val counting = Mutex()
         var rejected = 0
         network.on("pds.test/xrpc/com.atproto.repo.describeRepo") { request ->
             if (request.headers["Authorization"] == "DPoP at1") {
-                if (++rejected == 2) bothSent.complete(Unit)
+                if (counting.withLock { ++rejected } == 2) bothSent.complete(Unit)
                 bothSent.await()
                 respondJson(
                     """{"error":"invalid_token"}""",

@@ -9,10 +9,21 @@ import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-/** Routes mock requests by `host + path`; records every request for assertions. */
+/**
+ * Routes mock requests by `host + path`; records every request for assertions. The engine handles requests on several threads at once, so
+ * the record is written under a lock: a plain list loses one of two requests added together.
+ */
 class MockNetwork {
-    val requests = mutableListOf<HttpRequestData>()
+    private val recorded = mutableListOf<HttpRequestData>()
+    private val recording = Mutex()
+
+    /** The requests so far, in the order they reached the engine. Read it once the requests being asserted have finished. */
+    val requests: List<HttpRequestData>
+        get() = recorded.toList()
+
     private val routes = mutableMapOf<String, suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData>()
 
     fun on(
@@ -25,7 +36,7 @@ class MockNetwork {
     val client =
         HttpClient(
             MockEngine { request ->
-                requests += request
+                recording.withLock { recorded += request }
                 val key = request.url.host + request.url.encodedPath
                 val handler = routes[key] ?: return@MockEngine respond("no route for $key", HttpStatusCode.NotFound)
                 handler(request)
