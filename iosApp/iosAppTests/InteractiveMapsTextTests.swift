@@ -28,10 +28,13 @@ struct InteractiveMapsTextTests {
     @Test func browseListsTheSamplesRunsWithTheirDetails() throws {
         let state = try #require(Samples.segmentBrowse["loaded"])
         #expect(state.listShows(mapSupported: true) == .Area)
-        #expect(state.areaRuns.count == 3)
+        // Three trails of one segment each, then Ann's six as one row (segments/segment-routes).
+        #expect(state.areaRuns.count == 4)
         let details = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRuns[0], units: .Metric))
         #expect(details.hasSuffix("away"))
         #expect(details.contains(" · "))
+        let anns = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRuns[3], units: .Metric))
+        #expect(anns.contains("Both ways"))
     }
 
     @Test func aTapOnTheMapSelectsThroughKotlin() throws {
