@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfActivity
 import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfTracks
 import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
+import io.github.solcott.activitytracker.appview.index.rederiveRoutes
 import io.github.solcott.activitytracker.appview.index.siteCentre
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -201,6 +202,7 @@ class SegmentMatcher(
             if (stale.isNotEmpty()) {
                 Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
                 recheckDuplicatesOf(stale, jobs, now, segmentImporter)
+                rederiveRoutes(stale)
             }
             updateSiteStatuses(now)
         }

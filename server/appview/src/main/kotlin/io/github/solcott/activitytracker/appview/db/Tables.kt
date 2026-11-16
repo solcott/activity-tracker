@@ -233,6 +233,11 @@ object Segments : Table("segments") {
     /** When the segment was first indexed, never changed by an edit: which of two segments came first. */
     val firstIndexedAt = long("first_indexed_at")
     /**
+     * The segment naming this one's route (segments/segment-routes): the earliest-indexed live segment of its kind whose line it follows
+     * either way, or itself. Null until a segment indexed before routes is given one, which reads as itself (`routeKey`).
+     */
+    val routeUri = varchar("route_uri", 512).nullable()
+    /**
      * The name every view serves (segments/segment-names): its latest adopted [SegmentNameProposals] row still in effect, else [name] (the
      * record's, the original). Recomputed by `recomputeCurrentName`.
      */

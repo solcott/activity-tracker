@@ -165,4 +165,60 @@ class SegmentNameSearchTest : SegmentTestBase() {
         assertEquals(listOf(segmentUri("3kh", carol)), listed(carol), "a stranger doesn't; her own hidden segment she does, archived never")
         assertEquals(emptyList(), listed(null))
     }
+
+    /** The one trail [east] metres east of the origin, as [sport] segments [rkey]f (north) and [rkey]b (south). */
+    private fun bothWays(rkey: String, name: String, east: Double, sport: String) {
+        val north = listOf(east to 0.0, east to 1000.0)
+        segment("${rkey}f", path = north, sport = sport, name = "$name (northbound)")
+        segment("${rkey}b", path = north.reversed(), sport = sport, name = "$name (southbound)")
+        activate("${rkey}f", "${rkey}b")
+    }
+
+    @Test
+    fun aRouteIsOneResultWithAllItsMembers() = testApplication {
+        application { appView(config, db, verifier) }
+        bothWays("3ka", "Ann's", 0.0, "ride")
+        bothWays("3kb", "Ann's", 0.0, "run")
+        bothWays("3kc", "Ann's", 0.0, "hike")
+        named("3kd", "Ann's Loop", 600.0)
+        named("3ke", "Annex", 1200.0)
+        activate("3kd", "3ke")
+        suspend fun found(query: Map<String, String>) = client.xrpcOk(SearchSegmentNames.method, query)
+
+        val first = found(mapOf("q" to "ann") + near(0.0) + ("limit" to "2"))
+        val ann = listOf("3kaf", "3kab", "3kbf", "3kbb", "3kcf", "3kcb").map { segmentUri(it) }
+        assertEquals(ann.toSet(), first.segments.take(6).map { it.uri.value }.toSet(), "the whole route together")
+        assertEquals(setOf(segmentUri("3kaf")), first.segments.take(6).map { it.route?.value }.toSet())
+        assertEquals(listOf(segmentUri("3kd")), first.segments.drop(6).map { it.uri.value }, "the limit counts routes")
+        val second = found(mapOf("q" to "ann") + near(0.0) + ("limit" to "2") + ("cursor" to first.cursor!!))
+        assertEquals(listOf(segmentUri("3ke")), second.segments.map { it.uri.value }, "Ann's isn't returned again")
+        assertNull(second.cursor)
+
+        val rides = found(mapOf("q" to "ann", "sport" to "ride"))
+        assertEquals(listOf("3kaf", "3kab").map { segmentUri(it) }.toSet(), rides.segments.map { it.uri.value }.toSet())
+    }
+
+    @Test
+    fun aRouteRanksByItsBestMember() = testApplication {
+        application { appView(config, db, verifier) }
+        named("3ka", "Trail 214", 0.0, sport = "ride")
+        named("3kb", "Trail 214", 0.0, sport = "run")
+        named("3kc", "Wiggly Ridge", 600.0)
+        activate("3ka", "3kb", "3kc")
+        update(segmentUri("3kb")) { it[Segments.currentName] = "Wiggly Woods" }
+        val found = client.xrpcOk(SearchSegmentNames.method, mapOf("q" to "wiggly woods"))
+        assertEquals(listOf(segmentUri("3ka"), segmentUri("3kb")), found.segments.map { it.uri.value }, "the whole route, matching or not")
+    }
+
+    @Test
+    fun aBoxLeavesOutMembersThatMissIt() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ka", path = listOf(0.0 to 0.0, 0.0 to 1000.0), sport = "ride", name = "Ridge")
+        // The same trail the other way, drawn 25 m east: one route, but a narrow box between them crosses only this line.
+        segment("3kb", path = listOf(25.0 to 1000.0, 25.0 to 0.0), sport = "run", name = "Ridge")
+        activate("3ka", "3kb")
+        val box = box(12.0, 40.0)
+        val found = client.xrpcOk(SearchSegmentNames.method, mapOf("q" to "ridge") + box)
+        assertEquals(listOf(segmentUri("3kb")), found.segments.map { it.uri.value })
+    }
 }

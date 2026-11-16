@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
+import io.github.solcott.activitytracker.appview.index.routeKey
 import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validPositionE7
@@ -65,14 +66,17 @@ import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Case
+import org.jetbrains.exposed.v1.core.CustomFunction
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
+import org.jetbrains.exposed.v1.core.IntegerColumnType
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.QueryBuilder
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.VarCharColumnType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
@@ -81,6 +85,7 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.intLiteral
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
@@ -155,7 +160,37 @@ class SegmentViews(
             terrainProfile(row)
                 ?.takeIf { view.elevationSource == SegmentElevationSource.TERRAIN }
                 ?.let { ElevationProfile(it, maxGrade = row[Segments.terrainMaxGrade]) }
-        GetSegment.Output(view, elevationProfile = profile)
+        GetSegment.Output(view, elevationProfile = profile, routeMembers = routeMembers(viewer, row))
+    }
+
+    /**
+     * The other segments of [row]'s route (segments/segment-routes) that a search would list to [viewer], earliest indexed first; none for
+     * a lift.
+     */
+    private fun JdbcTransaction.routeMembers(viewer: Did?, row: ResultRow): List<GetSegment.RouteMember> {
+        if (row[Segments.kind] == SegmentKind.LIFT) return emptyList()
+        val uri = row[Segments.uri]
+        val route = row[Segments.routeUri] ?: uri
+        return Segments.select(Segments.uri, Segments.sport, Segments.kind, Segments.currentName, Segments.line)
+            .where {
+                ((Segments.routeUri eq route) or (Segments.routeUri.isNull() and (Segments.uri eq route))) and
+                    (Segments.uri neq uri) and
+                    (Segments.kind neq SegmentKind.LIFT) and
+                    segmentServed(viewer) and
+                    unhidden(viewer, Segments.authorDid, Segments.uri) and
+                    listedTo(viewer)
+            }
+            .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
+            .limit(MAX_ROUTE_MEMBERS)
+            .map {
+                GetSegment.RouteMember(
+                    uri = AtUri(it[Segments.uri]),
+                    sport = it[Segments.sport],
+                    kind = it[Segments.kind],
+                    name = it[Segments.currentName],
+                    line = it[Segments.line],
+                )
+            }
     }
 
     /**
@@ -176,33 +211,34 @@ class SegmentViews(
             var cursor = params.cursor
             var exhausted = false
             var batches = 0
+            // Served, listed and in the box's cells: what a page may hold, before each line is checked against the box.
+            val inArea =
+                segmentServed(viewer) and
+                    unhidden(viewer, Segments.authorDid, Segments.uri) and
+                    (Segments.minLatE7 lessEq maxLat) and
+                    (Segments.maxLatE7 greaterEq minLat) and
+                    (Segments.minLngE7 lessEq maxLng) and
+                    (Segments.maxLngE7 greaterEq minLng) and
+                    (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
+                    listedTo(viewer) and
+                    exists(
+                        SegmentCellIndex.select(SegmentCellIndex.cell).where {
+                            (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
+                        },
+                    )
+            fun crossesBox(row: ResultRow) = crosses(row[Segments.line], minLat, minLng, maxLat, maxLng)
             // Cells and the stored box only narrow it down: each candidate's line is checked against the box, a batch at a time.
             while (found.size < limit && !exhausted && batches < searchBatches) {
                 batches++
                 val page =
                     Segments.selectAll()
-                        .where {
-                            segmentServed(viewer) and
-                                unhidden(viewer, Segments.authorDid, Segments.uri) and
-                                (Segments.minLatE7 lessEq maxLat) and
-                                (Segments.maxLatE7 greaterEq minLat) and
-                                (Segments.minLngE7 lessEq maxLng) and
-                                (Segments.maxLngE7 greaterEq minLng) and
-                                (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
-                                listedTo(viewer) and
-                                exists(
-                                    SegmentCellIndex.select(SegmentCellIndex.cell).where {
-                                        (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                                    },
-                                ) and
-                                keysetAfter(Segments.indexedAt, Segments.uri, cursor)
-                        }
+                        .where { inArea and keysetAfter(Segments.indexedAt, Segments.uri, cursor) }
                         .orderBy(Segments.indexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
                         .limit(searchBatch)
                         .toList()
                 exhausted = page.size < searchBatch
                 page.lastOrNull()?.let { cursor = cursorOf(it[Segments.indexedAt], it[Segments.uri]) }
-                found += page.filter { crosses(it[Segments.line], minLat, minLng, maxLat, maxLng) }
+                found += page.filter(::crossesBox)
             }
             val shown = found.take(limit)
             val next =
@@ -211,16 +247,36 @@ class SegmentViews(
                     exhausted -> null
                     else -> cursor
                 }
-            SearchSegments.Output(views(shown), next)
+            SearchSegments.Output(views(shown + routeMatesOf(shown, inArea).filter(::crossesBox)), next)
         }
     }
 
     /**
-     * Segments whose current name contains the query (segments/segment-records): the ones [search] would list to [viewer], never lifts.
-     * Best match first (the whole name, a prefix, a word's prefix, anywhere), then nearest the given centre, measured to each segment's
-     * box, or by name without one. With a box, only segments whose line has a point in it, so a page may be short with a cursor to carry on
-     * from.
+     * The other segments [filter] admits in the routes of [rows] (segments/segment-routes), first indexed first, so a page never splits a
+     * route: an older client shows them as segments, and a later page repeating one is harmless since clients keep each URI once.
      */
+    private fun routeMatesOf(rows: List<ResultRow>, filter: Op<Boolean>): List<ResultRow> {
+        if (rows.isEmpty()) return emptyList()
+        val routes = rows.map { it[Segments.routeUri] ?: it[Segments.uri] }.distinct()
+        val held = rows.mapTo(mutableSetOf()) { it[Segments.uri] }
+        return Segments.selectAll()
+            .where { filter and inRoutes(routes) }
+            .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
+            .filterNot { it[Segments.uri] in held }
+    }
+
+    /** Segments in one of [routes], counting a segment with no route yet as its own. */
+    private fun inRoutes(routes: List<String>): Op<Boolean> =
+        (Segments.routeUri inList routes) or (Segments.routeUri.isNull() and (Segments.uri inList routes))
+
+    /**
+     * Segments whose current name contains the query (segments/segment-records): the ones [search] would list to [viewer], never lifts, by
+     * route (segments/segment-routes). Routes are ranked by their best-matching member (the whole name, a prefix, a word's prefix,
+     * anywhere), then nearest the given centre, measured to each segment's box, or by name without one, and paged by route: a page holds
+     * every member of its routes the search would list, matching or not, next to each other. With a box, only segments whose line has a
+     * point in it, so a page may be short with a cursor to carry on from.
+     */
+    @Suppress("LongMethod") // One ranked, grouped query and the members of its page.
     suspend fun searchNames(viewer: Did?, params: SearchSegmentNames.Params): SearchSegmentNames.Output {
         val box = nameSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
         val near = nameSearchCentre(params.nearLat, params.nearLng)
@@ -250,28 +306,42 @@ class SegmentViews(
                             },
                         )
                 } ?: Op.TRUE
-            // Within a match, nearest the centre first, or by name without one.
+            val listed =
+                segmentServed(viewer) and
+                    unhidden(viewer, Segments.authorDid, Segments.uri) and
+                    listedTo(viewer) and
+                    (Segments.kind neq SegmentKind.LIFT) and
+                    (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
+                    inBox
+            // Within a match, nearest the centre first, or by name without one; each route by its best member.
+            val bestRank = CustomFunction("MIN", IntegerColumnType(), rank)
             val within: Expression<*> =
                 near?.let { (lat, lng) ->
-                    BoxDistance(lat, lng, Segments.minLatE7, Segments.maxLatE7, Segments.minLngE7, Segments.maxLngE7)
-                } ?: name
-            val rows =
-                Segments.selectAll()
-                    .where {
-                        segmentServed(viewer) and
-                            unhidden(viewer, Segments.authorDid, Segments.uri) and
-                            listedTo(viewer) and
-                            (Segments.kind neq SegmentKind.LIFT) and
-                            (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
-                            (name like match.anywhere) and
-                            inBox
-                    }
-                    .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, Segments.uri to SortOrder.ASC)
+                    CustomFunction(
+                        "MIN",
+                        LongColumnType(),
+                        BoxDistance(lat, lng, Segments.minLatE7, Segments.maxLatE7, Segments.minLngE7, Segments.maxLngE7),
+                    )
+                } ?: CustomFunction("MIN", VarCharColumnType(), name)
+            val routes =
+                Segments.select(routeKey, bestRank, within)
+                    .where { listed and (name like match.anywhere) }
+                    .groupBy(routeKey)
+                    .orderBy(bestRank to SortOrder.ASC, within to SortOrder.ASC, routeKey to SortOrder.ASC)
                     .limit(limit)
                     .offset(offset)
-                    .toList()
-            val shown = box?.let { b -> rows.filter { crosses(it[Segments.line], b.minLat, b.minLng, b.maxLat, b.maxLng) } } ?: rows
-            SearchSegmentNames.Output(views(shown), (offset + limit).toString().takeIf { rows.size == limit })
+                    .map { it[routeKey] }
+            val members =
+                if (routes.isEmpty()) emptyList()
+                else
+                    Segments.selectAll()
+                        .where { listed and inRoutes(routes) }
+                        .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
+                        .toList()
+            val place = routes.withIndex().associate { (i, route) -> route to i }
+            val ordered = members.sortedBy { place.getValue(it[Segments.routeUri] ?: it[Segments.uri]) }
+            val shown = box?.let { b -> ordered.filter { crosses(it[Segments.line], b.minLat, b.minLng, b.maxLat, b.maxLng) } } ?: ordered
+            SearchSegmentNames.Output(views(shown), (offset + limit).toString().takeIf { routes.size == limit })
         }
     }
 
@@ -698,6 +768,7 @@ class SegmentViews(
                 distanceMeters = it[Segments.distanceM],
                 status = it[Segments.status],
                 duplicateOf = it[Segments.duplicateOf]?.let(::AtUri),
+                route = AtUri(it[Segments.routeUri] ?: it[Segments.uri]),
                 name = it[Segments.currentName],
                 elevationGain = elevation?.gain,
                 elevationLoss = elevation?.loss,
@@ -713,6 +784,9 @@ class SegmentViews(
         }
 
     companion object {
+        /** The most route members `getSegment` lists, as its lexicon caps them. */
+        private const val MAX_ROUTE_MEMBERS = 100
+
         /** The batches of candidates one search reads at most: 300 rows at the default batch size. */
         private const val SEARCH_BATCHES = 3
 

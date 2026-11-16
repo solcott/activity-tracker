@@ -329,7 +329,8 @@ class SegmentsTest : SegmentTestBase() {
     fun searchFindsSegmentsCrossingTheBox() = testApplication {
         application { appView(config, db, verifier) }
         segment("3ka")
-        segment("3kb", sport = "ride")
+        // 200 m east, so another route: a page never splits one (segments/segment-routes).
+        segment("3kb", path = listOf(200.0 to 0.0, 200.0 to 1000.0), sport = "ride")
         // 20 km east, outside the box.
         segment("3kc", path = listOf(20_000.0 to 0.0, 20_000.0 to 1000.0))
         setStatus(SegmentStatus.ACTIVE, segmentUri("3ka"), segmentUri("3kb"), segmentUri("3kc"))
