@@ -255,6 +255,11 @@ data class SegmentView(
     /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
     val duplicateOf: AtUri? = null,
     /**
+     * The segment naming this one's route (segments/segment-routes): segments of one kind following the same path, in any sport group and
+     * either direction, share it. Null from older AppViews; use [routeKey].
+     */
+    val route: AtUri? = null,
+    /**
      * Meters climbed from start to end, derived by the AppView: from smoothed terrain wherever it covers the whole line, else from enough
      * distinct athletes' efforts; null when it has none.
      */
@@ -277,6 +282,10 @@ data class SegmentView(
     /** [name], or the original name when the AppView didn't send one. */
     val currentName: String
         get() = name ?: record.name
+
+    /** [route], or the segment itself when the AppView didn't send one. */
+    val routeKey: AtUri
+        get() = route ?: uri
 }
 
 /** `app.activitytracker.feed.defs#segmentNameAdoption`: a community name the segment adopted. */

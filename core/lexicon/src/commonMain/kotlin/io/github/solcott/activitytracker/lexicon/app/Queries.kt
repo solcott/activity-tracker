@@ -423,6 +423,23 @@ object GetSegment {
         val segment: SegmentView,
         /** The segment's terrain profile, only when [SegmentView.elevationSource] is [SegmentElevationSource.TERRAIN]. */
         val elevationProfile: ElevationProfile? = null,
+        /** The route's other segments the viewer could find (segments/segment-routes), earliest indexed first; empty when it's alone. */
+        val routeMembers: List<RouteMember> = emptyList(),
+    )
+
+    /** `app.activitytracker.feed.getSegment#routeMember`: another segment of the route. */
+    @Immutable
+    @Serializable
+    data class RouteMember(
+        val uri: AtUri,
+        /** A [SegmentSportGroup] value. */
+        val sport: String,
+        /** A [SegmentKind] value; null means [SegmentKind.RUN]. */
+        val kind: String? = null,
+        /** Its current name. */
+        val name: String,
+        /** Its line, encoded as [SegmentRecord.line] is. */
+        val line: String,
     )
 
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT, Params.serializer(), Output.serializer())
@@ -457,7 +474,8 @@ object SearchSegments {
 /**
  * Segments whose current name contains `q`, best match first and then nearest `near` (segments/segment-records), never lifts. The box (1e-7
  * degrees) and the centre are each optional but whole, else `InvalidRequest`; with a box, a page may hold fewer than `limit`, or none, with
- * a cursor: keep paging while there is one.
+ * a cursor: keep paging while there is one. Results are routes (segments/segment-routes), each ranked by its best match: a page holds every
+ * member of its routes the search would serve, next to each other, so `limit` and the cursor count routes, not segments.
  */
 object SearchSegmentNames {
     @Serializable

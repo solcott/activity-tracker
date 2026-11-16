@@ -215,6 +215,32 @@ class SegmentRecordsTest {
     }
 
     @Test
+    fun getSegmentRouteRoundTrips() {
+        val uri = AtUri("at://did:plc:alice/${Nsid.FEED_SEGMENT}/3ks")
+        val view =
+            SegmentView(
+                uri = uri,
+                cid = Cid("bafysegment"),
+                creator = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
+                record = SegmentRecord("Hill", "run", "_p~iF~ps|U", "athlete", "CC0-1.0", Instant.parse("2026-10-01T00:00:00Z")),
+                distanceMeters = 1_200,
+            )
+        val alone = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), GetSegment.Output(view)).jsonObject
+        assertFalse("route" in alone["segment"]!!.jsonObject)
+        assertEquals(0, alone["routeMembers"]?.jsonArray?.size ?: 0, "none, empty or left out")
+        assertEquals(uri, view.routeKey, "a segment without a route is alone")
+
+        val root = AtUri("at://did:plc:bob/${Nsid.FEED_SEGMENT}/3kr")
+        val member = GetSegment.RouteMember(root, SegmentSportGroup.RIDE, name = "Hill", line = "_p~iF~ps|U")
+        val output = GetSegment.Output(view.copy(route = root), routeMembers = listOf(member))
+        val json = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), output).jsonObject
+        assertEquals(root.value, json["segment"]!!.jsonObject["route"]!!.jsonPrimitive.content)
+        assertFalse("kind" in json["routeMembers"]!!.jsonArray.single().jsonObject)
+        assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), json))
+        assertEquals(root, output.segment.routeKey)
+    }
+
+    @Test
     fun segmentViewElevationRoundTrips() {
         val alice = Did("did:plc:alice")
         val record =
