@@ -97,13 +97,14 @@ class FollowRequestsRepositoryTest {
                         )
 
                     "pds.test/xrpc/com.atproto.space.listRecords" -> {
-                        val held = declines
                         when {
                             scopeMissing -> error(SpaceErrors.SCOPE_MISSING, HttpStatusCode.Forbidden)
-                            held == null -> error("SpaceNotFound")
+                            !selfSpace -> error("SpaceNotFound")
                             else -> {
                                 val records =
-                                    held.joinToString(",") { """{"collection":"${Nsid.GRAPH_FOLLOW_DECLINE}","rkey":"$it","cid":"bafy"}""" }
+                                    declines.joinToString(",") {
+                                        """{"collection":"${Nsid.GRAPH_FOLLOW_DECLINE}","rkey":"$it","cid":"bafy"}"""
+                                    }
                                 respond("""{"records":[$records]}""", headers = json)
                             }
                         }
