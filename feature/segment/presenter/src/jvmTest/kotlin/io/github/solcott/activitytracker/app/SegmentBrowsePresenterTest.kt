@@ -184,6 +184,57 @@ class SegmentBrowsePresenterTest {
     }
 
     @Test
+    fun aRowTapSelectsThenOpensAndBrowsingAnAreaNeverMovesTheMap() = runTest {
+        test {
+            val placed = awaitUntil { it.start == BrowseStart.Placed }
+            val opening = placed.camera
+            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val loaded = awaitUntil { it.areaLoaded }
+
+            // Far Climb's line lies east of this view, but every run an area lists crosses the map's own view.
+            loaded.eventSink(loaded.tapRowEvent(far))
+            val selected = awaitUntil { it.selected == far.uri }
+            assertEquals(opening, selected.camera, "the map stays")
+            navigator.expectNoGoToEvents()
+
+            selected.eventSink(selected.tapRowEvent(far))
+            assertEquals(SegmentScreen(far.uri.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun selectingANameResultOutOfViewFramesItsLineWithoutSearchingAgain() = runTest {
+        test {
+            val placed = awaitUntil { it.start == BrowseStart.Placed }
+            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            awaitUntil { it.areaLoaded }
+            placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            placed.query.edit { append("climb") }
+            val found = awaitUntil { it.resultsAnswered && it.results.items.size == 2 }
+            val searches = requests.count { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }
+            val opening = found.camera
+
+            // Hogback Climb is 200 m from the centre, in view: selecting it leaves the map where it is.
+            found.eventSink(found.tapRowEvent(hogback))
+            assertEquals(opening, awaitUntil { it.selected == hogback.uri }.camera)
+
+            // Far Climb is 3 km east, past the view's edge: the map frames its whole line.
+            found.eventSink(found.tapRowEvent(far))
+            val framed = awaitUntil { it.selected == far.uri && it.camera != opening }
+            val line = SegmentGeometry.decodePolyline(far.record.line)!!
+            assertEquals(MapBounds.of(line), framed.camera?.bounds)
+            assertEquals((opening?.id ?: 0) + 1, framed.camera?.id)
+
+            framed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport().copy(centerLng = e7(line.first().lng))))
+            testScheduler.advanceUntilIdle()
+            assertEquals(searches, requests.count { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }, "the search isn't run again")
+            assertEquals(listOf("Hogback Climb", "Far Climb"), expectMostRecentItem().results.items.map { it.record.name })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun tooWideAnAreaAsksNothing() = runTest {
         test {
             awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport(halfSpan = 1.0)))

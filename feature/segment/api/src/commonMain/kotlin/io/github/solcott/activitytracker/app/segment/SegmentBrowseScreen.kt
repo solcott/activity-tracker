@@ -76,9 +76,9 @@ data class SegmentBrowseState(
     val results: PagedState<SegmentView, Unit>,
     /** The lines the map draws: the area's runs and lifts, or the name results. */
     val mapLines: ImmutableList<MapSegmentLine> = persistentListOf(),
-    /** The segment tapped on the map, marked in the list. */
+    /** The segment tapped on the map, or its row on a touch screen, marked in the list. */
     val selected: AtUri? = null,
-    /** Where the map should move; a new [MapCameraRequest.id] moves it once. */
+    /** Where the map should move (a place to open at, or a selected row's line to frame); a new [MapCameraRequest.id] moves it once. */
     val camera: MapCameraRequest? = null,
     /**
      * The platform has a location and its permission hasn't been asked for yet: the UI asks, then sends
@@ -138,6 +138,12 @@ data class SegmentBrowseState(
     /** The map's lines in drawing order with the selected run highlighted, and what a tap selects. */
     val segmentsMap: SegmentsMap
         get() = SegmentsMap.of(mapLines, selected?.value)
+
+    /** [segmentsMap] with [hovered], the run under the pointer in a row or on the map (a UI's own state), highlighted too. */
+    fun segmentsMap(hovered: String?): SegmentsMap = SegmentsMap.of(mapLines, selected?.value, hovered)
+
+    /** The event for a tap on [segment]'s row on a touch screen: it selects the row, or opens it when it's selected. */
+    fun tapRowEvent(segment: SegmentView): SegmentBrowseEvent = SegmentBrowseEvent.TapRow(segment.uri)
 }
 
 sealed interface SegmentBrowseEvent {
@@ -152,8 +158,14 @@ sealed interface SegmentBrowseEvent {
     /** A tap on a segment's line on the map, or null for a tap away from every line. */
     data class Select(val uri: AtUri?) : SegmentBrowseEvent
 
-    /** Opens the segment's page. */
+    /** Opens the segment's page: a click on its row with a pointer. */
     data class Open(val uri: AtUri) : SegmentBrowseEvent
+
+    /**
+     * A tap on a segment's row on a touch screen: opens its page when it's [SegmentBrowseState.selected], else selects it, moving the map
+     * to show its line when none of it is in view.
+     */
+    data class TapRow(val uri: AtUri) : SegmentBrowseEvent
 
     data class ScopeChanged(val scope: NameScope) : SegmentBrowseEvent
 

@@ -121,6 +121,14 @@ fun SegmentBrowsePresenter(
         when (event) {
             SegmentBrowseEvent.Back -> navigator.pop()
             is SegmentBrowseEvent.Open -> navigator.goTo(SegmentScreen(event.uri.value))
+            is SegmentBrowseEvent.TapRow ->
+                if (event.uri == browse.selected) {
+                    navigator.goTo(SegmentScreen(event.uri.value))
+                } else {
+                    // Only a name result can lie off the map: every run an area lists crosses it.
+                    val row = if (searching) results.state.items.find { it.uri == event.uri } else null
+                    browse.selectRow(event.uri, row?.let { SegmentGeometry.decodePolyline(it.record.line) })
+                }
             SegmentBrowseEvent.LoadMore -> results.loadMore()
             SegmentBrowseEvent.Retry -> if (trimmed.isNotEmpty()) results.retry() else browse.areaRetry++
             is SegmentBrowseEvent.ViewportChanged -> browse.viewportChanged(event.viewport)
