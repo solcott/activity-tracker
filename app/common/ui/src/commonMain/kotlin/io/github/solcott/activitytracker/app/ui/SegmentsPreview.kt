@@ -19,11 +19,17 @@ import kotlinx.collections.immutable.ImmutableList
 
 /**
  * [SegmentsMap]'s stand-in where MapLibre can't run (previews, tests and screenshot tools): every line scaled together to fit, runs in the
- * primary colour, lifts dashed and muted, and the [selected] run in the accent colour, on the surface colour rather than map tiles.
+ * primary colour, lifts dashed and muted, and the [selected] and [hovered] runs in the accent colour, on the surface colour rather than map
+ * tiles.
  */
 @Composable
-internal fun SegmentsPreview(segments: ImmutableList<MapSegmentLine>, selected: String?, modifier: Modifier = Modifier) {
-    val map = remember(segments, selected) { SegmentsMap.of(segments, selected) }
+internal fun SegmentsPreview(
+    segments: ImmutableList<MapSegmentLine>,
+    selected: String?,
+    modifier: Modifier = Modifier,
+    hovered: String? = null,
+) {
+    val map = remember(segments, selected, hovered) { SegmentsMap.of(segments, selected, hovered) }
     val run = MaterialTheme.colorScheme.primary
     val lift = MaterialTheme.colorScheme.outline
     val highlight = MaterialTheme.colorScheme.tertiary
@@ -31,7 +37,7 @@ internal fun SegmentsPreview(segments: ImmutableList<MapSegmentLine>, selected: 
         val at = canvasFit(map.allPoints, size, pad = 16.dp.toPx()) ?: return@Canvas
 
         val dashes = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
-        // In the shared drawing order: lifts, then runs, then the selected run on top.
+        // In the shared drawing order: lifts, then runs, then the selected and hovered runs on top.
         for (line in map.drawn) {
             val path =
                 Path().apply { line.points.map { at(it) }.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }

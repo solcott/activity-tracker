@@ -91,4 +91,11 @@ object SegmentBrowseTexts {
         )
 
     val searchEverywhere: AppText = AppText.named("segment_browse_search_everywhere")
+
+    /**
+     * What tapping or clicking a row does, as a screen reader announces it: on a touch screen ([touch]) a row that isn't [selected] shows
+     * its line on the map, and the selected one opens; with a pointer every row opens.
+     */
+    fun rowAction(selected: Boolean, touch: Boolean): AppText =
+        AppText.named(if (touch && !selected) "segment_browse_show_on_map" else "segment_browse_open")
 }

@@ -16952,6 +16952,17 @@
         }
       }
     },
+    "segment_browse_open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
     "segment_browse_scope_area" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16992,6 +17003,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Segment name"
+          }
+        }
+      }
+    },
+    "segment_browse_show_on_map" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show on map"
           }
         }
       }

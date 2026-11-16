@@ -68,6 +68,20 @@ class SegmentBrowseTextsTest {
     }
 
     @Test
+    fun aRowShowsItsLineFirstOnTouchAndOpensWithAPointer() {
+        assertEquals(AppText.named("segment_browse_show_on_map"), SegmentBrowseTexts.rowAction(selected = false, touch = true))
+        assertEquals(AppText.named("segment_browse_open"), SegmentBrowseTexts.rowAction(selected = true, touch = true))
+        assertEquals(AppText.named("segment_browse_open"), SegmentBrowseTexts.rowAction(selected = false, touch = false))
+    }
+
+    @Test
+    fun theHoveredRunIsDrawnHighlightedOnTop() {
+        val state = SegmentBrowseSamples.loaded
+        val hovered = state.areaRuns.first().segment.uri.value
+        assertEquals(hovered, state.segmentsMap(hovered).drawn.last().uri)
+    }
+
+    @Test
     fun everyNameTheBrowseAndCreditTextsChooseHasItsString() {
         val state = SegmentBrowseSamples.nothingHere
         val texts =
@@ -83,6 +97,8 @@ class SegmentBrowseTextsTest {
                     SegmentBrowseTexts.noResults(state),
                     SegmentBrowseTexts.noResults(state.copy(scope = NameScope.Everywhere)),
                     SegmentBrowseTexts.searchEverywhere,
+                    SegmentBrowseTexts.rowAction(selected = false, touch = true),
+                    SegmentBrowseTexts.rowAction(selected = true, touch = true),
                 ) +
                 listOf(SegmentCredit.OpenStreetMap("ODbL"), SegmentCredit.Agency("PD", "USFS"), SegmentCredit.Agency("PD"))
                     .flatMap(SegmentCreditTexts::lines)

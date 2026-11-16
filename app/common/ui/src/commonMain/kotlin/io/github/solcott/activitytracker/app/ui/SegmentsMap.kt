@@ -15,9 +15,10 @@ expect val interactiveMapSupported: Boolean
 
 /**
  * Many segments' lines on a map the viewer pans and zooms, north-up (segments/segment-browse): runs in the primary colour, lifts muted and
- * dashed, and the [selected] run highlighted. A tap on a run calls [onSelect] with its URI, and a tap away from every run with null. Each
- * time the camera stops, [onViewport] gets what the map shows. Each new [camera] request moves the map once. Previews and screenshot tests
- * draw the lines on a plain canvas instead.
+ * dashed, and the [selected] and [hovered] runs highlighted alike. A tap on a run calls [onSelect] with its URI, and a tap away from every
+ * run with null. A mouse pointer over a run calls [onHover] with its URI, and with null once it leaves every run or the map. Each time the
+ * camera stops, [onViewport] gets what the map shows. Each new [camera] request moves the map once, framing its box at the map's size when
+ * it has one. Previews and screenshot tests draw the lines on a plain canvas instead.
  */
 @Composable
 expect fun SegmentsMap(
@@ -27,4 +28,6 @@ expect fun SegmentsMap(
     onViewport: (MapViewport) -> Unit,
     onSelect: (String?) -> Unit,
     modifier: Modifier = Modifier,
+    hovered: String? = null,
+    onHover: (String?) -> Unit = {},
 )

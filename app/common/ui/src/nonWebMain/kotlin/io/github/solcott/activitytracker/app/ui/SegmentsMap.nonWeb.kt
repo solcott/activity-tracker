@@ -16,14 +16,28 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
@@ -52,19 +66,24 @@ actual fun SegmentsMap(
     onViewport: (MapViewport) -> Unit,
     onSelect: (String?) -> Unit,
     modifier: Modifier,
+    hovered: String?,
+    onHover: (String?) -> Unit,
 ) {
     // Previews, tests and screenshot tools draw the lines without MapLibre, its native view or a remote style.
     if (LocalInspectionMode.current) {
-        SegmentsPreview(segments, selected, modifier)
+        SegmentsPreview(segments, selected, modifier, hovered)
         return
     }
     val runsJson = remember(segments) { featuresJson(segments.filterNot { it.lift }) }
     val liftsJson = remember(segments) { featuresJson(segments.filter { it.lift }) }
-    val selectedJson = remember(segments, selected) { featuresJson(segments.filter { !it.lift && it.uri == selected }) }
+    // The selected and hovered runs: one small source, so a hover rebuilds a layer of a line or two.
+    val selectedJson =
+        remember(segments, selected, hovered) { featuresJson(segments.filter { !it.lift && (it.uri == selected || it.uri == hovered) }) }
     val runColor = MaterialTheme.colorScheme.primary
     val liftColor = MaterialTheme.colorScheme.outline
     val selectedColor = MaterialTheme.colorScheme.tertiary
     val currentOnSelect by rememberUpdatedState(onSelect)
+    val currentOnHover by rememberUpdatedState(onHover)
     val currentOnViewport by rememberUpdatedState(onViewport)
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =
@@ -115,13 +134,18 @@ actual fun SegmentsMap(
     // where it was left rather than where it was first sent.
     var applied by rememberSaveable { mutableIntStateOf(NO_REQUEST) }
     var stopped by rememberSaveable(stateSaver = CameraSaver) { mutableStateOf<CameraPosition?>(null) }
-    // Each request moves the map once, however often it recomposes.
+    // The map's size in dp, which a request to frame a box fits it to; read here so measuring recomposes and applies a waiting request.
+    val density = LocalDensity.current
+    var size by remember { mutableStateOf<DpSize?>(null) }
+    val measured = size
+    // Each request moves the map once, however often it recomposes; one framing a box waits until the map is measured.
     SideEffect(mapState, camera?.id) {
         val left = stopped
         when {
-            camera != null && camera.id != applied -> {
+            camera != null && camera.id != applied && (camera.bounds == null || measured != null) -> {
                 applied = camera.id
-                mapState.setCameraPosition(CameraPosition(center = Position(camera.lng, camera.lat), zoom = camera.zoom))
+                val frame = camera.frame(measured?.width?.value?.toDouble() ?: 0.0, measured?.height?.value?.toDouble() ?: 0.0)
+                mapState.setCameraPosition(frame.toCameraPosition())
             }
             left != null -> mapState.setCameraPosition(left)
         }
@@ -148,25 +172,53 @@ actual fun SegmentsMap(
                 }
                 callbacks {
                     click {
-                        // The run nearest a tap within a finger's width, or none, which clears the choice. A box query, not a wide clear
-                        // layer to catch taps: MapLibre leaves a fully transparent layer out of its hit testing, and any opacity at all
-                        // builds
-                        // into a haze where many segments overlap.
+                        // The run nearest a tap within a finger's width, or none, which clears the choice.
                         onUnhandled { event ->
-                            val at = event.screenOffset
-                            val box = DpRect(at.x - TAP_SLOP, at.y - TAP_SLOP, at.x + TAP_SLOP, at.y + TAP_SLOP)
-                            scope.launch {
-                                val hit = mapState.queryRenderedFeatures(box, setOf(RUNS_LAYER))
-                                currentOnSelect(hit.firstNotNullOfOrNull { it.properties?.get("uri")?.jsonPrimitive?.content })
-                            }
+                            scope.launch { currentOnSelect(mapState.runAt(event.screenOffset, TAP_SLOP)) }
                             ClickResult.Pass
                         }
                     }
                 }
             }
         }
-    MaplibreMap(modifier, state = mapState, interactions = interactions, overlay = { RouteMapOverlay(mapState) })
+    // A mouse pointer's latest place over the map, or null once it leaves; one query runs at a time, for the latest place.
+    val pointer = remember { Channel<DpOffset?>(Channel.CONFLATED) }
+    LaunchedEffect(mapState) { pointer.receiveAsFlow().collectLatest { at -> currentOnHover(at?.let { mapState.runAt(it, HOVER_SLOP) }) } }
+    MaplibreMap(
+        modifier.onSizeChanged { size = with(density) { it.toSize().toDpSize() } }.pointerInput(Unit) { watchMouse(pointer) },
+        state = mapState,
+        interactions = interactions,
+        overlay = { RouteMapOverlay(mapState) },
+    )
 }
+
+/**
+ * Sends where a mouse moves over the map, unpressed, to [pointer], and null when it leaves. It watches the Initial pass and consumes
+ * nothing, so the map's own gestures see every event as before; a finger or a drag hovers nothing.
+ */
+private suspend fun PointerInputScope.watchMouse(pointer: Channel<DpOffset?>) {
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val change = event.changes.firstOrNull()?.takeIf { it.type == PointerType.Mouse }
+            when {
+                change == null -> Unit
+                event.type == PointerEventType.Exit -> pointer.trySend(null)
+                (event.type == PointerEventType.Enter || event.type == PointerEventType.Move) && !change.pressed ->
+                    pointer.trySend(DpOffset(change.position.x.toDp(), change.position.y.toDp()))
+            }
+        }
+    }
+}
+
+/**
+ * The run whose line passes within [slop] of [at] on screen, or null. A box query, not a wide clear layer to catch taps: MapLibre leaves a
+ * fully transparent layer out of its hit testing, and any opacity at all builds into a haze where many segments overlap.
+ */
+private suspend fun MapState.runAt(at: DpOffset, slop: Dp): String? =
+    queryRenderedFeatures(DpRect(at.x - slop, at.y - slop, at.x + slop, at.y + slop), setOf(RUNS_LAYER)).firstNotNullOfOrNull {
+        it.properties?.get("uri")?.jsonPrimitive?.content
+    }
 
 /** The box the map shows and its centre, in 1e-7 degrees; null while it has no viewport. */
 private fun MapState.viewportNow(): MapViewport? {
@@ -203,3 +255,6 @@ private const val LIFT_DASH = 3
 private const val LIFT_GAP = 2
 private const val RUNS_LAYER = "segments-runs"
 private val TAP_SLOP = 12.dp
+
+/** A mouse pointer is precise: a few dp either side of a line hovers it. */
+private val HOVER_SLOP = 4.dp

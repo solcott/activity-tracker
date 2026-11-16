@@ -19,4 +19,6 @@ actual fun SegmentsMap(
     onViewport: (MapViewport) -> Unit,
     onSelect: (String?) -> Unit,
     modifier: Modifier,
-) = SegmentsPreview(segments, selected, modifier)
+    hovered: String?,
+    onHover: (String?) -> Unit,
+) = SegmentsPreview(segments, selected, modifier, hovered)

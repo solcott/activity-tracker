@@ -1010,6 +1010,8 @@
     <string name="segment_browse_search_everywhere">Search everywhere</string>
     <string name="segment_browse_away">%1$s away</string>
     <string name="segment_browse_details">%1$s · %2$s</string>
+    <string name="segment_browse_show_on_map">Show on map</string>
+    <string name="segment_browse_open">Open</string>
     <string name="dive_site_browse_search_label">Dive site name</string>
     <string name="dive_site_browse_nowhere">Move the map to a place, or search dive sites by name.</string>
     <string name="dive_site_browse_web_prompt">Search dive sites by name.</string>
