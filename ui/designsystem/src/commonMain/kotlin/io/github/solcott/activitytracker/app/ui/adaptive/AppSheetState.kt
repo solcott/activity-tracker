@@ -2,7 +2,8 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -18,6 +19,12 @@ class AppSheetState internal constructor(internal val material: SheetState) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun rememberAppSheetState(halfHeight: Boolean = false): AppSheetState {
-    val material = rememberModalBottomSheetState(skipPartiallyExpanded = !halfHeight)
+    val material =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues =
+                if (halfHeight) setOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded)
+                else setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
     return remember(material) { AppSheetState(material) }
 }
