@@ -160,15 +160,18 @@ struct SegmentBrowseView: View {
         .listStyle(.plain)
     }
 
-    /// A segment: its name, then its details line; the one tapped on the map is marked.
+    /// A segment: its name, then its details line. A tap selects it, showing its line on the map, and a tap on the selected one opens it
+    /// (Kotlin decides which); the selected one is marked.
     private func row(_ segment: SegmentView, details: any AppText) -> some View {
-        AppItemRow(
-            Text(verbatim: segment.currentName), lines: [Text(details)], opens: { send(SegmentBrowseEvent.Open(uri: segment.uri)) }
+        let selected = state.isSelected(segment: segment)
+        return AppItemRow(
+            Text(verbatim: segment.currentName), lines: [Text(details)], opens: { send(state.tapRowEvent(segment: segment)) }
         ) {
             EmptyView()
         }
-        .listRowBackground(state.isSelected(segment: segment) ? Color(.secondarySystemFill) : nil)
-        .accessibilityAddTraits(state.isSelected(segment: segment) ? .isSelected : [])
+        .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(Text(SegmentBrowseTexts.shared.rowAction(selected: selected, touch: true)))
     }
 
     private func note(_ text: any AppText) -> some View {

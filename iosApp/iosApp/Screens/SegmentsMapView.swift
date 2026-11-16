@@ -48,7 +48,9 @@ private struct LiveSegmentsMap: View {
         let lines = map.drawn.elements(as: MapSegment.self)
         MapReader { proxy in
             Map(position: $position, interactionModes: [.pan, .zoom]) {
-                ForEach(lines, id: \.uri) { line in
+                // By URI and role: MapKit keeps an overlay whose identity is unchanged as it was drawn, so a run selected or hovered
+                // is made anew in its highlight, on top in Kotlin's drawing order.
+                ForEach(lines, id: \.mapIdentity) { line in
                     let coordinates = line.points.elements(as: GeoPoint.self).map(SegmentsMapGeometry.coordinate)
                     switch line.role {
                     case .Lift:
@@ -92,12 +94,18 @@ private struct LiveSegmentsMap: View {
         guard size.width > 0, size.height > 0 else { return }
         if let camera, camera.id != memory.applied {
             memory.applied = camera.id
-            let frame = MapFrame(latitude: camera.lat, longitude: camera.lng, zoom: camera.zoom)
+            // A selected row's line is framed at the map's size; a place to open at keeps its zoom.
+            let frame = camera.frame(width: Double(size.width), height: Double(size.height))
             position = .rect(MapCamera.rect(frame, size: size))
         } else if let left = memory.position, position == .automatic {
             position = left
         }
     }
+}
+
+private extension MapSegment {
+    /// A line's identity on the map: its URI and how it's drawn, so a change of role replaces its overlay.
+    var mapIdentity: String { "\(uri)|\(role)" }
 }
 
 /// The conversions between MapKit's geometry and Kotlin's (a coordinate, a region's box, a tap's reach), kept apart for their tests.

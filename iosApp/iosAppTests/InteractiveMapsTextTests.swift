@@ -55,6 +55,23 @@ struct InteractiveMapsTextTests {
         #expect(state.isSelected(site: state.areaSites[1].site))
     }
 
+    @Test func aRowTapSelectsAndSaysWhatItDoes() throws {
+        let state = try #require(Samples.segmentBrowse["selected"])
+        let hogback = state.areaRuns[1].segment
+        #expect(state.tapRowEvent(segment: hogback) as? SegmentBrowseEvent.TapRow != nil)
+        #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: false, touch: true)) == "Show on map")
+        #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: true, touch: true)) == "Open")
+    }
+
+    @Test func aBoxRequestIsFramedAtTheMapsSize() {
+        let box = MapBounds(west: -73.22, south: 44.47, east: -73.20, north: 44.48)
+        let request = MapCameraRequest.Companion.shared.fit(id: 1, bounds: box)
+        let small = request.frame(width: 390, height: 300)
+        let large = request.frame(width: 1180, height: 820)
+        #expect(abs(small.latitude - 44.475) < 0.001)
+        #expect(large.zoom > small.zoom)
+    }
+
     @Test func anOsmCreditLinksAndNamesItsLicence() throws {
         let state = try #require(Samples.segmentMap["credited"])
         let content = try #require(state.content.data as? SegmentMapContent)
