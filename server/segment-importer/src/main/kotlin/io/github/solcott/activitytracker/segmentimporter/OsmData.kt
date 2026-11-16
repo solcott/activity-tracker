@@ -34,17 +34,24 @@ internal data class OsmDiveSite(val type: OsmMember.Type, val id: Long, val name
 
 /**
  * What makes an OSM element a dive site: a name and `sport=scuba_diving` or `sport=free_diving`, on something that isn't a shop, amenity,
- * club or building, since dive shops and clubs carry the same sport tag.
+ * club, building or healthcare facility (a hyperbaric chamber), since dive shops, clubs and chambers carry the same sport tag. Facilities
+ * mapped with the sport tag alone are told by their name: one with a [FACILITY_WORDS] word ("Dive Center", "Free diving platform",
+ * "Confined Water Training Area") is no site. A shore site named for a resort or a jetty is kept, since those are dived.
  */
 internal object DiveSiteTags {
     private val SPORTS = setOf("scuba_diving", "free_diving")
-    private val EXCLUDED = setOf("shop", "amenity", "club", "building")
+    private val EXCLUDED = setOf("shop", "amenity", "club", "building", "healthcare")
+    private val FACILITY_WORDS = setOf("center", "centre", "platform", "training", "school", "chamber")
+    private val WORD = Regex("""\p{L}+""")
 
     /** Whether [tags] may make a site, before its name is checked: the reader keeps these elements. */
     fun isDiveSite(tags: Map<String, String>): Boolean =
         tags["sport"]?.split(';')?.any { it.trim() in SPORTS } == true && EXCLUDED.none { it in tags }
 
-    fun nameOf(tags: Map<String, String>): String? = tags["name"]?.trim()?.takeIf { it.isNotEmpty() }
+    /** The site's name, or null when it has none or names a facility. */
+    fun nameOf(tags: Map<String, String>): String? = tags["name"]?.trim()?.takeIf { it.isNotEmpty() && !namesFacility(it) }
+
+    private fun namesFacility(name: String): Boolean = WORD.findAll(name.lowercase()).any { it.value in FACILITY_WORDS }
 }
 
 /**

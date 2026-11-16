@@ -42,6 +42,28 @@ class ExtractSitesTest {
     }
 
     @Test
+    fun facilitiesNamedAsSuchOrTaggedHealthcareGiveNoSite() {
+        val data = osm {
+            node(1, 28.5723, 34.5376, mapOf("name" to "Free diving platform", "sport" to "free_diving"))
+            node(2, 27.0, 33.0, scuba("Dive Center"))
+            node(3, 27.0, 33.0, scuba("Diving Centre"))
+            node(4, 27.0, 33.0, mapOf("name" to "Only One Apnea Center", "sport" to "free_diving"))
+            node(5, 27.0, 33.0, scuba("Confined Water Training Area", "area" to "yes"))
+            node(6, 27.0, 33.0, scuba("DECO International", "healthcare" to "hyperbaric_chamber"))
+            node(7, 27.0, 33.0, scuba("Red Sea Dive School"))
+            node(8, 28.5723, 34.5373, scuba("Blue Hole"))
+            node(9, 23.6186, 36.2037, scuba("Zabargad Jetty"))
+            node(10, 24.2571, 35.4065, scuba("Hausriff Zabargad Beach Resort", "natural" to "reef"))
+            node(11, 27.0, 33.0, scuba("Centreville Reef"))
+        }
+        assertEquals(
+            listOf("Blue Hole", "Zabargad Jetty", "Hausriff Zabargad Beach Resort", "Centreville Reef"),
+            data.diveSites().map { it.name },
+            "jetties and resort house reefs are dived, and only whole words name a facility",
+        )
+    }
+
+    @Test
     fun freeDivingAndSportListsCount() {
         val data = osm {
             node(1, 27.0, 33.0, mapOf("name" to "Apnea Point", "sport" to "free_diving"))

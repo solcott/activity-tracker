@@ -7,7 +7,7 @@ How the segment importer seeds dive sites from OpenStreetMap: which features qua
 ## Requirements
 
 ### Requirement: Named OSM dive sites are extracted
-`extract-sites` SHALL read an OSM extract and write a sites file with one entry per named node, way or relation tagged `sport=scuba_diving` or `sport=free_diving` that isn't a shop, amenity, club or building. A way or relation SHALL be placed at its centroid. Each entry SHALL have a 150 m radius, `source` `osm` and `license` `ODbL-1.0`.
+`extract-sites` SHALL read an OSM extract and write a sites file with one entry per named node, way or relation tagged `sport=scuba_diving` or `sport=free_diving` that isn't a shop, amenity, club, building or healthcare facility, and whose name has none of the words center, centre, platform, training, school or chamber (facilities mapped with the sport tag alone; a site named for a resort or a jetty is kept). A way or relation SHALL be placed at its centroid. Each entry SHALL have a 150 m radius, `source` `osm` and `license` `ODbL-1.0`.
 
 #### Scenario: Wreck site node
 - **WHEN** an extract has a node tagged `sport=scuba_diving` named "SS Thistlegorm"
@@ -16,6 +16,10 @@ How the segment importer seeds dive sites from OpenStreetMap: which features qua
 #### Scenario: Dive shop
 - **WHEN** a node is tagged `shop=scuba_diving`
 - **THEN** it gives no site
+
+#### Scenario: Facility named as such
+- **WHEN** a node tagged only `sport=free_diving` is named "Free diving platform", 32 m from a node named "Blue Hole"
+- **THEN** the platform gives no site, and Blue Hole does
 
 ### Requirement: Site ids are stable
 An extracted site's id SHALL be derived only from its OSM element type and id, so re-extracting gives the same id while the element exists.
