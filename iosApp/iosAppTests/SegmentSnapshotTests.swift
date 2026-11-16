@@ -13,7 +13,7 @@ struct SegmentSnapshotTests {
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "renamed", "votingUnavailable", "lift", "elevation",
         "elevationFromEfforts",
     ]
-    nonisolated private static let variants = ["openStreetMap", "duplicate"]
+    nonisolated private static let variants = ["openStreetMap", "duplicate", "route"]
     /// Tall enough for the whole page down to its efforts.
     private static let tall = CGSize(width: 393, height: 1_700)
 

@@ -33,10 +33,16 @@ struct SegmentPage: View {
         let texts = SegmentPageTexts.shared
         let lift = state.isLift
         return List {
-            RefreshStatusView(state: state.content, errorKind: .LoadSegment, retry: retry).listStatusRow()
+            RefreshStatusView(state: state.content, errorKind: .LoadSegment, showsProgress: state.showsRefreshProgress, retry: retry)
+                .listStatusRow()
             if let map = state.routeMap {
                 Section {
                     RouteMapView(map: map, expand: { send(SegmentEvent.OpenMap.shared) }).listRowInsets(EdgeInsets())
+                }
+            }
+            if let route = state.route, route.offered {
+                Section {
+                    RouteChoices(route: route, send: send)
                 }
             }
             Section {
@@ -80,6 +86,37 @@ struct SegmentPage: View {
 
     private func send(_ event: any SegmentEvent) {
         state.eventSink(event)
+    }
+}
+
+/// The route's sport groups as a menu chip and the shown group's directions as a segmented choice (segments/segment-routes); choosing one
+/// sends the event Kotlin builds, which replaces the page with that segment's.
+private struct RouteChoices: View {
+    let route: RouteSwitcher
+    let send: (any SegmentEvent) -> Void
+
+    var body: some View {
+        let directions = route.directions
+        VStack(alignment: .leading, spacing: 8) {
+            AppMenuChip(
+                nil, filled: true,
+                selection: Binding(get: { route.currentSport }, set: { sport in if let event = route.sportEvent(sport: sport) { send(event) } }),
+                options: route.sports,
+                optionLabel: { AppStrings.string(RouteSwitcherTexts.shared.sport(sport: $0)) })
+            if directions.count > 1 {
+                Picker(selection: Binding(
+                    get: { directions.firstIndex { route.isCurrent(direction: $0) } ?? 0 },
+                    set: { index in if let event = route.directionEvent(direction: directions[index]) { send(event) } }
+                )) {
+                    ForEach(directions.indices, id: \.self) { index in
+                        Text(RouteSwitcherTexts.shared.direction(direction: directions[index])).tag(index)
+                    }
+                } label: {
+                    EmptyView()
+                }
+                .pickerStyle(.segmented)
+            }
+        }
     }
 }
 

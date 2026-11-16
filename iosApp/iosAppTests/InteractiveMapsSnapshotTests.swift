@@ -13,6 +13,8 @@ struct InteractiveMapsSnapshotTests {
     nonisolated private static let browseSamples = [
         "loading", "failed", "loaded", "refreshFailed", "selected", "tooWide", "nameResults", "nothingHere", "nowhere", "locating",
     ]
+    /// Segment browse also lists a route's segments as one row (segments/segment-routes); dive sites have no routes.
+    nonisolated private static let segmentBrowseSamples = browseSamples + ["routeResults"]
     nonisolated private static let inviteSamples = ["loading", "failed", "empty", "loaded", "overlapping", "accepting", "signInAgain"]
     /// An 11-inch iPad on its side: wide enough for browse's list beside its map.
     private static let iPad = CGSize(width: 1_180, height: 820)
@@ -24,7 +26,7 @@ struct InteractiveMapsSnapshotTests {
         assertAppSnapshot(of: NavigationStack { SegmentMapView(state: state) }, named: sample, precision: Snapshots.barButtons)
     }
 
-    @Test(arguments: browseSamples)
+    @Test(arguments: segmentBrowseSamples)
     func segmentBrowse(sample: String) throws {
         let state = try #require(Samples.segmentBrowse[sample])
         assertAppSnapshot(of: browse(state), named: sample, precision: Snapshots.barButtons)

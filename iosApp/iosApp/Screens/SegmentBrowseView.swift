@@ -130,8 +130,8 @@ struct SegmentBrowseView: View {
                 if state.areaCapped {
                     note(SegmentBrowseTexts.shared.capped)
                 }
-                ForEach(state.areaRuns, id: \.segment.uri.value) { run in
-                    row(run.segment, details: SegmentBrowseTexts.shared.details(run: run, units: stats.units))
+                ForEach(state.areaRuns, id: \.route.key.value) { run in
+                    row(run.route, details: SegmentBrowseTexts.shared.details(run: run, units: stats.units))
                 }
                 if state.areaRuns.isEmpty {
                     note(SegmentBrowseTexts.shared.noneHere)
@@ -143,11 +143,11 @@ struct SegmentBrowseView: View {
 
     private var names: some View {
         PagedList(
-            state.results, of: SegmentView.self, errorKind: .SearchSegments, id: { $0.uri.value }, retry: retry,
+            state.results, of: SegmentRoute.self, errorKind: .SearchSegments, id: { $0.key.value }, retry: retry,
             loadMore: { send(SegmentBrowseEvent.LoadMore.shared) }
         ) {
-        } row: { segment in
-            row(segment, details: SegmentBrowseTexts.shared.details(segment: segment, units: stats.units))
+        } row: { route in
+            row(route, details: SegmentBrowseTexts.shared.details(route: route, units: stats.units))
         } empty: {
             VStack(spacing: 8) {
                 Text(SegmentBrowseTexts.shared.noResults(state: state)).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -160,12 +160,14 @@ struct SegmentBrowseView: View {
         .listStyle(.plain)
     }
 
-    /// A segment: its name, then its details line. A tap selects it, showing its line on the map, and a tap on the selected one opens it
-    /// (Kotlin decides which); the selected one is marked.
-    private func row(_ segment: SegmentView, details: any AppText) -> some View {
-        let selected = state.isSelected(segment: segment)
+    /// A route's row (segments/segment-routes), drawn, selected and opened as its shown segment: its name without the importer's
+    /// direction, then its details line. A tap selects it, showing its line on the map, and a tap on the selected one opens it (Kotlin
+    /// decides which); the selected one is marked.
+    private func row(_ route: SegmentRoute, details: any AppText) -> some View {
+        let selected = state.isSelected(route: route)
         return AppItemRow(
-            Text(verbatim: segment.currentName), lines: [Text(details)], opens: { send(state.tapRowEvent(segment: segment)) }
+            Text(SegmentBrowseTexts.shared.routeName(route: route)), lines: [Text(details)],
+            opens: { send(state.tapRowEvent(route: route)) }
         ) {
             EmptyView()
         }
