@@ -11,7 +11,7 @@ class SampleCardChartsTest {
 
     @Test
     fun everyVariantsCardsChart() {
-        val pages = ActivityDetailSamples.variants.values.mapNotNull { (it.content.data as? ActivityDetailPage)?.page }
+        val pages = ActivityDetailSamples.variants.values.mapNotNull { it.content.data?.page }
         val charted = pages.filter { it.charts != null }
         charted.forEach { page -> page.cards.forEach { card -> UnitSystem.entries.forEach { CardLines.of(card, page.charts!!, it) } } }
         assertTrue(charted.size >= 4)

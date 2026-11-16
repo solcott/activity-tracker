@@ -43,7 +43,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -107,7 +106,7 @@ class ImportSaveFlowTest {
     private fun savedTitles(): List<String> =
         fixture.putRecords
             .filter { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
-            .map { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it as JsonObject).title.orEmpty() }
+            .map { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it).title.orEmpty() }
 
     @Test
     fun leavingDuringASaveDoesntStopItAndImportShowsIt() = runTest {

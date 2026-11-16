@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -94,7 +93,7 @@ class ImportSaveRunnerTest {
     private fun savedRkeys(): List<String> =
         fixture.putRecords
             .filter { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
-            .map { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it as JsonObject).title.orEmpty() }
+            .map { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it).title.orEmpty() }
 
     /** A file whose reads wait for [open], so a run can be stopped while it's read. */
     private class Gated(private val of: ImportSource, val open: CompletableDeferred<Unit>) : ImportSource by of {

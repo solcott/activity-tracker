@@ -203,7 +203,7 @@ class GearRepositoryTest {
 
         repo.delete(shoesItem)
 
-        val stored = pds.stored.getValue(Visibility.SELF).getValue("${Nsid.GEAR_COLLECTION}/${kit.rkey}") as JsonObject
+        val stored = pds.stored.getValue(Visibility.SELF).getValue("${Nsid.GEAR_COLLECTION}/${kit.rkey}")
         assertEquals(listOf(helmetItem.uri(pds.did)), AtJson.decodeFromJsonElement(GearCollectionRecord.serializer(), stored).items)
     }
 

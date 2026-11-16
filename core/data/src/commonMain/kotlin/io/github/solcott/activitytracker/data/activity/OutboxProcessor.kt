@@ -208,7 +208,7 @@ class OutboxProcessor(
                     else -> {
                         // Read one write at a time: the queue is listed without its bytes (OutboxDao.pending).
                         val blob = item.blobField?.let { db.outbox().inlineBlob(item.id) }
-                        if (blob != null && item.blobField != null) {
+                        if (blob != null) {
                             val ref = clients.pds.uploadBlob(blob, item.blobMimeType ?: "application/octet-stream")
                             put(item, record.withBlob(item.blobField, ref))
                         } else {

@@ -24,7 +24,6 @@ import kotlin.test.assertFailsWith
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
 
 /** Defaults per activity type (`gear/activity-gear`): the `gear.autoAssign` record in `self`, and how a type resolves. */
 class GearDefaultsTest {
@@ -84,7 +83,7 @@ class GearDefaultsTest {
         val stored =
             AtJson.decodeFromJsonElement(
                 GearAutoAssignRecord.serializer(),
-                pds.stored.getValue(Visibility.SELF).getValue("${Nsid.GEAR_AUTO_ASSIGN}/self") as JsonObject,
+                pds.stored.getValue(Visibility.SELF).getValue("${Nsid.GEAR_AUTO_ASSIGN}/self"),
             )
         assertEquals(rules.sports, stored.sports)
         assertEquals(listOf(uri(stumpjumper), uri(helmet)), defaults().forType(mountain, items), "another device reads the same")

@@ -15,6 +15,7 @@ import platform.BackgroundTasks.BGTaskScheduler
 import platform.Foundation.NSError
 import platform.Foundation.NSLog
 import platform.Foundation.NSString
+import platform.Foundation.create
 import platform.UIKit.UIApplication
 import platform.UIKit.UIBackgroundTaskInvalid
 
@@ -47,7 +48,7 @@ internal fun submitProcessingTask(
         val error = alloc<ObjCObjectVar<NSError?>>()
         if (!BGTaskScheduler.sharedScheduler.submitTaskRequest(request, error.ptr)) {
             // A Kotlin String reaches a C variadic as a C string, so %@ needs an NSString.
-            NSLog("$what not scheduled: %@", (error.value?.localizedDescription ?: "unknown error") as NSString)
+            NSLog("$what not scheduled: %@", NSString.create(string = error.value?.localizedDescription ?: "unknown error"))
         }
     }
 }
