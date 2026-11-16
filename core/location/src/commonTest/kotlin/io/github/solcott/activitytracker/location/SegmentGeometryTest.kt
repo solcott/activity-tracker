@@ -71,7 +71,7 @@ class SegmentGeometryTest {
         assertNear(1000.0, SegmentGeometry.lengthMeters(straight), 1.0)
         val ref = SegmentGeometry.resample(loop)
         assertEquals(101, ref.size)
-        ref.zipWithNext { a, b -> assertNear(10.0, SegmentGeometry.distanceMeters(a, b), 0.1) }
+        for ((a, b) in ref.zipWithNext()) assertNear(10.0, SegmentGeometry.distanceMeters(a, b), 0.1)
         assertEquals(loop.last(), ref.last())
     }
 

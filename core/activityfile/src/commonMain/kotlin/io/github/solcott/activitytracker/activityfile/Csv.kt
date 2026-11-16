@@ -19,7 +19,10 @@ internal class Csv private constructor(private val columns: Map<String, Int>, va
             val records = records(text.removePrefix("﻿"))
             val header = records.firstOrNull().orEmpty()
             val columns = mutableMapOf<String, Int>()
-            header.forEachIndexed { index, name -> columns.getOrPut(name.normalized()) { index } }
+            header.forEachIndexed { index, name ->
+                val column = name.normalized()
+                if (column !in columns) columns[column] = index
+            }
             return Csv(columns, records.drop(1).filterNot { row -> row.all { it.isBlank() } })
         }
 

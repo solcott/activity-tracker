@@ -56,11 +56,8 @@ class OutboxPacer(
             }
             backoff = INITIAL_BACKOFF
             // The athlete pausing or resuming imports wakes it too, so Resume sends at once.
-            val changed = suspend { combine(queue, pacing.importsPaused) { q, p -> q to p }.first { it != before } }
-            when (outcome) {
-                is PacerOutcome.Paused -> withTimeoutOrNull((outcome.until - now).coerceAtLeast(Duration.ZERO)) { changed() }
-                else -> changed()
-            }
+            val wait = if (outcome is PacerOutcome.Paused) (outcome.until - now).coerceAtLeast(Duration.ZERO) else Duration.INFINITE
+            withTimeoutOrNull(wait) { combine(queue, pacing.importsPaused) { q, p -> q to p }.first { it != before } }
         }
     }
 

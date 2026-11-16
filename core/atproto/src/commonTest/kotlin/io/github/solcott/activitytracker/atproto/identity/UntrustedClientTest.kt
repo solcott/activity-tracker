@@ -17,15 +17,15 @@ class UntrustedClientTest {
 
     @Test
     fun didWebDocumentsUseTheUntrustedClient() = runTest {
-        runCatching { resolver.resolveDid(Did("did:web:example.com")) }
-        runCatching { resolver.resolveDid(Did("did:plc:alice")) }
+        val _ = runCatching { resolver.resolveDid(Did("did:web:example.com")) }
+        val _ = runCatching { resolver.resolveDid(Did("did:plc:alice")) }
         assertEquals(listOf("example.com"), untrusted.hosts())
         assertEquals(listOf("plc.test"), trusted.hosts())
     }
 
     @Test
     fun onlyTheWellKnownHandleLookupUsesTheUntrustedClient() = runTest {
-        runCatching { resolver.resolveHandle(Handle("alice.example.com")) }
+        val _ = runCatching { resolver.resolveHandle(Handle("alice.example.com")) }
         assertEquals(listOf("alice.example.com"), untrusted.hosts())
         assertEquals(listOf("resolver.test", "cloudflare-dns.com"), trusted.hosts())
     }

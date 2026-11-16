@@ -237,7 +237,7 @@ class GroupTrackTest {
 
         store.setGroupExcluded(uri, true)
         pds.offline = true
-        runCatching { s.drain() }
+        val _ = runCatching { s.drain() }
         assertNull(segmentTrack(uri.rkey!!)?.groupExcluded)
         pds.offline = false
         s.drain()

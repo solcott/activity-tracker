@@ -86,7 +86,7 @@ class DiveSiteRepository(private val clients: SessionClients) {
             do {
                 val page = clients.appView.query(SearchDiveSites.method, box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
                 requests++
-                page.sites.forEach { found.getOrPut(it.uri) { it } }
+                page.sites.forEach { if (it.uri !in found) found[it.uri] = it }
                 cursor = page.cursor
             } while (cursor != null && found.size < cap && requests < maxRequests)
             AreaSites(found.values.take(cap), capped = cursor != null || found.size > cap)

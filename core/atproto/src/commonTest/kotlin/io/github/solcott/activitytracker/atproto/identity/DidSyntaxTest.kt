@@ -37,7 +37,7 @@ class DidSyntaxTest {
     fun localStackFormsAreFetched() = runTest {
         for (did in listOf("did:plc:alice", "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "did:web:localhost%3A8081", "did:web:example.com")) {
             assertTrue(isResolvableDid(did), did)
-            runCatching { resolver.resolveDid(Did(did)) }
+            val _ = runCatching { resolver.resolveDid(Did(did)) }
         }
         assertEquals(
             listOf(

@@ -118,7 +118,7 @@ class SpaceCredentials(
                 inFlight.remove(space)
             }
         }
-        result.fold(pending::complete, pending::completeExceptionally)
+        result.onSuccess { pending.complete(it) }.onFailure { pending.completeExceptionally(it) }
         return result.getOrThrow()
     }
 

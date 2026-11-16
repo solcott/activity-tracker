@@ -20,7 +20,7 @@ fun blobMentions(record: JsonElement): List<BlobMention> {
     fun walk(element: JsonElement) {
         when (element) {
             is JsonObject -> {
-                blobOf(element)?.let { found.getOrPut(it.cid.value) { it } }
+                blobOf(element)?.let { if (it.cid.value !in found) found[it.cid.value] = it }
                 element.values.forEach(::walk)
             }
             is JsonArray -> element.forEach(::walk)

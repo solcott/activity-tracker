@@ -251,7 +251,7 @@ class DataExporterTest {
     fun unsentChangesAreCounted() = runTest {
         val (s, exporter) = session()
         pds.offline = true
-        runCatching { s.activities.publish(draft()) }
+        val _ = runCatching { s.activities.publish(draft()) }
         pds.offline = false
 
         val id = exporter.start()

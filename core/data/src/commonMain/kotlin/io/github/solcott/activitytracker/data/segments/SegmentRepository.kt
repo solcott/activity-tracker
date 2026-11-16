@@ -171,7 +171,7 @@ class SegmentRepository(private val clients: SessionClients) {
         do {
             val page = search(box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
             requests++
-            page.segments.forEach { found.getOrPut(it.uri) { it } }
+            page.segments.forEach { if (it.uri !in found) found[it.uri] = it }
             cursor = page.cursor
         } while (cursor != null && found.size < cap && requests < maxRequests)
         AreaSegments(wholeRoutes(found.values, cap), capped = cursor != null || found.size > cap)

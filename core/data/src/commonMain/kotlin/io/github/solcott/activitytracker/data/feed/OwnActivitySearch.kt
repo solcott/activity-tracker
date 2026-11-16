@@ -45,7 +45,10 @@ suspend fun FeedRepository.ownActivitiesAround(
             read == null -> {
                 complete = false
                 localOnly = true
-                localOwnActivitiesInRange(window.start, window.endExclusive).forEach { found.getOrPut(it.uri.toString()) { it } }
+                for (activity in localOwnActivitiesInRange(window.start, window.endExclusive)) {
+                    val key = activity.uri.toString()
+                    if (key !in found) found[key] = activity
+                }
             }
             read.truncated && window.endExclusive - window.start > MIN_WINDOW -> {
                 val middle = window.start + (window.endExclusive - window.start) / 2

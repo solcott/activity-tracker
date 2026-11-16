@@ -612,9 +612,7 @@ private fun ActivityView.toOwnActivity() = OwnActivity(uri, cid, record, visibil
 
 /** [sources]' activities oldest first, one per URI: the first source to list one wins. */
 internal fun mergeOwn(vararg sources: List<OwnActivity>): List<OwnActivity> {
-    val byUri = LinkedHashMap<AtUri, OwnActivity>()
-    sources.forEach { source -> source.forEach { byUri.getOrPut(it.uri) { it } } }
-    return byUri.values.sortedBy { it.record.startedAt }
+    return sources.asList().flatten().distinctBy { it.uri }.sortedBy { it.record.startedAt }
 }
 
 /**

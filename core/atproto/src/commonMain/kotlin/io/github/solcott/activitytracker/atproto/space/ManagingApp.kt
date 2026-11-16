@@ -25,8 +25,9 @@ object ManagingApp {
         if (!response.status.isSuccess()) throw ManagingAppException("AppView DID document: ${response.status}")
         val doc = AtJson.decodeFromString(DidDocument.serializer(), response.bodyAsText())
         val id = "${doc.id}#$FRAGMENT"
-        doc.service.firstOrNull { (it.id == "#$FRAGMENT" || it.id == id) && it.type == SERVICE_TYPE }
-            ?: throw ManagingAppException("AppView ${doc.id} lists no $SERVICE_TYPE #$FRAGMENT")
+        if (doc.service.none { (it.id == "#$FRAGMENT" || it.id == id) && it.type == SERVICE_TYPE }) {
+            throw ManagingAppException("AppView ${doc.id} lists no $SERVICE_TYPE #$FRAGMENT")
+        }
         return id
     }
 }

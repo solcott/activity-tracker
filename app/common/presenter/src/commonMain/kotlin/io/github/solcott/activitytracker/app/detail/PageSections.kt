@@ -47,7 +47,7 @@ fun detailSections(record: ActivityRecord, charts: ActivityCharts?, hasGear: Boo
 
 /** A pool length of [centimeters] in whole meters, or in whole yards when it's a yard pool; null for none. */
 fun poolLength(centimeters: Int?): PoolLength? {
-    centimeters?.takeIf { it > 0 } ?: return null
+    if (centimeters == null || centimeters <= 0) return null
     val yards = centimeters / CM_PER_YARD
     val wholeYards = yards.roundToInt()
     return if (centimeters % CM_PER_M != 0 && abs(yards - wholeYards) < YARD_TOLERANCE) PoolLength(wholeYards, yards = true)

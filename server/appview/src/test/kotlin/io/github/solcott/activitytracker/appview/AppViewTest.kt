@@ -715,7 +715,7 @@ class AppViewTest {
             assertEquals(emptyList(), requests, "nothing fetched from the loopback host")
 
             // The same token with private addresses allowed does reach it, so the check above is what stopped the request.
-            runCatching { verifierFor(allowPrivate = true).verify(forger.serviceJwt(iss, service, nsid), nsid) }
+            val _ = runCatching { verifierFor(allowPrivate = true).verify(forger.serviceJwt(iss, service, nsid), nsid) }
             assertEquals(listOf("/.well-known/did.json"), requests)
         } finally {
             didHost.stop(0, 0)

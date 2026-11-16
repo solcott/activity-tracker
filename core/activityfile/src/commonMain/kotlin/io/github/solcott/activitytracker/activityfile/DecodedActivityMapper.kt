@@ -505,7 +505,7 @@ private const val CENTI = 100.0
 private fun List<DepthPoint>.averageDepth(): Double? {
     var area = 0.0
     var seconds = 0L
-    zipWithNext { a, b ->
+    for ((a, b) in zipWithNext()) {
         val dt = b.seconds - a.seconds
         if (dt > 0 && (a.depthMeters > 0 || b.depthMeters > 0)) {
             area += (a.depthMeters + b.depthMeters) / 2 * dt

@@ -114,7 +114,7 @@ class ServiceAuthAuthenticatorTest {
         network.on("appview.test/xrpc/${GetProfile.method.nsid}") {
             respondJson("""{"error":"AuthRequired"}""", HttpStatusCode.Unauthorized)
         }
-        runCatching { appView.query(GetProfile.method, GetProfile.Params("did:plc:bob")) }
+        val _ = runCatching { appView.query(GetProfile.method, GetProfile.Params("did:plc:bob")) }
         val mintedBefore = minted
 
         appView.query(GetTimeline.method, GetTimeline.Params())
