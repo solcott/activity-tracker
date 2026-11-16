@@ -18,9 +18,10 @@ struct SearchTextTests {
     }
 
     @Test func theModesAndTheirTitles() {
-        #expect(SearchMode.allCases.map { read(AthleteSearchTexts.shared.mode(mode: $0)) } == ["Athletes", "Segments"])
+        #expect(SearchMode.allCases.map { read(AthleteSearchTexts.shared.mode(mode: $0)) } == ["Athletes", "Segments", "Dive sites"])
         #expect(read(AthleteSearchTexts.shared.title(mode: .Athletes)) == "Find athletes")
         #expect(read(AthleteSearchTexts.shared.title(mode: .Segments)) == "Search")
+        #expect(read(AthleteSearchTexts.shared.title(mode: .DiveSites)) == "Search")
         #expect(Samples.athleteSearchVariants["segments"]!.mode == .Segments)
     }
 
