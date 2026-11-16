@@ -25,11 +25,15 @@ An extracted site's id SHALL be derived only from its OSM element type and id, s
 - **THEN** each unchanged site keeps its id
 
 ### Requirement: Only sites that duplicate nothing are published
-`publish-sites` SHALL check the file's sites against live sites through `importer.checkDiveSites`, in pages of up to 500, and publish as the importer account each one that duplicates nothing and has no record under its id. It SHALL never change or delete a published site. Only the importer SHALL be able to make the check.
+`publish-sites` SHALL check the file's sites against live sites through `importer.checkDiveSites`, in pages of up to 500, and publish as the importer account each one that duplicates nothing and has no record under its id. It SHALL never change or delete a published site. Only the importer SHALL be able to make the check. A published site is `active` from indexing (`dive-sites/site-records`), so search lists it before anyone dives it.
 
 #### Scenario: Site already placed by divers
 - **WHEN** an OSM site is 30 m from an athlete's active site
 - **THEN** `publish-sites` doesn't publish it, and reports it as a duplicate
+
+#### Scenario: Published site is searchable
+- **WHEN** `publish-sites` publishes a site no diver has visited
+- **THEN** `feed.searchDiveSites` and `feed.searchDiveSiteNames` list it to every viewer
 
 #### Scenario: Run twice
 - **WHEN** `publish-sites` runs again on the same file

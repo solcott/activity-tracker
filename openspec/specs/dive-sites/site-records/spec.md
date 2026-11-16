@@ -29,18 +29,26 @@ The AppView SHALL index a site only if its name is non-empty after trimming and 
 - **THEN** the AppView doesn't index it
 
 ### Requirement: Every site has a status
-The AppView SHALL give each indexed site one status, `proposed`, `active`, `duplicate` or `archived`, derived by the AppView and never read from the record. A `proposed` site SHALL become `active` once visits come from at least a configured number of distinct athletes, 3 by default, counting visits of every visibility but revealing only the status. A site still `proposed` 180 days after first indexed SHALL become `archived`.
+The AppView SHALL give each indexed site one status, `proposed`, `active`, `duplicate` or `archived`, derived by the AppView and never read from the record. A new site that duplicates nothing SHALL be `proposed`, except the segment importer's, which SHALL be `active` from indexing, as its segments are (`segments/segment-records`), so imported sites are listed before anyone dives them. A `proposed` site SHALL become `active` once visits come from at least a configured number of distinct athletes, 3 by default, counting visits of every visibility but revealing only the status. A site still `proposed` 180 days after first indexed SHALL become `archived`.
 
 #### Scenario: Third diver
 - **WHEN** a proposed site gets a visit from a third distinct athlete, whose dive is Only me
 - **THEN** the site becomes `active`, and no view reveals who counted
+
+#### Scenario: Imported site
+- **WHEN** the AppView indexes a site from the segment importer's repo that duplicates nothing
+- **THEN** it is `active` at once, and search lists it to every viewer
+
+#### Scenario: Earlier imports
+- **WHEN** the AppView starts with importer sites indexed `proposed` before this rule
+- **THEN** it makes them `active` before any status pass can archive them
 
 #### Scenario: Never dived
 - **WHEN** a proposed site has had visits from only its creator for 180 days
 - **THEN** it becomes `archived`
 
 ### Requirement: Duplicate sites are detected on indexing
-When the AppView indexes a new or moved site, it SHALL mark it `duplicate` of the earliest-indexed `proposed` or `active` site whose centre is within 50 m of its own. A duplicate SHALL get no visits and SHALL be re-checked when the site it duplicates is deleted, archived or moved away.
+When the AppView indexes a new or moved site, it SHALL mark it `duplicate` of the earliest-indexed `proposed` or `active` site whose centre is within 50 m of its own. A duplicate SHALL get no visits and SHALL be re-checked when the site it duplicates is deleted, archived or moved away, becoming `proposed` (or `active`, for the importer's) when it then duplicates nothing.
 
 #### Scenario: Same reef twice
 - **WHEN** a second athlete publishes a site 30 m from an active site

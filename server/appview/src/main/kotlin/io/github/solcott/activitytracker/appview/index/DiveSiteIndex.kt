@@ -48,9 +48,10 @@ internal fun ResultRow.siteCentre() = pointE7(this[DiveSites.latE7], this[DiveSi
  * A dive site from [author]'s repo. Indexed only with a valid name, centre and radius ([DiveSiteRecord.MIN_RADIUS] to
  * [DiveSiteRecord.MAX_RADIUS]) and a known source; anything else is dropped like an undecodable record, as is a new site past its creator's
  * [DAILY_DIVE_SITE_LIMIT] (new ones in the last day, deleted ones included), unless [author] is the segment [importer]. A new or moved site
- * gets its status again (duplicate of the earliest live site within [CheckDiveSite.DUPLICATE_METERS] of its centre, else proposed), and a
- * new, moved or re-sized one loses its visits, which are matched again with the dives near it; the sites that duplicated its old centre are
- * checked again. A rename keeps its status: an adopted community name in effect stays its current name.
+ * gets its status again (duplicate of the earliest live site within [CheckDiveSite.DUPLICATE_METERS] of its centre, else [liveStatus]:
+ * active for the importer's, proposed for anyone else's), and a new, moved or re-sized one loses its visits, which are matched again with
+ * the dives near it; the sites that duplicated its old centre are checked again. A rename keeps its status: an adopted community name in
+ * effect stays its current name.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertDiveSite(
@@ -74,7 +75,14 @@ internal fun JdbcTransaction.upsertDiveSite(
     val resized = moved || old[DiveSites.radiusM] != record.radius
     val firstIndexed = old?.get(DiveSites.firstIndexedAt) ?: now
     val original = if (moved) diveSiteDuplicatesOf(centre, before = IndexOrder(firstIndexed, uri.value)).firstOrNull() else null
-    val (status, duplicate) = siteStatusAfter(old, moved, original, republished = isHandoffRecord(uri, author, importer))
+    val (status, duplicate) =
+        siteStatusAfter(
+            old,
+            moved,
+            original,
+            live = liveStatus(author.value, importer),
+            republished = isHandoffRecord(uri, author, importer),
+        )
     DiveSites.upsert {
         it[DiveSites.uri] = uri.value
         it[DiveSites.cid] = cid
@@ -98,20 +106,26 @@ internal fun JdbcTransaction.upsertDiveSite(
     replaceDiveSiteCells(uri.value, centre, record.radius)
     rematchVisitsOf(listOf(uri.value), jobs, now)
     if (original == null) jobs.enqueueSite(uri.value, now)
-    if (old != null && moved) recheckDiveSiteDuplicatesOf(listOf(uri.value), jobs, now)
+    if (old != null && moved) recheckDiveSiteDuplicatesOf(listOf(uri.value), jobs, now, importer)
 }
 
 /**
- * A site's status and the site it duplicates after an upsert: derived again for a new or [moved] one (duplicate of [original], else
- * proposed, or active when it [republished] a handed-off site, dive-sites/site-handoffs), kept from [old] otherwise.
+ * A site's status and the site it duplicates after an upsert: derived again for a new or [moved] one (duplicate of [original], else active
+ * when it [republished] a handed-off site, dive-sites/site-handoffs, else its author's [live] status), kept from [old] otherwise.
  */
-private fun siteStatusAfter(old: ResultRow?, moved: Boolean, original: String?, republished: Boolean): Pair<String, String?> =
+private fun siteStatusAfter(
+    old: ResultRow?,
+    moved: Boolean,
+    original: String?,
+    live: String,
+    republished: Boolean,
+): Pair<String, String?> =
     when {
         old == null || moved ->
             when {
                 original != null -> SegmentStatus.DUPLICATE
                 republished -> SegmentStatus.ACTIVE
-                else -> SegmentStatus.PROPOSED
+                else -> live
             } to original
         else -> old[DiveSites.status] to old[DiveSites.duplicateOf]
     }
@@ -162,10 +176,16 @@ internal fun JdbcTransaction.diveSiteDuplicatesOf(centre: GeoPoint, before: Inde
 
 /**
  * Checks again each site marked duplicate of one of [originals], which was deleted, archived or moved, earliest first indexed first, so
- * each in turn sees the ones before it settled. One that duplicates no other live site becomes proposed and is matched with the dives near
- * it. Returns, for each of [originals] one of its duplicates became live in place of, the earliest such duplicate.
+ * each in turn sees the ones before it settled. One that duplicates no other live site becomes live ([liveStatus]: active for the
+ * [importer]'s, else proposed) and is matched with the dives near it. Returns, for each of [originals] one of its duplicates became live in
+ * place of, the earliest such duplicate.
  */
-internal fun JdbcTransaction.recheckDiveSiteDuplicatesOf(originals: List<String>, jobs: SegmentJobs, now: Long): Map<String, String> {
+internal fun JdbcTransaction.recheckDiveSiteDuplicatesOf(
+    originals: List<String>,
+    jobs: SegmentJobs,
+    now: Long,
+    importer: Did?,
+): Map<String, String> {
     if (originals.isEmpty()) return emptyMap()
     val promoted = mutableMapOf<String, String>()
     val duplicates =
@@ -177,7 +197,7 @@ internal fun JdbcTransaction.recheckDiveSiteDuplicatesOf(originals: List<String>
         val uri = row[DiveSites.uri]
         val original = diveSiteDuplicatesOf(row.siteCentre(), before = IndexOrder(row[DiveSites.firstIndexedAt], uri)).firstOrNull()
         DiveSites.update({ DiveSites.uri eq uri }) {
-            it[status] = if (original != null) SegmentStatus.DUPLICATE else SegmentStatus.PROPOSED
+            it[status] = if (original != null) SegmentStatus.DUPLICATE else liveStatus(row[DiveSites.authorDid], importer)
             it[duplicateOf] = original
         }
         if (original == null) {
@@ -225,7 +245,7 @@ private fun JdbcTransaction.deleteDiveSites(uris: List<String>, jobs: SegmentJob
     deleteSegmentNames(uris.filterNot { it in keep })
     DiveSiteCells.deleteWhere { siteUri inList uris }
     DiveSites.deleteWhere { DiveSites.uri inList uris }
-    val promoted = recheckDiveSiteDuplicatesOf(uris, jobs, now)
+    val promoted = recheckDiveSiteDuplicatesOf(uris, jobs, now, importer)
     linkPromoted(promoted)
 }
 

@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.math.roundToInt
@@ -109,8 +110,14 @@ open class DiveSiteTestBase : SegmentTestBase() {
         }
     }
 
-    /** A matcher whose clock is [ahead] of now, needing [athletes] distinct divers to promote a site. */
-    protected fun matcherAt(ahead: Duration = Duration.ZERO, athletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES) =
+    /**
+     * A matcher whose clock is [ahead] of now, needing [athletes] distinct divers to promote a site, with [segmentImporter] as importer.
+     */
+    protected fun matcherAt(
+        ahead: Duration = Duration.ZERO,
+        athletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+        segmentImporter: Did? = null,
+    ) =
         SegmentMatcher(
             db,
             indexer.segmentJobs,
@@ -120,5 +127,6 @@ open class DiveSiteTestBase : SegmentTestBase() {
                     override fun now() = Clock.System.now() + ahead
                 },
             activeAthletes = athletes,
+            segmentImporter = segmentImporter,
         )
 }

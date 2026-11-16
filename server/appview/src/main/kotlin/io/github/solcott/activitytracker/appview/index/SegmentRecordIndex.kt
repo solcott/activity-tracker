@@ -49,8 +49,9 @@ internal const val CREATION_WINDOW_MS = 24L * 60 * 60 * 1000
 internal val LIVE_STATUSES = listOf(SegmentStatus.PROPOSED, SegmentStatus.ACTIVE)
 
 /**
- * The status of [author]'s segment that duplicates nothing: `active` for the segment [importer]'s, whose public trails need no riders to be
- * listed (segments/segment-records), else `proposed` until enough athletes ride it.
+ * The status of [author]'s segment or dive site that duplicates nothing: `active` for the segment [importer]'s, whose public trails and
+ * sites need no riders or divers to be listed (segments/segment-records, dive-sites/site-records), else `proposed` until enough athletes
+ * ride or dive it.
  */
 internal fun liveStatus(author: String, importer: Did?): String =
     if (importer != null && author == importer.value) SegmentStatus.ACTIVE else SegmentStatus.PROPOSED

@@ -140,6 +140,7 @@ class SegmentMatcher(
     fun start(scope: CoroutineScope): Job = scope.launch {
         guarded("Backfilling segment tracks") { backfill() }
         guarded("Activating the importer's segments") { activateImporterSegments() }
+        guarded("Activating the importer's dive sites") { activateImporterSites() }
         guarded("Backfilling terrain elevation") { backfillTerrain() }
         var statusesAt: Long? = null
         while (true) {
@@ -163,6 +164,19 @@ class SegmentMatcher(
         val importer = segmentImporter ?: return
         db.tx {
             Segments.update({ (Segments.authorDid eq importer.value) and (Segments.status eq SegmentStatus.PROPOSED) }) {
+                it[status] = SegmentStatus.ACTIVE
+            }
+        }
+    }
+
+    /**
+     * The same one-off backfill for dive sites (dive-sites/site-records): makes the importer's proposed sites active, those indexed before
+     * its sites started active. Indexing makes its new ones active ([liveStatus]), so later passes find none. Exposed for tests.
+     */
+    suspend fun activateImporterSites() {
+        val importer = segmentImporter ?: return
+        db.tx {
+            DiveSites.update({ (DiveSites.authorDid eq importer.value) and (DiveSites.status eq SegmentStatus.PROPOSED) }) {
                 it[status] = SegmentStatus.ACTIVE
             }
         }
@@ -207,7 +221,7 @@ class SegmentMatcher(
                 .map { it[DiveSites.uri] }
         if (stale.isEmpty()) return
         DiveSites.update({ DiveSites.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
-        recheckDiveSiteDuplicatesOf(stale, jobs, now)
+        recheckDiveSiteDuplicatesOf(stale, jobs, now, segmentImporter)
     }
 
     /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */

@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetDiveSite
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteDives
 import io.github.solcott.activitytracker.lexicon.app.GetDiveSiteRegulars
+import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -105,6 +106,24 @@ class DiveSiteQueriesTest : DiveSiteTestBase() {
         assertEquals(listOf(siteUri("3ks"), siteUri("3kt")), listed(bob), "a site he dived")
         val (farLat, _) = e7(0.0, 300_000.0)
         assertEquals("InvalidRequest", client.xrpcError(SearchDiveSites.method, box + ("maxLat" to "$farLat")))
+    }
+
+    @Test
+    fun importedSitesAreListedToEveryoneByAreaAndName() = testApplication {
+        serve()
+        site("3ks", did = importer, name = "SS Thistlegorm")
+        val (minLat, minLng) = e7(-1000.0, -1000.0)
+        val (maxLat, maxLng) = e7(1000.0, 1000.0)
+        val box = mapOf("minLat" to "$minLat", "minLng" to "$minLng", "maxLat" to "$maxLat", "maxLng" to "$maxLng")
+        val uri = siteUri("3ks", importer)
+        for (viewer in listOf(bob, null)) {
+            assertEquals(listOf(uri), client.xrpcOk(SearchDiveSites.method, box, viewer).sites.map { it.uri.value }, "by area")
+            assertEquals(
+                listOf(uri),
+                client.xrpcOk(SearchDiveSiteNames.method, mapOf("q" to "thistle"), viewer).sites.map { it.uri.value },
+                "by name",
+            )
+        }
     }
 
     @Test

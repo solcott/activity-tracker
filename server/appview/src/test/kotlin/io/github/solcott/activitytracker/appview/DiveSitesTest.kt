@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -23,6 +24,39 @@ class DiveSitesTest : DiveSiteTestBase() {
     fun aSiteFromTheRepoIsIndexedProposed() {
         site("3ks")
         assertEquals(SegmentStatus.PROPOSED, siteStatus(siteUri("3ks")))
+    }
+
+    @Test
+    fun theImportersSitesStartActive() {
+        site("3ks", did = importer)
+        site("3kt", east = 5000.0)
+        assertEquals(SegmentStatus.ACTIVE, siteStatus(siteUri("3ks", importer)), "an imported site needs no divers")
+        assertEquals(SegmentStatus.PROPOSED, siteStatus(siteUri("3kt")), "an athlete's still does")
+    }
+
+    @Test
+    fun anImportedDuplicateBecomesActiveWhenItsOriginalGoes() {
+        site("3ks")
+        site("3kt", east = 20.0, did = importer)
+        assertEquals(SegmentStatus.DUPLICATE, siteStatus(siteUri("3kt", importer)), "the duplicate test is unchanged")
+        commit(alice, Nsid.FEED_DIVE_SITE, "3ks", null)
+        assertEquals(SegmentStatus.ACTIVE, siteStatus(siteUri("3kt", importer)))
+    }
+
+    @Test
+    fun theStartupBackfillMakesEarlierImportedSitesActiveBeforeAnyArchiving() {
+        site("3ks", did = importer)
+        site("3kt", east = 5000.0)
+        setSiteStatus(siteUri("3ks", importer), SegmentStatus.PROPOSED)
+        runBlocking { matcherAt().activateImporterSites() }
+        assertEquals(SegmentStatus.PROPOSED, siteStatus(siteUri("3ks", importer)), "only a configured importer's")
+        runBlocking {
+            val matcher = matcherAt(ahead = 181.days, segmentImporter = Did(importer))
+            matcher.activateImporterSites()
+            matcher.updateStatuses()
+        }
+        assertEquals(SegmentStatus.ACTIVE, siteStatus(siteUri("3ks", importer)), "promoted, not archived")
+        assertEquals(SegmentStatus.ARCHIVED, siteStatus(siteUri("3kt")), "an athlete's undived site is left to the status pass")
     }
 
     @Test
@@ -70,7 +104,7 @@ class DiveSitesTest : DiveSiteTestBase() {
         site("3k0", east = 0.0, name = "Renamed")
         assertEquals(SegmentStatus.PROPOSED, siteStatus(siteUri("3k0")), "rewriting an indexed site doesn't count")
         repeat(11) { site("3k$it", east = it * 1000.0, did = importer) }
-        assertEquals(SegmentStatus.PROPOSED, siteStatus(siteUri("3k10", importer)), "the importer isn't limited")
+        assertEquals(SegmentStatus.ACTIVE, siteStatus(siteUri("3k10", importer)), "the importer isn't limited")
     }
 
     @Test
