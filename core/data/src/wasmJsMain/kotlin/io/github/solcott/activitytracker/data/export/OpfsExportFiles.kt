@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package io.github.solcott.activitytracker.data.export
 
 import kotlin.js.JsException

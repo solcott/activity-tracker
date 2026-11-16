@@ -1,7 +1,8 @@
-@file:OptIn(UnsafeWasmMemoryApi::class)
+@file:OptIn(UnsafeWasmMemoryApi::class, ExperimentalWasmInterop::class, ExperimentalWasmJsInterop::class)
 
 package io.github.solcott.activitytracker.data.export
 
+import kotlin.wasm.ExperimentalWasmInterop
 import kotlin.wasm.unsafe.UnsafeWasmMemoryApi
 import kotlin.wasm.unsafe.withScopedMemoryAllocator
 

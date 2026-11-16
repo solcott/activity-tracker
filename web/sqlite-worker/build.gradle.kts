@@ -8,11 +8,9 @@ kotlin {
 
     sourceSets {
         wasmJsMain.dependencies {
-            // A val because sort-dependencies can't parse a nested npm(...) call.
-            val sqliteWasmWorker = npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile)
+            npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile)
 
             api(libs.sqlite.web)
-            implementation(sqliteWasmWorker)
         }
     }
 }

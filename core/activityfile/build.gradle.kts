@@ -23,17 +23,14 @@ kotlin {
         }
         commonJvmMain.dependencies { implementation(libs.garmin.fit) }
         wasmJsMain.dependencies {
-            // A val because sort-dependencies can't parse a nested npm(...) call.
-            val garminFitJs = npm("@garmin/fitsdk", libs.versions.garminFit.get())
+            npm("@garmin/fitsdk", libs.versions.garminFit.get())
             // Without it, kotlinx-datetime on web knows only UTC and fixed offsets (see TimeZones.wasmJs.kt).
-            val jsJodaTimezone = npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get())
-            implementation(garminFitJs)
-            implementation(jsJodaTimezone)
+            npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get())
         }
+        // Only the web target has the marker; opting in everywhere warns that it's unresolved on the others.
+        wasmJsMain.configure { languageSettings.optIn("kotlin.js.ExperimentalWasmJsInterop") }
         jvmTest.dependencies { implementation(libs.garmin.fit) }
     }
-
-    compilerOptions { freeCompilerArgs.addAll("-opt-in=kotlin.js.ExperimentalWasmJsInterop") }
 }
 
 // `-PworkoutSamples` lets WriteWorkoutSamples write the sample activity files to build/workout-fixtures (see the activity-files rule);
