@@ -47,11 +47,28 @@ data class MapViewport(
     }
 }
 
-/** Where a map should move to, once per [id]: centred on ([lat], [lng]) degrees at [zoom]. */
+/**
+ * Where a map should move to, once per [id]: centred on ([lat], [lng]) degrees at [zoom], or, when [bounds] is set, framing that box
+ * whatever the map's size (a selected segment's line; segments/segment-browse).
+ */
 @Immutable
-data class MapCameraRequest(val id: Int, val lat: Double, val lng: Double, val zoom: Double = DEFAULT_ZOOM) {
+data class MapCameraRequest(
+    val id: Int,
+    val lat: Double,
+    val lng: Double,
+    val zoom: Double = DEFAULT_ZOOM,
+    val bounds: MapBounds? = null,
+) {
+    /** The camera this request asks for on a map [width] by [height], in the map's units (dp, points), as each map applies it. */
+    fun frame(width: Double, height: Double): MapFrame =
+        bounds?.let { MapFrame.fit(it, width, height) } ?: MapFrame(latitude = lat, longitude = lng, zoom = zoom)
+
     companion object {
         /** About 10 km across on a phone: a town and its trails. */
         const val DEFAULT_ZOOM = 12.0
+
+        /** A request to frame [bounds]; its centre stands in for a map that can't measure itself. */
+        fun fit(id: Int, bounds: MapBounds): MapCameraRequest =
+            MapCameraRequest(id, lat = (bounds.south + bounds.north) / 2, lng = (bounds.west + bounds.east) / 2, bounds = bounds)
     }
 }

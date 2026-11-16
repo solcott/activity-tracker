@@ -32,6 +32,20 @@ class SegmentsMapTest {
     }
 
     @Test
+    fun theHoveredRunIsHighlightedLikeTheSelectedOne() {
+        val map = SegmentsMap.of(lines, selected = "at://a/south", hovered = "at://a/north")
+        assertEquals(listOf("at://a/lift", "at://a/south", "at://a/north"), map.drawn.map { it.uri })
+        assertEquals(listOf(MapSegmentRole.Lift, MapSegmentRole.Selected, MapSegmentRole.Selected), map.drawn.map { it.role })
+        assertTrue(map != SegmentsMap.of(lines, selected = "at://a/south"))
+    }
+
+    @Test
+    fun aHoveredLiftStaysALift() {
+        val map = SegmentsMap.of(lines, selected = null, hovered = "at://a/lift")
+        assertEquals(MapSegmentRole.Lift, map.drawn.single { it.uri == "at://a/lift" }.role)
+    }
+
+    @Test
     fun aTapSelectsTheNearestRunInReach() {
         val map = SegmentsMap.of(lines, selected = null)
         // About 4 m north of the south line and 9 m south of the north one.
@@ -62,5 +76,23 @@ class SegmentsMapTest {
             MapViewport(444_700_000, -732_200_000, 444_800_000, -732_000_000, 444_750_000, -732_100_000),
             MapViewport.ofDegrees(44.47, -73.22, 44.48, -73.20, 44.475, -73.21),
         )
+    }
+
+    @Test
+    fun aCentredRequestFramesItsCentreAndZoomAtAnySize() {
+        val request = MapCameraRequest(id = 1, lat = 44.475, lng = -73.21, zoom = 13.0)
+        assertEquals(MapFrame(44.475, -73.21, 13.0), request.frame(400.0, 300.0))
+        assertEquals(MapFrame(44.475, -73.21, 13.0), request.frame(1200.0, 900.0))
+    }
+
+    @Test
+    fun aBoxRequestFitsItsBoxToTheMapsSize() {
+        val box = MapBounds(west = -73.22, south = 44.47, east = -73.20, north = 44.48)
+        val request = MapCameraRequest.fit(id = 2, bounds = box)
+        assertEquals(MapFrame.fit(box, 400.0, 300.0), request.frame(400.0, 300.0))
+        // A bigger map shows the same box closer in.
+        assertTrue(request.frame(1600.0, 1200.0).zoom > request.frame(400.0, 300.0).zoom)
+        assertEquals(44.475, request.lat, 1e-9)
+        assertEquals(-73.21, request.lng, 1e-9)
     }
 }

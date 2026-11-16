@@ -7,7 +7,9 @@ import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-/** How a segment's line is drawn on a map of many: a lift (muted and dashed), a run, or the selected run (highlighted, on top). */
+/**
+ * How a segment's line is drawn on a map of many: a lift (muted and dashed), a run, or the selected or hovered run (highlighted, on top).
+ */
 enum class MapSegmentRole {
     Lift,
     Run,
@@ -60,8 +62,11 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
     override fun hashCode(): Int = key.hashCode()
 
     companion object {
-        /** [lines] with [selected] (a run's URI) highlighted; lines that don't decode to two points are left out. */
-        fun of(lines: List<MapSegmentLine>, selected: String?): SegmentsMap {
+        /**
+         * [lines] with [selected] and [hovered] (runs' URIs; the run under the pointer, in a row or on the map) highlighted alike; a lift
+         * is never highlighted. Lines that don't decode to two points are left out.
+         */
+        fun of(lines: List<MapSegmentLine>, selected: String?, hovered: String? = null): SegmentsMap {
             val drawn =
                 lines
                     .mapNotNull { line ->
@@ -69,13 +74,16 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
                         val role =
                             when {
                                 line.lift -> MapSegmentRole.Lift
-                                line.uri == selected -> MapSegmentRole.Selected
+                                line.uri == selected || line.uri == hovered -> MapSegmentRole.Selected
                                 else -> MapSegmentRole.Run
                             }
                         MapSegment(line.uri, points.toImmutableList(), role)
                     }
                     .sortedBy { it.role.ordinal }
-            return SegmentsMap(drawn.toImmutableList(), lines.joinToString(";") { "${it.uri}|${it.lift}|${it.polyline}" } + "#$selected")
+            return SegmentsMap(
+                drawn.toImmutableList(),
+                lines.joinToString(";") { "${it.uri}|${it.lift}|${it.polyline}" } + "#$selected#$hovered",
+            )
         }
     }
 }
