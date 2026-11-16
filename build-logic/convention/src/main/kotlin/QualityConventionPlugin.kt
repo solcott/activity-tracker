@@ -43,8 +43,19 @@ class QualityConventionPlugin : Plugin<Project> {
             // itself a source root, so excluded paths are matched on the absolute file instead.
             val buildDir = layout.buildDirectory
             val generated = Spec<FileTreeElement> { it.file.startsWith(buildDir.get().asFile) }
-            tasks.withType<Detekt>().configureEach { exclude(generated) }
-            tasks.withType<DetektCreateBaselineTask>().configureEach { exclude(generated) }
+            // Detekt analyzes with its own Kotlin compiler (2.4), older than the build's (2.5), where unnamed local variables
+            // (`val _ = …`) are still experimental: without the flag each one is a compiler error in the type-resolution tasks.
+            // Drop it once detekt's compiler is 2.5. The remaining "compiler errors found during analysis" are detekt's own
+            // gaps: no compiler plugins (kotlinx-serialization's `serializer()`, detekt#7531) and expect/actual across KMP
+            // source sets read as one fragment (detekt#9602).
+            tasks.withType<Detekt>().configureEach {
+                exclude(generated)
+                freeCompilerArgs.add(UNNAMED_LOCAL_VARIABLES)
+            }
+            tasks.withType<DetektCreateBaselineTask>().configureEach {
+                exclude(generated)
+                freeCompilerArgs.add(UNNAMED_LOCAL_VARIABLES)
+            }
 
             // Left out, because each would only repeat another task's analysis: the per-source-set tasks (the plain task covers
             // the same files with the same rules and baseline), and the Android compilation's in a module with no Android-only
@@ -73,3 +84,4 @@ class QualityConventionPlugin : Plugin<Project> {
 }
 
 private const val DETEKT_RULES_PATH = ":detekt-rules"
+private const val UNNAMED_LOCAL_VARIABLES = "-XXLanguage:+UnnamedLocalVariables"
