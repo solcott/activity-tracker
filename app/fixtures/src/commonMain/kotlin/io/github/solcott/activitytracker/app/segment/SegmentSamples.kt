@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
@@ -37,6 +38,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
@@ -292,14 +294,37 @@ object SegmentSamples {
             )
         }
 
+    /**
+     * A ride segment whose route (segments/segment-routes) also runs as run and hike segments, each both ways: the page offers the three
+     * sport groups and the two directions.
+     */
+    val route: SegmentState
+        get() {
+            val line = segment.record.line
+            val back = SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(line).orEmpty().reversed())
+            val members =
+                listOf(
+                        SegmentSportGroup.RIDE to back,
+                        SegmentSportGroup.RUN to line,
+                        SegmentSportGroup.RUN to back,
+                        SegmentSportGroup.HIKE to line,
+                        SegmentSportGroup.HIKE to back,
+                    )
+                    .mapIndexed { i, (sport, way) ->
+                        GetSegment.RouteMember(fakeSegment("3kroute$i").uri, sport, name = segment.record.name, line = way)
+                    }
+            return loaded.copy(route = RouteSwitcher.of(segment, members))
+        }
+
     /** Kept apart from [all], whose keys are the content-loading set. */
     val variants: Map<String, SegmentState>
-        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate)
+        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate, ROUTE to route)
 
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"
     const val OPEN_STREET_MAP = "openStreetMap"
     const val DUPLICATE = "duplicate"
+    const val ROUTE = "route"
 }
 
 object SegmentMapSamples {

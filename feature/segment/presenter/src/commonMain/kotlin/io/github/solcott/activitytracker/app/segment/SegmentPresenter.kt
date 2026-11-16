@@ -49,14 +49,21 @@ fun SegmentPresenter(
     stars: SegmentStars,
     names: SegmentNames,
 ): SegmentState {
-    val uri = AtUri(screen.uri)
+    // The segment shown: the screen's, or another of its route chosen on the page (segments/segment-routes), swapped in place so the page
+    // keeps its place and back still leaves it.
+    var shown by rememberRetained { mutableStateOf(screen.uri) }
+    val uri = AtUri(shown)
     var starred by remember { mutableStateOf<Boolean?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val flights = rememberSingleFlight()
 
     // Retained, so coming back from an effort's activity shows the segment at once; a retry restarts both reads under it.
     val (detail, ownEfforts) =
-        produceRetainedContentStates(contentStatesOf<GetSegment.Output?, ImmutableList<EffortView>>(null, persistentListOf()), loadKey) {
+        produceRetainedContentStates(
+            contentStatesOf<GetSegment.Output?, ImmutableList<EffortView>>(null, persistentListOf()),
+            shown,
+            loadKey,
+        ) {
             combineOutcomes(
                 // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
                 combine(segments.segmentDetailOutcome(uri), names.changes) { outcome, _ ->
@@ -72,13 +79,14 @@ fun SegmentPresenter(
     val profile = remember(detail.data) { detail.data?.let(::segmentProfileOf) }
     val segment = content.data
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
+    val route = remember(segment, detail.data?.routeMembers) { segment?.let { RouteSwitcher.of(it, detail.data?.routeMembers.orEmpty()) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
-    LaunchedEffect(loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
+    LaunchedEffect(shown, loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
     // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
     val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.isRanked(it.record.kind) } == true
     // The Mayor is extra too: only an active run has one, and a failed read leaves the last one shown, or none.
     var mayor by rememberRetained { mutableStateOf<MayorSummary?>(null) }
-    LaunchedEffect(active, loadKey) {
+    LaunchedEffect(active, shown, loadKey) {
         if (!active) {
             mayor = null
             return@LaunchedEffect
@@ -109,6 +117,8 @@ fun SegmentPresenter(
         mayor = mayor,
         names = placeNames,
         profile = profile,
+        route = route,
+        shown = uri,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()
@@ -127,13 +137,19 @@ fun SegmentPresenter(
             }
             is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
             SegmentEvent.OpenOriginal -> segment?.duplicateOf?.let { navigator.goTo(SegmentScreen(it.value)) }
-            SegmentEvent.OpenMap -> navigator.goTo(SegmentMapScreen(screen.uri))
+            SegmentEvent.OpenMap -> navigator.goTo(SegmentMapScreen(shown))
             SegmentEvent.OpenLeaderboard ->
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
                     ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.currentName, screen.board)) }
             SegmentEvent.OpenMayors ->
                 segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.currentName, screen.board)) }
+            // Shown in place: the page keeps its scroll and bar while the chosen segment loads over the last one (ui/content-loading).
+            is SegmentEvent.SwitchRoute -> shown = shownAfter(route, event, shown)
         }
     }
 }
+
+/** The segment to show after [switch]: the one it names when it is in [route], else still [shown]. */
+private fun shownAfter(route: RouteSwitcher?, switch: SegmentEvent.SwitchRoute, shown: String): String =
+    route?.offering(switch.uri)?.value ?: shown

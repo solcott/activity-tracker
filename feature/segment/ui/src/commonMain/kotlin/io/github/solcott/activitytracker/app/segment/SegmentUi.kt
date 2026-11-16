@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +31,7 @@ import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
+import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -80,6 +83,38 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
     SegmentNameDialogs(state)
 }
 
+/**
+ * The route's sport groups and the shown group's directions (segments/segment-routes), as chips; choosing one replaces the page with that
+ * segment's.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RouteChoices(route: RouteSwitcher, eventSink: (SegmentEvent) -> Unit) {
+    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            route.sports.forEach { sport ->
+                AppFilterChip(
+                    selected = sport == route.currentSport,
+                    onClick = { route.sportEvent(sport)?.let(eventSink) },
+                    label = { Text(RouteSwitcherTexts.sport(sport).string()) },
+                )
+            }
+        }
+        val directions = route.directions
+        if (directions.size > 1) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                directions.forEach { direction ->
+                    AppFilterChip(
+                        selected = route.isCurrent(direction),
+                        onClick = { route.directionEvent(direction)?.let(eventSink) },
+                        label = { Text(RouteSwitcherTexts.direction(direction).string()) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues, onRetry: () -> Unit) {
     val listState = rememberLazyListState()
@@ -88,10 +123,11 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
     val units = LocalUnitSystem.current
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-            item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
+            item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry, showProgress = state.showsRefreshProgress) }
             state.polyline?.let { line ->
                 item { ActivityMap(line, Modifier.fillMaxWidth(), onExpand = { state.eventSink(SegmentEvent.OpenMap) }) }
             }
+            state.route?.takeIf { it.offered }?.let { route -> item { RouteChoices(route, state.eventSink) } }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
                     state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }

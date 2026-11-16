@@ -53,11 +53,13 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** The segment screen (segments/segment-efforts): the segment, its line for the map, and the viewer's own efforts fastest first. */
+@Suppress("LargeClass") // One test per part of the page, each composing the presenter over the same fake PDS and AppView.
 class SegmentPresenterTest {
     private val alice = Did("did:plc:alice")
     private val uri = "at://did:plc:carol/${Nsid.FEED_SEGMENT}/3kshill"
@@ -74,6 +76,8 @@ class SegmentPresenterTest {
     private var pdsDown = false
     private var failEfforts = false
     private val effortsRequested = mutableListOf<String?>()
+    /** The segments `getSegment` was asked for, in order. */
+    private val segmentsRequested = mutableListOf<String>()
     /** The Mayors board's entries, as JSON, and the viewer's own entry; null fails the read. */
     private var mayors: String? = """{"rank":1,"athlete":{"did":"did:plc:bob","handle":"bob.test"},"efforts":14,"reachedOn":"2026-10-18"}"""
     private var ownMayor: String? = """{"rank":7,"athlete":{"did":"$alice","handle":"alice.test"},"efforts":6,"reachedOn":"2026-10-20"}"""
@@ -100,14 +104,15 @@ class SegmentPresenterTest {
                         }
                     "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
                     "/xrpc/${Nsid.FEED_GET_SEGMENT}" ->
-                        if (failSegment) respond("""{"error":"NotFound","message":"Segment not found"}""", HttpStatusCode.BadRequest, json)
+                        if (segmentsRequested.add(request.url.parameters["uri"].orEmpty()) && failSegment)
+                            respond("""{"error":"NotFound","message":"Segment not found"}""", HttpStatusCode.BadRequest, json)
                         else
                             respond(
                                 """{"segment":{"uri":"$uri","cid":"bafyseg","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
                                     """"record":{"name":"Hill","sport":"run","line":"$line","source":"$source","license":"$license",""" +
                                     attribution?.let { """"attribution":"$it",""" }.orEmpty() +
                                     """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,""" +
-                                    """"status":"$status"$duplicateOf$naming}$profileField}""",
+                                    """"status":"$status"$duplicateOf$naming}$profileField$routeField}""",
                                 headers = json,
                             )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
@@ -138,6 +143,55 @@ class SegmentPresenterTest {
     private var naming = ""
     /** The output's `elevationProfile` field, with its leading comma; empty for none. */
     private var profileField = ""
+    /** The output's `routeMembers` field, with its leading comma; empty for none. */
+    private var routeField = ""
+
+    private val back = SegmentGeometry.encodePolyline(listOf(GeoPoint(47.009, 8.0), GeoPoint(47.0, 8.0)))
+
+    private fun member(rkey: String, sport: String, way: String) =
+        """{"uri":"at://did:plc:carol/${Nsid.FEED_SEGMENT}/$rkey","sport":"$sport","name":"Hill","line":"$way"}"""
+
+    @Test
+    fun theRoutesOtherSegmentsAreShownInPlace() = runTest {
+        routeField =
+            ""","routeMembers":[${member("3krunb", "run", back)},${member("3khikef", "hike", line)},${member("3khikeb", "hike", back)}]"""
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names) }) {
+            val loaded = awaitUntil { it.route != null }
+            val route = assertNotNull(loaded.route)
+            assertTrue(route.offered)
+            assertEquals(listOf("run", "hike"), route.sports)
+            assertEquals("run", route.currentSport)
+            assertEquals(listOf("northbound", "southbound"), route.directions.map { it.heading.word })
+            assertEquals(listOf(true, false), route.directions.map(route::isCurrent))
+            // Seen from the southbound segment, the directions keep their places; only which is current changes.
+            val fromSouth = route.copy(options = route.options.map { it.copy(forward = !it.forward) }.toImmutableList())
+            assertEquals(listOf("northbound", "southbound"), fromSouth.directions.map { it.heading.word })
+            assertEquals(listOf(false, true), fromSouth.directions.map(fromSouth::isCurrent))
+            assertNull(route.sportEvent("run"), "already shown")
+
+            val hike = assertNotNull(route.sportEvent("hike")) as SegmentEvent.SwitchRoute
+            assertEquals(SegmentEvent.SwitchRoute(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3khikef")), hike, "the same way")
+            loaded.eventSink(hike)
+            awaitUntil { segmentsRequested.lastOrNull() == hike.uri.value }
+            navigator.expectNoPopEvents()
+            navigator.expectNoGoToEvents()
+
+            val other = assertNotNull(route.directionEvent(route.directions.last()))
+            assertEquals(SegmentEvent.SwitchRoute(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3krunb")), other)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSegmentAloneOffersNoSwitch() = runTest {
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            assertFalse(assertNotNull(awaitUntil { it.route != null }.route).offered)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     private suspend fun session(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Pair<SegmentRepository, SegmentStars> {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)

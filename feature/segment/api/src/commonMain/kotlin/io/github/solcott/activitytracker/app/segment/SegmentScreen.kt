@@ -51,11 +51,25 @@ data class SegmentState(
     val names: PlaceNameFields = PlaceNameFields(),
     /** The segment's terrain profile (segments/segment-elevation); null when the AppView sent none, or until loaded. */
     val profile: SegmentProfile? = null,
+    /**
+     * The choice of its route's sport groups and directions (segments/segment-routes); null until loaded, and shown only while
+     * [RouteSwitcher.offered].
+     */
+    val route: RouteSwitcher? = null,
+    /** The segment the page is showing or loading: the screen's, or another of its route chosen on the page; null before it's known. */
+    val shown: AtUri? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */
     val segment: SegmentView?
         get() = content.data
+
+    /**
+     * Whether a refresh shows its progress row: not while another segment of the route chosen on the page loads over the last one
+     * (segments/segment-routes), so the page keeps its place.
+     */
+    val showsRefreshProgress: Boolean
+        get() = segment?.let { shown == null || it.uri == shown } ?: true
 
     /** The segment's original name (its record's) when a community name replaced it, else null. */
     val originalName: String?
@@ -168,4 +182,7 @@ sealed interface SegmentEvent {
 
     /** Opens the segment's Mayors board (segments/segment-mayors); offered only for an active segment. */
     data object OpenMayors : SegmentEvent
+
+    /** Shows [uri], another segment of its route (segments/segment-routes), on the same page; back still leaves the page. */
+    data class SwitchRoute(val uri: AtUri) : SegmentEvent
 }
