@@ -7,11 +7,15 @@ How the segment importer seeds dive sites from OpenStreetMap: which features qua
 ## Requirements
 
 ### Requirement: Named OSM dive sites are extracted
-`extract-sites` SHALL read an OSM extract and write a sites file with one entry per named node, way or relation tagged `sport=scuba_diving` or `sport=free_diving` that isn't a shop, amenity, club, building or healthcare facility, and whose name has none of the words center, centre, platform, training, school or chamber (facilities mapped with the sport tag alone; a site named for a resort or a jetty is kept). A way or relation SHALL be placed at its centroid. Each entry SHALL have a 150 m radius, `source` `osm` and `license` `ODbL-1.0`.
+`extract-sites` SHALL read an OSM extract and write a sites file with one entry per named node, way or relation tagged `sport=scuba_diving` or `sport=free_diving` that isn't a shop, amenity, club, building or healthcare facility, and whose name has none of the words center, centre, platform, training, school or chamber (facilities mapped with the sport tag alone; a site named for a resort or a jetty is kept). A way or relation SHALL be placed at its centroid. Each entry SHALL have `source` `osm` and `license` `ODbL-1.0`, and a radius from what the element is, the first that applies: for a way or relation, its farthest known point from the centroid plus 50 m, between 100 m and 500 m; for a wreck (`historic`, `seamark:type` or `scuba_diving:type` `wreck`), 100 m; for a reef or wall (`natural=reef`, `scuba_diving:type` `reef` or `wall`), 200 m; otherwise 150 m.
 
 #### Scenario: Wreck site node
 - **WHEN** an extract has a node tagged `sport=scuba_diving` named "SS Thistlegorm"
-- **THEN** the sites file holds it at the node's position with a 150 m radius
+- **THEN** the sites file holds it at the node's position with a 100 m radius, as a wreck
+
+#### Scenario: Mapped reef outline
+- **WHEN** a reef is mapped as a way whose farthest node is 222 m from its centroid
+- **THEN** its site has a 272 m radius
 
 #### Scenario: Dive shop
 - **WHEN** a node is tagged `shop=scuba_diving`

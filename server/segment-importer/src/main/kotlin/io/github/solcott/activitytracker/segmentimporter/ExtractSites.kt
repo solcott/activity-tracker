@@ -10,7 +10,9 @@ import kotlinx.serialization.json.Json
 /** The sites file's format, apart from the candidates file's; bump it when what a line holds changes. */
 internal const val SITES_VERSION = 1
 
-/** The radius of every OSM dive site, in meters: wide enough for a boat's drift or a late GPS fix at the surface. */
+/**
+ * The radius of an OSM dive site [DiveSiteRadius] can't size, in meters: wide enough for a boat's drift or a late GPS fix at the surface.
+ */
 internal const val OSM_SITE_RADIUS_M = 150
 
 /** The first line of a sites file. */
@@ -59,7 +61,7 @@ internal fun entryOf(site: OsmDiveSite): SiteEntry =
         site.name,
         (site.at.lat * E7).roundToInt(),
         (site.at.lng * E7).roundToInt(),
-        OSM_SITE_RADIUS_M,
+        site.radius,
         SOURCE_OSM,
         LICENSE_OSM,
     )

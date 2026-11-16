@@ -21,7 +21,7 @@ Commands:
       such as Trail; a language with no list keeps names as their source has them.
   extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
       Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
-      clubs, buildings, healthcare or names like "Dive Center" or "Free diving platform"), one JSON object per line, each with a 150 m radius and an id from its OSM element.
+      clubs, buildings, healthcare or names like "Dive Center" or "Free diving platform"), one JSON object per line, each with a radius from its outline or kind (wreck, reef) and an id from its OSM element.
   publish-sites <sites.ndjson>
       Publishes a sites file's dive sites that have no live site within 50 m as feed.diveSite records, keyed by their ids. A site
       already published is never written again.

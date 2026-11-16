@@ -24,7 +24,7 @@ class ExtractSitesTest {
     fun aNamedWreckNodeIsKeptAtItsPosition() {
         val data = osm { node(1, 27.8136, 33.9214, scuba("SS Thistlegorm", "historic" to "wreck")) }
         val entry = entryOf(data.diveSites().single())
-        assertEquals(SiteEntry("osm-node-1", "SS Thistlegorm", 278_136_000, 339_214_000, 150, "osm", "ODbL-1.0"), entry)
+        assertEquals(SiteEntry("osm-node-1", "SS Thistlegorm", 278_136_000, 339_214_000, DiveSiteRadius.WRECK_M, "osm", "ODbL-1.0"), entry)
     }
 
     @Test
@@ -60,6 +60,44 @@ class ExtractSitesTest {
             listOf("Blue Hole", "Zabargad Jetty", "Hausriff Zabargad Beach Resort", "Centreville Reef"),
             data.diveSites().map { it.name },
             "jetties and resort house reefs are dived, and only whole words name a facility",
+        )
+    }
+
+    @Test
+    fun aSiteIsSizedByItsOutlineElseByWhatItIs() {
+        val data = osm {
+            node(1, 27.0, 33.0, scuba("Wreck", "historic" to "wreck"))
+            node(2, 27.0, 33.1, scuba("Seamark Wreck", "seamark:type" to "wreck"))
+            node(3, 27.0, 33.2, scuba("Reef", "natural" to "reef"))
+            node(4, 27.0, 33.3, scuba("Wall", "scuba_diving:type" to "wall"))
+            node(5, 27.0, 33.4, scuba("Wreck On A Reef", "historic" to "wreck", "natural" to "reef"))
+            node(6, 27.0, 33.5, scuba("Pinnacle"))
+            // A reef outline 0.004 degrees of latitude across, about 445 m: its edges are 222 m from its centre.
+            node(10, 27.000, 34.0)
+            node(11, 27.004, 34.0)
+            way(100, 10, 11, tags = scuba("Long Reef", "natural" to "reef"))
+            // An outline far too small to dive within, and one far too big.
+            node(20, 27.0, 35.0)
+            node(21, 27.0001, 35.0)
+            way(200, 20, 21, tags = scuba("Coral Head"))
+            node(30, 27.0, 36.0)
+            node(31, 27.1, 36.0)
+            way(300, 30, 31, tags = scuba("Whole Bay"))
+        }
+        val radii = data.diveSites().associate { it.name to it.radius }
+        assertEquals(
+            mapOf(
+                "Wreck" to 100,
+                "Seamark Wreck" to 100,
+                "Reef" to 200,
+                "Wall" to 200,
+                "Wreck On A Reef" to 100,
+                "Pinnacle" to OSM_SITE_RADIUS_M,
+                "Long Reef" to 272,
+                "Coral Head" to DiveSiteRadius.MIN_OUTLINE_M,
+                "Whole Bay" to DiveSiteRadius.MAX_M,
+            ),
+            radii,
         )
     }
 
@@ -152,8 +190,12 @@ class ExtractSitesTest {
         val entries = lines.drop(1).map { Json.decodeFromString(SiteEntry.serializer(), it) }
         assertEquals(listOf("osm-node-1", "osm-way-100", "osm-relation-300"), entries.map { it.id })
         assertEquals(listOf("SS Thistlegorm", "Blue Hole", "Dean's Blue Hole"), entries.map { it.name })
-        assertEquals(SiteEntry("osm-node-1", "SS Thistlegorm", 278_136_000, 339_214_000, 150, "osm", "ODbL-1.0"), entries[0])
+        assertEquals(
+            SiteEntry("osm-node-1", "SS Thistlegorm", 278_136_000, 339_214_000, DiveSiteRadius.WRECK_M, "osm", "ODbL-1.0"),
+            entries[0],
+        )
         assertEquals(285_710_000 to 345_310_000, entries[1].lat to entries[1].lon)
+        assertEquals(198, entries[1].radius, "the outline's farthest corner, 148 m out, plus the slack")
         val relation = entries[2]
         assertTrue(abs(relation.lat - 236_006_667) <= 1 && abs(relation.lon - -758_990_000) <= 1, "$relation")
     }

@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import kotlin.math.roundToInt
 import kotlin.time.Instant
 
 /** What the importer keeps of an OSM extract: trail ways and relations, named ways for junctions, and the coordinates trails need. */
@@ -29,8 +31,11 @@ internal operator fun OsmData.plus(agency: AgencyData): OsmData =
 /** A tagged OSM node at [lat], [lng] in degrees. */
 internal class OsmNode(val id: Long, val tags: Map<String, String>, val lat: Double, val lng: Double)
 
-/** An OSM element that is a dive site: its [type] and [id] key it, placed at [at] (a way or relation's centroid). */
-internal data class OsmDiveSite(val type: OsmMember.Type, val id: Long, val name: String, val at: GeoPoint)
+/**
+ * An OSM element that is a dive site: its [type] and [id] key it, placed at [at] (a way or relation's centroid), with a [radius] in meters
+ * from [DiveSiteRadius].
+ */
+internal data class OsmDiveSite(val type: OsmMember.Type, val id: Long, val name: String, val at: GeoPoint, val radius: Int)
 
 /**
  * What makes an OSM element a dive site: a name and `sport=scuba_diving` or `sport=free_diving`, on something that isn't a shop, amenity,
@@ -71,18 +76,54 @@ internal fun OsmData.diveSites(): List<OsmDiveSite> {
             OsmMember.Type.RELATION -> emptyList()
         }
     val sites =
-        nodes.mapNotNull { siteOf(OsmMember.Type.NODE, it.id, it.tags) { GeoPoint(it.lat, it.lng) } } +
-            ways.mapNotNull { way -> siteOf(OsmMember.Type.WAY, way.id, way.tags) { centroid(wayPoints(way)) } } +
+        nodes.mapNotNull { siteOf(OsmMember.Type.NODE, it.id, it.tags) { listOf(GeoPoint(it.lat, it.lng)) } } +
+            ways.mapNotNull { way -> siteOf(OsmMember.Type.WAY, way.id, way.tags) { wayPoints(way) } } +
             relations.mapNotNull { rel ->
-                siteOf(OsmMember.Type.RELATION, rel.id, rel.tags) { centroid(rel.members.flatMap(::memberPoints).distinct()) }
+                siteOf(OsmMember.Type.RELATION, rel.id, rel.tags) { rel.members.flatMap(::memberPoints).distinct() }
             }
     return sites.sortedWith(compareBy({ it.type }, { it.id }))
 }
 
-/** A site of the element [type] [id] with [tags], at [at], or null when it's no named dive site or has no position. */
-private inline fun siteOf(type: OsmMember.Type, id: Long, tags: Map<String, String>, at: () -> GeoPoint?): OsmDiveSite? {
+/**
+ * A site of the element [type] [id] with [tags], at the centroid of its [points] and sized by [DiveSiteRadius], or null when it's no named
+ * dive site or has no position.
+ */
+private inline fun siteOf(type: OsmMember.Type, id: Long, tags: Map<String, String>, points: () -> List<GeoPoint>): OsmDiveSite? {
     val name = DiveSiteTags.nameOf(tags)?.takeIf { DiveSiteTags.isDiveSite(tags) } ?: return null
-    return at()?.let { OsmDiveSite(type, id, name, it) }
+    val known = points()
+    return centroid(known)?.let { at -> OsmDiveSite(type, id, name, at, DiveSiteRadius.of(tags, at, known)) }
+}
+
+/**
+ * How far around an OSM dive site's centre a dive's entry counts as a visit, in meters. OSM gives no size, so it's read from what the
+ * element is, first match wins: one mapped as an outline covers its farthest point plus [SLACK_M] for a late surface fix or a boat's drift,
+ * between [MIN_OUTLINE_M] and [MAX_M]; a wreck, compact and moored on, [WRECK_M]; a reef or wall, dived along, [REEF_M]; any other,
+ * [OSM_SITE_RADIUS_M].
+ */
+internal object DiveSiteRadius {
+    const val WRECK_M = 100
+    const val REEF_M = 200
+    const val SLACK_M = 50
+    const val MIN_OUTLINE_M = 100
+    const val MAX_M = 500
+
+    private val WRECK = mapOf("historic" to setOf("wreck"), "seamark:type" to setOf("wreck"), "scuba_diving:type" to setOf("wreck"))
+    private val REEF = mapOf("natural" to setOf("reef"), "scuba_diving:type" to setOf("reef", "wall"))
+
+    fun of(tags: Map<String, String>, centre: GeoPoint, points: List<GeoPoint>): Int =
+        when {
+            points.size > 1 -> {
+                val farthest = points.maxOf { SegmentGeometry.distanceMeters(centre, it) }
+                (farthest.roundToInt() + SLACK_M).coerceIn(MIN_OUTLINE_M, MAX_M)
+            }
+            matches(tags, WRECK) -> WRECK_M
+            matches(tags, REEF) -> REEF_M
+            else -> OSM_SITE_RADIUS_M
+        }
+
+    private fun matches(tags: Map<String, String>, kinds: Map<String, Set<String>>): Boolean = kinds.any { (key, values) ->
+        tags[key]?.split(';')?.any { it.trim() in values } == true
+    }
 }
 
 /** The mean of [points], or null when there are none. Dive-site features are small, so plain degrees average well. */
