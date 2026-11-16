@@ -1,7 +1,10 @@
 package io.github.solcott.activitytracker.data.auth
 
 import co.touchlab.kermit.Logger
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.ExperimentalMetroApi
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.OnGraphClose
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
@@ -38,6 +41,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,7 +110,10 @@ class LeaveJob(
     private val did = clients.did
     private val lock = Mutex()
 
-    /** Where a leave runs: not a screen's scope, since the app shows only the leave once it starts, and resumes it after a restart. */
+    /**
+     * Where a leave runs: not a screen's scope, since the app shows only the leave once it starts, and resumes it after a restart. It lives
+     * as long as the session graph, which [close]s it ([LeaveJobTeardown]).
+     */
     @Suppress("InjectDispatcher") // Like ImportSaves': work that outlives the screen that started it.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -158,6 +165,13 @@ class LeaveJob(
         val next = scope.launch(start = CoroutineStart.LAZY) { run() }
         if (running.compareAndSet(current, next)) next.start() else next.cancel()
     }
+
+    /**
+     * Stops the background run as the session graph closes (a sign-out, an expired session, another account): it would go on with the
+     * dropped session's clients. The leave stays recorded at its step, so it resumes when the account's session opens again, and its last
+     * step, once started, finishes regardless. Nothing runs after this.
+     */
+    internal fun close() = scope.cancel("The session ended")
 
     /** The background run [resume] launched last. */
     @OptIn(ExperimentalAtomicApi::class) private val running = AtomicReference<Job?>(null)
@@ -305,5 +319,15 @@ class LeaveJob(
         const val STATUS_LOOKUPS = 8
         const val HTTP_TOO_MANY_REQUESTS = 429
         val MIN_PAUSE = 10.seconds
+    }
+}
+
+/** Stops a running leave when its session graph closes (Metro's graph lifecycle). */
+@OptIn(ExperimentalMetroApi::class)
+@ContributesTo(SessionScope::class)
+interface LeaveJobTeardown {
+    @OnGraphClose
+    fun stopLeave(job: LeaveJob) {
+        job.close()
     }
 }

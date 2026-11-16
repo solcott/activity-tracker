@@ -18,7 +18,12 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -118,6 +123,26 @@ class LeaveJobTest {
         l.job.start()
         assertEquals(setOf("app.bsky.feed.post/3kp"), pds.stored.getValue(pds.repo).keys)
         assertNull(l.job.progress.value?.error)
+    }
+
+    @Test
+    @Suppress("InjectDispatcher") // Waits in real time: the leave runs on its own Dispatchers.Default scope.
+    fun closingTheSessionStopsARunningLeaveAndItResumesLater() = runTest {
+        account()
+        // The PDS asks for a wait (at least ten seconds) on the first delete, which holds the background run there.
+        pds.applyWritesRateLimited = 1
+        val l = leaving()
+        l.job.begin()
+        withContext(Dispatchers.Default) { withTimeout(5.seconds) { l.job.progress.first { it?.pausedUntil != null } } }
+
+        l.job.close()
+
+        assertEquals(LeaveStep.Repo.name, l.marks.leaving(pds.did), "still recorded at its step")
+        assertTrue(pds.stored.getValue(pds.repo).isNotEmpty(), "the stopped run deleted nothing more")
+        // A stopped run lets go of the leave at once; one still waiting would hold it for the PDS's wait.
+        withContext(Dispatchers.Default) { withTimeout(5.seconds) { l.job.run() } }
+        assertEquals(setOf("app.bsky.feed.post/3kp"), pds.stored.getValue(pds.repo).keys)
+        assertEquals(EndedSession.Reason.Left, l.auth.lastEnd.value?.reason)
     }
 
     @Test

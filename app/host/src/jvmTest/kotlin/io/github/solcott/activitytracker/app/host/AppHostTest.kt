@@ -29,18 +29,25 @@ class AppHostTest {
     private val auth = FakeAuth()
     private val host = AppHost(auth, fakes.factories)
     private val made = mutableListOf<SessionHost>()
-    private val sessions = SessionHostFactory { session ->
-        SessionHost(
-                session,
-                fakes.factories,
-                emptySet(),
-                SessionRunner(NoLeaveSteps()),
-                { false },
-                RecordScreenRequests(),
-                AccountScreenRequests(),
-            )
-            .also { made += it }
-    }
+    private val released = mutableListOf<SessionHost>()
+    private val sessions =
+        object : SessionHostFactory {
+            override fun create(session: OAuthSession) =
+                SessionHost(
+                        session,
+                        fakes.factories,
+                        emptySet(),
+                        SessionRunner(NoLeaveSteps()),
+                        { false },
+                        RecordScreenRequests(),
+                        AccountScreenRequests(),
+                    )
+                    .also { made += it }
+
+            override fun release(host: SessionHost) {
+                released += host
+            }
+        }
 
     private fun TestScope.start() {
         backgroundScope.launch { host.run(HostClock.Immediate, sessions) }
@@ -123,6 +130,32 @@ class AppHostTest {
         assertNotSame(alice, bob)
         assertEquals("did:plc:bob", bob.did.value)
         assertEquals(1, bob.stack(TopLevelDestination.Feed).records.value.size)
+    }
+
+    @Test
+    fun eachSessionIsReleasedWhenItEnds() = runTest {
+        auth.stored = sessionOf("did:plc:alice")
+        start()
+        val alice = assertIs<RootState.SignedIn>(host.root.value).session
+        assertEquals(emptyList(), released, "a shown session isn't released")
+
+        // A refreshed token is the same session, kept.
+        auth.session.value = sessionOf("did:plc:alice")
+        runCurrent()
+        assertEquals(emptyList(), released)
+
+        auth.session.value = null
+        runCurrent()
+        assertEquals(listOf(alice), released, "released as it's signed out")
+
+        auth.session.value = sessionOf("did:plc:bob")
+        runCurrent()
+        val bob = assertIs<RootState.SignedIn>(host.root.value).session
+        assertEquals(listOf(alice), released)
+
+        auth.session.value = sessionOf("did:plc:carol")
+        runCurrent()
+        assertEquals(listOf(alice, bob), released, "released before the next account's session")
     }
 
     @Test

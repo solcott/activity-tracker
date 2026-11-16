@@ -77,6 +77,8 @@ fun App(
         } else {
             key(current.did) {
                 val sessionGraph = remember { graph.createSessionGraph(current) }
+                // Dropped with this account's composition (a sign-out, or another account): its work stops with it.
+                DisposableEffect(sessionGraph) { onDispose { sessionGraph.close() } }
                 // The image loader is app-wide; the photos it shows from this device's uploads are the signed-in session's.
                 DisposableEffect(sessionGraph) {
                     val held = sessionGraph.feedRepository.heldPhotos

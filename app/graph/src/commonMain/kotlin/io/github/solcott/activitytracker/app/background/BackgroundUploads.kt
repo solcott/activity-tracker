@@ -80,7 +80,14 @@ suspend fun AppGraph.runDataExport(onProgress: (suspend (DataExportProgress?) ->
 private val backgroundLock = Mutex()
 private var background: Pair<Did, SessionGraph>? = null
 
-/** The background passes' one session graph for [did], so a process that outlives many passes doesn't build one per pass. */
+/**
+ * The background passes' one session graph for [did], so a process that outlives many passes doesn't build one per pass. Another account's
+ * graph, left from an earlier pass, is closed as this one replaces it.
+ */
 private suspend fun backgroundGraph(did: Did, create: () -> SessionGraph): SessionGraph = backgroundLock.withLock {
-    background?.takeIf { it.first == did }?.second ?: create().also { background = did to it }
+    background?.takeIf { it.first == did }?.second
+        ?: create().also { graph ->
+            background?.second?.close()
+            background = did to graph
+        }
 }

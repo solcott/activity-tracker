@@ -2,9 +2,11 @@ package io.github.solcott.activitytracker.app.di
 
 import androidx.compose.runtime.Stable
 import io.github.solcott.activitytracker.app.host.AppHost
+import io.github.solcott.activitytracker.app.host.SessionHost
 import io.github.solcott.activitytracker.app.host.SessionHostFactory
 import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
+import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.export.DataExports
@@ -32,5 +34,26 @@ interface AppGraph : SessionGraph.Factory {
     val accountScreenRequests: AccountScreenRequests
 }
 
-/** Makes each signed-in account's host from its session graph, which only this module can name. */
-fun AppGraph.sessionHosts(): SessionHostFactory = SessionHostFactory { session -> createSessionGraph(session).sessionHost }
+/**
+ * Makes each signed-in account's host from its session graph, which only this module can name, and closes the graph when the host is
+ * released. [onSession] hears the graph while its host is shown, and null once it's released. [AppHost] shows one host at a time.
+ */
+fun AppGraph.sessionHosts(onSession: (SessionGraph?) -> Unit = {}): SessionHostFactory =
+    object : SessionHostFactory {
+        private var current: SessionGraph? = null
+
+        override fun create(session: OAuthSession): SessionHost =
+            createSessionGraph(session)
+                .also {
+                    current = it
+                    onSession(it)
+                }
+                .sessionHost
+
+        override fun release(host: SessionHost) {
+            val graph = current?.takeIf { it.sessionHost === host } ?: return
+            current = null
+            onSession(null)
+            graph.close()
+        }
+    }

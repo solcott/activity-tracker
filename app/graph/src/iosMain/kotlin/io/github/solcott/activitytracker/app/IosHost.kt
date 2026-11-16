@@ -2,13 +2,11 @@ package io.github.solcott.activitytracker.app
 
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.di.SessionGraph
+import io.github.solcott.activitytracker.app.di.sessionHosts
 import io.github.solcott.activitytracker.app.host.AppHost
-import io.github.solcott.activitytracker.app.host.RootState
 import io.github.solcott.activitytracker.app.host.startOnMain
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.photoCid
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
 
 /**
@@ -27,8 +25,8 @@ internal object IosHost {
     fun start(graph: IosAppGraph): AppHost {
         if (this.graph != null) return graph.appHost
         this.graph = graph
-        graph.appHost.startOnMain { oauth -> graph.createSessionGraph(oauth).also { session = it }.sessionHost }
-        MainScope().launch { graph.appHost.root.collect { root -> if (root is RootState.SignedOut) session = null } }
+        // The host releases each session's host before showing sign-in or the next account, which closes its graph.
+        graph.appHost.startOnMain(graph.sessionHosts { session = it })
         return graph.appHost
     }
 }

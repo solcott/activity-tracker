@@ -75,8 +75,13 @@ internal constructor(private val auth: HostAuth, factories: Set<Presenter.Factor
                     compose(clock) { RunRecord(login) }
                 } else {
                     val host = sessions.create(session)
-                    root.value = RootState.SignedIn(host)
-                    host.run(clock)
+                    try {
+                        root.value = RootState.SignedIn(host)
+                        host.run(clock)
+                    } finally {
+                        // Before the next account's host, or sign-in, is made: the session's work stops with it.
+                        sessions.release(host)
+                    }
                 }
             }
     }
@@ -90,6 +95,9 @@ fun appHostOf(auth: HostAuth, factories: Set<Presenter.Factory>): AppHost = AppH
 /** Makes the [SessionHost] of a signed-in account. The app implements it with the account's session graph. */
 fun interface SessionHostFactory {
     fun create(session: OAuthSession): SessionHost
+
+    /** Ends [host]'s session once [AppHost] stops showing it (a sign-out, another account, a new sign-in): the app closes its graph. */
+    fun release(host: SessionHost) = Unit
 }
 
 /** The signed-in account, as [AppHost] follows it. An interface so the host is tested without a stored session. */
