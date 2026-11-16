@@ -7,12 +7,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.SegmentHeading
 import io.github.solcott.activitytracker.location.TrackMath
 import java.security.MessageDigest
 import java.text.BreakIterator
-import kotlin.math.PI
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 
@@ -213,11 +211,6 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
 
         private const val ID_CHARS = 26
         private const val E5 = 1e5
-        private const val QUARTER_TURN = 90.0
-        private const val HALF_TURN = 180.0
-        private const val FULL_TURN = 360.0
-        private const val EIGHTH_TURN = 45.0
-        private val COMPASS = listOf("northbound", "eastbound", "southbound", "westbound")
 
         /**
          * [points] simplified at [TOLERANCE_M], coarser only as far as its encoding needs to fit a record (`TrackMath.simplifyToFit`), and
@@ -273,29 +266,8 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
         /** 26 base32 characters of [key]'s SHA-256. */
         private fun hashed(key: String): String = MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).base32().take(ID_CHARS)
 
-        /** How far apart a whole trail's ends may be for it to be a loop, in meters: the AppView's duplicate distance. */
-        private val LOOP_M = SegmentGeometry.DUPLICATE_DISTANCE_M
-
-        /**
-         * Which way [points] go, for a two-way whole trail's name: clockwise or counterclockwise for a loop (its ends within [LOOP_M]), by
-         * the sign of its area, otherwise the cardinal direction from start to end.
-         */
-        fun heading(points: List<GeoPoint>): String {
-            val (first, last) = points.first() to points.last()
-            if (SegmentGeometry.distanceMeters(first, last) > LOOP_M) return compass(first, last)
-            val scale = cos(first.lat * PI / HALF_TURN)
-            // The shoelace sum, with x east and y north: positive for a counterclockwise ring.
-            val area = (points + first).zipWithNext().sumOf { (p, q) -> (p.lng * scale) * q.lat - (q.lng * scale) * p.lat }
-            return if (area > 0) "counterclockwise" else "clockwise"
-        }
-
-        /** The cardinal direction of travel from [from] to [to], as a word for a name. */
-        fun compass(from: GeoPoint, to: GeoPoint): String {
-            val dx = (to.lng - from.lng) * cos(from.lat * PI / HALF_TURN)
-            val dy = to.lat - from.lat
-            val bearing = (atan2(dx, dy) * HALF_TURN / PI + FULL_TURN) % FULL_TURN
-            return COMPASS[(((bearing + EIGHTH_TURN) % FULL_TURN) / QUARTER_TURN).toInt()]
-        }
+        /** Which way [points] go, as the word a two-way whole trail's name adds (`SegmentHeading`). */
+        fun heading(points: List<GeoPoint>): String = SegmentHeading.of(points).word
 
         /** [name] cut to [MAX_NAME_GRAPHEMES] graphemes, at a word boundary when there is one. */
         fun truncate(name: String): String {

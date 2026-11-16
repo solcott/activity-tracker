@@ -161,6 +161,11 @@ object SegmentGeometry {
         return frechetWithin(pa, pb, distance)
     }
 
+    /**
+     * Whether [a] and [b] follow the same path either way (segments/segment-routes): [a] [duplicates] [b] as drawn, or with [a] reversed.
+     */
+    fun sameRoute(a: List<GeoPoint>, b: List<GeoPoint>): Boolean = duplicates(a, b) || duplicates(a.asReversed(), b)
+
     /** How far [p] is from the nearest stretch of [line], in meters; from its one point when it has only one. */
     fun distanceToLineMeters(p: GeoPoint, line: List<GeoPoint>): Double =
         if (line.size < 2) line.minOfOrNull { distanceMeters(p, it) } ?: Double.POSITIVE_INFINITY

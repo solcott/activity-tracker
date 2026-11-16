@@ -261,6 +261,43 @@ class SegmentGeometryTest {
     }
 
     @Test
+    fun reversedCopyIsTheSameRoute() {
+        val original = line(climb)
+        val back = line(climb, spacing = 7.0) { i -> 8.0 * sin(i * 7.0 / 40.0) }.reversed()
+        assertTrue(SegmentGeometry.sameRoute(original, back))
+        assertTrue(SegmentGeometry.sameRoute(back, original))
+    }
+
+    @Test
+    fun sameDirectionCopyIsTheSameRoute() {
+        assertTrue(SegmentGeometry.sameRoute(line(climb), line(climb, spacing = 9.0)))
+    }
+
+    @Test
+    fun longerStretchIsNotTheSameRoute() {
+        val longer = line(climb + (900.0 to 4400.0))
+        assertFalse(SegmentGeometry.sameRoute(line(climb), longer))
+        assertFalse(SegmentGeometry.sameRoute(line(climb), longer.reversed()))
+    }
+
+    @Test
+    fun lineFiftyMetersOffIsNotTheSameRoute() {
+        val off = line(climb) { 50.0 }
+        assertFalse(SegmentGeometry.sameRoute(line(climb), off))
+        assertFalse(SegmentGeometry.sameRoute(line(climb), off.reversed()))
+    }
+
+    @Test
+    fun headingsNameCardinalDirectionsAndLoops() {
+        assertEquals(SegmentHeading.Northbound, SegmentHeading.of(line(listOf(0.0 to 0.0, 100.0 to 2000.0))))
+        assertEquals(SegmentHeading.Westbound, SegmentHeading.of(line(listOf(0.0 to 0.0, -2000.0 to 100.0))))
+        val ring = listOf(0.0 to 0.0, 500.0 to 0.0, 500.0 to 500.0, 0.0 to 500.0, 0.0 to 0.0)
+        assertEquals(SegmentHeading.Counterclockwise, SegmentHeading.of(line(ring)))
+        assertEquals(SegmentHeading.Clockwise, SegmentHeading.of(line(ring).reversed()))
+        assertEquals(SegmentHeading.Eastbound, SegmentHeading.ofWord("eastbound"))
+    }
+
+    @Test
     fun longerSupersetIsNotADuplicate() {
         val original = line(climb)
         val longer = line(climb + (900.0 to 4400.0))
