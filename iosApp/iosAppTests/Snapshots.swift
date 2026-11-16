@@ -27,6 +27,12 @@ nonisolated enum Snapshots {
     /// An iPhone's width and height in points, for a whole screen.
     static let screen = CGSize(width: 393, height: 852)
 
+    /// The height in points of the screen the references were drawn on (an iPhone 17's) and its home indicator's inset. A snapshot's
+    /// window is shorter than the screen, so its bottom inset is what the indicator leaves under it; `KeptSafeArea` keeps the one this
+    /// screen leaves on any simulator at least this tall (an iPhone 17, 17 Pro or Pro Max, or an Air).
+    static let referenceScreenHeight: CGFloat = 874
+    static let homeIndicator: CGFloat = 34
+
     /// How many draws in a row must be the same for a view to count as settled. Two aren't enough: a system transition that steps once
     /// a draw can start a draw late, so the two draws before it agree (a search field's clear button, dev/ios-snapshot-tests).
     static let settledDraws = 3
@@ -148,7 +154,14 @@ final class KeptSafeArea: UIViewController {
 
     private func keepWindowsSafeArea() {
         guard let window = view.window else { return }
-        let kept = window.safeAreaInsets, own = view.safeAreaInsets
+        // The library sizes the window to the snapshot at the top of the screen, so its bottom inset depends on the simulator's screen:
+        // only the part of the home indicator's the window still covers (12 points at 852 tall on an iPhone 17, none on a Pro Max), and
+        // none when the window runs past the screen's bottom. The bottom kept is the one the reference screen gives, so a layout that
+        // splits the height (segment browse's map over its list) is drawn the same on every simulator.
+        var kept = window.safeAreaInsets
+        let height = window.bounds.height, screen = Snapshots.referenceScreenHeight
+        kept.bottom = height > screen ? 0 : max(0, Snapshots.homeIndicator - (screen - height))
+        let own = view.safeAreaInsets
         let additional = UIEdgeInsets(
             top: max(0, kept.top - own.top), left: max(0, kept.left - own.left), bottom: max(0, kept.bottom - own.bottom),
             right: max(0, kept.right - own.right))
