@@ -16875,6 +16875,17 @@
         }
       }
     },
+    "segment_browse_both_ways" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both ways"
+          }
+        }
+      }
+    },
     "segment_browse_capped" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -17344,6 +17355,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ high · %2$@ low"
+          }
+        }
+      }
+    },
+    "segment_heading_clockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clockwise"
+          }
+        }
+      }
+    },
+    "segment_heading_counterclockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counterclockwise"
+          }
+        }
+      }
+    },
+    "segment_heading_eastbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eastbound"
+          }
+        }
+      }
+    },
+    "segment_heading_northbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Northbound"
+          }
+        }
+      }
+    },
+    "segment_heading_southbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Southbound"
+          }
+        }
+      }
+    },
+    "segment_heading_westbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Westbound"
           }
         }
       }

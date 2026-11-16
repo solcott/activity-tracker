@@ -176,7 +176,7 @@ private fun BrowseRows(rows: BrowseRowsState, listState: LazyListState, modifier
                         item(key = "refresh") { RefreshStatus(state.area, UiError.Kind.LoadAreaSegments, retry) }
                         if (area.capped) item(key = "capped") { EmptyListText(SegmentBrowseTexts.capped.string()) }
                         items(area.runs, key = { it.segment.uri.value }) { run ->
-                            SegmentRow(rows, run.segment, SegmentBrowseTexts.details(run, LocalUnitSystem.current))
+                            SegmentRow(rows, run.route, SegmentBrowseTexts.details(run, LocalUnitSystem.current))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                         if (area.runs.isEmpty()) item(key = "none") { EmptyListText(SegmentBrowseTexts.noneHere.string()) }
@@ -195,7 +195,7 @@ private fun NameResults(rows: BrowseRowsState, listState: LazyListState, modifie
             state.results,
             UiError.Kind.SearchSegments,
             onRetry = { state.eventSink(SegmentBrowseEvent.Retry) },
-            key = { it.uri.value },
+            key = { it.key.value },
             empty = {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyListText(SegmentBrowseTexts.noResults(state).string())
@@ -206,19 +206,21 @@ private fun NameResults(rows: BrowseRowsState, listState: LazyListState, modifie
                     }
                 }
             },
-        ) { segment ->
-            SegmentRow(rows, segment, SegmentBrowseTexts.details(segment, LocalUnitSystem.current))
+        ) { route ->
+            SegmentRow(rows, route, SegmentBrowseTexts.details(route, LocalUnitSystem.current))
         }
     }
 }
 
 /**
- * A segment: its name, then its [details] line. It's marked while selected or under the mouse pointer (here or on its line), and a mouse
- * over it highlights its line. A tap on a touch screen selects it, or opens it once selected; a click with a pointer opens it.
+ * A route's row (segments/segment-routes), drawn, selected and opened as its shown segment: its name, then its [details] line. It's marked
+ * while selected or under the mouse pointer (here or on its line), and a mouse over it highlights its line. A tap on a touch screen selects
+ * it, or opens it once selected; a click with a pointer opens it.
  */
 @Composable
-private fun SegmentRow(rows: BrowseRowsState, segment: SegmentView, details: AppText) {
+private fun SegmentRow(rows: BrowseRowsState, route: SegmentRoute, details: AppText) {
     val state = rows.state
+    val segment = route.shown
     val touch = LocalUiPlatform.current.isMobile
     val selected = state.isSelected(segment)
     val uri = segment.uri.value
@@ -243,11 +245,11 @@ private fun SegmentRow(rows: BrowseRowsState, segment: SegmentView, details: App
             }
             .semantics { this.selected = selected }
             .clickable(onClickLabel = SegmentBrowseTexts.rowAction(selected, touch).string()) {
-                state.eventSink(if (touch) state.tapRowEvent(segment) else SegmentBrowseEvent.Open(segment.uri))
+                state.eventSink(if (touch) state.tapRowEvent(route) else state.openEvent(route))
             }
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
+        Text(SegmentBrowseTexts.routeName(route).string(), style = MaterialTheme.typography.titleMedium)
         Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -261,13 +263,13 @@ private fun ListPosition(state: SegmentBrowseState, listState: LazyListState) {
     LaunchedEffect(state.selected) {
         val selected = state.selected ?: return@LaunchedEffect
         val index =
-            if (state.searchingNames) state.results.items.indexOfFirst { it.uri == selected }
+            if (state.searchingNames) state.results.items.indexOfFirst { it.shown.uri == selected }
             else
                 state.area.data.runs.indexOfFirst { it.segment.uri == selected }.takeIf { it >= 0 }?.let { it + areaRowsBeforeRuns(state) }
                     ?: -1
         if (index >= 0) listState.animateScrollToItem(index)
     }
-    OpenNewResultsAtTop(listState, if (state.searchingNames) state.results.items.firstOrNull()?.uri?.value else null)
+    OpenNewResultsAtTop(listState, if (state.searchingNames) state.results.items.firstOrNull()?.key?.value else null)
 }
 
 /** The rows above the first run in the area's list: its refresh status, and the cap notice when shown. */

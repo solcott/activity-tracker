@@ -52,19 +52,19 @@ object SegmentBrowseTexts {
     fun details(segment: SegmentView, units: UnitSystem): AppText = joined(segment, null, units)
 
     /**
-     * An area run's line under its name: its length, type and how far its line comes to the map's centre ("1.2 mi · Ride · 0.1 mi away").
+     * A route's line under its name (segments/segment-routes): its length, its runs' types, and Both ways when they run both ways ("5.40 mi
+     * · Ride, Run, Hike · Both ways").
      */
-    fun details(run: BrowsedSegment, units: UnitSystem): AppText = joined(run.segment, run.metersAway, units)
+    fun details(route: SegmentRoute, units: UnitSystem): AppText = joined(route, null, units)
 
-    private fun joined(segment: SegmentView, metersAway: Int?, units: UnitSystem): AppText {
-        val parts =
-            listOfNotNull(
-                StatText.distance(segment.distanceMeters.toDouble(), units),
-                SegmentTexts.type(segment.record.sport, segment.record.kind),
-                metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
-            )
-        return parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }
-    }
+    /** An area row's line under its name: as a route's, then how far its line comes to the map's centre ("1.2 mi · Ride · 0.1 mi away"). */
+    fun details(run: BrowsedSegment, units: UnitSystem): AppText = joined(run.route, run.metersAway, units)
+
+    /**
+     * A route's row's name (segments/segment-routes): its shown run's current name without the direction the segment importer adds, and,
+     * when the row runs both ways, its one "→" read as "↔". A name that doesn't end in a direction is shown as it is.
+     */
+    fun routeName(route: SegmentRoute): AppText = AppText.written(SegmentRoute.displayName(route.shown.currentName, route.bothWays))
 
     /** What the list says in place of runs or results ([BrowseList.Names] and [BrowseList.Area] show those); null for those two. */
     fun message(list: BrowseList): AppText? =
@@ -98,4 +98,33 @@ object SegmentBrowseTexts {
      */
     fun rowAction(selected: Boolean, touch: Boolean): AppText =
         AppText.named(if (touch && !selected) "segment_browse_show_on_map" else "segment_browse_open")
+}
+
+private fun joined(segment: SegmentView, metersAway: Int?, units: UnitSystem): AppText =
+    joined(
+        StatText.distance(segment.distanceMeters.toDouble(), units),
+        SegmentTexts.type(segment.record.sport, segment.record.kind),
+        null,
+        metersAway,
+        units,
+    )
+
+private fun joined(route: SegmentRoute, metersAway: Int?, units: UnitSystem): AppText {
+    val shown = route.shown
+    val types =
+        if (route.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
+        else AppText.joined(route.sports.map(SegmentTexts::sportGroup))
+    val bothWays = AppText.named("segment_browse_both_ways").takeIf { route.bothWays }
+    return joined(StatText.distance(shown.distanceMeters.toDouble(), units), types, bothWays, metersAway, units)
+}
+
+private fun joined(length: AppText, types: AppText?, bothWays: AppText?, metersAway: Int?, units: UnitSystem): AppText {
+    val parts =
+        listOfNotNull(
+            length,
+            types,
+            bothWays,
+            metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
+        )
+    return parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }
 }

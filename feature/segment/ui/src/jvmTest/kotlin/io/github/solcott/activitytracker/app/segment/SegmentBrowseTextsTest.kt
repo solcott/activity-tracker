@@ -62,6 +62,44 @@ class SegmentBrowseTextsTest {
     }
 
     @Test
+    fun aRoutesRowDropsItsDirectionWhenItRunsBothWays() {
+        assertEquals("Ann's", SegmentRoute.displayName("Ann's (eastbound)", bothWays = true))
+        assertEquals("Ridge Loop", SegmentRoute.displayName("Ridge Loop (counterclockwise)", bothWays = true))
+        assertEquals(
+            "Ann's: Lupine Hiking ↔ Potato Hill",
+            SegmentRoute.displayName("Ann's: Lupine Hiking → Potato Hill", bothWays = true),
+        )
+        assertEquals("Oak: Fire Road 3 → Pine", SegmentRoute.displayName("Oak: Fire Road 3 → Pine", bothWays = false), "one way")
+        assertEquals("Ann's (eastbound)", SegmentRoute.displayName("Ann's (eastbound)", bothWays = false))
+        assertEquals("Wiggly Woods", SegmentRoute.displayName("Wiggly Woods", bothWays = true), "a renamed one as it is")
+        assertEquals("Bridge (old)", SegmentRoute.displayName("Bridge (old)", bothWays = true), "not a direction")
+        assertEquals("A → B → C", SegmentRoute.displayName("A → B → C", bothWays = true))
+    }
+
+    @Test
+    fun aRoutesRowListsItsTypesAndBothWays() {
+        val ann = SegmentBrowseSamples.runs.last()
+        assertEquals(AppText.written("Ann's"), SegmentBrowseTexts.routeName(ann.route))
+        val units = UnitSystem.Metric
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                AppText.named(
+                    "segment_browse_details",
+                    AppText.named(
+                        "segment_browse_details",
+                        StatText.distance(ann.segment.distanceMeters.toDouble(), units),
+                        AppText.joined(listOf("ride", "run", "hike").map(SegmentTexts::sportGroup))!!,
+                    ),
+                    AppText.named("segment_browse_both_ways"),
+                ),
+                AppText.named("segment_browse_away", StatText.distance(ann.metersAway.toDouble(), units)),
+            ),
+            SegmentBrowseTexts.details(ann, units),
+        )
+    }
+
+    @Test
     fun theMapDrawsTheSelectedRunLast() {
         val map = SegmentBrowseSamples.selected.segmentsMap
         assertEquals(SegmentBrowseSamples.selected.selected?.value, map.drawn.last().uri)
@@ -89,6 +127,7 @@ class SegmentBrowseTextsTest {
                 NameScope.entries.map(SegmentBrowseTexts::scope) +
                 state.sports.map(SegmentBrowseTexts::sport) +
                 SegmentBrowseSamples.runs.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
+                SegmentBrowseSamples.routeResults.results.items.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
                 listOf(
                     SegmentBrowseTexts.searchLabel,
                     SegmentBrowseTexts.allSports,

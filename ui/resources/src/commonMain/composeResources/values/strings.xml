@@ -1009,6 +1009,7 @@
     <string name="segment_browse_no_results_here">No segments here match “%1$s”.</string>
     <string name="segment_browse_search_everywhere">Search everywhere</string>
     <string name="segment_browse_away">%1$s away</string>
+    <string name="segment_browse_both_ways">Both ways</string>
     <string name="segment_browse_details">%1$s · %2$s</string>
     <string name="segment_browse_show_on_map">Show on map</string>
     <string name="segment_browse_open">Open</string>
@@ -1829,6 +1830,12 @@
     <string name="segment_sport_alpine">Alpine</string>
     <string name="segment_kind_ski_run">Ski run</string>
     <string name="segment_kind_ski_lift">Ski lift</string>
+    <string name="segment_heading_northbound">Northbound</string>
+    <string name="segment_heading_eastbound">Eastbound</string>
+    <string name="segment_heading_southbound">Southbound</string>
+    <string name="segment_heading_westbound">Westbound</string>
+    <string name="segment_heading_clockwise">Clockwise</string>
+    <string name="segment_heading_counterclockwise">Counterclockwise</string>
     <string name="segment_sport_paddle">Paddle</string>
     <string name="segment_status_proposed">Proposed</string>
     <string name="segment_status_duplicate">Duplicate</string>

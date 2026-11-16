@@ -43,7 +43,10 @@ class SegmentBrowseUiTest {
         }
         onNodeWithText("Ridge Trail").assertExists()
         onNodeWithText("Hogback Climb").assertExists()
-        assertEquals(3, onAllNodesWithText("away", substring = true).fetchSemanticsNodes().size, "each run says how far away it is")
+        assertEquals(4, onAllNodesWithText("away", substring = true).fetchSemanticsNodes().size, "each row says how far away it is")
+        onNodeWithText("Ann's").assertExists()
+        onNodeWithText("Ride, Run, Hike · Both ways", substring = true).assertExists()
+        onNodeWithText("Ann's (eastbound)").assertDoesNotExist()
         onNodeWithText("This area").assertDoesNotExist()
 
         onNodeWithText("Hogback Climb").performClick()
@@ -121,6 +124,21 @@ class SegmentBrowseUiTest {
     }
 
     @Test
+    fun aRoutesSegmentsAreOneResult() = runComposeUiTest {
+        val events = mutableListOf<SegmentBrowseEvent>()
+        setContent {
+            AppPreview(platform = UiPlatform.Desktop) {
+                SegmentBrowseUi(SegmentBrowseSamples.routeResults.copy(eventSink = { events += it }))
+            }
+        }
+        assertEquals(1, onAllNodesWithText("Ann's").fetchSemanticsNodes().size)
+        onNodeWithText("Ride, Run, Hike · Both ways", substring = true).assertExists()
+        onNodeWithText("Ann's").performClick()
+        val route = SegmentBrowseSamples.routeResults.results.items.first()
+        assertEquals(SegmentBrowseEvent.Open(route.shown.uri), events.last(), "opens its first sport group's segment")
+    }
+
+    @Test
     fun nothingInThisAreaOffersEverywhere() = runComposeUiTest {
         val events = mutableListOf<SegmentBrowseEvent>()
         setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.nothingHere.copy(eventSink = { events += it })) } }
@@ -137,8 +155,13 @@ class SegmentBrowseUiTest {
 
     @Test
     fun aNewSearchOpensAtItsBestMatch() = runComposeUiTest {
-        val old = (1..30).map { fakeSegment("3kold$it", record = fakeSegmentRecord("Hog Canyon $it")) }
-        val new = (1..30).map { fakeSegment("3knew$it", record = fakeSegmentRecord(if (it == 1) "Hogback Climb" else "Hogback $it")) }
+        val old = (1..30).map { SegmentRoute.routeOf(listOf(fakeSegment("3kold$it", record = fakeSegmentRecord("Hog Canyon $it")))) }
+        val new =
+            (1..30).map {
+                SegmentRoute.routeOf(
+                    listOf(fakeSegment("3knew$it", record = fakeSegmentRecord(if (it == 1) "Hogback Climb" else "Hogback $it"))),
+                )
+            }
         var results by mutableStateOf(PagedStates.loaded(old))
         setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.nameResults.copy(results = results)) } }
         onNodeWithText("Hog Canyon 1").assertIsDisplayed()

@@ -30,8 +30,16 @@ enum class NameScope {
     Everywhere,
 }
 
-/** A run in the area's list: the segment, and how far its line comes to the map's centre, in metres. */
-@Immutable data class BrowsedSegment(val segment: SegmentView, val metersAway: Int)
+/**
+ * A row of the area's list: a route's runs in the area (segments/segment-routes), and how far its nearest one comes to the map's centre, in
+ * metres.
+ */
+@Immutable
+data class BrowsedSegment(val route: SegmentRoute, val metersAway: Int) {
+    /** The run the row is drawn, selected and opened as. */
+    val segment: SegmentView
+        get() = route.shown
+}
 
 /**
  * An area's segments, loaded: its [runs] nearest the map's centre first, its [lifts] (drawn on the map only), and whether it holds more
@@ -72,8 +80,8 @@ data class SegmentBrowseState(
     val start: BrowseStart = BrowseStart.Locating,
     /** The area's segments (ui/content-loading); nothing loads while there's no area, it's [tooWide], or a name is searched. */
     val area: ContentState<AreaRuns> = ContentState(AreaRuns()),
-    /** Segments named like [query], best match first; nothing loaded while the query is blank. */
-    val results: PagedState<SegmentView, Unit>,
+    /** Routes with a segment named like [query], best match first, one row each; nothing loaded while the query is blank. */
+    val results: PagedState<SegmentRoute, Unit>,
     /** The lines the map draws: the area's runs and lifts, or the name results. */
     val mapLines: ImmutableList<MapSegmentLine> = persistentListOf(),
     /** The segment tapped on the map, or its row on a touch screen, marked in the list. */
@@ -135,6 +143,9 @@ data class SegmentBrowseState(
     /** Whether [segment] is the run tapped on the map, marked in the list. */
     fun isSelected(segment: SegmentView): Boolean = segment.uri == selected
 
+    /** Whether [route]'s row is the one selected: its shown run is. */
+    fun isSelected(route: SegmentRoute): Boolean = isSelected(route.shown)
+
     /** The map's lines in drawing order with the selected run highlighted, and what a tap selects. */
     val segmentsMap: SegmentsMap
         get() = SegmentsMap.of(mapLines, selected?.value)
@@ -144,6 +155,12 @@ data class SegmentBrowseState(
 
     /** The event for a tap on [segment]'s row on a touch screen: it selects the row, or opens it when it's selected. */
     fun tapRowEvent(segment: SegmentView): SegmentBrowseEvent = SegmentBrowseEvent.TapRow(segment.uri)
+
+    /** The event for a tap on [route]'s row on a touch screen, as its shown run. */
+    fun tapRowEvent(route: SegmentRoute): SegmentBrowseEvent = tapRowEvent(route.shown)
+
+    /** The event for a click on [route]'s row with a pointer: opens its shown run. */
+    fun openEvent(route: SegmentRoute): SegmentBrowseEvent = SegmentBrowseEvent.Open(route.shown.uri)
 }
 
 sealed interface SegmentBrowseEvent {

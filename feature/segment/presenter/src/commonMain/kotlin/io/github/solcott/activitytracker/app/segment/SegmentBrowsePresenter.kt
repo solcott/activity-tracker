@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.OnKeyChange
+import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.math.roundToInt
@@ -64,7 +65,13 @@ fun SegmentBrowsePresenter(
             snapshotFlow { currentAreaRequest }
                 .filterNotNull()
                 .produceRetainedContentState(AreaRuns(), sport, browse.areaRetry) { request ->
-                    flow { emit(segments.areaSegments(request.toSearchBox(sport)).mapData { areaRunsOf(it.segments, request, it.capped) }) }
+                    flow {
+                        emit(
+                            segments.areaSegments(request.toSearchBox(sport)).mapData {
+                                areaRunsOf(it.segments, request, it.capped, sport)
+                            },
+                        )
+                    }
                 }
         }
 
@@ -79,7 +86,7 @@ fun SegmentBrowsePresenter(
                 trimmed,
                 scope,
                 sport,
-                idOf = SegmentView::uri,
+                idOf = SegmentRoute::key,
                 onKeyChange = OnKeyChange.KeepItems,
                 enabled = trimmed.isNotEmpty(),
             ) { cursor ->
@@ -88,7 +95,9 @@ fun SegmentBrowsePresenter(
                         delay(NAME_SEARCH_DEBOUNCE)
                         browse.nameViewport = currentViewport
                     }
-                    emit(segments.namesPage(nameParams(trimmed, browse.nameBox(browse.nameViewport), sport, browse.nameViewport, cursor)))
+                    val params = nameParams(trimmed, browse.nameBox(browse.nameViewport), sport, browse.nameViewport, cursor)
+                    // The AppView pages by route, so no route spans two pages (segments/segment-routes).
+                    emit(segments.namesPage(params).mapData { page -> Page(SegmentRoute.of(page.items, sport), page.meta, page.next) })
                 }
             }
         }
@@ -97,7 +106,7 @@ fun SegmentBrowsePresenter(
     val mapLines =
         remember(searching, results.state.items, area.data) {
             if (searching) {
-                    results.state.items.mapNotNull { it.mapSegmentLine() }
+                    results.state.items.mapNotNull { it.shown.mapSegmentLine() }
                 } else {
                     area.data.runs.mapNotNull { it.segment.mapSegmentLine() } + area.data.lifts
                 }
@@ -126,7 +135,7 @@ fun SegmentBrowsePresenter(
                     navigator.goTo(SegmentScreen(event.uri.value))
                 } else {
                     // Only a name result can lie off the map: every run an area lists crosses it.
-                    val row = if (searching) results.state.items.find { it.uri == event.uri } else null
+                    val row = if (searching) results.state.items.find { it.shown.uri == event.uri }?.shown else null
                     browse.selectRow(event.uri, row?.let { SegmentGeometry.decodePolyline(it.record.line) })
                 }
             SegmentBrowseEvent.LoadMore -> results.loadMore()
@@ -162,14 +171,20 @@ internal fun nameParams(q: String, box: MapViewport?, sport: String?, viewport: 
         cursor = cursor,
     )
 
-/** The area's runs, nearest the viewport's centre first, and its lifts as map lines (segments/segment-browse). */
-internal fun areaRunsOf(found: List<SegmentView>, viewport: MapViewport, capped: Boolean): AreaRuns {
+/**
+ * The area's runs as one row per route (segments/segment-routes), each as near the viewport's centre as its nearest run, nearest first, and
+ * its lifts as map lines (segments/segment-browse). A route is shown as its first run of [sport] when one is chosen.
+ */
+internal fun areaRunsOf(found: List<SegmentView>, viewport: MapViewport, capped: Boolean, sport: String? = null): AreaRuns {
     val centre = GeoPoint(viewport.centerLat / E7, viewport.centerLng / E7)
     val (lifts, runs) = found.partition { SegmentKind.of(it.record.kind) == SegmentKind.LIFT }
+    val away = runs.associate { it.uri to metersTo(it, centre) }
     return AreaRuns(
         runs =
             runs
-                .map { segment -> BrowsedSegment(segment, metersTo(segment, centre)) }
+                .sortedWith(compareBy<SegmentView> { away.getValue(it.uri) }.thenBy { it.currentName })
+                .let { SegmentRoute.of(it, sport) }
+                .map { route -> BrowsedSegment(route, route.members.minOf { away.getValue(it.uri) }) }
                 .sortedWith(compareBy(BrowsedSegment::metersAway).thenBy { it.segment.currentName })
                 .toImmutableList(),
         lifts = lifts.mapNotNull { it.mapSegmentLine() }.toImmutableList(),
