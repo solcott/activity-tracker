@@ -99,6 +99,19 @@ class SegmentBrowseReadsTest {
     }
 
     @Test
+    fun theCapKeepsRoutesWhole() {
+        val trail = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "1")
+        val segments = listOf(view("1"), view("2").copy(route = trail), view("3"), view("1b").copy(route = trail))
+        assertEquals(listOf(view("1"), view("2").copy(route = trail), view("1b").copy(route = trail)), wholeRoutes(segments, cap = 3))
+        assertEquals(
+            listOf(view("1"), view("2").copy(route = trail), view("1b").copy(route = trail)),
+            wholeRoutes(segments, cap = 1),
+            "the first route even past the cap",
+        )
+        assertEquals(segments, wholeRoutes(segments, cap = 4))
+    }
+
+    @Test
     fun aNamePageSendsItsParams() = runTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         val page =

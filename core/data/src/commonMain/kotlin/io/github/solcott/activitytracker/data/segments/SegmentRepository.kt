@@ -157,7 +157,8 @@ class SegmentRepository(private val clients: SessionClients) {
 
     /**
      * Every segment whose line passes through [box]' box (its limit and cursor are ignored), following the cursors until there are none, or
-     * until [cap] segments or [maxRequests] requests, which marks the result [AreaSegments.capped] (segments/segment-browse).
+     * until [cap] segments or [maxRequests] requests, which marks the result [AreaSegments.capped] (segments/segment-browse). The cap keeps
+     * whole routes (segments/segment-routes), each page bringing every member of its routes, so a trail is never listed in part.
      */
     suspend fun areaSegments(
         box: SearchSegments.Params,
@@ -173,7 +174,7 @@ class SegmentRepository(private val clients: SessionClients) {
             page.segments.forEach { found.getOrPut(it.uri) { it } }
             cursor = page.cursor
         } while (cursor != null && found.size < cap && requests < maxRequests)
-        AreaSegments(found.values.take(cap), capped = cursor != null || found.size > cap)
+        AreaSegments(wholeRoutes(found.values, cap), capped = cursor != null || found.size > cap)
     }
 
     /** One page of segments whose current name contains [params]' query, best match first (segments/segment-records). */
@@ -195,3 +196,15 @@ class SegmentRepository(private val clients: SessionClients) {
 data class AreaSegments(val segments: List<SegmentView>, val capped: Boolean)
 
 private const val NOT_FOUND = "NotFound"
+
+/** The first routes of [segments], in order of their first member, while they fit in [cap] (always the first one). */
+internal fun wholeRoutes(segments: Collection<SegmentView>, cap: Int): List<SegmentView> {
+    if (segments.size <= cap) return segments.toList()
+    val routes = segments.groupBy { it.routeKey }.values
+    val kept = mutableListOf<SegmentView>()
+    for (route in routes) {
+        if (kept.isNotEmpty() && kept.size + route.size > cap) break
+        kept += route
+    }
+    return kept
+}
