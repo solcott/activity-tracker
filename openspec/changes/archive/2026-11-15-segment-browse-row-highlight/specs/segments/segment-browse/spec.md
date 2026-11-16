@@ -35,9 +35,8 @@ Where the map is shown, the athlete SHALL choose whether a name search covers Th
 ### Requirement: Segment browse is native on iOS
 On iOS the Search tab's Segments mode SHALL show segment browse natively under the mode choice: the search box, the This area and
 Everywhere choice while a name is searched in an area, the sport chips, the segments on the native map, and the list, beside the map on a
-wide window and under it on a phone. The list's rows and messages SHALL read as the shared page's, and a tap on a row SHALL select it or,
-when it is selected, open it, as on other touch screens. What it opens SHALL open on the Search tab, keeping its query, map and list while
-the tab's root stays.
+wide window and under it on a phone. The list's rows and messages SHALL read as the shared page's, and what it opens SHALL open on the
+Search tab, keeping its query, map and list while the tab's root stays.
 
 #### Scenario: Browsing on an iPad
 - **WHEN** alice chooses Segments on an iPad
