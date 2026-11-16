@@ -4,11 +4,13 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /** [RepoWriter] (segments/segment-import): the importer's records go out in few commits, paced under a relay's limits. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class RepoWriterTest {
     private val fake = FakeServices()
 

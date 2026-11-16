@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.importsave
 
+import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
@@ -17,6 +18,7 @@ import kotlinx.io.files.SystemFileSystem
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUUID
 
+@OptIn(ExperimentalKermitApi::class)
 class BookmarkSourceKeeperIosTest {
     private val keeper = BookmarkSourceKeeper(Logger(loggerConfigInit(TestLogWriter(Severity.Verbose))))
 

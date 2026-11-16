@@ -18,6 +18,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** [OutboxPacer] sends queued writes on its own (data/outbox), across rate-limit pauses and dropped connections, in virtual time. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OutboxPacerTest {
     private val base = Instant.parse("2026-10-30T14:00:00Z")
 

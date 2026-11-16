@@ -27,11 +27,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
-/** A tab's stack and the navigator presenters drive (dev/presenter-host, "Presenters navigate the host's stacks"). */
-@OptIn(ExperimentalCoroutinesApi::class)
 /** A height with room for two panes, for tests that are about the width. */
 internal const val TALL = 1_000.0
 
+/** A tab's stack and the navigator presenters drive (dev/presenter-host, "Presenters navigate the host's stacks"). */
+@OptIn(ExperimentalCoroutinesApi::class)
 class TabStackTest {
     private val fakes = FakePresenters()
     private val presenters = Presenters(fakes.factories)

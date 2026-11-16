@@ -8,12 +8,14 @@ import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AwaitIndexedTest {
     private val notFound = Outcome.Error(DataError.Api(listOf("Activity not found"), code = "NotFound"), Origin.Network)
     private val loaded = Outcome.Data("ride", Origin.Network)

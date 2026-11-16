@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.profile
 
+import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
@@ -22,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+@OptIn(ExperimentalKermitApi::class)
 class ProfileSetupTest {
     private val did = Did("did:plc:alice")
     private val logger = Logger(loggerConfigInit(TestLogWriter(Severity.Verbose)))

@@ -20,10 +20,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
-@OptIn(ExperimentalKermitApi::class)
+@OptIn(ExperimentalKermitApi::class, ExperimentalCoroutinesApi::class)
 class DesktopSecretCipherTest {
     private val dirs = DesktopAppDirs(createTempDirectory("desktop-secret"))
     private val keyFile = dirs.data.resolve("secret.key")
