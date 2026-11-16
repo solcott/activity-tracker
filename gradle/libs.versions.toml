@@ -1,14 +1,14 @@
 [versions]
 # Toolchain. A Kotlin preview, for Swift export (Beta from 2.5; dev/ios-swift-interop). Circuit 0.39 is built with Kotlin 2.4.20 and
-# needs Compose Multiplatform 1.12.x; Metro supports 2.5.0-Beta2 from 1.5.0.
-kotlin = "2.5.0-Beta2"
+# needs Compose Multiplatform 1.12.x; Metro supports 2.5.0-RC from 1.6.0.
+kotlin = "2.5.0-RC"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
 agp = "9.5.1"
 ksp = "2.3.13"
 composeMultiplatform = "1.12.2"
-metro = "1.5.2"
+metro = "1.6.0"
 detekt = "2.0.0-alpha.6"
 composeRules = "0.6.8"
 # Compose Preview Screenshot Testing engine, for androidApp's screenshotTest suite (AGP test suites).
