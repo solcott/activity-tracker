@@ -73,6 +73,7 @@ import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Case
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.CustomFunction
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.ExpressionWithColumnType
@@ -295,12 +296,7 @@ class SegmentViews(
         return db.tx {
             val name = Segments.currentName.lowerCase()
             val match = NameMatch(q)
-            val rank =
-                Case()
-                    .When(name eq q, intLiteral(NAME_WHOLE))
-                    .When(name like match.prefix, intLiteral(NAME_PREFIX))
-                    .When(name like match.wordPrefix, intLiteral(NAME_WORD))
-                    .Else(intLiteral(NAME_ANYWHERE))
+            val rank = nameRank(name, q, match)
             val listed = nameListed(viewer, params.sport, box)
             // Within a match, nearest the centre first, or by name without one; each segment group by its best member.
             val bestRank = CustomFunction("MIN", IntegerColumnType(), rank)
@@ -385,6 +381,20 @@ class SegmentViews(
                         Segments.maxLngE7,
                     )
                     .where { listed and (Segments.currentName.lowerCase() like match.anywhere) }
+                    // Best first, so the cap keeps the matches a page shows, in an order every page reads alike.
+                    .orderBy(
+                        *bestMatchesFirst(
+                            Segments.currentName,
+                            q,
+                            match,
+                            near,
+                            Segments.minLatE7,
+                            Segments.maxLatE7,
+                            Segments.minLngE7,
+                            Segments.maxLngE7,
+                            Segments.uri,
+                        ),
+                    )
                     .limit(MAX_NAME_MATCHES)
                     .toList()
             val onPaths = pathsOf(segments.map { it[Segments.uri] })
@@ -401,6 +411,19 @@ class SegmentViews(
             val named =
                 Paths.select(Paths.uri, Paths.name, Paths.minLatE7, Paths.maxLatE7, Paths.minLngE7, Paths.maxLngE7)
                     .where { Paths.name.lowerCase() like match.anywhere }
+                    .orderBy(
+                        *bestMatchesFirst(
+                            Paths.name,
+                            q,
+                            match,
+                            near,
+                            Paths.minLatE7,
+                            Paths.maxLatE7,
+                            Paths.minLngE7,
+                            Paths.maxLngE7,
+                            Paths.uri,
+                        ),
+                    )
                     .limit(MAX_NAME_MATCHES)
                     .toList()
             val withListed =
@@ -1076,6 +1099,40 @@ internal class BoxDistance(
     private companion object {
         const val PER_MILLE = 1000
     }
+}
+
+/** How well a lower-cased [name] matches [q] in SQL, as [rankOf] ranks it in Kotlin ([NAME_WHOLE] best). */
+private fun nameRank(name: ExpressionWithColumnType<String>, q: String, match: NameMatch): Expression<Int> =
+    Case()
+        .When(name eq q, intLiteral(NAME_WHOLE))
+        .When(name like match.prefix, intLiteral(NAME_PREFIX))
+        .When(name like match.wordPrefix, intLiteral(NAME_WORD))
+        .Else(intLiteral(NAME_ANYWHERE))
+
+/**
+ * The order a capped name search reads its matches in, as [NAME_HIT_ORDER] ranks them: best match, then nearest [near] by the box, then
+ * name, then [uri] so equal ones come in the same order every time.
+ */
+@Suppress("LongParameterList") // The name, the centre, and the box's four columns.
+private fun bestMatchesFirst(
+    name: Column<String>,
+    q: String,
+    match: NameMatch,
+    near: NameSearchCentre?,
+    minLat: Column<Int>,
+    maxLat: Column<Int>,
+    minLng: Column<Int>,
+    maxLng: Column<Int>,
+    uri: Column<String>,
+): Array<Pair<Expression<*>, SortOrder>> {
+    val lower = name.lowerCase()
+    return listOfNotNull(
+            nameRank(lower, q, match) to SortOrder.ASC,
+            near?.let { (lat, lng) -> BoxDistance(lat, lng, minLat, maxLat, minLng, maxLng) to SortOrder.ASC },
+            lower to SortOrder.ASC,
+            uri to SortOrder.ASC,
+        )
+        .toTypedArray()
 }
 
 /** A path name search's match: a path or a segment group by [key], its name's [rank], its box's distance [away] and its [name]. */
