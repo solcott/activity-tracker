@@ -68,6 +68,18 @@ data class AppViewConfig(
      * (`APPVIEW_ALLOW_PRIVATE_ADDRESSES=true`; identity/outbound-requests). Local dev only, where every PDS and `did:web` is `localhost`.
      */
     val allowPrivateAddresses: Boolean = false,
+    /** The app the Android App Links in `/.well-known/assetlinks.json` name (`ANDROID_APP_PACKAGE`; ui/deep-links). */
+    val androidPackage: String = DEFAULT_ANDROID_PACKAGE,
+    /**
+     * SHA-256 fingerprints of the certificates the Android app is signed with (`ANDROID_CERT_SHA256`, comma-separated, `AB:CD:…`). Empty:
+     * `/.well-known/assetlinks.json` answers 404, so Android verifies no links here.
+     */
+    val androidCertSha256: List<String> = emptyList(),
+    /**
+     * The iOS app IDs (`<team id>.<bundle id>`) the Universal Links in `/.well-known/apple-app-site-association` name (`APPLE_APP_IDS`,
+     * comma-separated). Empty: that file answers 404.
+     */
+    val appleAppIds: List<String> = emptyList(),
 ) {
     /** Where terrain tiles live and at which zoom they were fetched. */
     data class TerrainTilesConfig(val dir: String, val zoom: Int)
@@ -93,6 +105,11 @@ data class AppViewConfig(
 
         /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
         const val DEFAULT_TERRAIN_ZOOM = TerrainTiles.DEFAULT_ZOOM
+
+        /** The Android app's application id. */
+        const val DEFAULT_ANDROID_PACKAGE = "io.github.solcott.activitytracker"
+
+        private fun list(value: String?): List<String> = value.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
         /** Terrarium tiles' deepest zoom. */
         const val MAX_TERRAIN_ZOOM = TerrainTiles.MAX_ZOOM
@@ -128,6 +145,9 @@ data class AppViewConfig(
                 segmentNames = SegmentNameRules.fromEnv(env),
                 terrainTiles = terrainTiles(env),
                 allowPrivateAddresses = env["APPVIEW_ALLOW_PRIVATE_ADDRESSES"]?.trim().equals("true", ignoreCase = true),
+                androidPackage = env["ANDROID_APP_PACKAGE"]?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_ANDROID_PACKAGE,
+                androidCertSha256 = list(env["ANDROID_CERT_SHA256"]),
+                appleAppIds = list(env["APPLE_APP_IDS"]),
             )
         }
 

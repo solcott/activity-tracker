@@ -78,6 +78,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveChannel
+import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -87,6 +88,8 @@ import io.ktor.utils.io.readBuffer
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -313,8 +316,56 @@ suspend fun ApplicationCall.respondXrpcError(status: Int, error: String, message
  * `did:web` document and OAuth client metadata for native apps. With a [signingKey], the document also publishes it as `#atproto`, which
  * PDSes use to verify the delegation tokens the AppView signs to sync athletes' spaces.
  */
+/**
+ * The files Android App Links and iOS Universal Links verify the app's links against (ui/deep-links), each only once configured: JSON
+ * served here, never redirected, as both platforms require.
+ */
+private fun Route.appLinkRoutes(config: AppViewConfig) {
+    get("/.well-known/assetlinks.json") {
+        if (config.androidCertSha256.isEmpty()) return@get call.respond(HttpStatusCode.NotFound)
+        val links = buildJsonArray {
+            addJsonObject {
+                putJsonArray("relation") { add("delegate_permission/common.handle_all_urls") }
+                putJsonObject("target") {
+                    put("namespace", "android_app")
+                    put("package_name", config.androidPackage)
+                    putJsonArray("sha256_cert_fingerprints") { config.androidCertSha256.forEach { add(it) } }
+                }
+            }
+        }
+        call.respondText(links.toString(), ContentType.Application.Json)
+    }
+
+    get("/.well-known/apple-app-site-association") {
+        if (config.appleAppIds.isEmpty()) return@get call.respond(HttpStatusCode.NotFound)
+        val association = buildJsonObject {
+            putJsonObject("applinks") {
+                putJsonArray("details") {
+                    addJsonObject {
+                        putJsonArray("appIDs") { config.appleAppIds.forEach { add(it) } }
+                        putJsonArray("components") {
+                            // The AppView's own paths are never the app's links.
+                            for (path in NOT_LINKS) addJsonObject {
+                                put("/", path)
+                                put("exclude", true)
+                            }
+                            addJsonObject { put("/", "/*") }
+                        }
+                    }
+                }
+            }
+        }
+        call.respondText(association.toString(), ContentType.Application.Json)
+    }
+}
+
+/** The AppView's own paths, which the iOS app never opens as links. */
+private val NOT_LINKS = listOf("/oauth/*", "/xrpc/*", "/.well-known/*", "/img/*")
+
 fun Route.wellKnownRoutes(config: AppViewConfig, signingKey: AppViewSigningKey? = null) {
     get("/.well-known/did.json") { call.respondText(didDocument(config, signingKey).toString(), ContentType.Application.Json) }
+
+    appLinkRoutes(config)
 
     get("/oauth/client-metadata.json") {
         val metadata = buildJsonObject {

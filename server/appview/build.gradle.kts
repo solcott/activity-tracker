@@ -49,6 +49,9 @@ fun localStackEnvironment(
     default("SEGMENT_ACTIVE_ATHLETES") { fromDockerEnv("SEGMENT_ACTIVE_ATHLETES") }
     // The segment importer's account and how many riders make a staged candidate ridden, when docker/.env sets them.
     for (key in listOf("SEGMENT_IMPORTER_DID", "SEGMENT_CANDIDATE_RIDERS")) default(key) { fromDockerEnv(key) }
+    // What Android App Links and iOS Universal Links verify (ui/deep-links): the debug keystore's fingerprint and the Apple app id
+    // scripts/dev.sh writes into docker/.env.
+    for (key in listOf("ANDROID_CERT_SHA256", "APPLE_APP_IDS")) default(key) { fromDockerEnv(key) }
     // Terrain tiles scripts/terrain-fetch.sh writes into build/terrain, so segments get terrain elevation
     // (segments/segment-elevation).
     default("TERRAIN_TILES_DIR") { rootDir.resolve("build/terrain").takeIf { it.isDirectory }?.path }
