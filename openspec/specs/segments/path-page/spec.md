@@ -24,6 +24,10 @@ The Trail page SHALL list the segments on the path that the viewer may see, one 
 - **WHEN** an athlete's segment covers part of Ann's and part of Hogback
 - **THEN** it is listed on both trails' pages
 
+#### Scenario: One-way for one sport
+- **WHEN** the Clarks trail holds a one-way ride segment that clearly climbs and run and hike segments both ways, on two lines
+- **THEN** its rows' details read "<length> · Ride · Uphill only" and "<length> · Run, Hike · Both ways"
+
 ### Requirement: The Trail page keeps the browse sport filter
 When opened from browse with one sport group chosen, the Trail page SHALL list only that group's segments and SHALL offer to show all sport groups.
 
