@@ -51,6 +51,18 @@ class ModuleBoundariesTest {
         assertNotNull(boundaryViolation(":app-host", ":app-common-presenter"))
         assertNotNull(boundaryViolation(":app-host", ":app-common-presenter-testing"))
         assertNull(boundaryViolation(":composeApp", ":app-host"))
+        assertNull(boundaryViolation(":app-host", ":app-links"))
+    }
+
+    @Test
+    fun `the link module sees only contracts and core`() {
+        assertNull(boundaryViolation(":app-links", ":app-common-api"))
+        assertNull(boundaryViolation(":app-links", ":feature-segment-api"))
+        assertNull(boundaryViolation(":app-links", ":core-lexicon"))
+        assertNotNull(boundaryViolation(":app-links", ":feature-segment-presenter"))
+        assertNotNull(boundaryViolation(":app-links", ":feature-segment-ui"))
+        assertNotNull(boundaryViolation(":app-links", ":app-common-presenter"))
+        assertNotNull(boundaryViolation(":app-links", ":app-host"))
     }
 
     @Test

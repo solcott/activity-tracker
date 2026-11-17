@@ -63,6 +63,7 @@ listOf(
         "app/fixtures",
         "app/graph",
         "app/host",
+        "app/links",
         "ui/designsystem",
         "ui/resources",
         "feature/search/api",
