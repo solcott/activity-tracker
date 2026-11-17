@@ -38,7 +38,9 @@ Test results land in `<module>/build/test-results/<task>/*.xml`.
 - **Configuration-cache problems** (`Configuration cache problems found`) are build-logic defects. Quote the first problem line and its source location.
 - Don't run the Docker stack, the AppView `run` task, or the web dev server. Those are long-running and belong to the caller.
 
-## Output contract (≤ ~20 lines)
+## Output contract
+
+Return only what the caller needs to act on:
 
 1. A verdict line: the task(s) and PASSED/FAILED.
 2. The test count and the task that produced it, whenever tests ran.
