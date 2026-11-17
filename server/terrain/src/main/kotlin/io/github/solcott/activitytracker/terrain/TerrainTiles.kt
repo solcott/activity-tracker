@@ -1,7 +1,6 @@
-package io.github.solcott.activitytracker.appview.segments
+package io.github.solcott.activitytracker.terrain
 
-import io.github.solcott.activitytracker.appview.boundedCache
-import io.github.solcott.activitytracker.appview.index.E7
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.solcott.activitytracker.location.ElevationGain
 import io.github.solcott.activitytracker.location.ElevationProfile
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -28,7 +27,7 @@ import kotlin.math.tan
 class TerrainTiles(private val dir: File, private val zoom: Int) {
     private val tiles = (1 shl zoom)
     /** Decoded tiles by [key]; [MISSING] for one that isn't there or doesn't decode, as Caffeine holds no nulls. */
-    private val cache = boundedCache<Long, FloatArray>(CACHED_TILES.toLong())
+    private val cache = Caffeine.newBuilder().maximumSize(CACHED_TILES.toLong()).executor(Runnable::run).build<Long, FloatArray>()
 
     /**
      * The areas the tiles at [zoom] cover, from the `{x}/{y}.png` files present: each column's runs of consecutive tiles, merged with the
@@ -167,6 +166,12 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
             return runs
         }
 
+        /** The zoom tiles are read at unless told otherwise: about 28 m a pixel at 45 degrees. */
+        const val DEFAULT_ZOOM = 12
+
+        /** The highest zoom tiles may be read at. */
+        const val MAX_ZOOM = 15
+
         /** Spacing of terrain samples along a segment's line, in meters. */
         const val SAMPLE_SPACING_M = 10.0
 
@@ -185,6 +190,8 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val BYTE_VALUES = 256
         private const val TERRARIUM_OFFSET = 32768f
         private const val TENTHS = 10.0
+        /** Degrees to 1e-7 degrees, as the lexicons and tables store positions. */
+        private const val E7 = 1e7
     }
 }
 

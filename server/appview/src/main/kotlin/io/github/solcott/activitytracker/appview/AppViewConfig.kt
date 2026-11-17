@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
@@ -91,10 +92,10 @@ data class AppViewConfig(
         const val MANAGING_APP_FRAGMENT = "activitytracker_space"
 
         /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
-        const val DEFAULT_TERRAIN_ZOOM = 12
+        const val DEFAULT_TERRAIN_ZOOM = TerrainTiles.DEFAULT_ZOOM
 
         /** Terrarium tiles' deepest zoom. */
-        const val MAX_TERRAIN_ZOOM = 15
+        const val MAX_TERRAIN_ZOOM = TerrainTiles.MAX_ZOOM
 
         fun fromEnv(env: Map<String, String> = System.getenv()): AppViewConfig {
             val port = env["APPVIEW_PORT"]?.toInt() ?: 8081

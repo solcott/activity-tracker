@@ -96,6 +96,8 @@ dependencies {
     implementation(projects.coreAtproto)
     // Segment geometry and cells (SegmentGeometry, SegmentCells), shared with clients.
     implementation(projects.coreLocation)
+    // Terrain tiles for segment elevation (segments/segment-elevation), shared with the segment importer.
+    implementation(projects.serverTerrain)
     implementation(libs.bouncycastle)
     implementation(libs.caffeine)
     implementation(libs.exposed.core)

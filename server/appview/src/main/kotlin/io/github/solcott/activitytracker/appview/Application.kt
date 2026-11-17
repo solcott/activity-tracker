@@ -49,7 +49,6 @@ import io.github.solcott.activitytracker.appview.moderation.OzoneClient
 import io.github.solcott.activitytracker.appview.net.GuardedHttp
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
-import io.github.solcott.activitytracker.appview.segments.TerrainTiles
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
@@ -59,6 +58,7 @@ import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets

@@ -1,6 +1,5 @@
-package io.github.solcott.activitytracker.appview
+package io.github.solcott.activitytracker.terrain
 
-import io.github.solcott.activitytracker.appview.segments.TerrainTiles
 import io.github.solcott.activitytracker.location.ElevationGain
 import io.github.solcott.activitytracker.location.ElevationProfile
 import io.github.solcott.activitytracker.location.GeoPoint

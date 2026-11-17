@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentPass
 import io.github.solcott.activitytracker.location.TimedPoint
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToLong
