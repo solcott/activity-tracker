@@ -71,7 +71,7 @@ internal fun extract(
     paths: File? = null,
     terrain: TerrainTiles? = null,
 ) {
-    val osm = pbf?.let { OsmReader.read(it, roads = paths != null) } ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
+    val osm = pbf?.let { OsmReader.read(it) } ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
     val agencyData = agency.takeIf { it.isNotEmpty() }?.let(AgencyReader::read)
     val data = agencyData?.let { osm + it } ?: osm
     val closures = ClosureFilter(data.agencyLines)

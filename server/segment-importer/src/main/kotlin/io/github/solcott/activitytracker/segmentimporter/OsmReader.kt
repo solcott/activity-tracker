@@ -9,15 +9,14 @@ import kotlin.time.Instant
 /**
  * Reads an `.osm.pbf` extract into [OsmData], keeping only what trails need. PBF stores nodes, then ways, then relations, so it reads the
  * file three times: relations first (named route relations and their member ways), then ways (trail ways, members, and named highways for
- * junctions), then the coordinates of only the nodes trail ways and members use. Ids are held in sorted [LongArray]s.
+ * junctions), then the coordinates of the kept ways' nodes. Ids are held in sorted [LongArray]s.
  */
 internal object OsmReader {
-    /** [roads]: also the coordinates of named roads' nodes, for road paths (segments/path-import). */
-    fun read(pbf: File, roads: Boolean = false): OsmData {
+    fun read(pbf: File): OsmData {
         val relations = RelationPass { TrailTags.relationGroups(it).isNotEmpty() }.also { pbf.process(it) }
         val members =
             LongSetBuilder().apply { relations.kept.forEach { r -> r.members.forEach { if (it.type == WAY) add(it.ref) } } }.build()
-        val ways = WayPass(members, roads).also { pbf.process(it) }
+        val ways = WayPass(members).also { pbf.process(it) }
         val coords = NodeCoords(ways.nodes.build())
         pbf.process(NodePass(coords))
         return OsmData(ways.kept, relations.kept, coords, relations.timestamp)
@@ -130,8 +129,11 @@ internal object OsmReader {
         }
     }
 
-    /** Keeps trail ways, relation [members], ski lifts and named highways; collects the nodes whose coordinates all but the last need. */
-    private class WayPass(private val members: LongArray, private val roads: Boolean) : Pass() {
+    /**
+     * Keeps trail ways, relation [members], ski lifts and named highways, and collects every kept way's nodes for coordinates: a trail may
+     * follow a named road or another trail for a short shared stretch (segments/trail-candidates), and named roads are road paths.
+     */
+    private class WayPass(private val members: LongArray) : Pass() {
         val kept = mutableListOf<OsmWay>()
         val nodes = LongSetBuilder()
 
@@ -142,7 +144,7 @@ internal object OsmReader {
                 if (!trail && !TrailTags.marksJunctions(tags)) continue
                 val refs = refs(way)
                 kept += OsmWay(way.id, tags, refs)
-                if (trail || (roads && RoadPaths.isRoad(tags))) nodes.addAll(refs)
+                nodes.addAll(refs)
             }
         }
     }

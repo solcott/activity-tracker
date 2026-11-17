@@ -39,12 +39,12 @@ class OsmReaderTest {
     }
 
     @Test
-    fun keepsCoordinatesOnlyForTrailNodes() {
+    fun keepsCoordinatesOnlyForKeptWaysNodes() {
         val first = assertNotNull(data.coords[1])
         assertEquals(44.40, first.lat, 1e-6)
         assertEquals(-72.70, first.lng, 1e-6)
         assertNotNull(data.coords[41], "a relation member's node")
-        assertNull(data.coords[20], "a road's node")
+        assertNotNull(data.coords[20], "a named road's node, which a trail may follow as shared tread")
         assertNull(data.coords[30], "an unnamed path's node")
     }
 
