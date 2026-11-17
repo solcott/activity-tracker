@@ -74,6 +74,8 @@ enum class AppIcon(
     CollapseAll(MaterialIcons.UnfoldLess, "rectangle.compress.vertical"),
     Expand(MaterialIcons.Fullscreen, "arrow.up.left.and.arrow.down.right"),
     Recenter(MaterialIcons.CenterFocusStrong, "scope"),
+    ZoomIn(Icons.Filled.Add, "plus"),
+    ZoomOut(MaterialIcons.Remove, "minus"),
     Like(
         Icons.Outlined.ThumbUp,
         "hand.thumbsup",

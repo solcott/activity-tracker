@@ -24,6 +24,8 @@ fun AppSegmentedControl(
                 selected = index == selected,
                 onClick = { onSelect(index) },
                 shape = SegmentedButtonDefaults.itemShape(index, labels.size),
+                // Each choice takes width in proportion to its label, so a long one ("Trails & roads") isn't cut off beside short ones.
+                modifier = Modifier.weight((label.length + CHECK_WEIGHT).toFloat()),
                 enabled = enabled,
             ) {
                 Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -31,3 +33,6 @@ fun AppSegmentedControl(
         }
     }
 }
+
+/** Room for the selected choice's check, in characters, given to every choice so the widths stay put as the selection moves. */
+private const val CHECK_WEIGHT = 4

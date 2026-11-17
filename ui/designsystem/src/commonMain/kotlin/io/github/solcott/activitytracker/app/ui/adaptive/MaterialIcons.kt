@@ -48,6 +48,11 @@ internal object MaterialIcons {
             )
         }
 
+    val Remove: ImageVector =
+        materialIcon("Filled.Remove") {
+            addPath(PathParser().parsePathString("M19,13H5v-2h14v2z").toNodes(), fill = SolidColor(Color.Black))
+        }
+
     val CenterFocusStrong: ImageVector =
         materialIcon("Filled.CenterFocusStrong") {
             addPath(
