@@ -19,18 +19,25 @@ data class LinkPlan(val tab: LinkTab, val chain: List<Screen>)
 /**
  * How a stack takes a link's chain (ui/deep-links): keep the first [keep] screens and go to each of [push]. When the stack already holds
  * the chain's first screen it is kept up to its last place and as far past it as it goes on matching the chain, so a page isn't opened
- * twice; otherwise the whole chain goes on top. An empty chain keeps only the tab's first screen.
+ * twice; otherwise the whole chain goes on top. An empty chain keeps only the tab's first screen. A screen matches one of the chain when
+ * they are the same page ([samePage]), whatever else the stack's was opened with.
  */
 data class StackEdit(val keep: Int, val push: List<Screen>) {
     companion object {
         @Suppress("ReturnCount") // An empty chain and one the stack doesn't hold are answered first.
         fun of(current: List<Screen>, chain: List<Screen>): StackEdit {
             if (chain.isEmpty()) return StackEdit(1, emptyList())
-            val at = current.lastIndexOf(chain.first())
+            val at = current.indexOfLast { samePage(it, chain.first()) }
             if (at < 0) return StackEdit(current.size, chain)
             var matched = 1
-            while (matched < chain.size && current.getOrNull(at + matched) == chain[matched]) matched++
+            while (matched < chain.size && current.getOrNull(at + matched)?.let { samePage(it, chain[matched]) } == true) matched++
             return StackEdit(maxOf(at + matched, 1), chain.drop(matched))
         }
+
+        /**
+         * Whether [a] and [b] show the same page: equal, or with the same link. A screen opened inside the app carries arguments a link
+         * leaves out (a title to show before it loads, `suggestOnOpen`), so a link's chain never equals it.
+         */
+        fun samePage(a: Screen, b: Screen): Boolean = a == b || AppLinkRoutes.linkOf(a)?.let { it == AppLinkRoutes.linkOf(b) } == true
     }
 }

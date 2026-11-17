@@ -113,4 +113,27 @@ class LinkPlanTest {
         )
         assertEquals(StackEdit(1, listOf(seg)), StackEdit.of(listOf(FeedScreen), listOf(FeedScreen, seg)), "the root is kept")
     }
+
+    @Test
+    fun aPageOpenedInTheAppMatchesItsLinkWhateverItWasOpenedWith() {
+        val seg = SegmentScreen(segment)
+        val board = SegmentLeaderboardScreen(segment)
+        val titled = SegmentLeaderboardScreen(segment, name = "Hill")
+        assertEquals(
+            StackEdit(3, emptyList()),
+            StackEdit.of(listOf(FeedScreen, seg, titled), listOf(seg, board)),
+            "the titled board is kept",
+        )
+        val uploaded = ActivityDetailScreen(bobActivity, suggestOnOpen = true)
+        assertEquals(
+            StackEdit(2, emptyList()),
+            StackEdit.of(listOf(FeedScreen, uploaded), listOf(ActivityDetailScreen(bobActivity))),
+            "an activity opened to suggest segments",
+        )
+        assertEquals(
+            StackEdit(2, listOf(SegmentLeaderboardScreen(segment, board = "run"))),
+            StackEdit.of(listOf(FeedScreen, seg, titled), listOf(seg, SegmentLeaderboardScreen(segment, board = "run"))),
+            "another board is another page",
+        )
+    }
 }
