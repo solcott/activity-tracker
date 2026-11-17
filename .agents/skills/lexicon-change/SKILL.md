@@ -40,7 +40,7 @@ For a **record**:
 - For a new field on an existing record, decide whether a column is needed (filtering or sorting) or whether the stored `record` JSON is enough.
 
 For a **query**:
-- `api/Views.kt`: a `suspend fun` in `db.tx { }` that builds the `Output`. Reuse `hydrate`/`basicProfiles`/`countBySubject` where they fit.
+- `api/Views.kt`: a `suspend fun` in `db.tx { }` that builds the `Output`. Reuse `hydrate`/`basicProfiles` where they fit.
 - `api/Routes.kt`: `xrpcQuery(GetX.method, verifier) { params, viewer -> views.x(viewer, params) }`. Throw `AuthException` if a viewer is required, and `XrpcError(400, "Name", msg)` for bad input.
 
 Test in `src/test/.../AppViewTest.kt`: commit Jetstream events through the real `Indexer` (including a `delete` op), then read back through `testApplication` over HTTP.

@@ -49,4 +49,4 @@ Also flag: NSID string literals outside `Nsid.kt` (other than lexicon JSON and `
 - Then one bullet per issue: `[layer] file:line — what's wrong — what it should be`. Order: decode or runtime breakers first (missing from `indexedCollections`, required/optional mismatch, missing `$type`), then data loss (missing delete path, truncation), then drift (docs, units, tests).
 - If a check couldn't be done (for example, no migration exists yet), say so in one line rather than guessing.
 
-Keep it under ~30 lines. Don't restate code that's correct.
+List every issue, one line each; don't restate code that's correct.

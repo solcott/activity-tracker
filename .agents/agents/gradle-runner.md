@@ -16,7 +16,7 @@ Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-l
 |---|---|
 | Fast compile check, client module | `:<m>:compileKotlinJvm` (Metro/Circuit codegen errors show up here) |
 | Fast tests, client module | `:<m>:jvmTest` (optionally `--tests "*.ClassName"`) |
-| Every target's tests, one module | `:<m>:allTests` (wasm tests are disabled repo-wide, so this means jvm + iOS simulator, plus the Android host in modules with `src/androidMain`) |
+| Every target's tests, one module | `:<m>:allTests` (wasm tests are disabled repo-wide, so this means jvm, the iOS simulator in modules with iOS targets (Compose modules have none), and the Android host in modules with `src/androidMain` or `src/androidHostTest`) |
 | iOS tests only | `:<m>:iosSimulatorArm64Test` |
 | AppView | `:server-appview:test` (H2, no Docker needed) |
 | Convention plugins | `./gradlew -p build-logic :convention:test` |
@@ -42,7 +42,7 @@ Test results land in `<module>/build/test-results/<task>/*.xml`.
 
 1. A verdict line: the task(s) and PASSED/FAILED.
 2. The test count and the task that produced it, whenever tests ran.
-3. On failure only: the failing task name and the `* What went wrong:` block, or the first compiler errors as `file:line: message`, ≤15 lines. If several tasks failed, name them all and excerpt the first.
+3. On failure only: the failing task name and the `* What went wrong:` block, or the first compiler errors as `file:line: message`, as many as identify the failure. If several tasks failed, name them all and excerpt the first.
 4. One sentence for anything surprising: nothing re-ran, zero tests, an environment problem, a task that doesn't exist.
 
 Never paste `> Task` lines, warnings, deprecation notices, the daemon banner, the configuration-cache report, or full stack traces.
