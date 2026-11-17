@@ -327,7 +327,7 @@ A segment SHALL have a kind: `run`, a stretch an athlete travels under their own
 - **THEN** the AppView returns no segments and no cursor
 
 ### Requirement: Name results are ranked by match, then distance
-`feed.searchSegmentNames` SHALL list routes (segments/segment-routes), each ranked by its best-matching listed member: the whole name, then names starting with the query, then a word starting with it, then the rest. Within a rank, routes come nearest first to a given centre, else by name. A page SHALL hold every member of its routes the search would serve, matching or not, together. The limit and cursor SHALL count routes, and following them SHALL return each matching route once.
+`feed.searchSegmentNames` SHALL list segment groups (segments/segment-groups), each ranked by its best-matching listed member: the whole name, then names starting with the query, then a word starting with it, then the rest; within a rank, nearest first to a given centre, else by name. A page SHALL hold together every member of its segment groups the search would serve, matching or not. The limit and cursor SHALL count segment groups, returning each matching one once.
 
 #### Scenario: Prefix before anywhere
 - **WHEN** a viewer searches "hog" and segments "Hogback Climb" and "Big Hog Loop" and "Shoghill" match
@@ -338,12 +338,12 @@ A segment SHALL have a kind: `run`, a stretch an athlete travels under their own
 - **THEN** the second comes first
 
 #### Scenario: One route, six segments
-- **WHEN** a viewer searches "ann's" with a limit of 2 and the route of Ann's holds ride, run and hike segments each way
-- **THEN** the first page holds all six of Ann's segments together and the next matching route's segments, and Ann's isn't returned again on later pages
+- **WHEN** a viewer searches "ann's" with a limit of 2 and the segment group of Ann's holds ride, run and hike segments each way
+- **THEN** the first page holds all six of Ann's segments together and the next matching segment group's segments, and Ann's isn't returned again on later pages
 
 #### Scenario: Renamed member
-- **WHEN** one member of a route has adopted the name "Wiggly Woods" and the others are still "Trail 214"
-- **THEN** a search for "wiggly" returns the whole route, ranked by "Wiggly Woods"
+- **WHEN** one member of a segment group has adopted the name "Wiggly Woods" and the others are still "Trail 214"
+- **THEN** a search for "wiggly" returns the whole segment group, ranked by "Wiggly Woods"
 
 ### Requirement: Name search can be limited to an area and a sport group
 `feed.searchSegmentNames` SHALL take an optional bounding box and return only matches whose line passes through it, under the same 1 degree limit as `feed.searchSegments`, answering `InvalidRequest` beyond it. It SHALL take an optional sport group and return only matches of that group.
