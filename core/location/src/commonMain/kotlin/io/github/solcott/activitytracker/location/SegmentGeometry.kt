@@ -162,9 +162,9 @@ object SegmentGeometry {
     }
 
     /**
-     * Whether [a] and [b] follow the same path either way (segments/segment-routes): [a] [duplicates] [b] as drawn, or with [a] reversed.
+     * Whether [a] and [b] follow the same path either way (segments/segment-groups): [a] [duplicates] [b] as drawn, or with [a] reversed.
      */
-    fun sameRoute(a: List<GeoPoint>, b: List<GeoPoint>): Boolean = duplicates(a, b) || duplicates(a.asReversed(), b)
+    fun sameLine(a: List<GeoPoint>, b: List<GeoPoint>): Boolean = duplicates(a, b) || duplicates(a.asReversed(), b)
 
     /** How far [p] is from the nearest stretch of [line], in meters; from its one point when it has only one. */
     fun distanceToLineMeters(p: GeoPoint, line: List<GeoPoint>): Double =
@@ -345,7 +345,7 @@ object SegmentGeometry {
     }
 
     /** Distance from [p] to the stretch a→b, in meters. */
-    private fun toSegmentMeters(p: GeoPoint, a: GeoPoint, b: GeoPoint): Double {
+    internal fun toSegmentMeters(p: GeoPoint, a: GeoPoint, b: GeoPoint): Double {
         val f = projection(p, a, b)
         val (ax, ay) = local(a, p)
         val (bx, by) = local(b, p)

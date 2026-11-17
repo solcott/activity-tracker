@@ -264,27 +264,27 @@ class SegmentGeometryTest {
     fun reversedCopyIsTheSameRoute() {
         val original = line(climb)
         val back = line(climb, spacing = 7.0) { i -> 8.0 * sin(i * 7.0 / 40.0) }.reversed()
-        assertTrue(SegmentGeometry.sameRoute(original, back))
-        assertTrue(SegmentGeometry.sameRoute(back, original))
+        assertTrue(SegmentGeometry.sameLine(original, back))
+        assertTrue(SegmentGeometry.sameLine(back, original))
     }
 
     @Test
     fun sameDirectionCopyIsTheSameRoute() {
-        assertTrue(SegmentGeometry.sameRoute(line(climb), line(climb, spacing = 9.0)))
+        assertTrue(SegmentGeometry.sameLine(line(climb), line(climb, spacing = 9.0)))
     }
 
     @Test
     fun longerStretchIsNotTheSameRoute() {
         val longer = line(climb + (900.0 to 4400.0))
-        assertFalse(SegmentGeometry.sameRoute(line(climb), longer))
-        assertFalse(SegmentGeometry.sameRoute(line(climb), longer.reversed()))
+        assertFalse(SegmentGeometry.sameLine(line(climb), longer))
+        assertFalse(SegmentGeometry.sameLine(line(climb), longer.reversed()))
     }
 
     @Test
     fun lineFiftyMetersOffIsNotTheSameRoute() {
         val off = line(climb) { 50.0 }
-        assertFalse(SegmentGeometry.sameRoute(line(climb), off))
-        assertFalse(SegmentGeometry.sameRoute(line(climb), off.reversed()))
+        assertFalse(SegmentGeometry.sameLine(line(climb), off))
+        assertFalse(SegmentGeometry.sameLine(line(climb), off.reversed()))
     }
 
     @Test
