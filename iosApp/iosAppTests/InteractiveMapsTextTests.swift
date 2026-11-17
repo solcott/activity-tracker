@@ -55,6 +55,13 @@ struct InteractiveMapsTextTests {
         #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Metric)).hasPrefix("Trail · "))
     }
 
+    @Test func aOneWayTrailSaysWhichSportGoesOneWay() throws {
+        let state = try #require(Samples.path["oneWay"])
+        let lines = state.groups.map { AppStrings.string(PathTexts.shared.details(group: $0, units: .Imperial)) }
+        #expect(lines == ["1.42 mi · Ride · Uphill only", "1.26 mi · Run, Hike · Both ways"])
+        #expect(AppStrings.string(PathTexts.shared.name(group: state.groups[1])) == "Clarks - Bikes Uphill Only")
+    }
+
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {
         let state = try #require(Samples.diveSiteBrowse["loaded"])
         #expect(state.listShows(mapSupported: true) == .Area)

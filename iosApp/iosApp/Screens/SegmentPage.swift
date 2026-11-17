@@ -90,7 +90,7 @@ struct SegmentPage: View {
 }
 
 /// The segment group's sport groups as a menu chip and the shown group's directions as a segmented choice (segments/segment-groups); choosing one
-/// sends the event Kotlin builds, which replaces the page with that segment's.
+/// sends the event Kotlin builds, which replaces the page with that segment's. A one-way sport group's one direction is a disabled choice.
 private struct GroupChoices: View {
     let group: GroupSwitcher
     let send: (any SegmentEvent) -> Void
@@ -98,12 +98,23 @@ private struct GroupChoices: View {
     var body: some View {
         let directions = group.directions
         VStack(alignment: .leading, spacing: 8) {
-            AppMenuChip(
-                nil, filled: true,
-                selection: Binding(get: { group.currentSport }, set: { sport in if let event = group.sportEvent(sport: sport) { send(event) } }),
-                options: group.sports,
-                optionLabel: { AppStrings.string(GroupSwitcherTexts.shared.sport(sport: $0)) })
-            if directions.count > 1 {
+            if group.showsSports {
+                AppMenuChip(
+                    nil, filled: true,
+                    selection: Binding(get: { group.currentSport }, set: { sport in if let event = group.sportEvent(sport: sport) { send(event) } }),
+                    options: group.sports,
+                    optionLabel: { AppStrings.string(GroupSwitcherTexts.shared.sport(sport: $0)) })
+            }
+            if group.oneWay, let direction = directions.first {
+                // A one-way sport group's one direction (segments/segment-direction): the choice, shown but not changeable.
+                Picker(selection: .constant(0)) {
+                    Text(GroupSwitcherTexts.shared.oneWay(direction: direction)).tag(0)
+                } label: {
+                    EmptyView()
+                }
+                .pickerStyle(.segmented)
+                .disabled(true)
+            } else if directions.count > 1 {
                 Picker(selection: Binding(
                     get: { directions.firstIndex { group.isCurrent(direction: $0) } ?? 0 },
                     set: { index in if let event = group.directionEvent(direction: directions[index]) { send(event) } }

@@ -23,6 +23,17 @@ struct SegmentTextTests {
         #expect(state.offersLeaderboard)
     }
 
+    @Test func aLoneOneWaySegmentReadsUphillOnly() throws {
+        let group = try #require(Samples.segmentVariants["oneWay"]?.group)
+        #expect(group.offered && group.oneWay && !group.showsSports)
+        #expect(read(GroupSwitcherTexts.shared.oneWay(direction: try #require(group.directions.first))) == "Uphill only")
+    }
+
+    @Test func aClimbingGroupReadsUphillAndDownhill() throws {
+        let group = try #require(Samples.segmentVariants["groupByClimb"]?.group)
+        #expect(Set(group.directions.map { read(GroupSwitcherTexts.shared.direction(direction: $0)) }) == ["Uphill", "Downhill"])
+    }
+
     @Test func aLiftHasNoBoardsAndCountsRides() throws {
         let state = try #require(Samples.segment["lift"])
         let segment = try #require(state.segment)
