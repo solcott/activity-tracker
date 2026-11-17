@@ -1,5 +1,9 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.FIRST_NAME_BATCH
+import io.github.solcott.activitytracker.appview.api.NameBatch
+import io.github.solcott.activitytracker.appview.api.NameHit
+import io.github.solcott.activitytracker.appview.api.bestHits
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -157,6 +161,32 @@ class SegmentPathsTest : SegmentTestBase() {
         val all = (first.results + second.results + third?.results.orEmpty()).map { it.path?.uri?.value ?: it.group!!.first().uri.value }
         assertEquals(all.distinct(), all, "each result once")
         assertEquals(3, all.size, "Ann's (Lot), Hogback and Big Hog Loop; Annex Road has no segments")
+    }
+
+    @Test
+    fun nameMatchesAreReadOnlyUntilThePageIsFound() {
+        // Rows in rank order; each pair of rows names one result, as two segments of one trail would.
+        val rows = (0 until 1_000).map { NameHit("r${it / 2}", path = true, rank = 0, away = it.toLong(), name = "row") }
+        val asked = mutableListOf<Pair<Int, Long>>()
+        val hits =
+            bestHits(need = 30) { size, skip ->
+                asked += size to skip
+                val batch = rows.drop(skip.toInt()).take(size)
+                NameBatch(batch, batch.size)
+            }
+        assertEquals(listOf(FIRST_NAME_BATCH to 0L), asked, "one first batch of 100 rows holds the 30 results asked for")
+        assertEquals(50, hits.map { it.key }.distinct().size, "the batch's 50 results, read no further")
+        val more = mutableListOf<Pair<Int, Long>>()
+        val deeper =
+            bestHits(need = 120) { size, skip ->
+                more += size to skip
+                val batch = rows.drop(skip.toInt()).take(size)
+                NameBatch(batch, batch.size)
+            }
+        assertEquals(listOf(240 to 0L), more, "a deeper page reads twice what it needs at once")
+        assertEquals(120, deeper.map { it.key }.distinct().size)
+        val short = bestHits(need = 600) { size, skip -> rows.drop(skip.toInt()).take(size).let { NameBatch(it, it.size) } }
+        assertEquals(500, short.map { it.key }.distinct().size, "every row read when there are fewer results than asked")
     }
 
     @Test

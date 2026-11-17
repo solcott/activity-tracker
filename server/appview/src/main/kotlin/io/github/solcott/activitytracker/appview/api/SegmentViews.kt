@@ -356,7 +356,8 @@ class SegmentViews(
      * Trails and roads, and segment groups on none, found by name (segments/segment-paths). A path counts when its own name matches and it
      * has a segment the search lists, or when one of the segments it lists matches; a matching segment on no path brings its segment group.
      * Each result takes its best match (the whole name, a prefix, a word's prefix, anywhere), then its nearest box to the centre, else its
-     * name; results page by offset.
+     * name; results page by offset. Matches are read best first, a batch at a time, only until the page and one more result are found
+     * ([bestHits]), so an early page never ranks every match.
      */
     @Suppress("LongMethod", "CyclomaticComplexMethod") // Two kinds of match, merged and ranked, then each result's view.
     suspend fun searchPathNames(viewer: Did?, params: SearchPathNames.Params): SearchPathNames.Output {
@@ -369,78 +370,101 @@ class SegmentViews(
         return db.tx {
             val match = NameMatch(q)
             val listed = nameListed(viewer, params.sport, box)
-            val hits = mutableListOf<NameHit>()
-            val segments =
-                Segments.select(
-                        Segments.uri,
-                        groupKey,
-                        Segments.currentName,
-                        Segments.minLatE7,
-                        Segments.maxLatE7,
-                        Segments.minLngE7,
-                        Segments.maxLngE7,
-                    )
-                    .where { listed and (Segments.currentName.lowerCase() like match.anywhere) }
-                    // Best first, so the cap keeps the matches a page shows, in an order every page reads alike.
-                    .orderBy(
-                        *bestMatchesFirst(
-                            Segments.currentName,
-                            q,
-                            match,
-                            near,
-                            Segments.minLatE7,
-                            Segments.maxLatE7,
-                            Segments.minLngE7,
-                            Segments.maxLngE7,
-                            Segments.uri,
-                        ),
-                    )
-                    .limit(MAX_NAME_MATCHES)
-                    .toList()
-            val onPaths = pathsOf(segments.map { it[Segments.uri] })
-            for (row in segments) {
-                val rank = rankOf(row[Segments.currentName].lowercase(), q)
-                val away =
-                    near?.let {
-                        boxDistance(it, row[Segments.minLatE7], row[Segments.maxLatE7], row[Segments.minLngE7], row[Segments.maxLngE7])
-                    } ?: 0L
-                val paths = onPaths[row[Segments.uri]].orEmpty()
-                if (paths.isEmpty()) hits += NameHit(row[groupKey], path = false, rank, away, row[Segments.currentName].lowercase())
-                else paths.forEach { hits += NameHit(it, path = true, rank, away, row[Segments.currentName].lowercase()) }
-            }
-            val named =
-                Paths.select(Paths.uri, Paths.name, Paths.minLatE7, Paths.maxLatE7, Paths.minLngE7, Paths.maxLngE7)
-                    .where { Paths.name.lowerCase() like match.anywhere }
-                    .orderBy(
-                        *bestMatchesFirst(
-                            Paths.name,
-                            q,
-                            match,
-                            near,
-                            Paths.minLatE7,
-                            Paths.maxLatE7,
-                            Paths.minLngE7,
-                            Paths.maxLngE7,
-                            Paths.uri,
-                        ),
-                    )
-                    .limit(MAX_NAME_MATCHES)
-                    .toList()
-            val withListed =
-                if (named.isEmpty()) emptySet()
-                else
-                    Segments.join(PathSegments, JoinType.INNER, Segments.uri, PathSegments.segmentUri)
-                        .select(PathSegments.pathUri)
-                        .where { (PathSegments.pathUri inList named.map { it[Paths.uri] }) and listed }
-                        .withDistinct()
-                        .mapTo(mutableSetOf()) { it[PathSegments.pathUri] }
-            for (row in named.filter { it[Paths.uri] in withListed }) {
-                val away =
-                    near?.let { boxDistance(it, row[Paths.minLatE7], row[Paths.maxLatE7], row[Paths.minLngE7], row[Paths.maxLngE7]) } ?: 0L
-                hits += NameHit(row[Paths.uri], path = true, rankOf(row[Paths.name].lowercase(), q), away, row[Paths.name].lowercase())
-            }
+            val need = offset + limit + 1
+            val segmentHits =
+                bestHits(need) { size, skip ->
+                    val segments =
+                        Segments.select(
+                                Segments.uri,
+                                groupKey,
+                                Segments.currentName,
+                                Segments.minLatE7,
+                                Segments.maxLatE7,
+                                Segments.minLngE7,
+                                Segments.maxLngE7,
+                            )
+                            .where { listed and (Segments.currentName.lowerCase() like match.anywhere) }
+                            // Best first, so the cap keeps the matches a page shows, in an order every page reads alike.
+                            .orderBy(
+                                *bestMatchesFirst(
+                                    Segments.currentName,
+                                    q,
+                                    match,
+                                    near,
+                                    Segments.minLatE7,
+                                    Segments.maxLatE7,
+                                    Segments.minLngE7,
+                                    Segments.maxLngE7,
+                                    Segments.uri,
+                                ),
+                            )
+                            .limit(size)
+                            .offset(skip)
+                            .toList()
+                    val onPaths = pathsOf(segments.map { it[Segments.uri] })
+                    segments
+                        .flatMap { row ->
+                            val name = row[Segments.currentName].lowercase()
+                            val rank = rankOf(name, q)
+                            val away =
+                                near?.let {
+                                    boxDistance(
+                                        it,
+                                        row[Segments.minLatE7],
+                                        row[Segments.maxLatE7],
+                                        row[Segments.minLngE7],
+                                        row[Segments.maxLngE7],
+                                    )
+                                } ?: 0L
+                            val paths = onPaths[row[Segments.uri]].orEmpty()
+                            if (paths.isEmpty()) listOf(NameHit(row[groupKey], path = false, rank, away, name))
+                            else paths.map { NameHit(it, path = true, rank, away, name) }
+                        }
+                        .let { NameBatch(it, segments.size) }
+                }
+            val pathHits =
+                bestHits(need) { size, skip ->
+                    val named =
+                        Paths.select(Paths.uri, Paths.name, Paths.minLatE7, Paths.maxLatE7, Paths.minLngE7, Paths.maxLngE7)
+                            .where { Paths.name.lowerCase() like match.anywhere }
+                            .orderBy(
+                                *bestMatchesFirst(
+                                    Paths.name,
+                                    q,
+                                    match,
+                                    near,
+                                    Paths.minLatE7,
+                                    Paths.maxLatE7,
+                                    Paths.minLngE7,
+                                    Paths.maxLngE7,
+                                    Paths.uri,
+                                ),
+                            )
+                            .limit(size)
+                            .offset(skip)
+                            .toList()
+                    val withListed =
+                        if (named.isEmpty()) emptySet()
+                        else
+                            Segments.join(PathSegments, JoinType.INNER, Segments.uri, PathSegments.segmentUri)
+                                .select(PathSegments.pathUri)
+                                .where { (PathSegments.pathUri inList named.map { it[Paths.uri] }) and listed }
+                                .withDistinct()
+                                .mapTo(mutableSetOf()) { it[PathSegments.pathUri] }
+                    named
+                        .filter { it[Paths.uri] in withListed }
+                        .map { row ->
+                            val away =
+                                near?.let {
+                                    boxDistance(it, row[Paths.minLatE7], row[Paths.maxLatE7], row[Paths.minLngE7], row[Paths.maxLngE7])
+                                } ?: 0L
+                            val name = row[Paths.name].lowercase()
+                            NameHit(row[Paths.uri], path = true, rankOf(name, q), away, name)
+                        }
+                        .let { NameBatch(it, named.size) }
+                }
             val ranked =
-                hits
+                (segmentHits + pathHits)
                     .groupBy { it.path to it.key }
                     .values
                     .map { same -> same.minWith(NAME_HIT_ORDER) }
@@ -975,9 +999,6 @@ class SegmentViews(
         /** The most segment group members `getSegment` lists, as its lexicon caps them. */
         private const val MAX_ROUTE_MEMBERS = 100
 
-        /** The most matching segments, and paths, one path name search ranks. */
-        private const val MAX_NAME_MATCHES = 5_000
-
         /** How many segment URIs one path lookup carries. */
         private const val PATH_LOOKUP_CHUNK = 1_000
 
@@ -1135,8 +1156,39 @@ private fun bestMatchesFirst(
         .toTypedArray()
 }
 
+/** The most matching segments, and paths, one path name search reads. */
+private const val MAX_NAME_MATCHES = 5_000
+
+/** One batch of a name search's rows read: the [hits] they make and how many [rows] were read. */
+internal data class NameBatch(val hits: List<NameHit>, val rows: Int)
+
+/** The batch [bestHits] reads first; each later one is twice the last. */
+internal const val FIRST_NAME_BATCH = 100
+
+/**
+ * Hits read best first by [read] (`size` rows from `skip`, given back with how many rows it read), a batch at a time, until they hold
+ * [need] distinct results or the rows run out, at most [MAX_NAME_MATCHES] rows. Rows come in the order [NAME_HIT_ORDER] ranks results by,
+ * so a result left unread ranks no better than [need] of those read, and an early page never reads every match.
+ */
+internal fun bestHits(need: Int, read: (size: Int, skip: Long) -> NameBatch): List<NameHit> {
+    val hits = mutableListOf<NameHit>()
+    val results = mutableSetOf<Pair<Boolean, String>>()
+    var skip = 0L
+    var batch = maxOf(need * 2, FIRST_NAME_BATCH)
+    while (skip < MAX_NAME_MATCHES) {
+        val size = minOf(batch.toLong(), MAX_NAME_MATCHES - skip).toInt()
+        val (found, rows) = read(size, skip)
+        skip += rows
+        hits += found
+        found.mapTo(results) { it.path to it.key }
+        if (rows < size || results.size >= need) break
+        batch *= 2
+    }
+    return hits
+}
+
 /** A path name search's match: a path or a segment group by [key], its name's [rank], its box's distance [away] and its [name]. */
-private data class NameHit(val key: String, val path: Boolean, val rank: Int, val away: Long, val name: String)
+internal data class NameHit(val key: String, val path: Boolean, val rank: Int, val away: Long, val name: String)
 
 private val NAME_HIT_ORDER: Comparator<NameHit> = compareBy<NameHit>({ it.rank }, { it.away }, { it.name })
 
