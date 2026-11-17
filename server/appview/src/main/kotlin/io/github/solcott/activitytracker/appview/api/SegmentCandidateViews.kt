@@ -251,6 +251,7 @@ class SegmentCandidateViews(
             license = row[SegmentCandidateRows.license],
             attribution = row[SegmentCandidateRows.attribution],
             kind = row[SegmentCandidateRows.kind].takeIf { it != SegmentKind.RUN },
+            oneWay = true.takeIf { row[SegmentCandidateRows.oneWay] },
         )
 
     /** A candidate that passed validation, with its decoded line. */
@@ -316,6 +317,7 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.dataSource] = candidate.source
             this[SegmentCandidateRows.license] = candidate.license
             this[SegmentCandidateRows.attribution] = staged.attribution
+            this[SegmentCandidateRows.oneWay] = candidate.oneWay == true
             this[SegmentCandidateRows.ridden] = candidate.id !in changedIds && old.getValue(candidate.id)[SegmentCandidateRows.ridden]
             this[SegmentCandidateRows.stagedAt] = now
         }

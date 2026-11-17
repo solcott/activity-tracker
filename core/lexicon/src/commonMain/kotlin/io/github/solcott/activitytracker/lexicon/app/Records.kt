@@ -658,6 +658,11 @@ data class SegmentRecord(
     val attribution: String? = null,
     /** A [SegmentKind] value; null means [SegmentKind.RUN]. */
     val kind: String? = null,
+    /**
+     * Whether its sport group may travel the line only in the direction it is drawn, by its source data's rules
+     * (segments/segment-direction); null means false. Only the segment importer's is honoured: see [SegmentView.oneWay].
+     */
+    val oneWay: Boolean? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 

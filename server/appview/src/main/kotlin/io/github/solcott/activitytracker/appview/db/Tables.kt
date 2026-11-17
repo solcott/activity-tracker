@@ -513,6 +513,8 @@ object SegmentCandidateRows : Table("segment_candidates") {
     val license = varchar("license", 64)
     /** Who to credit for the line's data, at most 100 graphemes; null when it names nobody. */
     val attribution = varchar("attribution", 1000).nullable()
+    /** Its sport group may travel its line only this way (segments/segment-direction), as the importer staged it. */
+    val oneWay = bool("one_way").default(false)
     /** Enough distinct athletes passed it; never undone until its line or sport changes. The only thing revealed about its riders. */
     val ridden = bool("ridden").default(false)
     val stagedAt = long("staged_at")

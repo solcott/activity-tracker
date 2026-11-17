@@ -271,6 +271,11 @@ data class SegmentView(
     /** A [SegmentElevationSource] value: where [elevationGain] and [elevationLoss] came from; null when they're null. */
     val elevationSource: String? = null,
     /**
+     * Whether its sport group may travel its line only this way (segments/segment-direction): true only for the segment importer's segment
+     * whose record says so; null otherwise.
+     */
+    val oneWay: Boolean? = null,
+    /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].
      */

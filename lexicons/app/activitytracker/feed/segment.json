@@ -36,6 +36,7 @@
           },
           "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as CC0-1.0 or ODbL-1.0." },
           "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, such as a public agency (\"USDA Forest Service\"). Shown only for agency segments; the AppView drops a blank or over-long one." },
+          "oneWay": { "type": "boolean", "description": "Its sport group may travel the line only in the direction it is drawn, by the rules of the data it came from (segments/segment-direction), such as an OpenStreetMap oneway:bicycle tag. Absent means false. Only the segment importer's are honoured: the AppView serves segmentView.oneWay for no other account's segment." },
           "derivedFrom": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The activity the line was traced from, if any." },
           "createdAt": { "type": "string", "format": "datetime" }
         }

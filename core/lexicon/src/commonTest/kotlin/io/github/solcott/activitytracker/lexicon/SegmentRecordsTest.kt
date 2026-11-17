@@ -131,6 +131,24 @@ class SegmentRecordsTest {
     }
 
     @Test
+    fun aOneWaySegmentRoundTripsWithItsFlag() {
+        val record =
+            SegmentRecord(
+                name = "Clarks",
+                sport = SegmentSportGroup.RIDE,
+                line = "_p~iF~ps|U_ulLnnqC",
+                source = SegmentSource.OSM,
+                license = "ODbL-1.0",
+                createdAt = Instant.parse("2026-10-15T12:00:00Z"),
+                oneWay = true,
+            )
+        val json = AtJson.encodeToJsonElement(SegmentRecord.serializer(), record).jsonObject
+        assertEquals("true", json["oneWay"]?.jsonPrimitive?.content)
+        assertEquals(record, AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json))
+        assertFalse("oneWay" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), record.copy(oneWay = null)).jsonObject)
+    }
+
+    @Test
     fun segmentRoundTrip() {
         val alice = Did("did:plc:alice")
         val activity = AtUri.of(alice, Nsid.FEED_ACTIVITY, "3l2abcdefgh22")

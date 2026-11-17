@@ -412,6 +412,22 @@ class SegmentsTest : SegmentTestBase() {
     }
 
     @Test
+    fun onlyTheImportersSegmentsAreServedOneWay() = testApplication {
+        application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
+        val oneWay = segmentJson(name = "Clarks", sport = "ride").replace("\"source\":\"athlete\"", "\"source\":\"osm\",\"oneWay\":true")
+        commit(importer, Nsid.FEED_SEGMENT, "osm-clarks", oneWay)
+        commit(bob, Nsid.FEED_SEGMENT, "3kb", segmentJson(path = listOf(0.0 to 5000.0, 0.0 to 6000.0)).replace("}", ",\"oneWay\":true}"))
+        commit(carol, Nsid.FEED_SEGMENT, "3kc", segmentJson(path = listOf(0.0 to 9000.0, 0.0 to 10000.0)))
+
+        assertEquals(true, client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("osm-clarks", importer))).segment.oneWay)
+        assertNull(
+            client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3kb", bob))).segment.oneWay,
+            "an athlete's flag isn't honoured",
+        )
+        assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3kc", carol))).segment.oneWay)
+    }
+
+    @Test
     fun theSegmentImporterIsNotLimited() = testApplication {
         application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
         (0 until 12).forEach { k -> segment("osm$k", path = listOf(k * 2000.0 to 0.0, k * 2000.0 to 1000.0), did = importer) }

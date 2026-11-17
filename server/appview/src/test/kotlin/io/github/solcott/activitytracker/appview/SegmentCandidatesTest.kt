@@ -363,6 +363,19 @@ class SegmentCandidatesTest : SegmentTestBase() {
     }
 
     @Test
+    fun aOneWayCandidateIsCheckedBackOneWay() = testApplication {
+        start()
+        val oneWay = candidate("c-1", name = "Clarks").copy(oneWay = true)
+        val twoWay = candidate("c-2", path = listOf(0.0 to 0.0, 0.0 to 700.0))
+        assertEquals(emptyList(), stage(oneWay, twoWay))
+        val response = client.check(listOf("c-1", "c-2"))
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val checked = AtJson.decodeFromString(CheckSegmentCandidates.Output.serializer(), response.bodyAsText()).candidates
+        assertEquals(true, checked.single { it.id == "c-1" }.candidate?.oneWay)
+        assertNull(checked.single { it.id == "c-2" }.candidate?.oneWay, "one that doesn't say isn't one-way")
+    }
+
+    @Test
     fun anAgencyCandidateIsStagedAndListedWithItsAttribution() = testApplication {
         start()
         rode(alice, "3ka")

@@ -921,11 +921,12 @@ class SegmentViews(
             val author = it[Segments.authorDid]
             // Effort elevation only as the segment's aggregate, never an effort's own (segments/segment-elevation).
             val elevation = servedElevation(it, activeAthletes)
+            val record = AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record])
             SegmentView(
                 uri = AtUri(it[Segments.uri]),
                 cid = Cid(it[Segments.cid]),
                 creator = creators[author] ?: unknownProfile(author),
-                record = AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record]),
+                record = record,
                 distanceMeters = it[Segments.distanceM],
                 status = it[Segments.status],
                 duplicateOf = it[Segments.duplicateOf]?.let(::AtUri),
@@ -935,6 +936,8 @@ class SegmentViews(
                 elevationGain = elevation?.gain,
                 elevationLoss = elevation?.loss,
                 elevationSource = elevation?.source,
+                // Only the importer's data-driven one-way rule is honoured, never an athlete's own (segments/segment-direction).
+                oneWay = true.takeIf { record.oneWay == true && segmentImporter != null && author == segmentImporter.value },
             )
         }
     }

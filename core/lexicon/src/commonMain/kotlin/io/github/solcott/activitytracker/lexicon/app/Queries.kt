@@ -804,6 +804,8 @@ data class SegmentCandidate(
     val attribution: String? = null,
     /** A [SegmentKind] value, as [SegmentRecord.kind]; null means [SegmentKind.RUN]. A lift must be [SegmentSportGroup.ALPINE]. */
     val kind: String? = null,
+    /** As [SegmentRecord.oneWay]: its sport group may travel the line only this way; null means false. */
+    val oneWay: Boolean? = null,
 )
 
 /** `app.activitytracker.importer.defs#rejection`: a staged candidate the AppView refused, and why. */

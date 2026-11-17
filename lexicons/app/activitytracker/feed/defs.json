@@ -271,6 +271,7 @@
         "paths": { "type": "array", "items": { "type": "string", "format": "at-uri" }, "description": "The trails and roads it lies on (segments/segment-paths), derived by the AppView. Empty or absent when it lies on none, and for a lift." },
         "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters climbed from start to end, derived by the AppView (segments/segment-elevation), never read from the record: from smoothed terrain along the line wherever terrain covers it, else from enough distinct athletes' efforts. Absent when it has none." },
         "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
+        "oneWay": { "type": "boolean", "description": "True when its sport group may travel its line only this way (segments/segment-direction): the segment importer's segment whose record says oneWay. Absent or false for every other segment." },
         "elevationSource": {
           "type": "string",
           "maxLength": 16,
