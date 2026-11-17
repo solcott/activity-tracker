@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.appview.api.admittedComments
 import io.github.solcott.activitytracker.appview.api.commentTier
 import io.github.solcott.activitytracker.appview.api.commentViews
 import io.github.solcott.activitytracker.appview.api.notFound
+import io.github.solcott.activitytracker.appview.boundedCache
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.tx
@@ -23,7 +24,6 @@ import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.exposed.v1.core.eq
@@ -112,18 +112,19 @@ class ModeratorSubjects(
 
     private fun notFound() = notFound("No such subject under review")
 
-    /** Team roles from `listMembers`, read at most every [ttl]. */
-    private class RoleCache(private val clock: Clock, private val ttl: Duration = 5.minutes) {
+    /** Team roles from `listMembers`, read at most every [ttl]: one entry, loaded under [mutex] so concurrent calls read the team once. */
+    private class RoleCache(clock: Clock, ttl: Duration = 5.minutes) {
         private val mutex = Mutex()
-        private var roles: Map<String, String> = emptyMap()
-        private var readAt: Instant? = null
+        private val team = boundedCache<Unit, Map<String, String>>(1, ttl, clock)
 
         suspend fun role(did: String, ozone: OzoneClient): String? = mutex.withLock {
-            val stale = readAt?.let { clock.now() - it >= ttl } ?: true
-            if (stale) {
-                roles = ozone.members().filter { it.disabled != true }.associate { it.did to it.role.substringAfter("#role").lowercase() }
-                readAt = clock.now()
-            }
+            val roles =
+                team.getIfPresent(Unit)
+                    ?: ozone
+                        .members()
+                        .filter { it.disabled != true }
+                        .associate { it.did to it.role.substringAfter("#role").lowercase() }
+                        .also { team.put(Unit, it) }
             roles[did]
         }
     }

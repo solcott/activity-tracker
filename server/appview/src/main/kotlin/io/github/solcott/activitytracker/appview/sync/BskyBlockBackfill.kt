@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.sync
 
 import io.github.solcott.activitytracker.appview.api.PdsLookup
+import io.github.solcott.activitytracker.appview.boundedCache
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
@@ -13,11 +14,9 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -44,7 +43,8 @@ class BskyBlockBackfill(
     private val clock: Clock = Clock.System,
 ) {
     private val log = LoggerFactory.getLogger(BskyBlockBackfill::class.java)
-    private val failedAt = ConcurrentHashMap<String, Instant>()
+    /** Actors whose last backfill failed, each kept for [RETRY_AFTER]; bounded, so an evicted one is only retried sooner. */
+    private val failing = boundedCache<String, Unit>(MAX_FAILING, ttl = RETRY_AFTER, clock = clock)
 
     /** Runs until [scope] is cancelled, backfilling a batch of actors every [POLL_INTERVAL]. */
     fun start(scope: CoroutineScope) {
@@ -64,9 +64,10 @@ class BskyBlockBackfill(
 
     /** Backfills every actor that is due, one at a time. Exposed for tests. */
     suspend fun runDue() {
-        val now = clock.now()
         // Actors backing off are left out of the query, so they never crowd the others out of a batch.
-        val backingOff = failedAt.filterValues { now - it < RETRY_AFTER }.keys
+        // Read through the iterator, which skips expired entries: Caffeine's size still counts those until cleaned up, so a sized copy
+        // (toList) would ask the iterator for one it no longer has.
+        val backingOff = failing.asMap().keys.asSequence().toList()
         val due = db.tx {
             Actors.select(Actors.did)
                 .where { Actors.bskyBlocksSyncedAt.isNull() and (Actors.did notInList backingOff) }
@@ -77,12 +78,12 @@ class BskyBlockBackfill(
             try {
                 backfill(Did(did))
                 db.tx { Actors.update({ Actors.did eq did }) { it[bskyBlocksSyncedAt] = clock.now().toEpochMilliseconds() } }
-                failedAt.remove(did)
+                failing.invalidate(did)
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 log.info("Backfilling {}'s Bluesky blocks failed; retrying later: {}", did, e.message)
-                failedAt[did] = now
+                failing.put(did, Unit)
             }
         }
     }
@@ -109,6 +110,9 @@ class BskyBlockBackfill(
         val POLL_INTERVAL = 1.minutes
         val RETRY_AFTER = 10.minutes
         const val BATCH = 50
+
+        /** The most failing actors remembered at once. */
+        const val MAX_FAILING = 10_000L
         const val PAGE = 100
     }
 }
