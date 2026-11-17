@@ -59,6 +59,7 @@ private struct LiveRouteMap: View {
 
     @State private var position: MapCameraPosition = .automatic
     @State private var size: CGSize = .zero
+    @State private var shown: MapKit.MapCamera?
 
     var body: some View {
         let lines = map.pieces.elements(as: MapLine.self).map(Self.coordinates)
@@ -110,10 +111,14 @@ private struct LiveRouteMap: View {
             frame()
         }
         .onChange(of: map.key) { frame() }
+        .onMapCameraChange(frequency: .onEnd) { shown = $0.camera }
         .overlay(alignment: .topTrailing) {
             if interactive {
-                MapButton(.recenter, label: .mapRecenter) {
-                    withAnimation { frame() }
+                VStack(spacing: 0) {
+                    MapButton(.recenter, label: .mapRecenter) {
+                        withAnimation { frame() }
+                    }
+                    MapZoomButtons(shown: shown, position: $position)
                 }
             }
         }
@@ -149,7 +154,7 @@ enum MapCamera {
 }
 
 /// A button over the map, on a disc so it reads over any tiles.
-private struct MapButton: View {
+struct MapButton: View {
     let icon: AppIcon
     let label: LocalizedStringResource
     let action: () -> Void
@@ -164,6 +169,24 @@ private struct MapButton: View {
         AppIconButton(icon, label: label, action: action)
             .background(.regularMaterial, in: Circle())
             .padding(8)
+    }
+}
+
+/// Zoom in and out without gestures, a level at a time about the centre: for the simulator's panel, a pointer, or anyone who can't pinch.
+struct MapZoomButtons: View {
+    /// Where the map last stopped; nothing to zoom from before it has.
+    let shown: MapKit.MapCamera?
+    @Binding var position: MapCameraPosition
+
+    var body: some View {
+        MapButton(.zoomIn, label: .mapZoomIn) { zoom(by: 0.5) }
+        MapButton(.zoomOut, label: .mapZoomOut) { zoom(by: 2) }
+    }
+
+    private func zoom(by factor: Double) {
+        guard var camera = shown else { return }
+        camera.distance = min(max(camera.distance * factor, 50), 40_000_000)
+        withAnimation { position = .camera(camera) }
     }
 }
 

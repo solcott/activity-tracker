@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Segment browse (segments/segment-browse), drawn from the states `SegmentBrowsePresenter` publishes: the search box, This area and
-/// Everywhere while a name is searched over the map's area, the sport choice, the segments on the native map (`SegmentsMapView`), and the
-/// list: the area's runs nearest first, or the name results page by page, or why there is nothing to list yet. On a phone the map is over
+/// Trails & roads (segments/segment-browse), drawn from the states `SegmentBrowsePresenter` publishes: the search box, This area and
+/// Everywhere while a name is searched over the map's area, the sport choice, the trails, roads and segments on the native map
+/// (`SegmentsMapView`), and the list: the area's rows nearest first (a trail or road, or a segment group on none), or the name results
+/// page by page, or why there is nothing to list yet. On a phone the map is over
 /// the list; on a wider window the list is in a column beside the map, as the shared page lays them out. A run tapped on the map is marked
 /// in the list and scrolled to. What it lists and says is Kotlin's (`SegmentBrowseTexts`, `SegmentBrowseState.listShows`), shared with the
-/// Compose page. It has no bar of its own: the Search tab shows it in Segments mode, under its mode choice.
+/// Compose page. It has no bar of its own: the Search tab shows it in Trails & roads mode, under its mode choice.
 struct SegmentBrowseView: View {
     let state: SegmentBrowseState
     /// Where the map was left, kept by the Search page so switching modes and back reopens it there.
@@ -130,10 +131,10 @@ struct SegmentBrowseView: View {
                 if state.areaCapped {
                     note(SegmentBrowseTexts.shared.capped)
                 }
-                ForEach(state.areaRuns, id: \.route.key.value) { run in
-                    row(run.route, details: SegmentBrowseTexts.shared.details(run: run, units: stats.units))
+                ForEach(state.areaRows, id: \.row.key.value) { run in
+                    row(run.row, details: SegmentBrowseTexts.shared.details(run: run, units: stats.units))
                 }
-                if state.areaRuns.isEmpty {
+                if state.areaRows.isEmpty {
                     note(SegmentBrowseTexts.shared.noneHere)
                 }
             }
@@ -143,11 +144,11 @@ struct SegmentBrowseView: View {
 
     private var names: some View {
         PagedList(
-            state.results, of: SegmentRoute.self, errorKind: .SearchSegments, id: { $0.key.value }, retry: retry,
+            state.results, of: (any BrowseRow).self, errorKind: .SearchSegments, id: { $0.key.value }, retry: retry,
             loadMore: { send(SegmentBrowseEvent.LoadMore.shared) }
         ) {
-        } row: { route in
-            row(route, details: SegmentBrowseTexts.shared.details(route: route, units: stats.units))
+        } row: { result in
+            row(result, details: SegmentBrowseTexts.shared.details(row: result, units: stats.units))
         } empty: {
             VStack(spacing: 8) {
                 Text(SegmentBrowseTexts.shared.noResults(state: state)).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -160,14 +161,14 @@ struct SegmentBrowseView: View {
         .listStyle(.plain)
     }
 
-    /// A route's row (segments/segment-routes), drawn, selected and opened as its shown segment: its name without the importer's
-    /// direction, then its details line. A tap selects it, showing its line on the map, and a tap on the selected one opens it (Kotlin
-    /// decides which); the selected one is marked.
-    private func row(_ route: SegmentRoute, details: any AppText) -> some View {
-        let selected = state.isSelected(route: route)
+    /// A row: a trail or road (its Trail page opens), or a segment group on none (its segment opens), with its name and details line. A
+    /// tap selects it, showing its line on the map, and a tap on the selected one opens it (Kotlin decides which); the selected one is
+    /// marked.
+    private func row(_ row: any BrowseRow, details: any AppText) -> some View {
+        let selected = state.isSelected(row: row)
         return AppItemRow(
-            Text(SegmentBrowseTexts.shared.routeName(route: route)), lines: [Text(details)],
-            opens: { send(state.tapRowEvent(route: route)) }
+            Text(SegmentBrowseTexts.shared.name(row: row)), lines: [Text(details)],
+            opens: { send(state.tapRowEvent(row: row)) }
         ) {
             EmptyView()
         }
@@ -198,11 +199,11 @@ enum SegmentBrowseLayout {
 }
 
 #if DEBUG
-    #Preview("Segment browse") {
+    #Preview("Trails & roads") {
         SamplePages(Samples.segmentBrowse) { state in SegmentBrowseView(state: state, memory: SegmentsMapMemory()) }
     }
 
-    #Preview("Segment browse on an iPad", traits: .landscapeLeft) {
+    #Preview("Trails & roads on an iPad", traits: .landscapeLeft) {
         SegmentBrowseView(state: Samples.segmentBrowse["selected"]!, memory: SegmentsMapMemory())
     }
 #endif

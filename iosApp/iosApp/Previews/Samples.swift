@@ -128,6 +128,7 @@
         /// shared samples and the states beyond content loading.
         static var segmentMap: [String: SegmentMapState] { SegmentPackage.SegmentMapSamples.shared.variants }
         static var segmentBrowse: [String: SegmentBrowseState] { SegmentPackage.SegmentBrowseSamples.shared.variants }
+        static var path: [String: PathState] { SegmentPackage.PathSamples.shared.variants }
         static var diveSiteBrowse: [String: DiveSiteBrowseState] { DiveSitePackage.DiveSiteBrowseSamples.shared.variants }
         static var acceptInvite: [String: AcceptInviteState] { InvitesPackage.AcceptInviteSamples.shared.variants }
         /// The segment page (ios-native-charts) in each state it shows, states beyond content loading apart.

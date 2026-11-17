@@ -40,9 +40,9 @@ struct SegmentPage: View {
                     RouteMapView(map: map, expand: { send(SegmentEvent.OpenMap.shared) }).listRowInsets(EdgeInsets())
                 }
             }
-            if let route = state.route, route.offered {
+            if let group = state.group, group.offered {
                 Section {
-                    RouteChoices(route: route, send: send)
+                    GroupChoices(group: group, send: send)
                 }
             }
             Section {
@@ -89,27 +89,27 @@ struct SegmentPage: View {
     }
 }
 
-/// The route's sport groups as a menu chip and the shown group's directions as a segmented choice (segments/segment-routes); choosing one
+/// The segment group's sport groups as a menu chip and the shown group's directions as a segmented choice (segments/segment-groups); choosing one
 /// sends the event Kotlin builds, which replaces the page with that segment's.
-private struct RouteChoices: View {
-    let route: RouteSwitcher
+private struct GroupChoices: View {
+    let group: GroupSwitcher
     let send: (any SegmentEvent) -> Void
 
     var body: some View {
-        let directions = route.directions
+        let directions = group.directions
         VStack(alignment: .leading, spacing: 8) {
             AppMenuChip(
                 nil, filled: true,
-                selection: Binding(get: { route.currentSport }, set: { sport in if let event = route.sportEvent(sport: sport) { send(event) } }),
-                options: route.sports,
-                optionLabel: { AppStrings.string(RouteSwitcherTexts.shared.sport(sport: $0)) })
+                selection: Binding(get: { group.currentSport }, set: { sport in if let event = group.sportEvent(sport: sport) { send(event) } }),
+                options: group.sports,
+                optionLabel: { AppStrings.string(GroupSwitcherTexts.shared.sport(sport: $0)) })
             if directions.count > 1 {
                 Picker(selection: Binding(
-                    get: { directions.firstIndex { route.isCurrent(direction: $0) } ?? 0 },
-                    set: { index in if let event = route.directionEvent(direction: directions[index]) { send(event) } }
+                    get: { directions.firstIndex { group.isCurrent(direction: $0) } ?? 0 },
+                    set: { index in if let event = group.directionEvent(direction: directions[index]) { send(event) } }
                 )) {
                     ForEach(directions.indices, id: \.self) { index in
-                        Text(RouteSwitcherTexts.shared.direction(direction: directions[index])).tag(index)
+                        Text(GroupSwitcherTexts.shared.direction(direction: directions[index])).tag(index)
                     }
                 } label: {
                     EmptyView()

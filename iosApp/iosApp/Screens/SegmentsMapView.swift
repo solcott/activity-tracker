@@ -43,6 +43,7 @@ private struct LiveSegmentsMap: View {
 
     @State private var position: MapCameraPosition = .automatic
     @State private var size: CGSize = .zero
+    @State private var shown: MapKit.MapCamera?
 
     var body: some View {
         let lines = map.drawn.elements(as: MapSegment.self)
@@ -68,6 +69,7 @@ private struct LiveSegmentsMap: View {
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
             .mapControlVisibility(.hidden)
             .onMapCameraChange(frequency: .onEnd) { context in
+                shown = context.camera
                 memory.position = .camera(context.camera)
                 onViewport(SegmentsMapGeometry.viewport(context.region))
             }
@@ -81,6 +83,9 @@ private struct LiveSegmentsMap: View {
                 let reach = SegmentsMapGeometry.meters(from: tap, to: edge)
                 onSelect(map.nearest(lat: tap.latitude, lng: tap.longitude, withinMeters: reach))
             })
+        }
+        .overlay(alignment: .topTrailing) {
+            VStack(spacing: 0) { MapZoomButtons(shown: shown, position: $position) }
         }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { newSize in
             size = newSize

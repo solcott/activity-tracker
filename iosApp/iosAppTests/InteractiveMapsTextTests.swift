@@ -25,22 +25,34 @@ struct InteractiveMapsTextTests {
         #expect(abs(SegmentsMapGeometry.meters(from: a, to: b) - 11.1) < 0.2)
     }
 
-    @Test func browseListsTheSamplesRunsWithTheirDetails() throws {
+    @Test func browseListsTheSamplesRowsWithTheirDetails() throws {
         let state = try #require(Samples.segmentBrowse["loaded"])
         #expect(state.listShows(mapSupported: true) == .Area)
-        // Three trails of one segment each, then Ann's six as one row (segments/segment-routes).
-        #expect(state.areaRuns.count == 4)
-        let details = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRuns[0], units: .Metric))
+        // Two segments on no path, the road Pine St, a third segment, then the trail Ann's (segments/segment-paths).
+        #expect(state.areaRows.count == 5)
+        let details = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRows[0], units: .Metric))
         #expect(details.hasSuffix("away"))
         #expect(details.contains(" · "))
-        let anns = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRuns[3], units: .Metric))
-        #expect(anns.contains("Both ways"))
+        let anns = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRows[4], units: .Metric))
+        #expect(anns.hasPrefix("Trail · "))
+        #expect(anns.contains("2 segments"))
+        #expect(state.areaRows[2].row is BrowseRow.Path)
     }
 
     @Test func aTapOnTheMapSelectsThroughKotlin() throws {
         let state = try #require(Samples.segmentBrowse["selected"])
         #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
-        #expect(state.isSelected(segment: state.areaRuns[1].segment))
+        #expect(state.isSelected(row: state.areaRows[1].row))
+    }
+
+    @Test func theTrailPageListsItsGroupsAndSharesTheSelection() throws {
+        let state = try #require(Samples.path["selected"])
+        #expect(state.groups.count == 2)
+        #expect(state.isSelected(group: state.groups[1]))
+        #expect(state.tapRowEvent(group: state.groups[1]) as? PathEvent.TapRow != nil)
+        #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
+        let path = try #require(state.path)
+        #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Metric)).hasPrefix("Trail · "))
     }
 
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {
@@ -60,8 +72,8 @@ struct InteractiveMapsTextTests {
 
     @Test func aRowTapSelectsAndSaysWhatItDoes() throws {
         let state = try #require(Samples.segmentBrowse["selected"])
-        let hogback = state.areaRuns[1].segment
-        #expect(state.tapRowEvent(segment: hogback) as? SegmentBrowseEvent.TapRow != nil)
+        let hogback = state.areaRows[1].row
+        #expect(state.tapRowEvent(row: hogback) as? SegmentBrowseEvent.TapRow != nil)
         #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: false, touch: true)) == "Show on map")
         #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: true, touch: true)) == "Open")
     }

@@ -101,6 +101,7 @@ extension ScreenRegistry {
         // The interactive maps (ios-native-interactive-maps): a segment's enlarged map, segment and dive site browse (which the Search tab
         // embeds, and which draw natively too if anything pushes them), and accepting an invite.
         registry.register(SegmentMapScreen.self, SegmentMapState.self) { state in SegmentMapView(state: state) }
+        registry.register(PathScreen.self, PathState.self) { state in PathPage(state: state) }
         registry.register(SegmentBrowseScreen.self, SegmentBrowseState.self) { state in
             SegmentBrowseView(state: state, memory: SegmentsMapMemory())
         }

@@ -5584,7 +5584,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn't load the segments here"
+            "value" : "Couldn't load the trails and roads here"
           }
         }
       }
@@ -5827,6 +5827,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't load muted accounts"
+          }
+        }
+      }
+    },
+    "error_load_path" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load this trail"
           }
         }
       }
@@ -13795,6 +13806,28 @@
         }
       }
     },
+    "map_zoom_in" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom in"
+          }
+        }
+      }
+    },
+    "map_zoom_out" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom out"
+          }
+        }
+      }
+    },
     "mayor_efforts" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15313,6 +15346,94 @@
         }
       }
     },
+    "path_kind_road" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Road"
+          }
+        }
+      }
+    },
+    "path_kind_trail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trail"
+          }
+        }
+      }
+    },
+    "path_none_here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No segments here yet"
+          }
+        }
+      }
+    },
+    "path_segment_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ segment"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ segments"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "path_show_all_sports" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all sports"
+          }
+        }
+      }
+    },
+    "path_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trail"
+          }
+        }
+      }
+    },
     "place_name_proposal_line" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16760,7 +16881,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Segments"
+            "value" : "Trails & roads"
           }
         }
       }
@@ -16892,7 +17013,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "More segments here than shown. Zoom in to see them all."
+            "value" : "More here than shown. Zoom in to see it all."
           }
         }
       }
@@ -16925,7 +17046,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No segments match “%1$@”."
+            "value" : "Nothing matches “%1$@”."
           }
         }
       }
@@ -16936,7 +17057,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No segments here match “%1$@”."
+            "value" : "Nothing here matches “%1$@”."
           }
         }
       }
@@ -16947,7 +17068,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No segments here yet"
+            "value" : "No trails or roads with segments here yet"
           }
         }
       }
@@ -16958,7 +17079,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Move the map to a place, or search segments by name."
+            "value" : "Move the map to a place, or search trails and roads by name."
           }
         }
       }
@@ -17013,7 +17134,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Segment name"
+            "value" : "Trail, road or segment name"
           }
         }
       }
@@ -17035,7 +17156,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Search segments by name."
+            "value" : "Search trails and roads by name."
           }
         }
       }
@@ -17046,7 +17167,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zoom in to see segments"
+            "value" : "Zoom in to see trails and roads"
           }
         }
       }

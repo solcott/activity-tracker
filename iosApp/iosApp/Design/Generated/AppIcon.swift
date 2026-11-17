@@ -34,6 +34,8 @@ enum AppIcon: CaseIterable {
     case collapseAll
     case expand
     case recenter
+    case zoomIn
+    case zoomOut
     case like
     case repost
     case quote
@@ -75,6 +77,8 @@ enum AppIcon: CaseIterable {
         case .collapseAll: "rectangle.compress.vertical"
         case .expand: "arrow.up.left.and.arrow.down.right"
         case .recenter: "scope"
+        case .zoomIn: "plus"
+        case .zoomOut: "minus"
         case .like: "hand.thumbsup"
         case .repost: "arrow.2.squarepath"
         case .quote: "quote.bubble"
