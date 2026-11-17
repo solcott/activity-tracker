@@ -27,6 +27,9 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -184,11 +187,17 @@ class SegmentRepository(private val clients: SessionClients) {
     }
 
     /**
-     * The views of [uris] (segments/segment-paths), [GetPaths] 25 at a time. Never kept for the session: a view's sports and group count
-     * are what the segments on it the viewer may find cover, which change as segments are published, become active or are taken down.
+     * The views of [uris] (segments/segment-paths), [GetPaths] 25 at a time, the requests at once. Never kept for the session: a view's
+     * sports and group count are what the segments on it the viewer may find cover, which change as segments are published, become active
+     * or are taken down.
      */
-    suspend fun pathViews(uris: List<AtUri>): List<PathView> =
-        uris.chunked(GetPaths.MAX_URIS).flatMap { clients.appView.query(GetPaths.method, GetPaths.Params(it)).paths }
+    suspend fun pathViews(uris: List<AtUri>): List<PathView> = coroutineScope {
+        uris
+            .chunked(GetPaths.MAX_URIS)
+            .map { chunk -> async { clients.appView.query(GetPaths.method, GetPaths.Params(chunk)).paths } }
+            .awaitAll()
+            .flatten()
+    }
 
     /** A trail or road and every segment on it the viewer may find (segments/path-page). */
     fun pathOutcome(uri: AtUri): Flow<Outcome<GetPath.Output>> = outcomeFlow { clients.appView.query(GetPath.method, GetPath.Params(uri)) }
