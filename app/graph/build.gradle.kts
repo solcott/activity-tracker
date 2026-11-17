@@ -14,6 +14,7 @@ val generateNetworkConfig =
         labelerDid = nativeOAuth.labelerDid
         plcUrl = nativeOAuth.plcUrl
         handleResolverUrl = nativeOAuth.handleResolverUrl
+        linkHost = nativeOAuth.linkHost
         outputDir = layout.buildDirectory.dir("generated/networkConfig/kotlin")
     }
 

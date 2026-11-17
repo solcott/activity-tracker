@@ -25,6 +25,7 @@ class NativeOAuthConventionPluginTest {
                         labelerDid.set(nativeOAuth.labelerDid)
                         plcUrl.set(nativeOAuth.plcUrl)
                         handleResolverUrl.set(nativeOAuth.handleResolverUrl)
+                        linkHost.set(nativeOAuth.linkHost)
                         outputDir.set(layout.buildDirectory.dir("generated"))
                     }
                     """
@@ -55,6 +56,7 @@ class NativeOAuthConventionPluginTest {
         assertContains(generated, """LABELER_DID = """"")
         assertContains(generated, """PLC_URL = "http://localhost:2582"""")
         assertContains(generated, """HANDLE_RESOLVER_URL = "http://localhost:2583"""")
+        assertContains(generated, """LINK_HOST = """"", message = "no https links without an https AppView")
     }
 
     @Test
@@ -76,6 +78,7 @@ class NativeOAuthConventionPluginTest {
         assertContains(generated, """APPVIEW_URL = "https://appview-dev.example.com"""")
         assertContains(generated, """APPVIEW_PUBLIC_URL = "https://appview-dev.example.com"""")
         assertContains(generated, """REDIRECT_SCHEME = "com.example.appview-dev"""")
+        assertContains(generated, """LINK_HOST = "appview-dev.example.com"""")
     }
 
     @Test
@@ -138,6 +141,7 @@ class NativeOAuthConventionPluginTest {
 
         assertContains(generated, """APPVIEW_PUBLIC_URL = "https://appview.example.org:8443"""")
         assertContains(generated, """REDIRECT_SCHEME = "org.example.appview"""")
+        assertContains(generated, """LINK_HOST = "appview.example.org"""", message = "the host alone, without its port")
     }
 
     @Test

@@ -89,6 +89,14 @@ open class NativeOAuthExtension(
         url.substringAfter("://").substringBefore('/').substringBefore(':').split('.').reversed().joinToString(".")
     }
 
+    /**
+     * The host the app's https links are on (ui/deep-links): [appviewPublicUrl]'s, which serves the files Android App Links and iOS
+     * Universal Links verify, or empty when that isn't HTTPS (the localhost default), and then only the app's own scheme opens it.
+     */
+    val linkHost: Provider<String> = appviewPublicUrl.map { url ->
+        if (url.startsWith("https://")) url.substringAfter("://").substringBefore('/').substringBefore(':') else ""
+    }
+
     private companion object {
         const val LOCAL_APPVIEW_URL = "http://localhost:8081"
     }
@@ -102,7 +110,7 @@ internal fun sibling(service: String, deviceHost: String): String = "$service-$d
 
 /**
  * Writes `GeneratedNetworkConfig` with the AppView URL every client calls, the native AppView URL and OAuth redirect scheme, the labeler
- * DID (empty when unset), and the PLC and handle-resolver URLs.
+ * DID (empty when unset), the PLC and handle-resolver URLs, and the app links' host (empty when none).
  */
 abstract class GenerateNetworkConfig : DefaultTask() {
     init {
@@ -112,6 +120,7 @@ abstract class GenerateNetworkConfig : DefaultTask() {
         labelerDid.convention("")
         plcUrl.convention("http://localhost:2582")
         handleResolverUrl.convention("http://localhost:2583")
+        linkHost.convention("")
     }
 
     @get:Input abstract val packageName: Property<String>
@@ -127,6 +136,9 @@ abstract class GenerateNetworkConfig : DefaultTask() {
     @get:Input abstract val plcUrl: Property<String>
 
     @get:Input abstract val handleResolverUrl: Property<String>
+
+    /** The https links' host ([NativeOAuthExtension.linkHost]); empty for none. */
+    @get:Input abstract val linkHost: Property<String>
 
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
@@ -149,6 +161,7 @@ abstract class GenerateNetworkConfig : DefaultTask() {
                 |    const val LABELER_DID = "${labelerDid.get()}"
                 |    const val PLC_URL = "${plcUrl.get()}"
                 |    const val HANDLE_RESOLVER_URL = "${handleResolverUrl.get()}"
+                |    const val LINK_HOST = "${linkHost.get()}"
                 |}
                 |"""
                     .trimMargin(),

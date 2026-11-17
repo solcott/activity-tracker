@@ -27,6 +27,12 @@ object NetworkConfigs {
     const val NATIVE_APPVIEW_PUBLIC_URL = GeneratedNetworkConfig.APPVIEW_PUBLIC_URL
     const val NATIVE_REDIRECT_SCHEME = GeneratedNetworkConfig.REDIRECT_SCHEME
 
+    /**
+     * The host the app's https links are on (ui/deep-links): the native AppView public URL's, when it is HTTPS; null otherwise, and then
+     * only `activitytracker://` links and the web app's own paths open pages.
+     */
+    val LINK_HOST: String? = GeneratedNetworkConfig.LINK_HOST.takeIf(String::isNotEmpty)
+
     /** The labeler reports go to, `activitytracker.labelerDid` in `local.properties` (`scripts/dev.sh` writes the local Ozone's). */
     val LABELER_DID: Did? = GeneratedNetworkConfig.LABELER_DID.takeIf(String::isNotEmpty)?.let(::Did)
 
