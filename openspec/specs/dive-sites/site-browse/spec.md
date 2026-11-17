@@ -14,7 +14,7 @@ The Search tab SHALL offer Dive sites beside Athletes and Segments. Dive sites S
 - **THEN** the tab shows the dive site browse screen
 
 ### Requirement: Browse shows sites on a map and in a list
-On Android, iOS and desktop, the browse screen SHALL show a map the athlete can pan and zoom, north-up, and a list. With no name query, the map SHALL draw the outline (centre and radius) of every site whose centre lies in the visible area that `feed.searchDiveSites` serves the athlete, and the list SHALL list them nearest the map's centre first, each with its name and how far away its centre is. Both SHALL follow the area as the athlete moves the map. It SHALL open where segment browse opens (`segments/segment-browse`) and keep the area the athlete last looked at.
+On Android, iOS and desktop, the browse screen SHALL show a map the athlete can pan and zoom, north-up, and a list. With no name query, the map SHALL draw the outline (centre and radius) of every site whose centre lies in the visible area that `feed.searchDiveSites` serves the athlete, and the list SHALL list them nearest the map's centre first, each with its name and how far away its centre is. Both SHALL follow the area as the athlete moves the map.
 
 #### Scenario: A reef coast
 - **WHEN** an athlete pans the map to a stretch of coast with three active sites
@@ -23,6 +23,13 @@ On Android, iOS and desktop, the browse screen SHALL show a map the athlete can 
 #### Scenario: Proposed site someone else made
 - **WHEN** the visible area holds a proposed site the athlete didn't create and hasn't dived
 - **THEN** neither the map nor the list shows it
+
+### Requirement: Site browse opens where segment browse does
+The browse screen SHALL open where segment browse opens (`segments/segment-browse`) and keep the area the athlete last looked at.
+
+#### Scenario: Back to the last area
+- **WHEN** an athlete pans site browse to Dahab, leaves it and opens it again
+- **THEN** it opens over Dahab
 
 ### Requirement: Site browse needs a close enough view
 When the visible area is wider than 1 degree on either side, the browse screen SHALL draw no sites, list none, and say to zoom in to see dive sites, without asking the AppView.
@@ -39,11 +46,14 @@ Tapping a site's outline on the map SHALL select it: the outline SHALL be highli
 - **THEN** its dive site page opens, and back returns to the browse screen with the same map and list
 
 ### Requirement: Sites can be found by name
-The browse screen SHALL have a search box. A non-blank query SHALL list the sites whose current name matches it, best match first and then nearest the map's centre, a page at a time, and the map SHALL draw the matches. Where the map is shown the athlete SHALL choose This area or Everywhere, This area by default; when This area finds nothing the screen SHALL offer to search Everywhere. Clearing the query SHALL return to browsing the area. The query and results SHALL load as segment name search does (`ui/content-loading`).
+The browse screen SHALL have a search box. A non-blank query SHALL list the sites whose current name matches it, best match first and then nearest the map's centre, a page at a time, and the map SHALL draw the matches. Clearing the query SHALL return to browsing the area. The query and results SHALL load as segment name search does (`ui/content-loading`).
 
 #### Scenario: Searching a name
 - **WHEN** an athlete types "thistle" with the map over the Strait of Gubal
 - **THEN** the list shows "SS Thistlegorm"
+
+### Requirement: Name search covers this area or everywhere
+Where the map is shown the athlete SHALL choose whether name search covers This area or Everywhere, This area by default; when This area finds nothing the screen SHALL offer to search Everywhere.
 
 #### Scenario: Nothing in this area
 - **WHEN** an athlete searches "blue hole" in This area over Hurghada

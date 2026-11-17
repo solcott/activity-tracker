@@ -29,11 +29,7 @@ The AppView SHALL index a site only if its name is non-empty after trimming and 
 - **THEN** the AppView doesn't index it
 
 ### Requirement: Every site has a status
-The AppView SHALL give each indexed site one status, `proposed`, `active`, `duplicate` or `archived`, derived by the AppView and never read from the record. A new site that duplicates nothing SHALL be `proposed`, except the segment importer's, which SHALL be `active` from indexing, as its segments are (`segments/segment-records`), so imported sites are listed before anyone dives them. A `proposed` site SHALL become `active` once visits come from at least a configured number of distinct athletes, 3 by default, counting visits of every visibility but revealing only the status. A site still `proposed` 180 days after first indexed SHALL become `archived`.
-
-#### Scenario: Third diver
-- **WHEN** a proposed site gets a visit from a third distinct athlete, whose dive is Only me
-- **THEN** the site becomes `active`, and no view reveals who counted
+The AppView SHALL give each indexed site one status, `proposed`, `active`, `duplicate` or `archived`, derived by the AppView and never read from the record. A new site that duplicates nothing SHALL be `proposed`, except the segment importer's, which SHALL be `active` from indexing, as its segments are (`segments/segment-records`), so imported sites are listed before anyone dives them.
 
 #### Scenario: Imported site
 - **WHEN** the AppView indexes a site from the segment importer's repo that duplicates nothing
@@ -42,6 +38,13 @@ The AppView SHALL give each indexed site one status, `proposed`, `active`, `dupl
 #### Scenario: Earlier imports
 - **WHEN** the AppView starts with importer sites indexed `proposed` before this rule
 - **THEN** it makes them `active` before any status pass can archive them
+
+### Requirement: A proposed site becomes active or archived
+A `proposed` site SHALL become `active` once visits come from at least a configured number of distinct athletes, 3 by default, counting visits of every visibility but revealing only the status. A site still `proposed` 180 days after first indexed SHALL become `archived`.
+
+#### Scenario: Third diver
+- **WHEN** a proposed site gets a visit from a third distinct athlete, whose dive is Only me
+- **THEN** the site becomes `active`, and no view reveals who counted
 
 #### Scenario: Never dived
 - **WHEN** a proposed site has had visits from only its creator for 180 days
@@ -88,19 +91,22 @@ The AppView SHALL index at most 10 new sites per creator in any 24 hours and SHA
 - **THEN** the view is the republished site's, under its own URI
 
 ### Requirement: Sites can be found by name
-`feed.searchDiveSiteNames` SHALL return the sites whose current name contains a query, ignoring case, at most 100 per page with a cursor, serving exactly the sites `feed.searchDiveSites` would serve the same viewer: `active` ones to everyone, `proposed` ones only to their creator and athletes with a visit, never `duplicate`, `archived`, hidden or taken-down ones. It SHALL order them by how well the name matches (the whole name, then its start, then a word's start, then anywhere), then nearest a given centre, else by name. A box, when given, SHALL hold the site's centre and be at most 1 degree a side; a box or centre given in part SHALL be `InvalidRequest`. A blank query SHALL return nothing.
+`feed.searchDiveSiteNames` SHALL return the sites whose current name contains a query, ignoring case, at most 100 per page with a cursor, serving exactly the sites `feed.searchDiveSites` would serve the same viewer: `active` ones to everyone, `proposed` ones only to their creator and athletes with a visit, never `duplicate`, `archived`, hidden or taken-down ones. A blank query SHALL return nothing.
 
 #### Scenario: Current name
 - **WHEN** a site recorded as "Reef 7" has adopted the name "Shark Alley"
 - **THEN** searching "shark" finds it and searching "reef 7" doesn't
 
-#### Scenario: Prefix before anywhere
-- **WHEN** a viewer searches "hole" and "Hole in the Wall" and "Blue Hole" match
-- **THEN** "Hole in the Wall" comes before "Blue Hole"
-
 #### Scenario: Proposed site
 - **WHEN** a proposed site's name matches
 - **THEN** its creator and athletes with a visit to it get it, and other viewers don't
+
+### Requirement: Name search ranks and bounds results
+`feed.searchDiveSiteNames` SHALL order its results by how well the name matches (the whole name, then its start, then a word's start, then anywhere), then nearest a given centre, else by name. A box, when given, SHALL hold the site's centre and be at most 1 degree a side; a box or centre given in part SHALL be `InvalidRequest`.
+
+#### Scenario: Prefix before anywhere
+- **WHEN** a viewer searches "hole" and "Hole in the Wall" and "Blue Hole" match
+- **THEN** "Hole in the Wall" comes before "Blue Hole"
 
 ### Requirement: Editing or deleting a site updates it everywhere
 Re-writing a site record SHALL replace its indexed version and recompute its visits when its centre or radius changed. Deleting it SHALL remove the site, its visits, its name proposals, their votes and its name history, except what a handoff keeps for an `active` site that isn't the importer's (`dive-sites/site-handoffs`).

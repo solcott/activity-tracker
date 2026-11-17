@@ -128,19 +128,22 @@ A segment the importer publishes SHALL be a `feed.segment` in the service accoun
 - **THEN** `publish` leaves the existing segment's line unchanged
 
 ### Requirement: The importer writes in few, paced commits
-Every importer command that writes to the service account's repo (`publish`, `publish-sites`, `handoff`, `refine`) SHALL write its records in `applyWrites` commits of at most 100 records and about 1 MB of them, and SHALL send at most 2,400 commits an hour unless the operator sets another rate (`SEGMENT_IMPORTER_COMMITS_PER_HOUR`). A relay limits a PDS it doesn't trust to 2,600 commits an hour, and a Jetstream verifies each account's commits through a short queue, so an import never waits on a relay's limits or overflows a Jetstream, and a large region still lands within the hour. A commit refused because it would create a key the repo already holds SHALL be sent again without that key, which is reported as already published.
+Every importer command that writes to the service account's repo (`publish`, `publish-sites`, `handoff`, `refine`) SHALL write its records in `applyWrites` commits of at most 100 records and about 1 MB of them, and SHALL send at most 2,400 commits an hour unless the operator sets another rate (`SEGMENT_IMPORTER_COMMITS_PER_HOUR`). That keeps an import under a relay's 2,600 an hour for an untrusted PDS and a Jetstream's per-account queue.
 
 #### Scenario: A large region
 - **WHEN** `publish --all` publishes 150,000 candidates
 - **THEN** it writes them in some 1,500 commits, at most 2,400 an hour, so a relay passes them on at once
 
-#### Scenario: A key created meanwhile
-- **WHEN** another run creates one candidate's segment after `publish` checked it, and that candidate is in a commit with others
-- **THEN** the commit is refused, sent again without that candidate, which is reported as already published, and its segment is left as the other run wrote it
-
 #### Scenario: A rate that isn't a number
 - **WHEN** an operator sets `SEGMENT_IMPORTER_COMMITS_PER_HOUR` to something other than a positive whole number
 - **THEN** the importer refuses to run, naming the setting
+
+### Requirement: A commit that would recreate a key is resent without it
+A commit of the importer's refused because it would create a key the repo already holds SHALL be sent again without that key, which is reported as already published.
+
+#### Scenario: A key created meanwhile
+- **WHEN** another run creates one candidate's segment after `publish` checked it, and that candidate is in a commit with others
+- **THEN** the commit is refused, sent again without that candidate, which is reported as already published, and its segment is left as the other run wrote it
 
 ### Requirement: The importer never edits or deletes its segments
 Neither `stage` nor `publish` SHALL change or delete a segment once it's published, even when its trail is changed or removed in OSM, so its efforts and leaderboards stay. `refine` SHALL change only a segment's line and name, and only as their own requirements allow; no importer command SHALL delete a segment.

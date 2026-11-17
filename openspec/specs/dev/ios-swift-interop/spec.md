@@ -101,7 +101,7 @@ The iOS build SHALL fail when a declaration in a contract module, the text field
 - **THEN** the iOS build passes and the build's report lists the stub
 
 ### Requirement: Text field state is a type Swift reads and writes
-A screen's state SHALL hold each text field's state as a type that is exported to Swift, from which Swift reads the field's text and sets it. A presenter SHALL see text Swift set, and Swift SHALL see text a presenter set or cleared. On iOS the type SHALL hold the text itself, with no Compose text state inside it, and a presenter's remembered field SHALL come back with its text when the screen's saved state is restored. On Android, desktop and web the type SHALL be the Compose text field state itself.
+A screen's state SHALL hold each text field's state as a type that is exported to Swift, from which Swift reads the field's text and sets it. A presenter SHALL see text Swift set, and Swift SHALL see text a presenter set or cleared.
 
 #### Scenario: Swift sets the text
 - **WHEN** Swift sets a field's text to "alice.test"
@@ -110,6 +110,9 @@ A screen's state SHALL hold each text field's state as a type that is exported t
 #### Scenario: The presenter clears the text
 - **WHEN** a presenter clears a field after a comment is sent
 - **THEN** Swift reads an empty string from that field
+
+### Requirement: Text field state per platform
+On iOS the text field state type SHALL hold the text itself, with no Compose text state inside it, and a presenter's remembered field SHALL come back with its text when the screen's saved state is restored. On Android, desktop and web the type SHALL be the Compose text field state itself.
 
 #### Scenario: Restored on iOS
 - **WHEN** a presenter's remembered field holds "Morning ride" and its screen's saved state is restored on iOS
