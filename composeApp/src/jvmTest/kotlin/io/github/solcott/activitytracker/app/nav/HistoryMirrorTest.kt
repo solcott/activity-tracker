@@ -102,7 +102,7 @@ class HistoryMirrorTest {
         // Another account in the same page starts where the last left off (BrowserHistorySync keeps the place).
         val next = HistoryMirror()
         assertEquals(listOf(Replace(2, feed)), next.start(listOf(feed), at = mirror.index))
-        assertNull(next.landed(1), "the last session's entry opens as a link")
+        assertNull(next.landed(1), "not the new session's (BrowserHistorySync stops Back above it)")
     }
 
     @Test

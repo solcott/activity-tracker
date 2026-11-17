@@ -46,8 +46,12 @@ Loading or reloading the web app on a link path SHALL open that page as a link (
 - **THEN** the You tab shows their profile, Settings, Training zones and History, and pressing Back three times reaches their profile
 
 ### Requirement: Signing out leaves the URL at the start
-When the session closes (sign-out, account switch, leaving), the address bar SHALL show `/`.
+When the session closes (sign-out, account switch, leaving), the address bar SHALL show `/`. Back in a later session in the same tab SHALL stop at that session's first entry and never open an earlier session's pages.
 
 #### Scenario: Sign out
 - **WHEN** an athlete on a segment's page signs out
 - **THEN** the address bar shows `/` and sign-in shows
+
+#### Scenario: Back after switching account
+- **WHEN** an athlete opens Settings, switches to another account without reloading, and presses Back on the new account's feed
+- **THEN** the feed stays shown and the first account's Settings doesn't open

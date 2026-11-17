@@ -45,15 +45,22 @@ class BrowserHistorySync(private val links: LinkRequests) : BackStackSync {
         DisposableEffect(backStack) {
             val onPopState: (Event) -> Unit = { event ->
                 val place = (event as? PopStateEvent)?.state?.toString()?.toIntOrNull()
-                if (started[0] && place != null) landed(mirror, place, backStack, navigator, viewerDid)
+                val floor = floor()
+                when {
+                    !started[0] || place == null -> Unit
+                    // An earlier session's entry, another account's maybe: Back stops at this session's first.
+                    floor != null && place < floor -> window.history.go(floor - place)
+                    else -> landed(mirror, place, backStack, navigator, viewerDid)
+                }
             }
             window.addEventListener("popstate", onPopState)
             onDispose {
                 window.removeEventListener("popstate", onPopState)
                 // Signed out, another account, or a leave: the URL goes back to the start. The entry keeps its place, so the next
-                // session numbers on from it and never claims the places this one wrote below it, which it opens as links instead.
+                // session numbers on from it, and Back stops there rather than opening this session's pages in the next.
                 val place = if (started[0]) mirror.index else currentPlace()
                 window.history.replaceState(place.toString().toJsString(), "", "/")
+                keepFloor(place)
             }
         }
     }
@@ -90,6 +97,19 @@ class BrowserHistorySync(private val links: LinkRequests) : BackStackSync {
         }
     }
 
+    /**
+     * The place below which entries are an earlier session's, which Back never opens: where the last session in this tab ended, kept in its
+     * storage so a reload keeps it; null before any ended.
+     */
+    private fun floor(): Int? = runCatching { window.sessionStorage.getItem(FLOOR)?.toIntOrNull() }.getOrNull()
+
+    private fun keepFloor(place: Int) {
+        runCatching { window.sessionStorage.setItem(FLOOR, place.toString()) }
+    }
+
     /** The place of the entry the page was loaded on: kept by a reload, else the first. */
     private fun currentPlace(): Int = window.history.state?.toString()?.toIntOrNull() ?: 0
 }
+
+/** Where [BrowserHistorySync] keeps the history's floor, the place the last session in this tab ended at. */
+private const val FLOOR = "activitytracker.historyFloor"
