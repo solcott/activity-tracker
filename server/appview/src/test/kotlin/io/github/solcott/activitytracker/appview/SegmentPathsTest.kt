@@ -62,8 +62,8 @@ class SegmentPathsTest : SegmentTestBase() {
         db.tx { Segments.update({ Segments.uri inList rkeys.map { segmentUri(it) } }) { it[Segments.status] = SegmentStatus.ACTIVE } }
     }
 
-    private suspend fun io.ktor.client.HttpClient.pathsOf(rkey: String, viewer: String = alice) =
-        xrpcOk(GetSegment.method, mapOf("uri" to segmentUri(rkey)), viewer).segment.paths.map { it.value }
+    private suspend fun io.ktor.client.HttpClient.pathsOf(rkey: String, viewer: String = alice, did: String = alice) =
+        xrpcOk(GetSegment.method, mapOf("uri" to segmentUri(rkey, did)), viewer).segment.paths.map { it.value }
 
     @Test
     fun stretchesAndCombinationsLieOnTheirTrails() = testApplication {
@@ -210,5 +210,21 @@ class SegmentPathsTest : SegmentTestBase() {
         assertEquals(listOf(pathUri("hoof")), client.pathsOf("3kh"))
         val view = client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("hoof")), viewer = alice).path
         assertEquals(listOf("hike"), view.sports)
+    }
+
+    @Test
+    fun anImportedSegmentLiesOnlyOnTrailsItMostlyFollows() = testApplication {
+        application { appView(config, db, verifier) }
+        // Clarks climbs 2 km; the 5 km Bonneville Shoreline runs over it and on.
+        path("clarks", listOf(0.0 to 0.0, 0.0 to 2000.0), name = "Clarks Trail")
+        path("bst", listOf(0.0 to -1500.0, 0.0 to 3500.0), name = "Bonneville Shoreline Trail")
+        val bst = listOf(0.0 to -1500.0, 0.0 to 3500.0)
+        segment("3ki", path = bst, sport = "ride", did = importer, name = "Bonneville Shoreline")
+        segment("3ka", path = bst, sport = "ride", name = "Shoreline climb")
+        segment("3kc", path = listOf(0.0 to 0.0, 0.0 to 2000.0), sport = "ride", did = importer, name = "Clarks")
+        val onBoth = listOf(pathUri("bst"), pathUri("clarks"))
+        assertEquals(listOf(pathUri("bst")), client.pathsOf("3ki", did = importer), "40% on Clarks isn't enough for an imported segment")
+        assertEquals(onBoth, client.pathsOf("3ka"), "an athlete's is on both")
+        assertEquals(onBoth, client.pathsOf("3kc", did = importer), "Clarks itself is on both trails, which share its tread")
     }
 }

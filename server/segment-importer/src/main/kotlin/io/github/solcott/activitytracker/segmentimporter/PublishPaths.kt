@@ -74,7 +74,7 @@ internal suspend fun publishPaths(
         clients.writer.update(repo, changed.map { Draft(Nsid.FEED_PATH, it.id, pathRecord(it, clock)) })
         refreshed += changed.map { it.id }
 
-        val needs = pathsNeeded(clients, paths)
+        val needs = pathsNeeded(clients, paths, repo.value)
         unpathed = needs.unpathed
         val drafts = paths.filter { it.id in needs.paths && it.id !in held }.map { Draft(Nsid.FEED_PATH, it.id, pathRecord(it, clock)) }
         clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey }
@@ -85,8 +85,11 @@ internal suspend fun publishPaths(
 /** The ids of the [paths] the region's live segments lie on, and how many of those segments lie on none ([unpathed]). */
 private class PathNeeds(val paths: Set<String>, val unpathed: Int)
 
-/** Asks the AppView, tile by tile over [paths]' box, for every live segment's line and sport group, and tests each against [paths]. */
-private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>): PathNeeds {
+/**
+ * Asks the AppView, tile by tile over [paths]' box, for every live segment's line and sport group, and tests each against [paths], the
+ * segments in the importer's own [repo] by the stricter test the AppView holds them to.
+ */
+private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: String): PathNeeds {
     val index = PathIndex(paths)
     val needed = linkedSetOf<String>()
     var unpathed = 0
@@ -96,7 +99,7 @@ private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>): PathN
             val page = clients.asImporter { clients.appView.query(GetSegmentLines.method, tile.copy(cursor = cursor)) }
             for (segment in page.segments) {
                 val line = SegmentGeometry.decodePolyline(segment.line) ?: continue
-                val on = index.pathsUnder(line, segment.sport)
+                val on = index.pathsUnder(line, segment.sport, imported = segment.uri.authority == repo)
                 if (on.isEmpty()) unpathed++ else needed += on
             }
             cursor = page.cursor?.takeIf { page.segments.isNotEmpty() }
@@ -189,12 +192,13 @@ internal class PathIndex(paths: List<PathEntry>) {
             .flatMap { candidate -> candidate.pieces.flatMap { SegmentCells.cellsOf(it) }.distinct().map { it to candidate.key } }
             .groupBy({ it.first }, { it.second })
 
-    /** The ids of the paths [line], of the sport group [sport], lies on, as the AppView decides it among the same paths. */
-    fun pathsUnder(line: List<GeoPoint>, sport: String?): Set<String> =
+    /** The ids of the paths [line], of the sport group [sport] and [imported] or not, lies on, as the AppView decides it among them. */
+    fun pathsUnder(line: List<GeoPoint>, sport: String?, imported: Boolean = false): Set<String> =
         PathOverlap.pathsUnder(
             line,
             sport,
             SegmentCells.cellsOf(line).flatMap { byCell[it].orEmpty() }.distinct().map(candidates::getValue),
+            imported,
         )
 }
 

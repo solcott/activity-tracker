@@ -87,4 +87,14 @@ class PathOverlapTest {
         assertEquals(setOf("ride"), PathOverlap.pathsUnder(ride, "ride", listOf(footPath, rideTrail)), "nearer the foot path, but ride")
         assertEquals(setOf("hoof"), PathOverlap.pathsUnder(ride, "run", listOf(footPath, rideTrail)))
     }
+
+    @Test
+    fun anImportedSegmentLiesOnlyOnAPathItMostlyFollows() {
+        // 5 km east, the middle 2 km along Ann's: as Bonneville Shoreline's segment runs along Clarks.
+        val long = east(0.0, 5_000.0)
+        val middle = listOf(east(1_500.0, 3_500.0))
+        assertTrue(PathOverlap.liesOn(long, middle), "an athlete's segment lies on it")
+        assertFalse(PathOverlap.liesOn(long, middle, imported = true), "40% of an imported one doesn't")
+        assertTrue(PathOverlap.liesOn(east(1_600.0, 3_400.0), middle, imported = true), "a stretch of the trail itself does")
+    }
 }

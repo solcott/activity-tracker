@@ -136,7 +136,7 @@ internal fun JdbcTransaction.upsertSegment(
     deleteEfforts { segmentUri eq uri.value }
     resampleTerrain(uri.value, jobs, now)
     replaceSegmentCells(uri.value, line)
-    repathSegment(uri.value, kind, record.sport, line)
+    repathSegment(uri.value, author.value, kind, record.sport, line)
     if (original == null) jobs.enqueueSegment(uri.value, now)
     if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now, importer)
     regroup(uri.value)

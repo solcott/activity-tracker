@@ -13,9 +13,11 @@ data class PathCandidate<K>(val key: K, val pieces: List<List<GeoPoint>>, val sp
  * AppView serves membership by this test and the segment importer publishes paths by it, so both always agree.
  *
  * A segment lies on a path when the stretches of it that follow the path add up to [SHARE] of its length or [MIN_METERS], whichever is
- * less. A stretch counts only for the paths nearest it: within [SegmentGeometry.CORRIDOR_M] and within [SHARED_M] of the nearest path, so a
- * trail running parallel a few tens of metres away loses to the one a segment is drawn on, while trails sharing tread both count. A path
- * not open to the segment's sport group neither holds it nor competes for it.
+ * less; a segment the importer cut from a trail, only when they add up to [IMPORTED_SHARE] of it, so it's listed on its own trail and on
+ * trails sharing its tread, not on trails it runs along for part of its length. A stretch counts only for the paths nearest it: within
+ * [SegmentGeometry.CORRIDOR_M] and within [SHARED_M] of the nearest path, so a trail running parallel a few tens of metres away loses to
+ * the one a segment is drawn on, while trails sharing tread both count. A path not open to the segment's sport group neither holds it nor
+ * competes for it.
  */
 object PathOverlap {
     /** A segment lies on a path when this share of its length follows the path... */
@@ -24,6 +26,9 @@ object PathOverlap {
     /** ...or this many meters of it do, whichever is shorter. */
     const val MIN_METERS = 1_000.0
 
+    /** An imported segment lies on a path only when this share of its length follows the path. */
+    const val IMPORTED_SHARE = 0.9
+
     /** How much farther than the nearest path another may be and still share a stretch: tread two paths both follow. */
     const val SHARED_M = 5.0
 
@@ -31,11 +36,11 @@ object PathOverlap {
     private const val DEGREES_PER_HALF_TURN = 180.0
     private const val MIN_COS = 0.01
 
-    /** The keys of the [candidates] that [segment], of the sport group [sport], lies on. */
-    fun <K> pathsUnder(segment: List<GeoPoint>, sport: String?, candidates: List<PathCandidate<K>>): Set<K> {
+    /** The keys of the [candidates] that [segment], of the sport group [sport] and [imported] by the segment importer or not, lies on. */
+    fun <K> pathsUnder(segment: List<GeoPoint>, sport: String?, candidates: List<PathCandidate<K>>, imported: Boolean = false): Set<K> {
         val length = SegmentGeometry.lengthMeters(segment)
         if (segment.size < 2 || length <= 0.0) return emptySet()
-        val needed = min(length * SHARE, MIN_METERS)
+        val needed = if (imported) length * IMPORTED_SHARE else min(length * SHARE, MIN_METERS)
         return overlaps(segment, candidates.filter { sport == null || it.sports.isEmpty() || sport in it.sports })
             .filterValues { it >= needed }
             .keys
@@ -66,9 +71,9 @@ object PathOverlap {
     fun overlapMeters(segment: List<GeoPoint>, pieces: List<List<GeoPoint>>): Double =
         overlaps(segment, listOf(PathCandidate(Unit, pieces)))[Unit] ?: 0.0
 
-    /** Whether [segment] lies on the path of [pieces], with no other path competing for it. */
-    fun liesOn(segment: List<GeoPoint>, pieces: List<List<GeoPoint>>): Boolean =
-        pathsUnder(segment, null, listOf(PathCandidate(Unit, pieces))).isNotEmpty()
+    /** Whether [segment], [imported] or not, lies on the path of [pieces], with no other path competing for it. */
+    fun liesOn(segment: List<GeoPoint>, pieces: List<List<GeoPoint>>, imported: Boolean = false): Boolean =
+        pathsUnder(segment, null, listOf(PathCandidate(Unit, pieces)), imported).isNotEmpty()
 
     /** The pieces' edges whose box comes within the corridor of [segment]'s box, so a long path costs only its nearby stretch. */
     private fun edgesNear(segment: List<GeoPoint>, pieces: List<List<GeoPoint>>): List<Pair<GeoPoint, GeoPoint>> {

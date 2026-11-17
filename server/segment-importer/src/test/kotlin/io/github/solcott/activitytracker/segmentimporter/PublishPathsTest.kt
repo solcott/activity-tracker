@@ -116,4 +116,24 @@ class PublishPathsTest {
         assertEquals(listOf("rush-2112"), result.removed, "inside the file's area; a path in another region stays")
         assertEquals(setOf("elsewhere"), repo.keys.map { it.second }.toSet())
     }
+
+    /** A 500 m path along the middle of where [segment]s run, a third of each one's 1.5 km. */
+    private val stub = PathEntry("stub", PathKind.TRAIL, "Stub", listOf(line(0.0, 1_500.0, 2_000.0)), 500, "osm", "ODbL-1.0")
+
+    @Test
+    fun theImportersOwnSegmentNeedsAPathItMostlyFollows() = runTest {
+        services()
+        segments +=
+            GetSegmentLines.SegmentLine(AtUri("at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/3ki"), "ride", line(0.0, 1_000.0, 2_500.0))
+        val result = publishPaths(clients, listOf(stub), clock)
+        assertEquals(emptyList(), result.published, "a third of an imported segment isn't enough")
+        assertEquals(1, result.unpathed)
+    }
+
+    @Test
+    fun anAthletesSegmentNeedsOnlyAQuarterOnAPath() = runTest {
+        services()
+        segments += segment("3ka", east = 0.0)
+        assertEquals(listOf("stub"), publishPaths(clients, listOf(stub), clock).published)
+    }
 }

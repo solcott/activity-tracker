@@ -134,11 +134,11 @@ private fun JdbcTransaction.repathSegments(uris: Set<String>) {
     for (chunk in uris.chunked(CELL_CHUNK)) {
         PathSegments.deleteWhere { segmentUri inList chunk }
         val segments =
-            Segments.select(Segments.uri, Segments.kind, Segments.sport, Segments.line)
+            Segments.select(Segments.uri, Segments.authorDid, Segments.kind, Segments.sport, Segments.line)
                 .where { (Segments.uri inList chunk) and (Segments.kind eq SegmentKind.RUN) }
                 .toList()
-        val candidates =
-            if (segments.isEmpty()) emptyList()
+        val near =
+            if (segments.isEmpty()) PathsNear(emptyList(), emptySet())
             else
                 candidatesIn(
                     SegmentCellIndex.select(SegmentCellIndex.cell)
@@ -147,7 +147,8 @@ private fun JdbcTransaction.repathSegments(uris: Set<String>) {
                 )
         val on = segments.flatMap { row ->
             val line = SegmentGeometry.decodePolyline(row[Segments.line]) ?: return@flatMap emptyList()
-            PathOverlap.pathsUnder(line, row[Segments.sport], candidates).map { it to row[Segments.uri] }
+            val imported = row[Segments.authorDid] in near.authors
+            PathOverlap.pathsUnder(line, row[Segments.sport], near.candidates, imported).map { it to row[Segments.uri] }
         }
         PathSegments.batchInsert(on) { (path, segment) ->
             this[PathSegments.pathUri] = path
@@ -156,29 +157,40 @@ private fun JdbcTransaction.repathSegments(uris: Set<String>) {
     }
 }
 
-/** The paths with a cell among [cells], decoded for [PathOverlap]. */
-private fun JdbcTransaction.candidatesIn(cells: Set<Long>): List<PathCandidate<String>> {
+/**
+ * Paths near some segments, decoded for [PathOverlap], and who published them: only the segment importer's paths are indexed, so a segment
+ * by one of [authors] is the importer's own, held to its stricter test (segments/segment-paths).
+ */
+private class PathsNear(val candidates: List<PathCandidate<String>>, val authors: Set<String>)
+
+/** The paths with a cell among [cells]. */
+private fun JdbcTransaction.candidatesIn(cells: Set<Long>): PathsNear {
     val near =
         cells.chunked(CELL_CHUNK).flatMapTo(mutableSetOf()) { chunk ->
             PathCellIndex.select(PathCellIndex.pathUri).where { PathCellIndex.cell inList chunk }.map { it[PathCellIndex.pathUri] }
         }
-    return near.chunked(CELL_CHUNK).flatMap { chunk ->
-        Paths.select(Paths.uri, Paths.lines, Paths.sports)
-            .where { Paths.uri inList chunk }
-            .map { row -> PathCandidate(row[Paths.uri], piecesOf(row[Paths.lines]), row[Paths.sports]?.split(',')?.toSet().orEmpty()) }
-    }
+    val rows =
+        near.chunked(CELL_CHUNK).flatMap { chunk ->
+            Paths.select(Paths.uri, Paths.authorDid, Paths.lines, Paths.sports).where { Paths.uri inList chunk }.toList()
+        }
+    return PathsNear(
+        rows.map { row -> PathCandidate(row[Paths.uri], piecesOf(row[Paths.lines]), row[Paths.sports]?.split(',')?.toSet().orEmpty()) },
+        rows.mapTo(mutableSetOf()) { it[Paths.authorDid] },
+    )
 }
 
 /**
- * Works out again which paths the segment at [uri], of [sport], lies on, after its line, kind or sport changed: a run on the paths sharing
- * a cell with [line] that [PathOverlap] picks (nearest wins each stretch, only paths open to [sport]); a lift on none.
+ * Works out again which paths the segment at [uri], by [author] and of [sport], lies on, after its line, kind or sport changed: a run on
+ * the paths sharing a cell with [line] that [PathOverlap] picks (nearest wins each stretch, only paths open to [sport], the importer's own
+ * segments held to its stricter test); a lift on none.
  */
-internal fun JdbcTransaction.repathSegment(uri: String, kind: String, sport: String, line: List<GeoPoint>) {
+@Suppress("LongParameterList") // The segment as indexed.
+internal fun JdbcTransaction.repathSegment(uri: String, author: String, kind: String, sport: String, line: List<GeoPoint>) {
     PathSegments.deleteWhere { segmentUri eq uri }
     if (kind != SegmentKind.RUN) return
-    val candidates = candidatesIn(SegmentCells.cellsOf(line))
-    if (candidates.isEmpty()) return
-    PathSegments.batchInsert(PathOverlap.pathsUnder(line, sport, candidates)) {
+    val near = candidatesIn(SegmentCells.cellsOf(line))
+    if (near.candidates.isEmpty()) return
+    PathSegments.batchInsert(PathOverlap.pathsUnder(line, sport, near.candidates, imported = author in near.authors)) {
         this[PathSegments.pathUri] = it
         this[PathSegments.segmentUri] = uri
     }
