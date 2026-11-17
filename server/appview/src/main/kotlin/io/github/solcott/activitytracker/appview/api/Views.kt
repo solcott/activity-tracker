@@ -92,12 +92,10 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /** [GetAuthorPosts]: an athlete's posts the viewer may see, newest first; blocks hide them, mutes don't (feed/posts). */
     suspend fun authorPosts(viewer: Did?, params: GetAuthorPosts.Params): GetAuthorPosts.Output = db.tx {
-        val did =
-            resolveShownActor(viewer, params.actor)
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did = requireShownActor(viewer, params.actor)
         val pageSize = Paging.clamp(params.limit)
         val rows = postPage((Posts.authorDid eq did) and postRows(viewer), pageSize, params.cursor)
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
         GetAuthorPosts.Output(postViews(rows, viewer, avatars), next)
     }
 
@@ -172,9 +170,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         viewer: Did?,
         params: GetAuthorActivities.Params,
     ): GetAuthorActivities.Output = db.tx {
-        val did =
-            resolveShownActor(viewer, params.actor)
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did = requireShownActor(viewer, params.actor)
         val filter = feedFilter(params.type, params.since, params.until)
         val (views, cursor) =
             activityPage((Activities.authorDid eq did) and filter, params.limit, params.cursor, viewer, Activities.startedAt)
@@ -183,9 +179,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /** [GetImportBatch]: an athlete's activities from one batch the viewer may see, newest started first (feed/import-cards). */
     suspend fun importBatch(viewer: Did?, params: GetImportBatch.Params): GetImportBatch.Output = db.tx {
-        val did =
-            resolveShownActor(viewer, params.actor)
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did = requireShownActor(viewer, params.actor)
         if (!Tid.isValid(params.batch)) return@tx GetImportBatch.Output(emptyList())
         val inBatch = (Activities.authorDid eq did) and (Activities.importBatch eq params.batch)
         val (views, cursor) = activityPage(inBatch, params.limit, params.cursor, viewer, Activities.startedAt)
@@ -196,9 +190,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         viewer: Did?,
         params: GetAuthorActivitiesByStart.Params,
     ): GetAuthorActivitiesByStart.Output = db.tx {
-        val did =
-            resolveShownActor(viewer, params.actor)
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did = requireShownActor(viewer, params.actor)
         val since = params.since.toEpochMilliseconds()
         val until = params.until.toEpochMilliseconds()
         if (until <= since) invalidRequest("until must be after since")
@@ -217,7 +209,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
         GetAuthorActivitiesByStart.Output(hydrate(rows, viewer), next)
     }
 
@@ -237,13 +229,11 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /** A page of an athlete's gear items [viewer] may see, each with its totals for them, in use first, then by name. */
     suspend fun actorGear(viewer: Did?, params: GetActorGear.Params): GetActorGear.Output = db.tx {
-        val did =
-            resolveShownActor(viewer, params.actor)
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did = requireShownActor(viewer, params.actor)
         val pageSize = Paging.clamp(params.limit)
         val items = actorGearPage(did, viewer, params.cursor, pageSize)
         val totals = gearTotals(items, viewer)
-        val next = items.takeIf { it.size == pageSize }?.last()?.let(::actorGearCursor)
+        val next = nextCursor(items, pageSize, ::actorGearCursor)
         GetActorGear.Output(
             items.map {
                 ActorGearItem(it.gearView(mediaUrls, viewer), totals.getValue(it[GearItems.uri]), it[GearItems.retiredAt] != null)
@@ -257,7 +247,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         requireVisibleGear(params.uri.value, viewer)
         val pageSize = Paging.clamp(params.limit)
         val rows = countedActivities(viewer, params.uri.value, params.cursor, pageSize).toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
         GetGearActivities.Output(hydrate(rows, viewer), next)
     }
 
@@ -266,7 +256,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         requireDiveSite(viewer, params.site.value)
         val pageSize = GetDiveSiteDives.clamp(params.limit)
         val rows = diveSiteDiveRows(viewer, params.site.value, pageSize, params.cursor)
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Activities.startedAt], it[Activities.uri]) }
         GetDiveSiteDives.Output(hydrate(rows, viewer), next)
     }
 
@@ -304,7 +294,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 val replies = (Comments.threadUri eq root.value) and (Comments.uri neq root.value)
                 val rows =
                     listedRows(on.subject, listed and replies and keysetAfter(Comments.createdAt, Comments.uri, params.cursor), pageSize)
-                val next = rows.takeIf { it.size == pageSize }?.last()?.let(::commentCursor)
+                val next = nextCursor(rows, pageSize, ::commentCursor)
                 GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
             }
 
@@ -322,20 +312,16 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val on = requireInteractable(params.uri, viewer)
         val pageSize = Paging.clamp(params.limit)
         val latest = Likes.indexedAt.max()
-        val after =
-            params.cursor?.let(::parseCursor)?.let { (sortValue, did) ->
-                (latest less sortValue) or ((latest eq sortValue) and (Likes.authorDid less did))
-            } ?: Op.TRUE
         val rows =
             admittedLikes(on.subject)
                 .select(Likes.authorDid, latest)
                 .where { (Likes.subjectUri inList on.uris) and likesShownTo(viewer, on.subject) }
                 .groupBy(Likes.authorDid)
-                .having { after }
+                .having { havingBefore(latest, Likes.authorDid, params.cursor) }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Likes.authorDid]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[latest], it[Likes.authorDid]) }
         val profiles = basicProfiles(rows.map { it[Likes.authorDid] }, avatars)
         GetLikes.Output(params.uri, rows.mapNotNull { profiles[it[Likes.authorDid]] }, next)
     }
@@ -349,20 +335,16 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         requireVisiblePost(params.uri.value, viewer)
         val pageSize = Paging.clamp(params.limit)
         val latest = Reposts.indexedAt.max()
-        val after =
-            params.cursor?.let(::parseCursor)?.let { (sortValue, did) ->
-                (latest less sortValue) or ((latest eq sortValue) and (Reposts.authorDid less did))
-            } ?: Op.TRUE
         val rows =
             admittedReposts()
                 .select(Reposts.authorDid, latest)
                 .where { (Reposts.subjectUri eq params.uri.value) and repostsShownTo(viewer) }
                 .groupBy(Reposts.authorDid)
-                .having { after }
+                .having { havingBefore(latest, Reposts.authorDid, params.cursor) }
                 .orderBy(latest to SortOrder.DESC, Reposts.authorDid to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[latest], it[Reposts.authorDid]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[latest], it[Reposts.authorDid]) }
         val profiles = basicProfiles(rows.map { it[Reposts.authorDid] }, avatars)
         GetReposts.Output(params.uri, rows.mapNotNull { profiles[it[Reposts.authorDid]] }, next)
     }
@@ -376,7 +358,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         requireVisiblePost(params.uri.value, viewer)
         val pageSize = Paging.clamp(params.limit)
         val rows = postPage((Posts.quotedUri eq params.uri.value) and postRows(viewer), pageSize, params.cursor)
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Posts.sortAt], it[Posts.uri]) }
         GetQuotes.Output(postViews(rows, viewer, avatars), next)
     }
 
@@ -431,7 +413,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .orderBy(sort to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[sort], it[Activities.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[sort], it[Activities.uri]) }
         return hydrate(rows, viewer) to next
     }
 

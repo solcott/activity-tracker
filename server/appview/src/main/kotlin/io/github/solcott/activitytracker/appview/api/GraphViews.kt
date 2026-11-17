@@ -14,7 +14,6 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
@@ -57,8 +56,7 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
 
     /** [actor]'s profile; an athlete [viewer] may not know of ([resolveShownActor]) answers as an unknown one, as `getProfile` does. */
     private fun JdbcTransaction.resolveSubject(viewer: Did?, actor: String): ProfileViewBasic {
-        val did =
-            resolveShownActor(viewer, actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor $actor")
+        val did = requireShownActor(viewer, actor)
         return basicProfiles(listOf(did), avatars).getValue(did)
     }
 
@@ -126,7 +124,7 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
                 .orderBy(Follows.indexedAt to SortOrder.DESC, Follows.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[Follows.indexedAt], it[Follows.uri]) }
+        val next = nextCursor(rows, pageSize) { cursorOf(it[Follows.indexedAt], it[Follows.uri]) }
         val profiles = basicProfiles(rows.map { it[other] }, avatars)
         // An account can be followed more than once (duplicate records); list it once.
         return rows.mapNotNull { profiles[it[other]] }.distinctBy { it.did } to next
@@ -136,7 +134,7 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
 /** One page of [all] at the offset in [cursor], and the next page's cursor while there may be more. */
 private fun <T> offsetPage(all: List<T>, limit: Int?, cursor: String?): Pair<List<T>, String?> {
     val pageSize = Paging.clamp(limit)
-    val offset = cursor?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+    val offset = offsetOf(cursor)
     val page = all.drop(offset).take(pageSize)
     return page to (offset + pageSize).toString().takeIf { offset + pageSize < all.size }
 }

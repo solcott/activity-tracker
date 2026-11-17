@@ -27,7 +27,7 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
         val q = normalize(params.q)
         if (q.isEmpty()) return SearchActors.Output(emptyList())
         val pageSize = Paging.clamp(params.limit)
-        val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
+        val offset = offsetOf(params.cursor)
         return db.tx {
             // An unresolvable account's handle is the placeholder handle.invalid, which isn't the athlete's to be found by.
             val hasHandle = Actors.handle neq IdentityResolver.INVALID_HANDLE.value
@@ -47,10 +47,10 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
                     }
                     .orderBy(rank to SortOrder.ASC, Actors.handle to SortOrder.ASC, Actors.did to SortOrder.ASC)
                     .limit(pageSize)
-                    .offset(offset)
+                    .offset(offset.toLong())
                     .map { it[Actors.did] }
             val profiles = basicProfiles(rows, avatars)
-            SearchActors.Output(rows.mapNotNull { profiles[it] }, (offset + pageSize).toString().takeIf { rows.size == pageSize })
+            SearchActors.Output(rows.mapNotNull { profiles[it] }, nextOffset(offset, pageSize, rows.size))
         }
     }
 

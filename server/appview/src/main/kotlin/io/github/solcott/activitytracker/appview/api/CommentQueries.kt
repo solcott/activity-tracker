@@ -26,8 +26,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
-import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.min
@@ -176,20 +174,16 @@ internal fun JdbcTransaction.threadPage(
 ): GetComments.Output {
     val pageSize = Paging.clamp(params.limit)
     val first = threadPlace.min()
-    val after =
-        params.cursor?.let(::parseCursor)?.let { (sortValue, thread) ->
-            (first greaterEq sortValue) and ((first greater sortValue) or ((first eq sortValue) and (Comments.threadUri greater thread)))
-        } ?: Op.TRUE
     val threads =
         admittedComments(subject)
             .select(Comments.threadUri, first)
             .where { listed }
             .groupBy(Comments.threadUri)
-            .having { after }
+            .having { havingAfter(first, Comments.threadUri, params.cursor) }
             .orderBy(first to SortOrder.ASC, Comments.threadUri to SortOrder.ASC)
             .limit(pageSize)
             .toList()
-    val next = threads.takeIf { it.size == pageSize }?.last()?.let { cursorOf(it[first], it[Comments.threadUri]) }
+    val next = nextCursor(threads, pageSize) { cursorOf(it[first], it[Comments.threadUri]) }
     val threadUris = threads.map { it[Comments.threadUri] }
     if (threadUris.isEmpty()) return GetComments.Output(params.uri, emptyList(), next, emptyList())
     val isRoot = Comments.uri eq Comments.threadUri

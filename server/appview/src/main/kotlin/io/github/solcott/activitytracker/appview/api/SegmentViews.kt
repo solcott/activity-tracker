@@ -90,7 +90,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
-import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.intLiteral
@@ -293,7 +292,7 @@ class SegmentViews(
         val q = params.q.trim().take(SearchSegmentNames.MAX_QUERY_LENGTH).lowercase()
         if (q.isEmpty()) return SearchSegmentNames.Output(emptyList())
         val limit = Paging.clamp(params.limit)
-        val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
+        val offset = offsetOf(params.cursor)
         return db.tx {
             val name = Segments.currentName.lowerCase()
             val match = NameMatch(q)
@@ -315,7 +314,7 @@ class SegmentViews(
                     .groupBy(groupKey)
                     .orderBy(bestRank to SortOrder.ASC, within to SortOrder.ASC, groupKey to SortOrder.ASC)
                     .limit(limit)
-                    .offset(offset)
+                    .offset(offset.toLong())
                     .map { it[groupKey] }
             val members =
                 if (groups.isEmpty()) emptyList()
@@ -327,7 +326,7 @@ class SegmentViews(
             val place = groups.withIndex().associate { (i, group) -> group to i }
             val ordered = members.sortedBy { place.getValue(it[Segments.groupUri] ?: it[Segments.uri]) }
             val shown = box?.let { b -> ordered.filter { crosses(it[Segments.line], b.minLat, b.minLng, b.maxLat, b.maxLng) } } ?: ordered
-            SearchSegmentNames.Output(views(shown), (offset + limit).toString().takeIf { groups.size == limit })
+            SearchSegmentNames.Output(views(shown), nextOffset(offset, limit, groups.size))
         }
     }
 
@@ -367,7 +366,7 @@ class SegmentViews(
         val q = params.q.trim().take(SearchPathNames.MAX_QUERY_LENGTH).lowercase()
         if (q.isEmpty()) return SearchPathNames.Output(emptyList())
         val limit = Paging.clamp(params.limit).coerceAtMost(SearchPathNames.MAX_LIMIT)
-        val offset = params.cursor?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val offset = offsetOf(params.cursor)
         return db.tx {
             val match = NameMatch(q)
             val listed = nameListed(viewer, params.sport, box)
@@ -600,7 +599,7 @@ class SegmentViews(
                 order = listOf(SegmentEfforts.elapsedS to SortOrder.ASC, SegmentEfforts.id to SortOrder.ASC),
                 limit = limit,
             )
-        val next = efforts.takeIf { it.size == limit }?.last()?.let { cursorOf(it.elapsed, effortId(it)) }
+        val next = nextCursor(efforts, limit) { cursorOf(it.elapsed, effortId(it)) }
         GetSegmentEfforts.Output(efforts, next)
     }
 
@@ -620,17 +619,13 @@ class SegmentViews(
             if (served == null) return@tx GetSegmentLeaderboard.Output(emptyList())
             val board = boardOf(viewer, params.segment.value, served, since, following) and brackets
             val limit = Paging.clamp(params.limit)
-            val after =
-                params.cursor?.let(::parseCursor)?.let { (best, did) ->
-                    (BEST greater best) or ((BEST eq best) and (SegmentEfforts.authorDid greater did))
-                } ?: Op.TRUE
             val page =
-                bests(board, after).orderBy(BEST to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC).limit(limit).mapNotNull { row
-                    ->
-                    row[BEST]?.let { row[SegmentEfforts.authorDid] to it }
-                }
+                bests(board, havingAfter(BEST, SegmentEfforts.authorDid, params.cursor))
+                    .orderBy(BEST to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC)
+                    .limit(limit)
+                    .mapNotNull { row -> row[BEST]?.let { row[SegmentEfforts.authorDid] to it } }
             val entries = entries(viewer, board, page)
-            val next = page.takeIf { it.size == limit }?.last()?.let { (did, best) -> cursorOf(best, did) }
+            val next = nextCursor(page, limit) { (did, best) -> cursorOf(best, did) }
             val own = viewer?.let { me ->
                 bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
             }

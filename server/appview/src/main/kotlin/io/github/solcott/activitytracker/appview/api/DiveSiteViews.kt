@@ -127,7 +127,7 @@ class DiveSiteViews(
                     .orderBy(DiveSites.indexedAt to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
                     .limit(limit)
                     .toList()
-            val next = rows.takeIf { it.size == limit }?.last()?.let { cursorOf(it[DiveSites.indexedAt], it[DiveSites.uri]) }
+            val next = nextCursor(rows, limit) { cursorOf(it[DiveSites.indexedAt], it[DiveSites.uri]) }
             SearchDiveSites.Output(diveSiteViews(rows, avatars), next)
         }
     }
@@ -143,7 +143,7 @@ class DiveSiteViews(
         val q = params.q.trim().take(SearchDiveSiteNames.MAX_QUERY_LENGTH).lowercase()
         if (q.isEmpty()) return SearchDiveSiteNames.Output(emptyList())
         val limit = Paging.clamp(params.limit)
-        val offset = params.cursor?.toLongOrNull()?.coerceAtLeast(0) ?: 0
+        val offset = offsetOf(params.cursor)
         return db.tx {
             val name = DiveSites.currentName.lowerCase()
             val match = NameMatch(q)
@@ -175,9 +175,9 @@ class DiveSiteViews(
                     }
                     .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
                     .limit(limit)
-                    .offset(offset)
+                    .offset(offset.toLong())
                     .toList()
-            SearchDiveSiteNames.Output(diveSiteViews(rows, avatars), (offset + limit).toString().takeIf { rows.size == limit })
+            SearchDiveSiteNames.Output(diveSiteViews(rows, avatars), nextOffset(offset, limit, rows.size))
         }
     }
 

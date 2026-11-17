@@ -43,7 +43,7 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
      */
     suspend fun invites(viewer: Did, params: GetActivityInvites.Params): GetActivityInvites.Output = db.tx {
         val pageSize = Paging.clamp(params.limit)
-        val offset = params.cursor?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val offset = offsetOf(params.cursor)
         val unaccepted =
             ActivityInvites.selectAll()
                 .where { (ActivityInvites.inviteeDid eq viewer.value) and notExists(pairOf()) }

@@ -142,7 +142,7 @@ class SegmentCandidateViews(
                 .limit(limit)
                 .map(::stagedCandidate)
         }
-        return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
+        return GetRiddenSegmentCandidates.Output(page, cursor = nextCursor(page, limit) { it.id })
     }
 
     /**
@@ -180,7 +180,7 @@ class SegmentCandidateViews(
                 .limit(limit)
                 .map { GetSegmentLines.SegmentLine(AtUri(it[Segments.uri]), it[Segments.sport], it[Segments.line]) }
         }
-        return GetSegmentLines.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.uri?.value)
+        return GetSegmentLines.Output(page, cursor = nextCursor(page, limit) { it.uri.value })
     }
 
     /**
@@ -211,7 +211,7 @@ class SegmentCandidateViews(
                     )
                 }
         }
-        return GetHandoffs.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
+        return GetHandoffs.Output(page, cursor = nextCursor(page, limit) { it.id })
     }
 
     /**
