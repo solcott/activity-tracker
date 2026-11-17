@@ -295,10 +295,10 @@ object SegmentSamples {
         }
 
     /**
-     * A ride segment whose route (segments/segment-routes) also runs as run and hike segments, each both ways: the page offers the three
-     * sport groups and the two directions.
+     * A ride segment whose segment group (segments/segment-groups) also runs as run and hike segments, each both ways: the page offers the
+     * three sport groups and the two directions.
      */
-    val route: SegmentState
+    val group: SegmentState
         get() {
             val line = segment.record.line
             val back = SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(line).orEmpty().reversed())
@@ -311,20 +311,20 @@ object SegmentSamples {
                         SegmentSportGroup.HIKE to back,
                     )
                     .mapIndexed { i, (sport, way) ->
-                        GetSegment.RouteMember(fakeSegment("3kroute$i").uri, sport, name = segment.record.name, line = way)
+                        GetSegment.GroupMember(fakeSegment("3kroute$i").uri, sport, name = segment.record.name, line = way)
                     }
-            return loaded.copy(route = RouteSwitcher.of(segment, members))
+            return loaded.copy(group = GroupSwitcher.of(segment, members))
         }
 
     /** Kept apart from [all], whose keys are the content-loading set. */
     val variants: Map<String, SegmentState>
-        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate, ROUTE to route)
+        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate, GROUP to group)
 
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"
     const val OPEN_STREET_MAP = "openStreetMap"
     const val DUPLICATE = "duplicate"
-    const val ROUTE = "route"
+    const val GROUP = "group"
 }
 
 object SegmentMapSamples {

@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,15 +26,10 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -59,16 +52,14 @@ import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * Segments around a place and segments found by name (segments/segment-browse): on a phone the map above the list, on a wider window the
- * list beside the map, and on web, which has no map, the search and its list alone. It has no bar of its own: the Search tab hosts it. The
- * run under a mouse pointer, in a row or on the map, is this UI's own: highlighted on the map and marked in the list while it's there.
+ * Trails and roads around a place and those found by name (segments/segment-browse): on a phone the map above the list, on a wider window
+ * the list beside the map, and on web, which has no map, the search and its list alone. It has no bar of its own: the Search tab hosts it.
+ * The run under a mouse pointer, in a row or on the map, is this UI's own: highlighted on the map and marked in the list while it's there.
  */
 @CircuitInject(SegmentBrowseScreen::class, SessionScope::class)
 @Composable
@@ -111,8 +102,8 @@ fun SegmentBrowseUi(state: SegmentBrowseState, modifier: Modifier = Modifier) {
 /** The browse state with the run under the mouse pointer, which rows and the map both set and show. */
 @Immutable
 private class BrowseRowsState(val state: SegmentBrowseState, val hovered: String?, val onHover: (String?) -> Unit) {
-    /** Whether [segment]'s row is marked: it's selected, or the pointer is over it or its line. */
-    fun isMarked(segment: SegmentView): Boolean = state.isSelected(segment) || segment.uri.value == hovered
+    /** Whether [row] is marked: it's selected, or the pointer is over it or its line. */
+    fun isMarked(row: BrowseRow): Boolean = state.isSelected(row) || row.key.value == hovered
 }
 
 @Composable
@@ -175,11 +166,11 @@ private fun BrowseRows(rows: BrowseRowsState, listState: LazyListState, modifier
                     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
                         item(key = "refresh") { RefreshStatus(state.area, UiError.Kind.LoadAreaSegments, retry) }
                         if (area.capped) item(key = "capped") { EmptyListText(SegmentBrowseTexts.capped.string()) }
-                        items(area.runs, key = { it.segment.uri.value }) { run ->
-                            SegmentRow(rows, run.route, SegmentBrowseTexts.details(run, LocalUnitSystem.current))
+                        items(area.rows, key = { it.row.key.value }) { run ->
+                            BrowseRowItem(rows, run.row, SegmentBrowseTexts.details(run, LocalUnitSystem.current))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
-                        if (area.runs.isEmpty()) item(key = "none") { EmptyListText(SegmentBrowseTexts.noneHere.string()) }
+                        if (area.rows.isEmpty()) item(key = "none") { EmptyListText(SegmentBrowseTexts.noneHere.string()) }
                     }
                 }
             else -> SegmentBrowseTexts.message(shows)?.let { Message(it.string()) }
@@ -206,52 +197,30 @@ private fun NameResults(rows: BrowseRowsState, listState: LazyListState, modifie
                     }
                 }
             },
-        ) { route ->
-            SegmentRow(rows, route, SegmentBrowseTexts.details(route, LocalUnitSystem.current))
+        ) { row ->
+            BrowseRowItem(rows, row, SegmentBrowseTexts.details(row, LocalUnitSystem.current))
         }
     }
 }
 
 /**
- * A route's row (segments/segment-routes), drawn, selected and opened as its shown segment: its name, then its [details] line. It's marked
- * while selected or under the mouse pointer (here or on its line), and a mouse over it highlights its line. A tap on a touch screen selects
- * it, or opens it once selected; a click with a pointer opens it.
+ * A row (segments/segment-browse): a trail or road, or a segment group on none, with its name and its [details] line, selected, hovered and
+ * opened by its key ([SelectableRow]).
  */
 @Composable
-private fun SegmentRow(rows: BrowseRowsState, route: SegmentRoute, details: AppText) {
+private fun BrowseRowItem(rows: BrowseRowsState, row: BrowseRow, details: AppText) {
     val state = rows.state
-    val segment = route.shown
-    val touch = LocalUiPlatform.current.isMobile
-    val selected = state.isSelected(segment)
-    val uri = segment.uri.value
-    val currentOnHover by rememberUpdatedState(rows.onHover)
-    val currentHovered by rememberUpdatedState(rows.hovered)
-    Column(
-        Modifier.fillMaxWidth()
-            .then(if (rows.isMarked(segment)) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
-            .pointerInput(uri) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.changes.firstOrNull()?.type != PointerType.Mouse) continue
-                        when (event.type) {
-                            PointerEventType.Enter -> currentOnHover(uri)
-                            // Another row or the map may have taken the hover since.
-                            PointerEventType.Exit -> if (currentHovered == uri) currentOnHover(null)
-                            else -> Unit
-                        }
-                    }
-                }
-            }
-            .semantics { this.selected = selected }
-            .clickable(onClickLabel = SegmentBrowseTexts.rowAction(selected, touch).string()) {
-                state.eventSink(if (touch) state.tapRowEvent(route) else state.openEvent(route))
-            }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Text(SegmentBrowseTexts.routeName(route).string(), style = MaterialTheme.typography.titleMedium)
-        Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    SelectableRow(
+        key = row.key.value,
+        name = SegmentBrowseTexts.name(row),
+        details = details,
+        selected = state.isSelected(row),
+        marked = rows.isMarked(row),
+        hovered = rows.hovered,
+        onHover = rows.onHover,
+        onTap = { state.eventSink(state.tapRowEvent(row)) },
+        onOpen = { state.eventSink(state.openEvent(row)) },
+    )
 }
 
 /**
@@ -263,9 +232,9 @@ private fun ListPosition(state: SegmentBrowseState, listState: LazyListState) {
     LaunchedEffect(state.selected) {
         val selected = state.selected ?: return@LaunchedEffect
         val index =
-            if (state.searchingNames) state.results.items.indexOfFirst { it.shown.uri == selected }
+            if (state.searchingNames) state.results.items.indexOfFirst { it.key == selected }
             else
-                state.area.data.runs.indexOfFirst { it.segment.uri == selected }.takeIf { it >= 0 }?.let { it + areaRowsBeforeRuns(state) }
+                state.area.data.rows.indexOfFirst { it.row.key == selected }.takeIf { it >= 0 }?.let { it + areaRowsBeforeRuns(state) }
                     ?: -1
         if (index >= 0) listState.animateScrollToItem(index)
     }

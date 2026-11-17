@@ -69,6 +69,8 @@ import io.github.solcott.activitytracker.app.search.AthleteSearchSamples
 import io.github.solcott.activitytracker.app.search.AthleteSearchUi
 import io.github.solcott.activitytracker.app.segment.CreateSegmentSamples
 import io.github.solcott.activitytracker.app.segment.CreateSegmentUi
+import io.github.solcott.activitytracker.app.segment.PathSamples
+import io.github.solcott.activitytracker.app.segment.PathUi
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseSamples
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseUi
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardSamples
@@ -133,6 +135,7 @@ class ContentLoadingConformanceTest {
             entry({ ImportBatchSamples.all }, "Evening Ride") { ImportBatchUi(it) },
             entry({ SegmentSamples.all }, "Ridge Trail") { SegmentUi(it) },
             entry({ SegmentMapSamples.all }, null) { SegmentMapUi(it) },
+            entry({ PathSamples.all }, null) { PathUi(it) },
             entry({ SegmentLeaderboardSamples.all }, "Carol") { SegmentLeaderboardUi(it) },
             entry({ SegmentMayorsSamples.all }, "Bob") { SegmentMayorsUi(it) },
             entry({ StarredSegmentsSamples.all }, "Flagstaff Climb") { StarredSegmentsUi(it) },

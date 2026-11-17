@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.GetPaths
+import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
@@ -42,12 +44,15 @@ class SegmentBrowseReadsTest {
 
     /** Area pages by cursor: none, "a" and "b" hold one segment each, "e" holds none, and "b"'s page ends the search. */
     private val pages =
-        mapOf(
+        mutableMapOf(
             null to SearchSegments.Output(listOf(view("1")), "a"),
             "a" to SearchSegments.Output(emptyList(), "b"),
             "b" to SearchSegments.Output(listOf(view("2"), view("1")), null),
         )
     private val requests = mutableListOf<Map<String, List<String>>>()
+
+    private val anns = AtUri.of(Did("did:plc:importer"), Nsid.FEED_PATH, "anns")
+    private val paths = listOf(PathView(anns, Cid("bafyanns"), "trail", "Ann's", listOf("_p~iF~ps|U"), 5000, "osm", "ODbL-1.0"))
 
     private val http =
         HttpClient(
@@ -70,6 +75,11 @@ class SegmentBrowseReadsTest {
                             ),
                             headers = json,
                         )
+                    Nsid.FEED_GET_PATHS -> {
+                        val asked = request.url.parameters.getAll("uris").orEmpty()
+                        val output = GetPaths.Output(paths.filter { it.uri.value in asked })
+                        respond(AtJson.encodeToString(GetPaths.Output.serializer(), output), headers = json)
+                    }
                     else -> respondError(HttpStatusCode.NotFound)
                 }
             },
@@ -99,16 +109,29 @@ class SegmentBrowseReadsTest {
     }
 
     @Test
-    fun theCapKeepsRoutesWhole() {
+    fun theCapKeepsGroupsWhole() {
         val trail = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "1")
-        val segments = listOf(view("1"), view("2").copy(route = trail), view("3"), view("1b").copy(route = trail))
-        assertEquals(listOf(view("1"), view("2").copy(route = trail), view("1b").copy(route = trail)), wholeRoutes(segments, cap = 3))
+        val segments = listOf(view("1"), view("2").copy(group = trail), view("3"), view("1b").copy(group = trail))
+        assertEquals(listOf(view("1"), view("2").copy(group = trail), view("1b").copy(group = trail)), wholeGroups(segments, cap = 3))
         assertEquals(
-            listOf(view("1"), view("2").copy(route = trail), view("1b").copy(route = trail)),
-            wholeRoutes(segments, cap = 1),
-            "the first route even past the cap",
+            listOf(view("1"), view("2").copy(group = trail), view("1b").copy(group = trail)),
+            wholeGroups(segments, cap = 1),
+            "the first group even past the cap",
         )
-        assertEquals(segments, wholeRoutes(segments, cap = 4))
+        assertEquals(segments, wholeGroups(segments, cap = 4))
+    }
+
+    @Test
+    fun anAreaBringsThePathsItsSegmentsLieOnOnce() = runTest {
+        val (_, _, clients) = signedInTestSession(http, did = did)
+        val repository = SegmentRepository(clients)
+        val onAnns = mapOf(null to SearchSegments.Output(listOf(view("1").copy(paths = listOf(anns))), null))
+        pages.clear()
+        pages.putAll(onAnns)
+        val area = repository.areaSegments(box)
+        assertEquals(Outcome.Data(AreaSegments(listOf(view("1").copy(paths = listOf(anns))), false, paths), Origin.Network), area)
+        repository.areaSegments(box)
+        assertEquals(1, requests.count { it.containsKey("uris") }, "the path is fetched once, then cached")
     }
 
     @Test

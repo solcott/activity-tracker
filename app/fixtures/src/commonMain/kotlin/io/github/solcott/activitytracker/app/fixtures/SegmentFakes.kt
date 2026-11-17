@@ -4,10 +4,13 @@
 package io.github.solcott.activitytracker.app.fixtures
 
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
@@ -69,3 +72,26 @@ fun fakeLeaderboardEntry(rank: Int = 1, athlete: ProfileViewBasic = fakeProfileB
 
 fun fakeMayorEntry(rank: Int = 1, athlete: ProfileViewBasic = fakeProfileBasic(), efforts: Int = 12): MayorEntry =
     MayorEntry(rank, athlete, efforts, reachedOn = "2026-05-20")
+
+/** A trail or road (segments/segment-paths) published by the importer, along [Fixed.POLYLINE]. */
+fun fakePath(
+    rkey: String = "anns",
+    name: String = "Ann's",
+    kind: String = PathKind.TRAIL,
+    lengthMeters: Long = 8_690,
+    sports: List<String> = listOf(SegmentSportGroup.RIDE),
+    groupCount: Int = 1,
+    source: String = SegmentSource.OSM,
+): PathView =
+    PathView(
+        uri = Fixed.uri(Did("did:plc:importer"), Nsid.FEED_PATH, rkey),
+        cid = Fixed.cid(rkey),
+        kind = kind,
+        name = name,
+        lines = listOf(Fixed.POLYLINE),
+        lengthMeters = lengthMeters,
+        source = source,
+        license = if (source == SegmentSource.OSM) "ODbL-1.0" else "CC0-1.0",
+        sports = sports,
+        groupCount = groupCount,
+    )

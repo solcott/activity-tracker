@@ -3,7 +3,9 @@ package io.github.solcott.activitytracker.app.segment
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import kotlinx.collections.immutable.persistentListOf
 
 /** What segment browse's list shows (segments/segment-browse): name results, why there are no runs yet, or the area's runs. */
 enum class BrowseList {
@@ -27,6 +29,7 @@ enum class BrowseList {
 }
 
 /** What segment browse says (segments/segment-browse, dev/shared-display-text), chosen here for the shared and the native UI. */
+@Suppress("TooManyFunctions") // Every line browse shows: its choices, its rows' names and details, and its messages.
 object SegmentBrowseTexts {
     val searchLabel: AppText = AppText.named("segment_browse_search_label")
 
@@ -52,19 +55,35 @@ object SegmentBrowseTexts {
     fun details(segment: SegmentView, units: UnitSystem): AppText = joined(segment, null, units)
 
     /**
-     * A route's line under its name (segments/segment-routes): its length, its runs' types, and Both ways when they run both ways ("5.40 mi
-     * · Ride, Run, Hike · Both ways").
+     * A segment group's line under its name (segments/segment-groups): its length, its runs' types, and Both ways when they run both ways
+     * ("5.40 mi · Ride, Run, Hike · Both ways").
      */
-    fun details(route: SegmentRoute, units: UnitSystem): AppText = joined(route, null, units)
-
-    /** An area row's line under its name: as a route's, then how far its line comes to the map's centre ("1.2 mi · Ride · 0.1 mi away"). */
-    fun details(run: BrowsedSegment, units: UnitSystem): AppText = joined(run.route, run.metersAway, units)
+    fun details(group: SegmentGroupRow, units: UnitSystem): AppText = joined(group, null, units)
 
     /**
-     * A route's row's name (segments/segment-routes): its shown run's current name without the direction the segment importer adds, and,
-     * when the row runs both ways, its one "→" read as "↔". A name that doesn't end in a direction is shown as it is.
+     * A row's line under its name: a trail or road's kind, length, sport groups and how many segment groups it holds ("Trail · 5.40 mi ·
+     * Ride, Run, Hike · 3 segments"), or a segment group's line.
      */
-    fun routeName(route: SegmentRoute): AppText = AppText.written(SegmentRoute.displayName(route.shown.currentName, route.bothWays))
+    fun details(row: BrowseRow, units: UnitSystem): AppText = joined(row, null, units)
+
+    /** An area row's line under its name: as [details], then how far its line comes to the map's centre ("… · 0.1 mi away"). */
+    fun details(run: BrowsedRow, units: UnitSystem): AppText = joined(run.row, run.metersAway, units)
+
+    /** A row's name: a trail or road's, or a segment group's ([groupName]). */
+    fun name(row: BrowseRow): AppText =
+        when (row) {
+            is BrowseRow.Path -> AppText.written(row.path.name)
+            is BrowseRow.Group -> groupName(row.group)
+        }
+
+    /** What a path is: "Trail" or "Road". */
+    fun kind(path: BrowseRow.Path): AppText = AppText.named(if (path.road) "path_kind_road" else "path_kind_trail")
+
+    /**
+     * A segment group's row's name (segments/segment-groups): its shown run's current name without the direction the segment importer adds,
+     * and, when the row runs both ways, its one "→" read as "↔". A name that doesn't end in a direction is shown as it is.
+     */
+    fun groupName(group: SegmentGroupRow): AppText = AppText.written(SegmentGroupRow.displayName(group.shown.currentName, group.bothWays))
 
     /** What the list says in place of runs or results ([BrowseList.Names] and [BrowseList.Area] show those); null for those two. */
     fun message(list: BrowseList): AppText? =
@@ -109,12 +128,31 @@ private fun joined(segment: SegmentView, metersAway: Int?, units: UnitSystem): A
         units,
     )
 
-private fun joined(route: SegmentRoute, metersAway: Int?, units: UnitSystem): AppText {
-    val shown = route.shown
+private fun joined(row: BrowseRow, metersAway: Int?, units: UnitSystem): AppText =
+    when (row) {
+        is BrowseRow.Group -> joined(row.group, metersAway, units)
+        is BrowseRow.Path -> {
+            // With one sport group chosen, the row says what that group holds where the list knows it; else the whole path's, as served.
+            val sports = row.sport?.let(::listOf) ?: row.path.sports
+            val count = if (row.sport != null && row.groups.isNotEmpty()) row.groups.size else row.path.groupCount
+            val parts =
+                listOfNotNull(
+                    SegmentBrowseTexts.kind(row),
+                    StatText.distance(row.path.lengthMeters.toDouble(), units),
+                    AppText.joined(sports.map(SegmentTexts::sportGroup)),
+                    AppText.Plural("path_segment_count", count, persistentListOf(AppText.written(formatWhole(count)))),
+                    metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
+                )
+            parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }
+        }
+    }
+
+private fun joined(group: SegmentGroupRow, metersAway: Int?, units: UnitSystem): AppText {
+    val shown = group.shown
     val types =
-        if (route.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
-        else AppText.joined(route.sports.map(SegmentTexts::sportGroup))
-    val bothWays = AppText.named("segment_browse_both_ways").takeIf { route.bothWays }
+        if (group.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
+        else AppText.joined(group.sports.map(SegmentTexts::sportGroup))
+    val bothWays = AppText.named("segment_browse_both_ways").takeIf { group.bothWays }
     return joined(StatText.distance(shown.distanceMeters.toDouble(), units), types, bothWays, metersAway, units)
 }
 

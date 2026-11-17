@@ -88,7 +88,7 @@ class SearchTabSegmentsTest {
             }
         }
 
-        onNodeWithText("Segments").performClick()
+        onNodeWithText("Trails & roads").performClick()
         onNodeWithText("browse 1").performClick()
         onNodeWithText("profile").assertExists()
         assertEquals(ProfileScreen("did:plc:carol"), tab.peek(), "opened on the tab's own back stack")

@@ -11,12 +11,12 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * One row of segment browse (segments/segment-routes): the listed segments of a route, which follow one path in any sport group and either
- * direction. The row is drawn, selected and opened as its [shown] member, so the map and the selection key on that member's URI.
+ * One row of segment browse (segments/segment-groups): the listed segments of a segment group, which follow one path in any sport group and
+ * either direction. The row is drawn, selected and opened as its [shown] member, so the map and the selection key on that member's URI.
  */
 @Immutable
-data class SegmentRoute(
-    /** The route's listed segments, in the order they were listed. */
+data class SegmentGroupRow(
+    /** The segment group's listed segments, in the order they were listed. */
     val members: ImmutableList<SegmentView>,
     /** The member the row is drawn, opened and selected as: the chosen sport group's first, else the first group's in app order. */
     val shown: SegmentView,
@@ -25,21 +25,21 @@ data class SegmentRoute(
     /** Whether the members run both ways along the path. */
     val bothWays: Boolean,
 ) {
-    /** The route's key: the segment naming it. */
+    /** The segment group's key: the segment naming it. */
     val key: AtUri
-        get() = shown.routeKey
+        get() = shown.groupKey
 
     companion object {
         /**
-         * [segments] grouped by route in the order each route first appears, each shown as the first member of [sport], or of the first
-         * sport group in app order when [sport] is null.
+         * [segments] grouped by segment group in the order each segment group first appears, each shown as the first member of [sport], or
+         * of the first sport group in app order when [sport] is null.
          */
-        fun of(segments: List<SegmentView>, sport: String?): List<SegmentRoute> =
-            segments.groupBy { it.routeKey }.values.map { members -> routeOf(members, sport) }
+        fun of(segments: List<SegmentView>, sport: String?): List<SegmentGroupRow> =
+            segments.groupBy { it.groupKey }.values.map { members -> groupOf(members, sport) }
 
         /**
-         * [name] as a route's row shows it (segments/segment-routes): for a row running [bothWays], without the direction the segment
-         * importer adds, or with its one "→" read as "↔"; otherwise, and for any other name, as it is.
+         * [name] as a segment group's row shows it (segments/segment-groups): for a row running [bothWays], without the direction the
+         * segment importer adds, or with its one "→" read as "↔"; otherwise, and for any other name, as it is.
          */
         fun displayName(name: String, bothWays: Boolean): String {
             val direction = DIRECTION_SUFFIX.find(name)?.takeIf { SegmentHeading.ofWord(it.groupValues[1]) != null }
@@ -51,13 +51,13 @@ data class SegmentRoute(
             }
         }
 
-        /** [members], all of one route, as a row. */
-        fun routeOf(members: List<SegmentView>, sport: String? = null): SegmentRoute {
+        /** [members], all of one segment group, as a row. */
+        fun groupOf(members: List<SegmentView>, sport: String? = null): SegmentGroupRow {
             val order = SegmentSportGroup.all
             val sports = members.map { it.record.sport }.distinct().sortedBy { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size }
             val shownSport = sport?.takeIf { it in sports } ?: sports.first()
             val shown = members.first { it.record.sport == shownSport }
-            return SegmentRoute(
+            return SegmentGroupRow(
                 members = members.toImmutableList(),
                 shown = shown,
                 sports = sports.toImmutableList(),

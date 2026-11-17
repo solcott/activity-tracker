@@ -5,17 +5,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.github.solcott.activitytracker.app.MapBounds
-import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.segment.BrowseStart
 import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationTracker
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.first
@@ -29,18 +25,13 @@ val LOCATION_TIMEOUT = 5.seconds
 
 /**
  * What a map browse screen keeps between compositions (segments/segment-browse, dive-sites/site-browse): the map's area and where it was
- * sent, how browsing started, the item tapped on the map, the name search's scope, and the area's retry key. A presenter holds one in
- * `rememberRetained`, starts it with [locate], and hands it the events that only change it.
+ * sent and the item tapped on the map ([MapSelection]), how browsing started, the name search's scope, and the area's retry key. Moving the
+ * map doesn't restart a name search, which read its area when it began ([nameViewport]). A presenter holds one in `rememberRetained`,
+ * starts it with [locate], and hands it the events that only change it.
  */
 @Stable
-class MapBrowse(permission: Boolean?) {
+class MapBrowse(permission: Boolean?) : MapSelection() {
     var scope by mutableStateOf(NameScope.ThisArea)
-    var viewport by mutableStateOf<MapViewport?>(null)
-        private set
-
-    var selected by mutableStateOf<AtUri?>(null)
-    var camera by mutableStateOf<MapCameraRequest?>(null)
-        private set
 
     var start by mutableStateOf(BrowseStart.Locating)
         private set
@@ -53,8 +44,8 @@ class MapBrowse(permission: Boolean?) {
     var nameViewport: MapViewport? = null
 
     /** The map stopped and shows [shown]. */
-    fun viewportChanged(shown: MapViewport) {
-        viewport = shown
+    override fun viewportChanged(shown: MapViewport) {
+        super.viewportChanged(shown)
         // The athlete found somewhere themselves.
         if (start == BrowseStart.Nowhere && !shown.tooWide) start = BrowseStart.Placed
     }
@@ -73,27 +64,14 @@ class MapBrowse(permission: Boolean?) {
         if (start == BrowseStart.Locating) placeAt(at)
     }
 
-    /**
-     * Selects the row [uri] whose line or place is [points] (null when it can't lie off the map, as an area's rows), framing them when none
-     * is in the map's view. Moving the map doesn't restart a name search, which read its area when it began ([nameViewport]).
-     */
-    fun selectRow(uri: AtUri, points: List<GeoPoint>?) {
-        selected = uri
-        val shown = viewport ?: return
-        if (points.isNullOrEmpty() || points.any { shown.holds(it) }) return
-        camera = MapCameraRequest.fit(nextCameraId(), MapBounds.of(points))
-    }
-
     private fun placeAt(at: GeoPoint?) {
         if (at == null) {
             start = BrowseStart.Nowhere
         } else {
-            camera = MapCameraRequest(id = nextCameraId(), lat = at.lat, lng = at.lng)
+            centreOn(at)
             start = BrowseStart.Placed
         }
     }
-
-    private fun nextCameraId(): Int = (camera?.id ?: 0) + 1
 
     /** The viewport an area browse loads: while no name is searched ([searching]), the map is close enough, and browsing has started. */
     fun areaRequest(searching: Boolean): MapViewport? = viewport?.takeIf { !searching && !it.tooWide && start != BrowseStart.Locating }
@@ -102,12 +80,6 @@ class MapBrowse(permission: Boolean?) {
     fun nameBox(viewport: MapViewport?): MapViewport? = viewport?.takeIf { scope == NameScope.ThisArea && !it.tooWide }
 
     companion object {
-        private const val E7 = 1e7
-
-        /** Whether [point] lies in this viewport's box. */
-        private fun MapViewport.holds(point: GeoPoint): Boolean =
-            (point.lat * E7).roundToInt() in minLat..maxLat && (point.lng * E7).roundToInt() in minLng..maxLng
-
         /** Whether [tracker]'s location may be read, as a new [MapBrowse] starts: false where there's none, null until asked. */
         fun initialPermission(tracker: LocationTracker): Boolean? =
             when {

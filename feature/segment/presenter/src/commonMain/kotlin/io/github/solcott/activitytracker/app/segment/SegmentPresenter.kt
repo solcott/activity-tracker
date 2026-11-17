@@ -49,7 +49,8 @@ fun SegmentPresenter(
     stars: SegmentStars,
     names: SegmentNames,
 ): SegmentState {
-    // The segment shown: the screen's, or another of its route chosen on the page (segments/segment-routes), swapped in place so the page
+    // The segment shown: the screen's, or another of its segment group chosen on the page (segments/segment-groups), swapped in place so
+    // the page
     // keeps its place and back still leaves it.
     var shown by rememberRetained { mutableStateOf(screen.uri) }
     val uri = AtUri(shown)
@@ -79,7 +80,7 @@ fun SegmentPresenter(
     val profile = remember(detail.data) { detail.data?.let(::segmentProfileOf) }
     val segment = content.data
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
-    val route = remember(segment, detail.data?.routeMembers) { segment?.let { RouteSwitcher.of(it, detail.data?.routeMembers.orEmpty()) } }
+    val group = remember(segment, detail.data?.groupMembers) { segment?.let { GroupSwitcher.of(it, detail.data?.groupMembers.orEmpty()) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
     LaunchedEffect(shown, loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
     // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
@@ -117,7 +118,7 @@ fun SegmentPresenter(
         mayor = mayor,
         names = placeNames,
         profile = profile,
-        route = route,
+        group = group,
         shown = uri,
     ) { event ->
         when (event) {
@@ -145,11 +146,11 @@ fun SegmentPresenter(
             SegmentEvent.OpenMayors ->
                 segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.currentName, screen.board)) }
             // Shown in place: the page keeps its scroll and bar while the chosen segment loads over the last one (ui/content-loading).
-            is SegmentEvent.SwitchRoute -> shown = shownAfter(route, event, shown)
+            is SegmentEvent.SwitchGroup -> shown = shownAfter(group, event, shown)
         }
     }
 }
 
-/** The segment to show after [switch]: the one it names when it is in [route], else still [shown]. */
-private fun shownAfter(route: RouteSwitcher?, switch: SegmentEvent.SwitchRoute, shown: String): String =
-    route?.offering(switch.uri)?.value ?: shown
+/** The segment to show after [switch]: the one it names when it is in [group], else still [shown]. */
+private fun shownAfter(group: GroupSwitcher?, switch: SegmentEvent.SwitchGroup, shown: String): String =
+    group?.offering(switch.uri)?.value ?: shown

@@ -43,14 +43,16 @@ class SegmentBrowseUiTest {
         }
         onNodeWithText("Ridge Trail").assertExists()
         onNodeWithText("Hogback Climb").assertExists()
-        assertEquals(4, onAllNodesWithText("away", substring = true).fetchSemanticsNodes().size, "each row says how far away it is")
+        assertEquals(5, onAllNodesWithText("away", substring = true).fetchSemanticsNodes().size, "each row says how far away it is")
         onNodeWithText("Ann's").assertExists()
-        onNodeWithText("Ride, Run, Hike · Both ways", substring = true).assertExists()
+        onNodeWithText("Trail · ", substring = true).assertExists()
+        onNodeWithText("Ride, Run, Hike · 2 segments", substring = true).assertExists()
+        onNodeWithText("Pine St").assertExists()
         onNodeWithText("Ann's (eastbound)").assertDoesNotExist()
         onNodeWithText("This area").assertDoesNotExist()
 
         onNodeWithText("Hogback Climb").performClick()
-        assertEquals(SegmentBrowseEvent.Open(SegmentBrowseSamples.runs[1].segment.uri), events.last(), "a click opens it")
+        assertEquals(SegmentBrowseEvent.Open(SegmentBrowseSamples.runs[1].row.key), events.last(), "a click opens it")
     }
 
     @Test
@@ -59,14 +61,14 @@ class SegmentBrowseUiTest {
         setContent {
             AppPreview(platform = UiPlatform.Android) { SegmentBrowseUi(SegmentBrowseSamples.selected.copy(eventSink = { events += it })) }
         }
-        val hogback = SegmentBrowseSamples.runs[1].segment
+        val hogback = SegmentBrowseSamples.runs[1].row
         onNodeWithText("Hogback Climb").assertIsSelected().assert(hasClickLabel("Open"))
         onNodeWithText("Ridge Trail").assertIsNotSelected().assert(hasClickLabel("Show on map"))
 
         onNodeWithText("Ridge Trail").performClick()
-        assertEquals(SegmentBrowseEvent.TapRow(SegmentBrowseSamples.runs[0].segment.uri), events.last())
+        assertEquals(SegmentBrowseEvent.TapRow(SegmentBrowseSamples.runs[0].row.key), events.last())
         onNodeWithText("Hogback Climb").performClick()
-        assertEquals(SegmentBrowseEvent.TapRow(hogback.uri), events.last(), "the presenter opens the selected row")
+        assertEquals(SegmentBrowseEvent.TapRow(hogback.key), events.last(), "the presenter opens the selected row")
     }
 
     @Test
@@ -110,7 +112,7 @@ class SegmentBrowseUiTest {
     @Test
     fun zoomedOutItAsksToZoomIn() = runComposeUiTest {
         setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.tooWide) } }
-        onNodeWithText("Zoom in to see segments").assertExists()
+        onNodeWithText("Zoom in to see trails and roads").assertExists()
     }
 
     @Test
@@ -128,21 +130,21 @@ class SegmentBrowseUiTest {
         val events = mutableListOf<SegmentBrowseEvent>()
         setContent {
             AppPreview(platform = UiPlatform.Desktop) {
-                SegmentBrowseUi(SegmentBrowseSamples.routeResults.copy(eventSink = { events += it }))
+                SegmentBrowseUi(SegmentBrowseSamples.groupResults.copy(eventSink = { events += it }))
             }
         }
         assertEquals(1, onAllNodesWithText("Ann's").fetchSemanticsNodes().size)
-        onNodeWithText("Ride, Run, Hike · Both ways", substring = true).assertExists()
+        onNodeWithText("Trail · ", substring = true).assertExists()
         onNodeWithText("Ann's").performClick()
-        val route = SegmentBrowseSamples.routeResults.results.items.first()
-        assertEquals(SegmentBrowseEvent.Open(route.shown.uri), events.last(), "opens its first sport group's segment")
+        val trail = SegmentBrowseSamples.groupResults.results.items.first()
+        assertEquals(SegmentBrowseEvent.Open(trail.key), events.last(), "opens the trail")
     }
 
     @Test
     fun nothingInThisAreaOffersEverywhere() = runComposeUiTest {
         val events = mutableListOf<SegmentBrowseEvent>()
         setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.nothingHere.copy(eventSink = { events += it })) } }
-        onNodeWithText("No segments here match “hog”.").assertExists()
+        onNodeWithText("Nothing here matches “hog”.").assertExists()
         onNodeWithText("Search everywhere").performClick()
         assertEquals(SegmentBrowseEvent.SearchEverywhere, events.last())
     }
@@ -150,16 +152,21 @@ class SegmentBrowseUiTest {
     @Test
     fun withNowhereToOpenItAsksTheAthlete() = runComposeUiTest {
         setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.nowhere) } }
-        onNodeWithText("Move the map to a place, or search segments by name.").assertExists()
+        onNodeWithText("Move the map to a place, or search trails and roads by name.").assertExists()
     }
 
     @Test
     fun aNewSearchOpensAtItsBestMatch() = runComposeUiTest {
-        val old = (1..30).map { SegmentRoute.routeOf(listOf(fakeSegment("3kold$it", record = fakeSegmentRecord("Hog Canyon $it")))) }
+        val old =
+            (1..30).map<Int, BrowseRow> {
+                BrowseRow.Group(SegmentGroupRow.groupOf(listOf(fakeSegment("3kold$it", record = fakeSegmentRecord("Hog Canyon $it")))))
+            }
         val new =
-            (1..30).map {
-                SegmentRoute.routeOf(
-                    listOf(fakeSegment("3knew$it", record = fakeSegmentRecord(if (it == 1) "Hogback Climb" else "Hogback $it"))),
+            (1..30).map<Int, BrowseRow> {
+                BrowseRow.Group(
+                    SegmentGroupRow.groupOf(
+                        listOf(fakeSegment("3knew$it", record = fakeSegmentRecord(if (it == 1) "Hogback Climb" else "Hogback $it"))),
+                    ),
                 )
             }
         var results by mutableStateOf(PagedStates.loaded(old))

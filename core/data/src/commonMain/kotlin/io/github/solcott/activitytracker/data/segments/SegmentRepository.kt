@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
+import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPaths
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
@@ -18,6 +20,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.PathView
+import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -27,12 +31,18 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Segments and the efforts on them, read from the AppView (segments/segment-records, segments/segment-efforts). */
 @SingleIn(SessionScope::class)
 @Inject
 @Suppress("TooManyFunctions") // Each segment query the AppView serves, and its outcome or page form.
 class SegmentRepository(private val clients: SessionClients) {
+    /** Path views seen this session, by URI: a path's line rarely changes, and browsing asks for the same ones as the map moves. */
+    private val cachedPaths = mutableMapOf<AtUri, PathView>()
+    private val pathCache = Mutex()
+
     /** The activities the signed-in athlete published a segment from this session ([SegmentPublisher]), so their pages can say so. */
     val createdFrom: StateFlow<Set<AtUri>>
         field = MutableStateFlow(emptySet())
@@ -158,7 +168,8 @@ class SegmentRepository(private val clients: SessionClients) {
     /**
      * Every segment whose line passes through [box]' box (its limit and cursor are ignored), following the cursors until there are none, or
      * until [cap] segments or [maxRequests] requests, which marks the result [AreaSegments.capped] (segments/segment-browse). The cap keeps
-     * whole routes (segments/segment-routes), each page bringing every member of its routes, so a trail is never listed in part.
+     * whole segment groups (segments/segment-groups), each page bringing every member of its segment groups, so a trail is never listed in
+     * part.
      */
     suspend fun areaSegments(
         box: SearchSegments.Params,
@@ -174,7 +185,29 @@ class SegmentRepository(private val clients: SessionClients) {
             page.segments.forEach { if (it.uri !in found) found[it.uri] = it }
             cursor = page.cursor
         } while (cursor != null && found.size < cap && requests < maxRequests)
-        AreaSegments(wholeRoutes(found.values, cap), capped = cursor != null || found.size > cap)
+        val segments = wholeGroups(found.values, cap)
+        AreaSegments(segments, capped = cursor != null || found.size > cap, paths = pathViews(segments.flatMap { it.paths }.distinct()))
+    }
+
+    /** The views of [uris] (segments/segment-paths), from the session's cache where it has them, else [GetPaths] 25 at a time. */
+    suspend fun pathViews(uris: List<AtUri>): List<PathView> {
+        val missing = pathCache.withLock { uris.filterNot { it in cachedPaths } }
+        val fetched = missing.chunked(GetPaths.MAX_URIS).flatMap { clients.appView.query(GetPaths.method, GetPaths.Params(it)).paths }
+        return pathCache.withLock {
+            fetched.forEach { cachedPaths[it.uri] = it }
+            uris.mapNotNull { cachedPaths[it] }
+        }
+    }
+
+    /** A trail or road and every segment on it the viewer may find (segments/path-page). */
+    fun pathOutcome(uri: AtUri): Flow<Outcome<GetPath.Output>> = outcomeFlow {
+        clients.appView.query(GetPath.method, GetPath.Params(uri)).also { output -> pathCache.withLock { cachedPaths[uri] = output.path } }
+    }
+
+    /** One page of trails and roads, and segment groups on none, found by [params]' query (segments/segment-paths). */
+    suspend fun pathNamesPage(params: SearchPathNames.Params): Outcome<Page<SearchPathNames.Result, Unit>> = outcomeOf {
+        val output = clients.appView.query(SearchPathNames.method, params)
+        Page(output.results, Unit, output.cursor)
     }
 
     /** One page of segments whose current name contains [params]' query, best match first (segments/segment-records). */
@@ -192,19 +225,22 @@ class SegmentRepository(private val clients: SessionClients) {
     }
 }
 
-/** The segments crossing an area, and whether there were more than [SegmentRepository.areaSegments] read. */
-data class AreaSegments(val segments: List<SegmentView>, val capped: Boolean)
+/**
+ * The segments crossing an area, whether there were more than [SegmentRepository.areaSegments] read, and the views of the [paths] they lie
+ * on (segments/segment-paths).
+ */
+data class AreaSegments(val segments: List<SegmentView>, val capped: Boolean, val paths: List<PathView> = emptyList())
 
 private const val NOT_FOUND = "NotFound"
 
-/** The first routes of [segments], in order of their first member, while they fit in [cap] (always the first one). */
-internal fun wholeRoutes(segments: Collection<SegmentView>, cap: Int): List<SegmentView> {
+/** The first segment groups of [segments], in order of their first member, while they fit in [cap] (always the first one). */
+internal fun wholeGroups(segments: Collection<SegmentView>, cap: Int): List<SegmentView> {
     if (segments.size <= cap) return segments.toList()
-    val routes = segments.groupBy { it.routeKey }.values
+    val groups = segments.groupBy { it.groupKey }.values
     val kept = mutableListOf<SegmentView>()
-    for (route in routes) {
-        if (kept.isNotEmpty() && kept.size + route.size > cap) break
-        kept += route
+    for (group in groups) {
+        if (kept.isNotEmpty() && kept.size + group.size > cap) break
+        kept += group
     }
     return kept
 }

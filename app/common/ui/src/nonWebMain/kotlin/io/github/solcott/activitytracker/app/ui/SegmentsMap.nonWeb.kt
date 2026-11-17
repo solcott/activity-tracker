@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +35,10 @@ import androidx.compose.ui.unit.toSize
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.map_zoom_in
+import io.github.solcott.activitytracker.composeApp.resources.map_zoom_out
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.channels.Channel
@@ -40,7 +46,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
@@ -58,6 +66,7 @@ import org.maplibre.spatialk.geojson.Position
 
 actual val interactiveMapSupported: Boolean = true
 
+@Suppress("LambdaParameterEventTrailing") // The expect declaration fixes the order: onHover, optional there, comes last.
 @Composable
 actual fun SegmentsMap(
     segments: ImmutableList<MapSegmentLine>,
@@ -188,7 +197,15 @@ actual fun SegmentsMap(
         modifier.onSizeChanged { size = with(density) { it.toSize().toDpSize() } }.pointerInput(Unit) { watchMouse(pointer) },
         state = mapState,
         interactions = interactions,
-        overlay = { RouteMapOverlay(mapState) },
+        overlay = {
+            RouteMapOverlay(mapState) { buttonModifier ->
+                // Zoom without gestures: for a mouse without a wheel, a simulator, or anyone who can't pinch.
+                Column(buttonModifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MapButton(AppIcon.ZoomIn, Res.string.map_zoom_in, onClick = { scope.launch { mapState.zoomBy(1.0) } })
+                    MapButton(AppIcon.ZoomOut, Res.string.map_zoom_out, onClick = { scope.launch { mapState.zoomBy(-1.0) } })
+                }
+            }
+        },
     )
 }
 
@@ -219,6 +236,12 @@ private suspend fun MapState.runAt(at: DpOffset, slop: Dp): String? =
     queryRenderedFeatures(DpRect(at.x - slop, at.y - slop, at.x + slop, at.y + slop), setOf(RUNS_LAYER)).firstNotNullOfOrNull {
         it.properties?.get("uri")?.jsonPrimitive?.content
     }
+
+/** Zooms the map by [steps] levels about its centre, animated. */
+internal suspend fun MapState.zoomBy(steps: Double) {
+    val now = cameraPosition
+    animateCamera(CameraUpdate(center = now.center, zoom = (now.zoom + steps).coerceIn(MIN_ZOOM, MAX_ZOOM)), CameraAnimation.Fly.Standard)
+}
 
 /** The box the map shows and its centre, in 1e-7 degrees; null while it has no viewport. */
 private fun MapState.viewportNow(): MapViewport? {
@@ -251,6 +274,8 @@ private val CameraSaver =
     )
 
 private const val NO_REQUEST = -1
+private const val MIN_ZOOM = 0.0
+private const val MAX_ZOOM = 20.0
 private const val LIFT_DASH = 3
 private const val LIFT_GAP = 2
 private const val RUNS_LAYER = "segments-runs"

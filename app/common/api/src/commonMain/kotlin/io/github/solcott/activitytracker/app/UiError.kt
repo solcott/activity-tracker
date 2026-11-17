@@ -22,6 +22,7 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** The segments in the browse map's area (segments/segment-browse). */
         LoadAreaSegments,
+        LoadPath,
         SearchSegments,
         LoadLeaderboard,
         LoadMayors,

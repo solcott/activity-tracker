@@ -10,6 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.collections.immutable.persistentListOf
 
 /** What segment browse lists and says, and a segment's credit (segments/segment-browse, dev/shared-display-text). */
 class SegmentBrowseTextsTest {
@@ -46,14 +47,15 @@ class SegmentBrowseTextsTest {
     @Test
     fun aRunReadsItsLengthTypeAndHowFarAway() {
         val run = SegmentBrowseSamples.runs.first()
+        val segment = (run.row as BrowseRow.Group).group.shown
         val units = UnitSystem.Metric
         assertEquals(
             AppText.named(
                 "segment_browse_details",
                 AppText.named(
                     "segment_browse_details",
-                    StatText.distance(run.segment.distanceMeters.toDouble(), units),
-                    SegmentTexts.type(run.segment.record.sport, run.segment.record.kind),
+                    StatText.distance(segment.distanceMeters.toDouble(), units),
+                    SegmentTexts.type(segment.record.sport, segment.record.kind),
                 ),
                 AppText.named("segment_browse_away", StatText.distance(run.metersAway.toDouble(), units)),
             ),
@@ -63,40 +65,58 @@ class SegmentBrowseTextsTest {
 
     @Test
     fun aRoutesRowDropsItsDirectionWhenItRunsBothWays() {
-        assertEquals("Ann's", SegmentRoute.displayName("Ann's (eastbound)", bothWays = true))
-        assertEquals("Ridge Loop", SegmentRoute.displayName("Ridge Loop (counterclockwise)", bothWays = true))
+        assertEquals("Ann's", SegmentGroupRow.displayName("Ann's (eastbound)", bothWays = true))
+        assertEquals("Ridge Loop", SegmentGroupRow.displayName("Ridge Loop (counterclockwise)", bothWays = true))
         assertEquals(
             "Ann's: Lupine Hiking ↔ Potato Hill",
-            SegmentRoute.displayName("Ann's: Lupine Hiking → Potato Hill", bothWays = true),
+            SegmentGroupRow.displayName("Ann's: Lupine Hiking → Potato Hill", bothWays = true),
         )
-        assertEquals("Oak: Fire Road 3 → Pine", SegmentRoute.displayName("Oak: Fire Road 3 → Pine", bothWays = false), "one way")
-        assertEquals("Ann's (eastbound)", SegmentRoute.displayName("Ann's (eastbound)", bothWays = false))
-        assertEquals("Wiggly Woods", SegmentRoute.displayName("Wiggly Woods", bothWays = true), "a renamed one as it is")
-        assertEquals("Bridge (old)", SegmentRoute.displayName("Bridge (old)", bothWays = true), "not a direction")
-        assertEquals("A → B → C", SegmentRoute.displayName("A → B → C", bothWays = true))
+        assertEquals("Oak: Fire Road 3 → Pine", SegmentGroupRow.displayName("Oak: Fire Road 3 → Pine", bothWays = false), "one way")
+        assertEquals("Ann's (eastbound)", SegmentGroupRow.displayName("Ann's (eastbound)", bothWays = false))
+        assertEquals("Wiggly Woods", SegmentGroupRow.displayName("Wiggly Woods", bothWays = true), "a renamed one as it is")
+        assertEquals("Bridge (old)", SegmentGroupRow.displayName("Bridge (old)", bothWays = true), "not a direction")
+        assertEquals("A → B → C", SegmentGroupRow.displayName("A → B → C", bothWays = true))
     }
 
     @Test
-    fun aRoutesRowListsItsTypesAndBothWays() {
-        val ann = SegmentBrowseSamples.runs.last()
-        assertEquals(AppText.written("Ann's"), SegmentBrowseTexts.routeName(ann.route))
+    fun aSegmentGroupsRowListsItsTypesAndBothWays() {
+        val ann = SegmentGroupRow.groupOf(SegmentBrowseSamples.annsWhole)
+        assertEquals(AppText.written("Ann's"), SegmentBrowseTexts.groupName(ann))
         val units = UnitSystem.Metric
         assertEquals(
             AppText.named(
                 "segment_browse_details",
                 AppText.named(
                     "segment_browse_details",
-                    AppText.named(
-                        "segment_browse_details",
-                        StatText.distance(ann.segment.distanceMeters.toDouble(), units),
-                        AppText.joined(listOf("ride", "run", "hike").map(SegmentTexts::sportGroup))!!,
-                    ),
-                    AppText.named("segment_browse_both_ways"),
+                    StatText.distance(ann.shown.distanceMeters.toDouble(), units),
+                    AppText.joined(listOf("ride", "run", "hike").map(SegmentTexts::sportGroup))!!,
                 ),
-                AppText.named("segment_browse_away", StatText.distance(ann.metersAway.toDouble(), units)),
+                AppText.named("segment_browse_both_ways"),
             ),
             SegmentBrowseTexts.details(ann, units),
         )
+    }
+
+    @Test
+    fun aTrailsRowSaysWhatItIsAndHowManySegments() {
+        val trail = SegmentBrowseSamples.runs.last()
+        val row = trail.row as BrowseRow.Path
+        assertEquals(AppText.written("Ann's"), SegmentBrowseTexts.name(row))
+        val units = UnitSystem.Metric
+        val parts =
+            listOf(
+                AppText.named("path_kind_trail"),
+                StatText.distance(8_690.0, units),
+                AppText.joined(listOf("ride", "run", "hike").map(SegmentTexts::sportGroup))!!,
+                AppText.Plural("path_segment_count", 2, persistentListOf(AppText.written("2"))),
+                AppText.named("segment_browse_away", StatText.distance(trail.metersAway.toDouble(), units)),
+            )
+        assertEquals(
+            parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) },
+            SegmentBrowseTexts.details(trail, units),
+        )
+        val road = SegmentBrowseSamples.runs[2].row as BrowseRow.Path
+        assertEquals(AppText.named("path_kind_road"), SegmentBrowseTexts.kind(road))
     }
 
     @Test
@@ -115,7 +135,7 @@ class SegmentBrowseTextsTest {
     @Test
     fun theHoveredRunIsDrawnHighlightedOnTop() {
         val state = SegmentBrowseSamples.loaded
-        val hovered = state.areaRuns.first().segment.uri.value
+        val hovered = state.areaRows.first().row.key.value
         assertEquals(hovered, state.segmentsMap(hovered).drawn.last().uri)
     }
 
@@ -127,7 +147,7 @@ class SegmentBrowseTextsTest {
                 NameScope.entries.map(SegmentBrowseTexts::scope) +
                 state.sports.map(SegmentBrowseTexts::sport) +
                 SegmentBrowseSamples.runs.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
-                SegmentBrowseSamples.routeResults.results.items.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
+                SegmentBrowseSamples.groupResults.results.items.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
                 listOf(
                     SegmentBrowseTexts.searchLabel,
                     SegmentBrowseTexts.allSports,

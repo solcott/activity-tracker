@@ -3,12 +3,15 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.segment.BrowseRow
 import io.github.solcott.activitytracker.app.segment.BrowseStart
 import io.github.solcott.activitytracker.app.segment.NameScope
+import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseEvent
 import io.github.solcott.activitytracker.app.segment.SegmentBrowsePresenter
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseState
+import io.github.solcott.activitytracker.app.segment.SegmentGroupRow
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -23,8 +26,11 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetPaths
+import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
+import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -83,12 +89,15 @@ class SegmentBrowsePresenterTest {
     private val lift = segment("3kl", "Summit Chair", 500.0, sport = "alpine", kind = SegmentKind.LIFT)
     private val hogback = segment("3kh", "Hogback Climb", 200.0)
 
-    /** Near Loop the other way as a ride: in Near Loop's route (segments/segment-routes). */
+    /** Near Loop the other way as a ride: in Near Loop's segment group (segments/segment-groups). */
     private val nearRide =
-        segment("3kr", "Near Loop", 100.0, sport = "ride").let { it.copy(route = near.uri, record = it.record.copy(line = reversed(it))) }
+        segment("3kr", "Near Loop", 100.0, sport = "ride").let { it.copy(group = near.uri, record = it.record.copy(line = reversed(it))) }
 
     private fun reversed(segment: SegmentView) =
         SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(segment.record.line)!!.reversed())
+
+    /** The trails and roads the AppView serves (segments/segment-paths). */
+    private var trails = emptyList<PathView>()
 
     /** The area the AppView serves; the search requests, by method. */
     private var area = listOf(far, near, lift)
@@ -112,18 +121,34 @@ class SegmentBrowsePresenterTest {
                         val shown = area.filter { sport == null || it.record.sport == sport }
                         respond(AtJson.encodeToString(SearchSegments.Output.serializer(), SearchSegments.Output(shown)), headers = json)
                     }
-                    Nsid.FEED_SEARCH_SEGMENT_NAMES -> {
+                    Nsid.FEED_SEARCH_PATH_NAMES -> {
                         requests += path to params
                         val q = params.getValue("q").single()
                         val sport = params["sport"]?.single()
                         val found =
-                            (listOf(hogback, near) + area.filter { it.route != null } + far).filter {
-                                q.lowercase() in it.record.name.lowercase() && (sport == null || it.record.sport == sport)
-                            }
+                            // As the area serves them, so a segment on a path carries it.
+                            (listOf(hogback, near) + area.filter { it.group != null } + far)
+                                .map { s -> area.find { it.uri == s.uri } ?: s }
+                                .filter { q.lowercase() in it.record.name.lowercase() && (sport == null || it.record.sport == sport) }
+                        val pathed = trails.filter { trail ->
+                            found.any { trail.uri in it.paths } || q.lowercase() in trail.name.lowercase()
+                        }
+                        val results =
+                            pathed.map { SearchPathNames.Result(path = it) } +
+                                found
+                                    .filter { it.paths.isEmpty() }
+                                    .groupBy { it.groupKey }
+                                    .values
+                                    .map { SearchPathNames.Result(group = it) }
                         respond(
-                            AtJson.encodeToString(SearchSegmentNames.Output.serializer(), SearchSegmentNames.Output(found)),
+                            AtJson.encodeToString(SearchPathNames.Output.serializer(), SearchPathNames.Output(results)),
                             headers = json,
                         )
+                    }
+                    Nsid.FEED_GET_PATHS -> {
+                        val asked = params["uris"].orEmpty()
+                        val output = GetPaths.Output(trails.filter { it.uri.value in asked })
+                        respond(AtJson.encodeToString(GetPaths.Output.serializer(), output), headers = json)
                     }
                     Nsid.FEED_GET_AUTHOR_ACTIVITIES ->
                         respond(
@@ -152,7 +177,17 @@ class SegmentBrowsePresenterTest {
 
     private fun e7(degrees: Double) = (degrees * 1e7).roundToInt()
 
-    private fun names(state: SegmentBrowseState) = state.area.data.runs.map { it.segment.record.name }
+    private fun names(state: SegmentBrowseState) =
+        state.area.data.rows.map {
+            when (val row = it.row) {
+                is BrowseRow.Path -> row.path.name
+                is BrowseRow.Group -> row.group.shown.record.name
+            }
+        }
+
+    /** A row that is a segment group on no path, as its group. */
+    private val BrowseRow.group: SegmentGroupRow
+        get() = (this as BrowseRow.Group).group
 
     private val SegmentBrowseState.areaLoaded
         get() = area.hasLoaded && area.status is LoadStatus.Idle
@@ -203,12 +238,12 @@ class SegmentBrowsePresenterTest {
             val loaded = awaitUntil { it.areaLoaded }
 
             // Far Climb's line lies east of this view, but every run an area lists crosses the map's own view.
-            loaded.eventSink(loaded.tapRowEvent(far))
+            loaded.eventSink(SegmentBrowseEvent.TapRow(far.uri))
             val selected = awaitUntil { it.selected == far.uri }
             assertEquals(opening, selected.camera, "the map stays")
             navigator.expectNoGoToEvents()
 
-            selected.eventSink(selected.tapRowEvent(far))
+            selected.eventSink(SegmentBrowseEvent.TapRow(far.uri))
             assertEquals(SegmentScreen(far.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
@@ -223,15 +258,15 @@ class SegmentBrowsePresenterTest {
             placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
             placed.query.edit { append("climb") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.size == 2 }
-            val searches = requests.count { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }
+            val searches = requests.count { it.first == Nsid.FEED_SEARCH_PATH_NAMES }
             val opening = found.camera
 
             // Hogback Climb is 200 m from the centre, in view: selecting it leaves the map where it is.
-            found.eventSink(found.tapRowEvent(hogback))
+            found.eventSink(SegmentBrowseEvent.TapRow(hogback.uri))
             assertEquals(opening, awaitUntil { it.selected == hogback.uri }.camera)
 
             // Far Climb is 3 km east, past the view's edge: the map frames its whole line.
-            found.eventSink(found.tapRowEvent(far))
+            found.eventSink(SegmentBrowseEvent.TapRow(far.uri))
             val framed = awaitUntil { it.selected == far.uri && it.camera != opening }
             val line = SegmentGeometry.decodePolyline(far.record.line)!!
             assertEquals(MapBounds.of(line), framed.camera?.bounds)
@@ -239,8 +274,8 @@ class SegmentBrowsePresenterTest {
 
             framed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport().copy(centerLng = e7(line.first().lng))))
             testScheduler.advanceUntilIdle()
-            assertEquals(searches, requests.count { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }, "the search isn't run again")
-            assertEquals(listOf("Hogback Climb", "Far Climb"), expectMostRecentItem().results.items.map { it.shown.record.name })
+            assertEquals(searches, requests.count { it.first == Nsid.FEED_SEARCH_PATH_NAMES }, "the search isn't run again")
+            assertEquals(listOf("Hogback Climb", "Far Climb"), expectMostRecentItem().results.items.map { it.group.shown.record.name })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -283,18 +318,22 @@ class SegmentBrowsePresenterTest {
             awaitUntil { it.areaLoaded }
             placed.query.edit { append("hog") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
-            assertEquals(listOf("Hogback Climb"), found.results.items.map { it.shown.record.name })
-            val sent = requests.last { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }.second
+            assertEquals(listOf("Hogback Climb"), found.results.items.map { it.group.shown.record.name })
+            val sent = requests.last { it.first == Nsid.FEED_SEARCH_PATH_NAMES }.second
             assertEquals(listOf("${e7(centre.lat - 0.02)}"), sent["minLat"], "this area")
             assertEquals(listOf("${e7(centre.lat)}"), sent["nearLat"])
 
             found.query.edit { append("b") }
             val refining = awaitUntil { it.query.text.toString() == "hogb" }
-            assertEquals(listOf("Hogback Climb"), refining.results.items.map { it.shown.record.name }, "kept until the new query answers")
+            assertEquals(
+                listOf("Hogback Climb"),
+                refining.results.items.map { it.group.shown.record.name },
+                "kept until the new query answers",
+            )
 
             refining.eventSink(SegmentBrowseEvent.SearchEverywhere)
             awaitUntil { it.scope == NameScope.Everywhere && it.resultsAnswered }
-            val everywhere = requests.last { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }.second
+            val everywhere = requests.last { it.first == Nsid.FEED_SEARCH_PATH_NAMES }.second
             assertNull(everywhere["minLat"], "no box")
             assertEquals(listOf("${e7(centre.lat)}"), everywhere["nearLat"], "still nearest first")
             cancelAndIgnoreRemainingEvents()
@@ -309,9 +348,9 @@ class SegmentBrowsePresenterTest {
             state.query.edit { append("loop") }
             assertEquals(
                 listOf("Near Loop"),
-                awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }.results.items.map { it.shown.record.name },
+                awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }.results.items.map { it.group.shown.record.name },
             )
-            val sent = requests.single { it.first == Nsid.FEED_SEARCH_SEGMENT_NAMES }.second
+            val sent = requests.single { it.first == Nsid.FEED_SEARCH_PATH_NAMES }.second
             assertEquals(setOf("q"), sent.keys)
             cancelAndIgnoreRemainingEvents()
         }
@@ -378,23 +417,23 @@ class SegmentBrowsePresenterTest {
             awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("Near Loop", "Far Climb"), names(loaded), "one row for both of Near Loop's runs")
-            val row = loaded.area.data.runs.first().route
+            val row = loaded.area.data.rows.first().row.group
             assertEquals(listOf("ride", "run"), row.sports, "in app order")
             assertTrue(row.bothWays)
             assertEquals(nearRide.uri, row.shown.uri, "the first group's run when every group is shown")
-            assertEquals(3, loaded.mapLines.size, "one line for the route")
+            assertEquals(3, loaded.mapLines.size, "one line for the group")
 
             loaded.eventSink(SegmentBrowseEvent.SportChanged("run"))
             val runs = awaitUntil { it.sport == "run" && it.areaLoaded }
-            assertEquals(near.uri, runs.area.data.runs.first().route.shown.uri)
-            assertFalse(runs.area.data.runs.first().route.bothWays, "only the run, one way")
+            assertEquals(near.uri, runs.area.data.rows.first().row.group.shown.uri)
+            assertFalse(runs.area.data.rows.first().row.group.bothWays, "only the run, one way")
 
             runs.eventSink(SegmentBrowseEvent.SportChanged(null))
             val all = awaitUntil { it.sport == null && it.areaLoaded }
-            all.eventSink(all.tapRowEvent(all.area.data.runs.first().route))
+            all.eventSink(all.tapRowEvent(all.area.data.rows.first().row))
             val selected = awaitUntil { it.selected != null }
             assertEquals(nearRide.uri, selected.selected)
-            selected.eventSink(selected.tapRowEvent(selected.area.data.runs.first().route))
+            selected.eventSink(selected.tapRowEvent(selected.area.data.rows.first().row))
             assertEquals(SegmentScreen(nearRide.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
@@ -409,8 +448,59 @@ class SegmentBrowsePresenterTest {
             placed.query.edit { append("loop") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
             assertEquals(1, found.results.items.size)
-            assertEquals(setOf(near.uri, nearRide.uri), found.results.items.single().members.map { it.uri }.toSet())
+            assertEquals(setOf(near.uri, nearRide.uri), found.results.items.single().group.members.map { it.uri }.toSet())
             assertEquals(1, found.mapLines.size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private val loop =
+        PathView(
+            AtUri.of(Did("did:plc:importer"), Nsid.FEED_PATH, "loop"),
+            Cid("bafyloop"),
+            PathKind.TRAIL,
+            "Loop Trail",
+            listOf(near.record.line),
+            1000,
+            "osm",
+            "ODbL-1.0",
+            sports = listOf("ride", "run"),
+            groupCount = 1,
+        )
+
+    @Test
+    fun segmentsOnATrailAreItsRowAndOpenItsPage() = runTest {
+        trails = listOf(loop)
+        area = listOf(far, near.copy(paths = listOf(loop.uri)), nearRide.copy(paths = listOf(loop.uri)), lift)
+        test {
+            awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val loaded = awaitUntil { it.areaLoaded }
+            assertEquals(listOf("Loop Trail", "Far Climb"), names(loaded), "the trail, then a segment on no path")
+            val trail = loaded.area.data.rows.first().row as BrowseRow.Path
+            assertEquals(1, trail.groups.size, "both of Near Loop's runs as one group on it")
+            assertTrue(loaded.mapLines.any { it.uri == loop.uri.value }, "the map draws the trail's line")
+            loaded.eventSink(loaded.tapRowEvent(trail))
+            val selected = awaitUntil { it.selected == loop.uri }
+            selected.eventSink(selected.tapRowEvent(trail))
+            assertEquals(PathScreen(loop.uri.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aTrailFoundByNameOpensWithTheChosenSport() = runTest {
+        trails = listOf(loop)
+        area = listOf(far, near.copy(paths = listOf(loop.uri)), lift)
+        test {
+            val placed = awaitUntil { it.start == BrowseStart.Placed }
+            placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            placed.eventSink(SegmentBrowseEvent.SportChanged("run"))
+            placed.query.edit { append("loop") }
+            val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
+            val row = found.results.items.single() as BrowseRow.Path
+            assertEquals(loop.uri, row.key)
+            found.eventSink(found.openEvent(row))
+            assertEquals(PathScreen(loop.uri.value, "run"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

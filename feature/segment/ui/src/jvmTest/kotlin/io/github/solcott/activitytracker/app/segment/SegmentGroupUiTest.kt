@@ -14,19 +14,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The segment page's choice of its route's sport groups and directions (segments/segment-routes). */
+/** The segment page's choice of its segment group's sport groups and directions (segments/segment-groups). */
 @OptIn(ExperimentalTestApi::class)
-class SegmentRouteUiTest {
+class SegmentGroupUiTest {
     @Test
     fun choosingASportSwitchesToItsSegment() = runComposeUiTest {
         val events = mutableListOf<SegmentEvent>()
-        val state = SegmentSamples.route
+        val state = SegmentSamples.group
         setContent { AppPreview { SegmentUi(state.copy(eventSink = { events += it })) } }
         onNodeWithText("Hike").performClick()
-        assertEquals(state.route?.sportEvent("hike"), events.last())
-        val other = state.route!!.directions.first { !state.route!!.isCurrent(it) }
-        onNodeWithText(RouteSwitcherTexts.direction(other).let { (it as AppText.Named).name }.let(::englishOf)).performClick()
-        assertEquals(state.route!!.directionEvent(other), events.last())
+        assertEquals(state.group?.sportEvent("hike"), events.last())
+        val other = state.group!!.directions.first { !state.group!!.isCurrent(it) }
+        onNodeWithText(GroupSwitcherTexts.direction(other).let { (it as AppText.Named).name }.let(::englishOf)).performClick()
+        assertEquals(state.group!!.directionEvent(other), events.last())
     }
 
     @Test
@@ -45,10 +45,10 @@ class SegmentRouteUiTest {
 
     @Test
     fun aSwitchLoadsWithoutTheRefreshRow() {
-        val state = SegmentSamples.route
+        val state = SegmentSamples.group
         val segment = state.segment!!
         assertTrue(state.copy(shown = segment.uri).showsRefreshProgress, "a refresh of the shown segment")
-        val other = state.route!!.options.first { it.uri != segment.uri }.uri
-        assertFalse(state.copy(shown = other).showsRefreshProgress, "another of the route loading over it")
+        val other = state.group!!.options.first { it.uri != segment.uri }.uri
+        assertFalse(state.copy(shown = other).showsRefreshProgress, "another of the group loading over it")
     }
 }

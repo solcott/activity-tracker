@@ -11,7 +11,6 @@ import io.github.solcott.activitytracker.app.SegmentsMap
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
-import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
@@ -19,8 +18,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 /**
- * Segments around a place on a map and in a list, and segments found by name (segments/segment-browse). The Search tab shows it as its
- * Segments mode. Web has no map, so it browses by name only.
+ * Trails and roads around a place on a map and in a list, and those found by name (segments/segment-browse), each with the segments on it;
+ * a segment group on no trail or road is a row of its own. The Search tab shows it as its Trails & roads mode. Web has no map, so it
+ * browses by name only.
  */
 @CircuitSerializable(SessionScope::class) data object SegmentBrowseScreen : Screen
 
@@ -30,24 +30,16 @@ enum class NameScope {
     Everywhere,
 }
 
-/**
- * A row of the area's list: a route's runs in the area (segments/segment-routes), and how far its nearest one comes to the map's centre, in
- * metres.
- */
-@Immutable
-data class BrowsedSegment(val route: SegmentRoute, val metersAway: Int) {
-    /** The run the row is drawn, selected and opened as. */
-    val segment: SegmentView
-        get() = route.shown
-}
+/** A row of the area's list, and how far its nearest segment in the area comes to the map's centre, in metres. */
+@Immutable data class BrowsedRow(val row: BrowseRow, val metersAway: Int)
 
 /**
- * An area's segments, loaded: its [runs] nearest the map's centre first, its [lifts] (drawn on the map only), and whether it holds more
- * than were read ([capped]).
+ * An area's rows, loaded: its trails, roads and loose segment groups ([rows]) nearest the map's centre first, its [lifts] (drawn on the map
+ * only), and whether it holds more segments than were read ([capped]).
  */
 @Immutable
 data class AreaRuns(
-    val runs: ImmutableList<BrowsedSegment> = persistentListOf(),
+    val rows: ImmutableList<BrowsedRow> = persistentListOf(),
     val lifts: ImmutableList<MapSegmentLine> = persistentListOf(),
     val capped: Boolean = false,
 )
@@ -80,11 +72,11 @@ data class SegmentBrowseState(
     val start: BrowseStart = BrowseStart.Locating,
     /** The area's segments (ui/content-loading); nothing loads while there's no area, it's [tooWide], or a name is searched. */
     val area: ContentState<AreaRuns> = ContentState(AreaRuns()),
-    /** Routes with a segment named like [query], best match first, one row each; nothing loaded while the query is blank. */
-    val results: PagedState<SegmentRoute, Unit>,
+    /** Trails, roads and loose segment groups found by [query], best match first; nothing loaded while the query is blank. */
+    val results: PagedState<BrowseRow, Unit>,
     /** The lines the map draws: the area's runs and lifts, or the name results. */
     val mapLines: ImmutableList<MapSegmentLine> = persistentListOf(),
-    /** The segment tapped on the map, or its row on a touch screen, marked in the list. */
+    /** The row ([BrowseRow.key]) tapped on the map, or on a touch screen in the list, marked in the list. */
     val selected: AtUri? = null,
     /** Where the map should move (a place to open at, or a selected row's line to frame); a new [MapCameraRequest.id] moves it once. */
     val camera: MapCameraRequest? = null,
@@ -125,11 +117,11 @@ data class SegmentBrowseState(
             else -> BrowseList.Area
         }
 
-    /** The area's runs, nearest first: a copy Swift reads as an array, empty or not. */
-    val areaRuns: List<BrowsedSegment>
-        get() = area.data.runs.toList()
+    /** The area's rows, nearest first: a copy Swift reads as an array, empty or not. */
+    val areaRows: List<BrowsedRow>
+        get() = area.data.rows.toList()
 
-    /** Whether the area holds more runs than were read. */
+    /** Whether the area holds more segments than were read. */
     val areaCapped: Boolean
         get() = area.data.capped
 
@@ -137,14 +129,11 @@ data class SegmentBrowseState(
     val sports: List<String>
         get() = SegmentSportGroup.all
 
-    /** The event for a tap on the map that found the run [uri] (a line's URI as the map holds it), or none. */
+    /** The event for a tap on the map that found the row [uri] (a line's URI as the map holds it), or none. */
     fun selectEvent(uri: String?): SegmentBrowseEvent = SegmentBrowseEvent.Select(uri?.let(::AtUri))
 
-    /** Whether [segment] is the run tapped on the map, marked in the list. */
-    fun isSelected(segment: SegmentView): Boolean = segment.uri == selected
-
-    /** Whether [route]'s row is the one selected: its shown run is. */
-    fun isSelected(route: SegmentRoute): Boolean = isSelected(route.shown)
+    /** Whether [row] is the one selected, marked in the list. */
+    fun isSelected(row: BrowseRow): Boolean = row.key == selected
 
     /** The map's lines in drawing order with the selected run highlighted, and what a tap selects. */
     val segmentsMap: SegmentsMap
@@ -153,14 +142,11 @@ data class SegmentBrowseState(
     /** [segmentsMap] with [hovered], the run under the pointer in a row or on the map (a UI's own state), highlighted too. */
     fun segmentsMap(hovered: String?): SegmentsMap = SegmentsMap.of(mapLines, selected?.value, hovered)
 
-    /** The event for a tap on [segment]'s row on a touch screen: it selects the row, or opens it when it's selected. */
-    fun tapRowEvent(segment: SegmentView): SegmentBrowseEvent = SegmentBrowseEvent.TapRow(segment.uri)
+    /** The event for a tap on [row] on a touch screen: it selects the row, or opens it when it's selected. */
+    fun tapRowEvent(row: BrowseRow): SegmentBrowseEvent = SegmentBrowseEvent.TapRow(row.key)
 
-    /** The event for a tap on [route]'s row on a touch screen, as its shown run. */
-    fun tapRowEvent(route: SegmentRoute): SegmentBrowseEvent = tapRowEvent(route.shown)
-
-    /** The event for a click on [route]'s row with a pointer: opens its shown run. */
-    fun openEvent(route: SegmentRoute): SegmentBrowseEvent = SegmentBrowseEvent.Open(route.shown.uri)
+    /** The event for a click on [row] with a pointer: opens its Trail page, or its segment group's segment. */
+    fun openEvent(row: BrowseRow): SegmentBrowseEvent = SegmentBrowseEvent.Open(row.key)
 }
 
 sealed interface SegmentBrowseEvent {
@@ -172,10 +158,10 @@ sealed interface SegmentBrowseEvent {
     /** The answer to the location permission request [SegmentBrowseState.askLocation] asked for. */
     data class PermissionResult(val granted: Boolean) : SegmentBrowseEvent
 
-    /** A tap on a segment's line on the map, or null for a tap away from every line. */
+    /** A tap on a row's line on the map, or null for a tap away from every line. */
     data class Select(val uri: AtUri?) : SegmentBrowseEvent
 
-    /** Opens the segment's page: a click on its row with a pointer. */
+    /** Opens a row ([BrowseRow.key]): a path's Trail page, or a segment's page. A click on its row with a pointer. */
     data class Open(val uri: AtUri) : SegmentBrowseEvent
 
     /**

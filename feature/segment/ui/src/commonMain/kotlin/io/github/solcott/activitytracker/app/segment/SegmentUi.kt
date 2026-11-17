@@ -84,30 +84,30 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 }
 
 /**
- * The route's sport groups and the shown group's directions (segments/segment-routes), as chips; choosing one replaces the page with that
- * segment's.
+ * The segment group's sport groups and the shown group's directions (segments/segment-groups), as chips; choosing one replaces the page
+ * with that segment's.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RouteChoices(route: RouteSwitcher, eventSink: (SegmentEvent) -> Unit) {
+private fun GroupChoices(group: GroupSwitcher, eventSink: (SegmentEvent) -> Unit) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            route.sports.forEach { sport ->
+            group.sports.forEach { sport ->
                 AppFilterChip(
-                    selected = sport == route.currentSport,
-                    onClick = { route.sportEvent(sport)?.let(eventSink) },
-                    label = { Text(RouteSwitcherTexts.sport(sport).string()) },
+                    selected = sport == group.currentSport,
+                    onClick = { group.sportEvent(sport)?.let(eventSink) },
+                    label = { Text(GroupSwitcherTexts.sport(sport).string()) },
                 )
             }
         }
-        val directions = route.directions
+        val directions = group.directions
         if (directions.size > 1) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 directions.forEach { direction ->
                     AppFilterChip(
-                        selected = route.isCurrent(direction),
-                        onClick = { route.directionEvent(direction)?.let(eventSink) },
-                        label = { Text(RouteSwitcherTexts.direction(direction).string()) },
+                        selected = group.isCurrent(direction),
+                        onClick = { group.directionEvent(direction)?.let(eventSink) },
+                        label = { Text(GroupSwitcherTexts.direction(direction).string()) },
                     )
                 }
             }
@@ -127,7 +127,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             state.polyline?.let { line ->
                 item { ActivityMap(line, Modifier.fillMaxWidth(), onExpand = { state.eventSink(SegmentEvent.OpenMap) }) }
             }
-            state.route?.takeIf { it.offered }?.let { route -> item { RouteChoices(route, state.eventSink) } }
+            state.group?.takeIf { it.offered }?.let { group -> item { GroupChoices(group, state.eventSink) } }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
                     state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }

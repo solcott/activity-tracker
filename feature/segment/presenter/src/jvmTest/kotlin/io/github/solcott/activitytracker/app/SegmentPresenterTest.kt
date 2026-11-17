@@ -143,7 +143,7 @@ class SegmentPresenterTest {
     private var naming = ""
     /** The output's `elevationProfile` field, with its leading comma; empty for none. */
     private var profileField = ""
-    /** The output's `routeMembers` field, with its leading comma; empty for none. */
+    /** The output's `groupMembers` field, with its leading comma; empty for none. */
     private var routeField = ""
 
     private val back = SegmentGeometry.encodePolyline(listOf(GeoPoint(47.009, 8.0), GeoPoint(47.0, 8.0)))
@@ -154,32 +154,32 @@ class SegmentPresenterTest {
     @Test
     fun theRoutesOtherSegmentsAreShownInPlace() = runTest {
         routeField =
-            ""","routeMembers":[${member("3krunb", "run", back)},${member("3khikef", "hike", line)},${member("3khikeb", "hike", back)}]"""
+            ""","groupMembers":[${member("3krunb", "run", back)},${member("3khikef", "hike", line)},${member("3khikeb", "hike", back)}]"""
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
         presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names) }) {
-            val loaded = awaitUntil { it.route != null }
-            val route = assertNotNull(loaded.route)
-            assertTrue(route.offered)
-            assertEquals(listOf("run", "hike"), route.sports)
-            assertEquals("run", route.currentSport)
-            assertEquals(listOf("northbound", "southbound"), route.directions.map { it.heading.word })
-            assertEquals(listOf(true, false), route.directions.map(route::isCurrent))
+            val loaded = awaitUntil { it.group != null }
+            val group = assertNotNull(loaded.group)
+            assertTrue(group.offered)
+            assertEquals(listOf("run", "hike"), group.sports)
+            assertEquals("run", group.currentSport)
+            assertEquals(listOf("northbound", "southbound"), group.directions.map { it.heading.word })
+            assertEquals(listOf(true, false), group.directions.map(group::isCurrent))
             // Seen from the southbound segment, the directions keep their places; only which is current changes.
-            val fromSouth = route.copy(options = route.options.map { it.copy(forward = !it.forward) }.toImmutableList())
+            val fromSouth = group.copy(options = group.options.map { it.copy(forward = !it.forward) }.toImmutableList())
             assertEquals(listOf("northbound", "southbound"), fromSouth.directions.map { it.heading.word })
             assertEquals(listOf(false, true), fromSouth.directions.map(fromSouth::isCurrent))
-            assertNull(route.sportEvent("run"), "already shown")
+            assertNull(group.sportEvent("run"), "already shown")
 
-            val hike = assertNotNull(route.sportEvent("hike")) as SegmentEvent.SwitchRoute
-            assertEquals(SegmentEvent.SwitchRoute(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3khikef")), hike, "the same way")
+            val hike = assertNotNull(group.sportEvent("hike")) as SegmentEvent.SwitchGroup
+            assertEquals(SegmentEvent.SwitchGroup(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3khikef")), hike, "the same way")
             loaded.eventSink(hike)
             awaitUntil { segmentsRequested.lastOrNull() == hike.uri.value }
             navigator.expectNoPopEvents()
             navigator.expectNoGoToEvents()
 
-            val other = assertNotNull(route.directionEvent(route.directions.last()))
-            assertEquals(SegmentEvent.SwitchRoute(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3krunb")), other)
+            val other = assertNotNull(group.directionEvent(group.directions.last()))
+            assertEquals(SegmentEvent.SwitchGroup(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3krunb")), other)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -188,7 +188,7 @@ class SegmentPresenterTest {
     fun aSegmentAloneOffersNoSwitch() = runTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
-            assertFalse(assertNotNull(awaitUntil { it.route != null }.route).offered)
+            assertFalse(assertNotNull(awaitUntil { it.group != null }.group).offered)
             cancelAndIgnoreRemainingEvents()
         }
     }

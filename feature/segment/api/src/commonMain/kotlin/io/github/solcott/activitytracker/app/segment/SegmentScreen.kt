@@ -52,11 +52,13 @@ data class SegmentState(
     /** The segment's terrain profile (segments/segment-elevation); null when the AppView sent none, or until loaded. */
     val profile: SegmentProfile? = null,
     /**
-     * The choice of its route's sport groups and directions (segments/segment-routes); null until loaded, and shown only while
-     * [RouteSwitcher.offered].
+     * The choice of its segment group's sport groups and directions (segments/segment-groups); null until loaded, and shown only while
+     * [GroupSwitcher.offered].
      */
-    val route: RouteSwitcher? = null,
-    /** The segment the page is showing or loading: the screen's, or another of its route chosen on the page; null before it's known. */
+    val group: GroupSwitcher? = null,
+    /**
+     * The segment the page is showing or loading: the screen's, or another of its segment group chosen on the page; null before it's known.
+     */
     val shown: AtUri? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
@@ -65,8 +67,8 @@ data class SegmentState(
         get() = content.data
 
     /**
-     * Whether a refresh shows its progress row: not while another segment of the route chosen on the page loads over the last one
-     * (segments/segment-routes), so the page keeps its place.
+     * Whether a refresh shows its progress row: not while another segment of the segment group chosen on the page loads over the last one
+     * (segments/segment-groups), so the page keeps its place.
      */
     val showsRefreshProgress: Boolean
         get() = segment?.let { shown == null || it.uri == shown } ?: true
@@ -183,6 +185,6 @@ sealed interface SegmentEvent {
     /** Opens the segment's Mayors board (segments/segment-mayors); offered only for an active segment. */
     data object OpenMayors : SegmentEvent
 
-    /** Shows [uri], another segment of its route (segments/segment-routes), on the same page; back still leaves the page. */
-    data class SwitchRoute(val uri: AtUri) : SegmentEvent
+    /** Shows [uri], another segment of its segment group (segments/segment-groups), on the same page; back still leaves the page. */
+    data class SwitchGroup(val uri: AtUri) : SegmentEvent
 }

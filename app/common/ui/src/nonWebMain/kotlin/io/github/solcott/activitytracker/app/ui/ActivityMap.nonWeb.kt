@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +34,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.map_expand
 import io.github.solcott.activitytracker.composeApp.resources.map_recenter
+import io.github.solcott.activitytracker.composeApp.resources.map_zoom_in
+import io.github.solcott.activitytracker.composeApp.resources.map_zoom_out
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
@@ -149,16 +153,19 @@ actual fun ActivityMap(
             RouteMapOverlay(mapState) { buttonModifier ->
                 when {
                     interactive ->
-                        MapButton(
-                            AppIcon.Recenter,
-                            Res.string.map_recenter,
-                            onClick = {
-                                size?.let {
-                                    scope.launch { mapState.animateCamera(frame(it).toCameraUpdate(), CameraAnimation.Fly.Standard) }
-                                }
-                            },
-                            buttonModifier,
-                        )
+                        Column(buttonModifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MapButton(
+                                AppIcon.Recenter,
+                                Res.string.map_recenter,
+                                onClick = {
+                                    size?.let {
+                                        scope.launch { mapState.animateCamera(frame(it).toCameraUpdate(), CameraAnimation.Fly.Standard) }
+                                    }
+                                },
+                            )
+                            MapButton(AppIcon.ZoomIn, Res.string.map_zoom_in, onClick = { scope.launch { mapState.zoomBy(1.0) } })
+                            MapButton(AppIcon.ZoomOut, Res.string.map_zoom_out, onClick = { scope.launch { mapState.zoomBy(-1.0) } })
+                        }
                     onExpand != null ->
                         MapButton(AppIcon.Expand, Res.string.map_expand, onClick = { currentOnExpand?.invoke() }, buttonModifier)
                 }
@@ -169,7 +176,7 @@ actual fun ActivityMap(
 
 /** A button over the map, on a disc so it reads over any tiles. */
 @Composable
-private fun MapButton(icon: AppIcon, label: StringResource, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MapButton(icon: AppIcon, label: StringResource, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = BUTTON_ALPHA), CircleShape)) {
         AppIconButton(icon, contentDescription = stringResource(label), onClick = onClick, tint = MaterialTheme.colorScheme.onSurface)
     }
