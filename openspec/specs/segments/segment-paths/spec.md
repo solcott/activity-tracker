@@ -29,7 +29,9 @@ A path SHALL be indexed whatever its length, as long as each line piece holds at
 - **THEN** the AppView doesn't index it
 
 ### Requirement: A segment lies on a path when much of it follows the path
-A live run segment SHALL lie on a path when the stretches of its line that follow the path, within the corridor duplicates use, add up to at least a quarter of its length or 1 km, whichever is shorter. A stretch SHALL count only for the paths nearest it, within 5 m of the nearest. Direction SHALL NOT matter. A segment MAY lie on several paths. Lifts SHALL lie on none.
+A live run segment SHALL lie on a path when the stretches of its line that follow the path, within the corridor duplicates use, add up to at least a quarter of its length or 1 km, whichever is shorter. A segment in the segment importer's repo SHALL instead lie on a path only when such stretches add up to at least 90% of its length, so an imported segment is listed on the trail it was cut from and on trails sharing its tread, not on trails it only crosses or runs along for part of its length.
+
+A stretch SHALL count only for the paths nearest it, within 5 m of the nearest. Direction SHALL NOT matter. A segment MAY lie on several paths. Lifts SHALL lie on none.
 
 #### Scenario: Stretch of a trail
 - **WHEN** a 1.2 km segment follows Ann's for its whole length
@@ -54,6 +56,14 @@ A live run segment SHALL lie on a path when the stretches of its line that follo
 #### Scenario: Reverse direction
 - **WHEN** a westbound segment follows a path drawn eastbound
 - **THEN** it lies on the path
+
+#### Scenario: Imported segment along part of another trail
+- **WHEN** the importer's 5 km Bonneville Shoreline segment follows Clarks for 2 km
+- **THEN** it lies on Bonneville Shoreline and not on Clarks
+
+#### Scenario: Athlete's segment along part of a trail
+- **WHEN** an athlete's 5 km segment follows Clarks for 2 km
+- **THEN** it lies on Clarks
 
 ### Requirement: A segment lies only on paths open to its sport
 When a path names the sport groups it is open to, a segment of any other sport group SHALL NOT lie on it, nor count when choosing the nearest path.

@@ -25,8 +25,12 @@ The Trail page SHALL list the segments on the path that the viewer may see, one 
 - **THEN** it is listed on both trails' pages
 
 #### Scenario: One-way for one sport
-- **WHEN** the Clarks trail holds a one-way ride segment that clearly climbs and run and hike segments both ways, on two lines
-- **THEN** its rows' details read "<length> · Ride · Uphill only" and "<length> · Run, Hike · Both ways"
+- **WHEN** the Clarks trail holds, on one line, a one-way ride segment that clearly climbs and run and hike segments both ways, all named "Clarks"
+- **THEN** it lists one row, "Clarks", whose details read "<length> · Run, Hike both ways · Ride uphill only"
+
+#### Scenario: Neighbouring trails' imported segments
+- **WHEN** the importer's Ann's stretches and its Bonneville Shoreline segment share only part of their length with Clarks
+- **THEN** none of them is listed on the Clarks page
 
 ### Requirement: The Trail page keeps the browse sport filter
 When opened from browse with one sport group chosen, the Trail page SHALL list only that group's segments and SHALL offer to show all sport groups.
