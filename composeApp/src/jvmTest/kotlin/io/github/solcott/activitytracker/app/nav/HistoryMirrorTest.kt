@@ -56,7 +56,7 @@ class HistoryMirrorTest {
         assertEquals(activity, mirror.landed(1), "Back")
         assertEquals(emptyList(), mirror.show(listOf(feed, activity)), "the shell popped to it: the history is already there")
         assertEquals(map, mirror.landed(2), "Forward: the map, which the shell opens again")
-        assertEquals(emptyList(), mirror.show(listOf(feed, activity, entry("map"))))
+        assertEquals(emptyList(), mirror.show(listOf(feed, activity, map)))
     }
 
     @Test
@@ -92,6 +92,17 @@ class HistoryMirrorTest {
 
         assertEquals(listOf(Replace(1, segment)), mirror.show(listOf(feed, segment)))
         assertEquals(1, mirror.index)
+    }
+
+    @Test
+    fun aLaterSessionNumbersOnAndClaimsNoneOfTheEntriesBelow() {
+        mirror.start(listOf(feed))
+        mirror.show(listOf(feed, activity))
+        mirror.show(listOf(feed, activity, map))
+        // Another account in the same page starts where the last left off (BrowserHistorySync keeps the place).
+        val next = HistoryMirror()
+        assertEquals(listOf(Replace(2, feed)), next.start(listOf(feed), at = mirror.index))
+        assertNull(next.landed(1), "the last session's entry opens as a link")
     }
 
     @Test

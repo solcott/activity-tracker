@@ -23,8 +23,8 @@ import org.w3c.dom.events.Event
 /**
  * The address bar and the browser's history follow the signed-in stack, and Back and Forward walk it (ui/web-history). The pure rules are
  * [HistoryMirror]'s; this writes them to `window.history` and answers `popstate`. Each entry's state is its place in the history, so the
- * mirror knows where Back or Forward landed. Nothing is written until the link the page was loaded with has opened, so a loaded URL builds
- * its stack first and then gets an entry per screen.
+ * mirror knows where Back or Forward landed, and places go on from one session to the next in the page, so they never repeat. Nothing is
+ * written until the link the page was loaded with has opened, so a loaded URL builds its stack first and then gets an entry per screen.
  */
 @OptIn(ExperimentalWasmJsInterop::class)
 class BrowserHistorySync(private val links: LinkRequests) : BackStackSync {
@@ -50,8 +50,10 @@ class BrowserHistorySync(private val links: LinkRequests) : BackStackSync {
             window.addEventListener("popstate", onPopState)
             onDispose {
                 window.removeEventListener("popstate", onPopState)
-                // Signed out, another account, or a leave: the URL goes back to the start.
-                window.history.replaceState(null, "", "/")
+                // Signed out, another account, or a leave: the URL goes back to the start. The entry keeps its place, so the next
+                // session numbers on from it and never claims the places this one wrote below it, which it opens as links instead.
+                val place = if (started[0]) mirror.index else currentPlace()
+                window.history.replaceState(place.toString().toJsString(), "", "/")
             }
         }
     }
