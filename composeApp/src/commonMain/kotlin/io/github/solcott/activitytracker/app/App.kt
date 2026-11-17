@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.links.LinkOpener
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
+import io.github.solcott.activitytracker.app.nav.BackStackSync
 import io.github.solcott.activitytracker.app.nav.appNavDecoration
 import io.github.solcott.activitytracker.app.nav.openLink
 import io.github.solcott.activitytracker.app.record.RecordScreen
@@ -56,6 +57,8 @@ fun App(
     onRootPop: () -> Unit = {},
     /** Hears whether the signed-in athlete has an import uploading and not paused, so desktop and web ask before closing. */
     onImportsActive: (Boolean) -> Unit = {},
+    /** Keeps the web's address bar and history in step with the signed-in stack (ui/web-history); nothing elsewhere. */
+    backStackSync: BackStackSync = BackStackSync.None,
 ) {
     var restored by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -104,7 +107,7 @@ fun App(
                                 CompositionLocalProvider(LocalIsNavRoot provides true) { CircuitContent(LeftElsewhereScreen) }
                             SessionMode.Open -> {
                                 ImportsActive(sessionGraph, onImportsActive)
-                                SessionContent(graph, sessionGraph, current.did, onRootPop)
+                                SessionContent(graph, sessionGraph, current.did, onRootPop, backStackSync)
                             }
                         }
                     }
@@ -134,7 +137,13 @@ internal fun UseHeldPhotoImageLoader() {
 
 /** The signed-in app: the navigable screens in the shell, from the feed. */
 @Composable
-private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did, onRootPop: () -> Unit) {
+private fun SessionContent(
+    graph: AppGraph,
+    sessionGraph: SessionGraph,
+    did: Did,
+    onRootPop: () -> Unit,
+    backStackSync: BackStackSync,
+) {
     val circuit = sessionGraph.circuits.sessionCircuit.circuit
     val backStack = rememberSaveableBackStack(root = FeedScreen)
     val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
@@ -159,6 +168,7 @@ private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did
             graph.linkRequests.handled(request)
         }
     }
+    backStackSync.Sync(backStack, navigator, did.value)
     AppShell(backStack, navigator, viewerDid = did.value) { contentModifier ->
         NavigableCircuitContent(
             navigator = navigator,

@@ -17,35 +17,59 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.configureWebResources
 import org.jetbrains.compose.resources.getString
 import org.w3c.dom.events.Event
 
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class, ExperimentalResourceApi::class)
 fun main() {
     // The OAuth loopback client only allows 127.0.0.1 redirect URIs.
     if (window.location.hostname == "localhost") {
         window.location.replace(window.location.href.replaceFirst("//localhost", "//127.0.0.1"))
         return
     }
+    // Resources load from the site's root, not the page's path, so a link's nested URL finds them (ui/web-history).
+    configureWebResources { resourcePathMapping { path -> "/$path" } }
     val graph = createGraph<WebAppGraph>()
 
-    // Returning from the authorization server: finish sign-in, then strip the params from the URL.
+    // Returning from the authorization server: finish sign-in, then strip the params from the URL, and open the link the page was
+    // loaded with before sign-in left it (ui/deep-links). Otherwise the page's own URL is a link, opened once a session is.
     val params = parseRedirectParams(window.location.href)
     if ("state" in params && ("code" in params || "error" in params)) {
         window.history.replaceState(null, "", window.location.pathname)
         MainScope().launch { graph.authCoordinator.handleRedirect(params) }
+        window.sessionStorage.getItem(PENDING_LINK)?.let(graph.linkRequests::request)
+    } else if (window.location.pathname != "/") {
+        graph.linkRequests.request(window.location.pathname + window.location.search)
     }
+    // A link waiting for sign-in survives its full-page redirect in this tab's storage.
+    MainScope().launch {
+        graph.linkRequests.pending.collect { request ->
+            if (request == null) window.sessionStorage.removeItem(PENDING_LINK)
+            else window.sessionStorage.setItem(PENDING_LINK, request.link.path)
+        }
+    }
+
+    val history = BrowserHistorySync(graph.linkRequests)
 
     // index.html's <title> only covers loading; the shared string takes over once the app starts.
     MainScope().launch { document.title = getString(Res.string.app_name) }
     ComposeViewport(document.body!!) {
         // Uploads go on only while the tab is open: closing it mid-import asks first, unless the athlete paused imports
         // (data/upload-queue).
-        App(graph, onImportsActive = { active -> window.onbeforeunload = if (active) ::askBeforeUnload else null })
+        App(
+            graph,
+            onImportsActive = { active -> window.onbeforeunload = if (active) ::askBeforeUnload else null },
+            backStackSync = history,
+        )
     }
     // index.html's spinner covers the wasm download; the app draws from here.
     document.getElementById("loading")?.remove()
 }
+
+/** Where a link waiting for sign-in is kept across sign-in's full-page redirect. */
+private const val PENDING_LINK = "activitytracker.pendingLink"
 
 /** Asks the browser to confirm leaving: it shows its own message, whatever is returned. */
 private fun askBeforeUnload(event: Event): String {

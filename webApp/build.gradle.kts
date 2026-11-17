@@ -67,6 +67,9 @@ kotlin {
             implementation(projects.featureUploadsPresenter)
             implementation(projects.featureUploadsUi)
             implementation(projects.uiResources)
+            // The back stack the browser's history follows (ui/web-history).
+            implementation(libs.circuit.foundation)
+            implementation(libs.circuit.runtime)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
