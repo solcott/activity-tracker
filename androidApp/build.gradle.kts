@@ -67,8 +67,14 @@ androidComponents {
     onVariants { variant ->
         // Derived from activitytracker.appviewPublicUrl, like NetworkConfigs.NATIVE_REDIRECT_SCHEME and the AppView's.
         variant.manifestPlaceholders.put("oauthRedirectScheme", nativeOAuth.redirectScheme)
+        // The https links' host (ui/deep-links); a build without one claims a host no URL has, leaving the app's own scheme.
+        val linkHost = nativeOAuth.linkHost.map { it.ifEmpty { "links.invalid" } }
+        variant.manifestPlaceholders.put("linkHost", linkHost)
         // Unit tests merge the app manifest too, now that they include Android resources (for the screenshot suite).
-        variant.hostTests.values.forEach { it.manifestPlaceholders.put("oauthRedirectScheme", nativeOAuth.redirectScheme) }
+        variant.hostTests.values.forEach {
+            it.manifestPlaceholders.put("oauthRedirectScheme", nativeOAuth.redirectScheme)
+            it.manifestPlaceholders.put("linkHost", linkHost)
+        }
     }
 }
 
