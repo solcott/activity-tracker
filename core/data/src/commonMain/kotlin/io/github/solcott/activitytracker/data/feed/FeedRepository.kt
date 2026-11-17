@@ -268,29 +268,18 @@ class FeedRepository(
      * alongside, which of those it lists ([LocalComments.lookup]), so the count is moved only by the changes it hasn't caught up with,
      * wherever on the activity's pages they are.
      */
-    suspend fun activity(uri: AtUri): ActivityView = coroutineScope {
-        val pending = localComments.pending(uri)
-        val lookup =
-            if (pending.isEmpty()) null
-            else async { runSuspendCatching { clients.appView.query(GetComments.method, GetComments.Params(uri, uris = pending)) } }
-        // A block or mute the AppView already serves no longer moves the count: ask about those not known to be settled yet.
-        val settling = localBlocks.unsettled().map { did -> async { settleBlock(did) } }
-        val view = clients.appView.query(GetActivity.method, GetActivity.Params(uri)).activity
-        settling.forEach { it.await() }
-        // Without an answer, each change still counts as not caught up.
-        val answer =
-            lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
-        val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
-        heldPhotos.dropServed(view)
-        val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(view)))
-        val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
-        val counted = activity.copy(commentCount = (activity.commentCount + delta).coerceAtLeast(0))
-        updateCached(uri) { counted }
-        // Reported last, with nothing suspending before the caller has the view, so a screen showing the activity loaded before and
-        // [LocalComments.delta] now never shows the one moved by the other's catch-up.
-        lookedUp?.report()
-        counted
-    }
+    suspend fun activity(uri: AtUri): ActivityView =
+        withCommentCount(
+            uri,
+            read = {
+                val view = clients.appView.query(GetActivity.method, GetActivity.Params(uri)).activity
+                heldPhotos.dropServed(view)
+                localLikes.applyTo(deletes.applyTo(rewrites.applyTo(view)))
+            },
+            count = ActivityView::commentCount,
+            withCount = { view, count -> view.copy(commentCount = count) },
+            cache = { counted -> updateCached(uri) { counted } },
+        )
 
     /**
      * A page of [activity]'s comment threads from the AppView, oldest first, after [cursor] (the first page when null), as it serves them;
@@ -316,25 +305,52 @@ class FeedRepository(
      * The post [uri] (feed/post-page) as the viewer left it: their like toggles and post changes, and their comment changes moved into its
      * count as [activity] does, asking the AppView alongside which of those it lists.
      */
-    suspend fun post(uri: AtUri): PostView = coroutineScope {
+    suspend fun post(uri: AtUri): PostView =
+        withCommentCount(
+            uri,
+            read = {
+                val view = clients.appView.query(GetPost.method, GetPost.Params(uri)).post
+                // A post the athlete took back this session answers as the AppView will once it catches up.
+                val kept =
+                    localPosts.applyTo(listOf(view), includeNew = false).firstOrNull()
+                        ?: throw XrpcException(HTTP_BAD_REQUEST, POST_NOT_FOUND, "Post not found")
+                localQuotes.applyTo(localReposts.applyTo(localLikes.applyTo(kept)))
+            },
+            count = PostView::commentCount,
+            withCount = { view, count -> view.copy(commentCount = count) },
+            cache = { counted -> updateCachedPost(uri) { counted } },
+        )
+
+    /**
+     * What [read] gives for [uri] (the view with the viewer's other changes laid over it), with their comment changes moved into its count
+     * ([count], [withCount]) and stored by [cache]. When the viewer changed comments on [uri] this session, the AppView is asked,
+     * alongside, which of those it lists ([LocalComments.lookup]), so the count moves only by the changes it hasn't caught up with; and a
+     * block or mute it already serves no longer moves it.
+     */
+    private suspend fun <V> withCommentCount(
+        uri: AtUri,
+        read: suspend () -> V,
+        count: (V) -> Long,
+        withCount: (V, Long) -> V,
+        cache: suspend (V) -> Unit,
+    ): V = coroutineScope {
         val pending = localComments.pending(uri)
         val lookup =
             if (pending.isEmpty()) null
             else async { runSuspendCatching { clients.appView.query(GetComments.method, GetComments.Params(uri, uris = pending)) } }
+        // Ask about blocks and mutes not known to be settled yet.
         val settling = localBlocks.unsettled().map { did -> async { settleBlock(did) } }
-        val view = clients.appView.query(GetPost.method, GetPost.Params(uri)).post
+        val view = read()
         settling.forEach { it.await() }
+        // Without an answer, each change still counts as not caught up.
         val answer =
             lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
         val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
-        // A post the athlete took back this session answers as the AppView will once it catches up.
-        val kept =
-            localPosts.applyTo(listOf(view), includeNew = false).firstOrNull()
-                ?: throw XrpcException(HTTP_BAD_REQUEST, POST_NOT_FOUND, "Post not found")
-        val post = localQuotes.applyTo(localReposts.applyTo(localLikes.applyTo(kept)))
         val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
-        val counted = post.copy(commentCount = (post.commentCount + delta).coerceAtLeast(0))
-        updateCachedPost(uri) { counted }
+        val counted = withCount(view, (count(view) + delta).coerceAtLeast(0))
+        cache(counted)
+        // Reported last, with nothing suspending before the caller has the view, so a screen showing [uri] loaded before and
+        // [LocalComments.delta] now never shows the one moved by the other's catch-up.
         lookedUp?.report()
         counted
     }
