@@ -58,8 +58,8 @@ struct InteractiveMapsTextTests {
     @Test func aOneWayTrailSaysWhichSportGoesOneWay() throws {
         let state = try #require(Samples.path["oneWay"])
         let lines = state.groups.map { AppStrings.string(PathTexts.shared.details(group: $0, units: .Imperial)) }
-        #expect(lines == ["1.42 mi · Ride · Uphill only", "1.26 mi · Run, Hike · Both ways"])
-        #expect(AppStrings.string(PathTexts.shared.name(group: state.groups[1])) == "Clarks - Bikes Uphill Only")
+        #expect(lines == ["1.26 mi · Run, Hike both ways · Ride uphill only"])
+        #expect(AppStrings.string(PathTexts.shared.name(group: state.groups[0])) == "Clarks")
     }
 
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {

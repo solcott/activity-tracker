@@ -39,7 +39,7 @@ object SegmentBrowseSamples {
     val annsWhole =
         listOf(SegmentSportGroup.RIDE, SegmentSportGroup.RUN, SegmentSportGroup.HIKE)
             .flatMap { sport ->
-                listOf("eastbound" to Fixed.POLYLINE, "westbound" to back).map { (way, line) ->
+                listOf("uphill" to Fixed.POLYLINE, "downhill" to back).map { (way, line) ->
                     fakeSegment(
                         "3kann$sport$way",
                         record = fakeSegmentRecord("Ann's ($way)", sport = sport, line = line),
@@ -74,25 +74,28 @@ object SegmentBrowseSamples {
             .toImmutableList()
 
     /**
-     * Clarks' ride line (segments/segment-direction): one-way for bikes, clearly climbing from its start (199 m up over 2287 m), as the
+     * Clarks' ride line (segments/segment-direction): one-way for bikes, clearly climbing from its start (199 m up over 2022 m), as the
      * segment importer publishes it from `oneway:bicycle`.
      */
     val clarksRide =
         fakeSegment(
                 "3kclarksride",
                 record = fakeSegmentRecord("Clarks", sport = SegmentSportGroup.RIDE),
-                distanceMeters = 2_287,
+                distanceMeters = 2_022,
             )
             .copy(oneWay = true, elevationGain = 199, elevationLoss = 0)
 
-    /** Clarks' foot line: run and hike segments each way, a segment group of four, two-way on foot. */
+    /**
+     * Clarks' run and hike segments each way along the ride's line, a segment group of four, two-way on foot and named after the route
+     * relation that covers its ways (segments/trail-candidates).
+     */
     val clarksFoot =
         listOf(SegmentSportGroup.RUN, SegmentSportGroup.HIKE)
             .flatMap { sport ->
-                listOf("eastbound" to Fixed.POLYLINE, "westbound" to back).map { (way, line) ->
+                listOf("uphill" to Fixed.POLYLINE, "downhill" to back).map { (way, line) ->
                     fakeSegment(
                         "3kclarks$sport$way",
-                        record = fakeSegmentRecord("Clarks - Bikes Uphill Only ($way)", sport = sport, line = line),
+                        record = fakeSegmentRecord("Clarks ($way)", sport = sport, line = line),
                         distanceMeters = 2_022,
                     )
                 }

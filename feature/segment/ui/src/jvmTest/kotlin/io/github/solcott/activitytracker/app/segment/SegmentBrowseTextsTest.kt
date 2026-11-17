@@ -112,7 +112,7 @@ class SegmentBrowseTextsTest {
                 "segment_browse_details",
                 AppText.named(
                     "segment_browse_details",
-                    StatText.distance(2_287.0, units),
+                    StatText.distance(2_022.0, units),
                     SegmentTexts.type(SegmentSportGroup.RIDE, null),
                 ),
                 AppText.named("segment_one_way_uphill"),
@@ -148,6 +148,14 @@ class SegmentBrowseTextsTest {
             ),
             SegmentBrowseTexts.details(mixed, units),
         )
+    }
+
+    @Test
+    fun clarksIsOneRowNamedClarks() {
+        // segments/path-page: one line run and hiked both ways and ridden uphill only.
+        val row = PathSamples.oneWay.groups.single()
+        assertEquals(AppText.written("Clarks"), SegmentBrowseTexts.groupName(row))
+        assertTrue("segment_sports_one_way_uphill" in names(SegmentBrowseTexts.details(row, UnitSystem.Imperial)))
     }
 
     @Test

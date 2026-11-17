@@ -63,19 +63,21 @@ object PathSamples {
         get() = page(ContentStates.loaded(content.copy(groups = persistentListOf())))
 
     /**
-     * Clarks (segments/segment-direction): a one-way ride line that clearly climbs, "Ride · Uphill only", and a foot line run and hiked
-     * both ways, "Run, Hike · Both ways".
+     * Clarks (segments/segment-direction, segments/path-page): one line run and hiked both ways and ridden one way, clearly climbing, a
+     * single row "Clarks" whose details read "Run, Hike both ways · Ride uphill only".
      */
     val oneWay: PathState
         get() =
             page(
                 ContentStates.loaded(
                     content.copy(
-                        path = fakePath("clarks", name = "Clarks", lengthMeters = 2_287),
+                        path = fakePath("clarks", name = "Clarks", lengthMeters = 2_022),
                         groups =
                             persistentListOf(
-                                SegmentGroupRow.groupOf(listOf(SegmentBrowseSamples.clarksRide)),
-                                SegmentGroupRow.groupOf(SegmentBrowseSamples.clarksFoot),
+                                SegmentGroupRow.groupOf(
+                                    SegmentBrowseSamples.clarksFoot +
+                                        SegmentBrowseSamples.clarksRide.copy(group = SegmentBrowseSamples.clarksFoot.first().uri),
+                                ),
                             ),
                     ),
                 ),
