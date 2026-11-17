@@ -28,6 +28,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -73,17 +74,22 @@ class PathPresenterTest {
             groupCount = 2,
         )
 
+    /** How many times the page asked for the path. */
+    private val pathLoads = AtomicInteger()
+
     private val http =
         HttpClient(
             MockEngine { request ->
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath.removePrefix("/xrpc/")) {
                     "com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
-                    Nsid.FEED_GET_PATH ->
+                    Nsid.FEED_GET_PATH -> {
+                        pathLoads.incrementAndGet()
                         respond(
                             AtJson.encodeToString(GetPath.Output.serializer(), GetPath.Output(anns, listOf(stretch, wholeRide, wholeRun))),
                             headers = json,
                         )
+                    }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             },
@@ -140,6 +146,7 @@ class PathPresenterTest {
             ride.eventSink(PathEvent.ShowAllSports)
             val all = awaitUntil { it.sport == null && it.groups.size == 2 }
             assertEquals(listOf(wholeRide.uri, stretch.uri), all.groups.map { it.shown.uri })
+            assertEquals(1, pathLoads.get(), "showing every sport regroups what loaded")
             cancelAndIgnoreRemainingEvents()
         }
     }

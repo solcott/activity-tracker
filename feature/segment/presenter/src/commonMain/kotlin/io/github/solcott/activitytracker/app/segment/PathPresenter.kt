@@ -17,10 +17,9 @@ import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.location.SegmentGeometry
-import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.map
 
 /**
  * The Trail page (segments/path-page): loads the path and the segments on it, lists them one row per segment group, longest first, narrowed
@@ -33,11 +32,11 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
     var sport by rememberRetained { mutableStateOf(screen.sport) }
     var retry by rememberRetained { mutableIntStateOf(0) }
     val selection = rememberRetained { MapSelection() }
-    // Retained, so coming back from a segment shows the page at once; a retry reloads under it, a new sport filter regroups it.
+    // Retained, so coming back from a segment shows the page at once; a retry reloads under it. A new sport filter only regroups what
+    // loaded, so it never asks again.
+    val loaded = produceRetainedContentState<GetPath.Output?>(null, screen.uri, retry) { segments.pathOutcome(AtUri(screen.uri)) }
     val content =
-        produceRetainedContentState(PathContent(), screen.uri, sport, retry) {
-            segments.pathOutcome(AtUri(screen.uri)).map { outcome -> outcome.mapData { contentOf(it, sport) } }
-        }
+        remember(loaded, sport) { ContentState(loaded.data?.let { contentOf(it, sport) } ?: PathContent(), loaded.origin, loaded.status) }
 
     // Once loaded, frame the whole path, once per path.
     val path = content.data.path
