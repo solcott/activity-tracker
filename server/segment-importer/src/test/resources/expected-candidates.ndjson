@@ -2,7 +2,6 @@
 {"id":"23ji3qfi7eehi2tthslix6p77d","region":"test-region","sport":"hike","name":"Rush from Canyon Hollow","line":"cbxusA~`yqiCipQ?","lengthMeters":1056,"source":"osm","license":"ODbL-1.0","osmWays":[173,174],"oneWay":true}
 {"id":"254n4pcwiamqbkswaopuavme57","region":"test-region","sport":"run","name":"Rush - Exit Stage Left","line":"apfusA~`yqiC_xGowHaxGnwH","lengthMeters":1277,"source":"osm","license":"ODbL-1.0","osmWays":[171],"oneWay":true}
 {"id":"3jetzzpu5fu72qrm2sfqwqufgw","region":"test-region","sport":"ride","name":"Canyon Hollow (part 1)","line":"cbxusA~qlriC?_pR","lengthMeters":794,"source":"osm","license":"ODbL-1.0","osmWays":[176]}
-{"id":"45lb5u6s7hfyswp7mubn34e42b","region":"test-region","sport":"run","name":"Rush - Limelight (part 2)","line":"kzavsA~`yqiCaxG?","lengthMeters":500,"source":"osm","license":"ODbL-1.0","osmWays":[174],"oneWay":true}
 {"id":"46y2jre2jllfyllvyi5dvcrnjt","region":"test-region","sport":"hike","name":"Canyon Hollow (westbound)","line":"cbxusA~oeqiC?~`f@","lengthMeters":1589,"source":"osm","license":"ODbL-1.0","osmWays":[176]}
 {"id":"4br3jzotvnqi42jvs44crmkrts","region":"test-region","sport":"hike","name":"Rush - Exit Stage Left","line":"apfusA~`yqiC_xGowHaxGnwH","lengthMeters":1277,"source":"osm","license":"ODbL-1.0","osmWays":[171],"oneWay":true}
 {"id":"4id4g4kmakr2vrsrhxd4lqu66l","region":"test-region","sport":"hike","name":"Rush - Through the Trees Trail","line":"apfusA~`yqiC_xGnwHaxGowH","lengthMeters":1277,"source":"osm","license":"ODbL-1.0","osmWays":[172],"oneWay":true}
@@ -25,9 +24,7 @@
 {"id":"c5pfsssgqy7n7zu52nb4qya5xy","region":"test-region","sport":"hike","name":"Oak (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
 {"id":"cerzblpo755b6f4kcntpfbcgs4","region":"test-region","sport":"hike","name":"Canyon Hollow (part 2)","line":"cbxusA~`yqiC?_pR","lengthMeters":794,"source":"osm","license":"ODbL-1.0","osmWays":[176]}
 {"id":"comuvedcl5t5ul6szq26ve3t5j","region":"test-region","sport":"run","name":"Canyon Hollow (part 1)","line":"cbxusA~qlriC?_pR","lengthMeters":794,"source":"osm","license":"ODbL-1.0","osmWays":[176]}
-{"id":"cvoizmraadcupkdf6kw53vr6m2","region":"test-region","sport":"hike","name":"Rush - Limelight (part 2)","line":"kzavsA~`yqiCaxG?","lengthMeters":500,"source":"osm","license":"ODbL-1.0","osmWays":[174],"oneWay":true}
 {"id":"dxndvcwczudfswgtxtskev7cjt","region":"test-region","sport":"run","name":"Rush › Exit Stage Left → Canyon Hollow","line":"_w}tsA~`yqiCaxG?_xGowHaxGnwH","lengthMeters":1777,"source":"osm","license":"ODbL-1.0","osmWays":[170,171],"oneWay":true}
-{"id":"e3mmfnlhn63yqqdgmjvu3vutnq","region":"test-region","sport":"run","name":"Rush - Limelight: Rush - Mystic Rhythms → Rush - Limelight","line":"kayusA~`yqiC_xG?","lengthMeters":500,"source":"osm","license":"ODbL-1.0","osmWays":[174],"oneWay":true}
 {"id":"e7wnhyfo4hpsb32szqz6opcfl4","region":"test-region","sport":"run","name":"Rush › Exit Stage Left","line":"_w}tsA~`yqiCaxG?_xGowHaxGnwHipQ?","lengthMeters":2833,"source":"osm","license":"ODbL-1.0","osmWays":[170,171,173,174],"oneWay":true}
 {"id":"edbmppvo3kvek73erpqhkj6owi","region":"test-region","sport":"hike","name":"Rush › Through the Trees Trail","line":"_w}tsA~`yqiCaxG?_xGnwHaxGowHipQ?","lengthMeters":2833,"source":"osm","license":"ODbL-1.0","osmWays":[170,172,173,174],"oneWay":true}
 {"id":"ee6tc5zk5p7z2nnjltrbfqlovp","region":"test-region","sport":"hike","name":"Rush - Limelight","line":"kayusA~`yqiCaqP?","lengthMeters":1000,"source":"osm","license":"ODbL-1.0","osmWays":[174],"oneWay":true}
@@ -56,7 +53,6 @@
 {"id":"rbvaini4uwsoehpsxz7c6rjrrp","region":"test-region","sport":"run","name":"Oak (northbound)","line":"_w}tsA~dgtiCigeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
 {"id":"rd6zp5vbmhjpexht3us3o56po7","region":"test-region","sport":"run","name":"Oak (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
 {"id":"rof4tavffoqf7d66tvdsyldkv3","region":"test-region","sport":"hike","name":"Ridge Loop (southbound)","line":"{pmusA~b`siCzxN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[152,151,150]}
-{"id":"rudphocs64wlbgfvyy3gfxpmfm","region":"test-region","sport":"hike","name":"Rush - Limelight: Rush - Mystic Rhythms → Rush - Limelight","line":"kayusA~`yqiC_xG?","lengthMeters":500,"source":"osm","license":"ODbL-1.0","osmWays":[174],"oneWay":true}
 {"id":"rva5bfy5cqfdxa5oodrkknyont","region":"test-region","sport":"ride","name":"Canyon Hollow (westbound)","line":"cbxusA~oeqiC?~`f@","lengthMeters":1589,"source":"osm","license":"ODbL-1.0","osmWays":[176]}
 {"id":"rxtzx23upb4xmkvwshf4b6xjo5","region":"test-region","sport":"ride","name":"Plunge","line":"uxkusA~`yqiCt`M?","lengthMeters":800,"source":"osm","license":"ODbL-1.0","osmWays":[160],"oneWay":true}
 {"id":"srdm545gotlkax7pd2lmakhnjj","region":"test-region","sport":"run","name":"Oak (part 1)","line":"_w}tsA~dgtiCcjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}

@@ -492,4 +492,49 @@ class CandidateCutterTest {
             val y = ay + t * dy
             kotlin.math.sqrt(x * x + y * y).let { if (abs(it) < 1e-9) 0.0 else it }
         }
+
+    @Test
+    fun aRelationWhoseDirectionsChangeIsCutIntoRunsWithNoWholeCandidate() {
+        val data = osm {
+            for (i in 0 until 7) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            // Two ways both ways, then a one-way climb, all unnamed under the route.
+            way(10, 1, 2, 3, 4, tags = path(null))
+            way(11, 4, 5, 6, 7, tags = path(null, "oneway:bicycle" to "yes"))
+            relation(200, 10, 11, tags = mapOf("type" to "route", "route" to "mtb", "name" to "Shoreline Trail"))
+        }
+        val relation = candidates(data).filter { it.kind == TrailKind.RELATION }
+        assertTrue(relation.none { it.whole }, "no candidate spans both runs")
+        assertTrue(relation.none { it.meters > 1600 })
+        val bothWays = relation.filter { it.osmWays == listOf(10L) }
+        assertEquals(2, bothWays.size)
+        assertTrue(bothWays.none { it.oneWay })
+        val climb = relation.single { it.osmWays == listOf(11L) }
+        assertTrue(climb.oneWay)
+    }
+
+    @Test
+    fun rideRunAndHikeEndTheirStretchesAtTheSameNodes() {
+        val data = osm {
+            for (i in 0..15) node(i + 1L, north(44.4, i * 100.0), -72.7)
+            way(100, *(1L..16L).toList().toLongArray(), tags = path("Oak Trail"))
+            crossing(30, at = 4, tags = path("Fern Trail"))
+            crossing(40, at = 8, tags = path("Pine Trail"))
+        }
+        fun stretches(group: String) = candidates(data, group).filter { !it.whole }.map { it.line }.toSet()
+        val ride = stretches(RIDE)
+        assertEquals(ride, stretches(HIKE))
+        assertEquals(4, ride.size, "0-700 m and 700-1500 m, each way: the 300 m stretch joins the next for every group")
+    }
+
+    @Test
+    fun anAlternateLineOfTheTrailsOwnNameIsNoJunction() {
+        val data = osm {
+            oak(nodes = 9)
+            // An informal "Oak Trail" alternate leaving and rejoining the trail.
+            node(30, north(44.4, 1_000.0), -72.701)
+            way(102, 3, 30, 4, tags = path("Oak Trail", "informal" to "yes"))
+        }
+        val oak = candidates(data).filter { 102L !in it.osmWays }
+        assertTrue(oak.none { ": " in it.name }, oak.map { it.name }.toString())
+    }
 }

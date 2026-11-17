@@ -43,9 +43,12 @@ internal class Candidate(
 
 /**
  * Cuts [Trail]s into candidates: the whole trail, and, unless it's a parent trail, its stretches between junctions with named ways that
- * aren't its own, joined until each reaches the group's minimum; each in every direction all its edges allow. Lines are simplified and kept
- * only within the group's length bounds, measured on the simplified line as the AppView measures it.
+ * aren't its own, joined until each reaches the largest minimum of the groups its ways are open to; each in every direction all its edges
+ * allow. A trail whose permitted directions change is cut there first, each run giving its own candidate and stretches, and gives no
+ * whole-trail candidate. Lines are simplified and kept only within the group's length bounds, measured on the simplified line as the
+ * AppView measures it.
  */
+@Suppress("TooManyFunctions") // Cutting by direction and junction, then naming and identifying each piece.
 internal class CandidateCutter(
     data: OsmData,
     private val words: GenericWords = GenericWords.ENGLISH,
@@ -68,31 +71,78 @@ internal class CandidateCutter(
     /** Each agency way's feature key, for an agency candidate's id and features. */
     private val agencyKeys: Map<Long, String> = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
 
-    fun cut(trail: Trail): List<Candidate> {
-        val min = SegmentSportGroup.minMeters(trail.group)
-        val last = trail.nodes.lastIndex
-        val distance = DoubleArray(trail.nodes.size)
-        for (i in 1..last) distance[i] = distance[i - 1] + SegmentGeometry.distanceMeters(trail.points[i - 1], trail.points[i])
-        val junctions = (1 until last).filter { i -> others(trail, trail.nodes[i]).isNotEmpty() }
+    /** Each way by id, for the sport groups a trail's own ways are open to. */
+    private val waysById: Map<Long, OsmWay> = data.ways.associateBy { it.id }
 
-        val stretches = mutableListOf<IntRange>()
+    fun cut(trail: Trail): List<Candidate> {
+        val pieces = buildList {
+            if (trail.kind == TrailKind.PARENT) {
+                // A parent trail's stretches are its sections' own candidates.
+                add(Piece(0..trail.nodes.lastIndex, part = null))
+                addAll(junctionSpans(trail))
+                return@buildList
+            }
+            val runs = directionRuns(trail)
+            if (runs.size == 1) {
+                add(Piece(runs.single(), part = null))
+                stretchesOf(trail, runs.single()).takeIf { it.size > 1 }?.forEachIndexed { k, range -> add(Piece(range, part = k + 1)) }
+                return@buildList
+            }
+            // Where the trail's permitted directions change, each run is cut as a trail of its own, and the trail gives no whole candidate.
+            var part = 0
+            for (run in runs) {
+                add(Piece(run, part = ++part))
+                stretchesOf(trail, run).takeIf { it.size > 1 }?.forEach { range -> add(Piece(range, part = ++part)) }
+            }
+        }
+        return pieces.flatMap { piece -> directions(trail, piece) }
+    }
+
+    /** [trail]'s node ranges over which every edge allows the same directions, in order. */
+    private fun directionRuns(trail: Trail): List<IntRange> {
+        val last = trail.nodes.lastIndex
+        val runs = mutableListOf<IntRange>()
         var start = 0
-        for (cut in junctions + last) {
-            if (distance[cut] - distance[start] >= min) {
+        for (edge in 1 until last) {
+            val changes = trail.forward[edge] != trail.forward[edge - 1] || trail.backward[edge] != trail.backward[edge - 1]
+            if (changes) {
+                runs += start..edge
+                start = edge
+            }
+        }
+        runs += start..last
+        return runs
+    }
+
+    /**
+     * [range] of [trail] cut at its junctions into stretches, each joined to the next until it reaches the largest minimum length of the
+     * sport groups all the trail's own ways are open to, so each group cuts the same ways at the same nodes; a short tail joins the last.
+     */
+    private fun stretchesOf(trail: Trail, range: IntRange): List<IntRange> {
+        val min = stretchMinimum(trail)
+        val distance = DoubleArray(range.last - range.first + 1)
+        for (i in range.first + 1..range.last) {
+            val k = i - range.first
+            distance[k] = distance[k - 1] + SegmentGeometry.distanceMeters(trail.points[i - 1], trail.points[i])
+        }
+        val junctions = (range.first + 1 until range.last).filter { i -> others(trail, trail.nodes[i]).isNotEmpty() }
+        val stretches = mutableListOf<IntRange>()
+        var start = range.first
+        for (cut in junctions + range.last) {
+            if (distance[cut - range.first] - distance[start - range.first] >= min) {
                 stretches += start..cut
                 start = cut
             }
         }
-        if (start != last && stretches.isNotEmpty()) stretches[stretches.lastIndex] = stretches.last().first..last
+        if (start != range.last && stretches.isNotEmpty()) stretches[stretches.lastIndex] = stretches.last().first..range.last
+        return stretches
+    }
 
-        val pieces = buildList {
-            add(Piece(0..last, part = null))
-            // A parent trail's stretches are its sections' own candidates.
-            if (stretches.size > 1 && trail.kind != TrailKind.PARENT)
-                stretches.forEachIndexed { k, range -> add(Piece(range, part = k + 1)) }
-            if (trail.kind == TrailKind.PARENT) addAll(junctionSpans(trail))
-        }
-        return pieces.flatMap { piece -> directions(trail, piece) }
+    /** The minimum stretch length for [trail]: the largest of its own group's and of the groups all its own ways are open to. */
+    private fun stretchMinimum(trail: Trail): Double {
+        val own = (trail.ways - trail.bridged).mapNotNull(waysById::get)
+        val shared = own.map { it.rules.wayGroups(it.tags) }.reduceOrNull { a, b -> a intersect b }.orEmpty()
+        return (shared + trail.group).maxOf { SegmentSportGroup.minMeters(it) }.toDouble()
     }
 
     /** A piece of a trail to cut: the whole trail, its stretch number [part], or a parent trail's span to or from the node [junction]. */
@@ -215,13 +265,19 @@ internal class CandidateCutter(
     }
 
     /**
-     * The named ways through [node] that aren't [trail]'s own. For an agency trail, the agency's other lines of the same name don't count
-     * either: the Forest Service publishes one trail as several features, a summer and a winter one split at different mileposts.
+     * The named ways through [node] that aren't [trail]'s own, nor of its name without generic [words]. For an agency trail, the agency's
+     * other lines of the same name don't count either: the Forest Service publishes one trail as several features, a summer and a winter
+     * one split at different mileposts.
      */
-    private fun others(trail: Trail, node: Long): List<OsmWay> =
-        namedAt[node].orEmpty().filter { way ->
-            way.id !in trail.ways && !(trail.rules is AgencyRules && way.rules is AgencyRules && way.name == trail.name)
+    private fun others(trail: Trail, node: Long): List<OsmWay> {
+        val own = words.shorten(trail.name)
+        return namedAt[node].orEmpty().filter { way ->
+            way.id !in trail.ways &&
+                !(trail.rules is AgencyRules && way.rules is AgencyRules && way.name == trail.name) &&
+                // Another line of the trail's own name, such as an informal alternate, is the same trail, not a place on it.
+                way.name?.let(words::shorten) != own
         }
+    }
 
     /** What to call the place [node] is on [trail]: the name of another way there, preferring one that isn't the trail's own name. */
     private fun nameAt(trail: Trail, node: Long): String? =

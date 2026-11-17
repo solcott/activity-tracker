@@ -59,6 +59,28 @@ internal object TrailTags : TrailRules {
             tags["highway"] == "steps" ||
             tags["tunnel"] == "building_passage"
 
+    /** Highways never crossed as shared tread: roads no one on a bike or on foot may use, and steps. */
+    private val NOT_CROSSABLE = setOf("motorway", "motorway_link", "trunk", "trunk_link", "steps")
+
+    /** Whether a way is a road, which a trail or route relation may follow only as short shared tread. */
+    fun isRoad(tags: Map<String, String>): Boolean = tags["highway"] in ROADS
+
+    /**
+     * Whether a trail of [group] may follow a way as short shared tread (segments/trail-candidates): a highway that isn't closed to the
+     * public, an area, steps, a motorway or trunk road, or closed to [group].
+     */
+    fun crossable(tags: Map<String, String>, group: String): Boolean {
+        val highway = tags["highway"]
+        val closed = tags["access"] in CLOSED_ACCESS || tags["area"] == "yes"
+        val openToGroup =
+            when (group) {
+                SegmentSportGroup.RIDE -> tags["bicycle"] != "no"
+                in FOOT_GROUPS -> tags["foot"] != "no"
+                else -> false
+            }
+        return highway != null && highway !in NOT_CROSSABLE && !closed && openToGroup
+    }
+
     /** The groups a way is a trail for on its own: none without a name or when [excluded]. */
     override fun wayGroups(tags: Map<String, String>): Set<String> {
         if (tags["name"].isNullOrBlank() || excluded(tags)) return emptySet()

@@ -137,4 +137,14 @@ class CandidateDedupTest {
         assertEquals(2, kept.size, "one each way")
         assertEquals(true, kept.all { it.kind == TrailKind.RELATION })
     }
+
+    @Test
+    fun aWholeRelationWinsOverAnotherRelationsRunAlongIt() {
+        // The Bonneville Shoreline relation's one-way run along Clarks, against the whole Clarks relation.
+        val kept =
+            CandidateDedup.dedup(
+                listOf(candidate("aaa", kind = TrailKind.RELATION, whole = false), candidate("zzz", nudged, kind = TrailKind.RELATION)),
+            )
+        assertEquals(listOf("zzz"), kept.map { it.id })
+    }
 }

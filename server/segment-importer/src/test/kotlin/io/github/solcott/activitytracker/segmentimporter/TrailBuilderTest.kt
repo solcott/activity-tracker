@@ -245,4 +245,136 @@ class TrailBuilderTest {
         assertEquals(listOf(1L, 2L, 3L, 4L), rush.nodes.toList())
         assertEquals(setOf(10L, 11L), rush.ways)
     }
+
+    private val mtb = arrayOf("type" to "route", "route" to "mtb")
+
+    @Test
+    fun waysNamedWithAndWithoutTheGenericWordAreOneTrail() {
+        val data = osm {
+            column(1L..6L, -72.7)
+            way(10, 1, 2, 3, tags = path("Canyon Hollow Trail"))
+            way(11, 3, 4, tags = path("Canyon Hollow"))
+            way(12, 4, 5, 6, tags = path("Canyon Hollow Trail"))
+        }
+        val trail = TrailBuilder.build(data).single { it.group == RIDE }
+        assertEquals(setOf(10L, 11L, 12L), trail.ways)
+        assertEquals("Canyon Hollow Trail", trail.name, "named after its longest way")
+        assertEquals("Canyon Hollow", trail.label)
+    }
+
+    /**
+     * "Canyon Hollow Trail" from node 1 to 3, then along the service road "Lower Corner Canyon" from 3 through 4 to 5, [roadGap] m on, and
+     * on from 5 to 7.
+     */
+    private fun OsmBuilder.alongARoad(roadGap: Double, vararg roadTags: Pair<String, String>) {
+        node(1, north(44.4, 0.0), -72.7)
+        node(2, north(44.4, 300.0), -72.7)
+        node(3, north(44.4, 600.0), -72.7)
+        node(4, north(44.4, 600.0 + roadGap / 2), -72.7)
+        node(5, north(44.4, 600.0 + roadGap), -72.7)
+        node(6, north(44.4, 900.0 + roadGap), -72.7)
+        node(7, north(44.4, 1200.0 + roadGap), -72.7)
+        node(8, north(44.4, 1300.0 + roadGap), -72.7)
+        way(10, 1, 2, 3, tags = path("Canyon Hollow Trail"))
+        way(11, 5, 6, 7, tags = path("Canyon Hollow Trail"))
+        // The road runs on past where the trail leaves it.
+        way(20, 3, 4, 5, 8, tags = highway("service", "Lower Corner Canyon Trail", *roadTags))
+    }
+
+    @Test
+    fun aTrailFollowsAShortStretchOfRoadItSharesTreadWith() {
+        val trail = TrailBuilder.build(osm { alongARoad(roadGap = 100.0) }).single { it.group == RIDE }
+        assertEquals(listOf(1L, 2L, 3L, 4L, 5L, 6L, 7L), trail.nodes.toList().let { if (it.first() == 1L) it else it.reversed() })
+        assertEquals(setOf(10L, 11L, 20L), trail.ways)
+        assertEquals(setOf(20L), trail.bridged)
+    }
+
+    @Test
+    fun aTrailDoesNotFollowARoadTooFar() {
+        assertEquals(2, TrailBuilder.build(osm { alongARoad(roadGap = 400.0) }).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowAPrivateRoad() {
+        assertEquals(2, TrailBuilder.build(osm { alongARoad(roadGap = 100.0, "access" to "private") }).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowARoadClosedToItsGroup() {
+        val trails = TrailBuilder.build(osm { alongARoad(roadGap = 100.0, "bicycle" to "no") })
+        assertEquals(2, trails.count { it.group == RIDE })
+        assertEquals(1, trails.count { it.group == RUN }, "people on foot may still follow it")
+    }
+
+    @Test
+    fun aRelationKeepsAShortRoadMemberBetweenItsTrails() {
+        val data = osm {
+            alongARoad(roadGap = 90.0)
+            way(21, 3, 4, 5, tags = highway("service", null))
+            relation(200, 10, 21, 11, tags = mapOf(*mtb, "name" to "Canyon Loop"))
+        }
+        val relation = TrailBuilder.build(data).single { it.kind == TrailKind.RELATION }
+        assertEquals(listOf(10L, 21L, 11L), relation.edgeWays.toList().distinct())
+        assertEquals(setOf(21L), relation.bridged)
+    }
+
+    @Test
+    fun aRelationDropsAShortRoadAtItsEnd() {
+        val data = osm {
+            alongARoad(roadGap = 90.0)
+            way(21, 3, 4, 5, tags = highway("service", null))
+            relation(200, 10, 21, tags = mapOf(*mtb, "name" to "Canyon Loop"))
+        }
+        assertEquals(setOf(10L), TrailBuilder.build(data).single { it.kind == TrailKind.RELATION }.ways)
+    }
+
+    /** "Clarks Trail" climbing from 1 to 4 as one-way-for-bikes sections, and "Ann's Trail" on from 4 to 6. */
+    private fun OsmBuilder.clarks() {
+        column(1L..6L, -72.7)
+        val uphill = arrayOf("oneway:bicycle" to "yes")
+        way(10, 1, 2, tags = path("Clarks Trail - Bikes Uphill Only Section", *uphill))
+        way(11, 2, 3, 4, tags = path("Clarks Trail - Bikes Uphill Only Section", *uphill))
+        way(12, 4, 5, 6, tags = path("Ann's Trail"))
+    }
+
+    @Test
+    fun aRelationDropsTheOtherTrailItEndsOn() {
+        val data = osm {
+            clarks()
+            relation(200, 10, 11, 12, tags = mapOf(*mtb, "name" to "Clarks Trail"))
+        }
+        assertEquals(setOf(10L, 11L), TrailBuilder.build(data).single { it.kind == TrailKind.RELATION }.ways)
+    }
+
+    @Test
+    fun aRelationOfOnlyOtherNamesKeepsThemAll() {
+        val data = osm {
+            clarks()
+            relation(200, 10, 11, 12, tags = mapOf(*mtb, "name" to "Crest Loop"))
+        }
+        assertEquals(setOf(10L, 11L, 12L), TrailBuilder.build(data).single { it.kind == TrailKind.RELATION }.ways)
+    }
+
+    @Test
+    fun aRelationKeepsAnotherTrailInItsMiddle() {
+        val data = osm {
+            clarks()
+            node(7, north(44.4, 1500.0), -72.7)
+            way(13, 6, 7, tags = path("Clarks Trail - Top Section"))
+            relation(200, 10, 11, 12, 13, tags = mapOf(*mtb, "name" to "Clarks Trail"))
+        }
+        assertEquals(setOf(10L, 11L, 12L, 13L), TrailBuilder.build(data).single { it.kind == TrailKind.RELATION }.ways)
+    }
+
+    @Test
+    fun aNamedTrailOnExactlyARelationsWaysTakesItsName() {
+        val data = osm {
+            clarks()
+            relation(200, 10, 11, 12, tags = mapOf(*mtb, "name" to "Clarks Trail"))
+        }
+        val named = TrailBuilder.build(data).filter { it.kind == TrailKind.NAMED && it.ways == setOf(10L, 11L) }
+        assertEquals(setOf(RIDE, RUN, HIKE), named.map { it.group }.toSet())
+        assertTrue(named.all { it.label == "Clarks" }, named.map { it.label }.toString())
+        assertTrue(named.all { it.name == "Clarks Trail - Bikes Uphill Only Section" }, "its paths keep the full name")
+    }
 }
