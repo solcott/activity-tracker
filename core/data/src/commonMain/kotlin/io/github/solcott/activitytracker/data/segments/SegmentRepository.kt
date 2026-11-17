@@ -3,10 +3,13 @@ package io.github.solcott.activitytracker.data.segments
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.AREA_CAP
+import io.github.solcott.activitytracker.data.AREA_MAX_REQUESTS
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.outcomeOf
+import io.github.solcott.activitytracker.data.readArea
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
@@ -27,6 +30,7 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.pageOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -173,17 +177,13 @@ class SegmentRepository(private val clients: SessionClients) {
         cap: Int = AREA_CAP,
         maxRequests: Int = AREA_MAX_REQUESTS,
     ): Outcome<AreaSegments> = outcomeOf {
-        val found = LinkedHashMap<AtUri, SegmentView>()
-        var cursor: String? = null
-        var requests = 0
-        do {
-            val page = search(box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
-            requests++
-            page.segments.forEach { if (it.uri !in found) found[it.uri] = it }
-            cursor = page.cursor
-        } while (cursor != null && found.size < cap && requests < maxRequests)
-        val segments = wholeGroups(found.values, cap)
-        AreaSegments(segments, capped = cursor != null || found.size > cap, paths = pathViews(segments.flatMap { it.paths }.distinct()))
+        val read =
+            readArea(cap, maxRequests, keyOf = SegmentView::uri) { cursor ->
+                val page = search(box.copy(limit = Paging.MAX_LIMIT, cursor = cursor))
+                pageOf(page.segments, page.cursor)
+            }
+        val segments = wholeGroups(read.items, cap)
+        AreaSegments(segments, read.capped, paths = pathViews(segments.flatMap { it.paths }.distinct()))
     }
 
     /**
@@ -212,14 +212,6 @@ class SegmentRepository(private val clients: SessionClients) {
     suspend fun namesPage(params: SearchSegmentNames.Params): Outcome<Page<SegmentView, Unit>> = outcomeOf {
         val output = clients.appView.query(SearchSegmentNames.method, params)
         Page(output.segments, Unit, output.cursor)
-    }
-
-    private companion object {
-        /** The most segments one area holds for browsing, runs and lifts together (`segments/segment-browse`). */
-        const val AREA_CAP = 300
-
-        /** The most `searchSegments` requests one area makes, since a page may hold none with a cursor. */
-        const val AREA_MAX_REQUESTS = 10
     }
 }
 
