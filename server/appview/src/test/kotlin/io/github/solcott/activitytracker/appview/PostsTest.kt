@@ -289,6 +289,16 @@ class PostsTest : PostTestBase() {
     }
 
     @Test
+    fun aTakenDownSegmentTakesItsPostWithIt() {
+        aliceProposes()
+        follow(bob, alice)
+        share()
+        label(seg, "!takedown")
+        assertTrue(timelinePosts(bob).isEmpty(), "getSegment hides it, so the embed may not show its name")
+        assertTrue(profilePosts(alice, bob).isEmpty())
+    }
+
+    @Test
     fun droppingTheSpaceDropsItsPosts() {
         aliceProposes()
         share(tier = Visibility.FOLLOWERS)

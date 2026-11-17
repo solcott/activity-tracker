@@ -74,8 +74,8 @@ internal fun quoteChainPasses(reader: Expression<String>?, tier: PostTier): Op<B
 
 /**
  * The post in [posts] is served to anyone: its account is served, it carries no `!takedown` or `!hide`, nor does its account, and, when it
- * shares a proposal, that proposal is live and unlabelled. Who its tier admits isn't asked: a post nobody else may see still counts as
- * served, which keeps its quotes hidden rather than showing it unavailable.
+ * shares a proposal, that proposal is live and unlabelled and its segment or site is served. Who its tier admits isn't asked: a post nobody
+ * else may see still counts as served, which keeps its quotes hidden rather than showing it unavailable.
  */
 internal fun postServed(posts: Alias<Posts>): Op<Boolean> {
     val author = posts[Posts.authorDid]
@@ -89,7 +89,8 @@ internal fun postServed(posts: Alias<Posts>): Op<Boolean> {
                     (SegmentNameProposals.uri eq proposal) and
                         (SegmentNameProposals.proposerDid eq author) and
                         (SegmentNameProposals.recordGone eq false) and
-                        unlabelledProposal()
+                        unlabelledProposal() and
+                        proposalPlaceServed(null)
                 },
             ))
 }

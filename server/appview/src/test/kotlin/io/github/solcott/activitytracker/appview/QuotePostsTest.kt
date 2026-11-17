@@ -142,6 +142,15 @@ class QuotePostsTest : PostTestBase() {
     }
 
     @Test
+    fun aTakenDownSegmentLeavesTheQuoteServed() {
+        aliceProposes()
+        share()
+        quote(bob, "3kq")
+        label(seg, "!takedown")
+        assertIs<QuotedPost.Unavailable>(postFor(carol).quoted())
+    }
+
+    @Test
     fun aWithdrawnProposalLeavesTheQuoteServed() {
         aliceProposes()
         share()

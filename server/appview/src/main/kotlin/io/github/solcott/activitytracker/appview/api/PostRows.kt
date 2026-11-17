@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.appview.api
 
+import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.PostQuoteChains
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
+import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.listedProposalTo
 import io.github.solcott.activitytracker.lexicon.Did
 import org.jetbrains.exposed.v1.core.Column
@@ -61,6 +63,23 @@ private fun liveProposal(proposal: Column<String?>, author: Column<String>, read
             (SegmentNameProposals.uri eq proposal) and
                 (SegmentNameProposals.proposerDid eq author) and
                 (SegmentNameProposals.recordGone eq false) and
-                listedProposalTo(reader)
+                listedProposalTo(reader) and
+                proposalPlaceServed(reader)
         },
     )
+
+/**
+ * The segment or dive site the outer query's proposal names is indexed and served to [reader] ([served]; null for anyone), as `getSegment`
+ * and `getDiveSite` serve it, so a post never shows a place taken down or of an account that isn't served.
+ */
+internal fun proposalPlaceServed(reader: Expression<String>?): Op<Boolean> =
+    exists(
+        Segments.select(Segments.uri).where {
+            (Segments.uri eq SegmentNameProposals.segmentUri) and served(reader, Segments.authorDid, Segments.uri, Segments.cid)
+        },
+    ) or
+        exists(
+            DiveSites.select(DiveSites.uri).where {
+                (DiveSites.uri eq SegmentNameProposals.segmentUri) and served(reader, DiveSites.authorDid, DiveSites.uri, DiveSites.cid)
+            },
+        )

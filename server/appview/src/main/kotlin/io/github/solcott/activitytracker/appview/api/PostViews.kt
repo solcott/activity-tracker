@@ -122,8 +122,8 @@ private fun JdbcTransaction.proposalEmbeds(rows: List<ResultRow>, viewer: Did?):
                     .associateBy { it[SegmentNameVotes.proposalUri] }
             }
             .orEmpty()
-    val segments = segmentsAmong(bySubject.keys)
-    val sites = sitesAmong(bySubject.keys)
+    val segments = segmentsAmong(bySubject.keys, viewer)
+    val sites = sitesAmong(bySubject.keys, viewer)
     return { row ->
         proposals[row[Posts.proposalUri]]?.let { proposal ->
             val subject = proposal[SegmentNameProposals.segmentUri]
@@ -139,10 +139,12 @@ private fun JdbcTransaction.proposalEmbeds(rows: List<ResultRow>, viewer: Did?):
     }
 }
 
-/** Brief views of the segments among [subjects], by URI. */
-private fun segmentsAmong(subjects: Collection<String>): Map<String, SegmentViewBasic> =
+/** Brief views of the segments among [subjects] served to [viewer], by URI. */
+private fun segmentsAmong(subjects: Collection<String>, viewer: Did?): Map<String, SegmentViewBasic> =
     Segments.selectAll()
-        .where { Segments.uri inList subjects.filterNot(::isDiveSiteUri) }
+        .where {
+            (Segments.uri inList subjects.filterNot(::isDiveSiteUri)) and served(viewer, Segments.authorDid, Segments.uri, Segments.cid)
+        }
         .associate {
             it[Segments.uri] to
                 SegmentViewBasic(
@@ -155,10 +157,10 @@ private fun segmentsAmong(subjects: Collection<String>): Map<String, SegmentView
                 )
         }
 
-/** Brief views of the dive sites among [subjects], by URI. */
-private fun sitesAmong(subjects: Collection<String>): Map<String, DiveSiteViewBasic> =
+/** Brief views of the dive sites among [subjects] served to [viewer], by URI. */
+private fun sitesAmong(subjects: Collection<String>, viewer: Did?): Map<String, DiveSiteViewBasic> =
     DiveSites.selectAll()
-        .where { DiveSites.uri inList subjects.filter(::isDiveSiteUri) }
+        .where { (DiveSites.uri inList subjects.filter(::isDiveSiteUri)) and diveSiteServed(viewer) }
         .associate { it[DiveSites.uri] to DiveSiteViewBasic(AtUri(it[DiveSites.uri]), it[DiveSites.currentName], it[DiveSites.status]) }
 
 /**
