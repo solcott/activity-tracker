@@ -108,6 +108,17 @@ Publishing never rewrites a segment, so segments published from older files keep
 ./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"
 ```
 
+## Paths
+
+Segments are browsed by the trail or road they lie on (segments/segment-paths). With `--paths <file>`, `extract` also writes the region's paths: one per trail family (a trail's sections, such as "Rush Trail - 2112 Section", and its parent trails' branches join their family "Rush Trail", and same-named pieces that touch, such as a trail split at its forks, are one path), each way drawn once and open to its trails' sport groups (a footpath to run and hike only); and one per run of same-named OSM road ways joined end to end, for roads open to bikes or to people on foot (no motorways, nor roads closed to both), open to any sport. Roads give no candidates. A long trail stays one path, its line in up to 64 pieces that each fit a record. A path's id hashes its kind, its name and the features at its two ends, so re-extracting keeps it.
+
+`publish-paths` asks the AppView, a tile under 1 degree at a time, for every live segment's line and sport group (`importer.getSegmentLines`), and publishes as a `feed.path`, keyed by its id, each path in the file one of them lies on, by the AppView's own test (`PathOverlap`: each stretch counts only for the nearest paths open to its sport group, so a trail running parallel 20 m away doesn't take a neighbour's segments). So a trail gets its path once it has a segment, and a city street only once an athlete has made a segment on it. A published path whose name, line or sports changed in the file is rewritten under its key, and the importer's paths lying wholly inside the file's area that the file no longer holds are deleted. `scripts/segment-import.sh` runs it last, on `build/segment-import/<region>-paths.ndjson`:
+
+```bash
+./gradlew :server-segment-importer:run --args="extract vermont-latest.osm.pbf --region us-vermont --out build/us-vermont.ndjson --paths build/us-vermont-paths.ndjson"
+./gradlew :server-segment-importer:run --args="publish-paths build/us-vermont-paths.ndjson"
+```
+
 ## Dive sites
 
 ```bash

@@ -1,0 +1,294 @@
+package io.github.solcott.activitytracker.segmentimporter
+
+import io.github.solcott.activitytracker.atproto.crypto.base32
+import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import java.io.Writer
+import java.security.MessageDigest
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.roundToLong
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** The paths file's format; bump it when what a line holds changes. */
+internal const val PATHS_VERSION = 2
+
+/** The first line of a paths file. */
+@Serializable internal data class PathsHeader(val region: String, val pathsVersion: Int)
+
+/** Each later line: one trail or road a region's segments may lie on (segments/path-import). */
+@Serializable
+internal data class PathEntry(
+    /** The record key it's published under: stable across extracts ([PathIds]). */
+    val id: String,
+    /** A [PathKind] value. */
+    val kind: String,
+    val name: String,
+    /** Its line in pieces, each encoded as a `feed.segment` line, at most [PathRecord.MAX_PIECES]. */
+    val lines: List<String>,
+    val lengthMeters: Long,
+    val source: String,
+    val license: String,
+    val attribution: String? = null,
+    /** The sport groups it is open to; null for any, as a road. */
+    val sports: List<String>? = null,
+)
+
+private val json = Json { explicitNulls = false }
+
+/** The paths file: a header line, then one line per path, in the order given. */
+internal fun writePaths(out: Writer, region: String, paths: List<PathEntry>) {
+    out.appendLine(json.encodeToString(PathsHeader.serializer(), PathsHeader(region, PATHS_VERSION)))
+    for (path in paths) out.appendLine(json.encodeToString(PathEntry.serializer(), path))
+}
+
+/** A paths file read back: its region and its paths. */
+internal data class PathsFile(val region: String, val paths: List<PathEntry>)
+
+internal fun readPaths(lines: Sequence<String>): PathsFile {
+    val iterator = lines.filter { it.isNotBlank() }.iterator()
+    require(iterator.hasNext()) { "an empty paths file" }
+    val header = json.decodeFromString(PathsHeader.serializer(), iterator.next())
+    require(header.pathsVersion == PATHS_VERSION) {
+        "a paths file of format version ${header.pathsVersion}; this importer reads version $PATHS_VERSION"
+    }
+    return PathsFile(header.region, iterator.asSequence().map { json.decodeFromString(PathEntry.serializer(), it) }.toList())
+}
+
+/** Stable path ids: from the kind, the name and the source features at the two ends, whichever way the line runs. */
+internal object PathIds {
+    private const val ID_CHARS = 26
+
+    fun of(kind: String, name: String, endA: String, endB: String): String {
+        val (first, last) = listOf(endA, endB).sorted()
+        val key = "$kind|$name|$first|$last"
+        return MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).base32().take(ID_CHARS)
+    }
+}
+
+/** A path's line as pieces that each fit a record: split into at most [PathRecord.MAX_PIECES] stretches, each simplified. */
+internal object PathPieces {
+    /** The longest stretch one piece holds before the line is split further, in meters. */
+    private const val PIECE_M = 40_000.0
+
+    fun of(points: List<GeoPoint>): List<String> {
+        if (points.size < 2) return emptyList()
+        val length = SegmentGeometry.lengthMeters(points)
+        val count = ceil(length / max(PIECE_M, length / PathRecord.MAX_PIECES)).toInt().coerceIn(1, PathRecord.MAX_PIECES)
+        val target = length / count
+        val pieces = mutableListOf<List<GeoPoint>>()
+        var start = 0
+        var along = 0.0
+        for (i in 1 until points.size) {
+            along += SegmentGeometry.distanceMeters(points[i - 1], points[i])
+            if (along >= target && pieces.size < count - 1 && i < points.lastIndex) {
+                pieces += points.subList(start, i + 1)
+                start = i
+                along = 0.0
+            }
+        }
+        pieces += points.subList(start, points.size)
+        return pieces.map { SegmentGeometry.encodePolyline(CandidateCutter.simplified(it)) }
+    }
+
+    fun lengthOf(lines: List<String>): Long =
+        lines.sumOf { SegmentGeometry.lengthMeters(SegmentGeometry.decodePolyline(it).orEmpty()) }.roundToLong()
+}
+
+/**
+ * A region's trail paths (segments/path-import): one for each trail family, the trails of one name or of one family of sections (a parent
+ * trail's family, else the name before " - ") whose ways touch, across every sport group. Each is named after its family, open to its
+ * trails' sport groups, and holds each of its ways once, in as few pieces as its trails allow.
+ */
+internal object TrailPaths {
+    fun of(trails: List<Trail>, agencyKeys: Map<Long, String>): List<PathEntry> =
+        trails
+            .groupBy { trail -> (trail.family ?: TrailBuilder.familyOf(trail.name)) to trail.rules.source }
+            .flatMap { (key, family) -> touching(family).mapNotNull { entry(key.first, it, agencyKeys) } }
+
+    /** How near two trails of one family may come and still be one trail: pieces split by short unnamed connectors. */
+    private const val JOIN_M = 250.0
+
+    /** [trails] split into groups that touch or come within [JOIN_M] of each other, linked through any member. */
+    private fun touching(trails: List<Trail>): List<List<Trail>> {
+        val parent = IntArray(trails.size) { it }
+        fun root(i: Int): Int = if (parent[i] == i) i else root(parent[i]).also { parent[i] = it }
+        fun join(a: Int, b: Int) {
+            parent[root(a)] = root(b)
+        }
+        val byNode = mutableMapOf<Long, Int>()
+        trails.forEachIndexed { i, trail -> for (node in trail.nodes) byNode.putIfAbsent(node, i)?.let { join(it, i) } }
+        val boxes = trails.map { Box.of(it.points) }
+        for (i in trails.indices) {
+            for (j in i + 1 until trails.size) {
+                if (root(i) == root(j) || !boxes[i].near(boxes[j], JOIN_M)) continue
+                if (closest(trails[i].points, trails[j].points) <= JOIN_M) join(i, j)
+            }
+        }
+        return trails.indices.groupBy(::root).values.map { group -> group.map { trails[it] } }
+    }
+
+    /** How close [a] and [b] come, measured from points every [SegmentGeometry.REFERENCE_SPACING_M] along [a] to [b]'s line. */
+    private fun closest(a: List<GeoPoint>, b: List<GeoPoint>): Double =
+        SegmentGeometry.resample(a).minOf { SegmentGeometry.distanceToLineMeters(it, b) }
+
+    /** A line's bounding box, for skipping pairs of trails that can't be near. */
+    private data class Box(val south: Double, val west: Double, val north: Double, val east: Double) {
+        fun near(other: Box, meters: Double): Boolean {
+            val lat = meters / METERS_PER_DEGREE
+            val lng = lat / max(cos(Math.toRadians(south)), MIN_COS)
+            return other.south <= north + lat && other.north >= south - lat && other.west <= east + lng && other.east >= west - lng
+        }
+
+        companion object {
+            fun of(points: List<GeoPoint>) =
+                Box(points.minOf { it.lat }, points.minOf { it.lng }, points.maxOf { it.lat }, points.maxOf { it.lng })
+        }
+    }
+
+    private const val METERS_PER_DEGREE = 111_320.0
+    private const val MIN_COS = 0.01
+
+    private fun entry(name: String, trails: List<Trail>, agencyKeys: Map<Long, String>): PathEntry? {
+        val lines = piecesOf(trails).take(PathRecord.MAX_PIECES)
+        if (lines.isEmpty()) return null
+        val ways = trails.flatMap { it.edgeWays.toList() }
+        fun end(way: Long) = agencyKeys[way] ?: "w$way"
+        val order = SegmentSportGroup.all
+        val first = trails.first()
+        return PathEntry(
+            id = PathIds.of(PathKind.TRAIL, name, end(ways.min()), end(ways.max())),
+            kind = PathKind.TRAIL,
+            name = CandidateCutter.truncate(name),
+            lines = lines,
+            lengthMeters = PathPieces.lengthOf(lines),
+            source = first.rules.source,
+            license = first.rules.license,
+            attribution = first.rules.attribution,
+            sports = trails.map { it.group }.distinct().sortedBy { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size },
+        )
+    }
+
+    /**
+     * The lines of [trails], each way once: the longest trail whole, then each other's stretches of ways not drawn yet, longest pieces
+     * first.
+     */
+    private fun piecesOf(trails: List<Trail>): List<String> {
+        val drawn = mutableSetOf<Long>()
+        val runs = mutableListOf<List<GeoPoint>>()
+        for (trail in trails.sortedByDescending { SegmentGeometry.lengthMeters(it.points) }) {
+            var start = -1
+            for (edge in 0 until trail.nodes.lastIndex) {
+                val fresh = trail.edgeWays[edge] !in drawn
+                if (fresh && start < 0) start = edge
+                if (!fresh && start >= 0) {
+                    runs += trail.points.subList(start, edge + 1)
+                    start = -1
+                }
+            }
+            if (start >= 0) runs += trail.points.subList(start, trail.points.size)
+            drawn += trail.ways
+        }
+        return runs.filter { it.size >= 2 }.sortedByDescending { SegmentGeometry.lengthMeters(it) }.flatMap(PathPieces::of)
+    }
+}
+
+/**
+ * A region's road paths (segments/path-import): runs of same-named OSM road ways joined end to end, for roads open to bikes or to people on
+ * foot. No candidate is ever cut from them; they only group athletes' segments.
+ */
+internal object RoadPaths {
+    /** The `highway` values that are roads. */
+    private val ROADS =
+        setOf(
+            "trunk",
+            "trunk_link",
+            "primary",
+            "primary_link",
+            "secondary",
+            "secondary_link",
+            "tertiary",
+            "tertiary_link",
+            "unclassified",
+            "residential",
+            "service",
+            "living_street",
+            "road",
+        )
+    private val CLOSED_ACCESS = setOf("private", "no")
+
+    /** Whether a way is a named road a path may follow: not a motorway, not closed, and open to bikes or to people on foot. */
+    fun isRoad(tags: Map<String, String>): Boolean =
+        tags["highway"] in ROADS &&
+            !tags["name"].isNullOrBlank() &&
+            tags["access"] !in CLOSED_ACCESS &&
+            !(tags["bicycle"] == "no" && tags["foot"] == "no")
+
+    fun of(data: OsmData): List<PathEntry> {
+        val roads = data.ways.filter { way -> isRoad(way.tags) && way.nodes.size >= 2 && way.nodes.all { data.coords[it] != null } }
+        return roads
+            .groupBy { requireNotNull(it.name) }
+            .flatMap { (name, named) -> chains(named).map { chain -> entry(name, chain, data) } }
+            .filterNotNull()
+    }
+
+    /** A road way placed in a chain: [reversed] when the chain runs against its node order. */
+    private data class Placed(val way: OsmWay, val reversed: Boolean) {
+        val first: Long
+            get() = if (reversed) way.nodes.last() else way.nodes.first()
+
+        val last: Long
+            get() = if (reversed) way.nodes.first() else way.nodes.last()
+
+        val nodes: List<Long>
+            get() = if (reversed) way.nodes.reversed() else way.nodes.toList()
+    }
+
+    /** [ways] of one name joined where exactly two meet at an end node, so a junction of three never picks a branch. */
+    private fun chains(ways: List<OsmWay>): List<List<Placed>> {
+        val atEnd = ways.flatMap { w -> listOf(w.nodes.first() to w, w.nodes.last() to w) }.groupBy({ it.first }, { it.second })
+        val used = mutableSetOf<Long>()
+        fun next(node: Long, current: OsmWay): OsmWay? =
+            atEnd[node].orEmpty().distinct().takeIf { it.size == 2 }?.firstOrNull { it != current && it.id !in used }
+        return ways
+            .sortedBy { it.id }
+            .mapNotNull { start ->
+                if (!used.add(start.id)) return@mapNotNull null
+                val chain = ArrayDeque(listOf(Placed(start, reversed = false)))
+                while (true) {
+                    val end = chain.last()
+                    val way = next(end.last, end.way) ?: break
+                    used += way.id
+                    chain.addLast(Placed(way, reversed = way.nodes.last() == end.last))
+                }
+                while (true) {
+                    val first = chain.first()
+                    val way = next(first.first, first.way) ?: break
+                    used += way.id
+                    chain.addFirst(Placed(way, reversed = way.nodes.first() == first.first))
+                }
+                chain.toList()
+            }
+    }
+
+    private fun entry(name: String, chain: List<Placed>, data: OsmData): PathEntry? {
+        val nodes = chain.flatMapIndexed { i, placed -> if (i == 0) placed.nodes else placed.nodes.drop(1) }
+        val points = nodes.mapNotNull { data.coords[it] }
+        val lines = PathPieces.of(points)
+        if (lines.isEmpty()) return null
+        return PathEntry(
+            id = PathIds.of(PathKind.ROAD, name, "w${chain.first().way.id}", "w${chain.last().way.id}"),
+            kind = PathKind.ROAD,
+            name = CandidateCutter.truncate(name),
+            lines = lines,
+            lengthMeters = PathPieces.lengthOf(lines),
+            source = TrailTags.source,
+            license = TrailTags.license,
+        )
+    }
+}

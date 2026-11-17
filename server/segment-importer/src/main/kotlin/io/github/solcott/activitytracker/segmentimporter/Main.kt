@@ -13,12 +13,13 @@ private const val USAGE =
     """Usage: segment-importer <command>
 
 Commands:
-  extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> [--lang <code>] --out <candidates.ndjson>
+  extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> [--lang <code>] --out <candidates.ndjson> [--paths <paths.ndjson>]
       Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
       object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
       Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
       and dashes, such as us-vermont. The language, a two-letter ISO 639-1 code (en unless given), picks the generic words names drop,
-      such as Trail; a language with no list keeps names as their source has them.
+      such as Trail; a language with no list keeps names as their source has them. With --paths, also writes the region's trails and
+      named roads as paths that segments may lie on, one JSON object per line.
   extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
       Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
       clubs, buildings, healthcare or names like "Dive Center" or "Free diving platform"), one JSON object per line, each with a radius from its outline or kind (wreck, reef) and an id from its OSM element.
@@ -34,11 +35,16 @@ Commands:
       Republishes the segments and dive sites athletes deleted or left behind while others still used them, as listed by the AppView:
       each becomes a feed.segment or feed.diveSite keyed by its handoff id, with source athlete, CC0-1.0 and no attribution. A handoff
       already republished is never written again.
+  publish-paths <paths.ndjson> [--rewrite]
+      Publishes as feed.path records the paths in the file that a live segment on no path lies on, as the AppView lists them, and
+      rewrites published paths whose name, line or sports changed, deleting the importer's paths in the file's area that it no longer
+      holds. A road gets a path only once someone has made a segment on it. --rewrite rewrites every published path the file holds, for
+      an AppView that missed them.
   refine <candidates.ndjson>
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
       of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
 
-stage, publish, publish-sites, handoff and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
+stage, publish, publish-sites, publish-paths, handoff and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one (Gradle's run task gives the local
 one its DID, device mode included). Their repo writes go out in commits of up to 100 records, at most 2,400 commits an hour (under a
 relay's limits for a PDS it doesn't trust) unless SEGMENT_IMPORTER_COMMITS_PER_HOUR says otherwise."""
@@ -54,11 +60,13 @@ fun main(args: Array<String>) {
         exitProcess(2)
     }
     when (command) {
-        is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language))
+        is Command.Extract ->
+            extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language), command.paths)
         is Command.ExtractSites -> extractSites(command.pbf, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
+        is Command.PublishPaths -> asServiceAccount { publishPathsFile(it, command.file, command.rewrite) }
         is Command.PublishSites -> asServiceAccount { publishSitesFile(it, command.file) }
         Command.Handoff -> asServiceAccount { handoffAll(it) }
     }
@@ -101,6 +109,8 @@ internal sealed interface Command {
         val out: File,
         /** The region's language, as an ISO 639-1 code. */
         val language: String = "en",
+        /** Where to write the region's paths, if anywhere. */
+        val paths: File? = null,
     ) : Command
 
     data class ExtractSites(val pbf: File, val region: String, val out: File) : Command
@@ -111,6 +121,8 @@ internal sealed interface Command {
     data class Publish(val region: String, val all: File? = null) : Command
 
     data class Refine(val file: File) : Command
+
+    data class PublishPaths(val file: File, val rewrite: Boolean = false) : Command
 
     data class PublishSites(val file: File) : Command
 
@@ -125,6 +137,7 @@ internal fun parse(args: List<String>): Command? =
         "stage" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Stage(File(it)) }
         "publish" -> parsePublish(args.drop(1))
         "refine" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Refine(File(it)) }
+        "publish-paths" -> parsePublishPaths(args.drop(1))
         "publish-sites" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.PublishSites(File(it)) }
         "handoff" -> Command.Handoff.takeIf { args.size == 1 }
         else -> null
@@ -157,8 +170,8 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     val out = options["--out"] ?: return null
     val language = options["--lang"] ?: "en"
     if (!LANGUAGE.matches(language)) return null
-    if (options.keys.any { it !in setOf("--region", "--out", "--lang") }) return null
-    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language)
+    if (options.keys.any { it !in setOf("--region", "--out", "--lang", "--paths") }) return null
+    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language, options["--paths"]?.let(::File))
 }
 
 /** An extract, then `--region <id>` and `--out <sites.ndjson>`, each once and in any order. */
@@ -177,4 +190,14 @@ private fun parsePublish(args: List<String>): Command.Publish? {
     val wellFormed = args.size % 2 == 0 && options.size == args.size / 2 && options.keys.all { it in setOf("--region", "--all") }
     val region = options["--region"]?.takeIf { wellFormed && REGION_ID.matches(it) }
     return region?.let { Command.Publish(it, options["--all"]?.let(::File)) }
+}
+
+/** A paths file, then optionally `--rewrite`. */
+private fun parsePublishPaths(args: List<String>): Command.PublishPaths? {
+    val file = args.firstOrNull()?.takeUnless { it.startsWith("--") } ?: return null
+    return when (args.drop(1)) {
+        emptyList<String>() -> Command.PublishPaths(File(file))
+        listOf("--rewrite") -> Command.PublishPaths(File(file), rewrite = true)
+        else -> null
+    }
 }

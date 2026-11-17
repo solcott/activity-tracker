@@ -43,6 +43,11 @@ internal class RepoWriter(
         for (batch in batches(drafts)) commit(repo, batch.map { ApplyWrites.update(it.collection, it.rkey, it.value) })
     }
 
+    /** Deletes [rkeys] of [collection] from [repo], [MAX_WRITES] to a commit. Throws the first error, keeping the commits before it. */
+    suspend fun delete(repo: Did, collection: String, rkeys: List<String>) {
+        for (batch in rkeys.chunked(MAX_WRITES)) commit(repo, batch.map { ApplyWrites.delete(collection, it) })
+    }
+
     private suspend fun createBatch(repo: Did, batch: List<Draft>, done: (Draft, Boolean) -> Unit) {
         if (batch.isEmpty()) return
         try {

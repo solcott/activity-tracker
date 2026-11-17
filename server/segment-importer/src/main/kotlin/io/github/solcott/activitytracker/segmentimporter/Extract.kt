@@ -54,14 +54,16 @@ private val json = Json { explicitNulls = false }
  * each sport group got, how many OSM candidates of each group agency closures left out, how many agency features were skipped, and when
  * [words] has no list for the region's language.
  */
+@Suppress("LongParameterList") // The inputs, the region and the two outputs.
 internal fun extract(
     pbf: File?,
     agency: List<AgencyDataset>,
     region: String,
     out: File,
     words: GenericWords = GenericWords.ENGLISH,
+    paths: File? = null,
 ) {
-    val osm = pbf?.let(OsmReader::read) ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
+    val osm = pbf?.let { OsmReader.read(it, roads = paths != null) } ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
     val agencyData = agency.takeIf { it.isNotEmpty() }?.let(AgencyReader::read)
     val data = agencyData?.let { osm + it } ?: osm
     val closures = ClosureFilter(data.agencyLines)
@@ -71,6 +73,12 @@ internal fun extract(
     println("Wrote ${candidates.size} candidates for $region to $out: ${counts.entries.joinToString { (g, n) -> "$n $g" }}")
     for ((group, n) in closures.leftOut) println("Left out $n $group candidates along agency closures")
     for ((rules, skipped) in agencyData?.skipped.orEmpty()) println("Skipped $skipped ${rules.kind} features with no feature id or no line")
+    paths?.let { file ->
+        val entries = pathsOf(data, words)
+        file.bufferedWriter().use { writePaths(it, region, entries) }
+        val kinds = entries.groupingBy { it.kind }.eachCount().toSortedMap()
+        println("Wrote ${entries.size} paths for $region to $file: ${kinds.entries.joinToString { (k, n) -> "$n $k" }}")
+    }
     if (!words.known) println("No generic words for the language '${words.language}': names are kept as their source has them")
 }
 
@@ -79,6 +87,12 @@ internal fun candidatesOf(data: OsmData, closures: ClosureFilter, words: Generic
     val cutter = CandidateCutter(data, words)
     val trails = TrailBuilder.build(data, words).flatMap(cutter::cut)
     return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
+}
+
+/** [data]'s trail paths and road paths (segments/path-import), sorted by id; a road and a trail never share an id. */
+internal fun pathsOf(data: OsmData, words: GenericWords = GenericWords.ENGLISH): List<PathEntry> {
+    val agencyKeys = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
+    return (TrailPaths.of(TrailBuilder.build(data, words), agencyKeys) + RoadPaths.of(data)).distinctBy { it.id }.sortedBy { it.id }
 }
 
 /** The candidates file: a header line, then one line per candidate, in the order given. */

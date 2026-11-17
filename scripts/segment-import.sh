@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One import run for a region (segments/segment-import): extract its candidate segments from an OpenStreetMap extract and any agency trail
 # datasets for it (GeoJSON text sequences, see server/segment-importer/README.md), stage them in the AppView, publish the ridden ones as
-# the importer's service account, then refine the segments already published with the candidates' finer lines and names. Each step must
+# the importer's service account, refine the segments already published with the candidates' finer lines and names, then publish the
+# trails and named roads those segments, and athletes' segments there, lie on (segments/path-import). Each step must
 # succeed before the next runs, and every step is safe to repeat, so a scheduler can simply run this again.
 #
 #   scripts/segment-import.sh <region> [--all] [--sites | --sites-only] [--handoff]
@@ -95,12 +96,13 @@ if $sites && [[ -z "$pbf" ]]; then
 fi
 
 out="build/segment-import/$region.ndjson"
+paths_out="build/segment-import/$region-paths.ndjson"
 mkdir -p "$(dirname "$out")"
 importer() { ./gradlew -q :server-segment-importer:run --args="$*"; }
 
 if $segments; then
   echo "==> extract $region"
-  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out"
+  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out" --paths "$paths_out"
   echo "==> stage $out"
   importer stage "$out"
   if $all; then
@@ -112,6 +114,8 @@ if $segments; then
   fi
   echo "==> refine $region"
   importer refine "$out"
+  echo "==> publish-paths $region"
+  importer publish-paths "$paths_out"
 fi
 if $sites; then
   sites_out="build/segment-import/$region-sites.ndjson"

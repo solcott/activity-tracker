@@ -81,12 +81,16 @@ internal class FakeServices {
             val writes = body.getValue("writes").jsonArray.map { it.jsonObject }
             for (write in writes) {
                 val key = write.getValue("collection").jsonPrimitive.content to write.getValue("rkey").jsonPrimitive.content
-                val create = write.getValue("\$type").jsonPrimitive.content.endsWith("#create")
-                if (create == key in records) return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Bad write: $key")
+                val type = write.getValue("\$type").jsonPrimitive.content
+                val create = type.endsWith("#create")
+                if (!type.endsWith("#delete") && create == key in records) {
+                    return@on error(HttpStatusCode.BadRequest, "InvalidRequest", "Bad write: $key")
+                }
             }
             for (write in writes) {
                 val key = write.getValue("collection").jsonPrimitive.content to write.getValue("rkey").jsonPrimitive.content
-                records[key] = write.getValue("value").jsonObject
+                if (write.getValue("\$type").jsonPrimitive.content.endsWith("#delete")) records.remove(key)
+                else records[key] = write.getValue("value").jsonObject
             }
             json("""{"results":[]}""")
         }

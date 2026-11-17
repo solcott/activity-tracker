@@ -38,7 +38,8 @@ scripts/run-appview.sh                            # the same AppView as a plain 
 ./gradlew :server-segment-importer:run --args="stage build/us-vermont.ndjson"      # upload candidates to the AppView as the importer account
 ./gradlew :server-segment-importer:run --args="publish --region us-vermont"        # publish ridden candidates as feed.segment records (--all <file>: every one)
 ./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"     # give published segments their candidates' names, and finer lines (same path only)
-scripts/segment-import.sh us-vermont vermont-latest.osm.pbf [--agency usfs=<file>]... [--lang en]   # extract, stage, publish and refine in one run
+./gradlew :server-segment-importer:run --args="publish-paths build/us-vermont-paths.ndjson"   # publish the trails and roads (extract --paths) segments lie on
+scripts/segment-import.sh us-vermont vermont-latest.osm.pbf [--agency usfs=<file>]... [--lang en]   # extract, stage, publish, refine and publish paths in one run
 scripts/segment-import.sh us-utah --all           # a region with a preset (scripts/segment-regions/): fetch its OSM and agency data, then import and publish all
 ./gradlew :server-segment-importer:run --args="extract-sites region.osm.pbf --region eg-red-sea --out build/eg-red-sea-sites.ndjson"   # OSM dive sites -> sites file
 ./gradlew :server-segment-importer:run --args="publish-sites build/eg-red-sea-sites.ndjson"   # publish sites no live site is within 50 m of as feed.diveSite records
