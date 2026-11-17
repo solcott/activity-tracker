@@ -13,9 +13,11 @@ import io.github.solcott.uistate.PagedState
 
 /**
  * The activities of one batch import (feed/import-cards), opened from its card on the timeline: [actor]'s (a DID) activities saved with
- * `importBatch` [batch] that the viewer may see, newest started first. [name] is the athlete as the card showed them, for the title.
+ * `importBatch` [batch] that the viewer may see, newest started first. [name] is the athlete as the card showed them, for the title; when
+ * null (opened by link, ui/deep-links) the presenter loads the athlete's shown name.
  */
-@CircuitSerializable(SessionScope::class) data class ImportBatchScreen(val actor: String, val batch: String, val name: String) : Screen
+@CircuitSerializable(SessionScope::class)
+data class ImportBatchScreen(val actor: String, val batch: String, val name: String? = null) : Screen
 
 @Immutable
 data class ImportBatchState(

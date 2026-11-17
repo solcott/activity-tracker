@@ -16,9 +16,10 @@ import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.pagedStateOf
 
 /**
- * The Regulars board of the active dive site at [uri] (dive-sites/site-regulars), titled [name]: divers by how many visits they have there.
+ * The Regulars board of the active dive site at [uri] (dive-sites/site-regulars), titled [name] (its current name, loaded, when null:
+ * opened by link, ui/deep-links): divers by how many visits they have there.
  */
-@CircuitSerializable(SessionScope::class) data class DiveSiteRegularsScreen(val uri: String, val name: String) : Screen
+@CircuitSerializable(SessionScope::class) data class DiveSiteRegularsScreen(val uri: String, val name: String? = null) : Screen
 
 @Immutable
 data class DiveSiteRegularsState(

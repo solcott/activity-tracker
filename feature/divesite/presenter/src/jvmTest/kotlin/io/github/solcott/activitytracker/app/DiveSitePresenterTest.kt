@@ -198,6 +198,16 @@ class DiveSitePresenterTest {
     }
 
     @Test
+    fun regularsLoadTheSitesNameWhenOpenedByLink() = runTest {
+        val sites = sites()
+        val linked = DiveSiteRegularsScreen(uri)
+        presenterTestOf({ DiveSiteRegularsPresenter(linked, FakeNavigator(linked), sites) }) {
+            assertEquals("Blue Hole", awaitUntil { it.name.isNotEmpty() }.name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun regularsOpenOnAllTimeEveryoneAndFollowChoices() = runTest {
         val sites = sites()
         val regulars = DiveSiteRegularsScreen(uri, "Blue Hole")

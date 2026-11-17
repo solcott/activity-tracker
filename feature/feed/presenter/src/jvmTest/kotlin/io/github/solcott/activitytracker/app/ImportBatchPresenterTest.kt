@@ -57,6 +57,18 @@ class ImportBatchPresenterTest {
     }
 
     @Test
+    fun loadsTheAthletesNameWhenOpenedByLink() = runTest {
+        fixture.importBatch = listOf(ride("3kh0"))
+        fixture.profileRecord = """{"displayName":"Bob B"}"""
+        val repos = fixture.repos()
+        val linked = ImportBatchScreen(bob.value, "3m5abcdefghij")
+        presenterTestOf({ ImportBatchPresenter(linked, FakeNavigator(linked), repos.feed, repos.activities, repos.profiles) }) {
+            assertEquals("Bob B", awaitUntil { it.name.isNotEmpty() }.name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aFailedLoadSaysSoAndRetries() = runTest {
         fixture.importBatch = null
         val repos = fixture.repos()

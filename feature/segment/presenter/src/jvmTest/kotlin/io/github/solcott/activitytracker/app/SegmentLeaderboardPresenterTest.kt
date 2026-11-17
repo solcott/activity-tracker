@@ -66,6 +66,13 @@ class SegmentLeaderboardPresenterTest {
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
+                    "/xrpc/${Nsid.FEED_GET_SEGMENT}" ->
+                        respond(
+                            """{"segment":{"uri":"$uri","cid":"bafyhill","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
+                                """"record":{"name":"Hill","sport":"ride","line":"_p~iF","source":"athlete","license":"CC0-1.0",""" +
+                                """"createdAt":"2026-10-01T00:00:00Z"},"name":"Big Hill","distanceMeters":1000}}""",
+                            headers = json,
+                        )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_LEADERBOARD}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value.single() }
                         requests += params
@@ -127,6 +134,20 @@ class SegmentLeaderboardPresenterTest {
             assertEquals(3, more.entries.items.last().rank)
             assertFalse(more.entries.canLoadMore)
             assertEquals("210::did:plc:carol", requests.last()["cursor"])
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun opensWithTheGivenNameAndLoadsItWhenOpenedByLink() = runTest {
+        val segments = segments()
+        presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
+            assertEquals("Hill", awaitItem().name, "the name the segment page passed, at once")
+            cancelAndIgnoreRemainingEvents()
+        }
+        val linked = SegmentLeaderboardScreen(uri)
+        presenterTestOf({ SegmentLeaderboardPresenter(linked, FakeNavigator(linked), segments) }) {
+            assertEquals("Big Hill", awaitUntil { it.name.isNotEmpty() }.name, "its current name")
             cancelAndIgnoreRemainingEvents()
         }
     }

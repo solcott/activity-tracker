@@ -5,6 +5,7 @@ import androidx.compose.runtime.key
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.rememberShownName
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -37,7 +38,7 @@ fun SegmentLeaderboardPresenter(
     val types = rememberBoardTypes(board.meta, filters.requested)
 
     return SegmentLeaderboardState(
-        name = screen.name,
+        name = rememberShownName(screen.name, uri) { segments.segment(uri).currentName },
         period = filters.period,
         scope = filters.scope,
         board = types.shown,

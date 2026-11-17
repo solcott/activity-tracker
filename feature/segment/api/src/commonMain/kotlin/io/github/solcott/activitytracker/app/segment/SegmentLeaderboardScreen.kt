@@ -23,11 +23,11 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 /**
- * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name], opening on [board] (a [SegmentBoard]
- * type), or the AppView's default when null.
+ * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name] (its current name, loaded, when null:
+ * opened by link, ui/deep-links), opening on [board] (a [SegmentBoard] type), or the AppView's default when null.
  */
 @CircuitSerializable(SessionScope::class)
-data class SegmentLeaderboardScreen(val uri: String, val name: String, val board: String? = null) : Screen
+data class SegmentLeaderboardScreen(val uri: String, val name: String? = null, val board: String? = null) : Screen
 
 @Immutable
 data class SegmentLeaderboardState(

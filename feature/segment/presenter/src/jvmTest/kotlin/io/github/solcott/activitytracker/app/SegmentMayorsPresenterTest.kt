@@ -49,6 +49,13 @@ class SegmentMayorsPresenterTest {
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
+                    "/xrpc/${Nsid.FEED_GET_SEGMENT}" ->
+                        respond(
+                            """{"segment":{"uri":"$uri","cid":"bafyhill","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
+                                """"record":{"name":"Hill","sport":"hike","line":"_p~iF","source":"athlete","license":"CC0-1.0",""" +
+                                """"createdAt":"2026-10-01T00:00:00Z"},"name":"Big Hill","distanceMeters":1000}}""",
+                            headers = json,
+                        )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value.single() }
                         requests += params
@@ -80,6 +87,16 @@ class SegmentMayorsPresenterTest {
 
     private val SegmentMayorsState.answered
         get() = entries.hasAnswer && entries.refresh is LoadStatus.Idle && entries.append is LoadStatus.Idle
+
+    @Test
+    fun loadsTheSegmentsNameWhenOpenedByLink() = runTest {
+        val segments = segments()
+        val linked = SegmentMayorsScreen(uri)
+        presenterTestOf({ SegmentMayorsPresenter(linked, FakeNavigator(linked), segments) }) {
+            assertEquals("Big Hill", awaitUntil { it.name.isNotEmpty() }.name, "its current name")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     fun loadsTheLast90DaysWithTheViewersPlaceThenMore() = runTest {

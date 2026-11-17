@@ -23,11 +23,12 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 /**
- * The Mayors board of the active segment at [uri] (segments/segment-mayors), titled [name]: athletes by how many efforts they have on it.
- * It opens on [board] (a [SegmentBoard] type), or the AppView's default when null.
+ * The Mayors board of the active segment at [uri] (segments/segment-mayors), titled [name] (its current name, loaded, when null: opened by
+ * link, ui/deep-links): athletes by how many efforts they have on it. It opens on [board] (a [SegmentBoard] type), or the AppView's default
+ * when null.
  */
 @CircuitSerializable(SessionScope::class)
-data class SegmentMayorsScreen(val uri: String, val name: String, val board: String? = null) : Screen
+data class SegmentMayorsScreen(val uri: String, val name: String? = null, val board: String? = null) : Screen
 
 @Immutable
 data class SegmentMayorsState(

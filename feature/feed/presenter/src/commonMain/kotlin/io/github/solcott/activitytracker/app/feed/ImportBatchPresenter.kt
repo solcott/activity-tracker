@@ -12,7 +12,9 @@ import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.rememberShownName
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -38,7 +40,8 @@ fun ImportBatchPresenter(
     var error by rememberRetained { mutableStateOf<UiError?>(null) }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
     val flights = rememberSingleFlight()
-    return ImportBatchState(screen.name, page.state, profiles.did.value, rememberRevealed(), error) { event ->
+    val name = rememberShownName(screen.name, screen.actor) { profiles.profile(screen.actor).shownName }
+    return ImportBatchState(name, page.state, profiles.did.value, rememberRevealed(), error) { event ->
         when (event) {
             ImportBatchEvent.Back -> {
                 navigator.pop()

@@ -9,6 +9,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.rememberShownName
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -35,7 +36,8 @@ fun DiveSiteRegularsPresenter(screen: DiveSiteRegularsScreen, navigator: Navigat
     val board = entries.state
     val viewer = board.meta?.viewer?.takeIf { own -> board.hasAnswer && board.items.none { it.athlete.did == own.athlete.did } }
 
-    return DiveSiteRegularsState(screen.name, period, scope, board, viewer) { event ->
+    val name = rememberShownName(screen.name, uri) { sites.site(uri).currentName }
+    return DiveSiteRegularsState(name, period, scope, board, viewer) { event ->
         when (event) {
             DiveSiteRegularsEvent.Back -> navigator.pop()
             is DiveSiteRegularsEvent.PeriodChanged -> if (event.period in RegularsPeriod.all) period = event.period
