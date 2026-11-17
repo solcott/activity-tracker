@@ -142,9 +142,7 @@ private fun JdbcTransaction.proposalEmbeds(rows: List<ResultRow>, viewer: Did?):
 /** Brief views of the segments among [subjects] served to [viewer], by URI. */
 private fun segmentsAmong(subjects: Collection<String>, viewer: Did?): Map<String, SegmentViewBasic> =
     Segments.selectAll()
-        .where {
-            (Segments.uri inList subjects.filterNot(::isDiveSiteUri)) and served(viewer, Segments.authorDid, Segments.uri, Segments.cid)
-        }
+        .where { (Segments.uri inList subjects.filterNot(::isDiveSiteUri)) and SegmentPlace.servedTo(viewer) }
         .associate {
             it[Segments.uri] to
                 SegmentViewBasic(
@@ -160,7 +158,7 @@ private fun segmentsAmong(subjects: Collection<String>, viewer: Did?): Map<Strin
 /** Brief views of the dive sites among [subjects] served to [viewer], by URI. */
 private fun sitesAmong(subjects: Collection<String>, viewer: Did?): Map<String, DiveSiteViewBasic> =
     DiveSites.selectAll()
-        .where { (DiveSites.uri inList subjects.filter(::isDiveSiteUri)) and diveSiteServed(viewer) }
+        .where { (DiveSites.uri inList subjects.filter(::isDiveSiteUri)) and DiveSitePlace.servedTo(viewer) }
         .associate { it[DiveSites.uri] to DiveSiteViewBasic(AtUri(it[DiveSites.uri]), it[DiveSites.currentName], it[DiveSites.status]) }
 
 /**

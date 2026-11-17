@@ -74,7 +74,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 /**
  * Dive sites (dive-sites/site-records) and what the AppView derives from the visits to them: conditions (dive-sites/site-conditions) and
  * Regulars (dive-sites/site-regulars). A site is public, but an account that isn't served, or a taken-down site record, hides it
- * ([diveSiteServed]). A visit is served only to viewers admitted to its stored visibility and to its activity's row ([visitsVisibleTo]),
+ * ([Place.servedTo]). A visit is served only to viewers admitted to its stored visibility and to its activity's row ([visitsVisibleTo]),
  * and a visit's conditions only to those also admitted to its Dive tier, so nothing here reveals a dive the viewer couldn't otherwise see.
  */
 @Suppress("LongParameterList") // Its config.
@@ -90,7 +90,8 @@ class DiveSiteViews(
     suspend fun site(viewer: Did?, params: GetDiveSite.Params): GetDiveSite.Output = db.tx {
         // A handed-off site's old URI serves its successor (dive-sites/site-handoffs).
         val uri = params.uri.value.takeIf(::siteIndexed) ?: resolveHandoff(params.uri.value, ::siteIndexed) ?: params.uri.value
-        val row = DiveSites.selectAll().where { (DiveSites.uri eq uri) and diveSiteServed(viewer) }.firstOrNull() ?: throw notFound()
+        val row =
+            DiveSites.selectAll().where { (DiveSites.uri eq uri) and DiveSitePlace.servedTo(viewer) }.firstOrNull() ?: throw notFound()
         val state = viewer?.let {
             DiveSiteViewerState(
                 canProposeName = mayPropose(uri, it.value, clock.now().toEpochMilliseconds(), names),
@@ -115,13 +116,13 @@ class DiveSiteViews(
             val rows =
                 DiveSites.selectAll()
                     .where {
-                        diveSiteServed(viewer) and
+                        DiveSitePlace.servedTo(viewer) and
                             unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
                             (DiveSites.latE7 greaterEq params.minLat) and
                             (DiveSites.latE7 lessEq params.maxLat) and
                             (DiveSites.lngE7 greaterEq params.minLng) and
                             (DiveSites.lngE7 lessEq params.maxLng) and
-                            listedTo(viewer) and
+                            DiveSitePlace.listedTo(viewer) and
                             keysetAfter(DiveSites.indexedAt, DiveSites.uri, params.cursor)
                     }
                     .orderBy(DiveSites.indexedAt to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
@@ -167,9 +168,9 @@ class DiveSiteViews(
             val rows =
                 DiveSites.selectAll()
                     .where {
-                        diveSiteServed(viewer) and
+                        DiveSitePlace.servedTo(viewer) and
                             unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
-                            listedTo(viewer) and
+                            DiveSitePlace.listedTo(viewer) and
                             (name like match.anywhere) and
                             inBox
                     }
@@ -226,7 +227,7 @@ class DiveSiteViews(
      * too; none when there are no such visits. `NotFound` when the site isn't served.
      */
     suspend fun conditions(viewer: Did?, params: GetDiveSiteConditions.Params): GetDiveSiteConditions.Output = db.tx {
-        requireServedSite(viewer, params.site.value)
+        requireServedPlace(DiveSitePlace, viewer, params.site.value)
         val rows =
             visitsWithActivities()
                 .select(DiveSiteVisits.startedOn, DiveSiteVisits.minTemperature, DiveSiteVisits.visibilityCm, DiveSiteVisits.maxDepthCm)
@@ -257,7 +258,8 @@ class DiveSiteViews(
         val (since, until) = regularsWindow(params.period)
         val following = followingScope(viewer, params.scope)
         return db.tx {
-            if (requireServedSite(viewer, params.site.value) != SegmentStatus.ACTIVE) return@tx GetDiveSiteRegulars.Output(emptyList())
+            if (requireServedPlace(DiveSitePlace, viewer, params.site.value) != SegmentStatus.ACTIVE)
+                return@tx GetDiveSiteRegulars.Output(emptyList())
             val board = regularVisits(viewer, params.site.value, since, until, following)
             val page = regularsBoard.page(board, params.cursor, Paging.clamp(params.limit))
             val own = viewer?.let { regularsBoard.entryOf(board, it.value) }
@@ -305,26 +307,10 @@ class DiveSiteViews(
         }
     }
 
-    /** Sites search lists to [viewer]: active ones, and proposed ones they created or dived. */
-    private fun listedTo(viewer: Did?): Op<Boolean> {
-        val active = DiveSites.status eq SegmentStatus.ACTIVE
-        if (viewer == null) return active
-        val dived =
-            exists(
-                DiveSiteVisits.select(DiveSiteVisits.activityUri).where {
-                    (DiveSiteVisits.siteUri eq DiveSites.uri) and (DiveSiteVisits.authorDid eq viewer.value)
-                },
-            )
-        return active or ((DiveSites.status eq SegmentStatus.PROPOSED) and ((DiveSites.authorDid eq viewer.value) or dived))
-    }
-
-    private fun JdbcTransaction.requireServedSite(viewer: Did?, site: String): String =
-        DiveSites.select(DiveSites.status).where { (DiveSites.uri eq site) and diveSiteServed(viewer) }.firstOrNull()?.get(DiveSites.status)
-            ?: throw notFound()
-
     private fun JdbcTransaction.servedSites(viewer: Did?, uris: List<String>): Map<String, ResultRow> =
         if (uris.isEmpty()) emptyMap()
-        else DiveSites.selectAll().where { (DiveSites.uri inList uris) and diveSiteServed(viewer) }.associateBy { it[DiveSites.uri] }
+        else
+            DiveSites.selectAll().where { (DiveSites.uri inList uris) and DiveSitePlace.servedTo(viewer) }.associateBy { it[DiveSites.uri] }
 
     private fun today(): LocalDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
 
@@ -380,9 +366,6 @@ internal fun median(values: List<Long>): Long? {
 private const val MONTH_START = 5
 private const val MONTH_END = 7
 
-/** Sites served to [viewer]: not of an account that isn't served, nor taken down. */
-internal fun diveSiteServed(viewer: Did?): Op<Boolean> = served(viewer, DiveSites.authorDid, DiveSites.uri, DiveSites.cid)
-
 /** Visits joined to their activity. */
 internal fun visitsWithActivities() = DiveSiteVisits.join(Activities, JoinType.INNER, DiveSiteVisits.activityUri, Activities.uri)
 
@@ -393,7 +376,7 @@ internal fun visitsWithActivities() = DiveSiteVisits.join(Activities, JoinType.I
 internal fun visitsVisibleTo(viewer: Did?): Op<Boolean> =
     visibleTo(viewer, DiveSiteVisits.visibility, DiveSiteVisits.authorDid, DiveSiteVisits.activityUri, null) and
         visibleTo(viewer) and
-        exists(DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq DiveSiteVisits.siteUri) and diveSiteServed(viewer) })
+        exists(DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq DiveSiteVisits.siteUri) and DiveSitePlace.servedTo(viewer) })
 
 /** Each of [activities]' visited site that [viewer] may see the visit to, as a brief view (`activityView.diveSite`). */
 internal fun JdbcTransaction.diveSitesOf(activities: List<String>, viewer: Did?): Map<String, DiveSiteViewBasic> {
@@ -417,11 +400,6 @@ internal fun JdbcTransaction.diveSiteDiveRows(viewer: Did?, site: String, limit:
         .orderBy(Activities.startedAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
         .limit(limit)
         .toList()
-
-/** Whether [site] is served to [viewer]; `NotFound` otherwise. */
-internal fun JdbcTransaction.requireDiveSite(viewer: Did?, site: String) {
-    if (DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq site) and diveSiteServed(viewer) }.empty()) throw notFound()
-}
 
 internal fun JdbcTransaction.diveSiteViews(rows: List<ResultRow>, avatars: AvatarUrls): List<DiveSiteView> {
     val creators = basicProfiles(rows.map { it[DiveSites.authorDid] }, avatars)

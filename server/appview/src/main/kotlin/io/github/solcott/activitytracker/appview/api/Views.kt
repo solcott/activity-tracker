@@ -253,7 +253,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /** A dive site's visits [viewer] may see, newest first, as their dives (dive-sites/site-visits). `NotFound` for a site not served. */
     suspend fun diveSiteDives(viewer: Did?, params: GetDiveSiteDives.Params): GetDiveSiteDives.Output = db.tx {
-        requireDiveSite(viewer, params.site.value)
+        requireServedPlace(DiveSitePlace, viewer, params.site.value)
         val pageSize = GetDiveSiteDives.clamp(params.limit)
         val rows = diveSiteDiveRows(viewer, params.site.value, pageSize, params.cursor)
         val next = nextCursor(rows, pageSize) { cursorOf(it[Activities.startedAt], it[Activities.uri]) }

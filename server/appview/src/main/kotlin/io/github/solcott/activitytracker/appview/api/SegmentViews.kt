@@ -140,7 +140,7 @@ class SegmentViews(
         // A handed-off segment's old URI serves its successor (segments/segment-handoffs).
         val uri = params.uri.value.takeIf(::segmentIndexed) ?: resolveHandoff(params.uri.value, ::segmentIndexed) ?: params.uri.value
         val row =
-            Segments.selectAll().where { (Segments.uri eq uri) and segmentServed(viewer) }.firstOrNull()
+            Segments.selectAll().where { (Segments.uri eq uri) and SegmentPlace.servedTo(viewer) }.firstOrNull()
                 ?: throw notFound("Segment not found")
         // Only the fastest the viewer may see is read, however often they've ridden it.
         val best = viewer?.let { own ->
@@ -184,9 +184,9 @@ class SegmentViews(
                 ((Segments.groupUri eq group) or (Segments.groupUri.isNull() and (Segments.uri eq group))) and
                     (Segments.uri neq uri) and
                     (Segments.kind neq SegmentKind.LIFT) and
-                    segmentServed(viewer) and
+                    SegmentPlace.servedTo(viewer) and
                     unhidden(viewer, Segments.authorDid, Segments.uri) and
-                    listedTo(viewer)
+                    SegmentPlace.listedTo(viewer)
             }
             .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
             .limit(MAX_ROUTE_MEMBERS)
@@ -221,14 +221,14 @@ class SegmentViews(
             var batches = 0
             // Served, listed and in the box's cells: what a page may hold, before each line is checked against the box.
             val inArea =
-                segmentServed(viewer) and
+                SegmentPlace.servedTo(viewer) and
                     unhidden(viewer, Segments.authorDid, Segments.uri) and
                     (Segments.minLatE7 lessEq maxLat) and
                     (Segments.maxLatE7 greaterEq minLat) and
                     (Segments.minLngE7 lessEq maxLng) and
                     (Segments.maxLngE7 greaterEq minLng) and
                     (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
-                    listedTo(viewer) and
+                    SegmentPlace.listedTo(viewer) and
                     exists(
                         SegmentCellIndex.select(SegmentCellIndex.cell).where {
                             (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
@@ -505,9 +505,9 @@ class SegmentViews(
                         },
                     )
             } ?: Op.TRUE
-        return segmentServed(viewer) and
+        return SegmentPlace.servedTo(viewer) and
             unhidden(viewer, Segments.authorDid, Segments.uri) and
-            listedTo(viewer) and
+            SegmentPlace.listedTo(viewer) and
             (Segments.kind neq SegmentKind.LIFT) and
             (sport?.let { Segments.sport eq it } ?: Op.TRUE) and
             inBox
@@ -587,7 +587,7 @@ class SegmentViews(
 
     /** One athlete's efforts on a segment the viewer may see, fastest first; `NotFound` when the segment isn't served. */
     suspend fun segmentEfforts(viewer: Did?, params: GetSegmentEfforts.Params): GetSegmentEfforts.Output = db.tx {
-        requireServedSegment(viewer, params.segment.value)
+        requireServedPlace(SegmentPlace, viewer, params.segment.value)
         val athlete = resolveShownActor(viewer, params.actor) ?: return@tx GetSegmentEfforts.Output(emptyList())
         val limit = Paging.clamp(params.limit)
         val efforts =
@@ -613,7 +613,7 @@ class SegmentViews(
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
-            if (requireServedSegment(viewer, params.segment.value) != SegmentStatus.ACTIVE)
+            if (requireServedPlace(SegmentPlace, viewer, params.segment.value) != SegmentStatus.ACTIVE)
                 return@tx GetSegmentLeaderboard.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentLeaderboard.Output(emptyList())
@@ -646,7 +646,7 @@ class SegmentViews(
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
-            if (requireServedSegment(viewer, params.segment.value) != SegmentStatus.ACTIVE)
+            if (requireServedPlace(SegmentPlace, viewer, params.segment.value) != SegmentStatus.ACTIVE)
                 return@tx GetSegmentMayors.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentMayors.Output(emptyList())
@@ -668,33 +668,13 @@ class SegmentViews(
         return db.tx {
             // An athlete's check is always for a run: lifts come only from the importer (segments/segment-lifts).
             val uris = duplicatesOf(input.sport, SegmentKind.RUN, line)
-            val rows = Segments.selectAll().where { (Segments.uri inList uris) and segmentServed(viewer) }.associateBy { it[Segments.uri] }
+            val rows =
+                Segments.selectAll().where { (Segments.uri inList uris) and SegmentPlace.servedTo(viewer) }.associateBy { it[Segments.uri] }
             val created = if (viewer == segmentImporter) 0 else segmentsCreatedSince(viewer, now)
             val remaining = (DAILY_SEGMENT_LIMIT - created).coerceAtLeast(0).toInt()
             CheckSegment.Output(views(uris.mapNotNull { rows[it] }), remaining)
         }
     }
-
-    /** Segments search lists to [viewer]: active ones, and proposed ones they created or have an effort on. */
-    private fun listedTo(viewer: Did?): Op<Boolean> {
-        val active = Segments.status eq SegmentStatus.ACTIVE
-        if (viewer == null) return active
-        val ridden =
-            exists(
-                SegmentEfforts.select(SegmentEfforts.id).where {
-                    (SegmentEfforts.segmentUri eq Segments.uri) and (SegmentEfforts.authorDid eq viewer.value)
-                },
-            )
-        return active or ((Segments.status eq SegmentStatus.PROPOSED) and ((Segments.authorDid eq viewer.value) or ridden))
-    }
-
-    /** The status of [segment] when it's served to [viewer] ([segmentServed]); `NotFound` when it isn't. */
-    private fun JdbcTransaction.requireServedSegment(viewer: Did?, segment: String): String =
-        Segments.select(Segments.status).where { (Segments.uri eq segment) and segmentServed(viewer) }.firstOrNull()?.get(Segments.status)
-            ?: throw notFound("Segment not found")
-
-    /** Segments served to [viewer]: not of an account that isn't served, nor taken down. */
-    private fun segmentServed(viewer: Did?): Op<Boolean> = served(viewer, Segments.authorDid, Segments.uri, Segments.cid)
 
     /** Efforts matching [where] that [viewer] may see, each with whether it's its athlete's best on its segment among those. */
     private fun JdbcTransaction.effortViews(
@@ -956,7 +936,7 @@ class SegmentViews(
     private fun effortsVisibleTo(viewer: Did?): Op<Boolean> =
         visibleTo(viewer, SegmentEfforts.visibility, SegmentEfforts.authorDid, SegmentEfforts.activityUri, null) and
             visibleTo(viewer) and
-            segmentServed(viewer)
+            SegmentPlace.servedTo(viewer)
 
     private fun JdbcTransaction.views(rows: List<ResultRow>): List<SegmentView> {
         val creators = basicProfiles(rows.map { it[Segments.authorDid] }, avatars)
