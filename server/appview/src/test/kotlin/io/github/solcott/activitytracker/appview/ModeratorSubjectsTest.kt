@@ -104,9 +104,9 @@ class ModeratorSubjectsTest : ModerationTestBase() {
         }
     }
 
-    /** [json] at [rkey] of [collection] in bob's [tier] space. */
-    private fun spacePut(tier: String, collection: String, rkey: String, json: String) = runBlocking {
-        val space = SpaceUri.of(Did(bob), Nsid.SPACE_ATHLETE, tier)
+    /** [json] at [rkey] of [collection] in [owner]'s [tier] space. */
+    private fun spacePut(tier: String, collection: String, rkey: String, json: String, owner: String = bob) = runBlocking {
+        val space = SpaceUri.of(Did(owner), Nsid.SPACE_ATHLETE, tier)
         indexer.spaceWrite(space, collection, rkey, "bafy$rkey", AtJson.parseToJsonElement(json).jsonObject)
     }
 
@@ -313,6 +313,37 @@ class ModeratorSubjectsTest : ModerationTestBase() {
         val output = AtJson.decodeFromString(GetSubject.method.output, client.subject(commentUri(alice, bob)).bodyAsText())
         assertEquals(Visibility.PUBLIC, output.visibility)
         assertEquals("Nice", output.comment?.text)
+    }
+
+    @Test
+    fun aPublicReplyUnderAMutualsRootNeedsAReport() = testApplication {
+        startModerated()
+        listOf(alice, bob).forEach(::profile)
+        post(bob, "3kp")
+        val subject = """"subject":{"uri":"${activityUri(bob, "3kp")}","cid":"bafy3kp"}"""
+        val root = "at://$alice/${Nsid.FEED_COMMENT}/3kr"
+        spacePut(
+            AthleteSpace.INTERACTIONS,
+            Nsid.FEED_COMMENT,
+            "3kr",
+            """{$subject,"text":"Mutuals only","audience":"${Visibility.MUTUALS}","createdAt":"2026-10-03T09:00:00Z"}""",
+            owner = alice,
+        )
+        val ref = """{"uri":"$root","cid":"bafy3kr"}"""
+        commit(
+            alice,
+            Nsid.FEED_COMMENT,
+            "3ks",
+            """{$subject,"text":"Re","reply":{"root":$ref,"parent":$ref},"createdAt":"2026-10-03T09:01:00Z"}""",
+        )
+        val reply = "at://$alice/${Nsid.FEED_COMMENT}/3ks"
+        assertEquals(notFound, client.subject(reply).status, "served only to mutuals, by its root")
+        assertEquals(emptyList(), audit())
+
+        reviews[reply] = 8L to "reviewOpen"
+        val output = AtJson.decodeFromString(GetSubject.method.output, client.subject(reply).bodyAsText())
+        assertEquals(Visibility.MUTUALS, output.visibility)
+        assertEquals(listOf(listOf(moderator, reply, "8")), audit())
     }
 
     @Test

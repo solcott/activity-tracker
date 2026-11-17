@@ -2,8 +2,11 @@ package io.github.solcott.activitytracker.appview.moderation
 
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.ModerationAccessLog
+import io.github.solcott.activitytracker.appview.api.Subject
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
+import io.github.solcott.activitytracker.appview.api.admittedComments
+import io.github.solcott.activitytracker.appview.api.commentTier
 import io.github.solcott.activitytracker.appview.api.commentViews
 import io.github.solcott.activitytracker.appview.api.notFound
 import io.github.solcott.activitytracker.appview.db.Activities
@@ -23,7 +26,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -82,12 +84,9 @@ class ModeratorSubjects(
                 Loaded(author, view.visibilityOrPublic, GetSubject.Output(view.visibilityOrPublic, activity = view), holdsPrivate)
             }
             Nsid.FEED_COMMENT -> {
-                val row =
-                    Comments.join(Activities, JoinType.INNER, Comments.subjectUri, Activities.uri)
-                        .selectAll()
-                        .where { Comments.uri eq uri.value }
-                        .firstOrNull() ?: return@tx null
-                val visibility = Visibility.narrower(row[Comments.audience], row[Activities.visibility])
+                val row = admittedComments(Subject.ACTIVITY).selectAll().where { Comments.uri eq uri.value }.firstOrNull() ?: return@tx null
+                // Graded as viewers are served it, so a reply under a narrower root needs a report too.
+                val visibility = commentTier(row, Subject.ACTIVITY)
                 val view = commentViews(listOf(row), row[Activities.authorDid], avatars).single()
                 Loaded(row[Comments.authorDid], visibility, GetSubject.Output(visibility, comment = view))
             }

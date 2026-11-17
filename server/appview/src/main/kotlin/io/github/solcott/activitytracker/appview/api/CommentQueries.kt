@@ -72,6 +72,13 @@ internal fun commentsVisibleTo(viewer: Did?, subject: Subject): Op<Boolean> =
         unhidden(viewer, Comments.authorDid, Comments.uri)
 
 /**
+ * The tier a [row] of [admittedComments] is served at, as [commentsVisibleTo] admits it: the narrowest of its [subject]'s visibility, its
+ * audience and, for a reply, its thread's root's audience while the root is indexed on the same subject ([rootAdmits]).
+ */
+internal fun commentTier(row: ResultRow, subject: Subject): String =
+    listOfNotNull(row[subject.visibility], row[Comments.audience], row.getOrNull(Roots[Comments.audience])).reduce(Visibility::narrower)
+
+/**
  * A reply is also capped by its thread's top-level comment's audience while that's indexed on the subject: clients cap a reply by its
  * parent, so an honest chain only narrows, and a reply from a client that doesn't still never reaches past the root's audience. Only the
  * root, not every ancestor, is checked. A top-level comment joins itself, which adds nothing.
