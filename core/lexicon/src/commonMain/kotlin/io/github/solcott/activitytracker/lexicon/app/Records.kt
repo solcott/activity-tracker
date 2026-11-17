@@ -695,9 +695,17 @@ data class PathRecord(
     val attribution: String? = null,
     /** The [SegmentSportGroup]s it is open to; a segment of another never lies on it. Null for any, as a road. */
     val sports: List<String>? = null,
+    /**
+     * The import regions whose paths files list it, such as `us-vermont` (segments/path-import): the importer deletes it once none does.
+     * Only the importer reads it; the AppView ignores it. At most [MAX_REGIONS].
+     */
+    val regions: List<String>? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_PATH,
 ) {
     companion object {
+        /** The lexicon's `maxLength` for [regions]. */
+        const val MAX_REGIONS = 16
+
         /** The lexicon's `maxLength` for [lines]. */
         const val MAX_PIECES = 64
 

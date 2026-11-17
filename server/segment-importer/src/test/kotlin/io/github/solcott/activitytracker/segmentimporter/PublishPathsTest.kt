@@ -8,8 +8,6 @@ import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -20,6 +18,11 @@ import kotlinx.serialization.json.JsonObject
 
 /** `publish-paths` (segments/path-import): only the paths segments lie on are published, and a changed one is refreshed. */
 class PublishPathsTest {
+    private companion object {
+        const val VT = "us-vermont"
+        const val NH = "us-new-hampshire"
+    }
+
     private val fake = FakeServices()
     private val clients = Clients(fake.http, fake.settings)
     private val clock =
@@ -70,12 +73,12 @@ class PublishPathsTest {
         segments += segment("3ka", east = 0.0)
         segments += segment("3kb", east = 0.05)
         segments += segment("3kc", east = 0.3)
-        val result = publishPaths(clients, listOf(anns, pine, oak), clock)
+        val result = publishPaths(clients, listOf(anns, pine, oak), VT, clock)
         assertNull(result.stoppedBy)
         assertEquals(listOf("anns", "pine"), result.published.sorted(), "Oak St has no segment on it")
         assertEquals(1, result.unpathed, "the segment off every path")
         val record = AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "pine"))
-        assertEquals(PathRecord("Pine St", PathKind.ROAD, pine.lines, "osm", "ODbL-1.0", clock.now()), record)
+        assertEquals(PathRecord("Pine St", PathKind.ROAD, pine.lines, "osm", "ODbL-1.0", clock.now(), regions = listOf(VT)), record)
         assertEquals(
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_GET_SEGMENT_LINES}",
             fake.calls(Nsid.IMPORTER_GET_SEGMENT_LINES).first().auth,
@@ -85,7 +88,7 @@ class PublishPathsTest {
     @Test
     fun nothingNewPublishesNothing() = runTest {
         services()
-        val result = publishPaths(clients, listOf(anns, pine), clock)
+        val result = publishPaths(clients, listOf(anns, pine), VT, clock)
         assertEquals(emptyList(), result.published)
         assertEquals(emptyList(), fake.commits())
     }
@@ -94,7 +97,7 @@ class PublishPathsTest {
     fun aChangedPathIsRefreshedUnderItsKey() = runTest {
         services()
         repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns.copy(lines = listOf(line(0.0, 0.0, 4_700.0))), clock)
-        val result = publishPaths(clients, listOf(anns), clock)
+        val result = publishPaths(clients, listOf(anns), VT, clock)
         assertEquals(listOf("anns"), result.refreshed)
         assertEquals(listOf(listOf(Triple("update", Nsid.FEED_PATH, "anns"))), fake.commits())
         assertEquals(anns.lines, AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns")).lines)
@@ -104,47 +107,46 @@ class PublishPathsTest {
     fun aRideOnAFootPathPublishesNoPathForIt() = runTest {
         services()
         segments += segment("3kr", east = 0.0)
-        val result = publishPaths(clients, listOf(anns.copy(sports = listOf("run", "hike"))), clock)
+        val result = publishPaths(clients, listOf(anns.copy(sports = listOf("run", "hike"))), VT, clock)
         assertEquals(emptyList(), result.published)
         assertEquals(1, result.unpathed)
     }
 
     @Test
-    fun pathsTheRegionListedBeforeAndNoLongerHoldsAreRemoved() = runTest {
+    fun pathsNoRegionListsAnyMoreAreRemoved() = runTest {
         services()
-        repo[Nsid.FEED_PATH to "rush-2112"] = pathRecord(path("rush-2112", "Rush Trail - 2112 Section", east = 0.0), clock)
+        repo[Nsid.FEED_PATH to "rush-2112"] = pathRecord(path("rush-2112", "Rush Trail - 2112 Section", east = 0.0), clock, listOf(VT))
         // A neighbouring region's path, lying inside this file's area: regions' boxes overlap.
-        repo[Nsid.FEED_PATH to "border"] = pathRecord(path("border", "Border Trail", east = 0.02), clock)
-        val result = publishPaths(clients, listOf(anns, pine), clock, listedBefore = setOf("anns", "rush-2112"))
+        repo[Nsid.FEED_PATH to "border"] = pathRecord(path("border", "Border Trail", east = 0.02), clock, listOf(NH))
+        // Published before records named their regions: no region owns it, so it stays.
+        repo[Nsid.FEED_PATH to "older"] = pathRecord(path("older", "Old Trail", east = 0.03), clock)
+        val result = publishPaths(clients, listOf(anns, pine), VT, clock)
         assertEquals(listOf("rush-2112"), result.removed, "the region's own; another region's path stays, wherever it lies")
-        assertEquals(setOf("border"), repo.keys.map { it.second }.toSet())
-        assertEquals(emptySet(), result.undeleted)
+        assertEquals(setOf("border", "older"), repo.keys.map { it.second }.toSet())
     }
 
     @Test
-    fun withNothingListedBeforeNothingIsRemoved() = runTest {
+    fun aPathAnotherRegionStillListsLosesOnlyThisRegion() = runTest {
         services()
-        repo[Nsid.FEED_PATH to "rush-2112"] = pathRecord(path("rush-2112", "Rush Trail - 2112 Section", east = 0.0), clock)
-        assertEquals(emptyList(), publishPaths(clients, listOf(anns, pine), clock).removed)
-        assertEquals(setOf("rush-2112"), repo.keys.map { it.second }.toSet())
+        repo[Nsid.FEED_PATH to "border"] = pathRecord(path("border", "Border Trail", east = 0.02), clock, listOf(NH, VT))
+        val result = publishPaths(clients, listOf(anns), VT, clock)
+        assertEquals(emptyList(), result.removed)
+        assertEquals(listOf("border"), result.released)
+        assertEquals(listOf(NH), regionsOf("border"))
     }
 
     @Test
-    fun theFileKeepsWhatItListedForTheNextRun() = runTest {
+    fun aHeldPathTheRegionListsTooTakesItsRegion() = runTest {
         services()
-        segments += segment("3ka", east = 0.0)
-        val dir = createTempDirectory("paths").toFile()
-        val file = File(dir, "us-vermont-paths.ndjson")
-        file.writer().use { writePaths(it, "us-vermont", listOf(anns, pine)) }
-        publishPathsFile(clients, file)
-        assertEquals(listOf("anns", "pine"), listedFile(file, "us-vermont").readLines())
-        assertEquals(setOf("anns"), repo.keys.map { it.second }.toSet())
-
-        file.writer().use { writePaths(it, "us-vermont", listOf(pine)) }
-        publishPathsFile(clients, file)
-        assertEquals(emptySet(), repo.keys.map { it.second }.toSet(), "Ann's left the region's file")
-        assertEquals(listOf("pine"), listedFile(file, "us-vermont").readLines())
+        repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns, clock, listOf(NH))
+        val result = publishPaths(clients, listOf(anns), VT, clock)
+        assertEquals(listOf("anns"), result.refreshed)
+        assertEquals(listOf(NH, VT), regionsOf("anns"))
+        assertEquals(emptyList(), publishPaths(clients, listOf(anns), VT, clock).refreshed, "listed already: nothing to write")
     }
+
+    private fun regionsOf(rkey: String) =
+        AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to rkey)).regions
 
     @Test
     fun aSegmentCrossingTwoTilesIsCountedOnce() = runTest {
@@ -152,7 +154,7 @@ class PublishPathsTest {
         segments += segment("3kc", east = 0.3)
         // Two paths a degree and more apart, so the region spans two tiles, each answering with the same off-path segment.
         val far = path("far", "Far Trail", east = 1.5)
-        val result = publishPaths(clients, listOf(anns, far), clock)
+        val result = publishPaths(clients, listOf(anns, far), VT, clock)
         assertEquals(2, fake.calls(Nsid.IMPORTER_GET_SEGMENT_LINES).size, "one call per tile")
         assertEquals(1, result.unpathed)
     }
@@ -165,7 +167,7 @@ class PublishPathsTest {
         services()
         segments +=
             GetSegmentLines.SegmentLine(AtUri("at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/3ki"), "ride", line(0.0, 1_000.0, 2_500.0))
-        val result = publishPaths(clients, listOf(stub), clock)
+        val result = publishPaths(clients, listOf(stub), VT, clock)
         assertEquals(emptyList(), result.published, "a third of an imported segment isn't enough")
         assertEquals(1, result.unpathed)
     }
@@ -174,6 +176,6 @@ class PublishPathsTest {
     fun anAthletesSegmentNeedsOnlyAQuarterOnAPath() = runTest {
         services()
         segments += segment("3ka", east = 0.0)
-        assertEquals(listOf("stub"), publishPaths(clients, listOf(stub), clock).published)
+        assertEquals(listOf("stub"), publishPaths(clients, listOf(stub), VT, clock).published)
     }
 }

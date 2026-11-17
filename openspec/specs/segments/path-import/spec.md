@@ -70,7 +70,7 @@ A path's id SHALL be derived only from its kind, its name and the source feature
 - **THEN** `publish-paths` publishes nothing
 
 ### Requirement: A published path can be refreshed
-`publish-paths` SHALL replace an already published path's name, line and sport groups with the paths file's when they differ, keeping its key, and SHALL delete the paths the region's file listed at its last `publish-paths` that it no longer holds, kept beside the file, and never a path only another region's file listed, wherever it lies.
+`publish-paths` SHALL replace an already published path's name, line and sport groups with the paths file's when they differ, keeping its key, and SHALL name on each path record the import regions whose files list it (`regions`): a held path the region's file lists gains the region, one the region listed that its file no longer holds loses it, and a path is deleted only once no region lists it, never for lying inside another region's area. A path whose record names no regions is never deleted.
 
 #### Scenario: Trail extended in OSM
 - **WHEN** a newer extract adds 300 m to the end of a published trail's line, keeping its ends' features
@@ -83,6 +83,10 @@ A path's id SHALL be derived only from its kind, its name and the source feature
 #### Scenario: Neighbouring region
 - **WHEN** us-vermont's paths are published after us-new-hampshire's, and a New Hampshire trail lies inside Vermont's bounding box
 - **THEN** the New Hampshire trail stays published
+
+#### Scenario: Border trail
+- **WHEN** a trail listed by both us-vermont's and us-new-hampshire's files leaves Vermont's file
+- **THEN** its path stays published, naming only us-new-hampshire
 
 ### Requirement: The import script publishes paths last
 `scripts/segment-import.sh` SHALL run `publish-paths` after publishing and refining a region's segments, writing as the other importer commands do.

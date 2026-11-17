@@ -28,6 +28,12 @@
             "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
             "description": "The sport groups the path is open to, from its source's tags; a segment of another group never lies on it. Absent means any, as for a road."
           },
+          "regions": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "string", "maxLength": 64 },
+            "description": "The import regions whose paths files list the path, such as us-vermont (segments/path-import): the importer deletes it once none does. Only the importer reads it; the AppView ignores it."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }

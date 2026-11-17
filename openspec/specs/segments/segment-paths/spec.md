@@ -7,7 +7,7 @@ Trails and roads as public paths that segments lie on, so athletes find a place 
 ## Requirements
 
 ### Requirement: A path is a public importer record
-A `feed.path` record SHALL hold a name, a kind (`trail` or `road`), one or more line pieces as encoded polylines, a source, a licence, an optional attribution and optionally the sport groups it is open to. The AppView SHALL index paths only from the segment importer's repo and ignore a path in any other repo or in any space.
+A `feed.path` record SHALL hold a name, a kind (`trail` or `road`), one or more line pieces as encoded polylines, a source, a licence, an optional attribution, optionally the sport groups it is open to, and optionally the import regions whose files list it, which only the importer reads. The AppView SHALL index paths only from the segment importer's repo and ignore a path in any other repo or in any space.
 
 #### Scenario: Importer's trail
 - **WHEN** the segment importer publishes a `feed.path` of kind `trail` named "Long Trail"

@@ -41,8 +41,8 @@ Commands:
       already republished is never written again.
   publish-paths <paths.ndjson> [--rewrite]
       Publishes as feed.path records the paths in the file that a live segment on no path lies on, as the AppView lists them, and
-      rewrites published paths whose name, line or sports changed, deleting the importer's paths in the file's area that it no longer
-      holds. A road gets a path only once someone has made a segment on it. --rewrite rewrites every published path the file holds, for
+      rewrites published paths whose name, line or sports changed. Each path names the regions whose files list it: one the file no longer
+      holds loses the file's region and is deleted once no region lists it. A road gets a path only once someone has made a segment on it. --rewrite rewrites every published path the file holds, for
       an AppView that missed them.
   refine <candidates.ndjson>
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
