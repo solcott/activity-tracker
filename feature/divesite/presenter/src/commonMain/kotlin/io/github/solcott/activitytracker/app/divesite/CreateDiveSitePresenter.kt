@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.PrivacyCircle
 import io.github.solcott.activitytracker.location.siteOutline
+import io.github.solcott.activitytracker.location.toE7
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import io.github.solcott.dataresult.combineOutcomes
@@ -80,8 +81,8 @@ fun CreateDiveSitePresenter(
     // The site's centre is the dive's entry: its track's first position.
     val entry = seed?.track?.firstOrNull()
     val unavailable = seed?.let { unavailableFor(it.activity, entry, it.zones) }
-    val latE7 = entry?.let { PrivacyCircle.toE7(it.latitude) }
-    val lngE7 = entry?.let { PrivacyCircle.toE7(it.longitude) }
+    val latE7 = entry?.latitude?.toE7()
+    val lngE7 = entry?.longitude?.toE7()
     val outline =
         remember(unavailable, latE7, lngE7, radius) {
             if (unavailable == null && latE7 != null && lngE7 != null) siteOutline(latE7, lngE7, radius) else null

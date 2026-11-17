@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.GeoPoint
-import kotlin.math.roundToInt
+import io.github.solcott.activitytracker.location.toE7
 
 /**
  * A map of many lines and a list that share a selection (segments/segment-browse, segments/path-page, dive-sites/site-browse): the map's
@@ -54,10 +54,7 @@ open class MapSelection {
     private fun nextCameraId(): Int = (camera?.id ?: 0) + 1
 
     private companion object {
-        const val E7 = 1e7
-
         /** Whether [point] lies in this viewport's box. */
-        fun MapViewport.holds(point: GeoPoint): Boolean =
-            (point.lat * E7).roundToInt() in minLat..maxLat && (point.lng * E7).roundToInt() in minLng..maxLng
+        fun MapViewport.holds(point: GeoPoint): Boolean = point.lat.toE7() in minLat..maxLat && point.lng.toE7() in minLng..maxLng
     }
 }

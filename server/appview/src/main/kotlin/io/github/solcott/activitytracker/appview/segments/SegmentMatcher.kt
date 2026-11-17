@@ -21,7 +21,6 @@ import io.github.solcott.activitytracker.appview.db.groupableTracks
 import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
-import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
 import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfActivity
@@ -54,6 +53,7 @@ import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentPass
 import io.github.solcott.activitytracker.location.TimedPoint
+import io.github.solcott.activitytracker.location.e7ToDegrees
 import io.github.solcott.activitytracker.terrain.TerrainTiles
 import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
@@ -832,7 +832,12 @@ internal fun segmentTrackPieces(bytes: ByteArray): List<List<TimedPoint>> =
         val alt = piece.alt
         require(alt == null || alt.size == piece.t.size) { "a piece's altitudes don't line up" }
         piece.t.indices.map {
-            TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble(), alt?.get(it)?.let { cm -> cm / CM_PER_M })
+            TimedPoint(
+                piece.lat[it].e7ToDegrees(),
+                piece.lng[it].e7ToDegrees(),
+                piece.t[it].toDouble(),
+                alt?.get(it)?.let { cm -> cm / CM_PER_M },
+            )
         }
     }
 

@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.OnKeyChange
@@ -191,7 +192,7 @@ internal fun areaRunsOf(
     sport: String? = null,
     paths: List<PathView> = emptyList(),
 ): AreaRuns {
-    val centre = GeoPoint(viewport.centerLat / E7, viewport.centerLng / E7)
+    val centre = pointE7(viewport.centerLat, viewport.centerLng)
     val (lifts, runs) = found.partition { SegmentKind.of(it.record.kind) == SegmentKind.LIFT }
     val away = runs.associate { it.uri to metersTo(it, centre) }
     fun nearest(row: BrowseRow): Int =
@@ -251,5 +252,3 @@ private fun BrowseRow.points(): List<GeoPoint>? =
 /** [this] segment as the browse map draws it; null when its line doesn't decode. */
 internal fun SegmentView.mapSegmentLine(): MapSegmentLine? =
     mapLine(record.line)?.let { MapSegmentLine(uri.value, it, lift = SegmentKind.of(record.kind) == SegmentKind.LIFT) }
-
-private const val E7 = 1e7

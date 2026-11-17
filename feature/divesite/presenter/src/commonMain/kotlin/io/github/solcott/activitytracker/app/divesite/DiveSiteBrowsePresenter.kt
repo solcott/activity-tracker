@@ -20,9 +20,9 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
-import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.location.siteOutline
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
@@ -137,12 +137,12 @@ internal fun siteNameParams(q: String, box: MapViewport?, viewport: MapViewport?
 
 /** The area's sites, nearest the viewport's centre first (dive-sites/site-browse). */
 internal fun siteAreaOf(found: List<DiveSiteView>, viewport: MapViewport, capped: Boolean): SiteArea {
-    val centre = GeoPoint(viewport.centerLat / E7, viewport.centerLng / E7)
+    val centre = pointE7(viewport.centerLat, viewport.centerLng)
     return SiteArea(
         sites =
             found
                 .map { site ->
-                    val at = GeoPoint(site.record.lat / E7, site.record.lng / E7)
+                    val at = pointE7(site.record.lat, site.record.lng)
                     BrowsedSite(site, SegmentGeometry.distanceMeters(at, centre).roundToInt())
                 }
                 .sortedWith(compareBy(BrowsedSite::metersAway).thenBy { it.site.currentName })
@@ -153,5 +153,3 @@ internal fun siteAreaOf(found: List<DiveSiteView>, viewport: MapViewport, capped
 
 /** [this] site as the browse map draws it: its radius as a closed outline. */
 internal fun DiveSiteView.mapOutline(): MapSegmentLine = MapSegmentLine(uri.value, siteOutline(record.lat, record.lng, record.radius))
-
-private const val E7 = 1e7

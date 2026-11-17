@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.location.toE7
 import java.io.File
 import java.io.Writer
-import kotlin.math.roundToInt
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -59,8 +59,8 @@ internal fun entryOf(site: OsmDiveSite): SiteEntry =
     SiteEntry(
         siteIdOf(site.type, site.id),
         site.name,
-        (site.at.lat * E7).roundToInt(),
-        (site.at.lng * E7).roundToInt(),
+        site.at.lat.toE7(),
+        site.at.lng.toE7(),
         site.radius,
         SOURCE_OSM,
         LICENSE_OSM,
@@ -70,8 +70,6 @@ internal fun entryOf(site: OsmDiveSite): SiteEntry =
 internal fun siteIdOf(type: OsmMember.Type, id: Long): String = "osm-${type.name.lowercase()}-$id"
 
 private const val SOURCE_OSM = "osm"
-
-private const val E7 = 1e7
 
 /** A sites file: its [region] and its sites, in file order. */
 internal data class SitesFile(val region: String, val sites: List<SiteEntry>)

@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SubjectHandoffs
 import io.github.solcott.activitytracker.appview.db.tx
-import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.MAX_LINE_CHARS
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
@@ -38,6 +37,7 @@ import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.e7ToDegrees
 import io.ktor.http.HttpStatusCode
 import kotlin.math.roundToLong
 import kotlin.time.Clock
@@ -152,7 +152,13 @@ class SegmentCandidateViews(
     suspend fun segmentLines(caller: Did, params: GetSegmentLines.Params): GetSegmentLines.Output {
         requireImporter(caller)
         requireSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
-        val cells = SegmentCells.cellsIn(params.minLat / E7, params.minLng / E7, params.maxLat / E7, params.maxLng / E7)
+        val cells =
+            SegmentCells.cellsIn(
+                params.minLat.e7ToDegrees(),
+                params.minLng.e7ToDegrees(),
+                params.maxLat.e7ToDegrees(),
+                params.maxLng.e7ToDegrees(),
+            )
         val limit = (params.limit ?: GetSegmentLines.MAX_LIMIT).coerceIn(1, GetSegmentLines.MAX_LIMIT)
         val page = db.tx {
             Segments.select(Segments.uri, Segments.sport, Segments.line)

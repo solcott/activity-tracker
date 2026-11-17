@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.terrain
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.github.solcott.activitytracker.location.E7_PER_DEGREE
 import io.github.solcott.activitytracker.location.ElevationGain
 import io.github.solcott.activitytracker.location.ElevationProfile
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -61,10 +62,10 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         fun close(ys: IntRange, firstX: Int, lastX: Int) {
             areas +=
                 TerrainArea(
-                    minLatE7 = floor(latOf(ys.last + 1) * E7).toInt(),
-                    maxLatE7 = ceil(latOf(ys.first) * E7).toInt(),
-                    minLngE7 = floor(lngOf(firstX) * E7).toInt(),
-                    maxLngE7 = ceil(lngOf(lastX + 1) * E7).toInt(),
+                    minLatE7 = floor(latOf(ys.last + 1) * E7_PER_DEGREE).toInt(),
+                    maxLatE7 = ceil(latOf(ys.first) * E7_PER_DEGREE).toInt(),
+                    minLngE7 = floor(lngOf(firstX) * E7_PER_DEGREE).toInt(),
+                    maxLngE7 = ceil(lngOf(lastX + 1) * E7_PER_DEGREE).toInt(),
                 )
         }
         // Tile x is never negative, so the first column is never adjacent; open is empty until it's set.
@@ -190,8 +191,6 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         private const val BYTE_VALUES = 256
         private const val TERRARIUM_OFFSET = 32768f
         private const val TENTHS = 10.0
-        /** Degrees to 1e-7 degrees, as the lexicons and tables store positions. */
-        private const val E7 = 1e7
     }
 }
 

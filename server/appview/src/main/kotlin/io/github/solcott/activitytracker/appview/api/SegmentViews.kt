@@ -12,7 +12,6 @@ import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
-import io.github.solcott.activitytracker.appview.index.E7
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.groupKey
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
@@ -62,8 +61,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.location.E7_PER_DEGREE
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.e7ToDegrees
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -212,7 +213,7 @@ class SegmentViews(
         val maxLat = params.maxLat
         val maxLng = params.maxLng
         requireSearchBox(minLat, minLng, maxLat, maxLng)
-        val cells = SegmentCells.cellsIn(minLat / E7, minLng / E7, maxLat / E7, maxLng / E7)
+        val cells = SegmentCells.cellsIn(minLat.e7ToDegrees(), minLng.e7ToDegrees(), maxLat.e7ToDegrees(), maxLng.e7ToDegrees())
         val limit = Paging.clamp(params.limit)
         return db.tx {
             val found = mutableListOf<ResultRow>()
@@ -493,7 +494,8 @@ class SegmentViews(
     private fun nameListed(viewer: Did?, sport: String?, box: SearchBox?): Op<Boolean> {
         val inBox =
             box?.let { b ->
-                val cells = SegmentCells.cellsIn(b.minLat / E7, b.minLng / E7, b.maxLat / E7, b.maxLng / E7)
+                val cells =
+                    SegmentCells.cellsIn(b.minLat.e7ToDegrees(), b.minLng.e7ToDegrees(), b.maxLat.e7ToDegrees(), b.maxLng.e7ToDegrees())
                 (Segments.minLatE7 lessEq b.maxLat) and
                     (Segments.maxLatE7 greaterEq b.minLat) and
                     (Segments.minLngE7 lessEq b.maxLng) and
@@ -992,7 +994,7 @@ class SegmentViews(
     /** Whether the precision-6 [line] has a point (every [SegmentGeometry.REFERENCE_SPACING_M]) in the box, in 1e-7 degrees. */
     private fun crosses(line: String, minLat: Int, minLng: Int, maxLat: Int, maxLng: Int): Boolean =
         SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty()).any {
-            it.lat * E7 in minLat.toDouble()..maxLat.toDouble() && it.lng * E7 in minLng.toDouble()..maxLng.toDouble()
+            it.lat * E7_PER_DEGREE in minLat.toDouble()..maxLat.toDouble() && it.lng * E7_PER_DEGREE in minLng.toDouble()..maxLng.toDouble()
         }
 
     companion object {
@@ -1098,7 +1100,7 @@ internal class BoxDistance(
 ) : ExpressionWithColumnType<Long>() {
     override val columnType = LongColumnType()
 
-    private val lngScale = (cos(Math.toRadians(lat / 1e7)) * PER_MILLE).roundToLong()
+    private val lngScale = (cos(Math.toRadians(lat.e7ToDegrees())) * PER_MILLE).roundToLong()
 
     override fun toQueryBuilder(queryBuilder: QueryBuilder) {
         queryBuilder {
@@ -1205,7 +1207,7 @@ internal fun rankOf(name: String, q: String): Int =
 @Suppress("MagicNumber") // Thousandths, as BoxDistance scales longitude.
 internal fun boxDistance(centre: NameSearchCentre, minLat: Int, maxLat: Int, minLng: Int, maxLng: Int): Long {
     fun gap(min: Int, max: Int, at: Int) = maxOf(min.toLong() - at, at - max.toLong(), 0L)
-    val lngScale = (cos(Math.toRadians(centre.lat / 1e7)) * 1000).roundToLong()
+    val lngScale = (cos(Math.toRadians(centre.lat.e7ToDegrees())) * 1000).roundToLong()
     return gap(minLat, maxLat, centre.lat) * 1000 + gap(minLng, maxLng, centre.lng) * lngScale
 }
 

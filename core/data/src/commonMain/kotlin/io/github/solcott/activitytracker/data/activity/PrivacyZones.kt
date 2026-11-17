@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.PrivacyCircle
 import io.github.solcott.activitytracker.location.TrackMath
+import io.github.solcott.activitytracker.location.toE7
 import io.github.solcott.activitytracker.location.trim
 import io.github.solcott.activitytracker.location.trimPieces
 import io.github.solcott.dataresult.DataError
@@ -263,7 +264,7 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         if (now.settings.zones.size >= PrivacyZonesRecord.MAX_ZONES) throw TooManyZonesException()
         val radius = PrivacySettings.clampRadius(radiusMeters)
         val (lat, lon) = PrivacyCircle.offsetCenter(latitude, longitude, radius.toDouble(), random)
-        val zone = PrivacyZone(PrivacyCircle.toE7(lat), PrivacyCircle.toE7(lon), radius, label?.trim()?.ifEmpty { null })
+        val zone = PrivacyZone(lat.toE7(), lon.toE7(), radius, label?.trim()?.ifEmpty { null })
         write(now.settings.copy(zones = now.settings.zones + zone).clamped())
     }
 

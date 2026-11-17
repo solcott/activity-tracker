@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.pointE7
 import java.security.MessageDigest
 import java.util.HexFormat
 import org.jetbrains.exposed.v1.core.and

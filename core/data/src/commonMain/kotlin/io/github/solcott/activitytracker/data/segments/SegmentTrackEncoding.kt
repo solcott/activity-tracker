@@ -3,7 +3,7 @@ package io.github.solcott.activitytracker.data.segments
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackPiece
 import io.github.solcott.activitytracker.location.LocationSample
-import io.github.solcott.activitytracker.location.PrivacyCircle
+import io.github.solcott.activitytracker.location.toE7
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
@@ -19,8 +19,8 @@ fun segmentTrackData(pieces: List<List<LocationSample>>, origin: Instant): Segme
     return SegmentTrackData(
         pieces.map { piece ->
             SegmentTrackPiece(
-                lat = piece.map { PrivacyCircle.toE7(it.latitude) },
-                lng = piece.map { PrivacyCircle.toE7(it.longitude) },
+                lat = piece.map { it.latitude.toE7() },
+                lng = piece.map { it.longitude.toE7() },
                 t = piece.map { (it.time - origin).inWholeSeconds },
                 alt = if (withAltitude) piece.map { s -> s.altitude?.let { (it * CM_PER_M).roundToInt() } } else null,
             )

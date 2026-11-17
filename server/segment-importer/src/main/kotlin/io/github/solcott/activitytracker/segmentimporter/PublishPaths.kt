@@ -13,8 +13,8 @@ import io.github.solcott.activitytracker.location.PathCandidate
 import io.github.solcott.activitytracker.location.PathOverlap
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.toE7
 import java.io.File
-import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -42,8 +42,6 @@ private const val PAGE = 100
 
 /** A tile a little under the AppView's 1 degree limit, in 1e-7 degrees. */
 private const val TILE_E7 = SearchSegments.MAX_SPAN_E7 - 1_000
-
-private const val E7 = 1e7
 
 /** `feed.path#regions`. */
 private const val REGIONS = "regions"
@@ -188,10 +186,10 @@ internal fun pathRecord(path: PathEntry, clock: Clock, regions: List<String>? = 
 internal fun tilesOf(paths: List<PathEntry>): List<GetSegmentLines.Params> {
     val points = paths.flatMap { path -> path.lines.flatMap { SegmentGeometry.decodePolyline(it).orEmpty() } }
     if (points.isEmpty()) return emptyList()
-    val minLat = (points.minOf { it.lat } * E7).roundToInt()
-    val maxLat = (points.maxOf { it.lat } * E7).roundToInt()
-    val minLng = (points.minOf { it.lng } * E7).roundToInt()
-    val maxLng = (points.maxOf { it.lng } * E7).roundToInt()
+    val minLat = points.minOf { it.lat }.toE7()
+    val maxLat = points.maxOf { it.lat }.toE7()
+    val minLng = points.minOf { it.lng }.toE7()
+    val maxLng = points.maxOf { it.lng }.toE7()
     return buildList {
         for (south in minLat..maxLat step TILE_E7) {
             for (west in minLng..maxLng step TILE_E7) {

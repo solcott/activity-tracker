@@ -1,7 +1,10 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.location.E7_PER_DEGREE
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.e7ToDegrees
+import io.github.solcott.activitytracker.location.pointE7
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
@@ -163,14 +166,15 @@ internal class NodeCoords(private val ids: LongArray) {
     fun set(id: Long, latitude: Double, longitude: Double) {
         val i = ids.binarySearch(id)
         if (i < 0) return
-        lat[i] = (latitude * E7).toInt()
-        lng[i] = (longitude * E7).toInt()
+        // Truncated, not rounded as toE7 does: re-imports must give the same lines, or staged candidates lose their riders.
+        lat[i] = (latitude * E7_PER_DEGREE).toInt()
+        lng[i] = (longitude * E7_PER_DEGREE).toInt()
         known[i] = true
     }
 
     operator fun get(id: Long): GeoPoint? {
         val i = ids.binarySearch(id)
-        return if (i >= 0 && known[i]) GeoPoint(lat[i] / E7, lng[i] / E7) else null
+        return if (i >= 0 && known[i]) pointE7(lat[i], lng[i]) else null
     }
 
     /** These coordinates and [more]'s together, in new arrays: [more]'s ids, agency points', are negative and never OSM node ids. */
@@ -184,13 +188,9 @@ internal class NodeCoords(private val ids: LongArray) {
                     }
                     .build(),
             )
-        for (i in ids.indices) if (known[i]) merged.set(ids[i], lat[i] / E7, lng[i] / E7)
+        for (i in ids.indices) if (known[i]) merged.set(ids[i], lat[i].e7ToDegrees(), lng[i].e7ToDegrees())
         for ((id, point) in more) merged.set(id, point.lat, point.lng)
         return merged
-    }
-
-    companion object {
-        private const val E7 = 1e7
     }
 }
 

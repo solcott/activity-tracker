@@ -12,7 +12,6 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_DIVE_SITE_LIMIT
 import io.github.solcott.activitytracker.appview.index.diveSiteDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.diveSitesCreatedSince
-import io.github.solcott.activitytracker.appview.index.pointE7
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
@@ -42,6 +41,7 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import io.github.solcott.activitytracker.location.pointE7
 import io.ktor.http.HttpStatusCode
 import java.time.LocalDate
 import java.time.ZoneOffset

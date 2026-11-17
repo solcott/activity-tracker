@@ -4,7 +4,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-private const val E7 = 1e7
 private const val METERS_PER_DEGREE = 111_320.0
 private const val OUTLINE_POINTS = 48
 
@@ -13,8 +12,8 @@ private const val OUTLINE_POINTS = 48
  * 1e-7 degrees. Sites are small, so a flat offset per degree is exact enough.
  */
 fun siteOutline(latE7: Int, lngE7: Int, radius: Int): String {
-    val lat = latE7 / E7
-    val lng = lngE7 / E7
+    val lat = latE7.e7ToDegrees()
+    val lng = lngE7.e7ToDegrees()
     val dLat = radius / METERS_PER_DEGREE
     val dLng = radius / (METERS_PER_DEGREE * cos(lat * PI / 180.0))
     val points =

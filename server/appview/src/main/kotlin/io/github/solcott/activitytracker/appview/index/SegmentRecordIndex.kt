@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.toE7
 import java.text.BreakIterator
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonObject
@@ -333,10 +334,10 @@ internal fun UpdateBuilder<*>.setBox(
     minLng: Column<Int>,
     maxLng: Column<Int>,
 ) {
-    this[minLat] = line.minOf { it.lat }.e7()
-    this[maxLat] = line.maxOf { it.lat }.e7()
-    this[minLng] = line.minOf { it.lng }.e7()
-    this[maxLng] = line.maxOf { it.lng }.e7()
+    this[minLat] = line.minOf { it.lat }.toE7()
+    this[maxLat] = line.maxOf { it.lat }.toE7()
+    this[minLng] = line.minOf { it.lng }.toE7()
+    this[maxLng] = line.maxOf { it.lng }.toE7()
 }
 
 internal fun graphemes(text: String): Int {

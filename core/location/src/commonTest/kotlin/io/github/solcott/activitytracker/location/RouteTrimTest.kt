@@ -144,7 +144,7 @@ class RouteTrimTest {
     fun e7RoundTripsWithinACentimeter() {
         val lat = 51.501_234_56
         val lon = -0.127_654_32
-        val circle = PrivacyCircle.fromE7(PrivacyCircle.toE7(lat), PrivacyCircle.toE7(lon), 400)
+        val circle = PrivacyCircle.fromE7(lat.toE7(), lon.toE7(), 400)
         assertTrue(TrackMath.distanceMeters(lat, lon, circle.latitude, circle.longitude) < 0.01)
     }
 

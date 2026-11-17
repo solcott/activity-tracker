@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.location
 
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -13,14 +12,11 @@ data class PrivacyCircle(val latitude: Double, val longitude: Double, val radius
         TrackMath.distanceMeters(this.latitude, this.longitude, latitude, longitude) <= radiusMeters
 
     companion object {
-        private const val E7 = 1e7
         private const val EARTH_RADIUS_M = 6_371_000.0
         private const val DEGREES_PER_HALF_TURN = 180.0
 
         fun fromE7(latitudeE7: Int, longitudeE7: Int, radiusMeters: Int) =
-            PrivacyCircle(latitudeE7 / E7, longitudeE7 / E7, radiusMeters.toDouble())
-
-        fun toE7(degrees: Double): Int = (degrees * E7).roundToInt()
+            PrivacyCircle(latitudeE7.e7ToDegrees(), longitudeE7.e7ToDegrees(), radiusMeters.toDouble())
 
         /**
          * A point uniformly random in the disk of radius [radiusMeters] / 2 around ([latitude], [longitude]): a new zone's stored center,
