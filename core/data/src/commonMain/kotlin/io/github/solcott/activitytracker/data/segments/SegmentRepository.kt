@@ -31,18 +31,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /** Segments and the efforts on them, read from the AppView (segments/segment-records, segments/segment-efforts). */
 @SingleIn(SessionScope::class)
 @Inject
 @Suppress("TooManyFunctions") // Each segment query the AppView serves, and its outcome or page form.
 class SegmentRepository(private val clients: SessionClients) {
-    /** Path views seen this session, by URI: a path's line rarely changes, and browsing asks for the same ones as the map moves. */
-    private val cachedPaths = mutableMapOf<AtUri, PathView>()
-    private val pathCache = Mutex()
-
     /** The activities the signed-in athlete published a segment from this session ([SegmentPublisher]), so their pages can say so. */
     val createdFrom: StateFlow<Set<AtUri>>
         field = MutableStateFlow(emptySet())
@@ -189,20 +183,15 @@ class SegmentRepository(private val clients: SessionClients) {
         AreaSegments(segments, capped = cursor != null || found.size > cap, paths = pathViews(segments.flatMap { it.paths }.distinct()))
     }
 
-    /** The views of [uris] (segments/segment-paths), from the session's cache where it has them, else [GetPaths] 25 at a time. */
-    suspend fun pathViews(uris: List<AtUri>): List<PathView> {
-        val missing = pathCache.withLock { uris.filterNot { it in cachedPaths } }
-        val fetched = missing.chunked(GetPaths.MAX_URIS).flatMap { clients.appView.query(GetPaths.method, GetPaths.Params(it)).paths }
-        return pathCache.withLock {
-            fetched.forEach { cachedPaths[it.uri] = it }
-            uris.mapNotNull { cachedPaths[it] }
-        }
-    }
+    /**
+     * The views of [uris] (segments/segment-paths), [GetPaths] 25 at a time. Never kept for the session: a view's sports and group count
+     * are what the segments on it the viewer may find cover, which change as segments are published, become active or are taken down.
+     */
+    suspend fun pathViews(uris: List<AtUri>): List<PathView> =
+        uris.chunked(GetPaths.MAX_URIS).flatMap { clients.appView.query(GetPaths.method, GetPaths.Params(it)).paths }
 
     /** A trail or road and every segment on it the viewer may find (segments/path-page). */
-    fun pathOutcome(uri: AtUri): Flow<Outcome<GetPath.Output>> = outcomeFlow {
-        clients.appView.query(GetPath.method, GetPath.Params(uri)).also { output -> pathCache.withLock { cachedPaths[uri] = output.path } }
-    }
+    fun pathOutcome(uri: AtUri): Flow<Outcome<GetPath.Output>> = outcomeFlow { clients.appView.query(GetPath.method, GetPath.Params(uri)) }
 
     /** One page of trails and roads, and segment groups on none, found by [params]' query (segments/segment-paths). */
     suspend fun pathNamesPage(params: SearchPathNames.Params): Outcome<Page<SearchPathNames.Result, Unit>> = outcomeOf {

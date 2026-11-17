@@ -122,7 +122,7 @@ class SegmentBrowseReadsTest {
     }
 
     @Test
-    fun anAreaBringsThePathsItsSegmentsLieOnOnce() = runTest {
+    fun anAreaBringsThePathsItsSegmentsLieOnFresh() = runTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         val repository = SegmentRepository(clients)
         val onAnns = mapOf(null to SearchSegments.Output(listOf(view("1").copy(paths = listOf(anns))), null))
@@ -130,8 +130,9 @@ class SegmentBrowseReadsTest {
         pages.putAll(onAnns)
         val area = repository.areaSegments(box)
         assertEquals(Outcome.Data(AreaSegments(listOf(view("1").copy(paths = listOf(anns))), false, paths), Origin.Network), area)
+        assertEquals(1, requests.count { it.containsKey("uris") }, "the path once, though a segment names it")
         repository.areaSegments(box)
-        assertEquals(1, requests.count { it.containsKey("uris") }, "the path is fetched once, then cached")
+        assertEquals(2, requests.count { it.containsKey("uris") }, "asked again: its counts follow the segments on it")
     }
 
     @Test
