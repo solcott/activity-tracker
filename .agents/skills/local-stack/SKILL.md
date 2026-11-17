@@ -8,7 +8,7 @@ argument-hint: [up | seed <name>... | check | moderate | debug | bump-pin]
 
 Pipeline: client → **PDS** :2583 → **relay** :2470 → **Jetstream** :6008 → **AppView** :8081 (Postgres :5433). PLC is :2582. The labeler, **Ozone** :3010 (`moderation.test`), takes reports the PDS proxies to it and streams labels to the AppView. The `docker.md` rule explains why the relay and Jetstream share the PDS network namespace and carry patches.
 
-Run docker compose as `docker compose -f docker/compose.yaml ...` from the repo root (it's pre-allowed in `settings.local.json`). Mode: `$ARGUMENTS` (default `check`).
+Run docker compose as `docker compose -f docker/compose.yaml ...` from the repo root. Mode: `$ARGUMENTS` (default `check`).
 
 ## up
 
@@ -78,9 +78,9 @@ Spaces: `docker/scripts/spaces-smoke.sh alice` creates (or reuses) a space, writ
 | Spaces `authorizeSpaceSync` fails with `UpstreamFailure` for a space that exists, and the AppView log has no `checkAccess` | The PDS can't reach the managing app: no tunnel (`--no-tunnel`), or the space names an old tunnel's `did:web` → run `scripts/dev.sh` and recreate the space. A 404 there means the AppView route is missing |
 | The AppView's `authorizeSpaceSync` fails with `RegistrationNotConfirmed` | The PDS couldn't get `confirmRegistration` answered at the `notify` endpoint (`APPVIEW_PUBLIC_URL`): no tunnel, or the AppView answered `InvalidToken` (a token not in `space_sync.notify_token`) |
 | OAuth fails with `invalid_scope: Unable to retrieve space declarations` | The PDS can't resolve the `space:` scope's space-type lexicon. Run `scripts/dev.sh`: it publishes the declarations from `lexicons.test` and sets `PDS_LEXICON_AUTHORITY_DID`. A lookup that failed earlier stays cached for 5 minutes, so wait it out or `docker compose ... restart pds` |
-| A credentialed Spaces read fails with `InvalidSpaceMac` (400) | The read was sent without a usable `Accept-Signature` (needed on `getRecord`, `listRepoOps`, `getLatestCommit`, `getRepo`; `Atproto-Space-Want-Mac` before the Nov 12 alpha) → a code path bypassed `SpaceMember.getRecord`/`listRepoOps` |
-| A Spaces read fails with `InvalidToken` | The pre-Oct 22 `Atproto-Space` scheme, or a client built before the bump → rebuild; the scheme is `Atproto-Space-Credential` |
-| `SpaceMacException` (client) or "MAC check failed" (AppView log) | The author's `#atproto_kem` key in its DID document doesn't match what its PDS MACs with, even after a re-resolve, or the account predates the Oct 22 image (no `#atproto_kem`) → wipe and reseed after a PDS bump |
+| A credentialed Spaces read fails with `InvalidSpaceMac` (400) | The read was sent without a usable `Accept-Signature` (needed on `getRecord`, `listRepoOps`, `getLatestCommit`, `getRepo`) → a code path bypassed `SpaceMember.getRecord`/`listRepoOps` |
+| A Spaces read fails with `InvalidToken` | A client still sending the bare `Atproto-Space` scheme → rebuild; the scheme is `Atproto-Space-Credential` |
+| `SpaceMacException` (client) or "MAC check failed" (AppView log) | The author's `#atproto_kem` key in its DID document doesn't match what its PDS MACs with, even after a re-resolve, or the account has no `#atproto_kem` (made on an older PDS image) → wipe and reseed after a PDS bump |
 | Spaces call fails with `403 ScopeMissingError` | The session was signed in before the `space:` scope (or a space collection) was added → sign out and in again |
 | PDS exits with `SQLITE_CANTOPEN` | The `/pds` volume isn't writable by `node` → the volume predates `pds.Dockerfile`'s `chown`; wipe it (ask first) |
 | Reporting fails with `could not resolve proxy did service url` | The PDS's DID cache (`/pds/did_cache.sqlite`, an hour before it refreshes) holds `moderation.test`'s document from before its labeler entries → `docker/scripts/setup-labeler.sh` drops that entry |
