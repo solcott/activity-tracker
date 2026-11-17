@@ -1,14 +1,19 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentClimb
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 import java.io.File
 import java.io.Writer
+import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The candidates file's format; bump it when what a line holds changes, so a reader can refuse a file it doesn't know. */
-internal const val IMPORTER_VERSION = 4
+internal const val IMPORTER_VERSION = 5
 
 /** The licence of OSM-derived lines, on every candidate and on the segments published from them. */
 internal const val LICENSE_OSM = "ODbL-1.0"
@@ -45,6 +50,8 @@ internal data class CandidateEntry(
     val agencyFeatures: List<String>? = null,
     /** A `feed.segment` kind; null for a run. */
     val kind: String? = null,
+    /** Its sport group may travel it only this way (segments/segment-direction); null when it goes both ways. */
+    val oneWay: Boolean? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -62,12 +69,13 @@ internal fun extract(
     out: File,
     words: GenericWords = GenericWords.ENGLISH,
     paths: File? = null,
+    terrain: TerrainTiles? = null,
 ) {
     val osm = pbf?.let { OsmReader.read(it, roads = paths != null) } ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
     val agencyData = agency.takeIf { it.isNotEmpty() }?.let(AgencyReader::read)
     val data = agencyData?.let { osm + it } ?: osm
     val closures = ClosureFilter(data.agencyLines)
-    val candidates = candidatesOf(data, closures, words)
+    val candidates = candidatesOf(data, closures, words, terrain?.let(::climbByTerrain))
     out.bufferedWriter().use { write(it, region, data.timestamp, candidates) }
     val counts = candidates.groupingBy { it.group }.eachCount().toSortedMap()
     println("Wrote ${candidates.size} candidates for $region to $out: ${counts.entries.joinToString { (g, n) -> "$n $g" }}")
@@ -82,9 +90,22 @@ internal fun extract(
     if (!words.known) println("No generic words for the language '${words.language}': names are kept as their source has them")
 }
 
+/**
+ * Whether a line clearly climbs or descends by [terrain] (segments/segment-direction), counted as the AppView counts terrain elevation:
+ * sampled, smoothed and counted along its whole line; null when the tiles don't cover all of it.
+ */
+internal fun climbByTerrain(terrain: TerrainTiles): (List<GeoPoint>) -> SegmentClimb? = { points ->
+    terrain.terrainOf(points)?.let { SegmentClimb.of(it.gain, it.loss, SegmentGeometry.lengthMeters(points).roundToLong()) }
+}
+
 /** Every candidate [data] gives, named without [words], those [closures] leave out and then duplicates dropped, sorted by id. */
-internal fun candidatesOf(data: OsmData, closures: ClosureFilter, words: GenericWords = GenericWords.ENGLISH): List<Candidate> {
-    val cutter = CandidateCutter(data, words)
+internal fun candidatesOf(
+    data: OsmData,
+    closures: ClosureFilter,
+    words: GenericWords = GenericWords.ENGLISH,
+    climbOf: ((List<GeoPoint>) -> SegmentClimb?)? = null,
+): List<Candidate> {
+    val cutter = CandidateCutter(data, words, climbOf)
     val trails = TrailBuilder.build(data, words).flatMap(cutter::cut)
     return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
 }
@@ -113,6 +134,7 @@ internal fun write(out: Writer, region: String, timestamp: Instant?, candidates:
                 c.osmWays.ifEmpty { null },
                 c.agencyFeatures.ifEmpty { null },
                 c.segmentKind.takeIf { it != SegmentKind.RUN },
+                true.takeIf { c.oneWay },
             )
         out.appendLine(json.encodeToString(CandidateEntry.serializer(), entry))
     }

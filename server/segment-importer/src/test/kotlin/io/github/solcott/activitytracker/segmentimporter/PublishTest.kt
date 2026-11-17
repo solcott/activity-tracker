@@ -64,7 +64,9 @@ class PublishTest {
         )
 
     private fun candidate(id: String) =
-        if (id.startsWith("lift-")) {
+        if (id.startsWith("oneway-")) {
+            """{"id":"$id","sport":"ride","name":"Clarks","line":"line-$id","source":"osm","license":"ODbL-1.0","oneWay":true}"""
+        } else if (id.startsWith("lift-")) {
             """{"id":"$id","sport":"alpine","kind":"lift","name":"Summit Quad","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
         } else if (id.startsWith("usfs-")) {
             """{"id":"$id","sport":"hike","name":"Trail $id","line":"line-$id","source":"agency","license":"CC0-1.0",""" +
@@ -135,6 +137,14 @@ class PublishTest {
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES}",
             fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().auth,
         )
+    }
+
+    @Test
+    fun aOneWayCandidateIsPublishedOneWay() = runTest {
+        appView(listOf("c1", "oneway-1"))
+        assertEquals(listOf("c1", "oneway-1"), publish(clients, "us-vermont", clock).published)
+        assertEquals(true, written("oneway-1").oneWay)
+        assertNull(written("c1").oneWay, "a two-way candidate's segment doesn't say")
     }
 
     @Test

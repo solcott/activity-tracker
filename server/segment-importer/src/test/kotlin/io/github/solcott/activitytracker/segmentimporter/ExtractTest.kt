@@ -115,6 +115,16 @@ class ExtractTest {
     }
 
     @Test
+    fun extractTakesTerrainAndItsZoom() {
+        fun extract(vararg args: String) = parse(listOf("extract", "a.osm.pbf", "--region", "us-utah", "--out", "o.ndjson", *args))
+        val plain = extract("--terrain", "build/terrain") as Command.Extract
+        assertEquals(File("build/terrain") to 12, plain.terrain to plain.terrainZoom)
+        assertEquals(14, (extract("--terrain", "t", "--terrain-zoom", "14") as Command.Extract).terrainZoom)
+        assertEquals(null, extract("--terrain-zoom", "14"), "a zoom needs tiles")
+        assertEquals(null, extract("--terrain", "t", "--terrain-zoom", "99"))
+    }
+
+    @Test
     fun extractTakesTheRegionsLanguage() {
         fun extract(vararg args: String) = parse(listOf("extract", *args))
         assertEquals("en", (extract("a.osm.pbf", "--region", "us-utah", "--out", "out.ndjson") as Command.Extract).language)

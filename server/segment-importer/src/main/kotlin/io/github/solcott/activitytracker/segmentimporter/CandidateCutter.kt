@@ -6,6 +6,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.activitytracker.location.SegmentClimb
+import io.github.solcott.activitytracker.location.SegmentDirection
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentHeading
 import io.github.solcott.activitytracker.location.TrackMath
@@ -35,6 +37,8 @@ internal class Candidate(
     val agencyFeatures: List<String> = emptyList(),
     /** A [SegmentKind] value: a trail's candidates are runs, a ski lift's a [SegmentKind.LIFT]. */
     val segmentKind: String = SegmentKind.RUN,
+    /** Given in this direction only, by a one-way tag or because it is alpine (segments/segment-direction). */
+    val oneWay: Boolean = false,
 )
 
 /**
@@ -42,7 +46,15 @@ internal class Candidate(
  * aren't its own, joined until each reaches the group's minimum; each in every direction all its edges allow. Lines are simplified and kept
  * only within the group's length bounds, measured on the simplified line as the AppView measures it.
  */
-internal class CandidateCutter(data: OsmData, private val words: GenericWords = GenericWords.ENGLISH) {
+internal class CandidateCutter(
+    data: OsmData,
+    private val words: GenericWords = GenericWords.ENGLISH,
+    /**
+     * Whether a line, in its points' order, clearly climbs or descends by terrain (segments/segment-direction); null when it doesn't or
+     * terrain doesn't cover it. Without it, two-way whole trails are named by compass.
+     */
+    private val climbOf: ((List<GeoPoint>) -> SegmentClimb?)? = null,
+) {
     /** The named ways through each node, for junctions and their names. */
     private val namedAt: Map<Long, List<OsmWay>> =
         buildMap<Long, MutableList<OsmWay>> {
@@ -131,7 +143,8 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
         val ways = trail.edgeWays.slice(a until b).let { if (reversed) it.reversed() else it }.dedupeRuns()
         // Whether travel follows the first way's own node order: the two directions of a loop share their ways and end nodes.
         val alongFirstWay = if (reversed) trail.edgeReversed[b - 1] else !trail.edgeReversed[a]
-        val name = nameOf(trail, piece, nodes, points, bothWays)
+        val name =
+            nameOf(trail, piece, nodes, bothWays) { SegmentDirection.of(SegmentHeading.of(points), climbAlong(trail, piece, reversed)) }
         val line = simplified(points)
         val length = SegmentGeometry.lengthMeters(line)
         if (length < SegmentSportGroup.minMeters(trail.group) || length > SegmentSportGroup.MAX_METERS) return null
@@ -157,6 +170,7 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
             license = trail.rules.license,
             attribution = trail.rules.attribution,
             agencyFeatures = features,
+            oneWay = !bothWays,
         )
     }
 
@@ -165,15 +179,31 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
      * from <junction>` in its direction of travel, after its own parent trail when it follows a way no other one does and else its family;
      * or a stretch's, named after the places at its ends or else numbered. Every name in it is without its generic [words].
      */
-    private fun nameOf(trail: Trail, piece: Piece, nodes: List<Long>, points: List<GeoPoint>, bothWays: Boolean): String {
+    private fun nameOf(
+        trail: Trail,
+        piece: Piece,
+        nodes: List<Long>,
+        bothWays: Boolean,
+        direction: () -> SegmentDirection,
+    ): String {
         val from = nameAt(trail, nodes.first())
         val to = nameAt(trail, nodes.last())
         return when {
             piece.junction != null -> spanName(trail, piece, piece.junction, nodes)
-            piece.part == null -> if (bothWays) "${trail.label} (${heading(points)})" else trail.label
+            piece.part == null -> if (bothWays) "${trail.label} (${direction().word})" else trail.label
             from != null && to != null -> "${trail.label}: ${words.shorten(from)} → ${words.shorten(to)}"
             else -> "${trail.label} (part ${piece.part})"
         }
+    }
+
+    /**
+     * Whether [piece] of [trail] clearly climbs or descends travelled [reversed] or not, judged once along the trail's own order and
+     * reversed for the other way, so a trail's two directions never disagree; null without terrain.
+     */
+    private fun climbAlong(trail: Trail, piece: Piece, reversed: Boolean): SegmentClimb? {
+        val judge = climbOf ?: return null
+        val climb = judge(trail.points.subList(piece.range.first, piece.range.last + 1))
+        return if (reversed) climb?.reversed() else climb
     }
 
     /** A junction span's name, travelling along [nodes]: to [junction] when it ends there, else from it. */
@@ -265,9 +295,6 @@ internal class CandidateCutter(data: OsmData, private val words: GenericWords = 
 
         /** 26 base32 characters of [key]'s SHA-256. */
         private fun hashed(key: String): String = MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).base32().take(ID_CHARS)
-
-        /** Which way [points] go, as the word a two-way whole trail's name adds (`SegmentHeading`). */
-        fun heading(points: List<GeoPoint>): String = SegmentHeading.of(points).word
 
         /** [name] cut to [MAX_NAME_GRAPHEMES] graphemes, at a word boundary when there is one. */
         fun truncate(name: String): String {

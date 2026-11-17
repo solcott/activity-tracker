@@ -116,6 +116,7 @@ private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElemen
             createdAt = clock.now(),
             attribution = candidate.attribution,
             kind = candidate.kind,
+            oneWay = candidate.oneWay?.takeIf { it },
         ),
     )
 

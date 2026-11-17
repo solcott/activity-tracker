@@ -18,6 +18,9 @@
 # The service account comes from SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD and SEGMENT_IMPORTER_PDS_URL (and APPVIEW_URL,
 # APPVIEW_DID for an AppView other than the local one, whose DID the importer derives, device mode included), in the environment or
 # docker/.env. The AppView's SEGMENT_IMPORTER_DID must name the same account.
+#
+# When build/terrain holds terrain tiles (scripts/terrain-fetch.sh), extract names two-way trails by their climb, and refine renames those
+# already published.
 set -euo pipefail
 
 usage() {
@@ -102,7 +105,13 @@ importer() { ./gradlew -q :server-segment-importer:run --args="$*"; }
 
 if $segments; then
   echo "==> extract $region"
-  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out" --paths "$paths_out"
+  # Terrain tiles scripts/terrain-fetch.sh writes name two-way trails that clearly climb "(uphill)" and "(downhill)"
+  # (segments/segment-direction); TERRAIN_TILES_ZOOM, as the AppView reads it, when they aren't at zoom 12.
+  terrain=()
+  if [[ -d build/terrain/${TERRAIN_TILES_ZOOM:-12} ]]; then
+    terrain=(--terrain build/terrain --terrain-zoom "${TERRAIN_TILES_ZOOM:-12}")
+  fi
+  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out" --paths "$paths_out" ${terrain[@]+"${terrain[@]}"}
   echo "==> stage $out"
   importer stage "$out"
   if $all; then

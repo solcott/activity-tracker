@@ -36,6 +36,7 @@ internal object LiftCandidates {
                 kind = TrailKind.NAMED,
                 whole = true,
                 segmentKind = SegmentKind.LIFT,
+                oneWay = true,
             )
     }
 }

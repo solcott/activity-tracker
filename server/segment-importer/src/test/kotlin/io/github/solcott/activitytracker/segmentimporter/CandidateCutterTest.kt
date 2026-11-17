@@ -3,7 +3,9 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.test.Test
@@ -163,6 +165,43 @@ class CandidateCutterTest {
         val found = candidates(data)
         val ends = found.map { it.points.first() to it.points.last() }
         assertTrue(ends.all { (a, b) -> (b to a) in ends })
+        assertTrue(found.none { it.oneWay })
+    }
+
+    @Test
+    fun aTwoWayTrailThatClimbsIsNamedUphillAndDownhill() {
+        val data = osm { oak(nodes = 5, spacing = 250.0) }
+        // Terrain that rises northwards, as Oak is drawn.
+        val climbs = { points: List<GeoPoint> ->
+            if (points.last().lat > points.first().lat) SegmentClimb.Uphill else SegmentClimb.Downhill
+        }
+        val cutter = CandidateCutter(data, climbOf = climbs)
+        val found = TrailBuilder.build(data).filter { it.group == RIDE }.flatMap(cutter::cut)
+        val names = found.associate { (if (it.points.last().lat > it.points.first().lat) "north" else "south") to it.name }
+        assertEquals(mapOf("north" to "Oak (uphill)", "south" to "Oak (downhill)"), names)
+    }
+
+    @Test
+    fun aTwoWayTrailTerrainDoesntCoverIsNamedByCompass() {
+        val data = osm { oak(nodes = 5, spacing = 250.0) }
+        val cutter = CandidateCutter(data, climbOf = { null })
+        val names = TrailBuilder.build(data).filter { it.group == RIDE }.flatMap(cutter::cut).map { it.name }.toSet()
+        assertEquals(setOf("Oak (northbound)", "Oak (southbound)"), names)
+    }
+
+    @Test
+    fun flatTerrainNamesNothingByClimb() {
+        val dir = kotlin.io.path.createTempDirectory("terrain").toFile().apply { deleteOnExit() }
+        val image = java.awt.image.BufferedImage(256, 256, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        // Every pixel 100 m (Terrarium: R * 256 + G + B / 256 - 32768).
+        val value = 100 + 32768
+        for (x in 0 until 256) for (y in 0 until 256) image.setRGB(x, y, ((value / 256) shl 16) or ((value % 256) shl 8))
+        java.io.File(dir, "1/0").mkdirs()
+        javax.imageio.ImageIO.write(image, "png", java.io.File(dir, "1/0/0.png"))
+        val climb = climbByTerrain(TerrainTiles(dir, 1))
+        val west = listOf(GeoPoint(44.40, -72.7), GeoPoint(44.41, -72.7))
+        assertEquals(null, climb(west), "flat")
+        assertEquals(null, climb(listOf(GeoPoint(44.40, 72.7), GeoPoint(44.41, 72.7))), "no tile covers the east")
     }
 
     @Test
@@ -171,6 +210,18 @@ class CandidateCutterTest {
         val whole = candidates(data).single()
         assertTrue(whole.points.last().lat > whole.points.first().lat, "north, as the ways are drawn")
         assertEquals("Oak", whole.name, "no direction in the name of a one-way trail")
+        assertTrue(whole.oneWay)
+    }
+
+    @Test
+    fun aTrailOneWayForBikesOnlyIsOneWayForRidesAlone() {
+        val data = osm { oak(nodes = 5, spacing = 250.0, "oneway:bicycle" to "yes") }
+        val ride = candidates(data, RIDE)
+        assertEquals(1, ride.size)
+        assertTrue(ride.single().oneWay, "bikes go the way it's drawn only")
+        val hike = candidates(data, HIKE)
+        assertEquals(2, hike.size, "hikers go both ways")
+        assertTrue(hike.none { it.oneWay })
     }
 
     @Test

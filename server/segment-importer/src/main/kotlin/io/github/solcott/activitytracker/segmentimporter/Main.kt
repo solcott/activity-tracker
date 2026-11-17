@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.terrain.TerrainTiles
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import java.io.File
@@ -14,12 +15,15 @@ private const val USAGE =
 
 Commands:
   extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> [--lang <code>] --out <candidates.ndjson> [--paths <paths.ndjson>]
+          [--terrain <dir> [--terrain-zoom <n>]]
       Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
       object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
       Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
       and dashes, such as us-vermont. The language, a two-letter ISO 639-1 code (en unless given), picks the generic words names drop,
       such as Trail; a language with no list keeps names as their source has them. With --paths, also writes the region's trails and
-      named roads as paths that segments may lie on, one JSON object per line.
+      named roads as paths that segments may lie on, one JSON object per line. With --terrain, the folder of terrain tiles
+      scripts/terrain-fetch.sh writes (at zoom 12 unless --terrain-zoom says), a whole trail that goes both ways and clearly climbs is named
+      "<trail> (uphill)" and "<trail> (downhill)" where the tiles cover it, rather than by compass.
   extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
       Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
       clubs, buildings, healthcare or names like "Dive Center" or "Free diving platform"), one JSON object per line, each with a radius from its outline or kind (wreck, reef) and an id from its OSM element.
@@ -61,7 +65,15 @@ fun main(args: Array<String>) {
     }
     when (command) {
         is Command.Extract ->
-            extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language), command.paths)
+            extract(
+                command.pbf,
+                command.agency,
+                command.region,
+                command.out,
+                GenericWords.forLanguage(command.language),
+                command.paths,
+                command.terrain?.let { TerrainTiles(it, command.terrainZoom) },
+            )
         is Command.ExtractSites -> extractSites(command.pbf, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region, command.all) }
@@ -111,6 +123,9 @@ internal sealed interface Command {
         val language: String = "en",
         /** Where to write the region's paths, if anywhere. */
         val paths: File? = null,
+        /** Terrain tiles to name two-way trails by their climb (segments/segment-direction), and their zoom. */
+        val terrain: File? = null,
+        val terrainZoom: Int = TerrainTiles.DEFAULT_ZOOM,
     ) : Command
 
     data class ExtractSites(val pbf: File, val region: String, val out: File) : Command
@@ -170,8 +185,19 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     val out = options["--out"] ?: return null
     val language = options["--lang"] ?: "en"
     if (!LANGUAGE.matches(language)) return null
-    if (options.keys.any { it !in setOf("--region", "--out", "--lang", "--paths") }) return null
-    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language, options["--paths"]?.let(::File))
+    if (options.keys.any { it !in setOf("--region", "--out", "--lang", "--paths", "--terrain", "--terrain-zoom") }) return null
+    val zoom = options["--terrain-zoom"]?.let { it.toIntOrNull()?.takeIf { z -> z in 1..TerrainTiles.MAX_ZOOM } ?: return null }
+    if (zoom != null && "--terrain" !in options) return null
+    return Command.Extract(
+        positional.singleOrNull()?.let(::File),
+        agency,
+        region,
+        File(out),
+        language,
+        options["--paths"]?.let(::File),
+        options["--terrain"]?.let(::File),
+        zoom ?: TerrainTiles.DEFAULT_ZOOM,
+    )
 }
 
 /** An extract, then `--region <id>` and `--out <sites.ndjson>`, each once and in any order. */

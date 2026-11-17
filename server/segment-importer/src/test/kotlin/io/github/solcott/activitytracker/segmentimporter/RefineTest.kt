@@ -198,6 +198,34 @@ class RefineTest {
     }
 
     @Test
+    fun aSegmentPublishedBeforeTheFlagTakesItsCandidatesOneWay() = runTest {
+        repo["c1"] = segment(fine, name = "Clarks")
+        pds()
+
+        val result = refine(clients, file(candidate("c1", name = "Clarks").copy(oneWay = true)))
+
+        assertEquals(listOf("c1"), result.oneWay)
+        assertTrue(result.renamed.isEmpty())
+        assertEquals(1, fake.commits().size)
+        assertEquals(JsonObject(segment(fine, name = "Clarks") + ("oneWay" to JsonPrimitive(true))), repo.getValue("c1"))
+        assertTrue(refine(clients, file(candidate("c1", name = "Clarks").copy(oneWay = true))).oneWay.isEmpty(), "a second run")
+        assertEquals(1, fake.commits().size)
+    }
+
+    @Test
+    fun aFlagAndANameAreOneWriteAndATwoWaySegmentLosesItsFlag() = runTest {
+        repo["c1"] = JsonObject(segment(fine, name = "Clarks (eastbound)") + ("oneWay" to JsonPrimitive(true)))
+        pds()
+
+        val result = refine(clients, file(candidate("c1", name = "Clarks (uphill)")))
+
+        assertEquals(listOf("c1"), result.oneWay)
+        assertEquals(listOf(Renamed("c1", "Clarks (eastbound)", "Clarks (uphill)")), result.renamed)
+        assertEquals(1, fake.commits().size)
+        assertEquals(segment(fine, name = "Clarks (uphill)"), repo.getValue("c1"), "the flag removed, not stored as false")
+    }
+
+    @Test
     fun aFailedPutStopsTheRunAndKeepsWhatItDid() = runTest {
         repo["c1"] = segment(coarse)
         pds(failPuts = true)

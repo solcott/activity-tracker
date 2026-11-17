@@ -106,6 +106,7 @@ class StageTest {
                     listOf(1L, 2L),
                     kind = TrailKind.NAMED,
                     whole = true,
+                    oneWay = true,
                 ),
             )
         val out = java.io.StringWriter()
@@ -114,6 +115,19 @@ class StageTest {
         assertEquals("us-vermont", read.region)
         assertEquals(listOf("abc"), read.candidates.map { it.id })
         assertEquals("osm" to "ODbL-1.0", read.candidates.single().source to read.candidates.single().license)
+        assertEquals(true, read.candidates.single().oneWay)
+    }
+
+    @Test
+    fun aOneWayCandidateIsUploadedOneWay() = runTest {
+        accept()
+        val header = """{"region":"us-vermont","importerVersion":$IMPORTER_VERSION}"""
+        val entry =
+            """{"id":"c1","region":"us-vermont","sport":"ride","name":"Clarks","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
+                """"source":"osm","license":"ODbL-1.0","oneWay":true}"""
+        stage(clients, readCandidates(sequenceOf(header, entry)), clock)
+        val uploaded = fake.calls(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES).single().body!!.getValue("candidates").jsonArray.single().jsonObject
+        assertEquals("true", uploaded.getValue("oneWay").jsonPrimitive.content)
     }
 
     @Test

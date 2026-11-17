@@ -49,6 +49,8 @@ dependencies {
     implementation(projects.coreLexicon)
     // Segment geometry (polyline encoding, length, the duplicate test, cells) and simplification, shared with the AppView.
     implementation(projects.coreLocation)
+    // Terrain tiles, read as the AppView reads them, to name two-way trails by their climb (segments/segment-direction).
+    implementation(projects.serverTerrain)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.cio)
     implementation(libs.osmpbf)

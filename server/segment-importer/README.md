@@ -108,6 +108,15 @@ Publishing never rewrites a segment, so segments published from older files keep
 ./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"
 ```
 
+## One-way and climbing trails
+
+A candidate given in one direction only, because a trail is tagged `oneway` (or `oneway:bicycle` for rides) or is alpine, is marked `oneWay`, and `publish` writes `oneWay: true` on its segment (segments/segment-direction). The apps then say, for that sport group, "Uphill only", "Downhill only" or the compass direction. The AppView honours the flag only on this account's segments. With `--terrain <dir>` (the tiles `scripts/terrain-fetch.sh` writes, at zoom 12 unless `--terrain-zoom` says otherwise), `extract` names a whole two-way trail whose line clearly climbs "<trail> (uphill)" and "<trail> (downhill)", not by compass: a net climb of at least 15 m and 3% of its length, by terrain sampled and counted as the AppView counts it, where the tiles cover the whole line. `refine` brings published segments up to date, writing their `oneWay` and new names. `scripts/segment-import.sh` passes `--terrain build/terrain` when that folder holds tiles.
+
+```bash
+scripts/terrain-fetch.sh us-utah
+./gradlew :server-segment-importer:run --args="extract utah-latest.osm.pbf --region us-utah --out build/us-utah.ndjson --terrain build/terrain"
+```
+
 ## Paths
 
 Segments are browsed by the trail or road they lie on (segments/segment-paths). With `--paths <file>`, `extract` also writes the region's paths: one per trail family (a trail's sections, such as "Rush Trail - 2112 Section", and its parent trails' branches join their family "Rush Trail", and same-named pieces that touch, such as a trail split at its forks, are one path), each way drawn once and open to its trails' sport groups (a footpath to run and hike only); and one per run of same-named OSM road ways joined end to end, for roads open to bikes or to people on foot (no motorways, nor roads closed to both), open to any sport. Roads give no candidates. A long trail stays one path, its line in up to 64 pieces that each fit a record. A path's id hashes its kind, its name and the features at its two ends, so re-extracting keeps it.
