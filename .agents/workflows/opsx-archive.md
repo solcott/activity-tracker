@@ -168,7 +168,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
    Generate the target name: use the change name as-is when it already starts with a `YYYY-MM-DD-` prefix; otherwise prepend the current date as `YYYY-MM-DD-<change-name>`. Never stack a second date (same rule as `openspec archive`).
 
    **Check if target already exists:**
-   - If yes: Fail with error, suggest renaming existing archive or using different date
+   - If yes: Fail with error, suggest renaming the existing archive
    - If no: Move `changeRoot` to the archive directory
 
    ```bash
@@ -192,7 +192,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Archived to:** the archive path derived from `planningHome.changesDir`/<target-name>/
-**Specs:** ✓ Synced to main specs
+**Specs:** <"✓ Synced to main specs" only if the step 4 verification passed; otherwise "No delta specs" or "Sync skipped">
 
 All artifacts complete. All tasks complete.
 ```
@@ -239,9 +239,7 @@ Review the archive if this was not intentional.
 Target archive directory already exists.
 
 **Options:**
-1. Rename the existing archive
-2. Delete the existing archive if it's a duplicate
-3. Wait until a different date to archive
+1. Rename the existing archive, then run the archive again
 ```
 
 **Guardrails**
@@ -255,6 +253,5 @@ Target archive directory already exists.
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
 - Apply relevant runtime context and report conflicts; operation guidance remains advisory
 - Consider every guidance entry and explain any inapplicable or conflicting advice
-- Existing CLI checks, resolved paths, prompts, and command contracts are unchanged
 - Artifact rules constrain only the specs being written and are never operation guidance
 - Never copy runtime context, operation guidance, or artifact-rule text verbatim into output files
