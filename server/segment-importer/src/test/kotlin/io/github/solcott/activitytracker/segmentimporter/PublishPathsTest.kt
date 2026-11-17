@@ -8,6 +8,8 @@ import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import java.io.File
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -108,13 +110,40 @@ class PublishPathsTest {
     }
 
     @Test
-    fun pathsGoneFromTheFileAreRemovedInItsArea() = runTest {
+    fun pathsTheRegionListedBeforeAndNoLongerHoldsAreRemoved() = runTest {
         services()
         repo[Nsid.FEED_PATH to "rush-2112"] = pathRecord(path("rush-2112", "Rush Trail - 2112 Section", east = 0.0), clock)
-        repo[Nsid.FEED_PATH to "elsewhere"] = pathRecord(path("elsewhere", "Far Trail", east = 5.0), clock)
-        val result = publishPaths(clients, listOf(anns, pine), clock)
-        assertEquals(listOf("rush-2112"), result.removed, "inside the file's area; a path in another region stays")
-        assertEquals(setOf("elsewhere"), repo.keys.map { it.second }.toSet())
+        // A neighbouring region's path, lying inside this file's area: regions' boxes overlap.
+        repo[Nsid.FEED_PATH to "border"] = pathRecord(path("border", "Border Trail", east = 0.02), clock)
+        val result = publishPaths(clients, listOf(anns, pine), clock, listedBefore = setOf("anns", "rush-2112"))
+        assertEquals(listOf("rush-2112"), result.removed, "the region's own; another region's path stays, wherever it lies")
+        assertEquals(setOf("border"), repo.keys.map { it.second }.toSet())
+        assertEquals(emptySet(), result.undeleted)
+    }
+
+    @Test
+    fun withNothingListedBeforeNothingIsRemoved() = runTest {
+        services()
+        repo[Nsid.FEED_PATH to "rush-2112"] = pathRecord(path("rush-2112", "Rush Trail - 2112 Section", east = 0.0), clock)
+        assertEquals(emptyList(), publishPaths(clients, listOf(anns, pine), clock).removed)
+        assertEquals(setOf("rush-2112"), repo.keys.map { it.second }.toSet())
+    }
+
+    @Test
+    fun theFileKeepsWhatItListedForTheNextRun() = runTest {
+        services()
+        segments += segment("3ka", east = 0.0)
+        val dir = createTempDirectory("paths").toFile()
+        val file = File(dir, "us-vermont-paths.ndjson")
+        file.writer().use { writePaths(it, "us-vermont", listOf(anns, pine)) }
+        publishPathsFile(clients, file)
+        assertEquals(listOf("anns", "pine"), listedFile(file, "us-vermont").readLines())
+        assertEquals(setOf("anns"), repo.keys.map { it.second }.toSet())
+
+        file.writer().use { writePaths(it, "us-vermont", listOf(pine)) }
+        publishPathsFile(clients, file)
+        assertEquals(emptySet(), repo.keys.map { it.second }.toSet(), "Ann's left the region's file")
+        assertEquals(listOf("pine"), listedFile(file, "us-vermont").readLines())
     }
 
     /** A 500 m path along the middle of where [segment]s run, a third of each one's 1.5 km. */

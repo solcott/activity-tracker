@@ -24,7 +24,8 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * What a `publish-paths` run did: paths published new ([published]), rewritten with a changed name, line or sports ([refreshed]), and
  * deleted as gone from the region's file ([removed]), and how many of the region's segments lie on none of its paths ([unpathed]);
- * [stoppedBy] is the error that ended the run early, if one did.
+ * [stoppedBy] is the error that ended the run early, if one did, and [undeleted] the paths gone from the file it didn't delete, which the
+ * next run still deletes.
  */
 internal data class PublishPathsResult(
     val published: List<String> = emptyList(),
@@ -32,6 +33,7 @@ internal data class PublishPathsResult(
     val removed: List<String> = emptyList(),
     val unpathed: Int = 0,
     val stoppedBy: Exception? = null,
+    val undeleted: Set<String> = emptySet(),
 )
 
 /** A page of the repo's paths; listRecords allows up to 100. */
@@ -46,27 +48,31 @@ private const val E7 = 1e7
  * Publishes the [paths] that the region's segments lie on (segments/path-import): asks the AppView, tile by tile over the paths' box, for
  * every live segment's line and sport group, and publishes as a `feed.path` each path one of them lies on ([PathOverlap], the AppView's own
  * test, among the file's paths) that the repo doesn't hold yet. A path the repo holds is rewritten, under its key, when its name, line or
- * sports changed (every one with `rewrite`, so an AppView that missed them indexes them again), and one lying wholly inside the file's area
- * that the file no longer holds is deleted. Stops at the first failed call, keeping what it did; running again carries on.
+ * sports changed (every one with `rewrite`, so an AppView that missed them indexes them again), and one the region's file listed before
+ * ([listedBefore]) that it no longer holds is deleted. Only the region's own are: regions' areas overlap, and a path from a neighbouring
+ * region's file may lie inside this one's. Stops at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun publishPaths(
     clients: Clients,
     paths: List<PathEntry>,
     clock: Clock = Clock.System,
     rewrite: Boolean = false,
+    listedBefore: Set<String> = emptySet(),
 ): PublishPathsResult {
     val published = mutableListOf<String>()
     val refreshed = mutableListOf<String>()
     val removed = mutableListOf<String>()
     var unpathed = 0
+    val inFile = paths.mapTo(mutableSetOf()) { it.id }
+    var undeleted = listedBefore - inFile
     val stoppedBy = stopOnError {
         val repo = clients.session.did()
         val held = heldPaths(clients, repo.value)
-        val inFile = paths.mapTo(mutableSetOf()) { it.id }
-        val area = areaOf(paths)
-        val stale = held.filter { (id, path) -> id !in inFile && area != null && path.pieces.all { piece -> piece.all(area::holds) } }.keys
+        val stale = undeleted.filterTo(mutableSetOf()) { it in held }
+        undeleted = stale
         clients.writer.delete(repo, Nsid.FEED_PATH, stale.toList())
         removed += stale
+        undeleted = emptySet()
 
         val changed = paths.filter { path ->
             held[path.id]?.let { rewrite || it.name != path.name || it.lines != path.lines || it.sports != path.sports } == true
@@ -79,7 +85,7 @@ internal suspend fun publishPaths(
         val drafts = paths.filter { it.id in needs.paths && it.id !in held }.map { Draft(Nsid.FEED_PATH, it.id, pathRecord(it, clock)) }
         clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey }
     }
-    return PublishPathsResult(published, refreshed, removed, unpathed, stoppedBy)
+    return PublishPathsResult(published, refreshed, removed, unpathed, stoppedBy, undeleted)
 }
 
 /** The ids of the [paths] the region's live segments lie on, and how many of those segments lie on none ([unpathed]). */
@@ -109,10 +115,7 @@ private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: 
 }
 
 /** A published path's name, line pieces and sport groups, as the repo holds them. */
-private data class HeldPath(val name: String?, val lines: List<String>, val sports: List<String>?) {
-    val pieces: List<List<GeoPoint>>
-        get() = lines.mapNotNull(SegmentGeometry::decodePolyline)
-}
+private data class HeldPath(val name: String?, val lines: List<String>, val sports: List<String>?)
 
 /** The service account's published paths, by key. */
 private suspend fun heldPaths(clients: Clients, repo: String): Map<String, HeldPath> {
@@ -129,17 +132,6 @@ private suspend fun heldPaths(clients: Clients, repo: String): Map<String, HeldP
         cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
     } while (cursor != null)
     return held
-}
-
-/** The box [paths] cover, in degrees; null when they have no points. */
-private data class Area(val minLat: Double, val minLng: Double, val maxLat: Double, val maxLng: Double) {
-    fun holds(point: GeoPoint) = point.lat in minLat..maxLat && point.lng in minLng..maxLng
-}
-
-private fun areaOf(paths: List<PathEntry>): Area? {
-    val points = paths.flatMap { path -> path.lines.flatMap { SegmentGeometry.decodePolyline(it).orEmpty() } }
-    if (points.isEmpty()) return null
-    return Area(points.minOf { it.lat }, points.minOf { it.lng }, points.maxOf { it.lat }, points.maxOf { it.lng })
 }
 
 /** [path] as the `feed.path` record published for it. */
@@ -202,10 +194,17 @@ internal class PathIndex(paths: List<PathEntry>) {
         )
 }
 
-/** Reads [path] and publishes the paths it holds that segments need, printing what happened; throws what stopped it, after the summary. */
+/**
+ * Reads [path] and publishes the paths it holds that segments need, printing what happened; throws what stopped it, after the summary.
+ * Which paths the region's file listed is kept beside it ([listedFile]), so the next run deletes those the file then no longer holds; with
+ * none kept (a first run, another machine) nothing is deleted.
+ */
 internal suspend fun publishPathsFile(clients: Clients, path: File, rewrite: Boolean = false) {
     val file = path.bufferedReader().useLines { readPaths(it) }
-    val result = publishPaths(clients, file.paths, rewrite = rewrite)
+    val listed = listedFile(path, file.region)
+    val before = if (listed.exists()) listed.readLines().map { it.trim() }.filter { it.isNotEmpty() }.toSet() else emptySet()
+    val result = publishPaths(clients, file.paths, rewrite = rewrite, listedBefore = before)
+    listed.writeText((file.paths.map { it.id } + result.undeleted).distinct().sorted().joinToString("\n", postfix = "\n"))
     println(
         "Published ${result.published.size} of ${file.region}'s ${file.paths.size} paths, refreshed ${result.refreshed.size} and " +
             "removed ${result.removed.size}; " +
@@ -213,3 +212,6 @@ internal suspend fun publishPathsFile(clients: Clients, path: File, rewrite: Boo
     )
     result.stoppedBy?.let { throw it }
 }
+
+/** Where the ids [region]'s paths file listed at its last `publish-paths` are kept: beside the file, one per line. */
+internal fun listedFile(paths: File, region: String): File = File(paths.absoluteFile.parentFile, "$region-paths-listed.txt")
