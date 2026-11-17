@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.searchPathNames",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Trails and roads, and segment groups on none (segments/segment-paths), found by name: a path whose name, or one of whose segments' current names, contains q, ignoring case, and a segment group on no path with a segment named so. Counts only segments the viewer could get from a segment search, never lifts, so a path with none is left out. Each result is ranked by its best match: the whole name, then a name starting with q, then a word starting with q, then the rest; within a match nearest the given centre first, else by name. limit and cursor count results.",
+      "parameters": {
+        "type": "params",
+        "required": ["q"],
+        "properties": {
+          "q": { "type": "string", "maxLength": 100, "description": "Search text, case-insensitive. A blank query returns no results." },
+          "minLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees. The box is optional, but all four of its sides or none: only results with a counted segment whose line passes through it." },
+          "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "nearLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees. The centre results are ordered from within a match, with nearLng or not at all." },
+          "nearLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"], "description": "Count only segments of this sport group." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["results"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "results": { "type": "array", "items": { "type": "ref", "ref": "#result" } }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "Only some of the box's sides, or only one of nearLat and nearLng; a box with min above max, or wider than 1 degree on either side." }]
+    },
+    "result": {
+      "type": "object",
+      "description": "One result: a path, or the counted segments of a segment group on no path. Exactly one of path and group.",
+      "properties": {
+        "path": { "type": "ref", "ref": "app.activitytracker.feed.defs#pathView" },
+        "group": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" }, "description": "Every segment of the group the search counts, matching or not." }
+      }
+    }
+  }
+}

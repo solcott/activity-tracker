@@ -661,6 +661,49 @@ data class SegmentRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 
+/** `app.activitytracker.feed.path#kind` values (segments/segment-paths), an open enum: a path of another kind isn't indexed. */
+object PathKind {
+    const val TRAIL = "trail"
+    const val ROAD = "road"
+
+    val all = listOf(TRAIL, ROAD)
+}
+
+/**
+ * `app.activitytracker.feed.path`: a trail or road that segments lie on (segments/segment-paths), published only by the segment importer
+ * and keyed by its stable path id. Pure grouping: which segments lie on it is worked out from their lines. Not bound by segment lengths.
+ */
+@Serializable
+data class PathRecord(
+    /** At most 100 graphemes, not empty once trimmed. */
+    val name: String,
+    /** A [PathKind] value. */
+    val kind: String,
+    /** The line in 1 to [MAX_PIECES] pieces, each encoded as [SegmentRecord.line] is, of at least two positions. */
+    val lines: List<String>,
+    /** A [SegmentSource] value. */
+    val source: String,
+    /** The data's licence, as an SPDX identifier such as `ODbL-1.0`. */
+    val license: String,
+    val createdAt: Instant,
+    /** Who to credit for the line's data, as [SegmentRecord.attribution]. */
+    val attribution: String? = null,
+    /** The [SegmentSportGroup]s it is open to; a segment of another never lies on it. Null for any, as a road. */
+    val sports: List<String>? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_PATH,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for [lines]. */
+        const val MAX_PIECES = 64
+
+        /** The lexicon's `maxLength` for [sports]. */
+        const val MAX_SPORTS = 16
+
+        /** The lexicon's `maxLength` for each of [lines]. */
+        const val MAX_PIECE_CHARS = 100_000
+    }
+}
+
 /**
  * `app.activitytracker.feed.diveSite`: a named, public dive site, a centre and a [radius] that consenting athletes' dives are matched to by
  * their entry (dive-sites/site-records). Stored only in its creator's repo. Keyed by TID, except the segment importer's, keyed by the id of

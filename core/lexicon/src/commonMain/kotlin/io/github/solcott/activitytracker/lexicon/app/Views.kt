@@ -255,10 +255,12 @@ data class SegmentView(
     /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
     val duplicateOf: AtUri? = null,
     /**
-     * The segment naming this one's route (segments/segment-routes): segments of one kind following the same path, in any sport group and
-     * either direction, share it. Null from older AppViews; use [routeKey].
+     * The segment naming this one's segment group (segments/segment-groups): segments of one kind following the same path, in any sport
+     * group and either direction, share it. Null from older AppViews; use [groupKey].
      */
-    val route: AtUri? = null,
+    val group: AtUri? = null,
+    /** The trails and roads it lies on (segments/segment-paths), derived by the AppView; empty when none, and for a lift. */
+    val paths: List<AtUri> = emptyList(),
     /**
      * Meters climbed from start to end, derived by the AppView: from smoothed terrain wherever it covers the whole line, else from enough
      * distinct athletes' efforts; null when it has none.
@@ -283,10 +285,33 @@ data class SegmentView(
     val currentName: String
         get() = name ?: record.name
 
-    /** [route], or the segment itself when the AppView didn't send one. */
-    val routeKey: AtUri
-        get() = route ?: uri
+    /** [group], or the segment itself when the AppView didn't send one. */
+    val groupKey: AtUri
+        get() = group ?: uri
 }
+
+/** `app.activitytracker.feed.defs#pathView`: a trail or road (segments/segment-paths) as the viewer sees it. */
+@Immutable
+@Serializable
+data class PathView(
+    val uri: AtUri,
+    val cid: Cid,
+    /** A [PathKind] value. */
+    val kind: String,
+    val name: String,
+    /** As [PathRecord.lines]. */
+    val lines: List<String>,
+    /** The pieces' length together, in meters, computed by the AppView. */
+    val lengthMeters: Long,
+    /** A [SegmentSource] value. */
+    val source: String,
+    val license: String,
+    val attribution: String? = null,
+    /** The [SegmentSportGroup]s of the segments on it the viewer could find, in app order. */
+    val sports: List<String> = emptyList(),
+    /** How many segment groups those segments form. */
+    val groupCount: Int = 0,
+)
 
 /** `app.activitytracker.feed.defs#segmentNameAdoption`: a community name the segment adopted. */
 @Immutable

@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.getSegmentLines",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The live run segments crossing a box, each with its line and sport group, so the segment importer can publish the trails and roads they lie on (segments/segment-paths). Segments are public records, so this holds nothing private. Only the AppView's configured segment importer may call it, with service auth.",
+      "parameters": {
+        "type": "params",
+        "required": ["minLat", "minLng", "maxLat", "maxLng"],
+        "properties": {
+          "minLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500, "default": 500 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["segments"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "segments": { "type": "array", "items": { "type": "ref", "ref": "#segmentLine" } }
+          }
+        }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A box with min above max, or wider than 1 degree on either side." },
+        { "name": "NotImporter", "description": "The caller isn't the configured segment importer, or none is configured." }
+      ]
+    },
+    "segmentLine": {
+      "type": "object",
+      "required": ["uri", "sport", "line"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
+        "line": { "type": "string", "maxLength": 100000, "description": "As feed.segment#line." }
+      }
+    }
+  }
+}

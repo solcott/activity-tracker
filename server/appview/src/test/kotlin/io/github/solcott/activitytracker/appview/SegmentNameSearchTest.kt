@@ -187,9 +187,9 @@ class SegmentNameSearchTest : SegmentTestBase() {
 
         val first = found(mapOf("q" to "ann") + near(0.0) + ("limit" to "2"))
         val ann = listOf("3kaf", "3kab", "3kbf", "3kbb", "3kcf", "3kcb").map { segmentUri(it) }
-        assertEquals(ann.toSet(), first.segments.take(6).map { it.uri.value }.toSet(), "the whole route together")
-        assertEquals(setOf(segmentUri("3kaf")), first.segments.take(6).map { it.route?.value }.toSet())
-        assertEquals(listOf(segmentUri("3kd")), first.segments.drop(6).map { it.uri.value }, "the limit counts routes")
+        assertEquals(ann.toSet(), first.segments.take(6).map { it.uri.value }.toSet(), "the whole segment group together")
+        assertEquals(setOf(segmentUri("3kaf")), first.segments.take(6).map { it.group?.value }.toSet())
+        assertEquals(listOf(segmentUri("3kd")), first.segments.drop(6).map { it.uri.value }, "the limit counts segment groups")
         val second = found(mapOf("q" to "ann") + near(0.0) + ("limit" to "2") + ("cursor" to first.cursor!!))
         assertEquals(listOf(segmentUri("3ke")), second.segments.map { it.uri.value }, "Ann's isn't returned again")
         assertNull(second.cursor)

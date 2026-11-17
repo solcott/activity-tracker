@@ -40,7 +40,7 @@ import io.github.solcott.activitytracker.appview.index.HandleSweep
 import io.github.solcott.activitytracker.appview.index.HandleVerifier
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamConsumer
-import io.github.solcott.activitytracker.appview.index.assignMissingRoutes
+import io.github.solcott.activitytracker.appview.index.assignMissingGroups
 import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
@@ -139,8 +139,8 @@ fun main() {
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, guarded, pds).start(this)
             HandleSweep(db, indexer).start(this)
-            // Segments indexed before routes get theirs (segments/segment-routes); indexing gives new ones theirs.
-            launch { assignMissingRoutes(db, log) }
+            // Segments indexed before segment groups get theirs (segments/segment-groups); indexing gives new ones theirs.
+            launch { assignMissingGroups(db, log) }
             syncer?.start(this)
             // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
             spaceBlobs?.let { segmentMatcher(config, db, indexer, it).start(this) }

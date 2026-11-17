@@ -3,9 +3,12 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
+import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SubjectHandoffs
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.index.E7
+import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
 import io.github.solcott.activitytracker.appview.index.MAX_LINE_CHARS
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
@@ -24,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetHandoffs
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
@@ -42,9 +46,12 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.concat
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.stringLiteral
@@ -136,6 +143,38 @@ class SegmentCandidateViews(
                 .map(::stagedCandidate)
         }
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
+    }
+
+    /**
+     * The live run segments crossing a box (segments/segment-paths), by URI, with their lines and sport groups: what the importer needs to
+     * publish the trails and roads they lie on. Segments are public records, so this reveals nothing new.
+     */
+    suspend fun segmentLines(caller: Did, params: GetSegmentLines.Params): GetSegmentLines.Output {
+        requireImporter(caller)
+        requireSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
+        val cells = SegmentCells.cellsIn(params.minLat / E7, params.minLng / E7, params.maxLat / E7, params.maxLng / E7)
+        val limit = (params.limit ?: GetSegmentLines.MAX_LIMIT).coerceIn(1, GetSegmentLines.MAX_LIMIT)
+        val page = db.tx {
+            Segments.select(Segments.uri, Segments.sport, Segments.line)
+                .where {
+                    (Segments.status inList LIVE_STATUSES) and
+                        (Segments.kind eq SegmentKind.RUN) and
+                        (Segments.minLatE7 lessEq params.maxLat) and
+                        (Segments.maxLatE7 greaterEq params.minLat) and
+                        (Segments.minLngE7 lessEq params.maxLng) and
+                        (Segments.maxLngE7 greaterEq params.minLng) and
+                        exists(
+                            SegmentCellIndex.select(SegmentCellIndex.cell).where {
+                                (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
+                            },
+                        )
+                }
+                .apply { params.cursor?.let { cursor -> andWhere { Segments.uri greater cursor } } }
+                .orderBy(Segments.uri to SortOrder.ASC)
+                .limit(limit)
+                .map { GetSegmentLines.SegmentLine(AtUri(it[Segments.uri]), it[Segments.sport], it[Segments.line]) }
+        }
+        return GetSegmentLines.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.uri?.value)
     }
 
     /**

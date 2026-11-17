@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.path",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A trail or a road that segments lie on (segments/segment-paths): public, published only by the segment importer, and indexed only from its repo. Pure grouping: the AppView works out which segments lie on it from their lines, and lying on a path changes nothing about a segment. Not bound by segment lengths. Keyed by the importer's stable path id.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["name", "kind", "lines", "source", "license", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+          "kind": { "type": "string", "maxLength": 16, "knownValues": ["trail", "road"], "description": "A path whose kind the AppView doesn't know isn't indexed." },
+          "lines": {
+            "type": "array",
+            "minLength": 1,
+            "maxLength": 64,
+            "items": { "type": "string", "maxLength": 100000 },
+            "description": "The path's line in pieces, each an encoded polyline at precision 6 as feed.segment#line, of at least two positions: one piece, or several where the line is too long for one or has gaps."
+          },
+          "source": { "type": "string", "maxLength": 64, "knownValues": ["athlete", "osm", "agency"], "description": "Where the line came from, as feed.segment#source." },
+          "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." },
+          "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, as feed.segment#attribution." },
+          "sports": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
+            "description": "The sport groups the path is open to, from its source's tags; a segment of another group never lies on it. Absent means any, as for a road."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

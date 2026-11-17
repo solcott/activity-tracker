@@ -233,10 +233,10 @@ object Segments : Table("segments") {
     /** When the segment was first indexed, never changed by an edit: which of two segments came first. */
     val firstIndexedAt = long("first_indexed_at")
     /**
-     * The segment naming this one's route (segments/segment-routes): the earliest-indexed live segment of its kind whose line it follows
-     * either way, or itself. Null until a segment indexed before routes is given one, which reads as itself (`routeKey`).
+     * The segment naming this one's segment group (segments/segment-groups): the earliest-indexed live segment of its kind whose line it
+     * follows either way, or itself. Null until a segment indexed before segment groups is given one, which reads as itself (`groupKey`).
      */
-    val routeUri = varchar("route_uri", 512).nullable()
+    val groupUri = varchar("group_uri", 512).nullable()
     /**
      * The name every view serves (segments/segment-names): its latest adopted [SegmentNameProposals] row still in effect, else [name] (the
      * record's, the original). Recomputed by `recomputeCurrentName`.
@@ -343,6 +343,44 @@ object SegmentNameVotes : Table("segment_name_votes") {
     /** When this version was indexed: of a voter's votes on one proposal, the latest counts. */
     val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
+}
+
+/** A trail or road (`feed.path`, segments/segment-paths), indexed only from the segment importer's repo. */
+object Paths : Table("paths") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    /** A [io.github.solcott.activitytracker.lexicon.app.PathKind] value. */
+    val kind = varchar("kind", 16)
+    val name = varchar("path_name", 1000)
+    /** The record's line pieces, precision-6 encoded polylines, one per line (no encoded polyline holds a newline). */
+    val lines = text("lines")
+    val lengthM = long("length_m")
+    val minLatE7 = integer("min_lat_e7")
+    val maxLatE7 = integer("max_lat_e7")
+    val minLngE7 = integer("min_lng_e7")
+    val maxLngE7 = integer("max_lng_e7")
+    val dataSource = varchar("data_source", 64)
+    val license = varchar("license", 64)
+    val attribution = varchar("attribution", 1000).nullable()
+    val indexedAt = long("indexed_at")
+    /** The sport groups it is open to, comma-separated; null for any, as a road. */
+    val sports = varchar("sports", 255).nullable()
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** The 0.01° cells each [Paths] line piece passes through, as [SegmentCellIndex] for segments. */
+object PathCellIndex : Table("path_cells") {
+    val cell = long("cell")
+    val pathUri = varchar("path_uri", 512)
+    override val primaryKey = PrimaryKey(cell, pathUri)
+}
+
+/** Which run segments lie on which path (`PathOverlap`), whatever their status; queries keep only live ones. */
+object PathSegments : Table("path_segments") {
+    val pathUri = varchar("path_uri", 512)
+    val segmentUri = varchar("segment_uri", 512)
+    override val primaryKey = PrimaryKey(pathUri, segmentUri)
 }
 
 /** The [io.github.solcott.activitytracker.location.SegmentCells] each segment's line passes through. */

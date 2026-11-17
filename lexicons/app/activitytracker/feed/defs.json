@@ -233,6 +233,24 @@
         }
       }
     },
+    "pathView": {
+      "type": "object",
+      "description": "A trail or road (segments/segment-paths) as a viewer sees it.",
+      "required": ["uri", "cid", "kind", "name", "lines", "lengthMeters", "source", "license", "sports", "groupCount"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "kind": { "type": "string", "maxLength": 16, "knownValues": ["trail", "road"] },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "lines": { "type": "array", "maxLength": 64, "items": { "type": "string", "maxLength": 100000 }, "description": "As feed.path#lines." },
+        "lengthMeters": { "type": "integer", "minimum": 0, "description": "The pieces' length together, computed by the AppView." },
+        "source": { "type": "string", "maxLength": 64, "knownValues": ["athlete", "osm", "agency"] },
+        "license": { "type": "string", "maxLength": 64 },
+        "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "sports": { "type": "array", "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] }, "description": "The sport groups of the segments on it the viewer could get from a segment search, in the app's order." },
+        "groupCount": { "type": "integer", "minimum": 0, "description": "How many segment groups those segments form." }
+      }
+    },
     "segmentView": {
       "type": "object",
       "required": ["uri", "cid", "creator", "record", "distanceMeters"],
@@ -249,7 +267,8 @@
           "description": "Derived by the AppView, never read from the record. Absent or unknown means active."
         },
         "duplicateOf": { "type": "string", "format": "at-uri", "description": "The earlier segment this one duplicates, when status is duplicate." },
-        "route": { "type": "string", "format": "at-uri", "description": "The segment naming this one's route, derived by the AppView (segments/segment-routes): segments of one kind that follow the same path, in any sport group and either direction, share it. Absent from older AppViews; treat the segment as alone then." },
+        "group": { "type": "string", "format": "at-uri", "description": "The segment naming this one's segment group, derived by the AppView (segments/segment-groups): segments of one kind that follow the same line, in any sport group and either direction, share it. Absent from older AppViews; treat the segment as alone then." },
+        "paths": { "type": "array", "items": { "type": "string", "format": "at-uri" }, "description": "The trails and roads it lies on (segments/segment-paths), derived by the AppView. Empty or absent when it lies on none, and for a lift." },
         "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters climbed from start to end, derived by the AppView (segments/segment-elevation), never read from the record: from smoothed terrain along the line wherever terrain covers it, else from enough distinct athletes' efforts. Absent when it has none." },
         "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
         "elevationSource": {

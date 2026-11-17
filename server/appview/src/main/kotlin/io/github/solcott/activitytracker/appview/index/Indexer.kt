@@ -333,6 +333,11 @@ class Indexer(
                 if (placement.origin == Origins.REPO) upsertDiveSite(json, author, uri, cid, segmentJobs, now, segmentImporter)
             }
 
+            // Public, and only the segment importer's: from its repo only (segments/segment-paths).
+            Nsid.FEED_PATH -> {
+                if (placement.origin == Origins.REPO) upsertPath(json, author, uri, cid, now, segmentImporter)
+            }
+
             // Public, so from the repo only; a copy in a space is ignored.
             Nsid.FEED_SEGMENT_NAME_PROPOSAL -> {
                 if (placement.origin == Origins.REPO) upsertNameProposal(json, author, uri, cid, segmentNames, now)
@@ -435,6 +440,10 @@ class Indexer(
                 if (placement.origin == Origins.REPO) deleteNameProposals(listOf(uri.value))
             }
 
+            Nsid.FEED_PATH -> {
+                if (placement.origin == Origins.REPO) deletePath(uri)
+            }
+
             Nsid.FEED_DIVE_SITE -> {
                 if (placement.origin == Origins.REPO) deleteDiveSite(uri, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
             }
@@ -520,6 +529,7 @@ class Indexer(
         deleteSegmentNamesBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
+        deletePathsBy(did)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         Actors.deleteWhere { Actors.did eq did.value }
     }

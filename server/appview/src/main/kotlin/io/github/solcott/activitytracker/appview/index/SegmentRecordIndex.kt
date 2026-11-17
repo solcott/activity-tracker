@@ -68,9 +68,9 @@ private const val MAX_LNG = 180.0
  * is dropped like an undecodable record, as is a new segment past its creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last
  * day, deleted ones included), unless [author] is the segment [importer]. A new segment, or one whose line, sport or kind changed, loses
  * its efforts, gets its status again (duplicate of the earliest live segment it duplicates, else [liveStatus]) and, unless a duplicate, is
- * queued to be matched against past tracks; the segments that duplicated its old version are checked again, and its route is derived again
- * with any it named (segments/segment-routes). A rename keeps its status and changes only its original name: an adopted community name in
- * effect stays its current name. A blank or over-long attribution is left out of the stored record.
+ * queued to be matched against past tracks; the segments that duplicated its old version are checked again, and its segment group is
+ * derived again with any it named (segments/segment-groups). A rename keeps its status and changes only its original name: an adopted
+ * community name in effect stays its current name. A blank or over-long attribution is left out of the stored record.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(
@@ -136,9 +136,10 @@ internal fun JdbcTransaction.upsertSegment(
     deleteEfforts { segmentUri eq uri.value }
     resampleTerrain(uri.value, jobs, now)
     replaceSegmentCells(uri.value, line)
+    repathSegment(uri.value, kind, record.sport, line)
     if (original == null) jobs.enqueueSegment(uri.value, now)
     if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now, importer)
-    reroute(uri.value)
+    regroup(uri.value)
 }
 
 /** [name] trimmed, if it's a valid segment name: not empty, and at most [MAX_NAME_GRAPHEMES] graphemes. Throws otherwise. */
@@ -297,10 +298,11 @@ private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs
     val keep = staged + handedOff(uris)
     deleteSegmentNames(uris.filterNot { it in keep })
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
+    unpathSegments(uris)
     Segments.deleteWhere { Segments.uri inList uris }
     val promoted = recheckDuplicatesOf(uris, jobs, now, importer)
     linkPromoted(promoted)
-    rederiveRoutes(uris)
+    rederiveGroups(uris)
 }
 
 /**

@@ -24,20 +24,20 @@
               "ref": "app.activitytracker.feed.defs#elevationProfile",
               "description": "The segment's terrain profile, only when segment.elevationSource is terrain. No other query carries it."
             },
-            "routeMembers": {
+            "groupMembers": {
               "type": "array",
               "maxLength": 100,
-              "items": { "type": "ref", "ref": "#routeMember" },
-              "description": "The other segments of its route (segments/segment-routes) the viewer could get from a segment search, earliest indexed first. Absent or empty when it is alone, and for a lift."
+              "items": { "type": "ref", "ref": "#groupMember" },
+              "description": "The other segments of its segment group (segments/segment-groups) the viewer could get from a segment search, earliest indexed first. Absent or empty when it is alone, and for a lift."
             }
           }
         }
       },
       "errors": [{ "name": "NotFound", "description": "The segment isn't indexed, or isn't served: its account is suspended or taken down, or the record is." }]
     },
-    "routeMember": {
+    "groupMember": {
       "type": "object",
-      "description": "Another segment of the route, enough to offer it and say which way it goes.",
+      "description": "Another segment of the segment group, enough to offer it and say which way it goes.",
       "required": ["uri", "sport", "name", "line"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },

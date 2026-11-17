@@ -120,6 +120,14 @@ object Nsid {
     const val FEED_GET_SEGMENT_MAYORS = "$NAMESPACE.feed.getSegmentMayors"
     const val FEED_CHECK_SEGMENT = "$NAMESPACE.feed.checkSegment"
     /**
+     * A trail or road that segments lie on (segments/segment-paths), kept only in the segment importer's repo and indexed only from there;
+     * a copy anywhere else is ignored.
+     */
+    const val FEED_PATH = "$NAMESPACE.feed.path"
+    const val FEED_GET_PATH = "$NAMESPACE.feed.getPath"
+    const val FEED_GET_PATHS = "$NAMESPACE.feed.getPaths"
+    const val FEED_SEARCH_PATH_NAMES = "$NAMESPACE.feed.searchPathNames"
+    /**
      * A public dive site (dive-sites/site-records), kept only in its creator's repo and indexed from the firehose; a copy in a space is
      * ignored. Renamed through [FEED_SEGMENT_NAME_PROPOSAL] and [FEED_SEGMENT_NAME_VOTE], whose subject may be a site.
      */
@@ -156,6 +164,8 @@ object Nsid {
     const val IMPORTER_CHECK_DIVE_SITES = "$NAMESPACE.importer.checkDiveSites"
     /** Query: the segment importer lists removed active segments and dive sites to republish (segments/segment-handoffs). */
     const val IMPORTER_GET_HANDOFFS = "$NAMESPACE.importer.getHandoffs"
+    /** Query: the segment importer lists the live segments in a box with their lines, to publish the paths they lie on. */
+    const val IMPORTER_GET_SEGMENT_LINES = "$NAMESPACE.importer.getSegmentLines"
 
     /** One piece of an athlete's gear: in their repo when Public, else in their tier space for its visibility ([SPACE_ATHLETE]). */
     const val GEAR_ITEM = "$NAMESPACE.gear.item"
@@ -215,6 +225,7 @@ object Nsid {
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
             FEED_DIVE_SITE,
+            FEED_PATH,
             GEAR_ITEM,
             GRAPH_FOLLOW,
             GRAPH_FOLLOW_APPROVAL,

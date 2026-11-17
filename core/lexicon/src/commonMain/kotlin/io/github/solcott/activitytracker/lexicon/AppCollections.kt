@@ -31,6 +31,7 @@ object AppCollections {
                 Nsid.FEED_COMMENT_HIDE,
                 Nsid.FEED_DIVE_SITE,
                 Nsid.FEED_LIKE,
+                Nsid.FEED_PATH,
                 Nsid.FEED_POST,
                 Nsid.FEED_REPOST,
                 Nsid.FEED_SEGMENT,

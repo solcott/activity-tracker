@@ -423,14 +423,17 @@ object GetSegment {
         val segment: SegmentView,
         /** The segment's terrain profile, only when [SegmentView.elevationSource] is [SegmentElevationSource.TERRAIN]. */
         val elevationProfile: ElevationProfile? = null,
-        /** The route's other segments the viewer could find (segments/segment-routes), earliest indexed first; empty when it's alone. */
-        val routeMembers: List<RouteMember> = emptyList(),
+        /**
+         * The segment group's other segments the viewer could find (segments/segment-groups), earliest indexed first; empty when it's
+         * alone.
+         */
+        val groupMembers: List<GroupMember> = emptyList(),
     )
 
-    /** `app.activitytracker.feed.getSegment#routeMember`: another segment of the route. */
+    /** `app.activitytracker.feed.getSegment#groupMember`: another segment of the segment group. */
     @Immutable
     @Serializable
-    data class RouteMember(
+    data class GroupMember(
         val uri: AtUri,
         /** A [SegmentSportGroup] value. */
         val sport: String,
@@ -474,8 +477,9 @@ object SearchSegments {
 /**
  * Segments whose current name contains `q`, best match first and then nearest `near` (segments/segment-records), never lifts. The box (1e-7
  * degrees) and the centre are each optional but whole, else `InvalidRequest`; with a box, a page may hold fewer than `limit`, or none, with
- * a cursor: keep paging while there is one. Results are routes (segments/segment-routes), each ranked by its best match: a page holds every
- * member of its routes the search would serve, next to each other, so `limit` and the cursor count routes, not segments.
+ * a cursor: keep paging while there is one. Results are segment groups (segments/segment-groups), each ranked by its best match: a page
+ * holds every member of its segment groups the search would serve, next to each other, so `limit` and the cursor count segment groups, not
+ * segments.
  */
 object SearchSegmentNames {
     @Serializable
@@ -499,6 +503,64 @@ object SearchSegmentNames {
     const val MAX_QUERY_LENGTH = 100
 
     val method = XrpcQuery(Nsid.FEED_SEARCH_SEGMENT_NAMES, Params.serializer(), Output.serializer())
+}
+
+/**
+ * A trail or road and every segment on it the viewer could find, never lifts (segments/segment-paths). `NotFound` when it isn't indexed.
+ */
+object GetPath {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable data class Output(val path: PathView, val segments: List<SegmentView>)
+
+    val method = XrpcQuery(Nsid.FEED_GET_PATH, Params.serializer(), Output.serializer())
+}
+
+/** The views of up to [MAX_URIS] trails and roads, leaving out those not indexed (segments/segment-paths). */
+object GetPaths {
+    @Serializable data class Params(val uris: List<AtUri>)
+
+    @Serializable data class Output(val paths: List<PathView>)
+
+    /** The lexicon's `maxLength` for [Params.uris]. */
+    const val MAX_URIS = 25
+
+    val method = XrpcQuery(Nsid.FEED_GET_PATHS, Params.serializer(), Output.serializer())
+}
+
+/**
+ * Trails and roads, and segment groups on none, found by name (segments/segment-paths): ranked by their best match among the path's name
+ * and its segments' current names, then nearest `near`; `limit` and the cursor count results. The box and centre are as
+ * [SearchSegmentNames]'s.
+ */
+object SearchPathNames {
+    @Serializable
+    data class Params(
+        val q: String,
+        val minLat: Int? = null,
+        val minLng: Int? = null,
+        val maxLat: Int? = null,
+        val maxLng: Int? = null,
+        val nearLat: Int? = null,
+        val nearLng: Int? = null,
+        /** Count only this [SegmentSportGroup]. */
+        val sport: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    /** `#result`: a [path], or a [group]'s counted segments on no path; exactly one is set. */
+    @Immutable @Serializable data class Result(val path: PathView? = null, val group: List<SegmentView>? = null)
+
+    @Serializable data class Output(val results: List<Result>, val cursor: String? = null)
+
+    /** The lexicon's `maxLength` for [Params.q]. */
+    const val MAX_QUERY_LENGTH = 100
+
+    /** The lexicon's `maximum` for [Params.limit]. */
+    const val MAX_LIMIT = 50
+
+    val method = XrpcQuery(Nsid.FEED_SEARCH_PATH_NAMES, Params.serializer(), Output.serializer())
 }
 
 /** The efforts on an activity the viewer may see, in the order they began; unpaged. `NotFound` when the viewer may not see the activity. */
@@ -793,6 +855,32 @@ object GetRiddenSegmentCandidates {
     @Serializable data class Output(val candidates: List<SegmentCandidate>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES, Params.serializer(), Output.serializer())
+}
+
+/**
+ * The live run segments crossing a box of at most [SearchSegments.MAX_SPAN_E7], each with its line and sport group, for the segment
+ * importer only (segments/segment-paths).
+ */
+object GetSegmentLines {
+    @Serializable
+    data class Params(
+        val minLat: Int,
+        val minLng: Int,
+        val maxLat: Int,
+        val maxLng: Int,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    /** `#segmentLine`: a [SegmentSportGroup] value as [sport]. */
+    @Serializable data class SegmentLine(val uri: AtUri, val sport: String, val line: String)
+
+    @Serializable data class Output(val segments: List<SegmentLine>, val cursor: String? = null)
+
+    /** The lexicon's `maximum` for [Params.limit]. */
+    const val MAX_LIMIT = 500
+
+    val method = XrpcQuery(Nsid.IMPORTER_GET_SEGMENT_LINES, Params.serializer(), Output.serializer())
 }
 
 /**

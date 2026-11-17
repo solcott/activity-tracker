@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Segments whose current name contains q, ignoring case, best match first: the whole name, then names starting with q, then names with a word starting with q, then the rest; within a match, nearest the given centre first, or by name without one. Serves the segments searchSegments would serve the viewer, never lifts. With a box, only segments whose line passes through it; a page may then hold fewer than limit, or none, with a cursor: keep paging while there is one. Only a page without a cursor ends the search. Results are routes (segments/segment-routes), ranked by their best-matching member: a page holds every member of its routes that the search would serve, matching or not, next to each other, so limit and cursor count routes and a page may hold more segments than limit.",
+      "description": "Segments whose current name contains q, ignoring case, best match first: the whole name, then names starting with q, then names with a word starting with q, then the rest; within a match, nearest the given centre first, or by name without one. Serves the segments searchSegments would serve the viewer, never lifts. With a box, only segments whose line passes through it; a page may then hold fewer than limit, or none, with a cursor: keep paging while there is one. Only a page without a cursor ends the search. Results are segment groups (segments/segment-groups), ranked by their best-matching member: a page holds every member of its segment groups that the search would serve, matching or not, next to each other, so limit and cursor count segment groups and a page may hold more segments than limit.",
       "parameters": {
         "type": "params",
         "required": ["q"],

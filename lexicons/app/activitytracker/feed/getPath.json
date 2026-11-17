@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getPath",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A trail or road (segments/segment-paths) and every segment on it the viewer could get from a segment search, never lifts.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": { "uri": { "type": "string", "format": "at-uri" } }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["path", "segments"],
+          "properties": {
+            "path": { "type": "ref", "ref": "app.activitytracker.feed.defs#pathView" },
+            "segments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The path isn't indexed." }]
+    }
+  }
+}

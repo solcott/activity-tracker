@@ -15,6 +15,9 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
+import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
@@ -215,7 +218,7 @@ class SegmentRecordsTest {
     }
 
     @Test
-    fun getSegmentRouteRoundTrips() {
+    fun getSegmentGroupRoundTrips() {
         val uri = AtUri("at://did:plc:alice/${Nsid.FEED_SEGMENT}/3ks")
         val view =
             SegmentView(
@@ -226,18 +229,58 @@ class SegmentRecordsTest {
                 distanceMeters = 1_200,
             )
         val alone = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), GetSegment.Output(view)).jsonObject
-        assertFalse("route" in alone["segment"]!!.jsonObject)
-        assertEquals(0, alone["routeMembers"]?.jsonArray?.size ?: 0, "none, empty or left out")
-        assertEquals(uri, view.routeKey, "a segment without a route is alone")
+        assertFalse("group" in alone["segment"]!!.jsonObject)
+        assertEquals(0, alone["groupMembers"]?.jsonArray?.size ?: 0, "none, empty or left out")
+        assertEquals(uri, view.groupKey, "a segment without a group is alone")
 
         val root = AtUri("at://did:plc:bob/${Nsid.FEED_SEGMENT}/3kr")
-        val member = GetSegment.RouteMember(root, SegmentSportGroup.RIDE, name = "Hill", line = "_p~iF~ps|U")
-        val output = GetSegment.Output(view.copy(route = root), routeMembers = listOf(member))
+        val member = GetSegment.GroupMember(root, SegmentSportGroup.RIDE, name = "Hill", line = "_p~iF~ps|U")
+        val output = GetSegment.Output(view.copy(group = root), groupMembers = listOf(member))
         val json = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), output).jsonObject
-        assertEquals(root.value, json["segment"]!!.jsonObject["route"]!!.jsonPrimitive.content)
-        assertFalse("kind" in json["routeMembers"]!!.jsonArray.single().jsonObject)
+        assertEquals(root.value, json["segment"]!!.jsonObject["group"]!!.jsonPrimitive.content)
+        assertFalse("kind" in json["groupMembers"]!!.jsonArray.single().jsonObject)
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), json))
-        assertEquals(root, output.segment.routeKey)
+        assertEquals(root, output.segment.groupKey)
+    }
+
+    @Test
+    fun pathRecordAndViewRoundTrip() {
+        val record =
+            PathRecord("Ann's", PathKind.TRAIL, listOf("_p~iF~ps|U", "_ulLnnqC"), "osm", "ODbL-1.0", Instant.parse("2026-11-16T00:00:00Z"))
+        val json = AtJson.encodeToJsonElement(PathRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.FEED_PATH, json["\$type"]!!.jsonPrimitive.content)
+        assertFalse("attribution" in json, "no attribution, left out")
+        assertEquals(record, AtJson.decodeFromJsonElement(PathRecord.serializer(), json))
+        val credited = record.copy(attribution = "USDA Forest Service")
+        assertEquals(credited, AtJson.decodeFromString(PathRecord.serializer(), AtJson.encodeToString(PathRecord.serializer(), credited)))
+
+        val uri = AtUri("at://did:plc:importer/${Nsid.FEED_PATH}/anns")
+        val view =
+            PathView(
+                uri,
+                Cid("bafyanns"),
+                PathKind.TRAIL,
+                "Ann's",
+                record.lines,
+                5_400,
+                "osm",
+                "ODbL-1.0",
+                sports = listOf("ride"),
+                groupCount = 3,
+            )
+        assertEquals(view, AtJson.decodeFromString(PathView.serializer(), AtJson.encodeToString(PathView.serializer(), view)))
+        val segment =
+            SegmentView(
+                uri = AtUri("at://did:plc:alice/${Nsid.FEED_SEGMENT}/3kb"),
+                cid = Cid("bafysegment"),
+                creator = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
+                record = SegmentRecord("Hill", "run", "_p~iF~ps|U", "athlete", "CC0-1.0", Instant.parse("2026-10-01T00:00:00Z")),
+                distanceMeters = 1_200,
+                paths = listOf(uri),
+            )
+        val encoded = AtJson.encodeToJsonElement(SegmentView.serializer(), segment).jsonObject
+        assertEquals(uri.value, encoded["paths"]!!.jsonArray.single().jsonPrimitive.content)
+        assertEquals(segment, AtJson.decodeFromJsonElement(SegmentView.serializer(), encoded))
     }
 
     @Test

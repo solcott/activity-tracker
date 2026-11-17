@@ -47,6 +47,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
+import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPaths
 import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetQuotes
@@ -55,6 +57,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
@@ -63,6 +66,7 @@ import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
+import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
@@ -134,6 +138,9 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetSegment.method, verifier) { params, viewer -> segments.segment(viewer, params) }
     xrpcQuery(SearchSegments.method, verifier) { params, viewer -> segments.search(viewer, params) }
     xrpcQuery(SearchSegmentNames.method, verifier) { params, viewer -> segments.searchNames(viewer, params) }
+    xrpcQuery(GetPath.method, verifier) { params, viewer -> segments.path(viewer, params) }
+    xrpcQuery(GetPaths.method, verifier) { params, viewer -> segments.paths(viewer, params) }
+    xrpcQuery(SearchPathNames.method, verifier) { params, viewer -> segments.searchPathNames(viewer, params) }
     xrpcQuery(GetActivitySegments.method, verifier) { params, viewer -> segments.activitySegments(viewer, params) }
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }
@@ -163,6 +170,7 @@ fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: Se
     xrpcProcedure(PutSegmentCandidates.method, verifier) { input, caller -> candidates.put(requireViewer(caller), input) }
     xrpcProcedure(FinishSegmentCandidates.method, verifier) { input, caller -> candidates.finish(requireViewer(caller), input) }
     xrpcQuery(GetRiddenSegmentCandidates.method, verifier) { params, viewer -> candidates.ridden(requireViewer(viewer), params) }
+    xrpcQuery(GetSegmentLines.method, verifier) { params, viewer -> candidates.segmentLines(requireViewer(viewer), params) }
     xrpcProcedure(CheckSegmentCandidates.method, verifier) { input, caller -> candidates.check(requireViewer(caller), input) }
     xrpcQuery(GetHandoffs.method, verifier) { params, viewer -> candidates.handoffs(requireViewer(viewer), params) }
 }
