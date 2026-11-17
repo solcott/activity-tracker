@@ -146,6 +146,17 @@ class PublishPathsTest {
         assertEquals(listOf("pine"), listedFile(file, "us-vermont").readLines())
     }
 
+    @Test
+    fun aSegmentCrossingTwoTilesIsCountedOnce() = runTest {
+        services()
+        segments += segment("3kc", east = 0.3)
+        // Two paths a degree and more apart, so the region spans two tiles, each answering with the same off-path segment.
+        val far = path("far", "Far Trail", east = 1.5)
+        val result = publishPaths(clients, listOf(anns, far), clock)
+        assertEquals(2, fake.calls(Nsid.IMPORTER_GET_SEGMENT_LINES).size, "one call per tile")
+        assertEquals(1, result.unpathed)
+    }
+
     /** A 500 m path along the middle of where [segment]s run, a third of each one's 1.5 km. */
     private val stub = PathEntry("stub", PathKind.TRAIL, "Stub", listOf(line(0.0, 1_500.0, 2_000.0)), 500, "osm", "ODbL-1.0")
 

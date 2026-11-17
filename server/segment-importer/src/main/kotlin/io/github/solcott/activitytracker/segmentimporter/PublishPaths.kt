@@ -99,11 +99,13 @@ private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: 
     val index = PathIndex(paths)
     val needed = linkedSetOf<String>()
     var unpathed = 0
+    // Tiles share their edges, so a segment crossing one comes back from each tile it touches: each is tested once.
+    val seen = mutableSetOf<String>()
     for (tile in tilesOf(paths)) {
         var cursor: String? = null
         do {
             val page = clients.asImporter { clients.appView.query(GetSegmentLines.method, tile.copy(cursor = cursor)) }
-            for (segment in page.segments) {
+            for (segment in page.segments.filter { seen.add(it.uri.value) }) {
                 val line = SegmentGeometry.decodePolyline(segment.line) ?: continue
                 val on = index.pathsUnder(line, segment.sport, imported = segment.uri.authority == repo)
                 if (on.isEmpty()) unpathed++ else needed += on
