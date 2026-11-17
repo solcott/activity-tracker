@@ -1,9 +1,9 @@
 package io.github.solcott.activitytracker.app.host
 
+import io.github.solcott.activitytracker.app.links.AppLinks
+import io.github.solcott.activitytracker.app.links.LinkRequests
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
@@ -39,8 +39,8 @@ class AppHostTest {
                         emptySet(),
                         SessionRunner(NoLeaveSteps()),
                         { false },
-                        RecordScreenRequests(),
-                        AccountScreenRequests(),
+                        LinkRequests(AppLinks(null)),
+                        { null },
                     )
                     .also { made += it }
 

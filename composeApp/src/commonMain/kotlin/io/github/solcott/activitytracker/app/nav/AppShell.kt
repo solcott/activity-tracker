@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.runtime.Navigator
-import com.slack.circuit.runtime.popUntil
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.string
@@ -62,13 +61,7 @@ fun AppShell(
     val root = backStack.rootRecord?.screen
     val current = root?.let { TopLevelDestination.of(it, viewerDid) }
     val showNavigation = backStack.topRecord?.screen?.let(TopLevelDestination::showsNavigation) ?: false
-    val select: (TopLevelDestination) -> Unit = { destination ->
-        if (destination == current) {
-            navigator.popUntil { it == root }
-        } else {
-            navigator.resetRoot(destination.screen(viewerDid), Navigator.StateOptions(save = true, restore = true))
-        }
-    }
+    val select: (TopLevelDestination) -> Unit = { destination -> selectTab(backStack, navigator, viewerDid, destination, toRoot = true) }
 
     // Moves (rather than recreates) the screens when a resize swaps the layout.
     val screens = remember(content) { movableContentOf(content) }

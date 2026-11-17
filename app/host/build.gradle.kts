@@ -14,6 +14,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.appCommonApi)
+            // Links (ui/deep-links) are in LinkRequests' and sessionHostOf's signatures.
+            api(projects.appLinks)
             api(projects.coreData)
             // Navigator, Screen and CircuitUiState are in the host's signatures.
             api(libs.circuit.runtime)

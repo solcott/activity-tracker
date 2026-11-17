@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.app.host
 
+import io.github.solcott.activitytracker.app.links.AppLinks
+import io.github.solcott.activitytracker.app.links.LinkRequests
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -29,8 +29,8 @@ class HostSubRecordTest {
             subFactories = subFakes.factories,
             runner = SessionRunner(OpenSteps()),
             recording = { false },
-            recordRequests = RecordScreenRequests(),
-            accountRequests = AccountScreenRequests(),
+            links = LinkRequests(AppLinks(null)),
+            handles = { null },
         )
     private val feed = host.stack(TopLevelDestination.Feed)
     private val filter = TestSubScreen("filter")

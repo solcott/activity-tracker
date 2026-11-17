@@ -2,16 +2,22 @@ package io.github.solcott.activitytracker.app.host
 
 import io.github.solcott.activitytracker.app.SessionMode
 import io.github.solcott.activitytracker.app.feed.FeedScreen
+import io.github.solcott.activitytracker.app.links.AppLink
+import io.github.solcott.activitytracker.app.links.AppLinks
+import io.github.solcott.activitytracker.app.links.LinkRequests
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
+import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
+import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
+import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.AccountScreen
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.LeftElsewhereScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
+import io.github.solcott.activitytracker.app.settings.ThresholdHistoryScreen
+import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
 import kotlin.test.Test
@@ -35,8 +41,7 @@ import kotlinx.coroutines.test.runTest
 class SessionHostTest {
     private val fakes = FakePresenters()
     private val steps = OpenSteps()
-    private val recordRequests = RecordScreenRequests()
-    private val accountRequests = AccountScreenRequests()
+    private val links = LinkRequests(AppLinks(null))
     private var recovered = false
     private val host =
         SessionHost(
@@ -45,12 +50,14 @@ class SessionHostTest {
             subFactories = emptySet(),
             runner = SessionRunner(steps),
             recording = { recovered },
-            recordRequests = recordRequests,
-            accountRequests = accountRequests,
+            links = links,
+            handles = { handle -> "did:plc:alice".takeIf { handle == "alice.test" } },
         )
     private val feed = host.stack(TopLevelDestination.Feed)
     private val search = host.stack(TopLevelDestination.Search)
+    private val you = host.stack(TopLevelDestination.You)
     private val activity = TestScreen("activity")
+    private val segment = "at://did:plc:carol/app.activitytracker.feed.segment/3kseg"
 
     private fun TestScope.start() {
         backgroundScope.launch { host.run(HostClock.Immediate) }
@@ -306,17 +313,17 @@ class SessionHostTest {
         host.select(TopLevelDestination.Search)
         runCurrent()
 
-        recordRequests.request()
+        links.openRecord()
         runCurrent()
 
         assertEquals(listOf(AthleteSearchScreen, RecordScreen), search.screens)
         assertEquals(listOf<Any>(FeedScreen), feed.screens)
-        assertTrue(recordRequests.requests.replayCache.isEmpty(), "a new session doesn't replay it")
+        assertNull(links.pending.value, "a new session doesn't replay it")
     }
 
     @Test
     fun aRecordRequestMadeBeforeTheSessionOpensWaitsForIt() = runTest {
-        recordRequests.request()
+        links.openRecord()
         start()
 
         assertEquals(listOf(FeedScreen, RecordScreen), feed.screens)
@@ -326,7 +333,7 @@ class SessionHostTest {
     fun anAccountRequestOpensSettingsThenAccount() = runTest {
         start()
 
-        accountRequests.request()
+        links.openAccount()
         runCurrent()
 
         assertEquals(listOf(FeedScreen, SettingsScreen, AccountScreen), feed.screens)
@@ -338,10 +345,77 @@ class SessionHostTest {
         feed.goTo(SettingsScreen)
         feed.goTo(ActivityDefaultsScreen)
 
-        accountRequests.request()
+        links.openAccount()
         runCurrent()
 
         assertEquals(listOf(FeedScreen, SettingsScreen, AccountScreen), feed.screens)
+    }
+
+    @Test
+    fun aLinkToAnOwnSettingsPageOpensOnYouWithItsParents() = runTest {
+        start()
+        host.select(TopLevelDestination.Search)
+        runCurrent()
+
+        assertTrue(links.request("activitytracker://settings/training-zones/history"))
+        runCurrent()
+
+        assertEquals(TopLevelDestination.You, host.selected.value)
+        assertEquals(
+            listOf(ProfileScreen("did:plc:alice"), SettingsScreen, TrainingZonesScreen, ThresholdHistoryScreen),
+            you.screens,
+        )
+        assertEquals(listOf<Any>(AthleteSearchScreen), search.screens, "the tab shown before is as it was")
+        assertNull(links.pending.value)
+    }
+
+    @Test
+    fun aLinkMadeBeforeTheSessionOpensWaitsForIt() = runTest {
+        steps.leavingHere.value = null
+        assertTrue(links.request("/segment/did:plc:carol/3kseg"))
+        start()
+        assertEquals(listOf<Any>(FeedScreen), feed.screens, "nothing opens while the mode is unknown")
+
+        steps.leavingHere.value = false
+        runCurrent()
+
+        assertEquals(listOf(FeedScreen, SegmentScreen(segment)), feed.screens)
+    }
+
+    @Test
+    fun aLinkKeepsWhatTheStackAlreadyHoldsOfItsChain() = runTest {
+        start()
+        feed.goTo(SegmentScreen(segment))
+
+        links.request("/segment/did:plc:carol/3kseg/leaderboard")
+        runCurrent()
+
+        assertEquals(listOf(FeedScreen, SegmentScreen(segment), SegmentLeaderboardScreen(segment)), feed.screens)
+        assertEquals(TopLevelDestination.Feed, host.selected.value)
+    }
+
+    @Test
+    fun aLinkToTheOwnProfileReturnsYouToItsFirstScreen() = runTest {
+        start()
+        host.select(TopLevelDestination.You)
+        you.goTo(SettingsScreen)
+
+        links.request("/profile/alice.test")
+        runCurrent()
+
+        assertEquals(listOf<Any>(ProfileScreen("did:plc:alice")), you.screens)
+    }
+
+    @Test
+    fun anUnknownLinkLeavesTheAppAsItWas() = runTest {
+        start()
+        feed.goTo(activity)
+
+        links.open(AppLink.of("nowhere"))
+        runCurrent()
+
+        assertEquals(listOf(FeedScreen, activity), feed.screens)
+        assertNull(links.pending.value)
     }
 
     @Test

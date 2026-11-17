@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.app.host
 
+import io.github.solcott.activitytracker.app.links.AppLinks
+import io.github.solcott.activitytracker.app.links.LinkRequests
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,8 +27,8 @@ class HostEmbeddedRecordTest {
             subFactories = FakeSubPresenters().factories,
             runner = SessionRunner(OpenSteps()),
             recording = { false },
-            recordRequests = RecordScreenRequests(),
-            accountRequests = AccountScreenRequests(),
+            links = LinkRequests(AppLinks(null)),
+            handles = { null },
         )
     private val search = host.stack(TopLevelDestination.Search)
     private val browse = TestScreen("browse")

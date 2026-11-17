@@ -24,26 +24,26 @@ import com.slack.circuit.foundation.CircuitContent
 import com.slack.circuit.foundation.NavigableCircuitContent
 import com.slack.circuit.foundation.navstack.ProvidedValues
 import com.slack.circuit.foundation.rememberCircuitNavigator
-import com.slack.circuit.runtime.popUntil
 import com.slack.circuit.subcircuit.LocalSubCircuit
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.di.SessionGraph
 import io.github.solcott.activitytracker.app.di.circuits
 import io.github.solcott.activitytracker.app.feed.FeedScreen
+import io.github.solcott.activitytracker.app.links.LinkOpener
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
 import io.github.solcott.activitytracker.app.nav.appNavDecoration
+import io.github.solcott.activitytracker.app.nav.openLink
 import io.github.solcott.activitytracker.app.record.RecordScreen
-import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.LeftElsewhereScreen
-import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
 import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
 import io.github.solcott.activitytracker.lexicon.Did
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Root: signed out → [LoginScreen] on the app-scoped Circuit; signed in → a fresh `SessionGraph` (keyed by DID) whose Circuit hosts the
@@ -148,23 +148,15 @@ private fun SessionContent(graph: AppGraph, sessionGraph: SessionGraph, did: Did
         val recording = graph.activityRecorder.state.value
         if (recording.recovered || recording.inProgressFor(did.value)) navigator.goTo(RecordScreen)
     }
-    // The recording notification was tapped.
+    // A link, or a notification's request (Record, Account), waiting since before the session opened or arriving now
+    // (ui/deep-links). A newer one replaces one still being read.
     LaunchedEffect(Unit) {
-        graph.recordScreenRequests.requests.collect {
-            graph.recordScreenRequests.handled()
-            if (backStack.topRecord?.screen != RecordScreen) navigator.goTo(RecordScreen)
-        }
-    }
-    // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page. A Settings already in the
-    // stack is gone back to, rather than a second one opened above what's on it.
-    LaunchedEffect(Unit) {
-        graph.accountScreenRequests.requests.collect {
-            graph.accountScreenRequests.handled()
-            if (backStack.topRecord?.screen != AccountScreen) {
-                if (backStack.any { record -> record.screen == SettingsScreen }) navigator.popUntil { screen -> screen == SettingsScreen }
-                else navigator.goTo(SettingsScreen)
-                navigator.goTo(AccountScreen)
-            }
+        withFrameNanos {}
+        val opener = LinkOpener(did.value, graph.handleResolution)
+        graph.linkRequests.pending.collectLatest { request ->
+            if (request == null) return@collectLatest
+            opener.open(request)?.let { openLink(backStack, navigator, did.value, it) }
+            graph.linkRequests.handled(request)
         }
     }
     AppShell(backStack, navigator, viewerDid = did.value) { contentModifier ->

@@ -4,8 +4,8 @@ import androidx.compose.runtime.Stable
 import io.github.solcott.activitytracker.app.host.AppHost
 import io.github.solcott.activitytracker.app.host.SessionHost
 import io.github.solcott.activitytracker.app.host.SessionHostFactory
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
+import io.github.solcott.activitytracker.app.links.HandleResolution
+import io.github.solcott.activitytracker.app.links.LinkRequests
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
@@ -30,8 +30,12 @@ interface AppGraph : SessionGraph.Factory {
     val activityRecorder: ActivityRecorder
     val importSaves: ImportSaves
     val dataExports: DataExports
-    val recordScreenRequests: RecordScreenRequests
-    val accountScreenRequests: AccountScreenRequests
+
+    /** The links the app was asked to open from outside its UI, and the notifications' requests (ui/deep-links). */
+    val linkRequests: LinkRequests
+
+    /** Resolves a handle in a link to its DID, for the Compose shell's link opener (the host has its own). */
+    val handleResolution: HandleResolution
 }
 
 /**

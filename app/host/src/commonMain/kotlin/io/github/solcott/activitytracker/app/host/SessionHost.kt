@@ -13,14 +13,16 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.app.SessionMode
+import io.github.solcott.activitytracker.app.links.AppLinks
+import io.github.solcott.activitytracker.app.links.HandleResolution
+import io.github.solcott.activitytracker.app.links.LinkOpener
+import io.github.solcott.activitytracker.app.links.LinkRequests
+import io.github.solcott.activitytracker.app.links.OpenedLink
+import io.github.solcott.activitytracker.app.links.StackEdit
 import io.github.solcott.activitytracker.app.nav.TopLevelDestination
 import io.github.solcott.activitytracker.app.record.RecordScreen
-import io.github.solcott.activitytracker.app.record.RecordScreenRequests
-import io.github.solcott.activitytracker.app.settings.AccountScreen
-import io.github.solcott.activitytracker.app.settings.AccountScreenRequests
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
 import io.github.solcott.activitytracker.app.settings.LeftElsewhereScreen
-import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
@@ -44,17 +46,19 @@ import kotlinx.coroutines.launch
 @Inject
 class SessionHost
 // Internal for the same reason as AppHost's.
-@Suppress("LongParameterList") // What the session graph injects: the presenters, the sub-screens', and one piece per request it follows.
+@Suppress("LongParameterList") // What the session graph injects: the presenters, the sub-screens', and what opens links.
 internal constructor(
     session: OAuthSession,
     factories: Set<Presenter.Factory>,
     subFactories: Set<SubPresenterFactory>,
     private val runner: SessionRunner,
     private val recording: RecordingRecovery,
-    private val recordRequests: RecordScreenRequests,
-    private val accountRequests: AccountScreenRequests,
+    private val links: LinkRequests,
+    handles: HandleResolution,
 ) {
     val did: Did = session.did
+
+    private val opener = LinkOpener(did.value, handles)
 
     private val presenters = Presenters(factories, subFactories)
     private val keys = RecordKeys()
@@ -94,7 +98,7 @@ internal constructor(
 
     /**
      * Runs the session until cancelled: its mode and background work ([SessionRunner]), its presenters, and, while the app is open, the
-     * requests to show Record or Account and the offer of an unfinished recording.
+     * links it is asked to open (ui/deep-links) and the offer of an unfinished recording.
      */
     suspend fun run(clock: HostClock): Unit = coroutineScope {
         launch { runner.run() }
@@ -132,26 +136,28 @@ internal constructor(
         // An unfinished recording of this account's, from before the app stopped, is offered back first, and one still going since its
         // session expired is shown as it is (record/gps-recording).
         launch { if (recording.recover(did)) current().goTo(RecordScreen) }
-        // The recording notification was tapped.
+        // A link, or a notification's request (Record, Account), waiting since before the app opened or arriving now. A newer one
+        // replaces one still being read.
         launch {
-            recordRequests.requests.collect {
-                recordRequests.handled()
-                current().goTo(RecordScreen)
+            links.pending.collectLatest { request ->
+                if (request == null) return@collectLatest
+                opener.open(request)?.let(::open)
+                links.handled(request)
             }
         }
-        // The "export ready" notification was tapped (auth/data-export): Settings, then its Account page. A Settings already in the
-        // stack is gone back to, rather than a second one opened above what's on it.
-        launch {
-            accountRequests.requests.collect {
-                accountRequests.handled()
-                val stack = current()
-                if (stack.peek() != AccountScreen) {
-                    val settings = stack.records.value.indexOfLast { record -> record.screen == SettingsScreen }
-                    if (settings >= 0) stack.popTo(settings + 1) else stack.goTo(SettingsScreen)
-                    stack.goTo(AccountScreen)
-                }
-            }
-        }
+    }
+
+    /**
+     * Shows [link] (ui/deep-links): chooses its tab without returning it to its first screen, keeps that tab's stack up to what it already
+     * holds of the link's chain, and goes to the rest.
+     */
+    private fun open(link: OpenedLink) {
+        val tab = link.tab ?: selected.value
+        selected.value = tab
+        val stack = stack(tab)
+        val edit = StackEdit.of(stack.records.value.map { it.screen }, link.chain)
+        stack.popTo(edit.keep)
+        edit.push.forEach(stack::goTo)
     }
 
     private fun current(): TabStack = stack(selected.value)
@@ -196,16 +202,19 @@ internal constructor(
 }
 
 /**
- * A [SessionHost] over [factories] and [subFactories], with no recording to recover and no requests, for a test outside this module that
- * runs real presenters through it; the app's comes from its session graph. Not exported to Swift, as [appHostOf] isn't.
+ * A [SessionHost] over [factories] and [subFactories], with no recording to recover and the links of [links] to open (handles resolving
+ * only through [handles]), for a test outside this module that runs real presenters through it; the app's comes from its session graph. Not
+ * exported to Swift, as [appHostOf] isn't.
  */
+@Suppress("LongParameterList") // The constructor's pieces a test chooses; the last two have defaults.
 fun sessionHostOf(
     session: OAuthSession,
     factories: Set<Presenter.Factory>,
     subFactories: Set<SubPresenterFactory>,
     steps: SessionSteps,
-): SessionHost =
-    SessionHost(session, factories, subFactories, SessionRunner(steps), { false }, RecordScreenRequests(), AccountScreenRequests())
+    links: LinkRequests = LinkRequests(AppLinks(null)),
+    handles: HandleResolution = HandleResolution { null },
+): SessionHost = SessionHost(session, factories, subFactories, SessionRunner(steps), { false }, links, handles)
 
 /** Whether an unfinished recording of an account's should be shown when its session opens. */
 fun interface RecordingRecovery {

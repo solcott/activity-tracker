@@ -95,7 +95,7 @@ object IosDataExports {
             withCompletionHandler: () -> Unit,
         ) {
             if (didReceiveNotificationResponse.notification.request.identifier == READY) {
-                decoder?.let { appGraph(it).accountScreenRequests.request() }
+                decoder?.let { appGraph(it).linkRequests.openAccount() }
             }
             withCompletionHandler()
         }
