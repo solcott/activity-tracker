@@ -193,6 +193,34 @@ class SegmentPresenterTest {
         }
     }
 
+    @Test
+    fun aLoneOneWaySegmentOffersItsOneDirectionOnly() = runTest {
+        naming = ""","oneWay":true,"elevationGain":120,"elevationLoss":0"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val group = assertNotNull(awaitUntil { it.group != null }.group)
+            assertTrue(group.offered && group.oneWay)
+            assertFalse(group.showsSports, "nothing else to switch to")
+            assertEquals(listOf("uphill"), group.directions.map { it.direction.word })
+            assertNull(group.directionEvent(group.directions.single()))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aClimbingGroupNamesItsDirectionsUphillAndDownhillInPlace() = runTest {
+        naming = ""","elevationGain":120,"elevationLoss":0"""
+        routeField = ""","groupMembers":[${member("3krunb", "run", back)}]"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val group = assertNotNull(awaitUntil { it.group != null }.group)
+            assertFalse(group.oneWay)
+            assertEquals(listOf("northbound", "southbound"), group.directions.map { it.heading.word }, "ordered by heading")
+            assertEquals(listOf("uphill", "downhill"), group.directions.map { it.direction.word })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private suspend fun session(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Pair<SegmentRepository, SegmentStars> {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
         this.db = db

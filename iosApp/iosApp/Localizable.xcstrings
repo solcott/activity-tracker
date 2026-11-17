@@ -17502,6 +17502,17 @@
         }
       }
     },
+    "segment_heading_downhill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downhill"
+          }
+        }
+      }
+    },
     "segment_heading_eastbound" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -17531,6 +17542,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Southbound"
+          }
+        }
+      }
+    },
+    "segment_heading_uphill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uphill"
           }
         }
       }
@@ -17942,6 +17964,94 @@
         }
       }
     },
+    "segment_one_way_clockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clockwise only"
+          }
+        }
+      }
+    },
+    "segment_one_way_counterclockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counterclockwise only"
+          }
+        }
+      }
+    },
+    "segment_one_way_downhill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downhill only"
+          }
+        }
+      }
+    },
+    "segment_one_way_eastbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eastbound only"
+          }
+        }
+      }
+    },
+    "segment_one_way_northbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Northbound only"
+          }
+        }
+      }
+    },
+    "segment_one_way_southbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Southbound only"
+          }
+        }
+      }
+    },
+    "segment_one_way_uphill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uphill only"
+          }
+        }
+      }
+    },
+    "segment_one_way_westbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Westbound only"
+          }
+        }
+      }
+    },
     "segment_open_original" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -18169,6 +18279,105 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ski"
+          }
+        }
+      }
+    },
+    "segment_sports_both_ways" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ both ways"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_clockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ clockwise only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_counterclockwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ counterclockwise only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_downhill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ downhill only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_eastbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ eastbound only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_northbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ northbound only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_southbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ southbound only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_uphill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ uphill only"
+          }
+        }
+      }
+    },
+    "segment_sports_one_way_westbound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ westbound only"
           }
         }
       }

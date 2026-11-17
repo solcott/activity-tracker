@@ -23,3 +23,18 @@ private fun SegmentStates(@PreviewParameter(SegmentStates::class) state: Segment
 }
 
 class SegmentStates : OtherSamples<SegmentState>(SegmentSamples.all)
+
+/**
+ * The segment group switcher (segments/segment-groups, segments/segment-direction): two-way, named by climb, and a lone one-way segment.
+ */
+@PreviewTest
+@PreviewPhoneSize
+@Composable
+private fun SegmentGroupSwitcher(@PreviewParameter(SegmentGroupStates::class) state: SegmentState) {
+    ScreenPreview { SegmentUi(state) }
+}
+
+class SegmentGroupStates :
+    OtherSamples<SegmentState>(
+        SegmentSamples.variants.filterKeys { it in setOf(SegmentSamples.GROUP, SegmentSamples.GROUP_BY_CLIMB, SegmentSamples.ONE_WAY) },
+    )

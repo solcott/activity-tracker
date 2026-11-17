@@ -73,6 +73,33 @@ object SegmentBrowseSamples {
             .let { members -> members.map { it.copy(group = members.first().uri) } }
             .toImmutableList()
 
+    /**
+     * Clarks' ride line (segments/segment-direction): one-way for bikes, clearly climbing from its start (199 m up over 2287 m), as the
+     * segment importer publishes it from `oneway:bicycle`.
+     */
+    val clarksRide =
+        fakeSegment(
+                "3kclarksride",
+                record = fakeSegmentRecord("Clarks", sport = SegmentSportGroup.RIDE),
+                distanceMeters = 2_287,
+            )
+            .copy(oneWay = true, elevationGain = 199, elevationLoss = 0)
+
+    /** Clarks' foot line: run and hike segments each way, a segment group of four, two-way on foot. */
+    val clarksFoot =
+        listOf(SegmentSportGroup.RUN, SegmentSportGroup.HIKE)
+            .flatMap { sport ->
+                listOf("eastbound" to Fixed.POLYLINE, "westbound" to back).map { (way, line) ->
+                    fakeSegment(
+                        "3kclarks$sport$way",
+                        record = fakeSegmentRecord("Clarks - Bikes Uphill Only ($way)", sport = sport, line = line),
+                        distanceMeters = 2_022,
+                    )
+                }
+            }
+            .let { members -> members.map { it.copy(group = members.first().uri) } }
+            .toImmutableList()
+
     /** Pine St, a road with an athlete's segment on it. */
     private val pineSt =
         fakePath("pine", name = "Pine St", kind = PathKind.ROAD, lengthMeters = 3_200, sports = listOf(SegmentSportGroup.RIDE))

@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -8,7 +9,7 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
-import io.github.solcott.activitytracker.location.SegmentHeading
+import io.github.solcott.activitytracker.location.SegmentDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,8 +37,32 @@ class SegmentGroupUiTest {
     }
 
     @Test
+    fun aLoneOneWaySegmentShowsItsDirectionDisabled() = runComposeUiTest {
+        val state = SegmentSamples.oneWay
+        assertTrue(state.group!!.offered && state.group!!.oneWay && !state.group!!.showsSports)
+        setContent { AppPreview { SegmentUi(state) } }
+        onNodeWithText("Uphill only").assertExists().assertIsNotEnabled()
+        onNodeWithText("Ride").assertDoesNotExist()
+    }
+
+    @Test
+    fun aClimbingGroupNamesItsDirectionsUphillAndDownhill() = runComposeUiTest {
+        val state = SegmentSamples.groupByClimb
+        assertEquals(listOf("Uphill", "Downhill"), state.group!!.directions.map { it.direction.name }.sortedDescending())
+        setContent { AppPreview { SegmentUi(state) } }
+        onNodeWithText("Uphill").assertExists()
+        onNodeWithText("Downhill").assertExists()
+    }
+
+    @Test
+    fun aTwoWayGroupIsNotOneWay() {
+        assertFalse(SegmentSamples.group.group!!.oneWay)
+        assertTrue(SegmentSamples.group.group!!.showsSports)
+    }
+
+    @Test
     fun everyDirectionHasItsString() {
-        val names = SegmentHeading.entries.map { "segment_heading_${it.word}" }
+        val names = SegmentDirection.entries.flatMap { listOf("segment_heading_${it.word}", "segment_one_way_${it.word}") }
         assertTrue(names.all { it in Res.allStringResources }, "missing ${names.filterNot { it in Res.allStringResources }}")
     }
 

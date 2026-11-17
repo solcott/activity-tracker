@@ -5,9 +5,11 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentDirection
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentHeading
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -24,6 +26,8 @@ data class SegmentGroupRow(
     val sports: ImmutableList<String>,
     /** Whether the members run both ways along the path. */
     val bothWays: Boolean,
+    /** Which ways each of [sports] goes (segments/segment-groups), in the same order. */
+    val ways: ImmutableList<SportWay> = persistentListOf(),
 ) {
     /** The segment group's key: the segment naming it. */
     val key: AtUri
@@ -42,7 +46,7 @@ data class SegmentGroupRow(
          * segment importer adds, or with its one "→" read as "↔"; otherwise, and for any other name, as it is.
          */
         fun displayName(name: String, bothWays: Boolean): String {
-            val direction = DIRECTION_SUFFIX.find(name)?.takeIf { SegmentHeading.ofWord(it.groupValues[1]) != null }
+            val direction = DIRECTION_SUFFIX.find(name)?.takeIf { SegmentDirection.ofWord(it.groupValues[1]) != null }
             return when {
                 !bothWays -> name
                 direction != null -> name.removeRange(direction.range)
@@ -62,7 +66,24 @@ data class SegmentGroupRow(
                 shown = shown,
                 sports = sports.toImmutableList(),
                 bothWays = bothWays(shown, members),
+                ways = sports.map { group -> wayOf(group, members.filter { it.record.sport == group }) }.toImmutableList(),
             )
+        }
+
+        /**
+         * Which ways [sport]'s [members] go: both ways when they run in both directions, one way when they all run one way and are one-way
+         * (segments/segment-direction), never for alpine, and otherwise unstated.
+         */
+        private fun wayOf(sport: String, members: List<SegmentView>): SportWay {
+            val first = members.first()
+            val reference = lineOf(first)
+            val bothWays = reference != null && members.mapNotNull(::lineOf).any { !sameWay(reference, it) }
+            val oneWay = !bothWays && sport != SegmentSportGroup.ALPINE && members.all { it.oneWay == true }
+            val direction =
+                reference
+                    ?.takeIf { oneWay }
+                    ?.let { SegmentDirection.of(it, first.elevationGain, first.elevationLoss, first.distanceMeters) }
+            return SportWay(sport, direction, bothWays)
         }
 
         /** Whether any of [members] runs the other way from [shown]. */
@@ -86,6 +107,12 @@ data class SegmentGroupRow(
             SegmentGeometry.decodePolyline(segment.record.line)?.takeIf { it.size >= 2 }
     }
 }
+
+/**
+ * Which ways a segment group's [sport] goes (segments/segment-groups): [bothWays], one way only in [direction] when it is one-way
+ * (segments/segment-direction), or neither, when its listed segments run one way without being one-way.
+ */
+@Immutable data class SportWay(val sport: String, val direction: SegmentDirection?, val bothWays: Boolean)
 
 /** A direction the importer adds to a two-way trail's name, in parentheses at its end (segments/trail-candidates). */
 private val DIRECTION_SUFFIX = Regex(""" \(([a-z]+)\)$""")

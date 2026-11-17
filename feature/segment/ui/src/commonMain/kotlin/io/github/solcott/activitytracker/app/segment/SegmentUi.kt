@@ -85,23 +85,33 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 
 /**
  * The segment group's sport groups and the shown group's directions (segments/segment-groups), as chips; choosing one replaces the page
- * with that segment's.
+ * with that segment's. A one-way sport group's one direction shows as a disabled chip ("Uphill only").
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupChoices(group: GroupSwitcher, eventSink: (SegmentEvent) -> Unit) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            group.sports.forEach { sport ->
-                AppFilterChip(
-                    selected = sport == group.currentSport,
-                    onClick = { group.sportEvent(sport)?.let(eventSink) },
-                    label = { Text(GroupSwitcherTexts.sport(sport).string()) },
-                )
+        if (group.showsSports) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                group.sports.forEach { sport ->
+                    AppFilterChip(
+                        selected = sport == group.currentSport,
+                        onClick = { group.sportEvent(sport)?.let(eventSink) },
+                        label = { Text(GroupSwitcherTexts.sport(sport).string()) },
+                    )
+                }
             }
         }
         val directions = group.directions
-        if (directions.size > 1) {
+        if (group.oneWay) {
+            // A one-way sport group's one direction (segments/segment-direction): shown as the choice, which can't be changed.
+            AppFilterChip(
+                selected = true,
+                onClick = {},
+                enabled = false,
+                label = { Text(GroupSwitcherTexts.oneWay(directions.single()).string()) },
+            )
+        } else if (directions.size > 1) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 directions.forEach { direction ->
                     AppFilterChip(

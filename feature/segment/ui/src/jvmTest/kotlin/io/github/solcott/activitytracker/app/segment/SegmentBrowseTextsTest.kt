@@ -1,10 +1,15 @@
 package io.github.solcott.activitytracker.app.segment
 
+import io.github.solcott.activitytracker.app.fixtures.fakeSegment
+import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.location.SegmentDirection
+import io.github.solcott.activitytracker.location.SegmentGeometry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -98,6 +103,74 @@ class SegmentBrowseTextsTest {
     }
 
     @Test
+    fun aOneWayClimbSaysUphillOnly() {
+        val units = UnitSystem.Imperial
+        val clarks = SegmentGroupRow.groupOf(listOf(SegmentBrowseSamples.clarksRide))
+        assertEquals(AppText.written("Clarks"), SegmentBrowseTexts.groupName(clarks))
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                AppText.named(
+                    "segment_browse_details",
+                    StatText.distance(2_287.0, units),
+                    SegmentTexts.type(SegmentSportGroup.RIDE, null),
+                ),
+                AppText.named("segment_one_way_uphill"),
+            ),
+            SegmentBrowseTexts.details(clarks, units),
+        )
+    }
+
+    @Test
+    fun aOneWayLineThatNeitherClimbsNorDescendsSaysItsHeading() {
+        val flat = SegmentBrowseSamples.clarksRide.copy(elevationGain = null, elevationLoss = null)
+        val row = SegmentGroupRow.groupOf(listOf(flat))
+        val heading = SegmentDirection.of(SegmentGeometry.decodePolyline(flat.record.line)!!, null, null, flat.distanceMeters)
+        assertTrue(heading != SegmentDirection.Uphill && heading != SegmentDirection.Downhill, "named by compass")
+        assertTrue("segment_one_way_${heading.word}" in names(SegmentBrowseTexts.details(row, UnitSystem.Metric)))
+    }
+
+    @Test
+    fun aMixedGroupNamesEachSportGroupsWay() {
+        val units = UnitSystem.Metric
+        val foot = SegmentBrowseSamples.clarksFoot
+        val mixed = SegmentGroupRow.groupOf(foot + SegmentBrowseSamples.clarksRide.copy(group = foot.first().uri))
+        val sports = { list: List<String> -> AppText.joined(list.map(SegmentTexts::sportGroup))!! }
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                StatText.distance(mixed.shown.distanceMeters.toDouble(), units),
+                AppText.named(
+                    "segment_browse_details",
+                    AppText.named("segment_sports_both_ways", sports(listOf("run", "hike"))),
+                    AppText.named("segment_sports_one_way_uphill", sports(listOf("ride"))),
+                ),
+            ),
+            SegmentBrowseTexts.details(mixed, units),
+        )
+    }
+
+    @Test
+    fun oneDirectionPublishedButNotOneWaySaysNothingOfDirection() {
+        val eastOnly = SegmentGroupRow.groupOf(listOf(SegmentBrowseSamples.clarksFoot.first()))
+        val text = names(SegmentBrowseTexts.details(eastOnly, UnitSystem.Metric))
+        assertTrue(text.none { it.startsWith("segment_one_way") || it == "segment_browse_both_ways" }, "$text")
+    }
+
+    @Test
+    fun anAlpineRunIsNeverLabelledOneWay() {
+        val run = fakeSegment("3kpiste", record = fakeSegmentRecord("Upper Main", sport = SegmentSportGroup.ALPINE)).copy(oneWay = true)
+        val text = names(SegmentBrowseTexts.details(SegmentGroupRow.groupOf(listOf(run)), UnitSystem.Metric))
+        assertTrue(text.none { it.startsWith("segment_one_way") }, "$text")
+    }
+
+    @Test
+    fun aRowNamedByClimbDropsItsDirection() {
+        assertEquals("Clarks", SegmentGroupRow.displayName("Clarks (uphill)", bothWays = true))
+        assertEquals("Clarks", SegmentGroupRow.displayName("Clarks (downhill)", bothWays = true))
+    }
+
+    @Test
     fun aTrailsRowSaysWhatItIsAndHowManySegments() {
         val trail = SegmentBrowseSamples.runs.last()
         val row = trail.row as BrowseRow.Path
@@ -160,7 +233,11 @@ class SegmentBrowseTextsTest {
                     SegmentBrowseTexts.rowAction(selected = true, touch = true),
                 ) +
                 listOf(SegmentCredit.OpenStreetMap("ODbL"), SegmentCredit.Agency("PD", "USFS"), SegmentCredit.Agency("PD"))
-                    .flatMap(SegmentCreditTexts::lines)
+                    .flatMap(SegmentCreditTexts::lines) +
+                SegmentDirection.entries.flatMap { direction ->
+                    listOf(AppText.named("segment_one_way_${direction.word}"), AppText.named("segment_sports_one_way_${direction.word}"))
+                } +
+                AppText.named("segment_sports_both_ways")
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }

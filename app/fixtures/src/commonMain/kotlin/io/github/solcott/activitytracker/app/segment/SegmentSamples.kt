@@ -316,15 +316,54 @@ object SegmentSamples {
             return loaded.copy(group = GroupSwitcher.of(segment, members))
         }
 
+    /**
+     * The one-way ride segment "Clarks" (segments/segment-direction), alone in its segment group and clearly climbing: the page shows no
+     * sport choice and its one direction as "Uphill only", which can't be chosen.
+     */
+    val oneWay: SegmentState
+        get() {
+            val clarks =
+                segment.copy(
+                    record = segment.record.copy(name = "Clarks", source = SegmentSource.OSM, license = "ODbL-1.0", oneWay = true),
+                    distanceMeters = 2_287,
+                    elevationGain = 199,
+                    elevationLoss = 0,
+                    oneWay = true,
+                )
+            return loaded.copy(content = ContentStates.loaded(clarks), group = GroupSwitcher.of(clarks, emptyList()))
+        }
+
+    /** [group] on a line that clearly climbs from its start: the directions read Uphill and Downhill. */
+    val groupByClimb: SegmentState
+        get() {
+            val climbing = segment.copy(elevationGain = 120, elevationLoss = 5)
+            val members = checkNotNull(group.group).options.filter { it.uri != segment.uri }
+            val line = segment.record.line
+            val back = SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(line).orEmpty().reversed())
+            val groupMembers = members.map {
+                GetSegment.GroupMember(it.uri, it.sport, name = segment.record.name, line = if (it.forward) line else back)
+            }
+            return loaded.copy(content = ContentStates.loaded(climbing), group = GroupSwitcher.of(climbing, groupMembers))
+        }
+
     /** Kept apart from [all], whose keys are the content-loading set. */
     val variants: Map<String, SegmentState>
-        get() = mapOf(OPEN_STREET_MAP to openStreetMap, DUPLICATE to duplicate, GROUP to group)
+        get() =
+            mapOf(
+                OPEN_STREET_MAP to openStreetMap,
+                DUPLICATE to duplicate,
+                GROUP to group,
+                ONE_WAY to oneWay,
+                GROUP_BY_CLIMB to groupByClimb,
+            )
 
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"
     const val OPEN_STREET_MAP = "openStreetMap"
     const val DUPLICATE = "duplicate"
     const val GROUP = "group"
+    const val ONE_WAY = "oneWay"
+    const val GROUP_BY_CLIMB = "groupByClimb"
 }
 
 object SegmentMapSamples {

@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
+import io.github.solcott.activitytracker.app.fixtures.fakePath
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -61,9 +62,30 @@ object PathSamples {
     val empty: PathState
         get() = page(ContentStates.loaded(content.copy(groups = persistentListOf())))
 
+    /**
+     * Clarks (segments/segment-direction): a one-way ride line that clearly climbs, "Ride · Uphill only", and a foot line run and hiked
+     * both ways, "Run, Hike · Both ways".
+     */
+    val oneWay: PathState
+        get() =
+            page(
+                ContentStates.loaded(
+                    content.copy(
+                        path = fakePath("clarks", name = "Clarks", lengthMeters = 2_287),
+                        groups =
+                            persistentListOf(
+                                SegmentGroupRow.groupOf(listOf(SegmentBrowseSamples.clarksRide)),
+                                SegmentGroupRow.groupOf(SegmentBrowseSamples.clarksFoot),
+                            ),
+                    ),
+                ),
+            )
+
     /** Every shared sample and the page's states beyond content loading, for the native page's previews and snapshots. */
     val variants: Map<String, PathState>
-        get() = all + mapOf("selected" to selected, "ride" to ride, "empty" to empty)
+        get() = all + mapOf("selected" to selected, "ride" to ride, "empty" to empty, ONE_WAY to oneWay)
+
+    const val ONE_WAY = "oneWay"
 }
 
 private const val BURLINGTON_LAT = 44.4759
