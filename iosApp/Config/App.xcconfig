@@ -1,0 +1,5 @@
+// The app target's base configuration. Universal Links (ui/deep-links) need a development team and the associated-domains
+// entitlement, which the ad-hoc "Sign to Run Locally" build can't carry, so they are on only when scripts/dev.sh has written
+// Local.xcconfig (gitignored) from activitytracker.appleTeamId: DEVELOPMENT_TEAM, APP_LINK_HOST (the AppView's public host) and
+// CODE_SIGN_ENTITLEMENTS = Config/AppLinks.entitlements. Without it the build is unchanged, and activitytracker:// links open the app.
+#include? "Local.xcconfig"

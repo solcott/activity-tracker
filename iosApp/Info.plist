@@ -21,6 +21,19 @@
 		<!-- Data exports resume in the background (IosDataExports, auth/data-export). -->
 		<string>io.github.solcott.activitytracker.dataexport</string>
 	</array>
+	<!-- The app's own link scheme (ui/deep-links): activitytracker://profile/alice.test. Not the OAuth redirect scheme, which
+	     ASWebAuthenticationSession takes itself. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.solcott.activitytracker.links</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>activitytracker</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Local docker stack is plain HTTP on localhost. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

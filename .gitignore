@@ -21,3 +21,6 @@ DerivedData/
 docker/.env
 docker/data/
 .dev/
+
+# Written by scripts/dev.sh when activitytracker.appleTeamId is set (ui/deep-links).
+iosApp/Config/Local.xcconfig

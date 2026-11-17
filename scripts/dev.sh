@@ -276,6 +276,46 @@ ensure_signing_key() {
   ok "generated APPVIEW_SIGNING_KEY into docker/.env (the AppView restarts to pick it up)"
 }
 
+# ---------------------------------------------------------------- app links
+
+# What the platforms verify the app's https links against (ui/deep-links), served by the AppView from docker/.env:
+# ANDROID_CERT_SHA256, the debug keystore's fingerprint (the debug build is signed with it), and, with
+# activitytracker.appleTeamId set (local.properties or the Gradle user home's gradle.properties), APPLE_APP_IDS, plus
+# iosApp/Config/Local.xcconfig, which turns on the iOS app's associated domains for the AppView's host. Without a team the
+# iOS app opens only activitytracker:// links. A changed value restarts the AppView, which reads them when it starts.
+ensure_app_links() {
+  step "App links"
+  local keystore="$HOME/.android/debug.keystore" sha team host apple
+  if [[ -f $keystore ]] && command -v keytool >/dev/null; then
+    sha=$(keytool -list -v -keystore "$keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null |
+      sed -nE 's/^[[:space:]]*SHA256:[[:space:]]*([0-9A-F:]+).*$/\1/p' | head -1)
+  fi
+  if [[ -n ${sha:-} && $(env_value ANDROID_CERT_SHA256) != "$sha" ]]; then
+    set_env ANDROID_CERT_SHA256 "$sha"
+    RESTART_APPVIEW=1
+  fi
+  [[ -n ${sha:-} ]] && ok "Android App Links: debug keystore $sha" || warn "no debug keystore (or keytool): Android verifies no links"
+
+  team=$(user_property activitytracker.appleTeamId)
+  [[ -z $team ]] && team=$(property activitytracker.appleTeamId)
+  host=${TUNNEL_URL#https://}
+  host=${host%%/*}
+  if [[ -n $team ]]; then
+    apple="$team.io.github.solcott.activitytracker"
+    if [[ $(env_value APPLE_APP_IDS) != "$apple" ]]; then
+      set_env APPLE_APP_IDS "$apple"
+      RESTART_APPVIEW=1
+    fi
+    mkdir -p iosApp/Config
+    printf '// Written by scripts/dev.sh from activitytracker.appleTeamId; not committed.\nDEVELOPMENT_TEAM = %s\nAPP_LINK_HOST = %s\nCODE_SIGN_ENTITLEMENTS = Config/AppLinks.entitlements\n' \
+      "$team" "$host" >iosApp/Config/Local.xcconfig
+    ok "Universal Links: $apple on $host (iosApp/Config/Local.xcconfig)"
+  else
+    rm -f iosApp/Config/Local.xcconfig
+    ok "Universal Links off (set activitytracker.appleTeamId to turn them on); activitytracker:// links still open the iOS app"
+  fi
+}
+
 # ---------------------------------------------------------------- tunnel
 
 # Prints the hostname of a running quick tunnel to the AppView, if any (from cloudflared's metrics).
@@ -735,6 +775,7 @@ cmd_up() {
     warn "skipped: the PDS can't reach the AppView's Spaces checkAccess without it"
   fi
   ensure_signing_key
+  ensure_app_links
   ensure_appview
   [[ ${NO_ANDROID:-0} != 1 ]] && ensure_android
   ensure_accounts

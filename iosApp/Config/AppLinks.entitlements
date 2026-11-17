@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal Links on the AppView's host (ui/deep-links), checked against its /.well-known/apple-app-site-association.
+	     Developer mode reads that file from the host itself, not Apple's CDN, which can't reach a tunnel. Applied only through
+	     Local.xcconfig, with a team. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:$(APP_LINK_HOST)?mode=developer</string>
+	</array>
+</dict>
+</plist>

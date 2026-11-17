@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.HeldPhotoBytes
 import io.github.solcott.activitytracker.app.IosAppHost
+import io.github.solcott.activitytracker.app.OpenAppLink
 import io.github.solcott.activitytracker.app.background.IosBackgroundUploads
 import io.github.solcott.activitytracker.app.background.IosDataExports
 import io.github.solcott.activitytracker.app.background.IosImportSaves
@@ -36,6 +37,13 @@ object IosApp {
      * screen's states. The SwiftUI shell follows it and draws each screen. Started by the first call.
      */
     fun host(fitDecoder: FitDecoder): AppHost = IosAppHost(fitDecoder)
+
+    /**
+     * Opens [url], an `activitytracker:` link or a Universal Link the app was opened with (ui/deep-links), now or once a session is open,
+     * on the tab its page belongs to. Whether it was one of the app's links. `iOSApp.swift` calls it from `onOpenURL` and
+     * `onContinueUserActivity`.
+     */
+    fun openLink(url: String, fitDecoder: FitDecoder): Boolean = OpenAppLink(fitDecoder, url)
 
     /**
      * The files the native import screen's document picker gave, by their URLs (`file:` and security scoped), as the sources the import

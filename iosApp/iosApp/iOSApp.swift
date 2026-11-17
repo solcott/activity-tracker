@@ -19,6 +19,17 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(host: host)
+                // The app's links (ui/deep-links): activitytracker:// URLs, and https ones on the AppView's host when the build has
+                // associated domains. Kotlin opens each once a session is open. Sign-in's callback never comes here:
+                // ASWebAuthenticationSession takes it.
+                .onOpenURL { url in
+                    _ = IosApp.shared.openLink(url: url.absoluteString, fitDecoder: SwiftFitDecoder())
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL {
+                        _ = IosApp.shared.openLink(url: url.absoluteString, fitDecoder: SwiftFitDecoder())
+                    }
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {

@@ -41,3 +41,9 @@ internal object IosHost {
 @Suppress("FunctionName")
 fun HeldPhotoBytes(url: String): ByteString? =
     if (HeldPhotos.isHeld(url)) IosHost.session?.feedRepository?.heldPhotos?.get(photoCid(url))?.bytes?.let(::ByteString) else null
+
+/**
+ * Entry point for `:iosShell`: opens [url] if it is one of the app's links (ui/deep-links), now or once a session is open, and says whether
+ * it was.
+ */
+@Suppress("FunctionName") fun OpenAppLink(fitDecoder: FitDecoder, url: String): Boolean = appGraph(fitDecoder).linkRequests.request(url)

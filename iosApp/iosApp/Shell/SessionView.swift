@@ -65,7 +65,10 @@ private struct StackView: View {
                     .environment(\.tabRoot, true)
                     .id(pushed[0].key)
                     .navigationDestination(for: StackEntry.self) { entry in
-                        StackDestination(record: entry.record, stack: stack)
+                        // Each record is a view of its own. A hidden tab whose stack changes under it (a link that goes back and opens
+                        // another page there, ui/deep-links) gets one replace from SwiftUI, which would otherwise reuse the old page's
+                        // view, still following the record that left.
+                        StackDestination(record: entry.record, stack: stack).id(entry.record.key)
                     }
             }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { stack.setSize(width: Double($0.width), height: Double($0.height)) }
