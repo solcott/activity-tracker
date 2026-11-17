@@ -95,7 +95,7 @@ Use Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStat
 
 ## Skills & Subagents
 
-Custom skills live in `.agents/skills/`. `.claude/skills/` symlinks the shared ones and keeps its own OpenSpec skills (Claude uses `/opsx:apply`, Antigravity `/opsx-apply`). Run `scripts/check-agent-sync.sh` after changing either side.
+Custom skills live in `.agents/skills/`, and `.claude/skills/` symlinks them, the OpenSpec skills included (invoke them by name, e.g. `openspec-apply-change`; only archiving also has a command, `/opsx:archive`). Run `scripts/check-agent-sync.sh` after changing either side.
 - `local-stack`: Bring up, seed, smoke-test and troubleshoot the local ATProto network and AppView.
 - `lexicon-change`: Step-by-step checklist for modifying or adding lexicons and synchronizing all layers.
 - `new-screen`: Scaffold a new Circuit screen across a feature's `-api`, `-presenter` and `-ui` modules and `:app-fixtures`.
