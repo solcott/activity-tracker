@@ -6,6 +6,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberShownName
+import io.github.solcott.activitytracker.app.viewerApart
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -37,7 +38,7 @@ fun SegmentLeaderboardPresenter(
         name = rememberShownName(screen.name, uri) { segments.segment(uri).currentName },
         filters = filters.fields(types),
         entries = board,
-        viewerEntry = board.viewerApart { it.athlete.did },
+        viewerEntry = board.viewerApart(viewerOf = { it.viewer }, athleteOf = { it.athlete.did }),
     ) { event ->
         when (event) {
             SegmentLeaderboardEvent.Back -> navigator.pop()

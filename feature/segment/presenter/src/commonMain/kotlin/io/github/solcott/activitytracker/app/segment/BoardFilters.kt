@@ -8,17 +8,13 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.data.segments.LeaderboardBrackets
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
-import io.github.solcott.uistate.PagedState
-import io.github.solcott.uistate.hasAnswer
 
 /**
  * A board screen's choices (segments/segment-leaderboards, segments/segment-mayors): its period, one of [kind]'s, the scope, the board type
@@ -128,7 +124,3 @@ private fun boardFiltersSaver(kind: BoardKind): Saver<BoardFilters, Any> =
             }
         },
     )
-
-/** The viewer's own entry, from the page meta, when it isn't among the entries loaded; null before the first answer. */
-internal fun <E> PagedState<E, BoardMeta<E>>.viewerApart(athleteOf: (E) -> Did): E? =
-    meta?.viewer?.takeIf { own -> hasAnswer && items.none { athleteOf(it) == athleteOf(own) } }

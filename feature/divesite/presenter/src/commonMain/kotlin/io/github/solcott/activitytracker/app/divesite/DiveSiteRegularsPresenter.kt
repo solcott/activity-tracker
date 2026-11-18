@@ -10,6 +10,7 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberShownName
+import io.github.solcott.activitytracker.app.viewerApart
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -17,7 +18,6 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
-import io.github.solcott.uistate.hasAnswer
 import kotlinx.coroutines.flow.flow
 
 @CircuitInject(DiveSiteRegularsScreen::class, SessionScope::class)
@@ -34,7 +34,7 @@ fun DiveSiteRegularsPresenter(screen: DiveSiteRegularsScreen, navigator: Navigat
             }
         }
     val board = entries.state
-    val viewer = board.meta?.viewer?.takeIf { own -> board.hasAnswer && board.items.none { it.athlete.did == own.athlete.did } }
+    val viewer = board.viewerApart(viewerOf = { it.viewer }, athleteOf = { it.athlete.did })
 
     val name = rememberShownName(screen.name, uri) { sites.site(uri).currentName }
     return DiveSiteRegularsState(name, period, scope, board, viewer) { event ->
