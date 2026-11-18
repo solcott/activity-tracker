@@ -14,11 +14,11 @@ import androidx.core.app.ServiceCompat
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.deviceRegion
+import io.github.solcott.activitytracker.data.units.formatClock
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.location.AndroidRecordingForeground
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -94,7 +94,11 @@ class RecordingService : Service() {
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentTitle(getString(if (paused) R.string.recording_paused_title else R.string.recording_title))
             .setContentText(
-                getString(R.string.recording_text, elapsedText(state.elapsed(Clock.System.now())), distanceText(state.distanceMeters)),
+                getString(
+                    R.string.recording_text,
+                    formatClock(state.elapsed(Clock.System.now()).inWholeSeconds),
+                    distanceText(state.distanceMeters),
+                ),
             )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -137,17 +141,6 @@ class RecordingService : Service() {
         const val NOTIFICATION_ID = 1
         val REFRESH = 5.seconds
     }
-}
-
-private const val SECONDS_PER_HOUR = 3600L
-private const val SECONDS_PER_MINUTE = 60L
-
-/** `h:mm:ss`, or `m:ss` under an hour. */
-private fun elapsedText(duration: Duration): String {
-    val total = duration.inWholeSeconds
-    val (h, m, s) = Triple(total / SECONDS_PER_HOUR, total % SECONDS_PER_HOUR / SECONDS_PER_MINUTE, total % SECONDS_PER_MINUTE)
-    fun two(n: Long) = n.toString().padStart(2, '0')
-    return if (h > 0) "$h:${two(m)}:${two(s)}" else "$m:${two(s)}"
 }
 
 /** In the device region's units: the athlete's chosen ones belong to their session, which the service doesn't see. */

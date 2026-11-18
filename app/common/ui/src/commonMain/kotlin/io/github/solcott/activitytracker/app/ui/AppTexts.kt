@@ -15,6 +15,7 @@ import kotlinx.datetime.asTimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.format.DateTimeFormat
 import kotlinx.datetime.toLocalDateTime
+import org.jetbrains.compose.resources.StringArrayResource
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.getStringArray
@@ -79,26 +80,23 @@ private fun AppText.Time.format(zone: TimeZone, timeFormat: DateTimeFormat<Local
  * The item a name like `segment_rank_ordinals_2` names: the `<string-array>` before the last `_` and the index after it, the name the iOS
  * String Catalog gives each item too. Null when no array has that name or index.
  */
-@Composable
-private fun arrayItem(name: String): String? {
-    val split = name.lastIndexOf('_')
-    val index = name.substring(split + 1).toIntOrNull()
-    val resource = if (split > 0) Res.allStringArrayResources[name.substring(0, split)] else null
-    return if (resource == null || index == null) null else stringArrayResource(resource).getOrNull(index)
-}
+@Composable private fun arrayItem(name: String): String? = arrayRef(name)?.let { stringArrayResource(it.resource).getOrNull(it.index) }
 
 /** [arrayItem], outside composition. */
-private suspend fun loadArrayItem(name: String): String? {
+private suspend fun loadArrayItem(name: String): String? = arrayRef(name)?.let { getStringArray(it.resource).getOrNull(it.index) }
+
+/** Whether [name] is an item of a shared `<string-array>`, as [arrayItem] reads it. */
+fun isStringArrayItem(name: String): Boolean = arrayRef(name) != null
+
+/** A `<string-array>` and an index into it, as a name like `segment_rank_ordinals_2` gives them. */
+private class ArrayRef(val resource: StringArrayResource, val index: Int)
+
+/** The array before [name]'s last `_` and the index after it, or null when no array has that name or the rest isn't a number. */
+private fun arrayRef(name: String): ArrayRef? {
     val split = name.lastIndexOf('_')
     val index = name.substring(split + 1).toIntOrNull()
     val resource = if (split > 0) Res.allStringArrayResources[name.substring(0, split)] else null
-    return if (resource == null || index == null) null else getStringArray(resource).getOrNull(index)
-}
-
-/** Whether [name] is an item of a shared `<string-array>`, as [arrayItem] reads it. */
-fun isStringArrayItem(name: String): Boolean {
-    val split = name.lastIndexOf('_')
-    return split > 0 && name.substring(split + 1).toIntOrNull() != null && name.substring(0, split) in Res.allStringArrayResources
+    return if (resource == null || index == null) null else ArrayRef(resource, index)
 }
 
 private const val SECONDS_PER_MINUTE = 60
