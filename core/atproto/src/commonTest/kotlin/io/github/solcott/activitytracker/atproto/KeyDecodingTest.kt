@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.atproto
 
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
+import io.github.solcott.activitytracker.atproto.crypto.base32
+import io.github.solcott.activitytracker.atproto.crypto.base32Decode
 import io.github.solcott.activitytracker.atproto.crypto.base58Btc
 import io.github.solcott.activitytracker.atproto.crypto.base58BtcDecode
 import io.github.solcott.activitytracker.atproto.crypto.bytes
@@ -21,6 +23,29 @@ class KeyDecodingTest {
         assertEquals("Hello World!", base58BtcDecode("2NEpo7TZRRrLZSi2U").decodeToString())
         val bytes = byteArrayOf(0, 0x7F, -1, 0x12, 0, 0x34)
         assertContentEquals(bytes, base58BtcDecode(bytes.base58Btc()))
+    }
+
+    @Test
+    fun base32RoundTripsAndRejectsTruncatedInput() {
+        // RFC 4648 section 10 vectors, lowercase and unpadded.
+        val vectors =
+            listOf(
+                "" to "",
+                "f" to "my",
+                "fo" to "mzxq",
+                "foo" to "mzxw6",
+                "foob" to "mzxw6yq",
+                "fooba" to "mzxw6ytb",
+                "foobar" to "mzxw6ytboi",
+            )
+        for ((plain, encoded) in vectors) {
+            assertEquals(encoded, plain.encodeToByteArray().base32())
+            assertEquals(plain, base32Decode(encoded).decodeToString())
+        }
+        for (truncated in listOf("m", "mzx", "mzxw6y", "mzxw6ytbo")) {
+            assertFailsWith<IllegalArgumentException> { base32Decode(truncated) }
+        }
+        assertFailsWith<IllegalArgumentException> { base32Decode("MY") }
     }
 
     @Test
