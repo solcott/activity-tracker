@@ -19,10 +19,7 @@ import org.jetbrains.exposed.v1.jdbc.select
  */
 internal fun JdbcTransaction.detailsOf(activities: List<String>, viewer: Did?): Map<String, List<DetailsView>> =
     ActivityDetails.select(ActivityDetails.activityUri, ActivityDetails.visibility, ActivityDetails.record)
-        .where {
-            (ActivityDetails.activityUri inList activities) and
-                visibleTo(viewer, ActivityDetails.visibility, ActivityDetails.authorDid, ActivityDetails.activityUri, null)
-        }
+        .where { (ActivityDetails.activityUri inList activities) and ActivityDetails.rowsVisibleTo(viewer) }
         .mapNotNull { row ->
             val record = runCatching {
                 AtJson.decodeFromString(ActivityDetailsRecord.serializer(), row[ActivityDetails.record])
