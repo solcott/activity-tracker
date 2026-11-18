@@ -11,10 +11,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.FollowRequests
@@ -63,27 +62,21 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
 
             is FollowRequestsEvent.Approve -> {
                 val wasDeclined = declined.any { it.did == event.did }
-                flights.launch(event.did) {
-                    runSuspendCatching { answers.approve(event.did, declined = wasDeclined) }
-                        .onSuccess {
-                            approved = approved + event.did
-                            declinedHere = declinedHere.filterNot { declined -> declined.did == event.did }
-                        }
-                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerFollowRequest, it) }
+                flights.launchAction(event.did, UiError.Kind.AnswerFollowRequest, { error = it }) {
+                    answers.approve(event.did, declined = wasDeclined)
+                    approved = approved + event.did
+                    declinedHere = declinedHere.filterNot { declined -> declined.did == event.did }
                 }
             }
 
             is FollowRequestsEvent.Decline -> {
-                flights.launch(event.did) {
-                    runSuspendCatching { answers.decline(event.did) }
-                        .onSuccess {
-                            val account = requests.firstOrNull { request -> request.did == event.did }
-                            if (account != null) {
-                                approved = approved - event.did
-                                declinedHere = listOf(account) + declinedHere.filterNot { declined -> declined.did == event.did }
-                            }
-                        }
-                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerFollowRequest, it) }
+                flights.launchAction(event.did, UiError.Kind.AnswerFollowRequest, { error = it }) {
+                    answers.decline(event.did)
+                    val account = requests.firstOrNull { request -> request.did == event.did }
+                    if (account != null) {
+                        approved = approved - event.did
+                        declinedHere = listOf(account) + declinedHere.filterNot { declined -> declined.did == event.did }
+                    }
                 }
             }
 
