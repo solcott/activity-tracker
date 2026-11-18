@@ -9,30 +9,13 @@ import SwiftUI
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
-    @State private var width: CGFloat = 0
     @Environment(\.stats) private var stats
 
     var body: some View {
         ContentStateView(state.content, as: PathContent.self, errorKind: .LoadPath, retry: retry) { _ in
-            Group {
-                if width >= SegmentBrowseLayout.sideBySide {
-                    HStack(spacing: 0) {
-                        list.frame(width: SegmentBrowseLayout.listWidth)
-                        Divider()
-                        map.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                } else {
-                    GeometryReader { geometry in
-                        VStack(spacing: 0) {
-                            map.frame(height: geometry.size.height * SegmentBrowseLayout.mapShare)
-                            list
-                        }
-                    }
-                }
-            }
+            MapBrowseLayout { map } list: { list }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .pageTitle(state.path.map { Text(verbatim: $0.name) } ?? Text(PathTexts.shared.title))
     }
 

@@ -86,8 +86,8 @@ struct SegmentListsTextTests {
 
     @Test func aRegularsBoardReadsItsWindowAndDives() throws {
         let state = try #require(Samples.diveSiteRegularsVariants["lastYear"])
-        #expect(labels(state.filters.periodChoice) == ["All time", "This year", "Last year"])
-        #expect(read(state.filters.periodChoice.label) == "Last year")
+        #expect(labels(state.periodChoice) == ["All time", "This year", "Last year"])
+        #expect(read(state.periodChoice.label) == "Last year")
         let entries = state.entries.items.compactMap { $0 as? DiveSiteRegularEntry }
         #expect(entries.map { read(DiveSiteRegularsTexts.shared.visits(entry: $0)) } == ["31 dives", "17 dives"])
         #expect(entries.map { state.accents(entry: $0) } == [true, false])
