@@ -59,26 +59,14 @@ import org.jetbrains.compose.resources.stringResource
 
 // A subject's comments, an activity's or a post's (feed/comments): lazy items, threads paged as the viewer scrolls.
 
-/**
- * Asks for the next page of threads when one of the last [LOAD_MORE_AHEAD] threads listed, or anything after them, is shown, while a page
- * can load: none is loading, the last didn't fail and not every page is in. Threads, not rows, since a thread is several rows. The
- * presenter drops a repeat while one loads.
- */
+/** Asks for the next page of threads when the rows shown call for it (`CommentsTexts.wantsMore`). */
 @Composable
 fun LoadMoreNearTheEnd(listState: LazyListState, state: CommentsState) {
-    val paging = state.paging
-    val near by
-        remember(listState, paging.items) {
-            derivedStateOf {
-                val lastThreads = paging.items.takeLast(LOAD_MORE_AHEAD).mapTo(HashSet()) { it.uri.value }
-                listState.layoutInfo.visibleItemsInfo.any { item ->
-                    val key = item.key as? String ?: return@any false
-                    key in TAIL_KEYS || key.startsWith(SENT_KEY) || (key.startsWith(THREAD_KEY) && threadOf(key) in lastThreads)
-                }
-            }
+    val wanted by
+        remember(listState, state) {
+            derivedStateOf { CommentsTexts.wantsMore(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, state) }
         }
-    val wanted = near && paging.canLoadMore
-    SideEffect(wanted, paging.items.size) { if (wanted) state.eventSink(CommentEvent.LoadMore) }
+    SideEffect(wanted, state.paging.items.size) { if (wanted) state.eventSink(CommentEvent.LoadMore) }
 }
 
 /**
@@ -94,7 +82,7 @@ fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizonta
     val top = Modifier.padding(horizontal = horizontal)
     val reply = Modifier.padding(start = horizontal + REPLY_INDENT, end = horizontal)
     for (thread in state.paging.items) {
-        val prefix = THREAD_KEY + thread.uri.value
+        val prefix = CommentsTexts.threadKey(thread.uri)
         item(key = "$prefix|root") {
             val root = thread.root
             if (root == null) CommentUnavailable(top)
@@ -108,9 +96,9 @@ fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizonta
             item(key = "$prefix|more") { MoreReplies(thread, state.eventSink, reply) }
         }
     }
-    items(state.sent, key = { SENT_KEY + it.uri.value }) { SentCommentRow(it, state, top) }
-    item(key = TAIL_KEYS[0]) { CommentsLoading(state, top) }
-    item(key = TAIL_KEYS[1]) { CommentField(state, top) }
+    items(state.sent, key = { CommentsTexts.sentKey(it.uri) }) { SentCommentRow(it, state, top) }
+    item(key = CommentsTexts.LOADING_KEY) { CommentsLoading(state, top) }
+    item(key = CommentsTexts.FIELD_KEY) { CommentField(state, top) }
 }
 
 @Composable
@@ -253,22 +241,8 @@ private fun CommentField(state: CommentsState, modifier: Modifier = Modifier) {
     }
 }
 
-private const val SENT_KEY = "sent/"
-
-/** The rows of a thread: `thread/<uri>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more`. AT-URIs never hold a `|`. */
-private const val THREAD_KEY = "thread/"
-
-/** The thread a row of it ([THREAD_KEY]) belongs to. */
-private fun threadOf(key: String): String = key.removePrefix(THREAD_KEY).substringBefore('|')
-
 /** How far replies are indented under their thread's top-level comment. */
 private val REPLY_INDENT = 32.dp
-
-/** The rows after the comments: the loading or retry row, and the field. */
-private val TAIL_KEYS = listOf("comments/loading", "comments/field")
-
-/** How many threads short of the last one listed the next page starts loading. */
-private const val LOAD_MORE_AHEAD = 5
 
 /** How strongly a hidden comment shows, to the only two who see it. */
 private const val HIDDEN_ALPHA = 0.55f

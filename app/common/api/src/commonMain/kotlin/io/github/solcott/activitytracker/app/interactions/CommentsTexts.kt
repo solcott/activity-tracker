@@ -152,7 +152,7 @@ object CommentsTexts {
     /** Every row of the list in order (decision 3 of ios-native-post-card), Report left in the menus when [reportAvailable]. */
     fun rows(state: CommentsState, reportAvailable: Boolean): ImmutableList<CommentRow> = buildList {
         for (thread in state.paging.items) {
-            val prefix = "thread/${thread.uri.value}"
+            val prefix = threadKey(thread.uri)
             val root = thread.root
             add(
                 if (root == null) CommentRow("$prefix|root", CommentRowKind.Unavailable, isReply = false, uri = thread.uri)
@@ -175,9 +175,39 @@ object CommentsTexts {
                 )
             }
         }
-        state.sent.forEach { add(sentRow("sent/${it.uri.value}", it, isReply = false)) }
+        state.sent.forEach { add(sentRow(sentKey(it.uri), it, isReply = false)) }
     }
         .toImmutableList()
+
+    /**
+     * The key prefix of [thread]'s rows: `<prefix>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more` follow it. AT-URIs never hold a `|`.
+     */
+    fun threadKey(thread: AtUri): String = "$THREAD_KEY${thread.value}"
+
+    /** The key of the row of a just-sent top-level [comment], listed after the threads. */
+    fun sentKey(comment: AtUri): String = "$SENT_KEY${comment.value}"
+
+    /** The key of the row after the comments that shows the next page loading or failing ([loading], [loadFailure]). */
+    const val LOADING_KEY: String = "comments/loading"
+
+    /** The key of the field to add a comment, the list's last row. */
+    const val FIELD_KEY: String = "comments/field"
+
+    /**
+     * Whether the rows [shown] on screen, by key, ask for the next page of threads: one of the last [LOAD_MORE_AHEAD] threads listed, or
+     * anything after them, is shown, while a page can load (none is loading, the last didn't fail and not every page is in). Threads, not
+     * rows, since a thread is several rows. The presenter drops a repeat while one loads.
+     */
+    fun wantsMore(shown: List<String>, state: CommentsState): Boolean {
+        if (!state.paging.canLoadMore) return false
+        val lastThreads = state.paging.items.takeLast(LOAD_MORE_AHEAD).mapTo(HashSet()) { it.uri.value }
+        return shown.any { key ->
+            key == LOADING_KEY ||
+                key == FIELD_KEY ||
+                key.startsWith(SENT_KEY) ||
+                (key.startsWith(THREAD_KEY) && key.removePrefix(THREAD_KEY).substringBefore('|') in lastThreads)
+        }
+    }
 
     /** "View 3 more replies". */
     fun moreReplies(count: Int): AppText =
@@ -271,3 +301,9 @@ object CommentsTexts {
             menu = menu(setOf(CommentAction.Delete), comment.uri),
         )
 }
+
+private const val THREAD_KEY = "thread/"
+private const val SENT_KEY = "sent/"
+
+/** How many threads short of the last one listed the next page starts loading. */
+private const val LOAD_MORE_AHEAD = 5
