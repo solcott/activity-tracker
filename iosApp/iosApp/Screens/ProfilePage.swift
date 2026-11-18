@@ -217,15 +217,7 @@ struct ProfileHeader: View {
         if !notices.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(notices.enumerated()), id: \.offset) { _, notice in
-                    Text(notice.text)
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .foregroundStyle(notice.isError ? Color.red : Color.primary)
-                        .background(
-                            notice.isError ? Color.red.opacity(0.15) : Color(.secondarySystemFill),
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    NoticeChip(notice: notice)
                 }
             }
         }

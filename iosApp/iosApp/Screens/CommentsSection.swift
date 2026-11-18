@@ -181,14 +181,7 @@ struct CommentRowView: View {
     @ViewBuilder private var notices: some View {
         let notices = row.notices.elements(as: NoticeText.self)
         ForEach(Array(notices.enumerated()), id: \.offset) { _, notice in
-            Text(notice.text)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .foregroundStyle(notice.isError ? Color.red : Color.primary)
-                .background(
-                    notice.isError ? Color.red.opacity(0.15) : Color(.secondarySystemFill),
-                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            NoticeChip(notice: notice)
         }
     }
 
