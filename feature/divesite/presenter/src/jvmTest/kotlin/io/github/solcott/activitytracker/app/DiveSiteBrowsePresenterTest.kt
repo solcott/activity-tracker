@@ -3,13 +3,14 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.browse.BrowseStart
+import io.github.solcott.activitytracker.app.browse.MapBrowseEvent
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseEvent
 import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowsePresenter
 import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseState
 import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
-import io.github.solcott.activitytracker.app.segment.BrowseStart
-import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -31,6 +32,7 @@ import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
+import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.hasAnswer
 import io.github.solcott.uistate.hasLoaded
@@ -144,17 +146,17 @@ class DiveSiteBrowsePresenterTest {
     @Test
     fun opensAtTheLocationAndListsTheAreasSitesNearestFirst() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            assertEquals(centre.lat, placed.camera?.lat)
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            assertEquals(centre.lat, placed.browse.camera?.lat)
 
-            placed.eventSink(DiveSiteBrowseEvent.ViewportChanged(viewport()))
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("SS Thistlegorm", "Shag Rock"), names(loaded), "nearest first")
             assertEquals(100, loaded.area.data.sites.first().metersAway)
-            assertEquals(setOf(near.uri.value, far.uri.value), loaded.mapLines.map { it.uri }.toSet(), "both outlines drawn")
+            assertEquals(setOf(near.uri.value, far.uri.value), loaded.browse.mapLines.map { it.uri }.toSet(), "both outlines drawn")
 
-            loaded.eventSink(DiveSiteBrowseEvent.Select(near.uri))
-            assertTrue(awaitUntil { it.selected != null }.isSelected(near))
+            loaded.browse.eventSink(MapBrowseEvent.Select(near.uri))
+            assertTrue(awaitUntil { it.browse.selected != null }.isSelected(near))
             loaded.eventSink(DiveSiteBrowseEvent.Open(near.uri))
             assertEquals(DiveSiteScreen(near.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -164,8 +166,8 @@ class DiveSiteBrowsePresenterTest {
     @Test
     fun tooWideAnAreaAsksNothing() = runTest {
         test {
-            awaitUntil { it.start == BrowseStart.Placed }.eventSink(DiveSiteBrowseEvent.ViewportChanged(viewport(halfSpan = 1.0)))
-            val wide = awaitUntil { it.tooWide }
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport(halfSpan = 1.0)))
+            val wide = awaitUntil { it.browse.tooWide }
             testScheduler.advanceUntilIdle()
             assertTrue(requests.none { it.first == Nsid.FEED_SEARCH_DIVE_SITES })
             assertFalse(wide.area.hasLoaded)
@@ -176,20 +178,20 @@ class DiveSiteBrowsePresenterTest {
     @Test
     fun aNameSearchLooksInTheAreaThenEverywhere() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            placed.eventSink(DiveSiteBrowseEvent.ViewportChanged(viewport()))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             awaitUntil { it.areaLoaded }
-            placed.query.edit { append("blue") }
-            val none = awaitUntil { it.resultsAnswered && it.query.text.toString() == "blue" }
+            placed.browse.query.edit { append("blue") }
+            val none = awaitUntil { it.resultsAnswered && it.browse.query.text.toString() == "blue" }
             assertEquals(emptyList(), none.results.items)
-            assertTrue(none.offersSearchEverywhere)
+            assertTrue(none.browse.offersSearchEverywhere)
             val sent = requests.last { it.first == Nsid.FEED_SEARCH_DIVE_SITE_NAMES }.second
             assertEquals(listOf("${e7(centre.lat - 0.05)}"), sent["minLat"], "this area")
 
-            none.eventSink(DiveSiteBrowseEvent.SearchEverywhere)
-            val found = awaitUntil { it.scope == NameScope.Everywhere && it.resultsAnswered && it.results.items.isNotEmpty() }
+            none.browse.eventSink(MapBrowseEvent.SearchEverywhere)
+            val found = awaitUntil { it.browse.scope == NameScope.Everywhere && it.resultsAnswered && it.results.items.isNotEmpty() }
             assertEquals(listOf("Blue Hole"), found.results.items.map { it.record.name })
-            assertEquals(listOf(elsewhere.uri.value), found.mapLines.map { it.uri }, "the map draws the results")
+            assertEquals(listOf(elsewhere.uri.value), found.browse.mapLines.map { it.uri }, "the map draws the results")
             val everywhere = requests.last { it.first == Nsid.FEED_SEARCH_DIVE_SITE_NAMES }.second
             assertNull(everywhere["minLat"], "no box")
             assertEquals(listOf("${e7(centre.lat)}"), everywhere["nearLat"], "still nearest first")
@@ -198,11 +200,39 @@ class DiveSiteBrowsePresenterTest {
     }
 
     @Test
+    fun aRowTapSelectsThenOpensAndFramesANameResultOutOfView() = runTest {
+        test {
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            val opening = placed.browse.camera
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
+            val loaded = awaitUntil { it.areaLoaded }
+
+            // Every site an area lists is in the map's own view, so selecting one never moves the map.
+            loaded.eventSink(loaded.tapRowEvent(far))
+            assertEquals(opening, awaitUntil { it.browse.selected == far.uri }.browse.camera, "the map stays")
+            navigator.expectNoGoToEvents()
+
+            loaded.browse.eventSink(MapBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            loaded.browse.query.edit { append("blue") }
+            val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
+            found.eventSink(found.tapRowEvent(elsewhere))
+            val framed = awaitUntil { it.browse.selected == elsewhere.uri && it.browse.camera != opening }
+            val at = pointE7(elsewhere.record.lat, elsewhere.record.lng)
+            assertEquals(MapBounds.of(listOf(at)), framed.browse.camera?.bounds, "Blue Hole lies far east of the view")
+            navigator.expectNoGoToEvents()
+
+            framed.eventSink(framed.tapRowEvent(elsewhere))
+            assertEquals(DiveSiteScreen(elsewhere.uri.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun withoutAMapANameSearchLooksEverywhereByMatchAlone() = runTest {
         test(UnsupportedLocationTracker()) {
-            val state = awaitUntil { it.start != BrowseStart.Locating }
-            assertFalse(state.hasArea)
-            state.query.edit { append("thistle") }
+            val state = awaitUntil { it.browse.start != BrowseStart.Locating }
+            assertFalse(state.browse.hasArea)
+            state.browse.query.edit { append("thistle") }
             assertEquals(
                 listOf("SS Thistlegorm"),
                 awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }.results.items.map { it.record.name },

@@ -122,39 +122,23 @@ fun SegmentBrowsePresenter(
                 .toImmutableList()
         }
 
-    return SegmentBrowseState(
-        query = query,
-        sport = sport,
-        scope = scope,
-        hasArea = browse.viewport != null,
-        tooWide = browse.viewport?.tooWide == true,
-        start = browse.start,
-        area = area,
-        results = results.state,
-        mapLines = mapLines,
-        selected = browse.selected,
-        camera = browse.camera,
-        askLocation = browse.permission == null,
-    ) { event ->
+    return SegmentBrowseState(browse = browse.state(query, mapLines), sport = sport, area = area, results = results.state) { event ->
         when (event) {
             SegmentBrowseEvent.Back -> navigator.pop()
             is SegmentBrowseEvent.Open -> navigator.goTo(screenOf(event.uri, sport))
             is SegmentBrowseEvent.TapRow ->
-                if (event.uri == browse.selected) {
-                    navigator.goTo(screenOf(event.uri, sport))
-                } else {
-                    // Only a name result can lie off the map: every row an area lists crosses it.
-                    val row = if (searching) results.state.items.find { it.key == event.uri } else null
-                    browse.selectRow(event.uri, row?.points())
-                }
+                browse.tapRow(
+                    event.uri,
+                    points = {
+                        // Only a name result can lie off the map: every row an area lists crosses it.
+                        val row = if (searching) results.state.items.find { it.key == event.uri } else null
+                        row?.points()
+                    },
+                    open = { navigator.goTo(screenOf(event.uri, sport)) },
+                )
             SegmentBrowseEvent.LoadMore -> results.loadMore()
             SegmentBrowseEvent.Retry -> if (trimmed.isNotEmpty()) results.retry() else browse.areaRetry++
-            is SegmentBrowseEvent.ViewportChanged -> browse.viewportChanged(event.viewport)
-            is SegmentBrowseEvent.PermissionResult -> browse.permission = event.granted
-            is SegmentBrowseEvent.Select -> browse.selected = event.uri
-            is SegmentBrowseEvent.ScopeChanged -> browse.scope = event.scope
             is SegmentBrowseEvent.SportChanged -> sport = event.sport
-            SegmentBrowseEvent.SearchEverywhere -> browse.scope = NameScope.Everywhere
         }
     }
 }

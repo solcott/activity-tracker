@@ -5,15 +5,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
-import io.github.solcott.activitytracker.app.segment.BrowseStart
-import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -27,7 +29,8 @@ val LOCATION_TIMEOUT = 5.seconds
  * What a map browse screen keeps between compositions (segments/segment-browse, dive-sites/site-browse): the map's area and where it was
  * sent and the item tapped on the map ([MapSelection]), how browsing started, the name search's scope, and the area's retry key. Moving the
  * map doesn't restart a name search, which read its area when it began ([nameViewport]). A presenter holds one in `rememberRetained`,
- * starts it with [locate], and hands it the events that only change it.
+ * starts it with [locate], and publishes it as its state's [MapBrowseState] ([state]), whose [MapBrowseEvent]s it handles alone
+ * ([onEvent]).
  */
 @Stable
 class MapBrowse(permission: Boolean?) : MapSelection() {
@@ -42,6 +45,39 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
 
     /** The map's area when the current name search's first page loaded, which its later pages search too. */
     var nameViewport: MapViewport? = null
+
+    /** What the screen's state shows of the map and search: [query] and the [mapLines] the presenter derived, and this holder's own. */
+    fun state(query: TextFieldState, mapLines: ImmutableList<MapSegmentLine>): MapBrowseState =
+        MapBrowseState(
+            query = query,
+            scope = scope,
+            hasArea = viewport != null,
+            tooWide = viewport?.tooWide == true,
+            start = start,
+            mapLines = mapLines,
+            selected = selected,
+            camera = camera,
+            askLocation = permission == null,
+            eventSink = ::onEvent,
+        )
+
+    fun onEvent(event: MapBrowseEvent) {
+        when (event) {
+            is MapBrowseEvent.ViewportChanged -> viewportChanged(event.viewport)
+            is MapBrowseEvent.PermissionResult -> permission = event.granted
+            is MapBrowseEvent.Select -> selected = event.uri
+            is MapBrowseEvent.ScopeChanged -> scope = event.scope
+            MapBrowseEvent.SearchEverywhere -> scope = NameScope.Everywhere
+        }
+    }
+
+    /**
+     * A tap on the row [uri] on a touch screen: [open]s it when it's selected, else selects it ([selectRow]) with its line or place
+     * [points], when it can lie off the map.
+     */
+    fun tapRow(uri: AtUri, points: () -> List<GeoPoint>?, open: () -> Unit) {
+        if (uri == selected) open() else selectRow(uri, points())
+    }
 
     /** The map stopped and shows [shown]. */
     override fun viewportChanged(shown: MapViewport) {

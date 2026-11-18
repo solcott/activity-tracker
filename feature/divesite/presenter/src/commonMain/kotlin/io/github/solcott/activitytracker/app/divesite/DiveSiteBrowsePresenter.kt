@@ -13,7 +13,6 @@ import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.browse.MapBrowse
 import io.github.solcott.activitytracker.app.browse.NAME_SEARCH_DEBOUNCE
-import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -89,29 +88,22 @@ fun DiveSiteBrowsePresenter(
             shown.map { it.mapOutline() }.toImmutableList()
         }
 
-    return DiveSiteBrowseState(
-        query = query,
-        scope = scope,
-        hasArea = browse.viewport != null,
-        tooWide = browse.viewport?.tooWide == true,
-        start = browse.start,
-        area = area,
-        results = results.state,
-        mapLines = mapLines,
-        selected = browse.selected,
-        camera = browse.camera,
-        askLocation = browse.permission == null,
-    ) { event ->
+    return DiveSiteBrowseState(browse = browse.state(query, mapLines), area = area, results = results.state) { event ->
         when (event) {
             DiveSiteBrowseEvent.Back -> navigator.pop()
             is DiveSiteBrowseEvent.Open -> navigator.goTo(DiveSiteScreen(event.uri.value))
+            is DiveSiteBrowseEvent.TapRow ->
+                browse.tapRow(
+                    event.uri,
+                    points = {
+                        // Only a name result can lie off the map: every site an area lists is in it.
+                        val site = if (searching) results.state.items.find { it.uri == event.uri } else null
+                        site?.let { listOf(pointE7(it.record.lat, it.record.lng)) }
+                    },
+                    open = { navigator.goTo(DiveSiteScreen(event.uri.value)) },
+                )
             DiveSiteBrowseEvent.LoadMore -> results.loadMore()
             DiveSiteBrowseEvent.Retry -> if (trimmed.isNotEmpty()) results.retry() else browse.areaRetry++
-            is DiveSiteBrowseEvent.ViewportChanged -> browse.viewportChanged(event.viewport)
-            is DiveSiteBrowseEvent.PermissionResult -> browse.permission = event.granted
-            is DiveSiteBrowseEvent.Select -> browse.selected = event.uri
-            is DiveSiteBrowseEvent.ScopeChanged -> browse.scope = event.scope
-            DiveSiteBrowseEvent.SearchEverywhere -> browse.scope = NameScope.Everywhere
         }
     }
 }
