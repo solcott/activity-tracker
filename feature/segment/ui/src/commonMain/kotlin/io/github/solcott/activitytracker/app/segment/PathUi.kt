@@ -16,10 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -27,14 +23,17 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
+import io.github.solcott.activitytracker.app.ui.MapBrowseHover
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.SegmentsMap
+import io.github.solcott.activitytracker.app.ui.SelectableRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
+import io.github.solcott.activitytracker.app.ui.rememberMapBrowseHover
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 
@@ -47,7 +46,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 @Composable
 fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
-    var hovered by remember { mutableStateOf<String?>(null) }
+    val hover = rememberMapBrowseHover()
     LaunchedEffect(state.selected) {
         val selected = state.selected ?: return@LaunchedEffect
         val index = state.content.data.groups.indexOfFirst { it.shown.uri == selected }
@@ -61,8 +60,8 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
         val retry = { state.eventSink(PathEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadPath, onRetry = retry, contentPadding = padding) {
             WithWindowWidth(Modifier.fillMaxSize().padding(padding)) { width ->
-                val list = @Composable { m: Modifier -> PathList(state, listState, hovered, { hovered = it }, m) }
-                val map = @Composable { m: Modifier -> PathMap(state, hovered, { hovered = it }, m) }
+                val list = @Composable { m: Modifier -> PathList(state, listState, hover, m) }
+                val map = @Composable { m: Modifier -> PathMap(state, hover, m) }
                 when {
                     !interactiveMapSupported -> list(Modifier.fillMaxSize())
                     width == WindowWidth.Compact ->
@@ -82,7 +81,7 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PathMap(state: PathState, hovered: String?, onHover: (String?) -> Unit, modifier: Modifier = Modifier) {
+private fun PathMap(state: PathState, hover: MapBrowseHover, modifier: Modifier = Modifier) {
     SegmentsMap(
         state.mapLines,
         selected = state.selected?.value,
@@ -90,8 +89,8 @@ private fun PathMap(state: PathState, hovered: String?, onHover: (String?) -> Un
         onViewport = { state.eventSink(PathEvent.ViewportChanged(it)) },
         onSelect = { uri -> state.eventSink(state.selectEvent(uri)) },
         modifier = modifier,
-        hovered = hovered,
-        onHover = onHover,
+        hovered = hover.uri,
+        onHover = { hover.uri = it },
     )
 }
 
@@ -99,8 +98,7 @@ private fun PathMap(state: PathState, hovered: String?, onHover: (String?) -> Un
 private fun PathList(
     state: PathState,
     listState: LazyListState,
-    hovered: String?,
-    onHover: (String?) -> Unit,
+    hover: MapBrowseHover,
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnitSystem.current
@@ -121,9 +119,7 @@ private fun PathList(
                 name = PathTexts.name(group),
                 details = PathTexts.details(group, units),
                 selected = state.isSelected(group),
-                marked = state.isSelected(group) || hovered == group.shown.uri.value,
-                hovered = hovered,
-                onHover = onHover,
+                hover = hover,
                 onTap = { state.eventSink(state.tapRowEvent(group)) },
                 onOpen = { state.eventSink(state.openEvent(group)) },
             )

@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.browse.MapBrowseEvent
 import io.github.solcott.activitytracker.app.fixtures.PagedStates
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
@@ -142,11 +143,12 @@ class SegmentBrowseUiTest {
 
     @Test
     fun nothingInThisAreaOffersEverywhere() = runComposeUiTest {
-        val events = mutableListOf<SegmentBrowseEvent>()
-        setContent { AppPreview { SegmentBrowseUi(SegmentBrowseSamples.nothingHere.copy(eventSink = { events += it })) } }
+        val events = mutableListOf<MapBrowseEvent>()
+        val state = SegmentBrowseSamples.nothingHere
+        setContent { AppPreview { SegmentBrowseUi(state.copy(browse = state.browse.copy(eventSink = { events += it }))) } }
         onNodeWithText("Nothing here matches “hog”.").assertExists()
         onNodeWithText("Search everywhere").performClick()
-        assertEquals(SegmentBrowseEvent.SearchEverywhere, events.last())
+        assertEquals(MapBrowseEvent.SearchEverywhere, events.last())
     }
 
     @Test
