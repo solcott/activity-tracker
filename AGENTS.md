@@ -12,7 +12,7 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps
 ./gradlew format                                  # format Kotlin/scripts (ktfmt kotlinlang style) and sort dependency blocks
 ./gradlew composeStabilityCheck                   # fail on unstable Compose params (and State fields in -api modules); reports in build/compose/stability
-./gradlew cpdCheck                                # duplicated Kotlin across modules (PMD CPD), report-only: build/reports/cpd/cpd.txt; -Pcpd.minTokens=N, -Pcpd.fail=true
+./gradlew cpdCheck                                # duplicated Kotlin across modules and Swift in iosApp (PMD CPD), report-only: build/reports/cpd/cpd.txt, cpd-swift.txt; -Pcpd.minTokens=N, -Pcpd.fail=true
 ./gradlew checkModuleBoundaries                   # fail when a presenter and a UI module depend on each other, or a feature reaches past another's -api
 ./gradlew detektBaseline                          # regenerate each module's detekt-baseline.xml (config: config/detekt/detekt.yml)
 ./gradlew :core-atproto:jvmTest --tests "*.OAuthFlowTest"   # single test: fastest on the jvm target
@@ -100,6 +100,6 @@ Custom skills live in `.agents/skills/`. `.claude/skills/` symlinks the shared o
 - `lexicon-change`: Step-by-step checklist for modifying or adding lexicons and synchronizing all layers.
 - `new-screen`: Scaffold a new Circuit screen across a feature's `-api`, `-presenter` and `-ui` modules and `:app-fixtures`.
 - `gradle-runner`: Run Gradle tasks and get concise verdicts without huge log dumps. A subagent in Claude Code (`.agents/agents/`); the skill just points at it.
-- `reuse-audit`: Report-only audit for duplicated code, code that belongs in a shared module, and hand-rolled code a library could replace (`cpdCheck` first, then agents read past it).
+- `reuse-audit`: Report-only audit for duplicated code, code that belongs in a shared module, and hand-rolled code a library could replace, in Kotlin and the iOS app's Swift (`cpdCheck` first, then agents read past it).
 - `lexicon-auditor`: Read-only consistency audit across all lexicon layers before committing. Same agent/skill split.
 - `openspec-*`: OpenSpec specifications, changes, and verification workflows.
