@@ -16,7 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -64,7 +64,7 @@ import org.jetbrains.compose.resources.stringResource
 fun LoadMoreNearTheEnd(listState: LazyListState, state: CommentsState) {
     val wanted by
         remember(listState, state) {
-            derivedStateOf { CommentsTexts.wantsMore(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, state) }
+            computedStateOf { CommentsTexts.wantsMore(listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }, state) }
         }
     SideEffect(wanted, state.paging.items.size) { if (wanted) state.eventSink(CommentEvent.LoadMore) }
 }

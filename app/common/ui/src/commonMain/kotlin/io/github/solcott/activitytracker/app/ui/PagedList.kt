@@ -14,7 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,7 +39,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun LoadMoreAtEnd(listState: LazyListState, canLoadMore: Boolean, onLoadMore: () -> Unit) {
     val atEnd by remember {
-        derivedStateOf {
+        computedStateOf {
             val info = listState.layoutInfo
             info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
         }
