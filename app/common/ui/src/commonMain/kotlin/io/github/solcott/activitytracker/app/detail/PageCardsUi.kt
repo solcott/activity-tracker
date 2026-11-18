@@ -3,8 +3,8 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -87,7 +87,7 @@ fun TrainingLoadCard(figures: ImmutableList<Figure>, modifier: Modifier = Modifi
     }
 }
 
-/** Every figure, a group at a time under its name, in [columns] side by side. A gear item's row opens its page with [onOpenGear]. */
+/** Every figure, a group at a time under its name, in a grid of [columns]. A gear item's row opens its page with [onOpenGear]. */
 @Composable
 fun StatsList(
     groups: ImmutableList<StatsGroup>,
@@ -102,11 +102,14 @@ fun StatsList(
             Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
         )
-        groups.chunked(columns).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                row.forEach { StatsGroupCard(it, Modifier.weight(1f), onOpenGear) }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-            }
+        Grid(
+            config = {
+                repeat(columns) { column(1.fr) }
+                gap(ITEM_GAP)
+            },
+            Modifier.fillMaxWidth(),
+        ) {
+            groups.forEach { StatsGroupCard(it, Modifier.fillMaxWidth(), onOpenGear) }
         }
     }
 }
