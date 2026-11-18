@@ -1,12 +1,13 @@
 package io.github.solcott.activitytracker.app.divesite
 
+import io.github.solcott.activitytracker.app.browse.BrowseList
+import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.fixtures.fakeDiveSiteConditions
 import io.github.solcott.activitytracker.app.fixtures.fakeRegularEntry
 import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.app.names.PlaceNameTexts
-import io.github.solcott.activitytracker.app.segment.BrowseList
-import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.app.segment.PlaceTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -132,14 +133,16 @@ class DiveSiteTextNamesTest {
                 )
             } +
                 BrowseList.entries.mapNotNull(DiveSiteBrowseTexts::message) +
-                NameScope.entries.map(DiveSiteBrowseTexts::scope) +
+                NameScope.entries.map(MapBrowseTexts::scope) +
                 listOf(
                     DiveSiteBrowseTexts.searchLabel,
                     DiveSiteBrowseTexts.capped,
                     DiveSiteBrowseTexts.noneHere,
-                    DiveSiteBrowseTexts.searchEverywhere,
+                    MapBrowseTexts.searchEverywhere,
                     DiveSiteBrowseTexts.noResults(browse.nothingHere),
-                    DiveSiteBrowseTexts.noResults(browse.nothingHere.copy(scope = NameScope.Everywhere)),
+                    DiveSiteBrowseTexts.noResults(
+                        browse.nothingHere.let { it.copy(browse = it.browse.copy(scope = NameScope.Everywhere)) },
+                    ),
                 )
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")

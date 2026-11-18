@@ -2,6 +2,9 @@ package io.github.solcott.activitytracker.app.segment
 
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
+import io.github.solcott.activitytracker.app.browse.BrowseStart
+import io.github.solcott.activitytracker.app.browse.MapBrowseState
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.PagedStates
@@ -134,24 +137,23 @@ object SegmentBrowseSamples {
     /** Browsing an area that loaded [content]; nothing typed. */
     private fun browsing(content: ContentState<AreaRuns>) =
         SegmentBrowseState(
-            query = textFieldStateOf(),
-            hasArea = true,
-            start = BrowseStart.Placed,
+            browse =
+                MapBrowseState(
+                    query = textFieldStateOf(),
+                    hasArea = true,
+                    start = BrowseStart.Placed,
+                    mapLines = (lines(content.data.rows.map { it.row }) + content.data.lifts).toImmutableList(),
+                    camera = MapCameraRequest(1, BURLINGTON_LAT, BURLINGTON_LNG),
+                ),
             area = content,
             results = PagedStates.end(emptyList(), Unit),
-            mapLines = (lines(content.data.rows.map { it.row }) + content.data.lifts).toImmutableList(),
-            camera = MapCameraRequest(1, BURLINGTON_LAT, BURLINGTON_LNG),
         )
 
     /** Searching "hog" in this area, with [results]. */
     private fun searching(results: PagedState<BrowseRow, Unit>, scope: NameScope = NameScope.ThisArea) =
         browsing(ContentStates.loaded(area))
-            .copy(
-                query = textFieldStateOf("hog"),
-                scope = scope,
-                results = results,
-                mapLines = lines(results.items).toImmutableList(),
-            )
+            .withBrowse { copy(query = textFieldStateOf("hog"), scope = scope, mapLines = lines(results.items).toImmutableList()) }
+            .copy(results = results)
 
     /**
      * The area's states for the loading kinds a [ContentState] has, and name search's for those only a paged list has (ui/content-loading).
@@ -167,11 +169,11 @@ object SegmentBrowseSamples {
 
     /** A row tapped on the map, marked in the list. */
     val selected: SegmentBrowseState
-        get() = loaded.copy(selected = hogback.uri)
+        get() = loaded.withBrowse { copy(selected = hogback.uri) }
 
     /** Zoomed out past where segments are searched. */
     val tooWide: SegmentBrowseState
-        get() = browsing(ContentStates.loading(AreaRuns())).copy(tooWide = true, mapLines = persistentListOf())
+        get() = browsing(ContentStates.loading(AreaRuns())).withBrowse { copy(tooWide = true, mapLines = persistentListOf()) }
 
     /** Name results in this area. */
     val nameResults: SegmentBrowseState
@@ -181,7 +183,7 @@ object SegmentBrowseSamples {
     val groupResults: SegmentBrowseState
         get() =
             searching(PagedStates.end(listOf(BrowseRow.Path(annsTrail), BrowseRow.Group(alone(hogback))), Unit), NameScope.Everywhere)
-                .copy(query = textFieldStateOf("ann"))
+                .withBrowse { copy(query = textFieldStateOf("ann")) }
 
     /** Nothing named so in this area: offers to search everywhere. */
     val nothingHere: SegmentBrowseState
@@ -189,11 +191,11 @@ object SegmentBrowseSamples {
 
     /** Nowhere to open: no location and no activity with a map. */
     val nowhere: SegmentBrowseState
-        get() = browsing(ContentStates.loading(AreaRuns())).copy(start = BrowseStart.Nowhere, hasArea = false, camera = null)
+        get() = browsing(ContentStates.loading(AreaRuns())).withBrowse { copy(start = BrowseStart.Nowhere, hasArea = false, camera = null) }
 
     /** Finding where the athlete is. */
     val locating: SegmentBrowseState
-        get() = nowhere.copy(start = BrowseStart.Locating)
+        get() = nowhere.withBrowse { copy(start = BrowseStart.Locating) }
 
     /** Every shared sample and the browse states beyond content loading, for the native page's previews and snapshots. */
     val variants: Map<String, SegmentBrowseState>
@@ -209,6 +211,8 @@ object SegmentBrowseSamples {
                     "locating" to locating,
                 )
 }
+
+private fun SegmentBrowseState.withBrowse(change: MapBrowseState.() -> MapBrowseState) = copy(browse = browse.change())
 
 /** Burlington, Vermont: where the samples' map is centred. */
 private const val BURLINGTON_LAT = 44.4759

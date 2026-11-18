@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.app.segment
 
+import io.github.solcott.activitytracker.app.browse.BrowseList
+import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.text.AppText
@@ -27,12 +30,12 @@ class SegmentBrowseTextsTest {
 
     @Test
     fun theListShowsWhatTheBrowseStateCallsFor() {
-        assertEquals(BrowseList.Area, SegmentBrowseSamples.loaded.listShows(mapSupported = true))
-        assertEquals(BrowseList.WebPrompt, SegmentBrowseSamples.loaded.listShows(mapSupported = false))
-        assertEquals(BrowseList.Names, SegmentBrowseSamples.nameResults.listShows(mapSupported = false))
-        assertEquals(BrowseList.Locating, SegmentBrowseSamples.locating.listShows(mapSupported = true))
-        assertEquals(BrowseList.Nowhere, SegmentBrowseSamples.nowhere.listShows(mapSupported = true))
-        assertEquals(BrowseList.TooWide, SegmentBrowseSamples.tooWide.listShows(mapSupported = true))
+        assertEquals(BrowseList.Area, SegmentBrowseSamples.loaded.browse.listShows(mapSupported = true))
+        assertEquals(BrowseList.WebPrompt, SegmentBrowseSamples.loaded.browse.listShows(mapSupported = false))
+        assertEquals(BrowseList.Names, SegmentBrowseSamples.nameResults.browse.listShows(mapSupported = false))
+        assertEquals(BrowseList.Locating, SegmentBrowseSamples.locating.browse.listShows(mapSupported = true))
+        assertEquals(BrowseList.Nowhere, SegmentBrowseSamples.nowhere.browse.listShows(mapSupported = true))
+        assertEquals(BrowseList.TooWide, SegmentBrowseSamples.tooWide.browse.listShows(mapSupported = true))
         assertNull(SegmentBrowseTexts.message(BrowseList.Area))
         assertEquals(AppText.named("segment_browse_zoom_in"), SegmentBrowseTexts.message(BrowseList.TooWide))
     }
@@ -40,13 +43,13 @@ class SegmentBrowseTextsTest {
     @Test
     fun noMatchHereOffersSearchingEverywhere() {
         val here = SegmentBrowseSamples.nothingHere
-        assertTrue(here.offersScope)
-        assertTrue(here.offersSearchEverywhere)
+        assertTrue(here.browse.offersScope)
+        assertTrue(here.browse.offersSearchEverywhere)
         assertEquals(AppText.named("segment_browse_no_results_here", AppText.written("hog")), SegmentBrowseTexts.noResults(here))
-        val everywhere = here.copy(scope = NameScope.Everywhere)
-        assertFalse(everywhere.offersSearchEverywhere)
+        val everywhere = here.copy(browse = here.browse.copy(scope = NameScope.Everywhere))
+        assertFalse(everywhere.browse.offersSearchEverywhere)
         assertEquals(AppText.named("segment_browse_no_results", AppText.written("hog")), SegmentBrowseTexts.noResults(everywhere))
-        assertFalse(SegmentBrowseSamples.loaded.offersScope)
+        assertFalse(SegmentBrowseSamples.loaded.browse.offersScope)
     }
 
     @Test
@@ -202,22 +205,22 @@ class SegmentBrowseTextsTest {
 
     @Test
     fun theMapDrawsTheSelectedRunLast() {
-        val map = SegmentBrowseSamples.selected.segmentsMap
-        assertEquals(SegmentBrowseSamples.selected.selected?.value, map.drawn.last().uri)
+        val map = SegmentBrowseSamples.selected.browse.segmentsMap
+        assertEquals(SegmentBrowseSamples.selected.browse.selected?.value, map.drawn.last().uri)
     }
 
     @Test
     fun aRowShowsItsLineFirstOnTouchAndOpensWithAPointer() {
-        assertEquals(AppText.named("segment_browse_show_on_map"), SegmentBrowseTexts.rowAction(selected = false, touch = true))
-        assertEquals(AppText.named("segment_browse_open"), SegmentBrowseTexts.rowAction(selected = true, touch = true))
-        assertEquals(AppText.named("segment_browse_open"), SegmentBrowseTexts.rowAction(selected = false, touch = false))
+        assertEquals(AppText.named("segment_browse_show_on_map"), MapBrowseTexts.rowAction(selected = false, touch = true))
+        assertEquals(AppText.named("segment_browse_open"), MapBrowseTexts.rowAction(selected = true, touch = true))
+        assertEquals(AppText.named("segment_browse_open"), MapBrowseTexts.rowAction(selected = false, touch = false))
     }
 
     @Test
     fun theHoveredRunIsDrawnHighlightedOnTop() {
         val state = SegmentBrowseSamples.loaded
         val hovered = state.areaRows.first().row.key.value
-        assertEquals(hovered, state.segmentsMap(hovered).drawn.last().uri)
+        assertEquals(hovered, state.browse.segmentsMap(hovered).drawn.last().uri)
     }
 
     @Test
@@ -225,7 +228,7 @@ class SegmentBrowseTextsTest {
         val state = SegmentBrowseSamples.nothingHere
         val texts =
             BrowseList.entries.mapNotNull(SegmentBrowseTexts::message) +
-                NameScope.entries.map(SegmentBrowseTexts::scope) +
+                NameScope.entries.map(MapBrowseTexts::scope) +
                 state.sports.map(SegmentBrowseTexts::sport) +
                 SegmentBrowseSamples.runs.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
                 SegmentBrowseSamples.groupResults.results.items.map { SegmentBrowseTexts.details(it, UnitSystem.Imperial) } +
@@ -235,10 +238,10 @@ class SegmentBrowseTextsTest {
                     SegmentBrowseTexts.capped,
                     SegmentBrowseTexts.noneHere,
                     SegmentBrowseTexts.noResults(state),
-                    SegmentBrowseTexts.noResults(state.copy(scope = NameScope.Everywhere)),
-                    SegmentBrowseTexts.searchEverywhere,
-                    SegmentBrowseTexts.rowAction(selected = false, touch = true),
-                    SegmentBrowseTexts.rowAction(selected = true, touch = true),
+                    SegmentBrowseTexts.noResults(state.copy(browse = state.browse.copy(scope = NameScope.Everywhere))),
+                    MapBrowseTexts.searchEverywhere,
+                    MapBrowseTexts.rowAction(selected = false, touch = true),
+                    MapBrowseTexts.rowAction(selected = true, touch = true),
                 ) +
                 listOf(SegmentCredit.OpenStreetMap("ODbL"), SegmentCredit.Agency("PD", "USFS"), SegmentCredit.Agency("PD"))
                     .flatMap(SegmentCreditTexts::lines) +

@@ -4,17 +4,10 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.MapCameraRequest
-import io.github.solcott.activitytracker.app.MapSegmentLine
-import io.github.solcott.activitytracker.app.MapViewport
-import io.github.solcott.activitytracker.app.SegmentsMap
-import io.github.solcott.activitytracker.app.segment.BrowseList
-import io.github.solcott.activitytracker.app.segment.BrowseStart
-import io.github.solcott.activitytracker.app.segment.NameScope
+import io.github.solcott.activitytracker.app.browse.MapBrowseState
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
-import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableList
@@ -34,60 +27,14 @@ import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 data class DiveSiteBrowseState(
-    /** The search box. A name search runs once typing pauses; blank browses the area. */
-    val query: TextFieldState,
-    /** Where a name search looks; only offered while [hasArea]. */
-    val scope: NameScope = NameScope.ThisArea,
-    /** Whether a map reported an area. Never on web, so there a name search always looks everywhere. */
-    val hasArea: Boolean = false,
-    /** The map shows more than sites are searched over, so nothing is listed until the athlete zooms in. */
-    val tooWide: Boolean = false,
-    /** How browsing started; [BrowseStart.Locating] until the map has somewhere to be. */
-    val start: BrowseStart = BrowseStart.Locating,
-    /** The area's sites (ui/content-loading); nothing loads while there's no area, it's [tooWide], or a name is searched. */
+    /** The search box, the name search's scope, the map and where browsing started, as segment browse has them too. */
+    val browse: MapBrowseState,
+    /** The area's sites (ui/content-loading); nothing loads while there's no area, it's too wide, or a name is searched. */
     val area: ContentState<SiteArea> = ContentState(SiteArea()),
-    /** Sites named like [query], best match first; nothing loaded while the query is blank. */
+    /** Sites named like the query, best match first; nothing loaded while the query is blank. */
     val results: PagedState<DiveSiteView, Unit>,
-    /** The outlines the map draws: the area's sites, or the name results. */
-    val mapLines: ImmutableList<MapSegmentLine> = persistentListOf(),
-    /** The site tapped on the map, marked in the list. */
-    val selected: AtUri? = null,
-    /** Where the map should move; a new [MapCameraRequest.id] moves it once. */
-    val camera: MapCameraRequest? = null,
-    /**
-     * The platform has a location and its permission hasn't been asked for yet: the UI asks, then sends
-     * [DiveSiteBrowseEvent.PermissionResult].
-     */
-    val askLocation: Boolean = false,
     val eventSink: (DiveSiteBrowseEvent) -> Unit = {},
 ) : CircuitUiState {
-    /** Whether a name is being searched rather than the area browsed. */
-    val searchingNames: Boolean
-        get() = query.text.isNotBlank()
-
-    /** The searched name as the results' messages quote it. */
-    val nameQuery: String
-        get() = query.text.trim().toString()
-
-    /** Whether This area and Everywhere are offered: while a name is searched over a map's area. */
-    val offersScope: Boolean
-        get() = hasArea && searchingNames
-
-    /** Whether no name match offers Search everywhere: when This area was searched over an area close enough to search. */
-    val offersSearchEverywhere: Boolean
-        get() = hasArea && scope == NameScope.ThisArea && !tooWide
-
-    /** What the list shows, on a platform with a map ([mapSupported]) or without one (web). */
-    fun listShows(mapSupported: Boolean): BrowseList =
-        when {
-            searchingNames -> BrowseList.Names
-            !mapSupported -> BrowseList.WebPrompt
-            start == BrowseStart.Locating -> BrowseList.Locating
-            start == BrowseStart.Nowhere -> BrowseList.Nowhere
-            tooWide -> BrowseList.TooWide
-            else -> BrowseList.Area
-        }
-
     /** The area's sites, nearest first: a copy Swift reads as an array, empty or not. */
     val areaSites: List<BrowsedSite>
         get() = area.data.sites.toList()
@@ -96,40 +43,31 @@ data class DiveSiteBrowseState(
     val areaCapped: Boolean
         get() = area.data.capped
 
-    /** The event for a tap on the map that found the site [uri] (an outline's URI as the map holds it), or none. */
-    fun selectEvent(uri: String?): DiveSiteBrowseEvent = DiveSiteBrowseEvent.Select(uri?.let(::AtUri))
+    /** Whether [site] is the one tapped on the map, or its row on a touch screen, marked in the list. */
+    fun isSelected(site: DiveSiteView): Boolean = browse.isSelected(site.uri)
 
-    /** Whether [site] is the one tapped on the map, marked in the list. */
-    fun isSelected(site: DiveSiteView): Boolean = site.uri == selected
+    /** The event for a tap on [site]'s row on a touch screen: it selects the row, or opens it when it's selected. */
+    fun tapRowEvent(site: DiveSiteView): DiveSiteBrowseEvent = DiveSiteBrowseEvent.TapRow(site.uri)
 
-    /** The map's outlines in drawing order with the selected site highlighted, and what a tap selects. */
-    val segmentsMap: SegmentsMap
-        get() = SegmentsMap.of(mapLines, selected?.value)
+    /** The event for a click on [site]'s row with a pointer: opens it. */
+    fun openEvent(site: DiveSiteView): DiveSiteBrowseEvent = DiveSiteBrowseEvent.Open(site.uri)
 }
 
 sealed interface DiveSiteBrowseEvent {
     data object Back : DiveSiteBrowseEvent
 
-    /** The map stopped moving and shows [viewport]. */
-    data class ViewportChanged(val viewport: MapViewport) : DiveSiteBrowseEvent
-
-    /** The answer to the location permission request [DiveSiteBrowseState.askLocation] asked for. */
-    data class PermissionResult(val granted: Boolean) : DiveSiteBrowseEvent
-
-    /** A tap on a site's outline on the map, or null for a tap away from every outline. */
-    data class Select(val uri: AtUri?) : DiveSiteBrowseEvent
-
-    /** Opens the site's page. */
+    /** Opens the site's page: a click on its row with a pointer. */
     data class Open(val uri: AtUri) : DiveSiteBrowseEvent
 
-    data class ScopeChanged(val scope: NameScope) : DiveSiteBrowseEvent
+    /**
+     * A tap on a site's row on a touch screen: opens its page when it's selected, else selects it, moving the map to show it when it's out
+     * of view.
+     */
+    data class TapRow(val uri: AtUri) : DiveSiteBrowseEvent
 
     /** Loads the next page of name results; ignored while a page is loading, after a failed page, or when there are no more. */
     data object LoadMore : DiveSiteBrowseEvent
 
     /** Loads again what failed: the area, the name search, or the page of results that failed. */
     data object Retry : DiveSiteBrowseEvent
-
-    /** Searches the same name everywhere after nothing matched in this area. */
-    data object SearchEverywhere : DiveSiteBrowseEvent
 }
