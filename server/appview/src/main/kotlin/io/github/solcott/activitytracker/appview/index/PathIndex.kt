@@ -62,7 +62,7 @@ internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUr
         it[Paths.name] = name.take(MAX_NAME_LENGTH)
         it[lines] = record.lines.joinToString("\n")
         it[lengthM] = pieces.sumOf { piece -> SegmentGeometry.lengthMeters(piece) }.roundToLong()
-        it.setBox(all, minLatE7, maxLatE7, minLngE7, maxLngE7)
+        it.setBox(all, Paths)
         it[dataSource] = record.source.take(MAX_TOKEN_LENGTH)
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[Paths.attribution] = attribution

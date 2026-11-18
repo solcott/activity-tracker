@@ -203,8 +203,21 @@ object SegmentCreations : Table("segment_creations") {
     val createdAt = long("created_at")
 }
 
+/**
+ * A table of lines with their bounding box, in degrees × 10^7, and where their data came from: [Segments], [Paths] and
+ * [SegmentCandidateRows]. Each declares these columns under the same names.
+ */
+abstract class BoxedLineTable(name: String) : Table(name) {
+    val minLatE7 = integer("min_lat_e7")
+    val maxLatE7 = integer("max_lat_e7")
+    val minLngE7 = integer("min_lng_e7")
+    val maxLngE7 = integer("max_lng_e7")
+    val dataSource = varchar("data_source", 64)
+    val license = varchar("license", 64)
+}
+
 /** A segment (`feed.segment`), indexed from its creator's repo only. [distanceM] and the bounding box are computed from [line]. */
-object Segments : Table("segments") {
+object Segments : BoxedLineTable("segments") {
     val uri = varchar("uri", 512)
     val cid = varchar("cid", 255)
     val authorDid = varchar("author_did", 255)
@@ -218,12 +231,6 @@ object Segments : Table("segments") {
     /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
     val record = text("record")
     val distanceM = long("distance_m")
-    val minLatE7 = integer("min_lat_e7")
-    val maxLatE7 = integer("max_lat_e7")
-    val minLngE7 = integer("min_lng_e7")
-    val maxLngE7 = integer("max_lng_e7")
-    val dataSource = varchar("data_source", 64)
-    val license = varchar("license", 64)
     /** When this version was indexed. */
     val indexedAt = long("indexed_at")
     /** A [io.github.solcott.activitytracker.lexicon.app.SegmentStatus] value, derived here and never read from the record. */
@@ -346,7 +353,7 @@ object SegmentNameVotes : Table("segment_name_votes") {
 }
 
 /** A trail or road (`feed.path`, segments/segment-paths), indexed only from the segment importer's repo. */
-object Paths : Table("paths") {
+object Paths : BoxedLineTable("paths") {
     val uri = varchar("uri", 512)
     val cid = varchar("cid", 255)
     val authorDid = varchar("author_did", 255)
@@ -356,12 +363,6 @@ object Paths : Table("paths") {
     /** The record's line pieces, precision-6 encoded polylines, one per line (no encoded polyline holds a newline). */
     val lines = text("lines")
     val lengthM = long("length_m")
-    val minLatE7 = integer("min_lat_e7")
-    val maxLatE7 = integer("max_lat_e7")
-    val minLngE7 = integer("min_lng_e7")
-    val maxLngE7 = integer("max_lng_e7")
-    val dataSource = varchar("data_source", 64)
-    val license = varchar("license", 64)
     val attribution = varchar("attribution", 1000).nullable()
     val indexedAt = long("indexed_at")
     /** The sport groups it is open to, comma-separated; null for any, as a road. */
@@ -491,7 +492,7 @@ object SegmentEfforts : Table("segment_efforts"), ActivityTierRow {
  * A candidate segment the segment importer staged (segments/segment-candidates): a public line held only here, never served by a feed
  * query, matched for efforts or counted as a duplicate. [distanceM] and the bounding box are computed from [line].
  */
-object SegmentCandidateRows : Table("segment_candidates") {
+object SegmentCandidateRows : BoxedLineTable("segment_candidates") {
     /** The importer's id. */
     val id = varchar("id", 64)
     val region = varchar("region", 64)
@@ -505,12 +506,6 @@ object SegmentCandidateRows : Table("segment_candidates") {
     /** A precision-6 encoded polyline. */
     val line = text("line")
     val distanceM = long("distance_m")
-    val minLatE7 = integer("min_lat_e7")
-    val maxLatE7 = integer("max_lat_e7")
-    val minLngE7 = integer("min_lng_e7")
-    val maxLngE7 = integer("max_lng_e7")
-    val dataSource = varchar("data_source", 64)
-    val license = varchar("license", 64)
     /** Who to credit for the line's data, at most 100 graphemes; null when it names nobody. */
     val attribution = varchar("attribution", 1000).nullable()
     /** Its sport group may travel its line only this way (segments/segment-direction), as the importer staged it. */

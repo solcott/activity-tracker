@@ -2,6 +2,7 @@
 
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.db.BoxedLineTable
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.Segments
@@ -23,7 +24,6 @@ import io.github.solcott.activitytracker.location.toE7
 import java.text.BreakIterator
 import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonObject
-import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -121,7 +121,7 @@ internal fun JdbcTransaction.upsertSegment(
         it[Segments.line] = record.line
         it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
-        it.setBox(line, minLatE7, maxLatE7, minLngE7, maxLngE7)
+        it.setBox(line, Segments)
         it[dataSource] = record.source.take(MAX_TOKEN_LENGTH)
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[indexedAt] = now
@@ -326,18 +326,12 @@ private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint
     }
 }
 
-/** Sets [line]'s bounding box, in degrees × 10^7, on the four columns that hold it: a segment's or a staged candidate's. */
-internal fun UpdateBuilder<*>.setBox(
-    line: List<GeoPoint>,
-    minLat: Column<Int>,
-    maxLat: Column<Int>,
-    minLng: Column<Int>,
-    maxLng: Column<Int>,
-) {
-    this[minLat] = line.minOf { it.lat }.toE7()
-    this[maxLat] = line.maxOf { it.lat }.toE7()
-    this[minLng] = line.minOf { it.lng }.toE7()
-    this[maxLng] = line.maxOf { it.lng }.toE7()
+/** Sets [line]'s bounding box, in degrees × 10^7, on [table]'s four columns that hold it: a segment's, a path's or a staged candidate's. */
+internal fun UpdateBuilder<*>.setBox(line: List<GeoPoint>, table: BoxedLineTable) {
+    this[table.minLatE7] = line.minOf { it.lat }.toE7()
+    this[table.maxLatE7] = line.maxOf { it.lat }.toE7()
+    this[table.minLngE7] = line.minOf { it.lng }.toE7()
+    this[table.maxLngE7] = line.maxOf { it.lng }.toE7()
 }
 
 internal fun graphemes(text: String): Int {
