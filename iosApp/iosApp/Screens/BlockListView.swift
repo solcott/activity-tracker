@@ -26,15 +26,8 @@ struct BlockListView: View {
 
     private func row(_ account: BlockListAccount) -> some View {
         let profile = account.profile
-        let name = AppPackage.getShownName(profile)
         let note = BlockListTexts.shared.note(account: account).map { Text($0) }
-        return AppItemRow(
-            Text(verbatim: name),
-            lines: [Text(LabelText.shared.handle(handle: profile.handle.value))] + (note.map { [$0] } ?? []),
-            opens: { send(BlockListEvent.Open(did: profile.did)) }
-        ) {
-            Avatar(url: profile.avatar, name: name)
-        } trailing: {
+        return AccountRow(profile, lines: note.map { [$0] } ?? [], opens: { send(BlockListEvent.Open(did: profile.did)) }) {
             if account.removable {
                 AppSecondaryButton(BlockListTexts.shared.remove(kind: state.kind), small: true) {
                     send(BlockListEvent.Remove(did: profile.did))

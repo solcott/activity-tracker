@@ -68,25 +68,8 @@ struct PostPage: View {
     }
 
     /// Who liked or reposted it: progress, why it couldn't load, the empty message, or a row per athlete opening their profile.
-    @ViewBuilder private func people(_ list: LikesList) -> some View {
-        let athletes = list.athletes.elements(as: ProfileViewBasic.self)
-        if list.isLoading {
-            AppProgress(small: true).frame(maxWidth: .infinity)
-        } else if let error = list.error {
-            ErrorMessage(error, layout: .row)
-        } else if athletes.isEmpty {
-            Text(PostPageTexts.shared.noLikes).foregroundStyle(.secondary)
-        } else {
-            ForEach(athletes, id: \.did.value) { athlete in
-                let name = AppPackage.getShownName(athlete)
-                AppItemRow(
-                    Text(verbatim: name), lines: [Text(LabelText.shared.handle(handle: athlete.handle.value))],
-                    opens: { send(PostPageEvent.OpenProfile(did: athlete.did)) }
-                ) {
-                    Avatar(url: athlete.avatar, name: name)
-                }
-            }
-        }
+    private func people(_ list: LikesList) -> some View {
+        LikersList(list: list, empty: Text(PostPageTexts.shared.noLikes)) { send(PostPageEvent.OpenProfile(did: $0.did)) }
     }
 
     private func retry() {

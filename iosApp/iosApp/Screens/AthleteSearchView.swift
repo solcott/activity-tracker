@@ -84,13 +84,7 @@ struct AthleteSearchView: View {
                     .padding(.vertical, 24).listStatusRow()
             }
         } row: { account in
-            let name = AppPackage.getShownName(account)
-            AppItemRow(
-                Text(verbatim: name), lines: [Text(LabelText.shared.handle(handle: account.handle.value))],
-                opens: { send(AthleteSearchEvent.Open(did: account.did)) }
-            ) {
-                Avatar(url: account.avatar, name: name)
-            }
+            AccountRow(account, opens: { send(AthleteSearchEvent.Open(did: account.did)) })
         } empty: {
             if let empty = AthleteSearchTexts.shared.empty(state: state) {
                 Text(empty).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
