@@ -198,15 +198,19 @@ internal class CandidateCutter(
         val line = simplified(points)
         val length = SegmentGeometry.lengthMeters(line)
         if (length < SegmentSportGroup.minMeters(trail.group) || length > SegmentSportGroup.MAX_METERS) return null
-        val endVisit = nodes.subList(1, nodes.lastIndex).count { it == nodes.last() }
+        val visits =
+            Visits(
+                nodes.subList(1, nodes.lastIndex).count { it == nodes.first() },
+                nodes.subList(1, nodes.lastIndex).count { it == nodes.last() },
+            )
         val agency = trail.rules is AgencyRules
         val features = if (agency) ways.map(agencyKeys::getValue) else emptyList()
         return Candidate(
             id =
                 if (agency) {
-                    agencyIdOf(trail.group, features, alongFirstWay, points.first(), points.last(), endVisit)
+                    agencyIdOf(trail.group, features, alongFirstWay, points.first(), points.last(), visits)
                 } else {
-                    idOf(trail.group, ways, alongFirstWay, nodes.first(), nodes.last(), endVisit)
+                    idOf(trail.group, ways, alongFirstWay, nodes.first(), nodes.last(), visits)
                 },
             group = trail.group,
             name = truncate(name),
@@ -318,14 +322,12 @@ internal class CandidateCutter(
         /**
          * A stable id from the group, the direction of travel ([alongFirstWay]: whether it follows its first way's node order), the ways
          * followed in order and the end nodes: the same OSM data always gives the same id, and moving an interior node (a geometry fix)
-         * keeps it. [endVisit] counts the times the line passed its last node before ending there, for a way that crosses itself; it's left
-         * out when zero, as it nearly always is. 26 base32 characters of a SHA-256.
+         * keeps it. [visits] tells apart lines along a way that crosses itself at one of their ends. 26 base32 characters of a SHA-256.
          */
         @Suppress("LongParameterList") // Each input the spec names, kept apart so none can be left out.
-        fun idOf(group: String, ways: List<Long>, alongFirstWay: Boolean, first: Long, last: Long, endVisit: Int = 0): String {
+        fun idOf(group: String, ways: List<Long>, alongFirstWay: Boolean, first: Long, last: Long, visits: Visits = Visits.NONE): String {
             val sense = if (alongFirstWay) "+" else "-"
-            val visit = if (endVisit > 0) "#$endVisit" else ""
-            return hashed("$group|$sense|${ways.joinToString(",")}|$first|$last$visit")
+            return hashed("$group|$sense|${ways.joinToString(",")}|$first|$last${visits.key}")
         }
 
         /**
@@ -340,11 +342,24 @@ internal class CandidateCutter(
             alongFirstWay: Boolean,
             first: GeoPoint,
             last: GeoPoint,
-            endVisit: Int = 0,
+            visits: Visits = Visits.NONE,
         ): String {
             val sense = if (alongFirstWay) "+" else "-"
-            val visit = if (endVisit > 0) "#$endVisit" else ""
-            return hashed("$group|$sense|${features.joinToString(",")}|${e5(first)}|${e5(last)}$visit")
+            return hashed("$group|$sense|${features.joinToString(",")}|${e5(first)}|${e5(last)}${visits.key}")
+        }
+
+        /**
+         * How often a line passed its first end again ([start]) and its last end before ending there ([end]), for a way that crosses
+         * itself: the whole of a lollipop and its stem can follow the one way between the same ends. Each is left out of an id when zero,
+         * as it nearly always is, so ids from before [start] was counted keep their value.
+         */
+        data class Visits(val start: Int, val end: Int) {
+            val key: String
+                get() = (if (end > 0) "#$end" else "") + (if (start > 0) "^$start" else "")
+
+            companion object {
+                val NONE = Visits(0, 0)
+            }
         }
 
         private fun e5(point: GeoPoint): String = "${(point.lat * E5).roundToLong()},${(point.lng * E5).roundToLong()}"

@@ -407,6 +407,25 @@ class CandidateCutterTest {
     }
 
     @Test
+    fun aLollipopsWholeTrailAndItsStemHaveTheirOwnIds() {
+        val data = osm {
+            // A lollipop: north 600 m to node 4, around a square and back to node 4, where it ends. Travelled the other way, the whole
+            // trail and its stem both start at node 4 and end at node 1 along the one way.
+            val dLng = 300.0 / (111_195.0 * cos(44.4 * Math.PI / 180))
+            node(1, 44.4, -72.7)
+            node(4, north(44.4, 600.0), -72.7)
+            node(5, north(44.4, 600.0), -72.7 + dLng)
+            node(6, north(44.4, 900.0), -72.7 + dLng)
+            node(7, north(44.4, 900.0), -72.7 - dLng)
+            way(100, 1, 4, 5, 6, 7, 4, tags = path("Lollipop"))
+            crossing(20, at = 4, tags = path("Cross Trail"))
+        }
+        val found = candidates(data)
+        assertTrue(found.any { !it.whole }, "the stem is a stretch of its own")
+        assertEquals(found.size, found.map { it.id }.toSet().size)
+    }
+
+    @Test
     fun aTwoWayLoopIsNamedClockwiseOrCounterclockwise() {
         val names = candidates(osm { loop() }).associate { it.points[1] to it.name }
         assertEquals(setOf("Pond Loop (clockwise)", "Pond Loop (counterclockwise)"), names.values.toSet())

@@ -236,7 +236,7 @@ Each OSM, route or agency name a candidate name is built from SHALL lose one tra
 - **THEN** its whole-trail candidate is named "Skyline", title-cased as agency names are
 
 ### Requirement: Candidate ids are stable
-A candidate's id SHALL be derived only from its sport group, its direction, the source features it follows in order, its ends, and how often it passed its last end before ending there. Ids SHALL be unique within a candidates file. Extracting the same data twice SHALL give the same ids, and an edit elsewhere SHALL NOT change a candidate's id.
+A candidate's id SHALL be derived only from its sport group, its direction, the source features it follows in order, its ends, how often it passed its first end again, and how often it passed its last end before ending there. Ids SHALL be unique within a candidates file. Extracting the same data twice SHALL give the same ids, and an edit elsewhere SHALL NOT change a candidate's id.
 
 #### Scenario: Re-extract unchanged
 - **WHEN** an operator extracts the same region from a newer extract in which only other trails changed
@@ -245,6 +245,10 @@ A candidate's id SHALL be derived only from its sport group, its direction, the 
 #### Scenario: Loop both ways
 - **WHEN** a loop mapped as one closed way gives a candidate each way round
 - **THEN** the two candidates have different ids
+
+#### Scenario: Lollipop and its stem
+- **WHEN** a trail is one way that runs out to a loop and ends where the loop began, and a junction there cuts its stem into a stretch
+- **THEN** the whole trail and the stem, travelled from the loop out, have different ids
 
 #### Scenario: Trail rerouted
 - **WHEN** a trail's middle way is replaced by a new way
