@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
@@ -28,8 +29,6 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadSummary
@@ -108,9 +107,7 @@ fun FeedPresenter(
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
     val reporting =
         rememberReporting(reports) { author, _ ->
-            flights.launch(FeedEvent.Post::class) {
-                runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { e -> error = uiErrorOf(UiError.Kind.UpdateBlock, e) }
-            }
+            flights.launchAction(FeedEvent.Post::class, UiError.Kind.UpdateBlock, { error = it }) { blocks.setBlocked(author, true) }
         }
     val quoting = rememberQuoting(quotes) { error = it }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
@@ -196,19 +193,17 @@ fun FeedPresenter(
             }
 
             is FeedEvent.AnswerSegments -> {
-                flights.launch(FeedEvent.AnswerSegments::class) {
-                    runSuspendCatching { segmentPrefs.save(event.on) }
-                        .onSuccess { askSegments = false }
-                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveSettings, e) }
+                flights.launchAction(FeedEvent.AnswerSegments::class, UiError.Kind.SaveSettings, { error = it }) {
+                    segmentPrefs.save(event.on)
+                    askSegments = false
                 }
             }
 
             is FeedEvent.AnswerGroups -> {
                 if (event.choice != GroupChoice.NEVER_ASKED) {
-                    flights.launch(FeedEvent.AnswerGroups::class) {
-                        runSuspendCatching { groupPrefs.save(event.choice) }
-                            .onSuccess { askGroups = false }
-                            .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveSettings, e) }
+                    flights.launchAction(FeedEvent.AnswerGroups::class, UiError.Kind.SaveSettings, { error = it }) {
+                        groupPrefs.save(event.choice)
+                        askGroups = false
                     }
                 }
             }
