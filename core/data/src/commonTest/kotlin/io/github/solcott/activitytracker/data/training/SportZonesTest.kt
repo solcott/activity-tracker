@@ -84,6 +84,25 @@ class SportZonesTest {
         assertEquals("8:12", PaceText.format(PaceText.parse("8:12", PaceUnit.PerMile)!!, PaceUnit.PerMile))
         assertEquals("1:22", PaceText.format(PaceText.parse("82", PaceUnit.Per100Yards)!!, PaceUnit.Per100Yards))
         assertEquals(PaceText.parse("0:45", PaceUnit.Per100Meters), PaceText.parse(":45", PaceUnit.Per100Meters))
-        for (bad in listOf("", "0", "5:7", "5:60", "a:10", "1:2:3")) assertNull(PaceText.parse(bad, PaceUnit.PerKilometer), bad)
+        for (bad in listOf("", "0", "5:7", "5:60", "a:10", "1:2:3", "1:02:3", "1:02:60", "1:02:03:04")) {
+            assertNull(PaceText.parse(bad, PaceUnit.PerKilometer), bad)
+        }
+    }
+
+    @Test
+    fun aPaceOfAnHourOrMoreReadsAsHoursAsEveryPaceDoes() {
+        assertEquals("2:46:40", PaceText.format(TrainingDetails.MIN_THRESHOLD_SPEED, PaceUnit.PerKilometer))
+        assertEquals(PaceText.parse("62:03", PaceUnit.PerKilometer), PaceText.parse("1:02:03", PaceUnit.PerKilometer))
+    }
+
+    @Test
+    fun paceUnitsMeasureTheirLengths() {
+        assertEquals(PaceUnit.PerKilometer, PaceUnit.distance(UnitSystem.Metric))
+        assertEquals(PaceUnit.PerMile, PaceUnit.distance(UnitSystem.Imperial))
+        assertEquals(PaceUnit.Per100Meters, PaceUnit.swim(UnitSystem.Metric))
+        assertEquals(PaceUnit.Per100Yards, PaceUnit.swim(UnitSystem.Imperial))
+        assertEquals(250.0, PaceUnit.PerKilometer.secondsAt(4_000.0), "4 m/s")
+        assertEquals(Double.MAX_VALUE, PaceUnit.PerKilometer.secondsAt(0.0), "a standstill")
+        assertEquals(120.0, PaceUnit.Per100Meters.secondsOver(1_000.0, 1_200))
     }
 }

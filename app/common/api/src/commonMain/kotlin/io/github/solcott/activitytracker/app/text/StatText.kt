@@ -3,12 +3,17 @@ package io.github.solcott.activitytracker.app.text
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.data.sport.RateKind
 import io.github.solcott.activitytracker.data.sport.SportCatalog
+import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
+import io.github.solcott.activitytracker.data.units.formatClock
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToLong
+
+/** Below this, pace is noise from GPS jitter. */
+private const val MIN_PACE_DISTANCE_M = 10
 
 /** A stat as a UI shows it: what it is and its value. */
 @Immutable data class LabeledText(val label: AppText, val value: AppText)
@@ -25,15 +30,6 @@ object StatText {
     private const val DEPTH_DECIMALS = 1
     private const val TEMPERATURE_DECIMALS = 1
 
-    /** Below this, pace is noise from GPS jitter. */
-    private const val MIN_PACE_DISTANCE_M = 10
-
-    private const val SWIM_PACE_METERS = 100.0
-    private const val SWIM_PACE_YARDS = 100.0
-
-    private const val SECONDS_PER_HOUR = 3600
-    private const val SECONDS_PER_MINUTE = 60
-
     /** What a stat with no value shows. */
     val missing: AppText = AppText.named("value_missing")
 
@@ -44,21 +40,10 @@ object StatText {
     }
 
     /** A length of time as `m:ss`, or `h:mm:ss` from an hour up. Never grouped: a duration is not a quantity (ui/number-format). */
-    fun duration(seconds: Long): String {
-        val h = seconds / SECONDS_PER_HOUR
-        val m = (seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE
-        val s = seconds % SECONDS_PER_MINUTE
-        val mm = m.toString().padStart(2, '0')
-        val ss = s.toString().padStart(2, '0')
-        return if (h > 0) "$h:$mm:$ss" else "$m:$ss"
-    }
+    fun duration(seconds: Long): String = formatClock(seconds)
 
     /** Minutes per kilometer, or per mile. */
-    fun pace(meters: Double?, seconds: Long?, units: UnitSystem): AppText {
-        if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) return missing
-        val perUnit = duration((seconds / UnitConversions.toDistanceUnit(meters, units)).roundToLong())
-        return unit(units, "unit_pace_per_km", "unit_pace_per_mi", perUnit)
-    }
+    fun pace(meters: Double?, seconds: Long?, units: UnitSystem): AppText = PaceUnit.distance(units).averageText(meters, seconds)
 
     /** km/h, or mph. */
     fun speed(mmPerSecond: Long?, units: UnitSystem): AppText {
@@ -68,16 +53,7 @@ object StatText {
     }
 
     /** Minutes per 100 meters, or per 100 yards. */
-    fun swimPace(meters: Double?, seconds: Long?, units: UnitSystem): AppText {
-        if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) return missing
-        val metersPerUnit =
-            when (units) {
-                UnitSystem.Metric -> SWIM_PACE_METERS
-                UnitSystem.Imperial -> SWIM_PACE_YARDS * UnitConversions.METERS_PER_YARD
-            }
-        val perUnit = duration((seconds / (meters / metersPerUnit)).roundToLong())
-        return unit(units, "unit_pace_per_100m", "unit_pace_per_100yd", perUnit)
-    }
+    fun swimPace(meters: Double?, seconds: Long?, units: UnitSystem): AppText = PaceUnit.swim(units).averageText(meters, seconds)
 
     /** The sport's average rate (speed, pace or swim pace), or null for sports where distance means little, like yoga or tennis. */
     fun rate(sport: String, meters: Double?, seconds: Long?, units: UnitSystem): LabeledText? =
@@ -124,3 +100,20 @@ object StatText {
             AppText.written(value),
         )
 }
+
+/** [seconds] per this unit, with its unit: "5:12 /km", "1:50 /100 yd". */
+fun PaceUnit.text(seconds: Long): AppText =
+    AppText.named(
+        when (this) {
+            PaceUnit.PerKilometer -> "unit_pace_per_km"
+            PaceUnit.PerMile -> "unit_pace_per_mi"
+            PaceUnit.Per100Meters -> "unit_pace_per_100m"
+            PaceUnit.Per100Yards -> "unit_pace_per_100yd"
+        },
+        AppText.written(StatText.duration(seconds)),
+    )
+
+/** The average pace per this unit over [meters] in [seconds]; [StatText.missing] without both, or over too short a distance for a pace. */
+private fun PaceUnit.averageText(meters: Double?, seconds: Long?): AppText =
+    if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) StatText.missing
+    else text(secondsOver(meters, seconds).roundToLong())

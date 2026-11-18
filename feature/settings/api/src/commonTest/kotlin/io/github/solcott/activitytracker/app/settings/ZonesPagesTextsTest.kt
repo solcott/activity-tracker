@@ -158,8 +158,8 @@ class ZonesPagesTextsTest {
         assertEquals(4, ZoneThreshold.Power.maxLength)
         assertTrue(ZoneThreshold.RestingHeartRate.digitsOnly)
         assertFalse(ZoneThreshold.Pace.digitsOnly)
-        // The slowest threshold pace PaceText writes, in any unit.
-        assertEquals(6, ZoneThreshold.Pace.maxLength)
+        // The slowest threshold pace PaceText writes, in any unit: 2:46:40 per kilometer.
+        assertEquals(7, ZoneThreshold.Pace.maxLength)
         assertTrue(ZoneThreshold.MaxHeartRate.isValid("", PaceUnit.PerKilometer))
         assertFalse(ZoneThreshold.MaxHeartRate.isValid("300", PaceUnit.PerKilometer))
         assertTrue(ZoneThreshold.Power.isValid("2500", PaceUnit.PerKilometer))

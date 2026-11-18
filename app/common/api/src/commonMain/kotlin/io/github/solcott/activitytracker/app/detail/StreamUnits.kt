@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.detail
 
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
+import io.github.solcott.activitytracker.app.text.text
+import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.units.DiveConversions
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -137,31 +139,21 @@ object StreamUnits {
     /** An axis label: [converted] without decimals and without its unit. */
     fun axis(converted: Double): AppText = AppText.written(formatDecimal(converted, 0))
 
-    /** The name of the string a pace per [kind] reads in: "%1$s /km", "%1$s /100 yd". */
-    fun paceUnitName(kind: PaceKind, units: UnitSystem): String {
-        val metric = units == UnitSystem.Metric
-        return when (kind) {
-            PaceKind.Distance -> if (metric) "unit_pace_per_km" else "unit_pace_per_mi"
-            PaceKind.Swim -> if (metric) "unit_pace_per_100m" else "unit_pace_per_100yd"
+    /** What a pace per [kind] is per in [units]: a kilometer or mile, or 100 m or yd swimming. */
+    fun paceUnit(kind: PaceKind, units: UnitSystem): PaceUnit =
+        when (kind) {
+            PaceKind.Distance -> PaceUnit.distance(units)
+            PaceKind.Swim -> PaceUnit.swim(units)
         }
-    }
 
     /**
      * A speed (mm/s) as pace: the seconds a kilometer or mile takes, or 100 m or yd swimming. A standstill's pace is infinite
      * ([Double.MAX_VALUE]), so a chart caps it.
      */
-    fun paceSeconds(kind: PaceKind, mmPerSecond: Double, units: UnitSystem): Double {
-        val meters =
-            when (kind) {
-                PaceKind.Distance -> UnitConversions.metersPerDistanceUnit(units)
-                PaceKind.Swim -> if (units == UnitSystem.Metric) SWIM_PACE_LENGTH else SWIM_PACE_LENGTH * UnitConversions.METERS_PER_YARD
-            }
-        return if (mmPerSecond > 0) meters * MM_PER_M / mmPerSecond else Double.MAX_VALUE
-    }
+    fun paceSeconds(kind: PaceKind, mmPerSecond: Double, units: UnitSystem): Double = paceUnit(kind, units).secondsAt(mmPerSecond)
 
     /** [seconds] per kilometer, mile or 100, with its unit: "5:12 /km". */
-    fun paceText(kind: PaceKind, seconds: Double, units: UnitSystem): AppText =
-        AppText.named(paceUnitName(kind, units), AppText.written(StatText.duration(seconds.roundToLong())))
+    fun paceText(kind: PaceKind, seconds: Double, units: UnitSystem): AppText = paceUnit(kind, units).text(seconds.roundToLong())
 
     /** A pace axis label: [seconds] as a time, without its unit. */
     fun paceAxis(seconds: Double): AppText = AppText.written(StatText.duration(seconds.roundToLong()))
@@ -170,5 +162,4 @@ object StreamUnits {
     private const val MM_PER_CM = 10.0
     private const val MM_PER_INCH = 25.4
     private const val SECONDS_PER_HOUR = 3600.0
-    private const val SWIM_PACE_LENGTH = 100.0
 }

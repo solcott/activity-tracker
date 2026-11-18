@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.training
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.formatClock
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
@@ -40,13 +41,7 @@ object SportZones {
         }
 
     /** The unit [sport]'s pace reads in: per 100 m or yd for swimming, per km or mile otherwise. */
-    fun paceUnit(sport: String?, units: UnitSystem): PaceUnit =
-        when {
-            sport == Sport.SWIM && units == UnitSystem.Metric -> PaceUnit.Per100Meters
-            sport == Sport.SWIM -> PaceUnit.Per100Yards
-            units == UnitSystem.Metric -> PaceUnit.PerKilometer
-            else -> PaceUnit.PerMile
-        }
+    fun paceUnit(sport: String?, units: UnitSystem): PaceUnit = if (sport == Sport.SWIM) PaceUnit.swim(units) else PaceUnit.distance(units)
 }
 
 /**
@@ -96,42 +91,64 @@ fun TrainingDetails.withOverride(sport: String, entry: SportTraining?): Training
 }
 
 private const val SWIM_PACE_LENGTHS = 100
+private const val MM_PER_M = 1000.0
 
-/** The distance a pace is given per. */
+/** The distance a pace is given per: the one place every pace (a stat, a chart, a zone) reads its length from. */
 enum class PaceUnit(val meters: Double) {
     PerKilometer(UnitConversions.METERS_PER_KM),
     PerMile(UnitConversions.METERS_PER_MILE),
     Per100Meters(SWIM_PACE_LENGTHS.toDouble()),
-    Per100Yards(SWIM_PACE_LENGTHS * UnitConversions.METERS_PER_YARD),
+    Per100Yards(SWIM_PACE_LENGTHS * UnitConversions.METERS_PER_YARD);
+
+    /** The seconds this unit takes at [mmPerSecond]; a standstill's is infinite ([Double.MAX_VALUE]), so a chart caps it. */
+    fun secondsAt(mmPerSecond: Double): Double = if (mmPerSecond > 0) meters * MM_PER_M / mmPerSecond else Double.MAX_VALUE
+
+    /** The seconds this unit takes on average over [distanceMeters] in [seconds]. */
+    fun secondsOver(distanceMeters: Double, seconds: Long): Double = seconds / (distanceMeters / meters)
+
+    companion object {
+        /** A kilometer, or a mile. */
+        fun distance(units: UnitSystem): PaceUnit =
+            when (units) {
+                UnitSystem.Metric -> PerKilometer
+                UnitSystem.Imperial -> PerMile
+            }
+
+        /** 100 meters, or 100 yards, swimming. */
+        fun swim(units: UnitSystem): PaceUnit =
+            when (units) {
+                UnitSystem.Metric -> Per100Meters
+                UnitSystem.Imperial -> Per100Yards
+            }
+    }
 }
 
-/** Paces as `m:ss`, converted to and from the mm/s records store. */
+/** Paces as `m:ss` (`h:mm:ss` from an hour up, as [formatClock] writes every pace), converted to and from the mm/s records store. */
 object PaceText {
-    private const val MM_PER_M = 1000.0
     private const val SECONDS_PER_MINUTE = 60L
 
     /** Whole seconds per [unit] at [mmPerSecond]. */
-    fun seconds(mmPerSecond: Long, unit: PaceUnit): Long = (unit.meters * MM_PER_M / mmPerSecond).roundToLong()
+    fun seconds(mmPerSecond: Long, unit: PaceUnit): Long = unit.secondsAt(mmPerSecond.toDouble()).roundToLong()
 
     /** [mmPerSecond] as `m:ss` per [unit]. */
-    fun format(mmPerSecond: Long, unit: PaceUnit): String {
-        val total = seconds(mmPerSecond, unit)
-        return "${total / SECONDS_PER_MINUTE}:${(total % SECONDS_PER_MINUTE).toString().padStart(2, '0')}"
-    }
+    fun format(mmPerSecond: Long, unit: PaceUnit): String = formatClock(seconds(mmPerSecond, unit))
 
-    /** Typed `m:ss` (or whole seconds) per [unit] in mm/s; null when it doesn't parse or isn't positive. */
+    /** Typed `m:ss`, `h:mm:ss` or whole seconds per [unit] in mm/s; null when it doesn't parse or isn't positive. */
     fun parse(text: String, unit: PaceUnit): Long? {
         val parts = text.trim().split(':')
         val seconds =
             when (parts.size) {
                 1 -> parts[0].toLongOrNull()
-                2 -> {
-                    val minutes = parts[0].ifEmpty { "0" }.toLongOrNull()
-                    val secs = parts[1].takeIf { it.length == 2 }?.toLongOrNull()?.takeIf { it < SECONDS_PER_MINUTE }
-                    if (minutes != null && secs != null) minutes * SECONDS_PER_MINUTE + secs else null
+                2,
+                3 -> {
+                    val lead = parts[0].ifEmpty { "0" }.toLongOrNull()
+                    val rest =
+                        parts.drop(1).map { part -> part.takeIf { it.length == 2 }?.toLongOrNull()?.takeIf { it < SECONDS_PER_MINUTE } }
+                    if (lead == null || rest.any { it == null }) null
+                    else rest.fold(lead) { total, part -> total * SECONDS_PER_MINUTE + part!! }
                 }
                 else -> null
             }
-        return seconds?.takeIf { it > 0 }?.let { (unit.meters * MM_PER_M / it).roundToLong() }
+        return seconds?.takeIf { it > 0 }?.let { unit.secondsAt(it.toDouble()).roundToLong() }
     }
 }
