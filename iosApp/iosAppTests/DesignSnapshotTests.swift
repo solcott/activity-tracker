@@ -60,6 +60,8 @@ struct DesignSnapshotTests {
 
     @Test func messages() { assertAppSnapshot(of: DesignGallery.messages, size: panel, named: "messages") }
 
+    @Test func emptyMessages() { assertAppSnapshot(of: DesignGallery.emptyMessages, size: panel, named: "emptyMessages") }
+
     @Test(arguments: DesignGallery.contentNames)
     func loadedContent(state: String) {
         assertAppSnapshot(of: DesignGallery.content(state), size: panel, named: state)

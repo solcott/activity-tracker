@@ -19,7 +19,7 @@ struct FollowListView: View {
         } row: { account in
             row(account)
         } empty: {
-            Text(FollowListTexts.shared.empty(kind: state.kind)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(FollowListTexts.shared.empty(kind: state.kind))
         }
         .pageTitle(
             Text(FollowListTexts.shared.title(kind: state.kind)),

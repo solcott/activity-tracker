@@ -108,7 +108,7 @@ struct PostQuotesView: View {
                         content: PostCardContent.Companion.shared.of(post: post, viewerDid: state.viewerDid, reason: nil),
                         send: { send(PostQuotesEvent.Post(event: $0)) }, canReport: state.reporting.available)
                 } empty: {
-                    Text(PostPageTexts.shared.quotesEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                    EmptyMessage(PostPageTexts.shared.quotesEmpty)
                 }
             }
         }

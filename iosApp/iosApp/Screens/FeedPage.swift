@@ -128,7 +128,7 @@ struct FeedPage: View {
         }
         if let empty = FeedTexts.shared.empty(state: state) {
             VStack(spacing: 8) {
-                Text(empty).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                EmptyMessage(empty)
                 if FeedTexts.shared.emptyOffersClear(state: state) {
                     AppTextButton(.feedFilterClear) { send(FeedEvent.ClearFilters.shared) }
                 }

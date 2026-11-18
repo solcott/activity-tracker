@@ -33,7 +33,7 @@ struct StarredSegmentsView: View {
                 row(starred)
             } empty: {
                 if state.showsEmpty {
-                    Text(.starredSegmentsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                    EmptyMessage(.starredSegmentsEmpty)
                 }
             }
         }

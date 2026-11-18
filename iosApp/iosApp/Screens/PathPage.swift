@@ -35,7 +35,7 @@ struct PathPage: View {
                     row(group).id(group.shown.uri.value)
                 }
                 if state.empty {
-                    Text(PathTexts.shared.noneHere).foregroundStyle(.secondary).frame(maxWidth: .infinity).listStatusRow()
+                    EmptyMessage(PathTexts.shared.noneHere).listStatusRow()
                 }
             }
             .listStyle(.plain)

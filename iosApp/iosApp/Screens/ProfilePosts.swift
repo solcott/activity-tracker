@@ -47,7 +47,7 @@ struct ProfilePosts: View {
                 .onDisappear { if post.uri.value == posts.last?.uri.value { lastShown = false } }
             }
             if shown.showsEmpty {
-                Text(ProfileTexts.shared.postsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity).listStatusRow()
+                EmptyMessage(ProfileTexts.shared.postsEmpty).listStatusRow()
             }
             if let below = shown.below {
                 status(below)

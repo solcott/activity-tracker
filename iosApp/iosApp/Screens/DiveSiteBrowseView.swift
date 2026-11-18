@@ -39,13 +39,13 @@ struct DiveSiteBrowseView: View {
             List {
                 RefreshStatusView(state: state.area, errorKind: .LoadAreaDiveSites, retry: retry).listStatusRow()
                 if state.areaCapped {
-                    MapBrowseNote(DiveSiteBrowseTexts.shared.capped)
+                    EmptyMessage(DiveSiteBrowseTexts.shared.capped).listStatusRow()
                 }
                 ForEach(state.areaSites, id: \.site.uri.value) { browsed in
                     row(browsed.site, details: DiveSiteBrowseTexts.shared.details(browsed: browsed, units: stats.units))
                 }
                 if state.areaSites.isEmpty {
-                    MapBrowseNote(DiveSiteBrowseTexts.shared.noneHere)
+                    EmptyMessage(DiveSiteBrowseTexts.shared.noneHere).listStatusRow()
                 }
             }
             .listStyle(.plain)

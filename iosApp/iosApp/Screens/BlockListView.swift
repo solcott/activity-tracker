@@ -19,7 +19,7 @@ struct BlockListView: View {
         } row: { account in
             row(account)
         } empty: {
-            Text(BlockListTexts.shared.empty(kind: state.kind)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(BlockListTexts.shared.empty(kind: state.kind))
         }
         .pageTitle(Text(BlockListTexts.shared.title(kind: state.kind)))
     }

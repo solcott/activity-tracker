@@ -80,14 +80,14 @@ struct AthleteSearchView: View {
             modes.listStatusRow()
             // What to type, before anything is: a search that hasn't run has nothing else to show.
             if let prompt = AthleteSearchTexts.shared.prompt(state: state) {
-                Text(prompt).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                EmptyMessage(prompt)
                     .padding(.vertical, 24).listStatusRow()
             }
         } row: { account in
             AccountRow(account, opens: { send(AthleteSearchEvent.Open(did: account.did)) })
         } empty: {
             if let empty = AthleteSearchTexts.shared.empty(state: state) {
-                Text(empty).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                EmptyMessage(empty)
             }
         }
         .searchable(

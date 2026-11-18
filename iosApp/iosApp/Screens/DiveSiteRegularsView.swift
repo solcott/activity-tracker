@@ -25,7 +25,7 @@ struct DiveSiteRegularsView: View {
                 YourPlace { row(own) }
             }
         } empty: {
-            Text(.diveSiteRegularsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(.diveSiteRegularsEmpty)
         }
         .pageTitle(Text(.diveSiteRegularsTitle(state.name)))
     }

@@ -49,3 +49,22 @@ struct ErrorMessage: View {
         }
     }
 }
+
+/// What a list or page says when it has nothing to show, or what to do before it can (ui/ios-design-system): secondary text,
+/// centred across the width it is given, beside `ErrorMessage` for when loading failed. A list's status row adds `listStatusRow()`.
+struct EmptyMessage: View {
+    private let text: Text
+
+    init(_ text: LocalizedStringResource) {
+        self.text = Text(text)
+    }
+
+    /// A message Kotlin chose (`FeedTexts.empty`).
+    init(_ text: any AppText) {
+        self.text = Text(text)
+    }
+
+    var body: some View {
+        text.foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+    }
+}

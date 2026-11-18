@@ -30,7 +30,7 @@ struct SegmentMayorsView: View {
                 YourPlace { row(own) }
             }
         } empty: {
-            Text(.mayorsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(.mayorsEmpty)
         }
         .pageTitle(Text(.mayorsTitle(state.name)))
     }

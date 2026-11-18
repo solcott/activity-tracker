@@ -42,7 +42,7 @@ struct GearCollectionView: View {
             }
             let members = detail.members.elements(as: GearRow.self)
             if members.isEmpty {
-                Text(.gearCollectionEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity).listStatusRow()
+                EmptyMessage(.gearCollectionEmpty).listStatusRow()
             } else {
                 Section {
                     ForEach(members, id: \.rkey) { row in

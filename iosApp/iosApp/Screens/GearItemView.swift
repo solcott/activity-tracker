@@ -86,7 +86,7 @@ struct GearItemView: View {
         } row: { activity in
             card(activity)
         } empty: {
-            Text(.gearPageNoActivities).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+            EmptyMessage(.gearPageNoActivities)
         }
     }
 

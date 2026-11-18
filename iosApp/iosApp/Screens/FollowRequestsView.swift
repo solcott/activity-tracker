@@ -25,9 +25,7 @@ struct FollowRequestsView: View {
                 noticeRow(notice).listStatusRow()
             }
             if accounts.isEmpty {
-                Text(FollowRequestsTexts.shared.empty(tab: state.tab)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .listStatusRow()
+                EmptyMessage(FollowRequestsTexts.shared.empty(tab: state.tab)).listStatusRow()
             } else {
                 Section {
                     ForEach(accounts, id: \.did.value) { account in row(account) }

@@ -143,7 +143,7 @@ struct MapBrowseList<Names: View, Area: View>: View {
 
     @ViewBuilder private func messageText(_ shows: BrowseList) -> some View {
         if let text = message(shows) {
-            Text(text).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            EmptyMessage(text)
         }
     }
 }
@@ -155,25 +155,12 @@ struct MapBrowseNoResults: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(text).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            EmptyMessage(text)
             if browse.offersSearchEverywhere {
                 AppTextButton(.segmentBrowseSearchEverywhere) { browse.eventSink(MapBrowseEvent.SearchEverywhere.shared) }
             }
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-/// A line in a browse list that isn't a row: the area's list being capped, or nothing there.
-struct MapBrowseNote: View {
-    let text: any AppText
-
-    init(_ text: any AppText) {
-        self.text = text
-    }
-
-    var body: some View {
-        Text(text).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity).listStatusRow()
     }
 }
 

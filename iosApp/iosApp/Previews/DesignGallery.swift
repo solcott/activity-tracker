@@ -226,7 +226,7 @@
             } row: { account in
                 Text(verbatim: account.profile.handle.value)
             } empty: {
-                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                EmptyMessage(.blockedAccountsEmpty)
             }
         }
 
@@ -244,7 +244,7 @@
             } after: {
                 Section { Text(verbatim: "carol.test") } header: { Text(.leaderboardYourPlace) }
             } empty: {
-                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                EmptyMessage(.blockedAccountsEmpty)
             }
         }
 
@@ -335,6 +335,15 @@
                 ErrorMessage(offline, layout: .row) {}
             }
             .padding(24)
+        }
+
+        /// What a list says with nothing in it: a short line, and a longer one wrapping centred, as a list's status rows.
+        static var emptyMessages: some View {
+            List {
+                EmptyMessage(.blockedAccountsEmpty).listStatusRow()
+                EmptyMessage(.starredSegmentsEmpty).padding(.vertical, 24).listStatusRow()
+                EmptyMessage(.uploadsEmpty).listStatusRow()
+            }
         }
 
         /// The loaded-content layout in the state `name` gives: `loading`, `failed`, `loaded`, `refreshing` or `refreshFailed`.
@@ -436,6 +445,7 @@
     #Preview("Layered charts") { DesignGallery.layeredCharts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
+    #Preview("Empty messages") { DesignGallery.emptyMessages }
     #Preview("Content") {
         TabView {
             ForEach(DesignGallery.contentNames, id: \.self) { DesignGallery.content($0) }

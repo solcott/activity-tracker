@@ -28,9 +28,7 @@ struct ActivityInvitesView: View {
                 noticeRow(notice).listStatusRow()
             }
             if invites.isEmpty {
-                Text(ActivityInvitesTexts.shared.empty(tab: state.tab)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .listStatusRow()
+                EmptyMessage(ActivityInvitesTexts.shared.empty(tab: state.tab)).listStatusRow()
             } else {
                 Section {
                     ForEach(invites, id: \.uri.value) { invite in row(invite) }

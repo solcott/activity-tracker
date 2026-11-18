@@ -143,10 +143,7 @@ struct ProfilePage: View {
                 Section { card(activity) }
             }
             if state.activitiesEmpty {
-                Text(ProfileTexts.shared.activitiesEmpty)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .listStatusRow()
+                EmptyMessage(ProfileTexts.shared.activitiesEmpty).listStatusRow()
             }
         }
     }
