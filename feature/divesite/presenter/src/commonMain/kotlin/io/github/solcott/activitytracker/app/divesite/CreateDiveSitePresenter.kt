@@ -3,22 +3,23 @@ package io.github.solcott.activitytracker.app.divesite
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.PublishCheck
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.checkThenPublish
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberActivityRouteLoad
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberPublishChecks
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.mapIsPublic
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
-import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSitePublisher
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
@@ -35,14 +36,6 @@ import io.github.solcott.activitytracker.location.PrivacyCircle
 import io.github.solcott.activitytracker.location.siteOutline
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
-import io.github.solcott.dataresult.combineOutcomes
-import io.github.solcott.uistate.circuit.produceRetainedContentStates
-import io.github.solcott.uistate.contentStatesOf
-import io.github.solcott.uistate.errorOrNull
-import io.github.solcott.uistate.hasLoaded
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 
 @CircuitInject(CreateDiveSiteScreen::class, SessionScope::class)
 @Composable
@@ -57,23 +50,13 @@ fun CreateDiveSitePresenter(
     publisher: DiveSitePublisher,
 ): CreateDiveSiteState {
     val uri = AtUri(screen.diveUri)
-    var loadKey by remember { mutableIntStateOf(0) }
     // The zones are read fresh, since they decide whether a position that will be public may be.
-    val loads =
-        produceRetainedContentStates(contentStatesOf<ActivityView?, List<LocationSample>?, PrivacySettings?>(null, null, null), loadKey) {
-            combineOutcomes(feed.activityOutcome(uri), activities.ownRouteOutcome(uri), privacy.zonesOutcome())
-        }
-    // A null track is an answer (none), so it counts only once it has loaded.
-    val loaded = loads.toContentState { activity, track, zones ->
-        if (activity != null && zones != null && loads.second.hasLoaded) CreateDiveSiteLoad(activity, track, zones) else null
-    }
+    val load = rememberActivityRouteLoad(uri, feed, activities, privacy)
     val name = rememberTextFieldState()
     // The logbook's own site name, when it has one, starts the name.
-    val seed = rememberFormSeed(loaded) { load -> load.activity.effectiveRecord().dive?.site?.let(name::setTextAndPlaceCursorAtEnd) }
+    val seed = rememberFormSeed(load.content) { it.activity.effectiveRecord().dive?.site?.let(name::setTextAndPlaceCursorAtEnd) }
     var radius by rememberRetained { mutableIntStateOf(DiveSiteRecord.DEFAULT_RADIUS) }
-    var duplicates by rememberRetained { mutableStateOf<ImmutableList<DiveSiteView>>(persistentListOf()) }
-    var limitReached by rememberRetained { mutableStateOf(false) }
-    var actionError by rememberRetained { mutableStateOf<UiError?>(null) }
+    val checks = rememberPublishChecks<DiveSiteView>()
     val flights = rememberSingleFlight()
 
     val activity = seed?.activity
@@ -91,54 +74,42 @@ fun CreateDiveSitePresenter(
     val title = name.text.toString().trim()
 
     return CreateDiveSiteState(
-        content = loaded.formContent(seeded = seed != null),
-        loadErrorKind =
-            when {
-                loads.first.errorOrNull != null -> UiError.Kind.LoadActivity
-                loads.second.errorOrNull != null -> UiError.Kind.LoadDivePosition
-                else -> UiError.Kind.LoadPrivacyZones
-            },
+        content = load.content.formContent(seeded = seed != null),
+        loadErrorKind = load.loadErrorKind(UiError.Kind.LoadDivePosition),
         unavailable = unavailable,
         outline = outline,
         name = name,
         named = title.isNotEmpty() && title.length <= DiveSiteRecord.MAX_NAME_GRAPHEMES,
         radius = radius,
         namesDive = namesDive,
-        duplicates = duplicates,
-        limitReached = limitReached,
+        duplicates = checks.duplicates,
+        limitReached = checks.limitReached,
         publishing = flights.isRunning(CreateDiveSiteEvent.Publish),
-        actionError = actionError,
+        actionError = checks.error,
     ) { event ->
         when (event) {
             CreateDiveSiteEvent.Back -> navigator.pop()
-            CreateDiveSiteEvent.Retry -> loadKey++
+            CreateDiveSiteEvent.Retry -> load.retry()
             is CreateDiveSiteEvent.RadiusChanged -> radius = event.meters.coerceIn(DiveSiteRecord.MIN_RADIUS, DiveSiteRecord.MAX_RADIUS)
             is CreateDiveSiteEvent.OpenSite -> navigator.goTo(DiveSiteScreen(event.uri.value))
             CreateDiveSiteEvent.Publish -> {
                 val dive = activity ?: return@CreateDiveSiteState
                 if (unavailable != null || latE7 == null || lngE7 == null) return@CreateDiveSiteState
                 if (title.isEmpty() || title.length > DiveSiteRecord.MAX_NAME_GRAPHEMES) return@CreateDiveSiteState
-                flights.launch(CreateDiveSiteEvent.Publish) {
-                    actionError = null
-                    val checked =
-                        runSuspendCatching { sites.check(latE7, lngE7) }
-                            .onFailure { actionError = UiError.of(UiError.Kind.CheckDiveSite, it) }
-                            .getOrNull() ?: return@launch
-                    duplicates = checked.duplicates.toImmutableList()
-                    limitReached = checked.remaining <= 0
-                    if (duplicates.isNotEmpty() || limitReached) return@launch
-                    val source = StrongRef(dive.uri, dive.cid).takeIf { namesDive }
-                    runSuspendCatching { publisher.create(uri, title, latE7, lngE7, radius, source) }
-                        .onSuccess { navigator.pop() }
-                        .onFailure { actionError = UiError.of(UiError.Kind.PublishDiveSite, it) }
-                }
+                val source = StrongRef(dive.uri, dive.cid).takeIf { namesDive }
+                flights.checkThenPublish(
+                    key = CreateDiveSiteEvent.Publish,
+                    checks = checks,
+                    check = { sites.check(latE7, lngE7).let { PublishCheck(it.duplicates, it.remaining) } },
+                    checkError = UiError.Kind.CheckDiveSite,
+                    publish = { publisher.create(uri, title, latE7, lngE7, radius, source) },
+                    publishError = UiError.Kind.PublishDiveSite,
+                    onPublished = { navigator.pop() },
+                )
             }
         }
     }
 }
-
-/** What a site is placed from, once all of it has loaded: the dive, its own track (null for none) and the zones that guard it. */
-private data class CreateDiveSiteLoad(val activity: ActivityView, val track: List<LocationSample>?, val zones: PrivacySettings)
 
 /**
  * Why [dive] can't give a site, if it can't: it already visits a live one, it has no [entry], or the entry is one the athlete's privacy
