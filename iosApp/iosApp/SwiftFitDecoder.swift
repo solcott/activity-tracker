@@ -4,6 +4,7 @@ import Foundation
 import IosShell
 import KotlinRuntime
 import KotlinStdlib
+import OrgJetbrainsKotlinxKotlinxIoBytestring
 
 // Swift export gives a Kotlin module no top-level names for its types when it is exported only through another module's signatures, as
 // :core-activityfile is through :iosShell's. These name the ones this file uses.
@@ -384,8 +385,10 @@ nonisolated final class SwiftFitDecoder: KotlinBase, FitDecoder {
         )
     }
 
-    private static func data(from bytes: KotlinByteArray) -> Data {
-        Data((0..<bytes.size).map { UInt8(bitPattern: bytes[$0]) })
+    /// The bytes as Swift's `Data`, copied in bulk through kotlinx-io: reading `bytes[i]` would cross into Kotlin once per byte.
+    static func data(from bytes: KotlinByteArray) -> Data {
+        let byteString = ExportedKotlinPackages.kotlinx.io.bytestring.ByteString(data: bytes, startIndex: 0, endIndex: bytes.size)
+        return ExportedKotlinPackages.kotlinx.io.bytestring.toNSData(byteString) as Data
     }
 
     private static func fileId(_ m: FileIdMesg) -> DecodedSource {
