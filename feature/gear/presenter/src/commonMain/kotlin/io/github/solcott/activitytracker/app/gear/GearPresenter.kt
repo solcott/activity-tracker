@@ -15,9 +15,9 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -184,16 +184,14 @@ fun GearPresenter(
             is GearEvent.UnlinkSensor -> {
                 val key = links.firstOrNull { it.key.id == event.id }?.key ?: return@GearState
                 error = null
-                flights.launch(event) {
-                    runSuspendCatching { defaults.editLinks(GearLinkEdit(unlink = listOf(key))) }
-                        .onFailure { error = uiErrorOf(UiError.Kind.SaveGearLinks, it) }
+                flights.launchAction(event, UiError.Kind.SaveGearLinks, { error = it }) {
+                    defaults.editLinks(GearLinkEdit(unlink = listOf(key)))
                 }
             }
             is GearEvent.UnlinkProfile -> {
                 error = null
-                flights.launch(event) {
-                    runSuspendCatching { defaults.editLinks(GearLinkEdit(unlinkProfiles = setOf(event.name))) }
-                        .onFailure { error = uiErrorOf(UiError.Kind.SaveGearLinks, it) }
+                flights.launchAction(event, UiError.Kind.SaveGearLinks, { error = it }) {
+                    defaults.editLinks(GearLinkEdit(unlinkProfiles = setOf(event.name)))
                 }
             }
             is GearEvent.Activity -> {

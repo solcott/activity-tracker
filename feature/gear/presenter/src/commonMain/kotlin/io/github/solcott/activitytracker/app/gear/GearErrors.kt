@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.app.gear
 
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
+import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors

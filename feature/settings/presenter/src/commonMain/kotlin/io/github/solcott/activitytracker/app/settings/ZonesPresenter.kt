@@ -12,10 +12,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -97,11 +96,10 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
                 if (before != null && !saving) {
                     error = null
                     val edited = form.training().settingTimes(before, clock.now())
-                    flights.launch(ZonesEvent.Save) {
+                    flights.launchAction(ZonesEvent.Save, UiError.Kind.SaveZones, { error = it }) {
                         // The sports as saved now: one may have been edited on its own screen since this one loaded.
-                        runSuspendCatching { profiles.updateTraining { current -> edited.copy(sports = current.sports) } }
-                            .onSuccess { navigator.pop() }
-                            .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
+                        profiles.updateTraining { current -> edited.copy(sports = current.sports) }
+                        navigator.pop()
                     }
                 }
             }

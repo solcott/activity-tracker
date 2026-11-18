@@ -10,10 +10,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
@@ -62,27 +61,21 @@ fun AddPeoplePresenter(
             is AddPeopleEvent.Add -> {
                 val follower = followers.firstOrNull { it.did == event.did }
                 if (follower != null)
-                    flights.launch(event.did) {
+                    flights.launchAction(event.did, UiError.Kind.UpdateInvitees, { error = it }) {
                         error = null
-                        runSuspendCatching { invites.add(activity, follower) }
-                            .onSuccess { invitee ->
-                                removed = removed - event.did
-                                added = added.filterNot { other -> other.invitee.did == event.did } + invitee
-                            }
-                            .onFailure { error = uiErrorOf(UiError.Kind.UpdateInvitees, it) }
+                        val invitee = invites.add(activity, follower)
+                        removed = removed - event.did
+                        added = added.filterNot { other -> other.invitee.did == event.did } + invitee
                     }
             }
 
             is AddPeopleEvent.Remove -> {
                 val did = event.invitee.invitee.did
-                flights.launch(did) {
+                flights.launchAction(did, UiError.Kind.UpdateInvitees, { error = it }) {
                     error = null
-                    runSuspendCatching { invites.cancel(event.invitee.uri) }
-                        .onSuccess {
-                            added = added.filterNot { invitee -> invitee.invitee.did == did }
-                            removed = removed + did
-                        }
-                        .onFailure { error = uiErrorOf(UiError.Kind.UpdateInvitees, it) }
+                    invites.cancel(event.invitee.uri)
+                    added = added.filterNot { invitee -> invitee.invitee.did == did }
+                    removed = removed + did
                 }
             }
 

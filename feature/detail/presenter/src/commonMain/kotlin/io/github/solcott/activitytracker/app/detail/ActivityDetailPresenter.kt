@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentActions
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
@@ -37,8 +38,6 @@ import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -364,42 +363,36 @@ private fun rememberManage(
     return Manage(
         state,
         delete = { withRecordings ->
-            flights.launch(delete) {
+            flights.launchAction(delete, UiError.Kind.DeleteActivity, { error = it }) {
                 error = null
-                runSuspendCatching { manager.delete(activity, withRecordings) }
-                    .onSuccess { navigator.pop() }
-                    .onFailure { error = uiErrorOf(UiError.Kind.DeleteActivity, it) }
+                manager.delete(activity, withRecordings)
+                navigator.pop()
             }
         },
         ungroup = {
             if (state.canUngroup) {
-                flights.launch(ungroup) {
+                flights.launchAction(ungroup, UiError.Kind.UngroupActivity, { error = it }) {
                     error = null
-                    runSuspendCatching {
-                        val visibility = activity.visibilityOrPublic
-                        if (recordingOf == null) manager.ungroup(recordings.single().uri, from = activity.uri, visibility)
-                        else manager.ungroup(activity.uri, from = recordingOf, visibility)
-                    }
-                        .onSuccess { reload() }
-                        .onFailure { error = uiErrorOf(UiError.Kind.UngroupActivity, it) }
+                    val visibility = activity.visibilityOrPublic
+                    if (recordingOf == null) manager.ungroup(recordings.single().uri, from = activity.uri, visibility)
+                    else manager.ungroup(activity.uri, from = recordingOf, visibility)
+                    reload()
                 }
             }
         },
         removeMember = { member ->
-            flights.launch(remove) {
+            flights.launchAction(remove, UiError.Kind.SplitActivity, { error = it }) {
                 error = null
-                runSuspendCatching { manager.removeMember(activity, member) }
-                    // Taking out one of two members splits the combined activity, which is then gone.
-                    .onSuccess { if (members.size - 1 < CombinedActivity.MIN_MEMBERS) navigator.pop() else reload() }
-                    .onFailure { error = uiErrorOf(UiError.Kind.SplitActivity, it) }
+                manager.removeMember(activity, member)
+                // Taking out one of two members splits the combined activity, which is then gone.
+                if (members.size - 1 < CombinedActivity.MIN_MEMBERS) navigator.pop() else reload()
             }
         },
         split = {
-            flights.launch(split) {
+            flights.launchAction(split, UiError.Kind.SplitActivity, { error = it }) {
                 error = null
-                runSuspendCatching { manager.split(activity) }
-                    .onSuccess { navigator.pop() }
-                    .onFailure { error = uiErrorOf(UiError.Kind.SplitActivity, it) }
+                manager.split(activity)
+                navigator.pop()
             }
         },
     )

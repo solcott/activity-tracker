@@ -10,12 +10,11 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -60,10 +59,9 @@ fun PostQuotesPresenter(
     val flights = rememberSingleFlight()
     val reporting =
         rememberReporting(reports) { author, _ ->
-            flights.launch(BlockQuoteAuthor) {
-                runSuspendCatching { blocks.setBlocked(author, true) }
-                    .onSuccess { error = null }
-                    .onFailure { error = uiErrorOf(UiError.Kind.UpdateBlock, it) }
+            flights.launchAction(BlockQuoteAuthor, UiError.Kind.UpdateBlock, { error = it }) {
+                blocks.setBlocked(author, true)
+                error = null
             }
         }
     val quoting = rememberQuoting(quotes) { error = it }

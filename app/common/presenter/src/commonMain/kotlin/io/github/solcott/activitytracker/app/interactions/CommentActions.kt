@@ -4,7 +4,7 @@ import androidx.compose.runtime.MutableState
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
+import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository

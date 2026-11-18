@@ -10,10 +10,10 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.auth.AuthRepository
@@ -72,20 +72,18 @@ fun AcceptInvitePresenter(
             AcceptInviteEvent.Accept -> {
                 val current = invite
                 if (current != null)
-                    flights.launch(AcceptInviteEvent.Accept) {
+                    flights.launchAction(AcceptInviteEvent.Accept, UiError.Kind.AnswerActivityInvite, { error = it }) {
                         error = null
-                        runSuspendCatching { invites.accept(current, visibility.current, title.text.toString()) }
-                            .onSuccess { navigator.pop() }
-                            .onFailure { error = uiErrorOf(UiError.Kind.AnswerActivityInvite, it) }
+                        invites.accept(current, visibility.current, title.text.toString())
+                        navigator.pop()
                     }
             }
 
             AcceptInviteEvent.Decline -> {
-                flights.launch(AcceptInviteEvent.Decline) {
+                flights.launchAction(AcceptInviteEvent.Decline, UiError.Kind.AnswerActivityInvite, { error = it }) {
                     error = null
-                    runSuspendCatching { invites.decline(uri) }
-                        .onSuccess { navigator.pop() }
-                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerActivityInvite, it) }
+                    invites.decline(uri)
+                    navigator.pop()
                 }
             }
 

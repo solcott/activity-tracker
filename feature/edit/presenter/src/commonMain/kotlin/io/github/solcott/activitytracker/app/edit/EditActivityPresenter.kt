@@ -15,11 +15,11 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.GearChoice
 import io.github.solcott.activitytracker.app.record.GearChoices
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
@@ -92,7 +92,7 @@ fun EditActivityPresenter(
     val gearEdit = shown?.let { gear.changedFrom(it.effectiveRecord().gear.orEmpty()) }
 
     fun save(current: ActivityView) {
-        flights.launch(EditActivityEvent.Save) {
+        flights.launchAction(EditActivityEvent.Save, UiError.Kind.SaveActivity, { error = it }) {
             error = null
             val edit =
                 ActivityEdit(
@@ -101,17 +101,13 @@ fun EditActivityPresenter(
                     diveSite = form.diveSite.text.toString().takeIf { current.record.sport == Sport.DIVE },
                     media = form.mediaEdits(),
                 )
-            runSuspendCatching {
-                // An activity from before categories keeps its core charts with its one streams record; saving moves them to the
-                // activity's tier, so a wider one is the athlete's call.
-                if (visibility.asksAboutCoreCharts(current, manager)) return@runSuspendCatching false
-                manager.edit(current, edit)
-                saveVisibility(manager, current, visibility, gearEdit)
-                exclusion.save()
-                true
-            }
-                .onSuccess { saved -> if (saved) navigator.pop() }
-                .onFailure { error = uiErrorOf(UiError.Kind.SaveActivity, it) }
+            // An activity from before categories keeps its core charts with its one streams record; saving moves them to the
+            // activity's tier, so a wider one is the athlete's call.
+            if (visibility.asksAboutCoreCharts(current, manager)) return@launchAction
+            manager.edit(current, edit)
+            saveVisibility(manager, current, visibility, gearEdit)
+            exclusion.save()
+            navigator.pop()
         }
     }
 

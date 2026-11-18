@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.invites.ActivityInvitesScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
@@ -25,7 +26,6 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -267,13 +267,10 @@ private fun SingleFlight.toggleBlockOrMute(
     val block = event == ProfileEvent.ToggleBlock
     // Nothing here can remove a Bluesky block, so a block held only by one stays.
     if (current == null || (block && current.blockedOnBluesky(isSelf = false))) return
-    launch(event) {
-        runSuspendCatching {
-            if (block) blocks.setBlocked(current.did, current.viewer?.blocking == null)
-            else blocks.setMuted(current.did, current.viewer?.muting == null)
-        }
-            .onSuccess { onDone(blocks.applyTo(current)) }
-            .onFailure { onError(uiErrorOf(if (block) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute, it)) }
+    launchAction(event, if (block) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute, onError) {
+        if (block) blocks.setBlocked(current.did, current.viewer?.blocking == null)
+        else blocks.setMuted(current.did, current.viewer?.muting == null)
+        onDone(blocks.applyTo(current))
     }
 }
 

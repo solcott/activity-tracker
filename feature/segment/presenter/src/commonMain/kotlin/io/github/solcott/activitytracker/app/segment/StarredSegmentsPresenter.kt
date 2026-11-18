@@ -8,8 +8,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
@@ -69,10 +69,9 @@ fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments
                     .firstOrNull { it.segment.uri == event.uri }
                     ?.let { star ->
                         actionError = null
-                        flights.launch(event.uri) {
-                            runSuspendCatching { stars.setStarred(star.segment, starred = false) }
-                                .onSuccess { list.update { items -> items.filterNot { it.uri == event.uri } } }
-                                .onFailure { actionError = uiErrorOf(UiError.Kind.UpdateStar, it) }
+                        flights.launchAction(event.uri, UiError.Kind.UpdateStar, { actionError = it }) {
+                            stars.setStarred(star.segment, starred = false)
+                            list.update { items -> items.filterNot { it.uri == event.uri } }
                         }
                     }
             }

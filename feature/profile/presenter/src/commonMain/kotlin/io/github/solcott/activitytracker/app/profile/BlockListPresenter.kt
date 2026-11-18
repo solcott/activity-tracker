@@ -8,9 +8,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.Did
@@ -59,13 +58,10 @@ fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: Bl
                 val account = accounts.state.items.firstOrNull { it.profile.did == event.did }?.takeIf { it.removable }
                 if (account != null) {
                     actionError = null
-                    flights.launch(event.did) {
-                        runSuspendCatching { blocks.remove(screen.kind, event.did) }
-                            .onSuccess { accounts.update { list -> list.afterRemoving(event.did) } }
-                            .onFailure {
-                                val kind = if (screen.kind == BlockListKind.Blocked) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute
-                                actionError = uiErrorOf(kind, it)
-                            }
+                    val kind = if (screen.kind == BlockListKind.Blocked) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute
+                    flights.launchAction(event.did, kind, { actionError = it }) {
+                        blocks.remove(screen.kind, event.did)
+                        accounts.update { list -> list.afterRemoving(event.did) }
                     }
                 }
             }
