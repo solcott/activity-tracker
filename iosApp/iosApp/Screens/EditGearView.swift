@@ -41,9 +41,7 @@ struct EditGearView: View {
         }
         .pageTitle(Text(state.title)) {
             if state.showsSave {
-                Button(.gearSave) { send(EditGearEvent.Save.shared) }
-                    .fontWeight(.semibold)
-                    .disabled(!state.enabled)
+                AppBarAction(.gearSave, enabled: state.enabled) { send(EditGearEvent.Save.shared) }
             }
         }
         .alert(
@@ -144,24 +142,7 @@ struct EditGearView: View {
     @ViewBuilder private var collections: some View {
         let choices = state.collections.elements(as: GearCollectionChoice.self)
         if !choices.isEmpty {
-            Section {
-                ForEach(choices, id: \.rkey) { choice in
-                    Button { send(EditGearEvent.ToggleCollection(rkey: choice.rkey)) } label: {
-                        HStack {
-                            Text(verbatim: choice.name).foregroundStyle(.primary)
-                            Spacer()
-                            if choice.member {
-                                Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(choice.member ? .isSelected : [])
-                }
-            } header: {
-                Text(.gearCollections)
-            }
+            GearCollectionsSection(choices: choices) { send(EditGearEvent.ToggleCollection(rkey: $0.rkey)) }
         }
     }
 

@@ -69,6 +69,25 @@
             }
         }
 
+        /// Choices ticked while chosen: one chosen, one not, and one with an icon and a second line at the row's wider spacing.
+        static var checkRows: some View {
+            List {
+                Section {
+                    AppCheckRow(checked: true) {} label: { Text(verbatim: "Commute bikes").foregroundStyle(.primary) }
+                    AppCheckRow(checked: false) {} label: { Text(verbatim: "Race day").foregroundStyle(.primary) }
+                    AppCheckRow(checked: true, spacing: 12) {} label: {
+                        SportIcon(KotlinActivityType(sport: "ride", subSport: nil)).foregroundStyle(.tint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: "Ride").foregroundStyle(.primary)
+                            Text(verbatim: "Gravel ride").font(.footnote).foregroundStyle(.tint)
+                        }
+                    }
+                } header: {
+                    Text(verbatim: "Collections")
+                }
+            }
+        }
+
         /// A page's header in a column beside another screen (`pageTitle` in a pane), with the rows that scroll under it.
         static var pageBar: some View {
             List {
@@ -90,6 +109,19 @@
             .pageTitle(Text(verbatim: "Gear")) {
                 AppIconButton(.add, label: .gearAdd) {}
                 AppIconButton(.more, label: .gearMore) {}
+            }
+            .environment(\.inPane, true)
+        }
+
+        /// A form's header with its bar actions: Save, Publish held back, and an action running, its spinner in its place.
+        static var pageBarSave: some View {
+            List {
+                ForEach(1..<6) { AppListRow(Text(verbatim: "Row \($0)")) }
+            }
+            .pageTitle(Text(verbatim: "Edit gear")) {
+                AppBarAction(.gearSave) {}
+                AppBarAction(.segmentCreatePublish, enabled: false) {}
+                AppBarAction(.createDiveSitePublish, busy: true) {}
             }
             .environment(\.inPane, true)
         }
@@ -194,7 +226,7 @@
             } row: { account in
                 Text(verbatim: account.profile.handle.value)
             } empty: {
-                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                EmptyMessage(.blockedAccountsEmpty)
             }
         }
 
@@ -212,7 +244,7 @@
             } after: {
                 Section { Text(verbatim: "carol.test") } header: { Text(.leaderboardYourPlace) }
             } empty: {
-                Text(.blockedAccountsEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                EmptyMessage(.blockedAccountsEmpty)
             }
         }
 
@@ -305,6 +337,15 @@
             .padding(24)
         }
 
+        /// What a list says with nothing in it: a short line, and a longer one wrapping centred, as a list's status rows.
+        static var emptyMessages: some View {
+            List {
+                EmptyMessage(.blockedAccountsEmpty).listStatusRow()
+                EmptyMessage(.starredSegmentsEmpty).padding(.vertical, 24).listStatusRow()
+                EmptyMessage(.uploadsEmpty).listStatusRow()
+            }
+        }
+
         /// The loaded-content layout in the state `name` gives: `loading`, `failed`, `loaded`, `refreshing` or `refreshFailed`.
         static func content(_ name: String) -> some View {
             let state = contentStates[name]!
@@ -375,8 +416,10 @@
     #Preview("Fields") { DesignGallery.fields }
     #Preview("Form rows") { DesignGallery.formRows }
     #Preview("Rows") { DesignGallery.rows }
+    #Preview("Check rows") { DesignGallery.checkRows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }
+    #Preview("Page bar with bar actions") { DesignGallery.pageBarSave }
     #Preview("Page bar with back") { DesignGallery.pageBarBack }
     #Preview("Page bar with a subtitle") { DesignGallery.pageBarSubtitle }
     #Preview("Page bar that can't go back") { DesignGallery.pageBarNoBack }
@@ -402,6 +445,7 @@
     #Preview("Layered charts") { DesignGallery.layeredCharts }
     #Preview("Icons") { DesignGallery.icons }
     #Preview("Messages") { DesignGallery.messages }
+    #Preview("Empty messages") { DesignGallery.emptyMessages }
     #Preview("Content") {
         TabView {
             ForEach(DesignGallery.contentNames, id: \.self) { DesignGallery.content($0) }

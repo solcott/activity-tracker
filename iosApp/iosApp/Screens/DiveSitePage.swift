@@ -61,7 +61,7 @@ struct DiveSitePage: View {
         } row: { dive in
             card(dive)
         } empty: {
-            Text(DiveSiteTexts.shared.noDives).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+            EmptyMessage(DiveSiteTexts.shared.noDives)
         }
     }
 

@@ -15,9 +15,9 @@ struct EditActivityView: View {
             }
         }
         .pageTitle(Text(.editActivityTitle), canGoBack: false) {
-            Button { send(EditActivityEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
-                .fontWeight(.semibold)
-                .disabled(state.saving || state.details == nil)
+            AppBarAction(LabelText.shared.save(saving: state.saving), enabled: !state.saving && state.details != nil) {
+                send(EditActivityEvent.Save.shared)
+            }
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

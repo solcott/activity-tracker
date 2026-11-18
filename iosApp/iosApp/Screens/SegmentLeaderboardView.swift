@@ -30,7 +30,7 @@ struct SegmentLeaderboardView: View {
                 YourPlace { row(own) }
             }
         } empty: {
-            Text(.leaderboardEmpty).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(.leaderboardEmpty)
         }
         .pageTitle(Text(verbatim: state.name))
     }

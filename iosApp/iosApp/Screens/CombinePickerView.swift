@@ -23,7 +23,7 @@ struct CombinePickerView: View {
                 let candidates = state.candidates.elements(as: ActivityView.self)
                 Section {
                     if candidates.isEmpty {
-                        Text(texts.none).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 24)
+                        EmptyMessage(texts.none).padding(.vertical, 24)
                     } else {
                         ForEach(candidates, id: \.uri.value) { activity in candidate(activity) }
                     }

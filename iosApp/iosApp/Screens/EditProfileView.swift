@@ -47,9 +47,9 @@ struct EditProfileView: View {
             if state.loaded {
                 // Read here so typing, which changes no Kotlin state SwiftUI sees, redraws whether Save can be used.
                 let _ = typed
-                Button { send(EditProfileEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
-                    .fontWeight(.semibold)
-                    .disabled(!state.canSave)
+                AppBarAction(LabelText.shared.save(saving: state.saving), enabled: state.canSave) {
+                    send(EditProfileEvent.Save.shared)
+                }
             }
         }
         .sheet(isPresented: $choosingCountry) {
@@ -322,21 +322,12 @@ struct CountrySheet: View {
     }
 
     private func row(code: String, name: String) -> some View {
-        Button {
+        AppCheckRow(checked: code == chosen) {
             choose(code)
             dismiss()
         } label: {
-            HStack {
-                Text(verbatim: name).foregroundStyle(.primary)
-                Spacer()
-                if code == chosen {
-                    Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                }
-            }
-            .contentShape(Rectangle())
+            Text(verbatim: name).foregroundStyle(.primary)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(code == chosen ? .isSelected : [])
     }
 }
 

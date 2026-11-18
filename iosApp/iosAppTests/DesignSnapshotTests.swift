@@ -15,11 +15,15 @@ struct DesignSnapshotTests {
 
     @Test func rows() { assertAppSnapshot(of: DesignGallery.rows, size: panel, named: "rows") }
 
+    @Test func checkRows() { assertAppSnapshot(of: DesignGallery.checkRows, size: panel, named: "checkRows") }
+
     @Test func formRows() { assertAppSnapshot(of: DesignGallery.formRows, size: CGSize(width: 393, height: 650), named: "formRows") }
 
     @Test func pageBar() { assertAppSnapshot(of: DesignGallery.pageBar, size: panel, named: "pageBar") }
 
     @Test func pageBarActions() { assertAppSnapshot(of: DesignGallery.pageBarActions, size: panel, named: "pageBarActions") }
+
+    @Test func pageBarSave() { assertAppSnapshot(of: DesignGallery.pageBarSave, size: panel, named: "pageBarSave") }
 
     @Test func pageBarBack() { assertAppSnapshot(of: DesignGallery.pageBarBack, size: panel, named: "pageBarBack") }
 
@@ -55,6 +59,8 @@ struct DesignSnapshotTests {
     @Test func icons() { assertAppSnapshot(of: DesignGallery.icons, size: panel, named: "icons") }
 
     @Test func messages() { assertAppSnapshot(of: DesignGallery.messages, size: panel, named: "messages") }
+
+    @Test func emptyMessages() { assertAppSnapshot(of: DesignGallery.emptyMessages, size: panel, named: "emptyMessages") }
 
     @Test(arguments: DesignGallery.contentNames)
     func loadedContent(state: String) {

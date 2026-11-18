@@ -23,7 +23,7 @@ struct IgnoredSensorsView: View {
                 ErrorMessage(error, layout: .row).listStatusRow()
             }
             if sensors.isEmpty {
-                Text(.gearIgnoredEmpty).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                EmptyMessage(.gearIgnoredEmpty)
                     .listStatusRow()
             } else {
                 Section {

@@ -58,7 +58,7 @@ struct UploadsView: View {
                 Section { ForEach(queue.refusedOther, id: \.rkey) { changeRow($0) } } header: { Text(.uploadsRefusedOther) }
             }
             if queue.isEmpty {
-                Text(.uploadsEmpty).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                EmptyMessage(.uploadsEmpty)
                     .listStatusRow()
             }
         }

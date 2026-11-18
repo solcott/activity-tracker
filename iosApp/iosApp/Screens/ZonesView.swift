@@ -30,9 +30,7 @@ struct ZonesView: View {
         }
         .pageTitle(Text(.zonesDefaultTitle), back: { send(ZonesEvent.Back.shared) }) {
             if state.loaded {
-                Button { send(ZonesEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
-                    .fontWeight(.semibold)
-                    .disabled(!state.canSave)
+                AppBarAction(LabelText.shared.save(saving: state.saving), enabled: state.canSave) { send(ZonesEvent.Save.shared) }
             }
         }
     }

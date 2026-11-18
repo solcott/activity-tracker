@@ -33,7 +33,7 @@ struct LoginView: View {
                 .disabled(state.busy)
                 status
                 if state.busy {
-                    ProgressView()
+                    AppProgress()
                 } else {
                     AppButton(.loginSignIn, action: submit)
                         .disabled(!LoginText.canSubmit(handle.text))

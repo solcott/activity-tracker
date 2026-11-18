@@ -25,9 +25,7 @@ struct FollowRequestsView: View {
                 noticeRow(notice).listStatusRow()
             }
             if accounts.isEmpty {
-                Text(FollowRequestsTexts.shared.empty(tab: state.tab)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .listStatusRow()
+                EmptyMessage(FollowRequestsTexts.shared.empty(tab: state.tab)).listStatusRow()
             } else {
                 Section {
                     ForEach(accounts, id: \.did.value) { account in row(account) }
@@ -71,15 +69,8 @@ struct FollowRequestsView: View {
     }
 
     private func row(_ account: ProfileViewBasic) -> some View {
-        let name = AppPackage.getShownName(account)
         let enabled = state.canAnswer(account: account)
-        return AppItemRow(
-            Text(verbatim: name),
-            lines: [Text(LabelText.shared.handle(handle: account.handle.value))],
-            opens: { send(FollowRequestsEvent.Open(did: account.did)) }
-        ) {
-            Avatar(url: account.avatar, name: name)
-        } trailing: {
+        return AccountRow(account, opens: { send(FollowRequestsEvent.Open(did: account.did)) }) {
             HStack(spacing: 8) {
                 if state.offersDecline {
                     AppSecondaryButton(.followRequestsDecline, small: true) { send(FollowRequestsEvent.Decline(did: account.did)) }

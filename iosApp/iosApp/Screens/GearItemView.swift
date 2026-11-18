@@ -86,29 +86,14 @@ struct GearItemView: View {
         } row: { activity in
             card(activity)
         } empty: {
-            Text(.gearPageNoActivities).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+            EmptyMessage(.gearPageNoActivities)
         }
     }
 
     /// The athlete's collections, each ticked when the item is in it; a tap adds or removes it at once.
     private var collections: some View {
-        Section {
-            ForEach(state.collections.elements(as: GearCollectionChoice.self), id: \.rkey) { choice in
-                Button { send(GearEvent.ToggleCollection(rkey: choice.rkey)) } label: {
-                    HStack {
-                        Text(verbatim: choice.name).foregroundStyle(.primary)
-                        Spacer()
-                        if choice.member {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(choice.member ? .isSelected : [])
-            }
-        } header: {
-            Text(.gearCollections)
+        GearCollectionsSection(choices: state.collections.elements(as: GearCollectionChoice.self)) {
+            send(GearEvent.ToggleCollection(rkey: $0.rkey))
         }
     }
 

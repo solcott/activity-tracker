@@ -62,7 +62,7 @@ struct AddPeopleView: View {
     /// Someone added: Pending or Joined, before Cancel or Remove. The row opens nothing, as the shared one.
     private func inviteeRow(_ invitee: InviteeView) -> some View {
         let texts = AddPeopleTexts.shared
-        return accountRow(invitee.invitee) {
+        return AccountRow(invitee.invitee) {
             HStack(spacing: 8) {
                 Text(texts.status(invitee: invitee)).font(.subheadline).foregroundStyle(.secondary)
                 AppSecondaryButton(texts.remove(invitee: invitee), small: true) { send(AddPeopleEvent.Remove(invitee: invitee)) }
@@ -72,18 +72,9 @@ struct AddPeopleView: View {
     }
 
     private func followerRow(_ follower: ProfileViewBasic) -> some View {
-        accountRow(follower) {
+        AccountRow(follower) {
             AppButton(.addPeopleAdd, small: true) { send(AddPeopleEvent.Add(did: follower.did)) }
                 .disabled(!state.canAdd(follower: follower))
-        }
-    }
-
-    private func accountRow<Trailing: View>(_ account: ProfileViewBasic, @ViewBuilder trailing: () -> Trailing) -> some View {
-        let name = AppPackage.getShownName(account)
-        return AppItemRow(Text(verbatim: name), lines: [Text(LabelText.shared.handle(handle: account.handle.value))]) {
-            Avatar(url: account.avatar, name: name)
-        } trailing: {
-            trailing()
         }
     }
 

@@ -19,7 +19,7 @@ struct FollowListView: View {
         } row: { account in
             row(account)
         } empty: {
-            Text(FollowListTexts.shared.empty(kind: state.kind)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+            EmptyMessage(FollowListTexts.shared.empty(kind: state.kind))
         }
         .pageTitle(
             Text(FollowListTexts.shared.title(kind: state.kind)),
@@ -27,21 +27,15 @@ struct FollowListView: View {
     }
 
     @ViewBuilder private func row(_ account: ProfileViewBasic) -> some View {
-        let name = AppPackage.getShownName(account)
-        let handle = Text(LabelText.shared.handle(handle: account.handle.value))
         let open = { send(FollowListEvent.Open(did: account.did)) }
         if state.canRemove {
-            AppItemRow(Text(verbatim: name), lines: [handle], opens: open) {
-                Avatar(url: account.avatar, name: name)
-            } trailing: {
+            AccountRow(account, opens: open) {
                 AppSecondaryButton(.followListRemove, small: true) { send(FollowListEvent.Remove(did: account.did)) }
                     .disabled(state.isRemoving(account: account))
             }
         } else {
             // A row that opens a profile and has no control of its own carries the disclosure mark.
-            AppItemRow(Text(verbatim: name), lines: [handle], opens: open) {
-                Avatar(url: account.avatar, name: name)
-            }
+            AccountRow(account, opens: open)
         }
     }
 

@@ -30,9 +30,9 @@ struct ImportActivityView: View {
             }
             .pageTitle(Text(texts.title(addsRecording: state.addsRecording))) {
                 if showsBarSave {
-                    Button { state.eventSink(state.saveEvent(source: CatalogText.shared)) } label: { Text(texts.save(saving: state.saving)) }
-                        .fontWeight(.semibold)
-                        .disabled(!state.canSave)
+                    AppBarAction(texts.save(saving: state.saving), enabled: state.canSave) {
+                        state.eventSink(state.saveEvent(source: CatalogText.shared))
+                    }
                 }
             }
     }
@@ -437,21 +437,12 @@ struct TimeZoneSheet: View {
         NavigationStack {
             List(texts.zones(clock: clock, query: query), id: \.id) { zone in
                 let chosen = zone.id == clock.zone.id
-                Button {
+                AppCheckRow(checked: chosen) {
                     onPick(zone.id)
                     dismiss()
                 } label: {
-                    HStack {
-                        Text(texts.zone(zone: zone)).foregroundStyle(.primary)
-                        Spacer()
-                        if chosen {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                        }
-                    }
-                    .contentShape(Rectangle())
+                    Text(texts.zone(zone: zone)).foregroundStyle(.primary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(chosen ? .isSelected : [])
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
             .navigationTitle(Text(texts.timeZone))

@@ -20,7 +20,7 @@ struct ImportBatchView: View {
         } row: { activity in
             card(activity)
         } empty: {
-            Text(.importBatchEmpty).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+            EmptyMessage(.importBatchEmpty)
         }
         .pageTitle(Text(ImportBatchTexts.shared.title(state: state)))
     }

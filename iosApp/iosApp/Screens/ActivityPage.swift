@@ -472,22 +472,7 @@ private struct ActivityLikes: View {
             ErrorMessage(error, layout: .row)
         }
         if let likers = page.likesList {
-            let athletes = likers.athletes.elements(as: ProfileViewBasic.self)
-            if likers.isLoading {
-                AppProgress(small: true).frame(maxWidth: .infinity)
-            } else if let error = likers.error {
-                ErrorMessage(error, layout: .row)
-            } else {
-                ForEach(athletes, id: \.did.value) { athlete in
-                    let name = AppPackage.getShownName(athlete)
-                    AppItemRow(
-                        Text(verbatim: name), lines: [Text(LabelText.shared.handle(handle: athlete.handle.value))],
-                        opens: { send(ActivityDetailEvent.OpenProfile(did: athlete.did)) }
-                    ) {
-                        Avatar(url: athlete.avatar, name: name)
-                    }
-                }
-            }
+            LikersList(list: likers) { send(ActivityDetailEvent.OpenProfile(did: $0.did)) }
         }
     }
 

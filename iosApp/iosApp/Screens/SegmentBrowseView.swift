@@ -46,13 +46,13 @@ struct SegmentBrowseView: View {
             List {
                 RefreshStatusView(state: state.area, errorKind: .LoadAreaSegments, retry: retry).listStatusRow()
                 if state.areaCapped {
-                    MapBrowseNote(SegmentBrowseTexts.shared.capped)
+                    EmptyMessage(SegmentBrowseTexts.shared.capped).listStatusRow()
                 }
                 ForEach(state.areaRows, id: \.row.key.value) { run in
                     row(run.row, details: SegmentBrowseTexts.shared.details(run: run, units: stats.units))
                 }
                 if state.areaRows.isEmpty {
-                    MapBrowseNote(SegmentBrowseTexts.shared.noneHere)
+                    EmptyMessage(SegmentBrowseTexts.shared.noneHere).listStatusRow()
                 }
             }
             .listStyle(.plain)

@@ -118,7 +118,7 @@ struct AccountView: View {
         return VStack(alignment: .leading, spacing: 8) {
             if let running = export as? DataExportStatus.Running {
                 HStack(spacing: 12) {
-                    ProgressView()
+                    AppProgress()
                     Text(AccountTexts.shared.running(export: running))
                 }
             } else {
