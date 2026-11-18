@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -18,8 +19,6 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.moderation.BlurReason
@@ -61,9 +60,7 @@ fun MediaGalleryPresenter(
     val flights = rememberSingleFlight()
     val reporting =
         rememberReporting(reports) { author, _ ->
-            flights.launch(author) {
-                runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { error = uiErrorOf(UiError.Kind.UpdateBlock, it) }
-            }
+            flights.launchAction(author, UiError.Kind.UpdateBlock, { error = it }) { blocks.setBlocked(author, true) }
         }
     val shownPage = page.coerceIn(0, (items.size - 1).coerceAtLeast(0))
     val canReport = shown != null && shown.author.did != profiles.did && items.isNotEmpty()
