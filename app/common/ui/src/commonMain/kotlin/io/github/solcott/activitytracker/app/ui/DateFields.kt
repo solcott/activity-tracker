@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +30,6 @@ fun pickedDate(millis: Long): LocalDate = LocalDate.fromEpochDays(millis.floorDi
  * [chooseLabel] button and that offers no day after today. [onPick] gets the day picked; a [clearLabel] button runs [onClear] when it isn't
  * null, which is when there's a date to clear.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PastDateField(
     shown: String,

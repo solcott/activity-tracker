@@ -59,7 +59,7 @@ internal fun Project.applyKmpLibrary(ios: Boolean) {
         amazonJdkToolchain(this@applyKmpLibrary)
         (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
             namespace = derivedNamespace
-            compileSdk = libs.version("android-compileSdk").toInt()
+            compileSdk { fromCatalog(this@applyKmpLibrary) }
             minSdk = libs.version("android-minSdk").toInt()
             compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
             // Host tests only where there is Android-only code for them to run against. Elsewhere they would repeat the

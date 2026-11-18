@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.CompileSdkSpec
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -12,6 +13,15 @@ internal val Project.libs: VersionCatalog
     get() = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 internal fun VersionCatalog.version(alias: String): String = findVersion(alias).get().requiredVersion
+
+/**
+ * Sets the catalog's `android-compileSdk`, which may name a minor release (`37.1`: Compose 1.13's libraries need it), so it can't be read
+ * as a whole number.
+ */
+internal fun CompileSdkSpec.fromCatalog(project: Project) {
+    val (major, minor) = project.libs.version("android-compileSdk").split('.').map(String::toInt).let { it[0] to it.getOrNull(1) }
+    version = release(major) { minorApiLevel = minor }
+}
 
 /** `:core-atproto` -> `io.github.solcott.activitytracker.core.atproto` */
 internal val Project.derivedNamespace: String

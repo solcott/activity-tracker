@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.Immutable
 import kotlin.time.Duration.Companion.days
@@ -12,7 +11,6 @@ import kotlinx.datetime.toLocalDateTime
  * The days an [AppDatePickerDialog] offers: [minDateMillis] to [maxDateMillis], both inclusive and compared per UTC day (the picker's
  * milliseconds), so any time inside the first or last day keeps that whole day. A null bound is open on that side.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Immutable
 data class DateBounds(val minDateMillis: Long? = null, val maxDateMillis: Long? = null) : SelectableDates {
     override fun isSelectableDate(utcTimeMillis: Long): Boolean {

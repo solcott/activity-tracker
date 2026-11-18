@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -30,7 +29,6 @@ import io.github.solcott.activitytracker.composeApp.resources.manual_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(ManualActivityScreen::class, SessionScope::class)
 @Composable
 fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) {

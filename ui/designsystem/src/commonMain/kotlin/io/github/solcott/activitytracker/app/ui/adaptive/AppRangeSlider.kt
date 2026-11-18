@@ -1,16 +1,18 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.RangeSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.NonRestartableComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
 /**
  * A slider with two thumbs choosing a range within [valueRange], such as a stretch along a route. Material's on every platform, coloured by
  * `AppTheme`. [onValueChangeFinished] fires when a drag ends.
+ *
+ * Controlled, like [AppSlider]: the thumbs show [value], and a drag only reaches [onValueChange].
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @NonRestartableComposable
 fun AppRangeSlider(
@@ -21,10 +23,12 @@ fun AppRangeSlider(
     enabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
+    val state = remember(valueRange) { RangeSliderState(value.start, value.endInclusive, trackRange = valueRange) }
+    state.startValue = value.start
+    state.endValue = value.endInclusive
     RangeSlider(
-        value = value,
+        state = state,
         onValueChange = onValueChange,
-        valueRange = valueRange,
         modifier = modifier,
         enabled = enabled,
         onValueChangeFinished = onValueChangeFinished,
