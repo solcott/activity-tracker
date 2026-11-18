@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentsState
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.interactions.rememberRepostsList
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
@@ -24,8 +25,6 @@ import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -111,10 +110,9 @@ fun PostPagePresenter(
             if (target is ReportTarget.Comment && current != null) {
                 commentActions.on(CommentEvent.BlockAuthor(target.uri), current.asSubject())
             } else {
-                flights.launch(BlockReportedAuthor) {
-                    runSuspendCatching { blocks.setBlocked(author, true) }
-                        .onSuccess { error = null }
-                        .onFailure { error = uiErrorOf(UiError.Kind.UpdateBlock, it) }
+                flights.launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, { error = it }) {
+                    blocks.setBlocked(author, true)
+                    error = null
                 }
             }
         }
