@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.data.ownBlobUrl
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -429,19 +430,9 @@ class FeedRepository(
         sport: String? = null,
         maxPages: Int = MAX_RANGE_PAGES,
     ): OwnActivityRange {
-        val indexed = mutableListOf<OwnActivity>()
-        var cursor: String? = null
-        var pages = 0
-        do {
-            val page =
-                clients.appView.query(
-                    GetAuthorActivitiesByStart.method,
-                    GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
-                )
-            indexed += page.activities.map { it.toOwnActivity() }
-            cursor = page.cursor
-        } while (cursor != null && ++pages < maxPages)
-        return OwnActivityRange(mergeOwn(indexed, localOwnActivitiesInRange(since, until, sport)), truncated = cursor != null)
+        val indexed = viewsStartedBetween(since, until, sport, maxPages)
+        val own = indexed.items.map { it.toOwnActivity() }
+        return OwnActivityRange(mergeOwn(own, localOwnActivitiesInRange(since, until, sport)), truncated = indexed.truncated)
     }
 
     /**
@@ -513,20 +504,21 @@ class FeedRepository(
      * without those deleted or combined into another this session. Members of a combined activity come too, naming it (`combinedInto`).
      */
     suspend fun ownViewsStartedBetween(since: Instant, until: Instant): List<ActivityView> {
-        val views = mutableListOf<ActivityView>()
-        var cursor: String? = null
-        var pages = 0
-        do {
+        return deletes.filter(viewsStartedBetween(since, until, sport = null, MAX_RANGE_PAGES).items)
+    }
+
+    /**
+     * The signed-in athlete's activities the AppView serves that started in [since, until), of [sport] if given, up to [maxPages] pages.
+     */
+    private suspend fun viewsStartedBetween(since: Instant, until: Instant, sport: String?, maxPages: Int) =
+        readPages(maxPages) { cursor ->
             val page =
                 clients.appView.query(
                     GetAuthorActivitiesByStart.method,
-                    GetAuthorActivitiesByStart.Params(clients.did.value, since, until, null, Paging.MAX_LIMIT, cursor),
+                    GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
                 )
-            views += page.activities
-            cursor = page.cursor
-        } while (cursor != null && ++pages < MAX_RANGE_PAGES)
-        return deletes.filter(views)
-    }
+            pageOf(page.activities, page.cursor)
+        }
 
     /**
      * Replaces every cached copy of [uri] with what the AppView serves now, or drops them when it serves nothing or can't be reached: after

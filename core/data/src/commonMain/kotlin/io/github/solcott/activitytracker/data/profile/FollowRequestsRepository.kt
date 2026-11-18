@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -21,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 
@@ -48,16 +50,13 @@ class FollowRequestsRepository(private val clients: SessionClients, private val 
                 if (e.error != SpaceErrors.SCOPE_MISSING) throw e
                 null
             }
-        val all = mutableListOf<ProfileViewBasic>()
-        var cursor: String? = null
-        var pages = 0
-        do {
-            val page = clients.appView.query(GetFollowRequests.method, GetFollowRequests.Params(PAGE_SIZE, cursor))
-            all += page.requests
-            cursor = page.cursor?.takeIf { page.requests.isNotEmpty() }
-        } while (cursor != null && ++pages < MAX_PAGES)
-        val (declinedRequests, pending) = all.distinctBy { it.did }.partition { it.did in declined.orEmpty() }
-        return FollowRequests(pending, declinedRequests, truncated = cursor != null, needsSignIn = declined == null)
+        val all =
+            readPages(MAX_PAGES) { cursor ->
+                val page = clients.appView.query(GetFollowRequests.method, GetFollowRequests.Params(PAGE_SIZE, cursor))
+                pageOf(page.requests, page.cursor)
+            }
+        val (declinedRequests, pending) = all.items.distinctBy { it.did }.partition { it.did in declined.orEmpty() }
+        return FollowRequests(pending, declinedRequests, truncated = all.truncated, needsSignIn = declined == null)
     }
 
     /** [followRequests] as a stream ([outcomeFlow]): [FollowRequests.needsSignIn] stays on the answer, never a failure. */
@@ -124,21 +123,19 @@ private fun isRecordKey(did: Did): Boolean = RKEY.matches(did.value)
  * all of their followers. Approvals that already exist are skipped, so a retry after a failure writes only the rest.
  */
 internal suspend fun approveCurrentFollowers(clients: SessionClients, clock: Clock) {
-    val current = mutableSetOf<Did>()
-    var cursor: String? = null
-    do {
+    val current = readPages { cursor ->
         val page = clients.appView.query(GetFollowers.method, GetFollowers.Params(clients.did.value, cursor = cursor))
-        page.followers.mapTo(current) { it.did }
-        cursor = page.cursor?.takeIf { page.followers.isNotEmpty() }
-    } while (cursor != null)
-    val approved = mutableSetOf<String>()
-    cursor = null
-    do {
+        pageOf(page.followers, page.cursor)
+    }
+        .items
+        .mapTo(mutableSetOf()) { it.did }
+    val approved = readPages { cursor ->
         val page =
             clients.pds.query(ListRecords.method, ListRecords.Params(clients.did.value, Nsid.GRAPH_FOLLOW_APPROVAL, PAGE_SIZE, cursor))
-        page.records.mapNotNullTo(approved) { it.uri.rkey }
-        cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-    } while (cursor != null)
+        pageOf(page.records, page.cursor)
+    }
+        .items
+        .mapNotNullTo(mutableSetOf()) { it.uri.rkey }
     val now = clock.now()
     current
         .filter { isRecordKey(it) && FollowApprovalRecord.rkey(it) !in approved }

@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.uistate.pageOf
 import kotlinx.serialization.json.JsonObject
 
 // Where the signed-in athlete's activities and streams are stored: an activity's visibility is its place. Public records are in the repo;
@@ -103,14 +105,11 @@ internal suspend fun SessionClients.deleteOwn(collection: String, rkey: String, 
 /** The athlete's own [collection] records at [place] (null: the repo), by rkey. A tier space that doesn't exist yet holds none. */
 internal suspend fun SessionClients.listOwn(collection: String, place: SpaceUri?): Map<String, JsonObject> {
     if (place == null) {
-        val records = mutableMapOf<String, JsonObject>()
-        var cursor: String? = null
-        do {
+        val records = readPages { cursor ->
             val page = pds.query(ListRecords.method, ListRecords.Params(did.value, collection, LIST_PAGE, cursor))
-            page.records.forEach { r -> r.uri.rkey?.let { records[it] = r.value } }
-            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-        } while (cursor != null)
-        return records
+            pageOf(page.records, page.cursor)
+        }
+        return records.items.mapNotNull { r -> r.uri.rkey?.let { it to r.value } }.toMap()
     }
     val read =
         try {

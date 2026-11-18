@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.data.ownBlobUrl
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -45,6 +46,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.async
@@ -168,14 +170,11 @@ class GearRepository(
 
     /** Every item of [actor]'s this viewer may see, each with its totals for them, in use first, then by name, a page at a time. */
     suspend fun actorGear(actor: String): List<ActorGearItem> {
-        val items = mutableListOf<ActorGearItem>()
-        var cursor: String? = null
-        repeat(MAX_GEAR_PAGES) {
-            val page = clients.appView.query(GetActorGear.method, GetActorGear.Params(actor, Paging.MAX_LIMIT, cursor))
-            items += page.items
-            cursor = page.cursor ?: return items
-        }
-        return items
+        return readPages(MAX_GEAR_PAGES) { cursor ->
+                val page = clients.appView.query(GetActorGear.method, GetActorGear.Params(actor, Paging.MAX_LIMIT, cursor))
+                pageOf(page.items, page.cursor)
+            }
+            .items
     }
 
     /**

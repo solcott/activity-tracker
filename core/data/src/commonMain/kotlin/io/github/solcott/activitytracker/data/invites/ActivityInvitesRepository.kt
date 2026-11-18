@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -35,6 +36,7 @@ import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
@@ -100,15 +102,12 @@ class ActivityInvitesRepository(
      * since the AppView lists followers newest first.
      */
     suspend fun people(activity: AtUri): People {
-        val followers = mutableListOf<ProfileViewBasic>()
-        var cursor: String? = null
-        var pages = 0
-        do {
-            val page = clients.appView.query(GetFollowers.method, GetFollowers.Params(clients.did.value, PAGE_SIZE, cursor))
-            followers += page.followers
-            cursor = page.cursor?.takeIf { page.followers.isNotEmpty() }
-        } while (cursor != null && ++pages < MAX_PAGES)
-        return People(invitees(activity), followers.distinctBy { it.did })
+        val followers =
+            readPages(MAX_PAGES) { cursor ->
+                val page = clients.appView.query(GetFollowers.method, GetFollowers.Params(clients.did.value, PAGE_SIZE, cursor))
+                pageOf(page.followers, page.cursor)
+            }
+        return People(invitees(activity), followers.items.distinctBy { it.did })
     }
 
     fun peopleOutcome(activity: AtUri): Flow<Outcome<People>> = outcomeFlow { people(activity) }

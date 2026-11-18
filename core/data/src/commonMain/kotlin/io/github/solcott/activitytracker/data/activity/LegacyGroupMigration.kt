@@ -8,12 +8,14 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.uistate.pageOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -79,23 +81,21 @@ class LegacyGroupMigration(
 
     /** The athlete's groups as the AppView lists them, every page: each primary and its group; null when they can't be listed. */
     private suspend fun listGroups(): List<Pair<ActivityView, Group>>? {
-        val groups = mutableListOf<Pair<ActivityView, Group>>()
-        var cursor: String? = null
-        do {
-            val page =
-                runSuspendCatching {
-                    clients.appView.query(GetAuthorActivities.method, GetAuthorActivities.Params(did, Paging.MAX_LIMIT, cursor))
+        val activities =
+            runSuspendCatching {
+                readPages { cursor ->
+                    val page = clients.appView.query(GetAuthorActivities.method, GetAuthorActivities.Params(did, Paging.MAX_LIMIT, cursor))
+                    pageOf(page.activities, page.cursor)
                 }
-                    .onFailure { log.w(it) { "Couldn't list the athlete's activities" } }
-                    .getOrNull() ?: return null
-            for (primary in page.activities.filter { !it.recordings.isNullOrEmpty() && it.combinedInto == null }) {
-                val recordings = primary.recordings.orEmpty().map { it.uri }.distinct() - primary.uri
-                if (recordings.isNotEmpty()) groups += primary to Group(primary.uri, primary.visibilityOrPublic, recordings)
             }
-            // An empty page, or a cursor that doesn't move, would page forever.
-            cursor = page.cursor?.takeIf { page.activities.isNotEmpty() && it != cursor }
-        } while (cursor != null)
-        return groups
+                .onFailure { log.w(it) { "Couldn't list the athlete's activities" } }
+                .getOrNull() ?: return null
+        return activities.items
+            .filter { !it.recordings.isNullOrEmpty() && it.combinedInto == null }
+            .mapNotNull { primary ->
+                val recordings = primary.recordings.orEmpty().map { it.uri }.distinct() - primary.uri
+                if (recordings.isEmpty()) null else primary to Group(primary.uri, primary.visibilityOrPublic, recordings)
+            }
     }
 
     /**

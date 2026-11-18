@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.export.DataExports
 import io.github.solcott.activitytracker.data.importsave.ImportSaves
+import io.github.solcott.activitytracker.data.readPages
 import io.github.solcott.activitytracker.lexicon.AppCollections
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -27,6 +28,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.DescribeRepo
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.RecordingState
+import io.github.solcott.uistate.pageOf
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Clock
@@ -194,16 +196,7 @@ class LeaveJob(
      */
     suspend fun sharedPlaces(): SharedPlaces = coroutineScope {
         suspend fun uris(collection: String): List<AtUri> {
-            val all = mutableListOf<AtUri>()
-            var cursor: String? = null
-            do {
-                val page = paced {
-                    clients.pds.query(ListRecords.method, ListRecords.Params(did.value, collection, limit = PAGE_SIZE, cursor = cursor))
-                }
-                all += page.records.map { it.uri }
-                cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-            } while (cursor != null)
-            return all
+            return listRecords(collection).map { it.uri }
         }
         // A few lookups at a time: an athlete may have hundreds of places, and one by one the screen would wait on each.
         val lookups = Semaphore(STATUS_LOOKUPS)
@@ -263,15 +256,7 @@ class LeaveJob(
         val collections = (AppCollections.records + listed.filter { it.startsWith("${Nsid.NAMESPACE}.") }).distinct()
         var deleted = 0
         for (collection in collections) {
-            val rkeys = mutableListOf<String>()
-            var cursor: String? = null
-            do {
-                val page = paced {
-                    clients.pds.query(ListRecords.method, ListRecords.Params(did.value, collection, limit = PAGE_SIZE, cursor = cursor))
-                }
-                rkeys += page.records.mapNotNull { it.uri.rkey }
-                cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-            } while (cursor != null)
+            val rkeys = listRecords(collection).mapNotNull { it.uri.rkey }
             for (batch in rkeys.chunked(ApplyWrites.MAX_WRITES)) {
                 paced {
                     clients.pds.procedure(
@@ -286,6 +271,15 @@ class LeaveJob(
         }
         return deleted
     }
+
+    /** Every record of the athlete's [collection] in their repo, every page, each read [paced]. */
+    private suspend fun listRecords(collection: String) = readPages { cursor ->
+        val page = paced {
+            clients.pds.query(ListRecords.method, ListRecords.Params(did.value, collection, limit = PAGE_SIZE, cursor = cursor))
+        }
+        pageOf(page.records, page.cursor)
+    }
+        .items
 
     /** Runs [call], waiting out each rate limit the PDS answers with (as long as it asks, at least [MIN_PAUSE]) and trying again. */
     private suspend fun <T> paced(call: suspend () -> T): T {
