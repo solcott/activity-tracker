@@ -69,6 +69,25 @@
             }
         }
 
+        /// Choices ticked while chosen: one chosen, one not, and one with an icon and a second line at the row's wider spacing.
+        static var checkRows: some View {
+            List {
+                Section {
+                    AppCheckRow(checked: true) {} label: { Text(verbatim: "Commute bikes").foregroundStyle(.primary) }
+                    AppCheckRow(checked: false) {} label: { Text(verbatim: "Race day").foregroundStyle(.primary) }
+                    AppCheckRow(checked: true, spacing: 12) {} label: {
+                        SportIcon(KotlinActivityType(sport: "ride", subSport: nil)).foregroundStyle(.tint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: "Ride").foregroundStyle(.primary)
+                            Text(verbatim: "Gravel ride").font(.footnote).foregroundStyle(.tint)
+                        }
+                    }
+                } header: {
+                    Text(verbatim: "Collections")
+                }
+            }
+        }
+
         /// A page's header in a column beside another screen (`pageTitle` in a pane), with the rows that scroll under it.
         static var pageBar: some View {
             List {
@@ -375,6 +394,7 @@
     #Preview("Fields") { DesignGallery.fields }
     #Preview("Form rows") { DesignGallery.formRows }
     #Preview("Rows") { DesignGallery.rows }
+    #Preview("Check rows") { DesignGallery.checkRows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }
     #Preview("Page bar with back") { DesignGallery.pageBarBack }

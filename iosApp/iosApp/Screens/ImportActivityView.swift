@@ -437,21 +437,12 @@ struct TimeZoneSheet: View {
         NavigationStack {
             List(texts.zones(clock: clock, query: query), id: \.id) { zone in
                 let chosen = zone.id == clock.zone.id
-                Button {
+                AppCheckRow(checked: chosen) {
                     onPick(zone.id)
                     dismiss()
                 } label: {
-                    HStack {
-                        Text(texts.zone(zone: zone)).foregroundStyle(.primary)
-                        Spacer()
-                        if chosen {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                        }
-                    }
-                    .contentShape(Rectangle())
+                    Text(texts.zone(zone: zone)).foregroundStyle(.primary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(chosen ? .isSelected : [])
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
             .navigationTitle(Text(texts.timeZone))

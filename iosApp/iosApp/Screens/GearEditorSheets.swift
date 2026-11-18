@@ -86,19 +86,10 @@ struct TypeChoiceList: View {
 
     private func choice(_ type: KotlinActivityType) -> some View {
         let chosen = isChosen(type)
-        return Button { toggle(type) } label: {
-            HStack(spacing: 12) {
-                SportIcon(type).foregroundStyle(.tint)
-                Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
-                Spacer()
-                if chosen {
-                    Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                }
-            }
-            .contentShape(Rectangle())
+        return AppCheckRow(checked: chosen, spacing: 12) { toggle(type) } label: {
+            SportIcon(type).foregroundStyle(.tint)
+            Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 

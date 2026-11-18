@@ -238,21 +238,12 @@ struct GearFieldSheet: View {
 
     private func row(_ option: GearOption) -> some View {
         let chosen = field.isSelected(option: option)
-        return Button { field.eventSink(GearFieldEvent.Toggle(uri: option.uri)) } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: option.name).foregroundStyle(.primary)
-                    Text(GearFieldTexts.shared.line(option: option)).font(.footnote).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if chosen {
-                    Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
-                }
+        return AppCheckRow(checked: chosen, spacing: 12) { field.eventSink(GearFieldEvent.Toggle(uri: option.uri)) } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: option.name).foregroundStyle(.primary)
+                Text(GearFieldTexts.shared.line(option: option)).font(.footnote).foregroundStyle(.secondary)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 
@@ -393,27 +384,18 @@ struct ActivityTypeSheet: View {
 
     private func choice(_ type: KotlinActivityType, hidden: KotlinActivityType? = nil) -> some View {
         let chosen = type.key == field.selected.key
-        return Button {
+        return AppCheckRow(checked: chosen, spacing: 12) {
             field.eventSink(ActivityTypeEvent.Select(type: type))
             dismiss()
         } label: {
-            HStack(spacing: 12) {
-                SportIcon(type).foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
-                    if let hidden {
-                        Text(LabelText.shared.activityType(type: hidden)).font(.footnote).foregroundStyle(.tint)
-                    }
-                }
-                Spacer()
-                if chosen {
-                    Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
+            SportIcon(type).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
+                if let hidden {
+                    Text(LabelText.shared.activityType(type: hidden)).font(.footnote).foregroundStyle(.tint)
                 }
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }
 
