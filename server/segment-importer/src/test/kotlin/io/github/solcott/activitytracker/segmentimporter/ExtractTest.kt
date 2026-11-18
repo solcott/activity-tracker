@@ -125,6 +125,14 @@ class ExtractTest {
     }
 
     @Test
+    fun extractTakesTheRefBridgeLimit() {
+        fun extract(vararg args: String) = parse(listOf("extract", "a.osm.pbf", "--region", "us-utah", "--out", "o.ndjson", *args))
+        assertEquals(1000, (extract() as Command.Extract).refBridgeM)
+        assertEquals(500, (extract("--ref-bridge-m", "500") as Command.Extract).refBridgeM)
+        for (bad in listOf("-5", "0", "abc", "1.5")) assertNull(extract("--ref-bridge-m", bad), bad)
+    }
+
+    @Test
     fun extractTakesTheRegionsLanguage() {
         fun extract(vararg args: String) = parse(listOf("extract", *args))
         assertEquals("en", (extract("a.osm.pbf", "--region", "us-utah", "--out", "out.ndjson") as Command.Extract).language)

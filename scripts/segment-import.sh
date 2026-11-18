@@ -21,6 +21,9 @@
 #
 # When build/terrain holds terrain tiles (scripts/terrain-fetch.sh), extract names two-way trails by their climb, and refine renames those
 # already published.
+#
+# REF_BRIDGE_M, in the environment, sets how far a trail may follow roads that carry its own ref between two of its parts, in meters
+# (extract's --ref-bridge-m; 1000 unless set).
 set -euo pipefail
 
 usage() {
@@ -111,7 +114,12 @@ if $segments; then
   if [[ -d build/terrain/${TERRAIN_TILES_ZOOM:-12} ]]; then
     terrain=(--terrain build/terrain --terrain-zoom "${TERRAIN_TILES_ZOOM:-12}")
   fi
-  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out" --paths "$paths_out" ${terrain[@]+"${terrain[@]}"}
+  bridge=()
+  if [[ -n "${REF_BRIDGE_M:-}" ]]; then
+    bridge=(--ref-bridge-m "$REF_BRIDGE_M")
+  fi
+  importer extract "${inputs[@]}" --region "$region" --lang "$lang" --out "$out" --paths "$paths_out" \
+    ${terrain[@]+"${terrain[@]}"} ${bridge[@]+"${bridge[@]}"}
   echo "==> stage $out"
   importer stage "$out"
   if $all; then

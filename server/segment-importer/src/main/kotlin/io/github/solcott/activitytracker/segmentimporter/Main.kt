@@ -15,7 +15,7 @@ private const val USAGE =
 
 Commands:
   extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> [--lang <code>] --out <candidates.ndjson> [--paths <paths.ndjson>]
-          [--terrain <dir> [--terrain-zoom <n>]]
+          [--terrain <dir> [--terrain-zoom <n>]] [--ref-bridge-m <meters>]
       Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
       object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
       Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
@@ -23,7 +23,8 @@ Commands:
       such as Trail; a language with no list keeps names as their source has them. With --paths, also writes the region's trails and
       named roads as paths that segments may lie on, one JSON object per line. With --terrain, the folder of terrain tiles
       scripts/terrain-fetch.sh writes (at zoom 12 unless --terrain-zoom says), a whole trail that goes both ways and clearly climbs is named
-      "<trail> (uphill)" and "<trail> (downhill)" where the tiles cover it, rather than by compass.
+      "<trail> (uphill)" and "<trail> (downhill)" where the tiles cover it, rather than by compass. A trail joins its other parts over
+      up to 200 m of roads or other trails, or over up to --ref-bridge-m meters (1000 unless given) of ways that all carry its ref.
   extract-sites <file.osm.pbf> --region <id> --out <sites.ndjson>
       Reads a region's OpenStreetMap extract and writes its named dive sites (sport=scuba_diving or free_diving, but no shops, amenities,
       clubs, buildings, healthcare or names like "Dive Center" or "Free diving platform"), one JSON object per line, each with a radius from its outline or kind (wreck, reef) and an id from its OSM element.
@@ -73,6 +74,7 @@ fun main(args: Array<String>) {
                 GenericWords.forLanguage(command.language),
                 command.paths,
                 command.terrain?.let { TerrainTiles(it, command.terrainZoom) },
+                command.refBridgeM.toDouble(),
             )
         is Command.ExtractSites -> extractSites(command.pbf, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
@@ -126,6 +128,8 @@ internal sealed interface Command {
         /** Terrain tiles to name two-way trails by their climb (segments/segment-direction), and their zoom. */
         val terrain: File? = null,
         val terrainZoom: Int = TerrainTiles.DEFAULT_ZOOM,
+        /** How far a trail may follow ways carrying its own ref between two of its parts, in meters. */
+        val refBridgeM: Int = TrailBuilder.DEFAULT_REF_BRIDGE_M.toInt(),
     ) : Command
 
     data class ExtractSites(val pbf: File, val region: String, val out: File) : Command
@@ -185,7 +189,10 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     val out = options["--out"] ?: return null
     val language = options["--lang"] ?: "en"
     if (!LANGUAGE.matches(language)) return null
-    if (options.keys.any { it !in setOf("--region", "--out", "--lang", "--paths", "--terrain", "--terrain-zoom") }) return null
+    if (options.keys.any { it !in setOf("--region", "--out", "--lang", "--paths", "--terrain", "--terrain-zoom", "--ref-bridge-m") }) {
+        return null
+    }
+    val refBridgeM = options["--ref-bridge-m"]?.let { it.toIntOrNull()?.takeIf { m -> m > 0 } ?: return null }
     val zoom = options["--terrain-zoom"]?.let { it.toIntOrNull()?.takeIf { z -> z in 1..TerrainTiles.MAX_ZOOM } ?: return null }
     if (zoom != null && "--terrain" !in options) return null
     return Command.Extract(
@@ -197,6 +204,7 @@ private fun parseExtract(args: List<String>): Command.Extract? {
         options["--paths"]?.let(::File),
         options["--terrain"]?.let(::File),
         zoom ?: TerrainTiles.DEFAULT_ZOOM,
+        refBridgeM ?: TrailBuilder.DEFAULT_REF_BRIDGE_M.toInt(),
     )
 }
 
