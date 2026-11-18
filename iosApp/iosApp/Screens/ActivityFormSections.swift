@@ -151,8 +151,8 @@ private struct PhotoTile: View {
     @ViewBuilder private var picture: some View {
         if let existing = media as? EditMedia.Existing, let photo = existing.item as? MediaPhoto {
             RemoteImage(photo.url) { placeholder }
-        } else if let picked = media as? EditMedia.Picked, let image = UIImage(data: picked.photo.bytes.data) {
-            Image(uiImage: image).resizable().scaledToFill()
+        } else if let picked = media as? EditMedia.Picked {
+            PickedPhotoThumbnail(bytes: picked.photo.bytes, size: 88) { placeholder }
         } else {
             placeholder
         }

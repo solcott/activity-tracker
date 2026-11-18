@@ -280,8 +280,8 @@ struct ProfilePhotoView: View {
     var body: some View {
         ZStack {
             Avatar(url: (avatar as? AvatarImage.Saved)?.url, name: name, size: 72)
-            if let picked = avatar as? AvatarImage.Picked, let image = UIImage(data: picked.jpeg.data) {
-                Image(uiImage: image).resizable().scaledToFill().frame(width: 72, height: 72).clipShape(Circle())
+            if let picked = avatar as? AvatarImage.Picked {
+                PickedPhotoThumbnail(bytes: picked.jpeg, size: 72) { Color.clear }.frame(width: 72, height: 72).clipShape(Circle())
             }
         }
         .accessibilityHidden(true)
