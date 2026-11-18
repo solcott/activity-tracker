@@ -27,7 +27,7 @@ struct InteractiveMapsTextTests {
 
     @Test func browseListsTheSamplesRowsWithTheirDetails() throws {
         let state = try #require(Samples.segmentBrowse["loaded"])
-        #expect(state.listShows(mapSupported: true) == .Area)
+        #expect(state.browse.listShows(mapSupported: true) == .Area)
         // Two segments on no path, the road Pine St, a third segment, then the trail Ann's (segments/segment-paths).
         #expect(state.areaRows.count == 5)
         let details = AppStrings.string(SegmentBrowseTexts.shared.details(run: state.areaRows[0], units: .Metric))
@@ -41,7 +41,7 @@ struct InteractiveMapsTextTests {
 
     @Test func aTapOnTheMapSelectsThroughKotlin() throws {
         let state = try #require(Samples.segmentBrowse["selected"])
-        #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
+        #expect(state.browse.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
         #expect(state.isSelected(row: state.areaRows[1].row))
     }
 
@@ -50,7 +50,7 @@ struct InteractiveMapsTextTests {
         #expect(state.groups.count == 2)
         #expect(state.isSelected(group: state.groups[1]))
         #expect(state.tapRowEvent(group: state.groups[1]) as? PathEvent.TapRow != nil)
-        #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
+        #expect(state.browse.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
         let path = try #require(state.path)
         #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Metric)).hasPrefix("Trail · "))
     }
@@ -64,7 +64,7 @@ struct InteractiveMapsTextTests {
 
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {
         let state = try #require(Samples.diveSiteBrowse["loaded"])
-        #expect(state.listShows(mapSupported: true) == .Area)
+        #expect(state.browse.listShows(mapSupported: true) == .Area)
         #expect(state.areaSites.count == 3)
         let details = AppStrings.string(DiveSiteBrowseTexts.shared.details(browsed: state.areaSites[0], units: .Metric))
         #expect(details.hasSuffix("away"))
@@ -73,7 +73,7 @@ struct InteractiveMapsTextTests {
 
     @Test func aTapOnTheSiteMapSelectsThroughKotlin() throws {
         let state = try #require(Samples.diveSiteBrowse["selected"])
-        #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
+        #expect(state.browse.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
         #expect(state.isSelected(site: state.areaSites[1].site))
     }
 
@@ -81,8 +81,8 @@ struct InteractiveMapsTextTests {
         let state = try #require(Samples.segmentBrowse["selected"])
         let hogback = state.areaRows[1].row
         #expect(state.tapRowEvent(row: hogback) as? SegmentBrowseEvent.TapRow != nil)
-        #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: false, touch: true)) == "Show on map")
-        #expect(AppStrings.string(SegmentBrowseTexts.shared.rowAction(selected: true, touch: true)) == "Open")
+        #expect(AppStrings.string(MapBrowseTexts.shared.rowAction(selected: false, touch: true)) == "Show on map")
+        #expect(AppStrings.string(MapBrowseTexts.shared.rowAction(selected: true, touch: true)) == "Open")
     }
 
     @Test func aBoxRequestIsFramedAtTheMapsSize() {

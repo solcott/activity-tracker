@@ -1,8 +1,7 @@
 package io.github.solcott.activitytracker.app.divesite
 
-import io.github.solcott.activitytracker.app.segment.BrowseList
-import io.github.solcott.activitytracker.app.segment.NameScope
-import io.github.solcott.activitytracker.app.segment.SegmentBrowseTexts
+import io.github.solcott.activitytracker.app.browse.BrowseList
+import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -11,9 +10,6 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 /** What dive site browse says (dive-sites/site-browse, dev/shared-display-text), chosen here for the shared and the native UI. */
 object DiveSiteBrowseTexts {
     val searchLabel: AppText = AppText.named("dive_site_browse_search_label")
-
-    /** Where a name search looks: "This area" or "Everywhere", as segment browse says it. */
-    fun scope(scope: NameScope): AppText = SegmentBrowseTexts.scope(scope)
 
     /** A name result's line under its name: its radius ("Within 150 m of its centre"). */
     fun details(site: DiveSiteView, units: UnitSystem): AppText = DiveSiteTexts.radius(site, units)
@@ -30,7 +26,7 @@ object DiveSiteBrowseTexts {
     fun message(list: BrowseList): AppText? =
         when (list) {
             BrowseList.WebPrompt -> AppText.named("dive_site_browse_web_prompt")
-            BrowseList.Locating -> AppText.named("segment_browse_locating")
+            BrowseList.Locating -> MapBrowseTexts.locating
             BrowseList.Nowhere -> AppText.named("dive_site_browse_nowhere")
             BrowseList.TooWide -> AppText.named("dive_site_browse_zoom_in")
             BrowseList.Names,
@@ -46,9 +42,7 @@ object DiveSiteBrowseTexts {
     /** No site matches the searched name: here, when This area was searched, or anywhere. */
     fun noResults(state: DiveSiteBrowseState): AppText =
         AppText.named(
-            if (state.offersSearchEverywhere) "dive_site_browse_no_results_here" else "dive_site_browse_no_results",
-            AppText.written(state.nameQuery),
+            if (state.browse.offersSearchEverywhere) "dive_site_browse_no_results_here" else "dive_site_browse_no_results",
+            AppText.written(state.browse.nameQuery),
         )
-
-    val searchEverywhere: AppText = SegmentBrowseTexts.searchEverywhere
 }

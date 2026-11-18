@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app.ui
 import io.github.solcott.activitytracker.app.FailureReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
+import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.detail.AvgMaxMetric
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.Figure
@@ -136,6 +138,9 @@ class SharedTextNamesTest {
                 VisibilityTexts.categoryName(VisibilityFields(runningForm = false), DetailCategory.CADENCE) +
                 listOfNotNull(VisibilityTexts.followersNote(Visibility.FOLLOWERS, approvesFollowers = false)) +
                 listOf(false, true).map { VisibilityTexts.lockedNote(VisibilityFields(canChoose = false, spacesUnsupported = it)) } +
+                NameScope.entries.map(MapBrowseTexts::scope) +
+                listOf(MapBrowseTexts.searchEverywhere, MapBrowseTexts.locating) +
+                listOf(false, true).flatMap { touch -> listOf(false, true).map { MapBrowseTexts.rowAction(it, touch) } } +
                 // The string an unknown sensor falls back to.
                 (LabelText.sensorType("unknown") as AppText.Named).fallback!!
         assertAllExist(texts)

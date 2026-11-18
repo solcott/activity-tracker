@@ -3,9 +3,10 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.browse.BrowseStart
+import io.github.solcott.activitytracker.app.browse.MapBrowseEvent
+import io.github.solcott.activitytracker.app.browse.NameScope
 import io.github.solcott.activitytracker.app.segment.BrowseRow
-import io.github.solcott.activitytracker.app.segment.BrowseStart
-import io.github.solcott.activitytracker.app.segment.NameScope
 import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseEvent
 import io.github.solcott.activitytracker.app.segment.SegmentBrowsePresenter
@@ -211,18 +212,18 @@ class SegmentBrowsePresenterTest {
     @Test
     fun opensAtTheLocationAndListsTheAreasRunsNearestFirst() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            assertEquals(centre.lat, placed.camera?.lat)
-            assertFalse(placed.askLocation, "already granted")
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            assertEquals(centre.lat, placed.browse.camera?.lat)
+            assertFalse(placed.browse.askLocation, "already granted")
 
-            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("Near Loop", "Far Climb"), names(loaded), "nearest first, no lift")
-            assertEquals(listOf(true), loaded.mapLines.filter { it.uri == lift.uri.value }.map { it.lift }, "the lift is on the map")
-            assertEquals(3, loaded.mapLines.size)
+            assertEquals(listOf(true), loaded.browse.mapLines.filter { it.uri == lift.uri.value }.map { it.lift }, "the lift is on the map")
+            assertEquals(3, loaded.browse.mapLines.size)
 
-            loaded.eventSink(SegmentBrowseEvent.Select(near.uri))
-            assertEquals(near.uri, awaitUntil { it.selected != null }.selected)
+            loaded.browse.eventSink(MapBrowseEvent.Select(near.uri))
+            assertEquals(near.uri, awaitUntil { it.browse.selected != null }.browse.selected)
             loaded.eventSink(SegmentBrowseEvent.Open(near.uri))
             assertEquals(SegmentScreen(near.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -232,15 +233,15 @@ class SegmentBrowsePresenterTest {
     @Test
     fun aRowTapSelectsThenOpensAndBrowsingAnAreaNeverMovesTheMap() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            val opening = placed.camera
-            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            val opening = placed.browse.camera
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
 
             // Far Climb's line lies east of this view, but every run an area lists crosses the map's own view.
             loaded.eventSink(SegmentBrowseEvent.TapRow(far.uri))
-            val selected = awaitUntil { it.selected == far.uri }
-            assertEquals(opening, selected.camera, "the map stays")
+            val selected = awaitUntil { it.browse.selected == far.uri }
+            assertEquals(opening, selected.browse.camera, "the map stays")
             navigator.expectNoGoToEvents()
 
             selected.eventSink(SegmentBrowseEvent.TapRow(far.uri))
@@ -252,27 +253,27 @@ class SegmentBrowsePresenterTest {
     @Test
     fun selectingANameResultOutOfViewFramesItsLineWithoutSearchingAgain() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             awaitUntil { it.areaLoaded }
-            placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
-            placed.query.edit { append("climb") }
+            placed.browse.eventSink(MapBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            placed.browse.query.edit { append("climb") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.size == 2 }
             val searches = requests.count { it.first == Nsid.FEED_SEARCH_PATH_NAMES }
-            val opening = found.camera
+            val opening = found.browse.camera
 
             // Hogback Climb is 200 m from the centre, in view: selecting it leaves the map where it is.
             found.eventSink(SegmentBrowseEvent.TapRow(hogback.uri))
-            assertEquals(opening, awaitUntil { it.selected == hogback.uri }.camera)
+            assertEquals(opening, awaitUntil { it.browse.selected == hogback.uri }.browse.camera)
 
             // Far Climb is 3 km east, past the view's edge: the map frames its whole line.
             found.eventSink(SegmentBrowseEvent.TapRow(far.uri))
-            val framed = awaitUntil { it.selected == far.uri && it.camera != opening }
+            val framed = awaitUntil { it.browse.selected == far.uri && it.browse.camera != opening }
             val line = SegmentGeometry.decodePolyline(far.record.line)!!
-            assertEquals(MapBounds.of(line), framed.camera?.bounds)
-            assertEquals((opening?.id ?: 0) + 1, framed.camera?.id)
+            assertEquals(MapBounds.of(line), framed.browse.camera?.bounds)
+            assertEquals((opening?.id ?: 0) + 1, framed.browse.camera?.id)
 
-            framed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport().copy(centerLng = e7(line.first().lng))))
+            framed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport().copy(centerLng = e7(line.first().lng))))
             testScheduler.advanceUntilIdle()
             assertEquals(searches, requests.count { it.first == Nsid.FEED_SEARCH_PATH_NAMES }, "the search isn't run again")
             assertEquals(listOf("Hogback Climb", "Far Climb"), expectMostRecentItem().results.items.map { it.group.shown.record.name })
@@ -283,8 +284,8 @@ class SegmentBrowsePresenterTest {
     @Test
     fun tooWideAnAreaAsksNothing() = runTest {
         test {
-            awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport(halfSpan = 1.0)))
-            val wide = awaitUntil { it.tooWide }
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport(halfSpan = 1.0)))
+            val wide = awaitUntil { it.browse.tooWide }
             testScheduler.advanceUntilIdle()
             assertTrue(requests.none { it.first == Nsid.FEED_SEARCH_SEGMENTS })
             assertFalse(wide.area.hasLoaded)
@@ -295,7 +296,7 @@ class SegmentBrowsePresenterTest {
     @Test
     fun aNewSportGroupDropsTheLastOnesRuns() = runTest {
         test {
-            awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val all = awaitUntil { it.areaLoaded }
             val gate = CompletableDeferred<Unit>()
             areaGate = gate
@@ -313,26 +314,26 @@ class SegmentBrowsePresenterTest {
     @Test
     fun aNameSearchLooksInTheAreaThenEverywhere() = runTest {
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            placed.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            placed.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             awaitUntil { it.areaLoaded }
-            placed.query.edit { append("hog") }
+            placed.browse.query.edit { append("hog") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
             assertEquals(listOf("Hogback Climb"), found.results.items.map { it.group.shown.record.name })
             val sent = requests.last { it.first == Nsid.FEED_SEARCH_PATH_NAMES }.second
             assertEquals(listOf("${e7(centre.lat - 0.02)}"), sent["minLat"], "this area")
             assertEquals(listOf("${e7(centre.lat)}"), sent["nearLat"])
 
-            found.query.edit { append("b") }
-            val refining = awaitUntil { it.query.text.toString() == "hogb" }
+            found.browse.query.edit { append("b") }
+            val refining = awaitUntil { it.browse.query.text.toString() == "hogb" }
             assertEquals(
                 listOf("Hogback Climb"),
                 refining.results.items.map { it.group.shown.record.name },
                 "kept until the new query answers",
             )
 
-            refining.eventSink(SegmentBrowseEvent.SearchEverywhere)
-            awaitUntil { it.scope == NameScope.Everywhere && it.resultsAnswered }
+            refining.browse.eventSink(MapBrowseEvent.SearchEverywhere)
+            awaitUntil { it.browse.scope == NameScope.Everywhere && it.resultsAnswered }
             val everywhere = requests.last { it.first == Nsid.FEED_SEARCH_PATH_NAMES }.second
             assertNull(everywhere["minLat"], "no box")
             assertEquals(listOf("${e7(centre.lat)}"), everywhere["nearLat"], "still nearest first")
@@ -343,9 +344,9 @@ class SegmentBrowsePresenterTest {
     @Test
     fun withoutAMapANameSearchLooksEverywhereByMatchAlone() = runTest {
         test(UnsupportedLocationTracker()) {
-            val state = awaitUntil { it.start != BrowseStart.Locating }
-            assertFalse(state.hasArea)
-            state.query.edit { append("loop") }
+            val state = awaitUntil { it.browse.start != BrowseStart.Locating }
+            assertFalse(state.browse.hasArea)
+            state.browse.query.edit { append("loop") }
             assertEquals(
                 listOf("Near Loop"),
                 awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }.results.items.map { it.group.shown.record.name },
@@ -379,13 +380,13 @@ class SegmentBrowsePresenterTest {
                 ),
             )
         test(AskingLocationTracker()) {
-            val asking = awaitUntil { it.askLocation }
-            assertEquals(BrowseStart.Locating, asking.start)
-            asking.eventSink(SegmentBrowseEvent.PermissionResult(granted = false))
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            assertEquals(start.lat, placed.camera?.lat)
-            assertEquals(start.lng, placed.camera?.lng)
-            assertFalse(placed.askLocation)
+            val asking = awaitUntil { it.browse.askLocation }
+            assertEquals(BrowseStart.Locating, asking.browse.start)
+            asking.browse.eventSink(MapBrowseEvent.PermissionResult(granted = false))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            assertEquals(start.lat, placed.browse.camera?.lat)
+            assertEquals(start.lng, placed.browse.camera?.lng)
+            assertFalse(placed.browse.askLocation)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -393,12 +394,12 @@ class SegmentBrowsePresenterTest {
     @Test
     fun withNowhereToOpenItWaitsForTheAthlete() = runTest {
         test(UnsupportedLocationTracker()) {
-            val nowhere = awaitUntil { it.start == BrowseStart.Nowhere }
-            assertNull(nowhere.camera)
-            nowhere.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            val nowhere = awaitUntil { it.browse.start == BrowseStart.Nowhere }
+            assertNull(nowhere.browse.camera)
+            nowhere.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("Near Loop", "Far Climb"), names(loaded))
-            assertEquals(BrowseStart.Placed, loaded.start, "the athlete found somewhere")
+            assertEquals(BrowseStart.Placed, loaded.browse.start, "the athlete found somewhere")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -414,14 +415,14 @@ class SegmentBrowsePresenterTest {
     fun aRoutesSegmentsAreOneRowShownAsTheChosenSport() = runTest {
         area = listOf(far, near, nearRide, lift)
         test {
-            awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("Near Loop", "Far Climb"), names(loaded), "one row for both of Near Loop's runs")
             val row = loaded.area.data.rows.first().row.group
             assertEquals(listOf("ride", "run"), row.sports, "in app order")
             assertTrue(row.bothWays)
             assertEquals(nearRide.uri, row.shown.uri, "the first group's run when every group is shown")
-            assertEquals(3, loaded.mapLines.size, "one line for the group")
+            assertEquals(3, loaded.browse.mapLines.size, "one line for the group")
 
             loaded.eventSink(SegmentBrowseEvent.SportChanged("run"))
             val runs = awaitUntil { it.sport == "run" && it.areaLoaded }
@@ -431,8 +432,8 @@ class SegmentBrowsePresenterTest {
             runs.eventSink(SegmentBrowseEvent.SportChanged(null))
             val all = awaitUntil { it.sport == null && it.areaLoaded }
             all.eventSink(all.tapRowEvent(all.area.data.rows.first().row))
-            val selected = awaitUntil { it.selected != null }
-            assertEquals(nearRide.uri, selected.selected)
+            val selected = awaitUntil { it.browse.selected != null }
+            assertEquals(nearRide.uri, selected.browse.selected)
             selected.eventSink(selected.tapRowEvent(selected.area.data.rows.first().row))
             assertEquals(SegmentScreen(nearRide.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -443,13 +444,13 @@ class SegmentBrowsePresenterTest {
     fun aRoutesNameResultsAreOneRow() = runTest {
         area = listOf(far, near, nearRide, lift)
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
-            placed.query.edit { append("loop") }
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            placed.browse.eventSink(MapBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            placed.browse.query.edit { append("loop") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
             assertEquals(1, found.results.items.size)
             assertEquals(setOf(near.uri, nearRide.uri), found.results.items.single().group.members.map { it.uri }.toSet())
-            assertEquals(1, found.mapLines.size)
+            assertEquals(1, found.browse.mapLines.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -473,14 +474,14 @@ class SegmentBrowsePresenterTest {
         trails = listOf(loop)
         area = listOf(far, near.copy(paths = listOf(loop.uri)), nearRide.copy(paths = listOf(loop.uri)), lift)
         test {
-            awaitUntil { it.start == BrowseStart.Placed }.eventSink(SegmentBrowseEvent.ViewportChanged(viewport()))
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
             val loaded = awaitUntil { it.areaLoaded }
             assertEquals(listOf("Loop Trail", "Far Climb"), names(loaded), "the trail, then a segment on no path")
             val trail = loaded.area.data.rows.first().row as BrowseRow.Path
             assertEquals(1, trail.groups.size, "both of Near Loop's runs as one group on it")
-            assertTrue(loaded.mapLines.any { it.uri == loop.uri.value }, "the map draws the trail's line")
+            assertTrue(loaded.browse.mapLines.any { it.uri == loop.uri.value }, "the map draws the trail's line")
             loaded.eventSink(loaded.tapRowEvent(trail))
-            val selected = awaitUntil { it.selected == loop.uri }
+            val selected = awaitUntil { it.browse.selected == loop.uri }
             selected.eventSink(selected.tapRowEvent(trail))
             assertEquals(PathScreen(loop.uri.value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -492,10 +493,10 @@ class SegmentBrowsePresenterTest {
         trails = listOf(loop)
         area = listOf(far, near.copy(paths = listOf(loop.uri)), lift)
         test {
-            val placed = awaitUntil { it.start == BrowseStart.Placed }
-            placed.eventSink(SegmentBrowseEvent.ScopeChanged(NameScope.Everywhere))
+            val placed = awaitUntil { it.browse.start == BrowseStart.Placed }
+            placed.browse.eventSink(MapBrowseEvent.ScopeChanged(NameScope.Everywhere))
             placed.eventSink(SegmentBrowseEvent.SportChanged("run"))
-            placed.query.edit { append("loop") }
+            placed.browse.query.edit { append("loop") }
             val found = awaitUntil { it.resultsAnswered && it.results.items.isNotEmpty() }
             val row = found.results.items.single() as BrowseRow.Path
             assertEquals(loop.uri, row.key)

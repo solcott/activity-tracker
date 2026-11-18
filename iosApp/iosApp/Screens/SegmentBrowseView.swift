@@ -5,7 +5,7 @@ import SwiftUI
 /// (`SegmentsMapView`), and the list: the area's rows nearest first (a trail or road, or a segment group on none), or the name results
 /// page by page, or why there is nothing to list yet. On a phone the map is over
 /// the list; on a wider window the list is in a column beside the map, as the shared page lays them out. A run tapped on the map is marked
-/// in the list and scrolled to. What it lists and says is Kotlin's (`SegmentBrowseTexts`, `SegmentBrowseState.listShows`), shared with the
+/// in the list and scrolled to. What it lists and says is Kotlin's (`SegmentBrowseTexts`, `MapBrowseState.listShows`), shared with the
 /// Compose page. It has no bar of its own: the Search tab shows it in Trails & roads mode, under its mode choice.
 struct SegmentBrowseView: View {
     let state: SegmentBrowseState
@@ -18,7 +18,7 @@ struct SegmentBrowseView: View {
     init(state: SegmentBrowseState, memory: SegmentsMapMemory) {
         self.state = state
         self.memory = memory
-        _query = State(initialValue: TextFieldModel(state.query))
+        _query = State(initialValue: TextFieldModel(state.browse.query))
     }
 
     var body: some View {
@@ -49,8 +49,8 @@ struct SegmentBrowseView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         // The shared iOS UI answers the location question at once: the location tracker asks the system itself.
-        .task(id: state.askLocation) {
-            if state.askLocation { send(SegmentBrowseEvent.PermissionResult(granted: true)) }
+        .task(id: state.browse.askLocation) {
+            if state.browse.askLocation { sendBrowse(MapBrowseEvent.PermissionResult(granted: true)) }
         }
     }
 
@@ -59,13 +59,13 @@ struct SegmentBrowseView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             AppTextField(
-                label: SegmentBrowseTexts.shared.searchLabel, model: query, state: state.query,
+                label: SegmentBrowseTexts.shared.searchLabel, model: query, state: state.browse.query,
                 // A name is searched as typed, as the athlete search's field: no capitals or corrections put in.
                 options: TextFieldOptions(capitalization: .never, autocorrection: false, submitLabel: .search))
-            if state.offersScope {
-                Picker(selection: Binding(get: { state.scope }, set: { send(SegmentBrowseEvent.ScopeChanged(scope: $0)) })) {
+            if state.browse.offersScope {
+                Picker(selection: Binding(get: { state.browse.scope }, set: { sendBrowse(MapBrowseEvent.ScopeChanged(scope: $0)) })) {
                     ForEach(NameScope.allCases, id: \.self) { scope in
-                        Text(SegmentBrowseTexts.shared.scope(scope: scope)).tag(scope)
+                        Text(MapBrowseTexts.shared.scope(scope: scope)).tag(scope)
                     }
                 } label: {
                     Text(SegmentBrowseTexts.shared.searchLabel)
@@ -86,15 +86,15 @@ struct SegmentBrowseView: View {
 
     private var map: some View {
         SegmentsMapView(
-            map: state.segmentsMap, camera: state.camera, memory: memory,
-            onViewport: { send(SegmentBrowseEvent.ViewportChanged(viewport: $0)) },
-            onSelect: { send(state.selectEvent(uri: $0)) })
+            map: state.browse.segmentsMap, camera: state.browse.camera, memory: memory,
+            onViewport: { sendBrowse(MapBrowseEvent.ViewportChanged(viewport: $0)) },
+            onSelect: { sendBrowse(state.browse.selectEvent(uri: $0)) })
     }
 
     // MARK: List
 
     @ViewBuilder private var list: some View {
-        let shows = state.listShows(mapSupported: true)
+        let shows = state.browse.listShows(mapSupported: true)
         ScrollViewReader { proxy in
             Group {
                 switch shows {
@@ -111,7 +111,7 @@ struct SegmentBrowseView: View {
                     message(shows).padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             }
-            .onChange(of: state.selected?.value) { _, selected in
+            .onChange(of: state.browse.selected?.value) { _, selected in
                 guard let selected else { return }
                 withAnimation { proxy.scrollTo(selected, anchor: .center) }
             }
@@ -152,8 +152,8 @@ struct SegmentBrowseView: View {
         } empty: {
             VStack(spacing: 8) {
                 Text(SegmentBrowseTexts.shared.noResults(state: state)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                if state.offersSearchEverywhere {
-                    AppTextButton(.segmentBrowseSearchEverywhere) { send(SegmentBrowseEvent.SearchEverywhere.shared) }
+                if state.browse.offersSearchEverywhere {
+                    AppTextButton(.segmentBrowseSearchEverywhere) { sendBrowse(MapBrowseEvent.SearchEverywhere.shared) }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -174,7 +174,7 @@ struct SegmentBrowseView: View {
         }
         .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityHint(Text(SegmentBrowseTexts.shared.rowAction(selected: selected, touch: true)))
+        .accessibilityHint(Text(MapBrowseTexts.shared.rowAction(selected: selected, touch: true)))
     }
 
     private func note(_ text: any AppText) -> some View {
@@ -187,6 +187,10 @@ struct SegmentBrowseView: View {
 
     private func send(_ event: any SegmentBrowseEvent) {
         state.eventSink(event)
+    }
+
+    private func sendBrowse(_ event: any MapBrowseEvent) {
+        state.browse.eventSink(event)
     }
 }
 

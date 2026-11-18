@@ -493,8 +493,12 @@ typealias SegmentGroupRow = SegmentPackage.SegmentGroupRow
 typealias GroupSwitcher = SegmentPackage.GroupSwitcher
 typealias GroupDirection = SegmentPackage.GroupDirection
 typealias GroupSwitcherTexts = SegmentPackage.GroupSwitcherTexts
-typealias BrowseList = SegmentPackage.BrowseList
-typealias NameScope = SegmentPackage.NameScope
+// What segment and dive site browse share (`:app-common-api`, `app.browse`): the map and search sub-state, its events and texts.
+typealias BrowseList = AppPackage.browse.BrowseList
+typealias NameScope = AppPackage.browse.NameScope
+typealias MapBrowseState = AppPackage.browse.MapBrowseState
+typealias MapBrowseEvent = AppPackage.browse.MapBrowseEvent
+typealias MapBrowseTexts = AppPackage.browse.MapBrowseTexts
 typealias SegmentsMap = AppPackage.SegmentsMap
 typealias MapSegment = AppPackage.MapSegment
 typealias MapSegmentRole = AppPackage.MapSegmentRole

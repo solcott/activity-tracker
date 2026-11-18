@@ -3,7 +3,7 @@ plugins { id("activitytracker.feature.api") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // The name scope, browse start and list choices dive site browse shares with segment browse.
+            // PlaceTexts: a site's creator, credit, licence and status are worded as a segment's.
             api(projects.featureSegmentApi)
         }
     }

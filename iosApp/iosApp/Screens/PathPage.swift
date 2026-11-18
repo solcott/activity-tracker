@@ -90,7 +90,7 @@ struct PathPage: View {
         }
         .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityHint(Text(SegmentBrowseTexts.shared.rowAction(selected: selected, touch: true)))
+        .accessibilityHint(Text(MapBrowseTexts.shared.rowAction(selected: selected, touch: true)))
     }
 
     private func retry() {
