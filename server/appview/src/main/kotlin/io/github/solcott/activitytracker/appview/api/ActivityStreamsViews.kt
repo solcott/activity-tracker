@@ -200,7 +200,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
             partsOf(
                     ActivityStreams.selectAll().where {
                         (ActivityStreams.activityUri eq activity.value) and
-                            visibleTo(viewer, ActivityStreams.visibility, ActivityStreams.authorDid, ActivityStreams.activityUri, null) and
+                            ActivityStreams.rowsVisibleTo(viewer) and
                             activityVisible(activity, viewer)
                     },
                 )
@@ -208,10 +208,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         // Zones are their own record, stored (and so served) at the narrowest of the heart rate, power and training visibilities.
         val zonesRow =
             ActivityZones.selectAll()
-                .where {
-                    (ActivityZones.activityUri eq activity.value) and
-                        visibleTo(viewer, ActivityZones.visibility, ActivityZones.authorDid, ActivityZones.activityUri, null)
-                }
+                .where { (ActivityZones.activityUri eq activity.value) and ActivityZones.rowsVisibleTo(viewer) }
                 .singleOrNull()
         fun zones(json: String?) = json?.let { AtJson.decodeFromString(ZoneSnapshot.serializer(), it) }
         return Visible(

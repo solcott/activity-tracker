@@ -4,6 +4,7 @@ package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.api.LabelValues
 import io.github.solcott.activitytracker.appview.api.labelled
+import io.github.solcott.activitytracker.appview.api.served
 import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -121,14 +122,16 @@ internal fun unlabelledProposal(): Op<Boolean> = notLabelled(LabelValues.HIDE) a
 /**
  * The open proposals a list shows [viewer]: [unlabelledProposal], except that their own stay listed to them under `!hide`, as every hidden
  * subject does for its author (moderation/labels), so they can still see and withdraw the one open proposal [mayPropose] counts. Never
- * under `!takedown`, and never counted or adopted.
+ * under `!takedown`, and never counted or adopted. Anyone else's only while the proposer's account is served ([served]).
  */
 internal fun listedProposal(viewer: Did?): Op<Boolean> = listedProposalTo(viewer?.let { stringParam(it.value) })
 
 /** [listedProposal] for a [viewer] that may vary per row, such as a quote's author in the outer query. */
 internal fun listedProposalTo(viewer: Expression<String>?): Op<Boolean> {
     val own = viewer?.let { SegmentNameProposals.proposerDid eq it } ?: Op.FALSE
-    return notLabelled(LabelValues.TAKEDOWN) and (own or notLabelled(LabelValues.HIDE))
+    return notLabelled(LabelValues.TAKEDOWN) and
+        (own or notLabelled(LabelValues.HIDE)) and
+        served(viewer, SegmentNameProposals.proposerDid, null, null)
 }
 
 /** No [value] on the proposal's record (at the stored version) or its proposer's account. */

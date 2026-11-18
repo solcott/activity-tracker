@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.appview.db.TierRow
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import org.jetbrains.exposed.v1.core.Column
@@ -43,6 +44,9 @@ internal fun visibleTo(
     record: Column<String>? = Activities.uri,
     cid: Column<String>? = Activities.cid,
 ): Op<Boolean> = admits(viewer, visibility, author) and served(viewer, author, record, cid)
+
+/** The rows of a [TierRow] table [viewer] may see: [visibleTo] over its tier, author and served record. */
+internal fun TierRow.rowsVisibleTo(viewer: Did?): Op<Boolean> = visibleTo(viewer, visibility, authorDid, servedRecord, servedCid)
 
 /** A viewer in a block with the athlete ([blocked]) is admitted to nothing of theirs, Public included. */
 private fun admits(viewer: Expression<String>, visibility: Column<String>, author: Column<String>): Op<Boolean> {

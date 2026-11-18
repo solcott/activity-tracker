@@ -18,7 +18,6 @@ import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -47,7 +46,7 @@ internal fun repostsShownTo(viewer: Did?): Op<Boolean> =
 private fun timelineReposter(viewer: Did, followed: Query, reposter: Column<String>): Op<Boolean> =
     Subject.POST.visibleTo(reposter) and
         accountShownTo(viewer, reposter) and
-        ((reposter eq viewer.value) or (reposter inSubQuery followed)) and
+        ownOrFollowed(reposter, viewer.value, followed) and
         notMuted(viewer, reposter)
 
 /**

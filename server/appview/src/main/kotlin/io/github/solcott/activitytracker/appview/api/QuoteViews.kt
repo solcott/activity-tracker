@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.PostQuoteChains
 import io.github.solcott.activitytracker.appview.db.Posts
-import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.segments.unlabelledProposal
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -83,16 +82,7 @@ internal fun postServed(posts: Alias<Posts>): Op<Boolean> {
     val proposal = posts[Posts.proposalUri]
     return served(null as Did?, author, uri, posts[Posts.cid]) and
         unhidden(null, author, uri) and
-        (proposal.isNull() or
-            exists(
-                SegmentNameProposals.select(SegmentNameProposals.uri).where {
-                    (SegmentNameProposals.uri eq proposal) and
-                        (SegmentNameProposals.proposerDid eq author) and
-                        (SegmentNameProposals.recordGone eq false) and
-                        unlabelledProposal() and
-                        proposalPlaceServed(null)
-                },
-            ))
+        (proposal.isNull() or liveProposal(proposal, author, unlabelledProposal(), null))
 }
 
 /**

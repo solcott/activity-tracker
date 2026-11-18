@@ -4,9 +4,6 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inSubQuery
-import org.jetbrains.exposed.v1.core.or
 
 // The scope every rank board (segment leaderboards, Mayors, dive-site Regulars) takes: everyone, or the viewer and whom they follow.
 
@@ -25,5 +22,5 @@ internal fun followingScope(viewer: Did?, scope: String?): Boolean {
 /** With [following], rows whose [author] is [viewer] or someone they effectively follow ([effectivelyFollowedBy]); every row otherwise. */
 internal fun followedOrOwn(author: Column<String>, viewer: Did?, following: Boolean): Op<Boolean> {
     val own = viewer?.value
-    return if (following && own != null) (author eq own) or (author inSubQuery effectivelyFollowedBy(own)) else Op.TRUE
+    return if (following && own != null) ownOrFollowed(author, own) else Op.TRUE
 }

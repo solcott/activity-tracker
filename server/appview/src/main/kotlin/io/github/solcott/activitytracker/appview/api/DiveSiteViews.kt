@@ -374,7 +374,7 @@ internal fun visitsWithActivities() = DiveSiteVisits.join(Activities, JoinType.I
  * them.
  */
 internal fun visitsVisibleTo(viewer: Did?): Op<Boolean> =
-    visibleTo(viewer, DiveSiteVisits.visibility, DiveSiteVisits.authorDid, DiveSiteVisits.activityUri, null) and
+    DiveSiteVisits.rowsVisibleTo(viewer) and
         visibleTo(viewer) and
         exists(DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq DiveSiteVisits.siteUri) and DiveSitePlace.servedTo(viewer) })
 

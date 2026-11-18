@@ -45,17 +45,22 @@ internal object LabelValues {
 internal fun labelled(subject: Expression<String>, value: String, cid: Column<String>? = null): Op<Boolean> {
     val sources = LabelSources.trusted
     if (sources.isEmpty()) return Op.FALSE
-    val now = System.currentTimeMillis()
     return exists(
         Labels.select(Labels.src).where {
             (Labels.uri eq subject) and
                 (Labels.value eq value) and
-                (Labels.src inList sources) and
-                (Labels.exp.isNull() or (Labels.exp greater now)) and
+                trustedLabel(sources) and
                 (cid?.let { Labels.cid.isNull() or (Labels.cid eq it) } ?: Op.TRUE)
         },
     )
 }
+
+/**
+ * The `labels` rows with an effect: from one of [sources], the trusted labelers, and unexpired at [now]. Every label predicate and view
+ * reads labels through it; callers return early when [sources] is empty, since `IN ()` isn't portable SQL.
+ */
+private fun trustedLabel(sources: List<String>, now: Long = System.currentTimeMillis()): Op<Boolean> =
+    (Labels.src inList sources) and (Labels.exp.isNull() or (Labels.exp greater now))
 
 /**
  * Whether the account [author] is served: its hosting status is active (`actors.status` null) and it carries no `!takedown`. Correlated to
@@ -104,16 +109,10 @@ internal fun JdbcTransaction.isAccountServed(did: String, viewer: Did?): Boolean
 
 /** Whether [subject] carries a trusted, unexpired [value], outside a query. */
 internal fun JdbcTransaction.labelledOnly(subject: String, value: String): Boolean =
-    LabelSources.trusted.isNotEmpty() &&
-        Labels.select(Labels.src)
-            .where {
-                (Labels.uri eq subject) and
-                    (Labels.value eq value) and
-                    (Labels.src inList LabelSources.trusted) and
-                    (Labels.exp.isNull() or (Labels.exp greater System.currentTimeMillis()))
-            }
-            .limit(1)
-            .any()
+    LabelSources.trusted.let { sources ->
+        sources.isNotEmpty() &&
+            Labels.select(Labels.src).where { (Labels.uri eq subject) and (Labels.value eq value) and trustedLabel(sources) }.limit(1).any()
+    }
 
 /** Whether [did]'s profile record carries `!takedown`. */
 internal fun JdbcTransaction.isProfileTakenDown(did: String): Boolean =
@@ -124,14 +123,10 @@ internal fun JdbcTransaction.isProfileTakenDown(did: String): Boolean =
  * trusted labelers, unexpired, and for a record only those naming no CID or its current one. Subjects without labels are absent.
  */
 internal fun JdbcTransaction.labelViews(subjects: Map<String, String?>): Map<String, List<LabelView>> {
-    if (subjects.isEmpty() || LabelSources.trusted.isEmpty()) return emptyMap()
-    val now = System.currentTimeMillis()
+    val sources = LabelSources.trusted
+    if (subjects.isEmpty() || sources.isEmpty()) return emptyMap()
     return Labels.select(Labels.src, Labels.uri, Labels.value, Labels.cid)
-        .where {
-            (Labels.uri inList subjects.keys) and
-                (Labels.src inList LabelSources.trusted) and
-                (Labels.exp.isNull() or (Labels.exp greater now))
-        }
+        .where { (Labels.uri inList subjects.keys) and trustedLabel(sources) }
         .filter { row -> row[Labels.cid].let { it == null || it == subjects[row[Labels.uri]] } }
         .groupBy({ it[Labels.uri] }, { LabelView(Did(it[Labels.src]), it[Labels.value]) })
         .mapValues { (_, labels) -> labels.sortedWith(compareBy({ it.src.value }, { it.value })) }

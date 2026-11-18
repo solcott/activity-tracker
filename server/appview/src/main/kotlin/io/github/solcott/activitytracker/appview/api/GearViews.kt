@@ -139,7 +139,7 @@ internal fun JdbcTransaction.requireVisibleGear(uri: String, viewer: Did?): Resu
     GearItems.selectAll().where { (GearItems.uri eq uri) and gearVisibleTo(viewer) }.singleOrNull() ?: throw notFound("Gear not found")
 
 /** The [GearItems] rows [viewer] may see ([visibleTo]). */
-internal fun gearVisibleTo(viewer: Did?) = visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid)
+internal fun gearVisibleTo(viewer: Did?) = GearItems.rowsVisibleTo(viewer)
 
 /**
  * The gear references [viewer] may see, each paired with an item it counts for, among the items [items] picks (given that item's column):
@@ -188,7 +188,7 @@ private fun mountedRefs(viewer: Did?, items: (Column<String>) -> Op<Boolean>, de
 }
 
 /** The [ActivityGear] references [viewer] may see: their record's tier, per [visibleTo]. */
-internal fun refVisibleTo(viewer: Did?) = visibleTo(viewer, ActivityGear.visibility, ActivityGear.authorDid, ActivityGear.activityUri, null)
+internal fun refVisibleTo(viewer: Did?) = ActivityGear.rowsVisibleTo(viewer)
 
 private fun aliasVisibleTo(viewer: Did?, item: Alias<GearItems>) =
     visibleTo(viewer, item[GearItems.visibility], item[GearItems.authorDid], item[GearItems.uri], item[GearItems.cid])

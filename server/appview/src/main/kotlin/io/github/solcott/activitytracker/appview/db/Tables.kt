@@ -436,12 +436,12 @@ object DiveSiteCreations : Table("dive_site_creations") {
  * viewers admitted to [visibility], the narrowest of the activity's and its Map category's. The dive's conditions are copied with
  * [diveTier], its Dive category's tier, and served only to viewers admitted to that too. At most one per dive.
  */
-object DiveSiteVisits : Table("dive_site_visits") {
-    val activityUri = varchar("activity_uri", 512)
+object DiveSiteVisits : Table("dive_site_visits"), ActivityTierRow {
+    override val activityUri = varchar("activity_uri", 512)
     val siteUri = varchar("site_uri", 512)
     val trackUri = varchar("track_uri", 512)
-    val authorDid = varchar("author_did", 255)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val visibility = varchar("visibility", 16)
     /** The dive's local date, `YYYY-MM-DD`. */
     val startedOn = varchar("started_on", 10)
     /** Tenths of a degree Celsius. */
@@ -466,19 +466,19 @@ object SegmentTrackCells : Table("segment_track_cells") {
  * [visibility], the narrowest of the activity's own and its Map and Pace/Speed categories'. All of an activity's efforts are replaced at
  * once whenever it's matched.
  */
-object SegmentEfforts : Table("segment_efforts") {
+object SegmentEfforts : Table("segment_efforts"), ActivityTierRow {
     /** Deterministic, so a rematch writes the same rows: the activity, segment and start offset. */
     val id = varchar("id", 1100)
     val segmentUri = varchar("segment_uri", 512)
-    val activityUri = varchar("activity_uri", 512)
+    override val activityUri = varchar("activity_uri", 512)
     val trackUri = varchar("track_uri", 512)
-    val authorDid = varchar("author_did", 255)
+    override val authorDid = varchar("author_did", 255)
     val sport = varchar("sport", 64)
     val eBike = bool("e_bike")
     /** Seconds from the activity's start. */
     val startOffsetS = long("start_offset_s")
     val elapsedS = long("elapsed_s")
-    val visibility = varchar("visibility", 16)
+    override val visibility = varchar("visibility", 16)
     /** The activity's local date, `YYYY-MM-DD`; served only with the effort. */
     val startedOn = varchar("started_on", 10)
     /** Meters climbed and descended over the pass by its track's altitude; null without altitude. Only ever aggregated, never served. */
@@ -749,12 +749,12 @@ object JetstreamCursor : Table("jetstream_cursor") {
 }
 
 /** `feed.activityStreams` records, which share their activity's rkey. Who may see one is enforced in `ActivityStreamsViews`. */
-object ActivityStreams : Table("activity_streams") {
+object ActivityStreams : Table("activity_streams"), ActivityTierRow {
     val uri = varchar("uri", 512)
     val cid = varchar("cid", 255)
-    val authorDid = varchar("author_did", 255)
-    val activityUri = varchar("activity_uri", 512)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val activityUri = varchar("activity_uri", 512)
+    override val visibility = varchar("visibility", 16)
     /** JSON array of channel tokens. */
     val channels = text("channels")
     val blobCid = varchar("blob_cid", 255)
@@ -772,14 +772,14 @@ object ActivityStreams : Table("activity_streams") {
  * activity's rkey, so each origin's copy is a row. Indexed only from tier spaces, and served at [visibility], where the record is stored
  * (`Views.hydrate`).
  */
-object ActivityDetails : Table("activity_details") {
+object ActivityDetails : Table("activity_details"), ActivityTierRow {
     val uri = varchar("uri", 512)
     /** As [Activities.origin]; never [Origins.REPO]. */
     val origin = varchar("origin", 512)
     val cid = varchar("cid", 255)
-    val authorDid = varchar("author_did", 255)
-    val activityUri = varchar("activity_uri", 512)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val activityUri = varchar("activity_uri", 512)
+    override val visibility = varchar("visibility", 16)
     /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
     val record = text("record")
     val indexedAt = long("indexed_at")
@@ -790,12 +790,12 @@ object ActivityDetails : Table("activity_details") {
  * `feed.activityZones` records, which share their activity's rkey. Served at [visibility], where the record is stored, and only alongside
  * streams the viewer may see (`ActivityStreamsViews`).
  */
-object ActivityZones : Table("activity_zones") {
+object ActivityZones : Table("activity_zones"), ActivityTierRow {
     val uri = varchar("uri", 512)
     val cid = varchar("cid", 255)
-    val authorDid = varchar("author_did", 255)
-    val activityUri = varchar("activity_uri", 512)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val activityUri = varchar("activity_uri", 512)
+    override val visibility = varchar("visibility", 16)
     /** As [Activities.origin]. */
     val origin = varchar("origin", 512)
     /** `activityZones#zoneSnapshot` as JSON. */
@@ -811,13 +811,13 @@ object ActivityZones : Table("activity_zones") {
  * `gear.item` records, from repos and tier spaces, placed by origin like [Activities]: one row per item at its canonical URI, the narrower
  * copy mid-move, the other in [RecordShadows]. Served as `gearView`s on activities that list them ([ActivityGear]) and with their usage.
  */
-object GearItems : Table("gear_items") {
+object GearItems : Table("gear_items"), TierRow {
     val uri = varchar("uri", 512)
     /** As [Activities.origin]. */
     val origin = varchar("origin", 512)
     val cid = varchar("cid", 255)
-    val authorDid = varchar("author_did", 255)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val visibility = varchar("visibility", 16)
     val name = varchar("item_name", 1000)
     val type = varchar("item_type", 64)
     val kind = varchar("item_kind", 64).nullable()
@@ -834,6 +834,12 @@ object GearItems : Table("gear_items") {
     val record = text("record")
     val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
+
+    override val servedRecord
+        get() = uri
+
+    override val servedCid
+        get() = cid
 }
 
 /**
@@ -853,14 +859,14 @@ object GearMountRows : Table("gear_mounts") {
  * The gear an activity lists: one row per reference to its author's own `gear.item`, by the [origin] and kind ([listedIn]) of the record
  * listing it (the activity record, [SOURCE_RECORD], or a details record, [SOURCE_DETAILS]), served at [visibility], that record's tier.
  */
-object ActivityGear : Table("activity_gear") {
-    val activityUri = varchar("activity_uri", 512)
+object ActivityGear : Table("activity_gear"), ActivityTierRow {
+    override val activityUri = varchar("activity_uri", 512)
     val origin = varchar("origin", 512)
     val listedIn = varchar("listed_in", 16)
     val gearUri = varchar("gear_uri", 512)
     val position = integer("sort_index")
-    val authorDid = varchar("author_did", 255)
-    val visibility = varchar("visibility", 16)
+    override val authorDid = varchar("author_did", 255)
+    override val visibility = varchar("visibility", 16)
     override val primaryKey = PrimaryKey(activityUri, origin, listedIn, gearUri)
 
     const val SOURCE_RECORD = "record"
