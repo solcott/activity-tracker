@@ -10,10 +10,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -84,19 +83,16 @@ fun ManualActivityPresenter(
 
             ManualActivityEvent.Save -> {
                 val minutes = parseDecimal(duration.text.toString()) ?: return@ManualActivityState
-                flights.launch(ManualActivityEvent.Save) {
-                    runSuspendCatching {
-                        val saved =
-                            activities.publish(
-                                manualDraft(type.selected, title.text, distance.text, minutes, temperature.text, units, clock)
-                                    .copy(gear = gear.selected)
-                                    .withVisibility(visibility.current),
-                            )
-                        // The saved activity opens, asking whether to combine it with another of the athlete's.
-                        navigator.pop()
-                        navigator.goTo(ActivityDetailScreen(saved.value, suggestOnOpen = true))
-                    }
-                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
+                flights.launchAction(ManualActivityEvent.Save, UiError.Kind.SaveActivity, { error = it }) {
+                    val saved =
+                        activities.publish(
+                            manualDraft(type.selected, title.text, distance.text, minutes, temperature.text, units, clock)
+                                .copy(gear = gear.selected)
+                                .withVisibility(visibility.current),
+                        )
+                    // The saved activity opens, asking whether to combine it with another of the athlete's.
+                    navigator.pop()
+                    navigator.goTo(ActivityDetailScreen(saved.value, suggestOnOpen = true))
                 }
             }
         }

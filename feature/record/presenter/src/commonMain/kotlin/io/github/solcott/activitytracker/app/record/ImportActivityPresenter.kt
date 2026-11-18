@@ -28,8 +28,8 @@ import io.github.solcott.activitytracker.app.detail.ActivityPage
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.app.uiErrorOf
+import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
