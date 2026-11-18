@@ -207,7 +207,7 @@ object SegmentCreations : Table("segment_creations") {
  * A table of lines with their bounding box, in degrees × 10^7, and where their data came from: [Segments], [Paths] and
  * [SegmentCandidateRows]. Each declares these columns under the same names.
  */
-abstract class BoxedLineTable(name: String) : Table(name) {
+open class BoxedLineTable(name: String) : Table(name) {
     val minLatE7 = integer("min_lat_e7")
     val maxLatE7 = integer("max_lat_e7")
     val minLngE7 = integer("min_lng_e7")

@@ -144,8 +144,9 @@ object PaceText {
                     val lead = parts[0].ifEmpty { "0" }.toLongOrNull()
                     val rest =
                         parts.drop(1).map { part -> part.takeIf { it.length == 2 }?.toLongOrNull()?.takeIf { it < SECONDS_PER_MINUTE } }
-                    if (lead == null || rest.any { it == null }) null
-                    else rest.fold(lead) { total, part -> total * SECONDS_PER_MINUTE + part!! }
+                    val digits = rest.filterNotNull()
+                    if (lead == null || digits.size != rest.size) null
+                    else digits.fold(lead) { total, part -> total * SECONDS_PER_MINUTE + part }
                 }
                 else -> null
             }
