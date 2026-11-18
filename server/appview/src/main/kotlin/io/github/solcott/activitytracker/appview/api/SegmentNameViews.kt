@@ -67,8 +67,8 @@ internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars:
 }
 
 /**
- * [segment]'s open proposals the viewer may see, oldest first: not labelled ([listedProposal]: their own stay under `!hide`), by a served
- * account, and not by an athlete the viewer blocks, mutes or is blocked by. Totals come from [tallies]; who voted is never served, except
+ * [segment]'s open proposals the viewer may see, oldest first: not labelled and by a served account ([listedProposal]: their own stay under
+ * `!hide`), and not by an athlete the viewer blocks, mutes or is blocked by. Totals come from [tallies]; who voted is never served, except
  * the viewer's own vote on the version listed.
  */
 internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatars: AvatarUrls): List<SegmentNameProposalView> {
@@ -78,7 +78,6 @@ internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatar
                 (SegmentNameProposals.segmentUri eq segment) and
                     (SegmentNameProposals.state eq ProposalState.OPEN) and
                     listedProposal(viewer) and
-                    served(viewer, SegmentNameProposals.proposerDid) and
                     notBlocked(viewer, SegmentNameProposals.proposerDid) and
                     notMuted(viewer, SegmentNameProposals.proposerDid)
             }

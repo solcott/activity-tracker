@@ -46,7 +46,7 @@ internal fun interface PostTier {
 private fun postRowsAs(reader: Expression<String>?, tier: PostTier): Op<Boolean> =
     tier.admits(Posts.visibility, Posts.authorDid, Posts.uri, Posts.cid) and
         unhiddenTo(reader, Posts.authorDid, Posts.uri) and
-        ((Posts.proposalUri.isNotNull() and liveProposal(Posts.proposalUri, Posts.authorDid, reader)) or
+        ((Posts.proposalUri.isNotNull() and liveProposal(Posts.proposalUri, Posts.authorDid, listedProposalTo(reader), reader)) or
             (Posts.quotedUri.isNotNull() and quoteChainPasses(reader, tier))) and
         not(
             exists(
@@ -56,15 +56,24 @@ private fun postRowsAs(reader: Expression<String>?, tier: PostTier): Op<Boolean>
             ),
         )
 
-/** The post's [proposal] is indexed, by its [author], its record still exists, and a list may show it to [reader] ([listedProposal]). */
-private fun liveProposal(proposal: Column<String?>, author: Column<String>, reader: Expression<String>?): Op<Boolean> =
+/**
+ * The post's [proposal] is indexed, by its [author], its record still exists, it passes [labels] (a label rule over the proposal's row:
+ * [listedProposalTo] a reader, or [unlabelledProposal] for anyone), and its segment or site is served to [placeReader]
+ * ([proposalPlaceServed]; null for anyone).
+ */
+internal fun liveProposal(
+    proposal: Column<String?>,
+    author: Column<String>,
+    labels: Op<Boolean>,
+    placeReader: Expression<String>?,
+): Op<Boolean> =
     exists(
         SegmentNameProposals.select(SegmentNameProposals.uri).where {
             (SegmentNameProposals.uri eq proposal) and
                 (SegmentNameProposals.proposerDid eq author) and
                 (SegmentNameProposals.recordGone eq false) and
-                listedProposalTo(reader) and
-                proposalPlaceServed(reader)
+                labels and
+                proposalPlaceServed(placeReader)
         },
     )
 
