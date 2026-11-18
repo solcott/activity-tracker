@@ -108,7 +108,7 @@ struct ActivityPhotosSection: View {
             .frame(width: Self.tile, height: Self.tile)
             .overlay {
                 if preparing {
-                    ProgressView()
+                    AppProgress()
                 } else {
                     VStack(spacing: 4) {
                         Image(systemName: "photo.badge.plus").font(.title2)

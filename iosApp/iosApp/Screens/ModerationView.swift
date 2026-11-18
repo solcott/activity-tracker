@@ -31,7 +31,7 @@ struct ModerationView: View {
                     AppButton(.moderationOpen, action: open)
                         .disabled(!ModerationSubjectTexts.shared.canOpen(state: state))
                     if state.loading {
-                        ProgressView()
+                        AppProgress()
                     }
                 }
                 if let error = state.error {

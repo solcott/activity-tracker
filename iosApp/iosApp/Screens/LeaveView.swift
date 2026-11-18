@@ -78,7 +78,7 @@ struct LeaveView: View {
         return VStack(alignment: .leading, spacing: 4) {
             if state.places is SharedPlacesSummary.Loading {
                 HStack(spacing: 12) {
-                    ProgressView()
+                    AppProgress()
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in Text(line) }
                 }
             } else {
@@ -95,7 +95,7 @@ struct LeaveView: View {
         VStack(alignment: .leading, spacing: 8) {
             if state.export == .Running {
                 HStack(spacing: 12) {
-                    ProgressView()
+                    AppProgress()
                     Text(LeaveTexts.shared.exportLine(export: state.export))
                 }
             } else {
@@ -134,7 +134,7 @@ struct LeaveView: View {
                 ErrorMessage(error, layout: .row)
             }
             if state.starting {
-                ProgressView()
+                AppProgress()
             } else if !state.needsSignInAgain {
                 Button(role: .destructive) {
                     state.eventSink(LeaveEvent.Leave.shared)
@@ -161,7 +161,7 @@ struct LeaveView: View {
                     ErrorMessage(error, layout: .row)
                 } else {
                     HStack(spacing: 12) {
-                        ProgressView()
+                        AppProgress()
                         Text(LeaveTexts.shared.step(run: run)).font(.headline)
                     }
                 }
