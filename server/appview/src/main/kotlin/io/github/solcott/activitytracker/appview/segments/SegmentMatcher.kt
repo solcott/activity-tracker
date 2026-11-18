@@ -69,7 +69,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -83,6 +85,7 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
@@ -231,11 +234,24 @@ class SegmentMatcher(
     suspend fun updateNames() = naming.update()
 
     /** Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes. */
-    private fun JdbcTransaction.promote(uris: Collection<String>) {
-        for (uri in uris) {
-            val athletes = SegmentEfforts.select(SegmentEfforts.authorDid).where { SegmentEfforts.segmentUri eq uri }.withDistinct().count()
+    private fun JdbcTransaction.promote(uris: Collection<String>) =
+        promoteBy(uris, Segments.uri, Segments.status, SegmentEfforts.segmentUri, SegmentEfforts.authorDid)
+
+    /**
+     * Makes each of [uris] whose row (by [uri]) is proposed in [status] active once the rows naming it in [usedBy] come from
+     * [activeAthletes] distinct [author]s: the shared promotion of segments by their efforts and dive sites by their visits.
+     */
+    private fun JdbcTransaction.promoteBy(
+        uris: Collection<String>,
+        uri: Column<String>,
+        status: Column<String>,
+        usedBy: Column<String>,
+        author: Column<String>,
+    ) {
+        for (each in uris) {
+            val athletes = author.table.select(author).where { usedBy eq each }.withDistinct().count()
             if (athletes < activeAthletes) continue
-            Segments.update({ (Segments.uri eq uri) and (Segments.status eq SegmentStatus.PROPOSED) }) { it[status] = SegmentStatus.ACTIVE }
+            status.table.update({ (uri eq each) and (status eq SegmentStatus.PROPOSED) }) { it[status] = SegmentStatus.ACTIVE }
         }
     }
 
@@ -620,27 +636,34 @@ class SegmentMatcher(
                 ?.first
                 ?.get(DiveSites.uri) ?: return
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
-        val conditions = visitConditions(activity)
+        val tiers = visitTiers(activity)
         DiveSiteVisits.insert {
             it[activityUri] = track.activity
             it[siteUri] = site
             it[DiveSiteVisits.trackUri] = trackUri
             it[authorDid] = track.author.value
-            it[visibility] = visitVisibility(activity)
             it[startedOn] = startedOn(activity)
-            it[minTemperature] = conditions.minTemperature
-            it[visibilityCm] = conditions.visibility
-            it[maxDepthCm] = conditions.maxDepth
-            it[diveTier] = narrowestOf(activity, DetailCategory.DIVE)
+            tiers(it)
         }
         promoteSites(listOf(site))
     }
 
-    /** The dive's summary from every held tier, whose fields a visit copies; read only for the conditions served at its Dive tier. */
-    private fun JdbcTransaction.visitConditions(activity: ResultRow): ActivityDive = exactRecord(activity).dive ?: ActivityDive()
-
-    /** A visit's tier: the narrowest of the activity's and its Map category's. */
-    private fun JdbcTransaction.visitVisibility(activity: ResultRow): String = narrowestOf(activity, DetailCategory.MAP)
+    /**
+     * Sets a dive-site visit's tiered columns from [activity], as written and as re-tiered: its tier (the narrowest of the activity's and
+     * its Map category's), and the dive's conditions from every held tier with its Dive category's tier, the only tier they're served at.
+     */
+    private fun JdbcTransaction.visitTiers(activity: ResultRow): (UpdateBuilder<*>) -> Unit {
+        val conditions = exactRecord(activity).dive ?: ActivityDive()
+        val visitTier = narrowestOf(activity, DetailCategory.MAP)
+        val diveTier = narrowestOf(activity, DetailCategory.DIVE)
+        return {
+            it[DiveSiteVisits.visibility] = visitTier
+            it[DiveSiteVisits.minTemperature] = conditions.minTemperature
+            it[DiveSiteVisits.visibilityCm] = conditions.visibility
+            it[DiveSiteVisits.maxDepthCm] = conditions.maxDepth
+            it[DiveSiteVisits.diveTier] = diveTier
+        }
+    }
 
     /** Queues a `track` job for each usable dive track sharing a cell with the dive site at [siteUri], unless it's no longer live. */
     private suspend fun matchSite(siteUri: String) {
@@ -649,36 +672,21 @@ class SegmentMatcher(
             val live =
                 DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq siteUri) and (DiveSites.status inList LIVE_STATUSES) }.any()
             if (!live) return@tx
-            val cells = DiveSiteCells.select(DiveSiteCells.cell).where { DiveSiteCells.siteUri eq siteUri }.map { it[DiveSiteCells.cell] }
-            if (cells.isEmpty()) return@tx
-            usableSegmentTracks()
-                .andWhere {
-                    exists(
-                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
-                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                        },
-                    ) and
-                        exists(
-                            Activities.select(Activities.uri).where {
-                                (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
-                            },
-                        )
-                }
-                .map { it[SegmentTracks.uri] }
-                .forEach { jobs.enqueueTrack(it, now) }
+            enqueueTracksIn(
+                DiveSiteCells.select(DiveSiteCells.cell).where { DiveSiteCells.siteUri eq siteUri }.map { it[DiveSiteCells.cell] },
+                now,
+                exists(
+                    Activities.select(Activities.uri).where {
+                        (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
+                    },
+                ),
+            )
         }
     }
 
     /** Makes each of [uris] that is a proposed dive site active once visits to it come from [activeAthletes] distinct athletes. */
-    private fun JdbcTransaction.promoteSites(uris: Collection<String>) {
-        for (uri in uris) {
-            val athletes = DiveSiteVisits.select(DiveSiteVisits.authorDid).where { DiveSiteVisits.siteUri eq uri }.withDistinct().count()
-            if (athletes < activeAthletes) continue
-            DiveSites.update({ (DiveSites.uri eq uri) and (DiveSites.status eq SegmentStatus.PROPOSED) }) {
-                it[status] = SegmentStatus.ACTIVE
-            }
-        }
-    }
+    private fun JdbcTransaction.promoteSites(uris: Collection<String>) =
+        promoteBy(uris, DiveSites.uri, DiveSites.status, DiveSiteVisits.siteUri, DiveSiteVisits.authorDid)
 
     /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */
     private suspend fun matchSegment(segmentUri: String) {
@@ -708,16 +716,18 @@ class SegmentMatcher(
         }
     }
 
-    /** Queues a `track` job for each usable track with a cell in [cells]. */
-    private fun JdbcTransaction.enqueueTracksIn(cells: List<Long>, now: Long) {
+    /** Queues a `track` job for each usable track with a cell in [cells] that also meets [also], when given. */
+    private fun JdbcTransaction.enqueueTracksIn(cells: List<Long>, now: Long, also: Op<Boolean>? = null) {
         if (cells.isEmpty()) return
         usableSegmentTracks()
             .andWhere {
-                exists(
-                    SegmentTrackCells.select(SegmentTrackCells.cell).where {
-                        (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                    },
-                )
+                val inCells =
+                    exists(
+                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
+                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
+                        },
+                    )
+                if (also == null) inCells else inCells and also
             }
             .map { it[SegmentTracks.uri] }
             .forEach { jobs.enqueueTrack(it, now) }
@@ -734,16 +744,8 @@ class SegmentMatcher(
         val visibility = effortVisibility(row)
         SegmentEfforts.update({ SegmentEfforts.activityUri eq activity }) { it[SegmentEfforts.visibility] = visibility }
         if (!DiveSiteVisits.select(DiveSiteVisits.activityUri).where { DiveSiteVisits.activityUri eq activity }.empty()) {
-            val conditions = visitConditions(row)
-            val visitTier = visitVisibility(row)
-            val diveTier = narrowestOf(row, DetailCategory.DIVE)
-            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) {
-                it[DiveSiteVisits.visibility] = visitTier
-                it[minTemperature] = conditions.minTemperature
-                it[visibilityCm] = conditions.visibility
-                it[maxDepthCm] = conditions.maxDepth
-                it[DiveSiteVisits.diveTier] = diveTier
-            }
+            val tiers = visitTiers(row)
+            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) { tiers(it) }
         }
         retierPairs(row)
     }
