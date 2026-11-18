@@ -125,4 +125,43 @@ class PathsTest {
         }
         assertEquals(2, pathsOf(data).count { it.name == "Ridge Trail" }, "they don't touch")
     }
+
+    /** A Forest Service dataset of one feature, `TRAIL_CN` [cn] named [name], 3 km north from the origin [east] m east, open to [uses]. */
+    private fun agency(name: String, east: Double = 0.0, cn: String = "1001", uses: String = "HIKER_PEDESTRIAN_MANAGED"): AgencyData {
+        val dLng = east / (111_320.0 * kotlin.math.cos(Math.toRadians(lat)))
+        val coordinates = (0..30).joinToString(",") { "[${lng + dLng},${north(lat, it * 100.0)}]" }
+        val file = kotlin.io.path.createTempFile("usfs", ".geojsonl").toFile()
+        file.writeText(
+            """{"type":"Feature","properties":{"TRAIL_NAME":"$name","TRAIL_CN":"$cn","BMP":0,"$uses":"01/01-12/31"},""" +
+                """"geometry":{"type":"LineString","coordinates":[$coordinates]}}""" +
+                "\n",
+        )
+        return AgencyReader.read(listOf(AgencyDataset(AgencyRules.USFS, file)))
+    }
+
+    @Test
+    fun anAgencyTrailOsmAlsoMapsGivesOnlyOsmsPath() {
+        val osmData = osm { chain("Little Cottonwood Creek Trail", 100, 3, { path(it, "foot" to "designated") }) }
+        val alone = pathsOf(osmData).single()
+        val paths = pathsOf(osmData + agency("Little Cottonwood Creek", east = 8.0))
+        val kept = paths.single()
+        assertEquals(alone.id, kept.id)
+        assertEquals("Little Cottonwood Creek Trail", kept.name)
+        assertEquals("osm", kept.source)
+    }
+
+    @Test
+    fun theOsmPathOpensToTheAgencysSportGroups() {
+        val osmData = osm { chain("Creek Trail", 100, 3, { path(it, "bicycle" to "no") }) }
+        assertEquals(listOf("run", "hike"), pathsOf(osmData).single().sports)
+        val paths = pathsOf(osmData + agency("Creek", uses = "BICYCLE_MANAGED"))
+        assertEquals(listOf("ride", "run", "hike"), paths.single().sports)
+    }
+
+    @Test
+    fun anAgencyTrailOsmLacksKeepsItsPath() {
+        val osmData = osm { chain("Creek Trail", 100, 3, { path(it) }) }
+        val paths = pathsOf(osmData + agency("Ridge", east = 2_000.0))
+        assertEquals(setOf("osm", "agency"), paths.map { it.source }.toSet())
+    }
 }

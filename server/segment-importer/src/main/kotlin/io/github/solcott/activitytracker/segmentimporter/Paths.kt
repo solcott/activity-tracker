@@ -3,8 +3,11 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.atproto.crypto.base32
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.PathCandidate
+import io.github.solcott.activitytracker.location.PathOverlap
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.io.Writer
 import java.security.MessageDigest
@@ -103,13 +106,58 @@ internal object PathPieces {
 /**
  * A region's trail paths (segments/path-import): one for each trail family, the trails of one name or of one family of sections (a parent
  * trail's family, else the name before " - ") whose ways touch, across every sport group. Each is named after its family, open to its
- * trails' sport groups, and holds each of its ways once, in as few pieces as its trails allow.
+ * trails' sport groups, and holds each of its ways once, in as few pieces as its trails allow. An agency trail that OSM also maps gives
+ * only OSM's path ([folded]).
  */
 internal object TrailPaths {
     fun of(trails: List<Trail>, agencyKeys: Map<Long, String>): List<PathEntry> =
         trails
             .groupBy { trail -> (trail.family ?: TrailBuilder.familyOf(trail.name)) to trail.rules.source }
             .flatMap { (key, family) -> touching(family).mapNotNull { entry(key.first, it, agencyKeys) } }
+            .let(::folded)
+
+    /**
+     * [paths] without each agency trail path that mostly follows one OSM trail path, at least [PathOverlap.IMPORTED_SHARE] of its length by
+     * the AppView's test among the OSM paths near it; that OSM path keeps its own name, line and id and is opened to the agency path's
+     * sport groups too.
+     */
+    fun folded(paths: List<PathEntry>): List<PathEntry> {
+        val osm = paths.filter { it.kind == PathKind.TRAIL && it.source == SegmentSource.OSM }
+        val agency = paths.filter { it.kind == PathKind.TRAIL && it.source == SegmentSource.AGENCY }
+        if (osm.isEmpty() || agency.isEmpty()) return paths
+        val lines = (osm + agency).associate { path -> path.id to path.lines.map { SegmentGeometry.decodePolyline(it).orEmpty() } }
+        val boxes = lines.mapValues { (_, pieces) -> Box.of(pieces.flatten()) }
+        // Each agency path that one OSM path covers, by that OSM path's id.
+        val into = agency.mapNotNull { path -> coveringOsm(path, osm, lines, boxes)?.let { path to it } }
+        val dropped = into.mapTo(mutableSetOf()) { it.first.id }
+        val opened = into.groupBy({ it.second }, { it.first.sports.orEmpty() }).mapValues { (_, sports) -> sports.flatten() }
+        val order = SegmentSportGroup.all
+        return paths
+            .filter { it.id !in dropped }
+            .map { path ->
+                val more = opened[path.id] ?: return@map path
+                val sports = (path.sports.orEmpty() + more).distinct()
+                path.copy(sports = sports.sortedBy { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size })
+            }
+    }
+
+    /** The id of the one of [osm]'s paths that at least [PathOverlap.IMPORTED_SHARE] of [path] follows, if any. */
+    private fun coveringOsm(
+        path: PathEntry,
+        osm: List<PathEntry>,
+        lines: Map<String, List<List<GeoPoint>>>,
+        boxes: Map<String, Box>,
+    ): String? {
+        val pieces = lines.getValue(path.id).filter { it.size >= 2 }
+        val length = pieces.sumOf(SegmentGeometry::lengthMeters)
+        val box = boxes.getValue(path.id)
+        val candidates =
+            osm.filter { boxes.getValue(it.id).near(box, SegmentGeometry.CORRIDOR_M) }.map { PathCandidate(it.id, lines.getValue(it.id)) }
+        if (length <= 0.0 || candidates.isEmpty()) return null
+        val followed = mutableMapOf<String, Double>()
+        for (piece in pieces) PathOverlap.overlaps(piece, candidates).forEach { (id, m) -> followed.merge(id, m, Double::plus) }
+        return followed.maxByOrNull { it.value }?.takeIf { it.value >= length * PathOverlap.IMPORTED_SHARE }?.key
+    }
 
     /** How near two trails of one family may come and still be one trail: pieces split by short unnamed connectors. */
     private const val JOIN_M = 250.0
