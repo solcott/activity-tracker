@@ -10,18 +10,14 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
-import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.flow
-
-private val PERIODS = MayorPeriod.all.toImmutableList()
 
 @CircuitInject(SegmentMayorsScreen::class, SessionScope::class)
 @Composable
 fun SegmentMayorsPresenter(screen: SegmentMayorsScreen, navigator: Navigator, segments: SegmentRepository): SegmentMayorsState {
     val uri = AtUri(screen.uri)
-    val filters = rememberBoardFilters(PERIODS, MayorPeriod.LAST_90_DAYS, screen.board)
+    val filters = rememberBoardFilters(BoardKind.Mayors, screen.board)
     // Each board is its own list, as on the leaderboard: a new choice starts from nothing in the same frame, and the viewer's own entry,
     // each page's meta, changes with it.
     val entries =
@@ -35,24 +31,12 @@ fun SegmentMayorsPresenter(screen: SegmentMayorsScreen, navigator: Navigator, se
 
     return SegmentMayorsState(
         name = rememberShownName(screen.name, uri) { segments.segment(uri).currentName },
-        period = filters.period,
-        scope = filters.scope,
-        board = types.shown,
-        boards = types.listed,
-        ageGroup = filters.ageGroup,
-        weightClass = filters.weightClass,
-        gender = filters.gender,
+        filters = filters.fields(types),
         entries = board,
         viewerEntry = board.viewerApart { it.athlete.did },
     ) { event ->
         when (event) {
             SegmentMayorsEvent.Back -> navigator.pop()
-            is SegmentMayorsEvent.PeriodChanged -> filters.choosePeriod(event.period)
-            is SegmentMayorsEvent.ScopeChanged -> filters.chooseScope(event.scope)
-            is SegmentMayorsEvent.BoardChanged -> filters.chooseBoard(event.board, types)
-            is SegmentMayorsEvent.AgeGroupChanged -> filters.chooseAgeGroup(event.ageGroup)
-            is SegmentMayorsEvent.WeightClassChanged -> filters.chooseWeightClass(event.weightClass)
-            is SegmentMayorsEvent.GenderChanged -> filters.chooseGender(event.gender)
             SegmentMayorsEvent.LoadMore -> entries.loadMore()
             SegmentMayorsEvent.Retry -> entries.retry()
             is SegmentMayorsEvent.OpenAthlete -> navigator.goTo(ProfileScreen(event.did.value))

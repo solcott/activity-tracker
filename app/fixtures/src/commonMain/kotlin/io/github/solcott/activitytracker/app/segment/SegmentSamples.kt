@@ -408,10 +408,14 @@ object SegmentLeaderboardSamples {
             val filtered =
                 SegmentLeaderboardState(
                     name,
-                    board = SegmentSportGroup.RIDE,
-                    boards = persistentListOf(SegmentSportGroup.RIDE, SegmentBoard.E_BIKE),
-                    ageGroup = LeaderboardAgeGroup.FROM_45,
-                    weightClass = LeaderboardWeightClass.FROM_55,
+                    filters =
+                        BoardFilterFields(
+                            BoardKind.Leaderboard,
+                            board = SegmentSportGroup.RIDE,
+                            boards = persistentListOf(SegmentSportGroup.RIDE, SegmentBoard.E_BIKE),
+                            ageGroup = LeaderboardAgeGroup.FROM_45,
+                            weightClass = LeaderboardWeightClass.FROM_55,
+                        ),
                     entries =
                         PagedStates.end(
                             listOf(
@@ -447,9 +451,13 @@ object SegmentMayorsSamples {
                 "filtered" to
                     SegmentMayorsState(
                         name,
-                        period = MayorPeriod.THIS_WEEK,
-                        board = SegmentSportGroup.HIKE,
-                        boards = persistentListOf(SegmentSportGroup.HIKE, Sport.WALK),
+                        filters =
+                            BoardFilterFields(
+                                BoardKind.Mayors,
+                                period = MayorPeriod.THIS_WEEK,
+                                board = SegmentSportGroup.HIKE,
+                                boards = persistentListOf(SegmentSportGroup.HIKE, Sport.WALK),
+                            ),
                         entries =
                             PagedStates.end(
                                 listOf(
