@@ -8,7 +8,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.uiErrorOf
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
@@ -39,9 +39,7 @@ internal constructor(
     fun set(choice: GroupChoice) {
         if (choice == this.choice || choice == GroupChoice.NEVER_ASKED || !canUse) return
         onError(null)
-        flights.launch(KEY) {
-            runSuspendCatching { prefs.save(choice) }.onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) }
-        }
+        flights.launchAction(KEY, UiError.Kind.SaveSettings, onError) { prefs.save(choice) }
     }
 
     private companion object {

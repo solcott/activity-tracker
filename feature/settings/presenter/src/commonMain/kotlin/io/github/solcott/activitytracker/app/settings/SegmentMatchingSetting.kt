@@ -9,7 +9,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.uiErrorOf
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
@@ -63,19 +63,14 @@ internal constructor(
     private fun setBracketBoards(on: Boolean) {
         if (on == bracketBoards || matching != true) return
         onError(null)
-        flights.launch(BRACKETS_KEY) {
-            runSuspendCatching { brackets.save(on) }.onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) }
-        }
+        flights.launchAction(BRACKETS_KEY, UiError.Kind.SaveSettings, onError) { brackets.save(on) }
     }
 
     /** Shows the athlete on leaderboards, or hides them from every one; offered only while matching is on. */
     private fun setShownOnLeaderboards(shown: Boolean) {
         if (shown == shownOnLeaderboards || matching != true) return
         onError(null)
-        flights.launch(LEADERBOARDS_KEY) {
-            runSuspendCatching { prefs.saveLeaderboards(hidden = !shown) }
-                .onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) }
-        }
+        flights.launchAction(LEADERBOARDS_KEY, UiError.Kind.SaveSettings, onError) { prefs.saveLeaderboards(hidden = !shown) }
     }
 
     fun onEvent(event: SegmentsAndGroupsEvent.SegmentSettingEvent) {
@@ -89,7 +84,7 @@ internal constructor(
     private fun set(on: Boolean) {
         if (on == matching) return
         onError(null)
-        flights.launch(KEY) { runSuspendCatching { prefs.save(on) }.onFailure { e -> onError(uiErrorOf(UiError.Kind.SaveSettings, e)) } }
+        flights.launchAction(KEY, UiError.Kind.SaveSettings, onError) { prefs.save(on) }
     }
 
     private companion object {

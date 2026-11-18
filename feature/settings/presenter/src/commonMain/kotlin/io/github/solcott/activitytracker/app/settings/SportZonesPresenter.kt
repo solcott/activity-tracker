@@ -13,10 +13,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -69,10 +68,9 @@ fun SportZonesPresenter(
     fun write(key: SportZonesEvent, transform: (TrainingDetails) -> TrainingDetails) {
         if (saved == null || saving) return
         error = null
-        flights.launch(key) {
-            runSuspendCatching { profiles.updateTraining(transform = transform) }
-                .onSuccess { navigator.pop() }
-                .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
+        flights.launchAction(key, UiError.Kind.SaveZones, { error = it }) {
+            profiles.updateTraining(transform = transform)
+            navigator.pop()
         }
     }
 
