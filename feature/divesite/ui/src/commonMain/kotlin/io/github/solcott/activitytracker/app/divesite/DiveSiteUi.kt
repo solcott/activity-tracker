@@ -2,12 +2,9 @@ package io.github.solcott.activitytracker.app.divesite
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -30,18 +26,14 @@ import io.github.solcott.activitytracker.app.segment.PlaceStatus
 import io.github.solcott.activitytracker.app.segment.PlaceTexts
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
-import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LeaderCard
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.app.ui.string
@@ -56,50 +48,41 @@ import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 @CircuitInject(DiveSiteScreen::class, SessionScope::class)
 @Composable
 fun DiveSiteUi(state: DiveSiteState, modifier: Modifier = Modifier) {
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = state.site?.currentName.orEmpty(),
-                onBack = { state.eventSink(DiveSiteEvent.Back) },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        val retry = { state.eventSink(DiveSiteEvent.Retry) }
-        ContentStateLayout(state.content, UiError.Kind.LoadDiveSite, onRetry = retry, contentPadding = padding) { loaded ->
-            // Loaded content is never null; the placeholder before the first load is.
-            if (loaded != null) Loaded(state, loaded, padding, retry)
-        }
+    val listState = rememberLazyListState()
+    LoadMoreAtEnd(listState, state.dives.canLoadMore) { state.eventSink(DiveSiteEvent.LoadMoreDives) }
+    val retry = { state.eventSink(DiveSiteEvent.Retry) }
+    ListScreen(
+        title = state.site?.currentName.orEmpty(),
+        onBack = { state.eventSink(DiveSiteEvent.Back) },
+        content = state.content,
+        errorKind = UiError.Kind.LoadDiveSite,
+        onRetry = retry,
+        modifier = modifier,
+        listState = listState,
+        verticalPadding = 12.dp,
+    ) { site ->
+        siteItems(state, site, retry)
     }
     PlaceNameDialogs(state.names)
 }
 
-@Composable
-private fun Loaded(state: DiveSiteState, site: DiveSiteView, padding: PaddingValues, onRetry: () -> Unit) {
-    val listState = rememberLazyListState()
-    LoadMoreAtEnd(listState, state.dives.canLoadMore) { state.eventSink(DiveSiteEvent.LoadMoreDives) }
-    ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-            item { RefreshStatus(state.content, UiError.Kind.LoadDiveSite, onRetry) }
-            state.outline?.let { outline -> item { ActivityMap(outline, Modifier.fillMaxWidth(), ends = RouteEnds.HIDDEN) } }
-            item { About(state, site) }
-            state.conditions?.let { conditions -> item { Conditions(conditions, Modifier.padding(bottom = 12.dp)) } }
-            item {
-                val proposals = remember(site.nameProposals) { state.proposals }
-                val history = remember(site.nameHistory) { state.history }
-                PlaceNames(
-                    proposals = proposals,
-                    history = history,
-                    canPropose = state.canPropose,
-                    canVote = state.canVote,
-                    fields = state.names,
-                )
-            }
-            dives(state)
-        }
+private fun LazyListScope.siteItems(state: DiveSiteState, site: DiveSiteView, onRetry: () -> Unit) {
+    item { RefreshStatus(state.content, UiError.Kind.LoadDiveSite, onRetry) }
+    state.outline?.let { outline -> item { ActivityMap(outline, Modifier.fillMaxWidth(), ends = RouteEnds.HIDDEN) } }
+    item { About(state, site) }
+    state.conditions?.let { conditions -> item { Conditions(conditions, Modifier.padding(bottom = 12.dp)) } }
+    item {
+        val proposals = remember(site.nameProposals) { state.proposals }
+        val history = remember(site.nameHistory) { state.history }
+        PlaceNames(
+            proposals = proposals,
+            history = history,
+            canPropose = state.canPropose,
+            canVote = state.canVote,
+            fields = state.names,
+        )
     }
+    dives(state)
 }
 
 /** The site's radius, creator, data credit, status and top Regular, as [DiveSiteTexts] words them. */
