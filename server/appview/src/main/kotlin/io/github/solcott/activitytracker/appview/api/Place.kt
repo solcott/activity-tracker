@@ -21,21 +21,22 @@ import org.jetbrains.exposed.v1.jdbc.select
 
 /**
  * A table of places and the columns the shared rules read. [used] is whether an athlete has an effort on, or a visit to, the outer query's
- * place, which lists a proposed place to them; [notFound] is the error a place that isn't served answers.
+ * place, which lists a proposed place to them; [notFound] is the error a place that isn't served answers. The table is [uri]'s.
  */
 internal class Place(
-    val table: Table,
     val uri: Column<String>,
     val cid: Column<String>,
     val author: Column<String>,
     val status: Column<String>,
     val used: (athlete: String) -> Op<Boolean>,
     val notFound: () -> XrpcError,
-)
+) {
+    val table: Table
+        get() = uri.table
+}
 
 internal val SegmentPlace =
     Place(
-        Segments,
         Segments.uri,
         Segments.cid,
         Segments.authorDid,
@@ -52,7 +53,6 @@ internal val SegmentPlace =
 
 internal val DiveSitePlace =
     Place(
-        DiveSites,
         DiveSites.uri,
         DiveSites.cid,
         DiveSites.authorDid,
