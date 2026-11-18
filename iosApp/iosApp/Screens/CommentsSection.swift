@@ -30,8 +30,7 @@ struct CommentsSection: View {
 
     var body: some View {
         let rows = CommentsTexts.shared.rows(state: state, reportAvailable: reporting?.available ?? false).elements(as: CommentRow.self)
-        let near = nearKeys(rows)
-        let wantsMore = state.paging.canLoadMore && !onScreen.isDisjoint(with: near)
+        let wantsMore = CommentsTexts.shared.wantsMore(shown: Array(onScreen), state: state)
         Section {
             ForEach(rows, id: \.key) { row in
                 CommentRowView(row: row, send: send) { item, author in choose(item, row: row, author: author) }
@@ -40,8 +39,8 @@ struct CommentsSection: View {
                     .onDisappear { onScreen.remove(row.key) }
             }
             loading
-                .onAppear { onScreen.insert(Self.tailKey) }
-                .onDisappear { onScreen.remove(Self.tailKey) }
+                .onAppear { onScreen.insert(CommentsTexts.shared.LOADING_KEY) }
+                .onDisappear { onScreen.remove(CommentsTexts.shared.LOADING_KEY) }
         } header: {
             HStack {
                 Text(CommentsTexts.shared.title)
@@ -66,6 +65,8 @@ struct CommentsSection: View {
         }
         Section {
             field
+                .onAppear { onScreen.insert(CommentsTexts.shared.FIELD_KEY) }
+                .onDisappear { onScreen.remove(CommentsTexts.shared.FIELD_KEY) }
         }
     }
 
@@ -102,18 +103,6 @@ struct CommentsSection: View {
             }
         }
     }
-
-    /// The rows whose showing asks for the next page: those of the last five threads listed, and the just-sent comments after them.
-    private func nearKeys(_ rows: [CommentRow]) -> Set<String> {
-        let threads = state.paging.items.elements(as: InteractionsPackage.CommentThread.self).suffix(5).map { "thread/\($0.uri.value)|" }
-        var keys: Set<String> = [Self.tailKey]
-        for row in rows where row.key.hasPrefix("sent/") || threads.contains(where: { row.key.hasPrefix($0) }) {
-            keys.insert(row.key)
-        }
-        return keys
-    }
-
-    private static let tailKey = "comments/loading"
 
     /// The author as the report sheet names them, as the shared list does: their display name, else their `@handle`.
     private static func reportName(_ author: ProfileViewBasic) -> String {
