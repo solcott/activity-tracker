@@ -15,30 +15,6 @@ class ScrubReadoutTest {
         listOf(SeriesPoint(0.0, 1.0), SeriesPoint(4.0, 5.0), SeriesPoint(8.0, 9.0, gapBefore = true), SeriesPoint(10.0, 2.0))
 
     @Test
-    fun theNearestPointIsTheClosestByTime() {
-        assertEquals(1, nearestIndex(points, 5.0))
-        assertEquals(2, nearestIndex(points, 7.0))
-        assertEquals(1, nearestIndex(points, 4.0))
-    }
-
-    @Test
-    fun aTieGoesToTheEarlierPoint() {
-        assertEquals(0, nearestIndex(points, 2.0))
-    }
-
-    @Test
-    fun beforeTheStartOrAfterTheEndIsTheEndPoint() {
-        assertEquals(0, nearestIndex(points, -3.0))
-        assertEquals(3, nearestIndex(points, 12.0))
-    }
-
-    @Test
-    fun aGapDoesNotChangeWhichPointIsNearest() {
-        // The point after a gap is still read out when the pointer is closest to it.
-        assertEquals(2, nearestIndex(points, 7.9))
-    }
-
-    @Test
     fun thePointerMapsBackToItsTime() {
         assertEquals(5.0, frame.valueAt(frame.x(5.0)), 1e-9)
         val rtl = frame.copy(start = 100f, direction = -1, startPadding = 4.0)

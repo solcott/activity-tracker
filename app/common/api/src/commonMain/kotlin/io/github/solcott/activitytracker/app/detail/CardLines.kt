@@ -12,10 +12,10 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.data.chart.ChartAxis
+import io.github.solcott.activitytracker.data.chart.nearestIndexBy
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.data.units.formatWhole
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -346,12 +346,8 @@ object CardLines {
         series.points.map { LinePoint(it.seconds.toDouble(), StreamUnits.convert(StreamKind.Elevation, it.value, units), it.gapBefore) }
 
     /** The y of the point in [points] (sorted by x) closest to [x]; null for none. */
-    private fun nearestY(points: List<LinePoint>, x: Double): Double? {
-        val i = points.binarySearch { it.x.compareTo(x) }
-        val after = -i - 1
-        return if (i >= 0) points[i].y
-        else listOfNotNull(points.getOrNull(after - 1), points.getOrNull(after)).minByOrNull { abs(it.x - x) }?.y
-    }
+    private fun nearestY(points: List<LinePoint>, x: Double): Double? =
+        points.takeIf { it.isNotEmpty() }?.let { it[it.nearestIndexBy(x) { p -> p.x }].y }
 
     /** [texts] as one passage, sentence after sentence. */
     fun sentences(texts: List<AppText>): AppText = texts.reduce { a, b -> AppText.named("text_space_pair", a, b) }

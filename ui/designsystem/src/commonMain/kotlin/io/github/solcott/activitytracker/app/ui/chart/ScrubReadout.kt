@@ -3,20 +3,6 @@ package io.github.solcott.activitytracker.app.ui.chart
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import kotlin.math.abs
-
-/** The index of the point in [points] (sorted by x, not empty) whose x is closest to [x]; the earlier one on a tie. */
-internal fun nearestIndex(points: List<SeriesPoint>, x: Double): Int {
-    val found = points.binarySearch { it.x.compareTo(x) }
-    if (found >= 0) return found
-    val after = -found - 1
-    return when {
-        after == 0 -> 0
-        after == points.size -> points.lastIndex
-        abs(points[after].x - x) < abs(points[after - 1].x - x) -> after
-        else -> after - 1
-    }
-}
 
 /**
  * Where a readout for [point] puts its dots in [frame], [yRange] mapped onto its height: one on the main line, then one on each of [others]

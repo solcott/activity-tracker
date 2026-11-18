@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.multiplatform.cartesian.CartesianDrawingContext
 import com.patrykandpatrick.vico.multiplatform.cartesian.decoration.Decoration
+import io.github.solcott.activitytracker.data.chart.nearestIndexBy
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -87,7 +88,7 @@ internal fun ReadoutOverlay(readout: ChartReadout, modifier: Modifier = Modifier
                 val x = pointerX.doubleValue
                 val frame = current.frame.frame
                 if (x.isNaN() || frame == null || current.points.isEmpty()) return@drawBehind
-                val point = current.points[nearestIndex(current.points, x)]
+                val point = current.points[current.points.nearestIndexBy(x) { it.x }]
                 val dots = readoutDots(point, current.others, frame, current.yRange)
                 val bounds = frame.bounds
                 val lineX = dots.first().x

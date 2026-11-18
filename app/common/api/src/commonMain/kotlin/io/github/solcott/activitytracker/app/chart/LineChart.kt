@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.chart.BandStop
 import io.github.solcott.activitytracker.data.chart.ChartAxis
+import io.github.solcott.activitytracker.data.chart.nearestIndexBy
 import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -68,17 +69,7 @@ class LineChart(
     }
 
     /** The index of the point whose x is closest to [x]; the earlier one on a tie. */
-    fun nearest(x: Double): Int {
-        val found = points.binarySearch { it.x.compareTo(x) }
-        if (found >= 0) return found
-        val after = -found - 1
-        return when {
-            after == 0 -> 0
-            after == points.size -> points.lastIndex
-            abs(points[after].x - x) < abs(points[after - 1].x - x) -> after
-            else -> after - 1
-        }
-    }
+    fun nearest(x: Double): Int = points.nearestIndexBy(x) { it.x }
 
     /** The readout for the point nearest [x]. */
     fun readout(x: Double): AppText = readouts[nearest(x)]
