@@ -85,6 +85,7 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
@@ -635,27 +636,34 @@ class SegmentMatcher(
                 ?.first
                 ?.get(DiveSites.uri) ?: return
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
-        val conditions = visitConditions(activity)
+        val tiers = visitTiers(activity)
         DiveSiteVisits.insert {
             it[activityUri] = track.activity
             it[siteUri] = site
             it[DiveSiteVisits.trackUri] = trackUri
             it[authorDid] = track.author.value
-            it[visibility] = visitVisibility(activity)
             it[startedOn] = startedOn(activity)
-            it[minTemperature] = conditions.minTemperature
-            it[visibilityCm] = conditions.visibility
-            it[maxDepthCm] = conditions.maxDepth
-            it[diveTier] = narrowestOf(activity, DetailCategory.DIVE)
+            tiers(it)
         }
         promoteSites(listOf(site))
     }
 
-    /** The dive's summary from every held tier, whose fields a visit copies; read only for the conditions served at its Dive tier. */
-    private fun JdbcTransaction.visitConditions(activity: ResultRow): ActivityDive = exactRecord(activity).dive ?: ActivityDive()
-
-    /** A visit's tier: the narrowest of the activity's and its Map category's. */
-    private fun JdbcTransaction.visitVisibility(activity: ResultRow): String = narrowestOf(activity, DetailCategory.MAP)
+    /**
+     * Sets a dive-site visit's tiered columns from [activity], as written and as re-tiered: its tier (the narrowest of the activity's and
+     * its Map category's), and the dive's conditions from every held tier with its Dive category's tier, the only tier they're served at.
+     */
+    private fun JdbcTransaction.visitTiers(activity: ResultRow): (UpdateBuilder<*>) -> Unit {
+        val conditions = exactRecord(activity).dive ?: ActivityDive()
+        val visitTier = narrowestOf(activity, DetailCategory.MAP)
+        val diveTier = narrowestOf(activity, DetailCategory.DIVE)
+        return {
+            it[DiveSiteVisits.visibility] = visitTier
+            it[DiveSiteVisits.minTemperature] = conditions.minTemperature
+            it[DiveSiteVisits.visibilityCm] = conditions.visibility
+            it[DiveSiteVisits.maxDepthCm] = conditions.maxDepth
+            it[DiveSiteVisits.diveTier] = diveTier
+        }
+    }
 
     /** Queues a `track` job for each usable dive track sharing a cell with the dive site at [siteUri], unless it's no longer live. */
     private suspend fun matchSite(siteUri: String) {
@@ -736,16 +744,8 @@ class SegmentMatcher(
         val visibility = effortVisibility(row)
         SegmentEfforts.update({ SegmentEfforts.activityUri eq activity }) { it[SegmentEfforts.visibility] = visibility }
         if (!DiveSiteVisits.select(DiveSiteVisits.activityUri).where { DiveSiteVisits.activityUri eq activity }.empty()) {
-            val conditions = visitConditions(row)
-            val visitTier = visitVisibility(row)
-            val diveTier = narrowestOf(row, DetailCategory.DIVE)
-            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) {
-                it[DiveSiteVisits.visibility] = visitTier
-                it[minTemperature] = conditions.minTemperature
-                it[visibilityCm] = conditions.visibility
-                it[maxDepthCm] = conditions.maxDepth
-                it[DiveSiteVisits.diveTier] = diveTier
-            }
+            val tiers = visitTiers(row)
+            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) { tiers(it) }
         }
         retierPairs(row)
     }
