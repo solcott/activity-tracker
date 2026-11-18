@@ -4,7 +4,7 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.interactions.CommentActions
 import io.github.solcott.activitytracker.app.interactions.CommentEvent
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
+import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.moderation.ReportTarget

@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.visibility.uiErrorOf
+import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.lexicon.AtUri
