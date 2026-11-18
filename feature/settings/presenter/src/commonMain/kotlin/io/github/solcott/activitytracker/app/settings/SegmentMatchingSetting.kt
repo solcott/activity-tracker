@@ -5,7 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.remember
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
@@ -102,7 +102,7 @@ internal fun rememberSegmentMatchingSetting(
     onError: (UiError?) -> Unit,
 ): SegmentMatchingSetting {
     val current = remember(prefs) { prefs.current }.collectAsState()
-    val matching = remember(current) { derivedStateOf { current.value?.isOn } }
+    val matching = remember(current) { computedStateOf { current.value?.isOn } }
     val hidden = remember(prefs) { prefs.hiddenFromLeaderboards }.collectAsState()
     val bracketsOn = remember(brackets) { brackets.current }.collectAsState()
     val setting =
