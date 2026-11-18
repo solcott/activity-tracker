@@ -225,6 +225,8 @@ detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
 #noinspection UnusedVersionCatalogEntry
 pmd-kotlin = { module = "net.sourceforge.pmd:pmd-kotlin", version.ref = "pmd" }
+#noinspection UnusedVersionCatalogEntry
+pmd-swift = { module = "net.sourceforge.pmd:pmd-swift", version.ref = "pmd" }
 
 # Plugin artifacts for build-logic.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

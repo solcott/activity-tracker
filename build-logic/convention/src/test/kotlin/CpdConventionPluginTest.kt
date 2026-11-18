@@ -25,6 +25,7 @@ class CpdConventionPluginTest {
                     """
                     [libraries]
                     pmd-kotlin = { module = "net.sourceforge.pmd:pmd-kotlin", version = "$PMD_VERSION" }
+                    pmd-swift = { module = "net.sourceforge.pmd:pmd-swift", version = "$PMD_VERSION" }
                     """
                         .trimIndent(),
                 )
@@ -43,7 +44,7 @@ class CpdConventionPluginTest {
 
         val result = runner().build()
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":cpdCheck")?.outcome)
+        assertEquals(TaskOutcome.SUCCESS, result.task(":cpdKotlin")?.outcome)
         val report = projectDir.resolve("build/reports/cpd/cpd.txt").readText()
         assertContains(report, "First.kt")
         assertContains(report, "Second.kt")
@@ -69,13 +70,45 @@ class CpdConventionPluginTest {
 
         val result = runner("-Pcpd.fail=true").buildAndFail()
 
-        assertEquals(TaskOutcome.FAILED, result.task(":cpdCheck")?.outcome)
+        assertEquals(TaskOutcome.FAILED, result.task(":cpdKotlin")?.outcome)
+    }
+
+    @Test
+    fun `reports Swift duplicated across the iOS app in its own report`() {
+        writeSwiftDuplicate("iosApp/iosApp/Screens/First.swift")
+        writeSwiftDuplicate("iosApp/iosApp/Design/Second.swift")
+
+        val result = runner().build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":cpdSwift")?.outcome)
+        val report = projectDir.resolve("build/reports/cpd/cpd-swift.txt").readText()
+        assertContains(report, "First.swift")
+        assertContains(report, "Second.swift")
+    }
+
+    @Test
+    fun `Swift tests and generated Swift are left out`() {
+        writeSwiftDuplicate("iosApp/iosApp/Screens/First.swift")
+        writeSwiftDuplicate("iosApp/iosAppTests/FirstTests.swift")
+        writeSwiftDuplicate("iosApp/iosApp/Design/Generated/AppIcon.swift")
+
+        runner().build()
+
+        val report = projectDir.resolve("build/reports/cpd/cpd-swift.txt").readText()
+        assertFalse("FirstTests.swift" in report, report)
+        assertFalse("AppIcon.swift" in report, report)
     }
 
     /** A function long enough to pass the default token threshold, identical in every file it's written to. */
     private fun writeDuplicate(path: String) {
         val body = (1..20).joinToString("\n") { "    val v$it = input * $it + (input - $it) / ($it + 1)" }
         projectDir.resolve(path).apply { parentFile.mkdirs() }.writeText("fun compute(input: Int): Int {\n$body\n    return v20\n}\n")
+    }
+
+    /** The Swift twin of [writeDuplicate]. */
+    private fun writeSwiftDuplicate(path: String) {
+        val body = (1..20).joinToString("\n") { "    let v$it = input * $it + (input - $it) / ($it + 1)" }
+        projectDir.resolve(path).apply { parentFile.mkdirs() }.writeText("func compute(input: Int) -> Int {\n$body\n    return v20\n}\n")
     }
 
     private fun runner(vararg arguments: String): GradleRunner =
