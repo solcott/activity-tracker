@@ -103,6 +103,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -374,18 +375,16 @@ class SegmentViews(
                             )
                             .where { listed and (Segments.currentName.lowerCase() like match.anywhere) }
                             // Best first, so the cap keeps the matches a page shows, in an order every page reads alike.
-                            .orderBy(
-                                *bestMatchesFirst(
-                                    Segments.currentName,
-                                    q,
-                                    match,
-                                    near,
-                                    Segments.minLatE7,
-                                    Segments.maxLatE7,
-                                    Segments.minLngE7,
-                                    Segments.maxLngE7,
-                                    Segments.uri,
-                                ),
+                            .orderByBestMatches(
+                                Segments.currentName,
+                                q,
+                                match,
+                                near,
+                                Segments.minLatE7,
+                                Segments.maxLatE7,
+                                Segments.minLngE7,
+                                Segments.maxLngE7,
+                                Segments.uri,
                             )
                             .limit(size)
                             .offset(skip)
@@ -416,18 +415,16 @@ class SegmentViews(
                     val named =
                         Paths.select(Paths.uri, Paths.name, Paths.minLatE7, Paths.maxLatE7, Paths.minLngE7, Paths.maxLngE7)
                             .where { Paths.name.lowerCase() like match.anywhere }
-                            .orderBy(
-                                *bestMatchesFirst(
-                                    Paths.name,
-                                    q,
-                                    match,
-                                    near,
-                                    Paths.minLatE7,
-                                    Paths.maxLatE7,
-                                    Paths.minLngE7,
-                                    Paths.maxLngE7,
-                                    Paths.uri,
-                                ),
+                            .orderByBestMatches(
+                                Paths.name,
+                                q,
+                                match,
+                                near,
+                                Paths.minLatE7,
+                                Paths.maxLatE7,
+                                Paths.minLngE7,
+                                Paths.maxLngE7,
+                                Paths.uri,
                             )
                             .limit(size)
                             .offset(skip)
@@ -1082,11 +1079,11 @@ private fun nameRank(name: ExpressionWithColumnType<String>, q: String, match: N
         .Else(intLiteral(NAME_ANYWHERE))
 
 /**
- * The order a capped name search reads its matches in, as [NAME_HIT_ORDER] ranks them: best match, then nearest [near] by the box, then
- * name, then [uri] so equal ones come in the same order every time.
+ * This query ordered as a capped name search reads its matches, as [NAME_HIT_ORDER] ranks them: best match, then nearest [near] by the box,
+ * then name, then [uri] so equal ones come in the same order every time.
  */
 @Suppress("LongParameterList") // The name, the centre, and the box's four columns.
-private fun bestMatchesFirst(
+private fun Query.orderByBestMatches(
     name: Column<String>,
     q: String,
     match: NameMatch,
@@ -1096,15 +1093,15 @@ private fun bestMatchesFirst(
     minLng: Column<Int>,
     maxLng: Column<Int>,
     uri: Column<String>,
-): Array<Pair<Expression<*>, SortOrder>> {
+): Query {
     val lower = name.lowerCase()
     return listOfNotNull(
-            nameRank(lower, q, match) to SortOrder.ASC,
-            near?.let { (lat, lng) -> BoxDistance(lat, lng, minLat, maxLat, minLng, maxLng) to SortOrder.ASC },
-            lower to SortOrder.ASC,
-            uri to SortOrder.ASC,
+            nameRank(lower, q, match),
+            near?.let { (lat, lng) -> BoxDistance(lat, lng, minLat, maxLat, minLng, maxLng) },
+            lower,
+            uri,
         )
-        .toTypedArray()
+        .fold(this) { query, expression -> query.orderBy(expression, SortOrder.ASC) }
 }
 
 /** The most matching segments, and paths, one path name search reads. */
