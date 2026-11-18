@@ -52,6 +52,23 @@ struct BoardSegments: View {
     }
 }
 
+/// A segment board's type and its age, weight and gender brackets as filter menus in the caller's flowing row, the weight in [units],
+/// each choice sent to the fields' own sink (`BoardFilterFields`, shared by the leaderboard and the Mayors board); the type only while
+/// there is one to show.
+struct SegmentBoardMenus: View {
+    let fields: BoardFilterFields
+    let units: UnitSystem
+
+    var body: some View {
+        if let type = fields.typeChoice {
+            BoardMenu(type) { if let board = $0 { fields.eventSink(BoardFilterEvent.BoardChanged(board: board)) } }
+        }
+        BoardMenu(fields.ageGroupChoice) { fields.eventSink(BoardFilterEvent.AgeGroupChanged(ageGroup: $0)) }
+        BoardMenu(fields.weightClassChoice(units: units)) { fields.eventSink(BoardFilterEvent.WeightClassChanged(weightClass: $0)) }
+        BoardMenu(fields.genderChoice) { fields.eventSink(BoardFilterEvent.GenderChanged(gender: $0)) }
+    }
+}
+
 /// A board's choice as a filter menu of its options, filled while it narrows the board, or its label alone when there is only one
 /// option (a segment with one type).
 struct BoardMenu: View {

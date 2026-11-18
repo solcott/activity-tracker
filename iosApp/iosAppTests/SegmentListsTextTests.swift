@@ -38,24 +38,24 @@ struct SegmentListsTextTests {
 
     @Test func theLeaderboardOffersItsChoices() throws {
         let state = try #require(Samples.segmentLeaderboard["loaded"])
-        #expect(labels(state.periodChoice) == ["All time", "This year", "This month"])
-        #expect(labels(state.scopeChoice) == ["Everyone", "Following"])
-        #expect(state.typeChoice == nil)
-        #expect(read(state.ageGroupChoice.label) == "All ages")
-        #expect(!state.ageGroupChoice.narrows)
-        #expect(read(state.genderChoice.label) == "All genders")
+        #expect(labels(state.filters.periodChoice) == ["All time", "This year", "This month"])
+        #expect(labels(state.filters.scopeChoice) == ["Everyone", "Following"])
+        #expect(state.filters.typeChoice == nil)
+        #expect(read(state.filters.ageGroupChoice.label) == "All ages")
+        #expect(!state.filters.ageGroupChoice.narrows)
+        #expect(read(state.filters.genderChoice.label) == "All genders")
     }
 
     @Test func aFilteredLeaderboardMarksItsBracketsInTheViewersUnits() throws {
         let state = try #require(Samples.segmentLeaderboardVariants["filtered"])
-        let type = try #require(state.typeChoice)
+        let type = try #require(state.filters.typeChoice)
         #expect(type.offersMenu)
         #expect(labels(type) == ["Ride", "E-bike"])
         #expect(read(type.label) == "Ride")
-        #expect(read(state.ageGroupChoice.label) == "45–54")
-        #expect(state.ageGroupChoice.narrows)
-        #expect(read(state.weightClassChoice(units: .Metric).label) == "55–64 kg")
-        let pounds = state.weightClassChoice(units: .Imperial)
+        #expect(read(state.filters.ageGroupChoice.label) == "45–54")
+        #expect(state.filters.ageGroupChoice.narrows)
+        #expect(read(state.filters.weightClassChoice(units: .Metric).label) == "55–64 kg")
+        let pounds = state.filters.weightClassChoice(units: .Imperial)
         #expect(read(pounds.label) == "121–142 lb")
         #expect(labels(pounds)[1] == "Under 121 lb")
         #expect(state.viewerEntry?.rank == 140)
@@ -72,9 +72,9 @@ struct SegmentListsTextTests {
 
     @Test func aMayorsBoardReadsItsWindowTypeAndCounts() throws {
         let state = try #require(Samples.segmentMayorsVariants["filtered"])
-        #expect(read(state.periodChoice.label) == "This week")
-        #expect(labels(state.periodChoice).count == 8)
-        #expect(labels(try #require(state.typeChoice)) == ["Hike", "Walk"])
+        #expect(read(state.filters.periodChoice.label) == "This week")
+        #expect(labels(state.filters.periodChoice).count == 8)
+        #expect(labels(try #require(state.filters.typeChoice)) == ["Hike", "Walk"])
         let entries = state.entries.items.compactMap { $0 as? MayorEntry }
         #expect(entries.map { state.accents(entry: $0) } == [true, false])
         #expect(read(SegmentBoardTexts.shared.efforts(entry: entries[0])) == "1,204 efforts")
@@ -86,8 +86,8 @@ struct SegmentListsTextTests {
 
     @Test func aRegularsBoardReadsItsWindowAndDives() throws {
         let state = try #require(Samples.diveSiteRegularsVariants["lastYear"])
-        #expect(labels(state.periodChoice) == ["All time", "This year", "Last year"])
-        #expect(read(state.periodChoice.label) == "Last year")
+        #expect(labels(state.filters.periodChoice) == ["All time", "This year", "Last year"])
+        #expect(read(state.filters.periodChoice.label) == "Last year")
         let entries = state.entries.items.compactMap { $0 as? DiveSiteRegularEntry }
         #expect(entries.map { read(DiveSiteRegularsTexts.shared.visits(entry: $0)) } == ["31 dives", "17 dives"])
         #expect(entries.map { state.accents(entry: $0) } == [true, false])

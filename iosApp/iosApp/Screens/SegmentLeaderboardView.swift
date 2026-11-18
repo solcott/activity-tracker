@@ -10,22 +10,18 @@ struct SegmentLeaderboardView: View {
     @Environment(\.stats) private var stats
 
     var body: some View {
+        let filters = state.filters
         PagedList(
             state.entries, of: LeaderboardEntry.self, errorKind: .LoadLeaderboard, id: { $0.athlete.did.value }, keepsTop: true,
             retry: { send(SegmentLeaderboardEvent.Retry.shared) }, loadMore: { send(SegmentLeaderboardEvent.LoadMore.shared) }
         ) {
             BoardFilters {
-                BoardSegments(state.periodChoice) { if let period = $0 { send(SegmentLeaderboardEvent.PeriodChanged(period: period)) } }
-                BoardSegments(state.scopeChoice) { if let scope = $0 { send(SegmentLeaderboardEvent.ScopeChanged(scope: scope)) } }
+                BoardSegments(filters.periodChoice) {
+                    if let period = $0 { filters.eventSink(BoardFilterEvent.PeriodChanged(period: period)) }
+                }
+                BoardSegments(filters.scopeChoice) { if let scope = $0 { filters.eventSink(BoardFilterEvent.ScopeChanged(scope: scope)) } }
             } menus: {
-                if let type = state.typeChoice {
-                    BoardMenu(type) { if let board = $0 { send(SegmentLeaderboardEvent.BoardChanged(board: board)) } }
-                }
-                BoardMenu(state.ageGroupChoice) { send(SegmentLeaderboardEvent.AgeGroupChanged(ageGroup: $0)) }
-                BoardMenu(state.weightClassChoice(units: stats.units)) {
-                    send(SegmentLeaderboardEvent.WeightClassChanged(weightClass: $0))
-                }
-                BoardMenu(state.genderChoice) { send(SegmentLeaderboardEvent.GenderChanged(gender: $0)) }
+                SegmentBoardMenus(fields: filters, units: stats.units)
             }
         } row: { entry in
             row(entry)

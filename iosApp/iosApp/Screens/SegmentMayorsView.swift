@@ -10,20 +10,18 @@ struct SegmentMayorsView: View {
     @Environment(\.stats) private var stats
 
     var body: some View {
+        let filters = state.filters
         PagedList(
             state.entries, of: MayorEntry.self, errorKind: .LoadMayors, id: { $0.athlete.did.value }, keepsTop: true,
             retry: { send(SegmentMayorsEvent.Retry.shared) }, loadMore: { send(SegmentMayorsEvent.LoadMore.shared) }
         ) {
             BoardFilters {
-                BoardSegments(state.scopeChoice) { if let scope = $0 { send(SegmentMayorsEvent.ScopeChanged(scope: scope)) } }
+                BoardSegments(filters.scopeChoice) { if let scope = $0 { filters.eventSink(BoardFilterEvent.ScopeChanged(scope: scope)) } }
             } menus: {
-                BoardMenu(state.periodChoice) { if let period = $0 { send(SegmentMayorsEvent.PeriodChanged(period: period)) } }
-                if let type = state.typeChoice {
-                    BoardMenu(type) { if let board = $0 { send(SegmentMayorsEvent.BoardChanged(board: board)) } }
+                BoardMenu(filters.periodChoice) {
+                    if let period = $0 { filters.eventSink(BoardFilterEvent.PeriodChanged(period: period)) }
                 }
-                BoardMenu(state.ageGroupChoice) { send(SegmentMayorsEvent.AgeGroupChanged(ageGroup: $0)) }
-                BoardMenu(state.weightClassChoice(units: stats.units)) { send(SegmentMayorsEvent.WeightClassChanged(weightClass: $0)) }
-                BoardMenu(state.genderChoice) { send(SegmentMayorsEvent.GenderChanged(gender: $0)) }
+                SegmentBoardMenus(fields: filters, units: stats.units)
             }
         } row: { entry in
             row(entry)
