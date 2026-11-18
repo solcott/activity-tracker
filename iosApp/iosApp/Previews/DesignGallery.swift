@@ -113,6 +113,19 @@
             .environment(\.inPane, true)
         }
 
+        /// A form's header with its bar actions: Save, Publish held back, and an action running, its spinner in its place.
+        static var pageBarSave: some View {
+            List {
+                ForEach(1..<6) { AppListRow(Text(verbatim: "Row \($0)")) }
+            }
+            .pageTitle(Text(verbatim: "Edit gear")) {
+                AppBarAction(.gearSave) {}
+                AppBarAction(.segmentCreatePublish, enabled: false) {}
+                AppBarAction(.createDiveSitePublish, busy: true) {}
+            }
+            .environment(\.inPane, true)
+        }
+
         /// A deeper page's header in a column: a back button at its leading end, alone and with actions at the trailing end.
         static var pageBarBack: some View {
             VStack(spacing: 0) {
@@ -397,6 +410,7 @@
     #Preview("Check rows") { DesignGallery.checkRows }
     #Preview("Page bar") { DesignGallery.pageBar }
     #Preview("Page bar with actions") { DesignGallery.pageBarActions }
+    #Preview("Page bar with bar actions") { DesignGallery.pageBarSave }
     #Preview("Page bar with back") { DesignGallery.pageBarBack }
     #Preview("Page bar with a subtitle") { DesignGallery.pageBarSubtitle }
     #Preview("Page bar that can't go back") { DesignGallery.pageBarNoBack }

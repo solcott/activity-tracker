@@ -23,12 +23,8 @@ struct CreateSegmentView: View {
         }
         .pageTitle(Text(.segmentCreateTitle)) {
             if state.unavailable == nil && state.routeMap != nil {
-                if state.publishing {
-                    ProgressView()
-                } else {
-                    Button(.segmentCreatePublish) { send(CreateSegmentEvent.Publish.shared) }
-                        .fontWeight(.semibold)
-                        .disabled(!state.canPublish)
+                AppBarAction(.segmentCreatePublish, busy: state.publishing, enabled: state.canPublish) {
+                    send(CreateSegmentEvent.Publish.shared)
                 }
             }
         }

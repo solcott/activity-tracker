@@ -72,9 +72,9 @@ struct ManualActivityView: View {
             }
         }
         .pageTitle(Text(.manualTitle)) {
-            Button { send(ManualActivityEvent.Save.shared) } label: { Text(LabelText.shared.save(saving: state.saving)) }
-                .fontWeight(.semibold)
-                .disabled(!state.valid || state.saving)
+            AppBarAction(LabelText.shared.save(saving: state.saving), enabled: state.valid && !state.saving) {
+                send(ManualActivityEvent.Save.shared)
+            }
         }
     }
 

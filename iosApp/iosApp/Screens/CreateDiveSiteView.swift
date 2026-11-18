@@ -22,12 +22,8 @@ struct CreateDiveSiteView: View {
         }
         .pageTitle(Text(.createDiveSiteTitle)) {
             if state.unavailable == nil && state.routeMap != nil {
-                if state.publishing {
-                    ProgressView()
-                } else {
-                    Button(.createDiveSitePublish) { send(CreateDiveSiteEvent.Publish.shared) }
-                        .fontWeight(.semibold)
-                        .disabled(!state.canPublish)
+                AppBarAction(.createDiveSitePublish, busy: state.publishing, enabled: state.canPublish) {
+                    send(CreateDiveSiteEvent.Publish.shared)
                 }
             }
         }

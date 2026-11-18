@@ -30,9 +30,9 @@ struct ImportActivityView: View {
             }
             .pageTitle(Text(texts.title(addsRecording: state.addsRecording))) {
                 if showsBarSave {
-                    Button { state.eventSink(state.saveEvent(source: CatalogText.shared)) } label: { Text(texts.save(saving: state.saving)) }
-                        .fontWeight(.semibold)
-                        .disabled(!state.canSave)
+                    AppBarAction(texts.save(saving: state.saving), enabled: state.canSave) {
+                        state.eventSink(state.saveEvent(source: CatalogText.shared))
+                    }
                 }
             }
     }

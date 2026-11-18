@@ -41,9 +41,7 @@ struct EditGearView: View {
         }
         .pageTitle(Text(state.title)) {
             if state.showsSave {
-                Button(.gearSave) { send(EditGearEvent.Save.shared) }
-                    .fontWeight(.semibold)
-                    .disabled(!state.enabled)
+                AppBarAction(.gearSave, enabled: state.enabled) { send(EditGearEvent.Save.shared) }
             }
         }
         .alert(

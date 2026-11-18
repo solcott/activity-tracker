@@ -25,9 +25,7 @@ struct EditGearCollectionView: View {
         }
         .pageTitle(Text(state.title)) {
             if state.showsSave {
-                Button(.gearCollectionSave) { send(EditGearCollectionEvent.Save.shared) }
-                    .fontWeight(.semibold)
-                    .disabled(!state.enabled)
+                AppBarAction(.gearCollectionSave, enabled: state.enabled) { send(EditGearCollectionEvent.Save.shared) }
             }
         }
         .sheet(isPresented: $adding) {
