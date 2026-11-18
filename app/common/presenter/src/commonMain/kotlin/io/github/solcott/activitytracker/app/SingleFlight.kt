@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +47,13 @@ class SingleFlight internal constructor(private val scope: CoroutineScope) {
         return job
     }
 }
+
+/**
+ * [SingleFlight.launch]es a presenter's write under [key], handing a failure to [onError] as [uiErrorOf] of [kind]. What follows a success
+ * goes at the end of [block], which returns early with `return@launchAction`.
+ */
+fun SingleFlight.launchAction(key: Any, kind: UiError.Kind, onError: (UiError) -> Unit, block: suspend CoroutineScope.() -> Unit): Job? =
+    launch(key) { runSuspendCatching { block() }.onFailure { onError(uiErrorOf(kind, it)) } }
 
 /** A [SingleFlight] whose work is cancelled when the presenter leaves the composition. */
 @Composable

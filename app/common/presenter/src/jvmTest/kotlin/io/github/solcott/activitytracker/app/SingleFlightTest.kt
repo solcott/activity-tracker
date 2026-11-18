@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import io.github.solcott.activitytracker.data.activity.PendingWritesException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -67,5 +68,40 @@ class SingleFlightTest {
         testScheduler.runCurrent()
         assertFalse(flights.isRunning("page"))
         assertNotNull(flights.launch("page") {})
+    }
+
+    @Test
+    fun launchActionShowsAFailureAsItsKind() = runTest {
+        val flights = SingleFlight(this)
+        val gate = CompletableDeferred<Unit>()
+        val errors = mutableListOf<UiError>()
+        flights.launchAction("save", UiError.Kind.SaveActivity, errors::add) {
+            gate.await()
+            error("refused")
+        }
+        assertTrue(flights.isRunning("save"))
+        assertNull(flights.launchAction("save", UiError.Kind.SaveActivity, errors::add) {})
+
+        gate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertFalse(flights.isRunning("save"))
+        assertEquals(listOf(UiError.Kind.SaveActivity), errors.map { it.kind })
+
+        // The same cases as uiErrorOf: unsent writes say so, whatever the action.
+        flights.launchAction("save", UiError.Kind.SaveActivity, errors::add) { throw PendingWritesException(1) }
+        testScheduler.advanceUntilIdle()
+        assertEquals(UiError.Kind.WritesPending, errors.last().kind)
+    }
+
+    @Test
+    fun launchActionReportsNothingOnSuccessOrCancel() = runTest {
+        val flights = SingleFlight(this)
+        val errors = mutableListOf<UiError>()
+        var done = false
+        flights.launchAction("save", UiError.Kind.SaveActivity, errors::add) { done = true }
+        assertNotNull(flights.launchAction("load", UiError.Kind.SaveActivity, errors::add) { CompletableDeferred<Unit>().await() }).cancel()
+        testScheduler.advanceUntilIdle()
+        assertTrue(done)
+        assertTrue(errors.isEmpty())
     }
 }
