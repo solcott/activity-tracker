@@ -71,6 +71,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -663,23 +664,15 @@ class SegmentMatcher(
             val live =
                 DiveSites.select(DiveSites.uri).where { (DiveSites.uri eq siteUri) and (DiveSites.status inList LIVE_STATUSES) }.any()
             if (!live) return@tx
-            val cells = DiveSiteCells.select(DiveSiteCells.cell).where { DiveSiteCells.siteUri eq siteUri }.map { it[DiveSiteCells.cell] }
-            if (cells.isEmpty()) return@tx
-            usableSegmentTracks()
-                .andWhere {
-                    exists(
-                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
-                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                        },
-                    ) and
-                        exists(
-                            Activities.select(Activities.uri).where {
-                                (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
-                            },
-                        )
-                }
-                .map { it[SegmentTracks.uri] }
-                .forEach { jobs.enqueueTrack(it, now) }
+            enqueueTracksIn(
+                DiveSiteCells.select(DiveSiteCells.cell).where { DiveSiteCells.siteUri eq siteUri }.map { it[DiveSiteCells.cell] },
+                now,
+                exists(
+                    Activities.select(Activities.uri).where {
+                        (Activities.uri eq SegmentTracks.activityUri) and (Activities.sport eq Sport.DIVE)
+                    },
+                ),
+            )
         }
     }
 
@@ -715,16 +708,18 @@ class SegmentMatcher(
         }
     }
 
-    /** Queues a `track` job for each usable track with a cell in [cells]. */
-    private fun JdbcTransaction.enqueueTracksIn(cells: List<Long>, now: Long) {
+    /** Queues a `track` job for each usable track with a cell in [cells] that also meets [also], when given. */
+    private fun JdbcTransaction.enqueueTracksIn(cells: List<Long>, now: Long, also: Op<Boolean>? = null) {
         if (cells.isEmpty()) return
         usableSegmentTracks()
             .andWhere {
-                exists(
-                    SegmentTrackCells.select(SegmentTrackCells.cell).where {
-                        (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                    },
-                )
+                val inCells =
+                    exists(
+                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
+                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
+                        },
+                    )
+                if (also == null) inCells else inCells and also
             }
             .map { it[SegmentTracks.uri] }
             .forEach { jobs.enqueueTrack(it, now) }
