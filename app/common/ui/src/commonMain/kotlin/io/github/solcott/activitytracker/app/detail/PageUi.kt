@@ -1,10 +1,9 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -30,16 +29,14 @@ import kotlinx.collections.immutable.ImmutableList
 @Composable
 fun HeroRow(figures: ImmutableList<Figure>, modifier: Modifier = Modifier) {
     if (figures.isEmpty()) return
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val columns = if (maxWidth < HERO_THREE_COLUMNS) 2 else 3
-        Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP)) {
-            figures.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(ROW_GAP)) {
-                    row.forEach { FigureBlock(it, MaterialTheme.typography.headlineSmall, Modifier.weight(1f)) }
-                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
+    Grid(
+        config = {
+            repeat(if (constraints.maxWidth < HERO_THREE_COLUMNS.roundToPx()) 2 else 3) { column(1.fr) }
+            gap(ROW_GAP)
+        },
+        modifier.fillMaxWidth(),
+    ) {
+        figures.forEach { FigureBlock(it, MaterialTheme.typography.headlineSmall) }
     }
 }
 

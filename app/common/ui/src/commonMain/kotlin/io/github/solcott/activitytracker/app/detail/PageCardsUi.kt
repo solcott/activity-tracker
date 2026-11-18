@@ -3,8 +3,9 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Grid
+import androidx.compose.foundation.layout.GridTrackSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -12,10 +13,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.text.StatText
@@ -87,7 +88,7 @@ fun TrainingLoadCard(figures: ImmutableList<Figure>, modifier: Modifier = Modifi
     }
 }
 
-/** Every figure, a group at a time under its name, in [columns] side by side. A gear item's row opens its page with [onOpenGear]. */
+/** Every figure, a group at a time under its name, in a grid of [columns]. A gear item's row opens its page with [onOpenGear]. */
 @Composable
 fun StatsList(
     groups: ImmutableList<StatsGroup>,
@@ -102,11 +103,14 @@ fun StatsList(
             Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleMedium,
         )
-        groups.chunked(columns).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                row.forEach { StatsGroupCard(it, Modifier.weight(1f), onOpenGear) }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-            }
+        Grid(
+            config = {
+                repeat(columns) { column(1.fr) }
+                gap(ITEM_GAP)
+            },
+            Modifier.fillMaxWidth(),
+        ) {
+            groups.forEach { StatsGroupCard(it, Modifier.fillMaxWidth(), onOpenGear) }
         }
     }
 }
@@ -135,38 +139,36 @@ fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Modifier) {
     AppCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CardTitle(stringResource(Res.string.page_avg_max_heading), mark = null)
-            AvgMaxLine(
-                null,
-                stringResource(Res.string.detail_avg),
-                stringResource(Res.string.detail_min).takeIf { showsMin },
-                stringResource(Res.string.detail_max),
-                MaterialTheme.typography.labelMedium,
-            )
-            val missing = StatText.missing.string()
-            rows.forEach { row ->
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                AvgMaxLine(
-                    avgMaxLabel(row.metric),
-                    row.avg?.let { figureText(it) } ?: missing,
-                    if (showsMin) row.min?.let { figureText(it) }.orEmpty() else null,
-                    row.max?.let { figureText(it) } ?: missing,
-                    MaterialTheme.typography.bodyMedium,
-                )
+            val valueColumns = if (showsMin) 3 else 2
+            // The metric's name takes the free width and wraps; each value column is as wide as its widest value, so every row lines up.
+            Grid(
+                config = {
+                    column(1.fr)
+                    repeat(valueColumns) { column(GridTrackSize.Auto) }
+                    columnGap(12.dp)
+                    rowGap(6.dp)
+                },
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            ) {
+                // Three value columns share the width, so each narrows and the metric's name keeps room for "Temperature".
+                val value =
+                    Modifier.widthIn(min = if (showsMin) NARROW_TABLE_COLUMN else TABLE_COLUMN).gridItem(alignment = Alignment.TopEnd)
+                val heading = MaterialTheme.typography.labelMedium
+                Text("", style = heading)
+                Text(stringResource(Res.string.detail_avg), value, style = heading, textAlign = TextAlign.End)
+                if (showsMin) Text(stringResource(Res.string.detail_min), value, style = heading, textAlign = TextAlign.End)
+                Text(stringResource(Res.string.detail_max), value, style = heading, textAlign = TextAlign.End)
+                val missing = StatText.missing.string()
+                val body = MaterialTheme.typography.bodyMedium
+                rows.forEach { row ->
+                    HorizontalDivider(Modifier.gridItem(columnSpan = valueColumns + 1), color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(avgMaxLabel(row.metric), style = body)
+                    Text(row.avg?.let { figureText(it) } ?: missing, value, style = body, textAlign = TextAlign.End)
+                    if (showsMin) Text(row.min?.let { figureText(it) }.orEmpty(), value, style = body, textAlign = TextAlign.End)
+                    Text(row.max?.let { figureText(it) } ?: missing, value, style = body, textAlign = TextAlign.End)
+                }
             }
         }
-    }
-}
-
-/** A table line; [min] is null when the table has no Min column. */
-@Composable
-private fun AvgMaxLine(label: String?, avg: String, min: String?, max: String, style: TextStyle) {
-    // Three value columns share the width, so each narrows and the metric's name keeps room for "Temperature".
-    val column = Modifier.widthIn(min = if (min != null) NARROW_TABLE_COLUMN else TABLE_COLUMN)
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label.orEmpty(), Modifier.weight(1f), style = style)
-        Text(avg, column, style = style, textAlign = TextAlign.End)
-        if (min != null) Text(min, column, style = style, textAlign = TextAlign.End)
-        Text(max, column, style = style, textAlign = TextAlign.End)
     }
 }
 
