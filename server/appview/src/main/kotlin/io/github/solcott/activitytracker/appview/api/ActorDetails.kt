@@ -17,6 +17,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
@@ -54,6 +55,13 @@ internal fun effectivelyFollows(author: Expression<String>, subject: Expression<
 /** The accounts [author] effectively follows ([effectiveFollow]), as a subquery: they may follow more than a query takes parameters. */
 internal fun effectivelyFollowedBy(author: String): Query =
     Follows.select(Follows.subjectDid).where { (Follows.authorDid eq author) and effectiveFollow() }
+
+/**
+ * Rows whose [author] is [viewer] or an account in [followed], the viewer's [effectivelyFollowedBy]: whose rows a timeline or a following
+ * board takes. Callers that test several columns pass one [followed] query to all of them.
+ */
+internal fun ownOrFollowed(author: Column<String>, viewer: String, followed: Query = effectivelyFollowedBy(viewer)): Op<Boolean> =
+    (author eq viewer) or (author inSubQuery followed)
 
 /**
  * True for a `follows` row that counts: its subject's policy is open (no `approve` on their actor row, or no row at all), or the subject

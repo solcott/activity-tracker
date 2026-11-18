@@ -56,7 +56,6 @@ import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
@@ -75,7 +74,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         // A subquery rather than a list of DIDs: an athlete may follow more accounts than a query takes parameters.
         val followed = effectivelyFollowedBy(viewer.value)
-        val authors = (Activities.authorDid eq viewer.value) or (Activities.authorDid inSubQuery followed)
+        val authors = ownOrFollowed(Activities.authorDid, viewer.value, followed)
         val filter = feedFilter(params.type, params.since, params.until)
         // A muted athlete's activities leave only the muter's timeline; their profile still lists them.
         val shown = authors and filter and notMuted(viewer, Activities.authorDid)
@@ -85,7 +84,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             return@tx GetTimeline.Output.ofActivities(views, cursor)
         }
         // Posts and reposts only unfiltered: they have no sport or start (feed/feed-filter).
-        val postAuthors = (Posts.authorDid eq viewer.value) or (Posts.authorDid inSubQuery followed)
+        val postAuthors = ownOrFollowed(Posts.authorDid, viewer.value, followed)
         val posts = postAuthors and notMuted(viewer, Posts.authorDid) and postRows(viewer)
         cardedTimeline(shown and feedRows(viewer), TimelinePosts(posts, postAuthors, followed), params.limit, params.cursor, viewer)
     }
