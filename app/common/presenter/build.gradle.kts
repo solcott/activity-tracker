@@ -4,7 +4,8 @@ plugins {
     alias(libs.plugins.metro)
 }
 
-// Presenter helpers several features share: rememberSingleFlight, content-state seeds, the details form, the gear picker's choices,
+// Presenter helpers several features share: rememberSingleFlight, content-state seeds, an activity's route for making a place from it
+// and its check-then-publish flight, the details form, the gear picker's choices,
 // the activity page's builder, new-activity visibility, the activity-list event sink, reporting and revealing, and the place-name sheet's
 // presenter. Compose runtime and no UI,
 // like every presenter module.
