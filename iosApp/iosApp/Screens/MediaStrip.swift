@@ -73,7 +73,7 @@ struct MediaStrip: View {
             // Covered, the photo is neither seen nor reachable: a tap reveals rather than opens it.
             Button(action: reveal) {
                 ZStack {
-                    RemoteImage(photo.url) { Color(.secondarySystemFill) }
+                    RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
                         .frame(width: frame, height: Self.height)
                         .blur(radius: 24)
                         .accessibilityHidden(true)
@@ -92,7 +92,7 @@ struct MediaStrip: View {
             Button {
                 open(index)
             } label: {
-                RemoteImage(photo.url) { Color(.secondarySystemFill) }
+                RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
                     .frame(width: frame, height: Self.height)
                     .clipShape(tile)
             }

@@ -150,7 +150,7 @@ private struct PhotoTile: View {
 
     @ViewBuilder private var picture: some View {
         if let existing = media as? EditMedia.Existing, let photo = existing.item as? MediaPhoto {
-            RemoteImage(photo.url) { placeholder }
+            RemoteImage(photo.url, maxSize: CGSize(width: 88, height: 88)) { placeholder }
         } else if let picked = media as? EditMedia.Picked {
             PickedPhotoThumbnail(bytes: picked.photo.bytes, size: 88) { placeholder }
         } else {
