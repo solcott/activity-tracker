@@ -9,9 +9,8 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearLinkEdit
@@ -45,10 +44,9 @@ fun IgnoredSensorsPresenter(navigator: Navigator, defaults: GearDefaults): Ignor
             is IgnoredSensorsEvent.Unignore -> {
                 val key = defaults.current.value?.ignored.orEmpty().firstOrNull { it.id == event.id } ?: return@IgnoredSensorsState
                 error = null
-                flights.launch(event) {
-                    runSuspendCatching { defaults.editLinks(GearLinkEdit(unignore = listOf(key))) }
-                        .onSuccess { retryKey++ }
-                        .onFailure { error = uiErrorOf(UiError.Kind.SaveGearLinks, it) }
+                flights.launchAction(event, UiError.Kind.SaveGearLinks, { error = it }) {
+                    defaults.editLinks(GearLinkEdit(unignore = listOf(key)))
+                    retryKey++
                 }
             }
         }
