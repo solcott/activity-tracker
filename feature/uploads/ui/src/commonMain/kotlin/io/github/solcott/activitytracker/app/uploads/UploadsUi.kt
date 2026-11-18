@@ -2,40 +2,31 @@ package io.github.solcott.activitytracker.app.uploads
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_confirm
@@ -71,73 +62,53 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(UploadsScreen::class, SessionScope::class)
 @Composable
 fun UploadsUi(state: UploadsState, modifier: Modifier = Modifier) {
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = stringResource(Res.string.uploads_title),
-                onBack = { state.eventSink(UploadsEvent.Back) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    if (state.showsClear) {
-                        val description = stringResource(Res.string.uploads_clear_description)
-                        AppTextButton(
-                            onClick = { state.eventSink(UploadsEvent.ClearFinished) },
-                            Modifier.semantics { contentDescription = description },
-                            enabled = state.canClear,
-                        ) {
-                            Text(stringResource(Res.string.uploads_clear))
-                        }
-                    }
-                },
-            )
+    ListScreen(
+        title = stringResource(Res.string.uploads_title),
+        onBack = { state.eventSink(UploadsEvent.Back) },
+        content = state.content,
+        errorKind = UiError.Kind.LoadUploads,
+        onRetry = { state.eventSink(UploadsEvent.Retry) },
+        modifier = modifier,
+        actions = {
+            if (state.showsClear) {
+                val description = stringResource(Res.string.uploads_clear_description)
+                AppTextButton(
+                    onClick = { state.eventSink(UploadsEvent.ClearFinished) },
+                    Modifier.semantics { contentDescription = description },
+                    enabled = state.canClear,
+                ) {
+                    Text(stringResource(Res.string.uploads_clear))
+                }
+            }
         },
-    ) { padding ->
-        ContentStateLayout(
-            state.content,
-            UiError.Kind.LoadUploads,
-            onRetry = { state.eventSink(UploadsEvent.Retry) },
-            contentPadding = padding,
-        ) { loaded ->
-            if (loaded != null) QueueList(state, loaded, padding)
-        }
+    ) { view ->
+        queueItems(state, view)
     }
     Confirmations(state)
 }
 
-@Composable
-private fun QueueList(state: UploadsState, view: UploadQueueView, padding: PaddingValues) {
-    val listState = rememberLazyListState()
-    ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
-            item(key = "refresh") {
-                RefreshStatus(state.content, UiError.Kind.LoadUploads, onRetry = { state.eventSink(UploadsEvent.Retry) })
-            }
-            banners(state)
-            view.current?.let { current ->
-                header("current", Res.string.uploads_uploading_now)
-                item(key = "current:${current.id}") { ItemRow(current, state) }
-            }
-            if (view.own.isNotEmpty()) {
-                header("own", Res.string.uploads_yours)
-                items(view.own, key = { "own:${it.id}" }) { ItemRow(it, state) }
-            }
-            view.imports.forEach { group -> importGroup(group, state) }
-            if (view.finished.isNotEmpty()) {
-                header("finished", Res.string.uploads_finished)
-                items(view.finished, key = { "finished:${it.id}" }) { ItemRow(it, state) }
-            }
-            if (view.refusedOther.isNotEmpty()) {
-                header("refusedOther", Res.string.uploads_refused_other)
-                items(view.refusedOther, key = { "refused:${it.rkey}" }) { change -> RefusedChangeRow(change, state) }
-            }
-            if (view.isEmpty) {
-                item(key = "empty") {
-                    EmptyListText(stringResource(Res.string.uploads_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
+private fun LazyListScope.queueItems(state: UploadsState, view: UploadQueueView) {
+    item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadUploads, onRetry = { state.eventSink(UploadsEvent.Retry) }) }
+    banners(state)
+    view.current?.let { current ->
+        header("current", Res.string.uploads_uploading_now)
+        item(key = "current:${current.id}") { ItemRow(current, state) }
+    }
+    if (view.own.isNotEmpty()) {
+        header("own", Res.string.uploads_yours)
+        items(view.own, key = { "own:${it.id}" }) { ItemRow(it, state) }
+    }
+    view.imports.forEach { group -> importGroup(group, state) }
+    if (view.finished.isNotEmpty()) {
+        header("finished", Res.string.uploads_finished)
+        items(view.finished, key = { "finished:${it.id}" }) { ItemRow(it, state) }
+    }
+    if (view.refusedOther.isNotEmpty()) {
+        header("refusedOther", Res.string.uploads_refused_other)
+        items(view.refusedOther, key = { "refused:${it.rkey}" }) { change -> RefusedChangeRow(change, state) }
+    }
+    if (view.isEmpty) {
+        item(key = "empty") { EmptyListText(stringResource(Res.string.uploads_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
