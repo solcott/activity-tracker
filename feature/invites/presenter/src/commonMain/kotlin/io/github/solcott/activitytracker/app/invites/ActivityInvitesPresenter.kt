@@ -10,10 +10,9 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
@@ -55,10 +54,7 @@ fun ActivityInvitesPresenter(navigator: Navigator, invites: ActivityInvitesRepos
             }
 
             is ActivityInvitesEvent.Decline -> {
-                flights.launch(event.invite) {
-                    runSuspendCatching { invites.decline(event.invite) }
-                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerActivityInvite, it) }
-                }
+                flights.launchAction(event.invite, UiError.Kind.AnswerActivityInvite, { error = it }) { invites.decline(event.invite) }
             }
 
             ActivityInvitesEvent.Retry -> {
