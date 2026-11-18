@@ -1,14 +1,10 @@
-@file:Suppress("MatchingDeclarationName") // The publish command; PublishResult is only what it returns.
-
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.AtJson
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
-import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import java.io.File
@@ -18,18 +14,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonElement
-
-/**
- * What a `publish` run did; [gone] were listed but no longer staged when checked (a `stage` finished meanwhile), and [stoppedBy] is the
- * error that ended the run early, if one did.
- */
-internal data class PublishResult(
-    val published: List<String> = emptyList(),
-    val duplicates: List<String> = emptyList(),
-    val present: List<String> = emptyList(),
-    val gone: List<String> = emptyList(),
-    val stoppedBy: Exception? = null,
-)
 
 /**
  * Publishes [region]'s ridden candidates (segments/segment-import), or, given [every], each of those candidates whether ridden or not (an
@@ -47,32 +31,8 @@ internal suspend fun publish(
     clock: Clock = Clock.System,
     every: List<SegmentCandidate>? = null,
 ): PublishResult {
-    val published = mutableListOf<String>()
-    val duplicates = mutableListOf<String>()
-    val present = mutableListOf<String>()
-    val gone = mutableListOf<String>()
-    val stoppedBy = stopOnError {
-        val repo = clients.session.did()
-        val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
-        pages.collect { page ->
-            val checks = check(clients, region, page)
-            val drafts = mutableListOf<Draft>()
-            for (listed in page) {
-                val check = checks[listed.id]
-                // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
-                val candidate = check?.candidate ?: listed
-                when {
-                    check == null -> gone += listed.id
-                    // The importer's own segment for this candidate is live, so the check lists it: already published.
-                    AtUri.of(repo, Nsid.FEED_SEGMENT, listed.id) in check.duplicates -> present += listed.id
-                    check.duplicates.isNotEmpty() -> duplicates += listed.id
-                    else -> drafts += Draft(Nsid.FEED_SEGMENT, listed.id, segmentRecord(candidate, clock))
-                }
-            }
-            clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey else present += draft.rkey }
-        }
-    }
-    return PublishResult(published, duplicates, present, gone, stoppedBy)
+    val pages = if (every != null) every.chunked(SegmentCandidates.MAX_BATCH).asFlow() else riddenPages(clients, region)
+    return publishPages(clients, Nsid.FEED_SEGMENT, pages, { check(clients, region, it) }) { segmentRecord(it, clock) }
 }
 
 /** [region]'s ridden candidates the importer hasn't published yet, a page at a time. */
@@ -90,18 +50,25 @@ private fun riddenPages(clients: Clients, region: String): Flow<List<SegmentCand
     } while (cursor != null)
 }
 
-/** Each of [page]'s candidates still staged in [region], as staged, with the live segments it duplicates; one call for the whole page. */
-private suspend fun check(clients: Clients, region: String, page: List<SegmentCandidate>): Map<String, SegmentCandidateCheck> =
-    if (page.isEmpty()) {
-        emptyMap()
-    } else {
+/**
+ * Each of [page]'s candidates as checked in [region]: as staged, or null when no longer staged, with the live segments it duplicates (the
+ * importer's own for it when already published); one call for the whole page.
+ */
+private suspend fun check(clients: Clients, region: String, page: List<SegmentCandidate>): List<Checked<SegmentCandidate>> {
+    if (page.isEmpty()) return emptyList()
+    val checks =
         clients
             .asImporter {
                 clients.appView.procedure(CheckSegmentCandidates.method, CheckSegmentCandidates.Input(region, page.map { it.id }))
             }
             .candidates
             .associateBy { it.id }
+    return page.map { listed ->
+        val check = checks[listed.id]
+        // What's published is the candidate as staged, never a copy that may be older (a stale --all file).
+        Checked(listed.id, check?.let { it.candidate ?: listed }, check?.duplicates.orEmpty())
     }
+}
 
 /** [candidate] as a `feed.segment` record created now, with its own source, licence and attribution. */
 private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElement =
@@ -144,13 +111,7 @@ internal suspend fun publishRegion(clients: Clients, region: String, every: File
         require(file.region == region) { "it holds ${file.region}'s candidates, not $region's" }
         file.candidates
     }
-    val result = publish(clients, region, every = candidates)
-    for (id in result.duplicates) println("Duplicate of a live segment, not published: $id")
-    println(
-        "Published ${result.published.size} segments for $region; ${result.duplicates.size} duplicates, " +
-            "${result.present.size} already published, ${result.gone.size} no longer staged",
-    )
-    result.stoppedBy?.let { throw it }
+    publish(clients, region, every = candidates).report(region, "segments", liveWhat = "segment", countGone = true)
 }
 
 internal const val RECORD_NOT_FOUND = "RecordNotFound"
