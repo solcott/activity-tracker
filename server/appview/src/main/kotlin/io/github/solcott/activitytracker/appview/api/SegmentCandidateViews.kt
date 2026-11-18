@@ -313,13 +313,7 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.name] = staged.name.take(MAX_NAME_LENGTH)
             this[SegmentCandidateRows.line] = candidate.line
             this[SegmentCandidateRows.distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
-            setBox(
-                line,
-                SegmentCandidateRows.minLatE7,
-                SegmentCandidateRows.maxLatE7,
-                SegmentCandidateRows.minLngE7,
-                SegmentCandidateRows.maxLngE7,
-            )
+            setBox(line, SegmentCandidateRows)
             this[SegmentCandidateRows.dataSource] = candidate.source
             this[SegmentCandidateRows.license] = candidate.license
             this[SegmentCandidateRows.attribution] = staged.attribution
