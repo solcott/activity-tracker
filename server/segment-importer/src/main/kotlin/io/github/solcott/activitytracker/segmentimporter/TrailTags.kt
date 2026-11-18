@@ -66,6 +66,13 @@ internal object TrailTags : TrailRules {
     fun isRoad(tags: Map<String, String>): Boolean = tags["highway"] in ROADS
 
     /**
+     * The numbers a way is signed and mapped under: its `ref` tag's values, split at `;` and trimmed. A road a trail runs along often lists
+     * the trail's number among its own (`ref=NF 87672;1001`).
+     */
+    fun refs(tags: Map<String, String>): Set<String> =
+        tags["ref"]?.split(';')?.map { it.trim() }?.filterTo(mutableSetOf()) { it.isNotEmpty() }.orEmpty()
+
+    /**
      * Whether a trail of [group] may follow a way as short shared tread (segments/trail-candidates): a highway that isn't closed to the
      * public, an area, steps, a motorway or trunk road, or closed to [group].
      */

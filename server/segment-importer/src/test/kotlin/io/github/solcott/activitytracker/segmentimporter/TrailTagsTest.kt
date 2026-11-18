@@ -92,4 +92,11 @@ class TrailTagsTest {
         assertEquals(Directions.FORWARD, TrailTags.directions(mapOf("oneway" to "yes", "oneway:bicycle" to "no"), HIKE))
         assertEquals(Directions.BOTH, TrailTags.directions(emptyMap(), HIKE))
     }
+
+    @Test
+    fun aWaysRefsAreItsRefTagSplitAtSemicolons() {
+        assertEquals(setOf("NF 87672", "1001"), TrailTags.refs(mapOf("ref" to "NF 87672; 1001")))
+        assertEquals(setOf("1001"), TrailTags.refs(mapOf("ref" to "1001;", "old_ref" to "NF 87672")))
+        assertEquals(emptySet(), TrailTags.refs(mapOf("name" to "Oak")))
+    }
 }

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RUN
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -404,6 +405,29 @@ class CandidateCutterTest {
         }
         val found = candidates(data)
         assertEquals(found.size, found.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun aTrailJoinedOverRoadsCarryingItsRefIsCutAsOne() {
+        val data = osm {
+            // Two halves of trail 1001, 1.2 km each, joined over two roads that carry its ref, with a crossing trail on each half.
+            for ((id, m) in listOf(1L to 0.0, 2L to 600.0, 3L to 1200.0, 100L to 1290.0, 101L to 1420.0, 4L to 2020.0, 5L to 2620.0)) {
+                node(id, north(44.4, m), -72.7)
+            }
+            way(10, 1, 2, 3, tags = path("Creek Trail", "ref" to "1001"))
+            way(20, 3, 100, tags = highway("residential", "Granite Cliffs Road", "ref" to "NF 87672;1001"))
+            way(21, 100, 101, tags = highway("service", "Power Plant Lane", "ref" to "NF 87672;1001"))
+            way(11, 101, 4, 5, tags = path("Creek Trail", "ref" to "1001"))
+            crossing(30, at = 2, tags = path("Cross Trail"))
+            crossing(40, at = 4, tags = path("Other Trail"))
+        }
+        fun creek(group: String) = candidates(data, group).filter { it.name.startsWith("Creek") }
+        val whole = creek(RIDE).filter { it.whole }
+        assertEquals(2, whole.size, "one whole trail, each way")
+        assertTrue(whole.all { it.osmWays.containsAll(listOf(10L, 20L, 21L, 11L)) })
+        val stretches = listOf(RIDE, RUN, HIKE).map { group -> creek(group).filter { !it.whole }.map { it.osmWays }.toSet() }
+        assertTrue(stretches.first().isNotEmpty())
+        assertEquals(1, stretches.toSet().size, "ride, run and hike cut at the same nodes")
     }
 
     @Test

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import java.util.PriorityQueue
 
 /** Where a trail comes from: same-named ways joined end to end, a route relation, or a family of sectioned ways (a parent trail). */
 internal enum class TrailKind {
@@ -69,21 +70,27 @@ internal class Trail(
 /** Joins [OsmData]'s ways into [Trail]s per sport group (segments/trail-candidates). */
 @Suppress("TooManyFunctions") // Each kind of trail, how its ways join, and the shared tread and relation ends between them.
 internal object TrailBuilder {
-    /** [data]'s trails, labelled without [words]. */
-    fun build(data: OsmData, words: GenericWords = GenericWords.ENGLISH): List<Trail> {
+    /**
+     * [data]'s trails, labelled without [words]. A trail may follow ways that carry its own ref between two of its parts for up to
+     * [refBridgeM] meters.
+     */
+    fun build(data: OsmData, words: GenericWords = GenericWords.ENGLISH, refBridgeM: Double = DEFAULT_REF_BRIDGE_M): List<Trail> {
         val usable = data.ways.filter { way -> way.nodes.size >= 2 && way.nodes.all { data.coords[it] != null } }.associateBy { it.id }
         val relations = relationTrails(data.relations, usable, data, words)
         // A named trail that follows exactly a route relation's ways goes by the relation's name, so its candidates read alike.
         val relationLabels = relations.groupBy { it.ways }.mapValues { (_, trails) -> trails.minBy { it.name }.label }
         val named =
-            namedTrails(usable.values, data, words).map { trail ->
+            namedTrails(usable.values, data, words, refBridgeM).map { trail ->
                 relationLabels[trail.ways]?.takeIf { it != trail.label }?.let(trail::withLabel) ?: trail
             }
         return named + relations + parentTrails(usable.values, data, words)
     }
 
-    /** How far along a road or another trail a trail may follow it as shared tread, in meters. */
+    /** How far along roads or other trails a trail may follow them as shared tread, in meters. */
     const val BRIDGE_M = 200.0
+
+    /** How far a trail may follow ways that carry its own ref between two of its parts unless the extract says, in meters. */
+    const val DEFAULT_REF_BRIDGE_M = 1_000.0
 
     /** How many parent trails a family keeps per group; with more paths, it keeps only its longest. */
     private const val MAX_PARENT_PATHS = 4
@@ -124,10 +131,11 @@ internal object TrailBuilder {
 
     /**
      * Named ways of each group joined where they share the name without its generic [words] and an end node. A trail ends where more than
-     * two such ways meet, so a fork never picks a branch. A trail that ends where none of its ways continues joins another of its name that
-     * starts at most [BRIDGE_M] along a road or another trail there, following that shared tread. It is named after its longest way.
+     * two such ways meet, so a fork never picks a branch. A trail that ends where none of its ways continues joins another of its name over
+     * shared tread ([SharedTread]): at most [BRIDGE_M] along roads or other trails, or [refBridgeM] along ways that carry its ref. It is
+     * named after its longest way.
      */
-    private fun namedTrails(ways: Collection<OsmWay>, data: OsmData, words: GenericWords): List<Trail> {
+    private fun namedTrails(ways: Collection<OsmWay>, data: OsmData, words: GenericWords, refBridgeM: Double): List<Trail> {
         val byName =
             ways
                 .flatMap { way ->
@@ -145,23 +153,13 @@ internal object TrailBuilder {
                 .filterValues { it.distinct().size == 1 }
                 .keys
         }
-        val ends =
-            chains
-                .filterValues { it.size >= 2 }
-                .flatMapTo(mutableSetOf()) { (key, list) ->
-                    list.flatMap { listOf(it.start, it.end) }.filter { it in dangling.getValue(key) }
-                }
-        val through =
-            data.ways
-                .filter { way -> way.rules == TrailTags && "highway" in way.tags && way.nodes.any { it in ends } }
-                .flatMap { way -> way.nodes.filter { it in ends }.distinct().map { it to way } }
-                .groupBy({ it.first }, { it.second })
+        val waysAt = lazy { WaysAt(data.ways.filter { way -> way.rules == TrailTags && "highway" in way.tags }.sortedBy { it.id }) }
         return chains.flatMap { (key, list) ->
             val (group, label) = key
-            val open = through.mapValues { (_, crossing) ->
-                crossing.filter { TrailTags.crossable(it.tags, group) && it.name?.let(words::shorten) != label }
-            }
-            bridged(list, dangling.getValue(key), open, data).map { chain ->
+            val joined =
+                if (list.size < 2) list
+                else bridged(list, dangling.getValue(key), SharedTread(waysAt, data, group, label, words, refBridgeM))
+            joined.map { chain ->
                 val name = chain.filter { !it.bridge }.maxBy { lengthOf(listOf(it), data) }.way.name.orEmpty()
                 trail(name, label, group, TrailKind.NAMED, chain, data)
             }
@@ -196,89 +194,184 @@ internal object TrailBuilder {
     }
 
     /**
-     * [chains] of one group and name joined over shared tread: a chain end at a [dangling] node, where no other way of the name ends, joins
-     * another chain's dangling end that lies at most [BRIDGE_M] along a way [through] it that's open to the group, following that way
-     * between them. Repeats until no more join; a chain never joins itself.
+     * [chains] of one group and name joined over [tread]: a chain end at a [dangling] node, where no other way of the name ends, joins the
+     * nearest other chain's dangling end it reaches, following the ways between them. Repeats until no more join; a chain never joins
+     * itself.
      */
-    private fun bridged(
-        chains: List<List<Placed>>,
-        dangling: Set<Long>,
-        through: Map<Long, List<OsmWay>>,
-        data: OsmData,
-    ): List<List<Placed>> {
-        if (chains.size < 2) return chains
+    private fun bridged(chains: List<List<Placed>>, dangling: Set<Long>, tread: SharedTread): List<List<Placed>> {
         val joined = chains.toMutableList()
         while (true) {
-            val join = joined.indices.firstNotNullOfOrNull { i -> bridgeFrom(i, joined, dangling, through, data) } ?: break
-            val (i, j, bridge) = join
-            val from = joined[i].let { if (it.end == bridge.nodes.first()) it else it.turned() }
-            val to = joined[j].let { if (it.start == bridge.nodes.last()) it else it.turned() }
-            joined[i] = from + bridge + to
-            joined.removeAt(j)
+            val (i, bridge) = joined.indices.firstNotNullOfOrNull { i -> bridgeFrom(i, joined, dangling, tread)?.let { i to it } } ?: break
+            val from = joined[i].let { if (it.end == bridge.placed.start) it else it.turned() }
+            val to = joined[bridge.target].let { if (it.start == bridge.placed.end) it else it.turned() }
+            joined[i] = from + bridge.placed + to
+            joined.removeAt(bridge.target)
         }
         return joined
     }
 
-    /**
-     * The nearest join from either dangling end of chain [i] of [chains] to another chain's dangling end, along a way [through] that end:
-     * the other chain's index and the bridge, placed from chain [i]'s end to the other's. Null when there is none within [BRIDGE_M].
-     */
-    private fun bridgeFrom(
-        i: Int,
-        chains: List<List<Placed>>,
-        dangling: Set<Long>,
-        through: Map<Long, List<OsmWay>>,
-        data: OsmData,
-    ): Triple<Int, Int, Placed>? {
+    /** The nearest join over [tread] from either dangling end of chain [i] of [chains] to another chain's dangling end; null when none. */
+    private fun bridgeFrom(i: Int, chains: List<List<Placed>>, dangling: Set<Long>, tread: SharedTread): SharedTread.Bridge? {
         val chain = chains[i]
         if (chain.start == chain.end) return null
-        val own = chain.mapTo(mutableSetOf()) { it.way.id }
-        val endsOf = chains.indices.filter { it != i }.flatMap { j -> listOf(chains[j].start to j, chains[j].end to j) }.toMap()
-        return listOf(chain.start, chain.end)
-            .filter { it in dangling }
-            .flatMap { node ->
-                through[node]
-                    .orEmpty()
-                    .filter { it.id !in own }
-                    .flatMap { way ->
-                        listOf(1, -1).mapNotNull { step -> walk(way, way.nodes.indexOf(node), step, endsOf, dangling, data) }
-                    }
-            }
-            .minByOrNull { it.first }
-            ?.let { (_, j, placed) -> Triple(i, j, placed) }
+        val ends =
+            chains.indices
+                .filter { it != i }
+                .flatMap { j -> listOf(chains[j].start to (j to chains[j].first().way), chains[j].end to (j to chains[j].last().way)) }
+                .filter { (node, _) -> node in dangling }
+                .toMap()
+        val starts = listOf(chain.start to chain.first().way, chain.end to chain.last().way).filter { (node, _) -> node in dangling }
+        return starts.mapNotNull { (node, way) -> tread.from(node, way, ends) }.minByOrNull { it.meters }
     }
 
     /**
-     * Walking [way] from node index [at] in [step]s, the first node within [BRIDGE_M] that is another chain's [dangling] end ([endsOf]):
-     * the meters walked, that chain's index and the bridge placed in the direction walked. Null when none is.
+     * Every walkable highway way through each node, for the shared-tread search: each (node, way index) pair packed into one long, the node
+     * in the high bits, in one sorted array, so a whole state's roads cost a few bytes a node.
      */
-    @Suppress("LongParameterList") // The walk's start and what it looks for.
-    private fun walk(
-        way: OsmWay,
-        at: Int,
-        step: Int,
-        endsOf: Map<Long, Int>,
-        dangling: Set<Long>,
-        data: OsmData,
-    ): Triple<Double, Int, Placed>? {
-        var k = at
-        var meters = 0.0
-        while (k + step in way.nodes.indices && meters <= BRIDGE_M) {
-            val a = data.coords[way.nodes[k]]
-            val b = data.coords[way.nodes[k + step]]
-            if (a == null || b == null) break
-            meters += SegmentGeometry.distanceMeters(a, b)
-            k += step
-            val node = way.nodes[k]
-            val j = endsOf[node]
-            if (meters <= BRIDGE_M && j != null && node in dangling) {
-                val placed =
-                    if (step > 0) Placed(way, reversed = false, from = at, to = k, bridge = true)
-                    else Placed(way, reversed = true, from = k, to = at, bridge = true)
-                return Triple(meters, j, placed)
+    private class WaysAt(val ways: List<OsmWay>) {
+        private val keys: LongArray
+
+        init {
+            require(ways.size < 1 shl WAY_BITS) { "too many ways to index" }
+            val packed = LongArray(ways.sumOf { it.nodes.size })
+            var n = 0
+            ways.forEachIndexed { i, way ->
+                for (node in way.nodes) if (node in 0 until MAX_NODE) packed[n++] = (node shl WAY_BITS) or i.toLong()
+            }
+            keys = packed.copyOf(n).apply { sort() }
+        }
+
+        /** The ways through [node], each once, in id order. */
+        fun at(node: Long): List<OsmWay> {
+            if (node !in 0 until MAX_NODE) return emptyList()
+            val first = node shl WAY_BITS
+            var k = keys.binarySearch(first).let { if (it < 0) -it - 1 else it }
+            return buildList {
+                while (k < keys.size && keys[k] ushr WAY_BITS == node) {
+                    val way = ways[(keys[k] and WAY_MASK).toInt()]
+                    if (lastOrNull() !== way) add(way)
+                    k++
+                }
             }
         }
-        return null
+
+        private companion object {
+            const val WAY_BITS = 29
+            const val WAY_MASK = (1L shl WAY_BITS) - 1
+            const val MAX_NODE = 1L shl (Long.SIZE_BITS - 1 - WAY_BITS)
+        }
+    }
+
+    /**
+     * Shared tread for trails of [group] named [label]: the shortest run of connected ways open to [group], of no way of the trail's own
+     * name, from a trail's dangling end to another's. A run of at most [BRIDGE_M] always joins; a longer one of at most [refBridgeM] joins
+     * only when each of its ways, and the trail's ways at both ends, carry one ref.
+     */
+    @Suppress("LongParameterList") // The index, the coordinates, and whose tread it is.
+    private class SharedTread(
+        private val waysAt: Lazy<WaysAt>,
+        private val data: OsmData,
+        private val group: String,
+        private val label: String,
+        private val words: GenericWords,
+        private val refBridgeM: Double,
+    ) {
+        /** A join: the meters followed, the other chain's index, and the ways followed, placed from the start to the other chain. */
+        class Bridge(val meters: Double, val target: Int, val placed: List<Placed>)
+
+        private fun walkable(way: OsmWay) = TrailTags.crossable(way.tags, group) && way.name?.let(words::shorten) != label
+
+        /**
+         * The shortest join from [start], the end of a chain whose end way is [own], to one of [ends] (each another chain's index and end
+         * way): along any walkable ways within [BRIDGE_M], or ways that carry a ref of [own] within [refBridgeM]; the plain one on a tie.
+         */
+        fun from(start: Long, own: OsmWay, ends: Map<Long, Pair<Int, OsmWay>>): Bridge? {
+            val plain = search(start, BRIDGE_M, ::walkable) { it in ends }
+            val byRef =
+                TrailTags.refs(own.tags)
+                    .filter { refBridgeM > BRIDGE_M }
+                    .mapNotNull { ref ->
+                        search(start, refBridgeM, { walkable(it) && ref in TrailTags.refs(it.tags) }) { node ->
+                            ends[node]?.let { (_, way) -> ref in TrailTags.refs(way.tags) } == true
+                        }
+                    }
+                    .minByOrNull { it.first }
+            val best = listOfNotNull(plain, byRef).minByOrNull { it.first } ?: return null
+            return Bridge(best.first, ends.getValue(best.second).first, best.third)
+        }
+
+        /** One step along [way] from its node index [from] at [node] to [to], the next or previous one, at [target], [meters] long. */
+        private class Step(val node: Long, val way: OsmWay, val from: Int, val to: Int, val target: Long, val meters: Double)
+
+        /**
+         * The shortest run within [maxM] from [start] along ways [open] to a node [isEnd] accepts: its meters, that node, and its ways
+         * placed in order. Dijkstra over the ways' nodes, each step one edge of a way.
+         */
+        private fun search(
+            start: Long,
+            maxM: Double,
+            open: (OsmWay) -> Boolean,
+            isEnd: (Long) -> Boolean,
+        ): Triple<Double, Long, List<Placed>>? {
+            val meters = hashMapOf(start to 0.0)
+            val steps = hashMapOf<Long, Step>()
+            val queue = PriorityQueue<Pair<Double, Long>>(compareBy { it.first })
+            queue += 0.0 to start
+            var found: Triple<Double, Long, List<Placed>>? = null
+            while (found == null && queue.isNotEmpty()) {
+                val (walked, node) = queue.poll()
+                when {
+                    walked > meters.getValue(node) -> Unit
+                    node != start && isEnd(node) -> found = Triple(walked, node, placed(node, steps))
+                    else ->
+                        for (step in stepsFrom(node, open)) {
+                            val total = walked + step.meters
+                            if (total <= maxM && total < (meters[step.target] ?: Double.MAX_VALUE)) {
+                                meters[step.target] = total
+                                steps[step.target] = step
+                                queue += total to step.target
+                            }
+                        }
+                }
+            }
+            return found
+        }
+
+        /** Every step from [node] along a way [open] to the next or previous node, where both have coordinates. */
+        private fun stepsFrom(node: Long, open: (OsmWay) -> Boolean): List<Step> {
+            val here = data.coords[node] ?: return emptyList()
+            return waysAt.value.at(node).filter(open).flatMap { way ->
+                way.nodes.indices
+                    .filter { way.nodes[it] == node }
+                    .flatMap { at ->
+                        listOf(at - 1, at + 1).mapNotNull { next ->
+                            val target = way.nodes.getOrNull(next)
+                            target?.let(data.coords::get)?.let {
+                                Step(node, way, at, next, target, SegmentGeometry.distanceMeters(here, it))
+                            }
+                        }
+                    }
+            }
+        }
+
+        /** The steps back from [end] as placed ways, consecutive steps along one way in one direction merged into one slice. */
+        private fun placed(end: Long, steps: Map<Long, Step>): List<Placed> {
+            val path = generateSequence(steps[end]) { steps[it.node] }.toList().asReversed()
+            val runs = mutableListOf<MutableList<Step>>()
+            for (step in path) {
+                val run =
+                    runs.lastOrNull()?.takeIf { run ->
+                        val last = run.last()
+                        last.way === step.way && step.from == last.to && (step.to - step.from) == (last.to - last.from)
+                    }
+                if (run != null) run += step else runs += mutableListOf(step)
+            }
+            return runs.map { run ->
+                val (first, last) = run.first().from to run.last().to
+                if (first < last) Placed(run[0].way, reversed = false, from = first, to = last, bridge = true)
+                else Placed(run[0].way, reversed = true, from = last, to = first, bridge = true)
+            }
+        }
     }
 
     /**

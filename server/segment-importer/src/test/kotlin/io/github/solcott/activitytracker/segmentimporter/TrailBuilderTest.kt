@@ -306,6 +306,87 @@ class TrailBuilderTest {
         assertEquals(1, trails.count { it.group == RUN }, "people on foot may still follow it")
     }
 
+    /**
+     * "Little Cottonwood Creek Trail" north from node 1 to 3 and on from the last road's end, both halves tagged [trailRefs] (the second
+     * [secondRefs]), with roads of [roadLengths] meters between them, each its own named way carrying [roadTags] and the [i]th also
+     * [extra]'s tags. Ways 10 and 11 are the halves, 20 on the roads.
+     */
+    @Suppress("LongParameterList")
+    private fun OsmBuilder.acrossRoads(
+        roadLengths: List<Double>,
+        roadTags: Map<String, String>,
+        trailRefs: String? = "1001",
+        secondRefs: String? = trailRefs,
+        extra: Map<Int, Map<String, String>> = emptyMap(),
+    ) {
+        node(1, north(44.4, 0.0), -72.7)
+        node(2, north(44.4, 300.0), -72.7)
+        node(3, north(44.4, 600.0), -72.7)
+        var at = 600.0
+        roadLengths.forEachIndexed { i, length ->
+            at += length
+            node(100L + i, north(44.4, at), -72.7)
+            val from = if (i == 0) 3L else 99L + i
+            way(20L + i, from, 100L + i, tags = roadTags + ("name" to "Road $i") + extra[i].orEmpty())
+        }
+        val last = 99L + roadLengths.size
+        node(4, north(44.4, at + 300.0), -72.7)
+        node(5, north(44.4, at + 600.0), -72.7)
+        fun trail(ref: String?) = path("Little Cottonwood Creek Trail", *listOfNotNull(ref?.let { "ref" to it }).toTypedArray())
+        way(10, 1, 2, 3, tags = trail(trailRefs))
+        way(11, last, 4, 5, tags = trail(secondRefs))
+    }
+
+    private val road = highway("residential", null)
+    private val numbered = highway("residential", null, "ref" to "NF 87672;1001")
+
+    @Test
+    fun aTrailFollowsAChainOfShortRoads() {
+        val trail = TrailBuilder.build(osm { acrossRoads(listOf(80.0, 100.0), road, trailRefs = null) }).single { it.group == RIDE }
+        assertEquals(setOf(20L, 21L), trail.bridged)
+        assertEquals(setOf(10L, 11L, 20L, 21L), trail.ways)
+    }
+
+    @Test
+    fun aTrailFollowsRoadsCarryingItsRefPastTheShortLimit() {
+        // Little Cottonwood Creek at Wasatch Resort: Granite Cliffs Road, then Power Plant Lane.
+        val trail = TrailBuilder.build(osm { acrossRoads(listOf(86.0, 133.0), numbered) }).single { it.group == RIDE }
+        assertEquals(setOf(20L, 21L), trail.bridged)
+    }
+
+    @Test
+    fun roadsWithoutTheRefStayAtTheShortLimit() {
+        assertEquals(2, TrailBuilder.build(osm { acrossRoads(listOf(86.0, 133.0), road) }).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowItsRefPastTheLimit() {
+        val far = osm { acrossRoads(listOf(500.0, 450.0, 450.0), numbered) }
+        assertEquals(2, TrailBuilder.build(far).count { it.group == RIDE }, "1.4 km is past the 1 km default")
+        assertEquals(1, TrailBuilder.build(far, refBridgeM = 1_500.0).count { it.group == RIDE })
+        val near = osm { acrossRoads(listOf(300.0, 300.0), numbered) }
+        assertEquals(1, TrailBuilder.build(near).count { it.group == RIDE })
+        assertEquals(2, TrailBuilder.build(near, refBridgeM = 500.0).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowRefsWhenOneRoadLacksIt() {
+        val data = osm { acrossRoads(listOf(200.0, 200.0, 200.0), numbered, extra = mapOf(1 to mapOf("ref" to "NF 87672"))) }
+        assertEquals(2, TrailBuilder.build(data).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowRefsItsOtherHalfLacks() {
+        val data = osm { acrossRoads(listOf(150.0, 150.0), numbered, secondRefs = "1002") }
+        assertEquals(2, TrailBuilder.build(data).count { it.group == RIDE })
+    }
+
+    @Test
+    fun aTrailDoesNotFollowAChainWithAPrivateRoad() {
+        val data = osm { acrossRoads(listOf(70.0, 80.0), road, extra = mapOf(1 to mapOf("access" to "private"))) }
+        assertEquals(2, TrailBuilder.build(data).count { it.group == RIDE })
+    }
+
     @Test
     fun aRelationKeepsAShortRoadMemberBetweenItsTrails() {
         val data = osm {
