@@ -4,8 +4,7 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.interactions.CommentActions
 import io.github.solcott.activitytracker.app.interactions.CommentEvent
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -30,9 +29,8 @@ internal fun SingleFlight.blockReported(
         commentActions(current).on(CommentEvent.BlockAuthor(target.uri), current.asSubject())
         return
     }
-    launch(BlockReportedAuthor) {
-        runSuspendCatching { blocks.setBlocked(target.author, true) }
-            .onSuccess { onError(null) }
-            .onFailure { onError(uiErrorOf(UiError.Kind.UpdateBlock, it)) }
+    launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, onError) {
+        blocks.setBlocked(target.author, true)
+        onError(null)
     }
 }

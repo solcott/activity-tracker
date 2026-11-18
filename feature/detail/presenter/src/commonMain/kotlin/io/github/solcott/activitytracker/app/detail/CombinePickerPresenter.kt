@@ -10,10 +10,9 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -62,17 +61,14 @@ fun CombinePickerPresenter(
                 val into = loaded.data?.into
                 val other = loaded.data?.candidates?.firstOrNull { it.uri == event.uri }
                 if (into != null && other != null) {
-                    flights.launch(pick) {
+                    flights.launchAction(pick, UiError.Kind.CombineActivity, { error = it }) {
                         error = null
                         combining = other.uri
-                        runSuspendCatching { manager.combine(into, other) }
-                            .onSuccess { combined ->
-                                // Back past this activity's page, which now shows a member, to the combined activity's.
-                                navigator.pop()
-                                navigator.pop()
-                                navigator.goTo(ActivityDetailScreen(combined.value))
-                            }
-                            .onFailure { error = uiErrorOf(UiError.Kind.CombineActivity, it) }
+                        val combined = manager.combine(into, other)
+                        // Back past this activity's page, which now shows a member, to the combined activity's.
+                        navigator.pop()
+                        navigator.pop()
+                        navigator.goTo(ActivityDetailScreen(combined.value))
                     }
                 }
             }

@@ -7,8 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 
@@ -33,11 +32,10 @@ internal fun rememberOwnCopy(own: ActivityView?, manager: ActivityManager, fligh
         error = error,
     ) {
         if (own != null)
-            flights.launch(ActivityDetailEvent.LeaveCopyGroup) {
+            flights.launchAction(ActivityDetailEvent.LeaveCopyGroup, UiError.Kind.SaveActivity, { error = it }) {
                 error = null
-                runSuspendCatching { manager.leaveCopyGroup(own) }
-                    .onSuccess { onLeft() }
-                    .onFailure { error = uiErrorOf(UiError.Kind.SaveActivity, it) }
+                manager.leaveCopyGroup(own)
+                onLeft()
             }
     }
 }
