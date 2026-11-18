@@ -29,7 +29,10 @@ class AndroidApplicationConventionPluginTest {
                     """
                     plugins { id("activitytracker.android.application") }
 
-                    android { namespace = "com.example.app" }
+                    android {
+                        namespace = "com.example.app"
+                        println("compileSdk=${'$'}{listOfNotNull(compileSdk, compileSdkMinor).joinToString(".")}")
+                    }
 
                     androidComponents {
                         onVariants { variant -> println("${'$'}{variant.name}.isMinifyEnabled=${'$'}{variant.isMinifyEnabled}") }
@@ -50,6 +53,16 @@ class AndroidApplicationConventionPluginTest {
 
         assertContains(result.output, "release.isMinifyEnabled=true")
         assertContains(result.output, "debug.isMinifyEnabled=false")
+    }
+
+    @Test
+    fun `compileSdk takes the catalog's version, minor release included`() {
+        val catalog = File(System.getProperty("activitytracker.versionCatalog")).readText()
+        val compileSdk = Regex("""android-compileSdk = "([^"]+)"""").find(catalog)!!.groupValues[1]
+
+        val result = GradleRunner.create().withProjectDir(projectDir).withPluginClasspath().withArguments(":app:help").build()
+
+        assertContains(result.output, "compileSdk=$compileSdk\n")
     }
 
     private fun androidSdk(): String =

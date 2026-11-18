@@ -17,7 +17,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("activitytracker.quality")
 
             extensions.configure<ApplicationExtension> {
-                compileSdk = libs.version("android-compileSdk").toInt()
+                compileSdk { fromCatalog(this@with) }
                 defaultConfig {
                     minSdk = libs.version("android-minSdk").toInt()
                     targetSdk = libs.version("android-targetSdk").toInt()
