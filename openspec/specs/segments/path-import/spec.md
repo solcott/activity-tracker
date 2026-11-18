@@ -29,6 +29,25 @@ How the segment importer turns a region's trails and named roads into paths, and
 - **WHEN** a Forest Service trail is extracted
 - **THEN** its path carries the agency's source, licence and attribution
 
+### Requirement: An agency trail that OSM also maps gives one path
+When at least 90% of an agency trail path's length follows a single OSM trail path, extract SHALL write only the OSM path. The OSM path SHALL keep its own name, line, id, source, licence and attribution, and SHALL be open to the sport groups of both paths. An agency path that no OSM path covers this way SHALL be written as before.
+
+#### Scenario: Trail in both datasets
+- **WHEN** a region holds the OSM trail "Little Cottonwood Creek Trail" and the Forest Service trail "Little Cottonwood Creek" along the same line
+- **THEN** the paths file holds only the OSM path "Little Cottonwood Creek Trail", crediting OpenStreetMap
+
+#### Scenario: Agency opens a sport OSM doesn't
+- **WHEN** the agency trail is open to ride, run and hike, and the OSM trail it follows only to run and hike
+- **THEN** the OSM path is open to ride, run and hike, so the agency's ride segments lie on it
+
+#### Scenario: Agency trail OSM lacks
+- **WHEN** a Forest Service trail follows no OSM trail path for most of its length
+- **THEN** the paths file holds its agency path
+
+#### Scenario: Agency path already published
+- **WHEN** a region's agency path was published by an earlier import, and the region is imported again after OSM maps the same trail
+- **THEN** the new paths file no longer lists the agency path, and `publish-paths` deletes it once no region lists it
+
 ### Requirement: Long trails keep one path
 A trail longer than the segment length limit SHALL still be one path, its line split into pieces that each fit a path record's line limit, and a trail family's ways SHALL appear in its pieces once.
 
