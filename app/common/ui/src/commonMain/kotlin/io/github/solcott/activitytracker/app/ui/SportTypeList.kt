@@ -74,7 +74,8 @@ fun LazyListScope.sportTypeList(
             val isExpanded = type.sport in expanded
             val hidden = if (chevron && !isExpanded) hiddenChoice(type) else null
             ListItem(
-                headlineContent = { Text(activityTypeLabel(type)) },
+                onClick = { onClick(type) },
+                modifier = Modifier.handCursor(),
                 supportingContent = hidden?.let { { Text(activityTypeLabel(it)) } },
                 leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested(type)) 24.dp else 0.dp)) },
                 trailingContent = {
@@ -84,8 +85,9 @@ fun LazyListScope.sportTypeList(
                     }
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { onClick(type) }.handCursor(),
-            )
+            ) {
+                Text(activityTypeLabel(type))
+            }
         }
     }
 }

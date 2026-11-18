@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,11 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -39,7 +34,8 @@ fun AppListSection(title: String?, modifier: Modifier = Modifier, content: @Comp
 
 /**
  * One row of a list: a [title] with an optional [summary] of its current value. With [onClick] it opens something. [trailing] holds a
- * control (a switch). [selected] marks the row whose page shows beside the list.
+ * control (a switch). [selected] marks the row whose page shows beside the list. Material's interactive list item draws the selected,
+ * pressed and disabled states and carries the row's selected semantics.
  */
 @Composable
 fun AppListRow(
@@ -51,21 +47,35 @@ fun AppListRow(
     enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val colors = MaterialTheme.colorScheme
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = summary?.let { { Text(it) } },
-        trailingContent = trailing,
-        colors = ListItemDefaults.colors(containerColor = if (selected) colors.secondaryContainer else Color.Transparent),
-        modifier =
-            modifier
-                .clip(RoundedCornerShape(ROW_CORNER))
-                .semantics { this.selected = selected }
-                .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick).handCursor() else Modifier)
-                .alpha(if (enabled) 1f else DISABLED_ALPHA),
-    )
+    val colors =
+        ListItemDefaults.colors(containerColor = Color.Transparent, selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer)
+    val shapes = ListItemDefaults.shapes(shape = RoundedCornerShape(ROW_CORNER), selectedShape = RoundedCornerShape(ROW_CORNER))
+    val supporting: (@Composable () -> Unit)? = summary?.let { { Text(it) } }
+    if (onClick != null) {
+        ListItem(
+            selected = selected,
+            onClick = onClick,
+            modifier = modifier.handCursor(),
+            enabled = enabled,
+            trailingContent = trailing,
+            supportingContent = supporting,
+            shapes = shapes,
+            colors = colors,
+        ) {
+            Text(title)
+        }
+    } else {
+        ListItem(
+            modifier = modifier,
+            enabled = enabled,
+            trailingContent = trailing,
+            supportingContent = supporting,
+            shapes = shapes,
+            colors = colors,
+        ) {
+            Text(title)
+        }
+    }
 }
 
 private val ROW_CORNER = 12.dp
-
-private const val DISABLED_ALPHA = 0.38f
