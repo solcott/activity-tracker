@@ -106,8 +106,8 @@ struct GearPhotoView: View {
         Group {
             if let saved = photo as? GearPhoto.Saved {
                 RemoteImage(saved.url) { placeholder }
-            } else if let picked = photo as? GearPhoto.Picked, let image = UIImage(data: picked.photo.bytes.data) {
-                Image(uiImage: image).resizable().scaledToFill()
+            } else if let picked = photo as? GearPhoto.Picked {
+                PickedPhotoThumbnail(bytes: picked.photo.bytes, size: 72) { placeholder }
             } else {
                 placeholder
             }

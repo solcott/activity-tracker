@@ -12,17 +12,21 @@ import SwiftUI
 struct RemoteImage<Placeholder: View>: View {
     private let url: String?
     private let fits: Bool
+    private let maxSize: CGSize?
     private let placeholder: Placeholder
+    @Environment(\.displayScale) private var displayScale
 
-    /// `fits` shows the whole picture inside its frame (a gallery's photo) rather than filling it.
-    init(_ url: String?, fits: Bool = false, @ViewBuilder placeholder: () -> Placeholder) {
+    /// `fits` shows the whole picture inside its frame (a gallery's photo) rather than filling it. `maxSize`, in points, is the largest
+    /// the picture is ever drawn (an avatar's circle): Nuke then decodes and caches it at that size on this screen, not at full size.
+    init(_ url: String?, fits: Bool = false, maxSize: CGSize? = nil, @ViewBuilder placeholder: () -> Placeholder) {
         self.url = url
         self.fits = fits
+        self.maxSize = maxSize
         self.placeholder = placeholder()
     }
 
     var body: some View {
-        if let request = RemoteImages.request(for: url) {
+        if let request = RemoteImages.request(for: url, maxSize: maxSize, scale: displayScale) {
             LazyImage(request: request) { phase in
                 if let image = phase.image {
                     if fits { image.resizable().scaledToFit() } else { image.resizable().scaledToFill() }
@@ -42,13 +46,17 @@ enum RemoteImages {
     static let heldScheme = "heldphoto:"
 
     /// What Nuke is asked for to show `url`: the held bytes for a held photo, the URL otherwise; nil for no URL or one that isn't one.
-    static func request(for url: String?) -> ImageRequest? {
+    /// With `maxSize` (points, drawn at `scale` pixels a point) the picture is scaled down to fill it, keeping its shape.
+    static func request(for url: String?, maxSize: CGSize? = nil, scale: CGFloat = 1) -> ImageRequest? {
         guard let url, !url.isEmpty else { return nil }
+        let processors: [any ImageProcessing] = maxSize.map {
+            [ImageProcessors.Resize(size: CGSize(width: $0.width * scale, height: $0.height * scale), unit: .pixels, contentMode: .aspectFill)]
+        } ?? []
         if url.hasPrefix(heldScheme) {
             // Kotlin's session state is the main thread's, so the bytes are read there; the request's id keys Nuke's cache.
-            return ImageRequest(id: url, data: { try await MainActor.run { try heldBytes(url) } })
+            return ImageRequest(id: url, data: { try await MainActor.run { try heldBytes(url) } }, processors: processors)
         }
-        return URL(string: url).map { ImageRequest(url: $0) }
+        return URL(string: url).map { ImageRequest(url: $0, processors: processors) }
     }
 
     /// The bytes of the held photo at `url`, or an error when the session doesn't hold it (or no one is signed in).
@@ -73,7 +81,7 @@ struct Avatar: View {
             Text(AppPackage.avatarInitial(name: name))
                 .font(.system(size: size * 0.42, weight: .semibold))
                 .foregroundStyle(.tint)
-            RemoteImage(url) { Color.clear }
+            RemoteImage(url, maxSize: CGSize(width: size, height: size)) { Color.clear }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
@@ -87,7 +95,7 @@ struct Thumbnail: View {
     var size: CGFloat = 48
 
     var body: some View {
-        RemoteImage(url) { Color.clear }
+        RemoteImage(url, maxSize: CGSize(width: size, height: size)) { Color.clear }
             .frame(width: size, height: size)
             .background(Color(.secondarySystemFill))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
