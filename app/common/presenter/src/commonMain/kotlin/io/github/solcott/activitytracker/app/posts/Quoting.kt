@@ -8,9 +8,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.QuotePosts
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -79,13 +78,10 @@ fun rememberQuoting(quotes: QuotePosts, onDelete: (PostView) -> Unit = {}, onErr
                         error = null
                         val words = text.text.toString()
                         val chosen = audience
-                        flights.launch(QuoteEvent.Post) {
-                            runSuspendCatching { quotes.quote(post, words, chosen) }
-                                .onSuccess {
-                                    quoting = null
-                                    text.clearText()
-                                }
-                                .onFailure { error = uiErrorOf(UiError.Kind.QuotePost, it) }
+                        flights.launchAction(QuoteEvent.Post, UiError.Kind.QuotePost, { error = it }) {
+                            quotes.quote(post, words, chosen)
+                            quoting = null
+                            text.clearText()
                         }
                     }
                 }
@@ -93,10 +89,9 @@ fun rememberQuoting(quotes: QuotePosts, onDelete: (PostView) -> Unit = {}, onErr
                     val post = confirmDelete
                     confirmDelete = null
                     if (event.confirmed && post != null) {
-                        flights.launch(post.uri) {
-                            runSuspendCatching { quotes.delete(post) }
-                                .onSuccess { currentOnDelete(post) }
-                                .onFailure { currentOnError(uiErrorOf(UiError.Kind.DeleteQuote, it)) }
+                        flights.launchAction(post.uri, UiError.Kind.DeleteQuote, { currentOnError(it) }) {
+                            quotes.delete(post)
+                            currentOnDelete(post)
                         }
                     }
                 }

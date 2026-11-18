@@ -8,6 +8,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
 import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.post.PostPageScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -15,7 +16,6 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.feed.asSubject
@@ -79,9 +79,8 @@ fun rememberPostEventSink(
                 }
 
                 is PostEvent.Vote -> {
-                    flights.launch(event.post.uri) {
-                        runSuspendCatching { names.vote(event.post, event.direction) }
-                            .onFailure { currentOnError(uiErrorOf(UiError.Kind.VoteSegmentName, it)) }
+                    flights.launchAction(event.post.uri, UiError.Kind.VoteSegmentName, { currentOnError(it) }) {
+                        names.vote(event.post, event.direction)
                     }
                 }
 
