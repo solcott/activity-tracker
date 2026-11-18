@@ -86,6 +86,9 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.work.runtime)
+    // Composables and the state writes behind each recomposition in system traces (scripts/compose-trace.sh). Debug only: its
+    // receiver is exported without a permission, and it brings tracing-wire, Wire and okio.
+    debugImplementation(libs.compose.runtime.tracing)
     testImplementation(kotlin("test"))
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.work.testing)

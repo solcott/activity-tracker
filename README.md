@@ -215,6 +215,16 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
   PDS identifies itself as `http://localhost:2583` (in DID docs and as the OAuth issuer), which a phone can't
   reach, and iOS has no `adb reverse`.
 
+### Tracing recompositions (Android)
+
+Debug builds of `:androidApp` carry `androidx.compose.runtime:runtime-tracing`, so a system trace shows each composable
+as a slice and links every state write to the recomposition it caused. Release builds don't: the library's broadcast
+receiver is exported without a permission. To see why a screen recomposes, install the debug app on an API 29+ device
+or emulator, open the screen, then run `scripts/compose-trace.sh -t 10` (or stop it with Ctrl+C) while you use it. Open
+the zip it writes to `build/compose-trace/` in [Perfetto](https://ui.perfetto.dev). Recomposition tracing slows
+composition, so use the trace to find causes, not to time them. Android Studio's profiler (CPU timeline, then System
+Trace) shows the composables too. Find unstable parameters first with `./gradlew composeStabilityCheck`.
+
 ## Layout
 
 | Path | What |

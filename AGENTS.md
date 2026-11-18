@@ -32,6 +32,7 @@ scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when 
 ./gradlew kotlinWasmUpgradeYarnLock               # after an npm dependency change: refresh kotlin-js-store/wasm/yarn.lock (Yarn, so the *PackageLock tasks fail)
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
+scripts/compose-trace.sh -t 10                    # Perfetto trace of the debug app with composables and the state writes behind each recomposition (API 29+)
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
 scripts/run-appview.sh                            # the same AppView as a plain JVM, so no Gradle daemon stays busy while it runs (scripts/dev.sh uses it)
 ./gradlew :server-segment-importer:run --args="extract region.osm.pbf --agency usfs=build/usfs.geojsonl --region us-vermont --out build/us-vermont.ndjson"   # OSM and agency trails -> candidate segments
