@@ -42,8 +42,8 @@ nonisolated final class SwiftFitDecoder: KotlinBase, FitDecoder {
 
         let decoder = FITSwiftSDK.Decoder(stream: FITSwiftSDK.InputStream(data: input))
         guard (try? decoder.isFIT()) == true else { throw FitSupport.shared.unreadable(message: "Not a FIT file") }
-        let integrityDecoder = FITSwiftSDK.Decoder(stream: FITSwiftSDK.InputStream(data: input))
-        guard (try? integrityDecoder.checkIntegrity()) == true else {
+        // isFIT and checkIntegrity both put the stream back where they found it, so the same decoder then reads the file.
+        guard (try? decoder.checkIntegrity()) == true else {
             throw FitSupport.shared.unreadable(message: "FIT file is corrupt or truncated")
         }
 
