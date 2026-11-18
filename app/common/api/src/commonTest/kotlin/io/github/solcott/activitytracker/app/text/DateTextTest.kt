@@ -64,6 +64,26 @@ class DateTextTest {
     fun textThatIsNoDateReadsAsItself() {
         assertEquals(AppText.written("soon"), DateText.isoDate("soon"))
         assertEquals(AppText.written("2026-13-01"), DateText.isoDate("2026-13-01"))
+        assertEquals(AppText.written("2026-10-26T08:00"), DateText.isoDate("2026-10-26T08:00"))
+    }
+
+    @Test
+    fun aDayItsMonthLacksReadsAsItself() {
+        assertEquals(AppText.written("2026-02-31"), DateText.isoDate("2026-02-31"))
+        assertEquals(AppText.written("2026-04-31"), DateText.isoDate("2026-04-31"))
+        assertEquals(AppText.written("2026-02-29"), DateText.isoDate("2026-02-29"))
+        assertEquals(AppText.written("2026-01-00"), DateText.isoDate("2026-01-00"))
+    }
+
+    @Test
+    fun aLeapDayIsADate() {
+        assertEquals(DateText.date(2024, 2, 29), DateText.isoDate("2024-02-29"))
+    }
+
+    @Test
+    fun aMonthsFirstAndLastDaysAreDates() {
+        assertEquals(DateText.date(2026, 1, 1), DateText.isoDate("2026-01-01"))
+        assertEquals(DateText.date(2026, 12, 31), DateText.isoDate("2026-12-31"))
     }
 
     @Test

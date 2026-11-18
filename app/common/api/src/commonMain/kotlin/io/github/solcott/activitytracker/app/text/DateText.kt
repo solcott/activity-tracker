@@ -42,12 +42,10 @@ object DateText {
         return AppText.named("page_start_value", of(day), AppText.Time(epochSeconds, utcOffsetMinutes))
     }
 
-    /** A `YYYY-MM-DD` date (an effort's or a board entry's) written out; the text itself when it isn't one. */
-    @Suppress("MagicNumber") // A date's three parts.
-    fun isoDate(text: String): AppText {
-        val parts = text.split('-').mapNotNull { it.toIntOrNull() }
-        return if (parts.size == 3 && parts[1] in 1..12) date(parts[0], parts[1], parts[2]) else AppText.written(text)
-    }
+    /**
+     * A `YYYY-MM-DD` date (an effort's or a board entry's) written out; the text itself when it isn't one, or names a day its month lacks.
+     */
+    fun isoDate(text: String): AppText = LocalDate.Formats.ISO.parseOrNull(text)?.let(::of) ?: AppText.written(text)
 
     /**
      * A wall clock with no zone ([dateTime], a dive log's start before a zone is picked) written as [at] writes a moment: "Oct 16, 2024 at
