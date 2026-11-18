@@ -4,6 +4,10 @@ private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 private const val BITS_PER_CHAR = 5
 private const val BYTE_MASK = 0xFF
 private const val CHAR_MASK = 0x1F
+private const val CHARS_PER_BLOCK = 8
+
+/** Tail lengths, past a whole 8-character block, that no whole number of bytes encodes to. */
+private val TRUNCATED_TAILS = setOf(1, 3, 6)
 
 /** RFC 4648 base32, lowercase and without padding (multibase `b`), as atproto writes CIDs. */
 fun ByteArray.base32(): String = buildString {
@@ -20,8 +24,12 @@ fun ByteArray.base32(): String = buildString {
     if (bits > 0) append(ALPHABET[(buffer shl (BITS_PER_CHAR - bits)) and CHAR_MASK])
 }
 
-/** Inverse of [base32], dropping the bits left over past the last whole byte. Throws [IllegalArgumentException] outside the alphabet. */
+/**
+ * Inverse of [base32], dropping the bits left over past the last whole byte. Throws [IllegalArgumentException] outside the alphabet, or for
+ * a truncated length no byte count encodes to (1, 3 or 6 characters past a multiple of 8).
+ */
 fun base32Decode(value: String): ByteArray {
+    require(value.length % CHARS_PER_BLOCK !in TRUNCATED_TAILS) { "Truncated base32" }
     var buffer = 0
     var bits = 0
     val out = mutableListOf<Byte>()
