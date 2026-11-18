@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.PathSegments
 import io.github.solcott.activitytracker.appview.db.Paths
-import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
@@ -62,7 +61,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.location.E7_PER_DEGREE
-import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.e7ToDegrees
 import java.time.DayOfWeek
@@ -95,7 +93,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.max
@@ -212,7 +209,7 @@ class SegmentViews(
         val maxLat = params.maxLat
         val maxLng = params.maxLng
         requireSearchBox(minLat, minLng, maxLat, maxLng)
-        val cells = SegmentCells.cellsIn(minLat.e7ToDegrees(), minLng.e7ToDegrees(), maxLat.e7ToDegrees(), maxLng.e7ToDegrees())
+        val box = SearchBox(minLat, minLng, maxLat, maxLng)
         val limit = Paging.clamp(params.limit)
         return db.tx {
             val found = mutableListOf<ResultRow>()
@@ -223,17 +220,9 @@ class SegmentViews(
             val inArea =
                 SegmentPlace.servedTo(viewer) and
                     unhidden(viewer, Segments.authorDid, Segments.uri) and
-                    (Segments.minLatE7 lessEq maxLat) and
-                    (Segments.maxLatE7 greaterEq minLat) and
-                    (Segments.minLngE7 lessEq maxLng) and
-                    (Segments.maxLngE7 greaterEq minLng) and
                     (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
                     SegmentPlace.listedTo(viewer) and
-                    exists(
-                        SegmentCellIndex.select(SegmentCellIndex.cell).where {
-                            (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                        },
-                    )
+                    segmentsNear(box)
             fun crossesBox(row: ResultRow) = crosses(row[Segments.line], minLat, minLng, maxLat, maxLng)
             // Cells and the stored box only narrow it down: each candidate's line is checked against the box, a batch at a time.
             while (found.size < limit && !exhausted && batches < searchBatches) {
@@ -491,20 +480,7 @@ class SegmentViews(
 
     /** Run segments that name search lists to [viewer]: served, unhidden, listed, of [sport] when given, and with a point in [box]. */
     private fun nameListed(viewer: Did?, sport: String?, box: SearchBox?): Op<Boolean> {
-        val inBox =
-            box?.let { b ->
-                val cells =
-                    SegmentCells.cellsIn(b.minLat.e7ToDegrees(), b.minLng.e7ToDegrees(), b.maxLat.e7ToDegrees(), b.maxLng.e7ToDegrees())
-                (Segments.minLatE7 lessEq b.maxLat) and
-                    (Segments.maxLatE7 greaterEq b.minLat) and
-                    (Segments.minLngE7 lessEq b.maxLng) and
-                    (Segments.maxLngE7 greaterEq b.minLng) and
-                    exists(
-                        SegmentCellIndex.select(SegmentCellIndex.cell).where {
-                            (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                        },
-                    )
-            } ?: Op.TRUE
+        val inBox = box?.let(::segmentsNear) ?: Op.TRUE
         return SegmentPlace.servedTo(viewer) and
             unhidden(viewer, Segments.authorDid, Segments.uri) and
             SegmentPlace.listedTo(viewer) and

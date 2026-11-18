@@ -60,7 +60,6 @@ import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.max
@@ -118,10 +117,11 @@ class DiveSiteViews(
                     .where {
                         DiveSitePlace.servedTo(viewer) and
                             unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
-                            (DiveSites.latE7 greaterEq params.minLat) and
-                            (DiveSites.latE7 lessEq params.maxLat) and
-                            (DiveSites.lngE7 greaterEq params.minLng) and
-                            (DiveSites.lngE7 lessEq params.maxLng) and
+                            pointInBox(
+                                DiveSites.latE7,
+                                DiveSites.lngE7,
+                                SearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng),
+                            ) and
                             DiveSitePlace.listedTo(viewer) and
                             keysetAfter(DiveSites.indexedAt, DiveSites.uri, params.cursor)
                     }
@@ -154,13 +154,7 @@ class DiveSiteViews(
                     .When(name like match.prefix, intLiteral(NAME_PREFIX))
                     .When(name like match.wordPrefix, intLiteral(NAME_WORD))
                     .Else(intLiteral(NAME_ANYWHERE))
-            val inBox =
-                box?.let { b ->
-                    (DiveSites.latE7 greaterEq b.minLat) and
-                        (DiveSites.latE7 lessEq b.maxLat) and
-                        (DiveSites.lngE7 greaterEq b.minLng) and
-                        (DiveSites.lngE7 lessEq b.maxLng)
-                } ?: Op.TRUE
+            val inBox = box?.let { pointInBox(DiveSites.latE7, DiveSites.lngE7, it) } ?: Op.TRUE
             // Within a match, nearest the centre first, or by name without one.
             val within: Expression<*> =
                 near?.let { (lat, lng) -> BoxDistance(lat, lng, DiveSites.latE7, DiveSites.latE7, DiveSites.lngE7, DiveSites.lngE7) }

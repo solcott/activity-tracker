@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
-import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SubjectHandoffs
 import io.github.solcott.activitytracker.appview.db.tx
@@ -37,7 +36,6 @@ import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
-import io.github.solcott.activitytracker.location.e7ToDegrees
 import io.ktor.http.HttpStatusCode
 import kotlin.math.roundToLong
 import kotlin.time.Clock
@@ -46,12 +44,9 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.concat
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.stringLiteral
@@ -152,29 +147,11 @@ class SegmentCandidateViews(
     suspend fun segmentLines(caller: Did, params: GetSegmentLines.Params): GetSegmentLines.Output {
         requireImporter(caller)
         requireSearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
-        val cells =
-            SegmentCells.cellsIn(
-                params.minLat.e7ToDegrees(),
-                params.minLng.e7ToDegrees(),
-                params.maxLat.e7ToDegrees(),
-                params.maxLng.e7ToDegrees(),
-            )
+        val box = SearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng)
         val limit = (params.limit ?: GetSegmentLines.MAX_LIMIT).coerceIn(1, GetSegmentLines.MAX_LIMIT)
         val page = db.tx {
             Segments.select(Segments.uri, Segments.sport, Segments.line)
-                .where {
-                    (Segments.status inList LIVE_STATUSES) and
-                        (Segments.kind eq SegmentKind.RUN) and
-                        (Segments.minLatE7 lessEq params.maxLat) and
-                        (Segments.maxLatE7 greaterEq params.minLat) and
-                        (Segments.minLngE7 lessEq params.maxLng) and
-                        (Segments.maxLngE7 greaterEq params.minLng) and
-                        exists(
-                            SegmentCellIndex.select(SegmentCellIndex.cell).where {
-                                (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
-                            },
-                        )
-                }
+                .where { (Segments.status inList LIVE_STATUSES) and (Segments.kind eq SegmentKind.RUN) and segmentsNear(box) }
                 .apply { params.cursor?.let { cursor -> andWhere { Segments.uri greater cursor } } }
                 .orderBy(Segments.uri to SortOrder.ASC)
                 .limit(limit)
