@@ -4,14 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,24 +20,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
-import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
-import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -67,105 +60,87 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(GearScreen::class, SessionScope::class)
 @Composable
 fun GearUi(state: GearState, modifier: Modifier = Modifier) {
-    val scrollBehavior = rememberAppTopBarScrollBehavior()
-    AppScaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AppTopBar(
-                title = state.title,
-                onBack = { state.eventSink(GearEvent.Back) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    if (state.showsEdit) {
-                        AppTextButton(onClick = { state.eventSink(GearEvent.Edit) }) { Text(stringResource(Res.string.gear_page_edit)) }
-                    }
-                },
-            )
+    val listState = rememberLazyListState()
+    if (!state.notFound) LoadMoreAtEnd(listState, state.activities.canLoadMore) { state.eventSink(GearEvent.LoadMore) }
+    val retry = { state.eventSink(GearEvent.Retry) }
+    ListScreen(
+        title = state.title,
+        onBack = { state.eventSink(GearEvent.Back) },
+        content = state.content,
+        errorKind = UiError.Kind.LoadGearItem,
+        onRetry = retry,
+        modifier = modifier,
+        listState = listState,
+        verticalPadding = 12.dp,
+        actions = {
+            if (state.showsEdit) {
+                AppTextButton(onClick = { state.eventSink(GearEvent.Edit) }) { Text(stringResource(Res.string.gear_page_edit)) }
+            }
         },
-    ) { padding ->
-        if (state.notFound) {
-            Text(
-                stringResource(Res.string.gear_not_found),
-                Modifier.fillMaxSize().padding(padding).padding(24.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@AppScaffold
-        }
-        val retry = { state.eventSink(GearEvent.Retry) }
-        ContentStateLayout(state.content, UiError.Kind.LoadGearItem, onRetry = retry, contentPadding = padding) { loaded ->
-            // Loaded content is never null; the placeholder before the first load is.
-            if (loaded != null) Loaded(state, loaded, padding, retry)
-        }
-        MountDialogs(state)
+        notFound = if (state.notFound) stringResource(Res.string.gear_not_found) else null,
+    ) { page ->
+        pageItems(state, page, retry)
     }
+    if (!state.notFound) MountDialogs(state)
 }
 
-@Composable
-private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onRetry: () -> Unit) {
-    val listState = rememberLazyListState()
-    LoadMoreAtEnd(listState, state.activities.canLoadMore) { state.eventSink(GearEvent.LoadMore) }
-    ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-            item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearItem, onRetry) }
-            item(key = "header") { Header(page) }
-            if (state.showsCollections) {
-                item(key = "collections") {
-                    GearCollectionsField(
-                        state.collections,
-                        enabled = true,
-                        onToggle = { state.eventSink(GearEvent.ToggleCollection(it)) },
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-            }
-            componentItems(state, page) { Section(it) }
-            if (state.linkedSensors.isNotEmpty()) {
-                item(key = "linked-sensors") { Section(stringResource(Res.string.gear_linked_sensors)) }
-                items(state.linkedSensors, key = { "sensor/${it.id}" }) { sensor ->
-                    LinkedSensorRow(
-                        sensor,
-                        stringResource(Res.string.gear_unlink),
-                        LinkedSensorTexts.unlink(sensor).string(),
-                        { state.eventSink(GearEvent.UnlinkSensor(sensor.id)) },
-                    )
-                }
-            }
-            if (state.linkedProfiles.isNotEmpty()) {
-                item(key = "linked-profiles") { Section(stringResource(Res.string.gear_linked_profiles)) }
-                items(state.linkedProfiles, key = { "profile/$it" }) { name ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                        AppTextButton(onClick = { state.eventSink(GearEvent.UnlinkProfile(name)) }) {
-                            Text(stringResource(Res.string.gear_unlink))
-                        }
-                    }
-                }
-            }
-            item(key = "totals") {
-                Section(stringResource(Res.string.gear_page_totals))
-                AppCard(Modifier.fillMaxWidth()) { Totals(page) }
-            }
-            breakdown("sport", Res.string.gear_page_by_sport) { GearPageTexts.bySport(page, it) }
-            breakdown("year", Res.string.gear_page_by_year) { GearPageTexts.byYear(page, it) }
-            item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
-            state.activitiesError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
-            activityItems(
-                state.activities.items.toImmutableList(),
-                state.viewerDid,
-                authorClickable = state.authorClickable,
-                state.revealed,
-                gap = ACTIVITY_GAP,
-            ) {
-                state.eventSink(GearEvent.Activity(it))
-            }
-            pagedFooter(state.activities, UiError.Kind.LoadGearActivities, onRetry = onRetry) {
-                Text(
-                    stringResource(Res.string.gear_page_no_activities),
-                    Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+private fun LazyListScope.pageItems(state: GearState, page: GearPage, onRetry: () -> Unit) {
+    item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearItem, onRetry) }
+    item(key = "header") { Header(page) }
+    if (state.showsCollections) {
+        item(key = "collections") {
+            GearCollectionsField(
+                state.collections,
+                enabled = true,
+                onToggle = { state.eventSink(GearEvent.ToggleCollection(it)) },
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+        }
+    }
+    componentItems(state, page) { Section(it) }
+    if (state.linkedSensors.isNotEmpty()) {
+        item(key = "linked-sensors") { Section(stringResource(Res.string.gear_linked_sensors)) }
+        items(state.linkedSensors, key = { "sensor/${it.id}" }) { sensor ->
+            LinkedSensorRow(
+                sensor,
+                stringResource(Res.string.gear_unlink),
+                LinkedSensorTexts.unlink(sensor).string(),
+                { state.eventSink(GearEvent.UnlinkSensor(sensor.id)) },
+            )
+        }
+    }
+    if (state.linkedProfiles.isNotEmpty()) {
+        item(key = "linked-profiles") { Section(stringResource(Res.string.gear_linked_profiles)) }
+        items(state.linkedProfiles, key = { "profile/$it" }) { name ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                AppTextButton(onClick = { state.eventSink(GearEvent.UnlinkProfile(name)) }) { Text(stringResource(Res.string.gear_unlink)) }
             }
         }
+    }
+    item(key = "totals") {
+        Section(stringResource(Res.string.gear_page_totals))
+        AppCard(Modifier.fillMaxWidth()) { Totals(page) }
+    }
+    breakdown("sport", Res.string.gear_page_by_sport) { GearPageTexts.bySport(page, it) }
+    breakdown("year", Res.string.gear_page_by_year) { GearPageTexts.byYear(page, it) }
+    item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
+    state.activitiesError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+    activityItems(
+        state.activities.items.toImmutableList(),
+        state.viewerDid,
+        authorClickable = state.authorClickable,
+        state.revealed,
+        gap = ACTIVITY_GAP,
+    ) {
+        state.eventSink(GearEvent.Activity(it))
+    }
+    pagedFooter(state.activities, UiError.Kind.LoadGearActivities, onRetry = onRetry) {
+        Text(
+            stringResource(Res.string.gear_page_no_activities),
+            Modifier.padding(vertical = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
