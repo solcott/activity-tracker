@@ -3,11 +3,14 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,7 +45,8 @@ fun ListScreen(
 
 /**
  * A [ListScreen] whose items come from [content] (ui/content-loading): until it first loads, a spinner or why it failed ([errorKind]) with
- * [onRetry], in [ContentStateLayout]; once it has, [items] of what it holds. Show its refreshes with a [RefreshStatus] item.
+ * [onRetry], in [ContentStateLayout]; once it has, [items] of what it holds. Show its refreshes with a [RefreshStatus] item. A page whose
+ * placeholder before the first load is null shows no list for it. [notFound], when set, says what the screen opened isn't there instead.
  */
 @Composable
 fun <T> ListScreen(
@@ -57,11 +61,20 @@ fun <T> ListScreen(
     edgeToEdge: Boolean = false,
     verticalPadding: Dp = 8.dp,
     actions: @Composable RowScope.() -> Unit = {},
-    items: LazyListScope.(T) -> Unit,
+    notFound: String? = null,
+    items: LazyListScope.(T & Any) -> Unit,
 ) {
     ListScaffold(title, onBack, subtitle, actions, modifier) { padding ->
-        ContentStateLayout(content, errorKind, onRetry, contentPadding = padding) { loaded ->
-            ListBody(listState, padding, edgeToEdge, verticalPadding) { items(loaded) }
+        if (notFound != null) {
+            Text(
+                notFound,
+                Modifier.fillMaxSize().padding(padding).padding(24.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ContentStateLayout(content, errorKind, onRetry, contentPadding = padding) { loaded ->
+                if (loaded != null) ListBody(listState, padding, edgeToEdge, verticalPadding) { items(loaded) }
+            }
         }
     }
 }
