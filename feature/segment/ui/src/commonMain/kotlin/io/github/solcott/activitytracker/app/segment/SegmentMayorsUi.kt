@@ -17,7 +17,6 @@ import io.github.solcott.activitytracker.app.ui.BoardSegments
 import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
-import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.app.ui.string
@@ -46,7 +45,7 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
         listState = listState,
         verticalPadding = 12.dp,
     ) {
-        item(key = "filters") { Filters(state) }
+        item(key = "filters") { Filters(state.filters) }
         rankBoardRows(
             state.entries,
             state.viewerEntry,
@@ -78,24 +77,15 @@ internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modif
 }
 
 @Composable
-private fun Filters(state: SegmentMayorsState) {
+private fun Filters(fields: BoardFilterFields) {
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        BoardSegments(state.scopeChoice, onSelect = { it?.let { scope -> state.eventSink(SegmentMayorsEvent.ScopeChanged(scope)) } })
+        BoardSegments(fields.scopeChoice, onSelect = { it?.let { scope -> fields.eventSink(BoardFilterEvent.ScopeChanged(scope)) } })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             BoardChoiceChip(
-                state.periodChoice,
-                onSelect = { it?.let { period -> state.eventSink(SegmentMayorsEvent.PeriodChanged(period)) } },
+                fields.periodChoice,
+                onSelect = { it?.let { period -> fields.eventSink(BoardFilterEvent.PeriodChanged(period)) } },
             )
-            SegmentBoardChips(
-                state.typeChoice,
-                state.ageGroupChoice,
-                state.weightClassChoice(LocalUnitSystem.current),
-                state.genderChoice,
-                onType = { state.eventSink(SegmentMayorsEvent.BoardChanged(it)) },
-                onAgeGroup = { state.eventSink(SegmentMayorsEvent.AgeGroupChanged(it)) },
-                onWeightClass = { state.eventSink(SegmentMayorsEvent.WeightClassChanged(it)) },
-                onGender = { state.eventSink(SegmentMayorsEvent.GenderChanged(it)) },
-            )
+            SegmentBoardChips(fields)
         }
     }
 }

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.segment.BoardFilterEvent
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsEvent
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
@@ -86,11 +87,11 @@ class SegmentMayorsPresenterTest {
         val segments = segments()
         presenterTestOf({ SegmentMayorsPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
-            assertEquals(MayorPeriod.LAST_90_DAYS, first.period)
+            assertEquals(MayorPeriod.LAST_90_DAYS, first.filters.period)
             assertEquals(listOf(14, 11), first.entries.items.map { it.efforts })
             assertEquals(58, assertNotNull(first.viewerEntry).rank, "own place pinned")
-            assertEquals("hike", first.board)
-            assertEquals(listOf("hike", "walk"), first.boards)
+            assertEquals("hike", first.filters.board)
+            assertEquals(listOf("hike", "walk"), first.filters.boards)
             assertEquals(mapOf("segment" to uri, "period" to "last90Days", "scope" to "everyone"), requests.single())
 
             first.eventSink(SegmentMayorsEvent.LoadMore)
@@ -107,7 +108,7 @@ class SegmentMayorsPresenterTest {
         val segments = segments()
         val carried = SegmentMayorsScreen(uri, "Hill", board = "walk")
         presenterTestOf({ SegmentMayorsPresenter(carried, FakeNavigator(carried), segments) }) {
-            assertEquals("walk", awaitUntil { it.answered }.board)
+            assertEquals("walk", awaitUntil { it.answered }.filters.board)
             assertEquals("walk", requests.single()["board"])
             cancelAndIgnoreRemainingEvents()
         }
@@ -119,8 +120,8 @@ class SegmentMayorsPresenterTest {
         weekGate = gate
         val segments = segments()
         presenterTestOf({ SegmentMayorsPresenter(screen, FakeNavigator(screen), segments) }) {
-            awaitUntil { it.answered }.eventSink(SegmentMayorsEvent.PeriodChanged(MayorPeriod.THIS_WEEK))
-            val loading = awaitUntil { it.period == MayorPeriod.THIS_WEEK }
+            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.PeriodChanged(MayorPeriod.THIS_WEEK))
+            val loading = awaitUntil { it.filters.period == MayorPeriod.THIS_WEEK }
             assertEquals(emptyList(), loading.entries.items, "no last-90-days entries under this week")
             assertNull(loading.viewerEntry)
 
@@ -137,14 +138,16 @@ class SegmentMayorsPresenterTest {
         val segments = segments()
         presenterTestOf({ SegmentMayorsPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
-            first.eventSink(SegmentMayorsEvent.PeriodChanged("decade"))
-            first.eventSink(SegmentMayorsEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
-            awaitUntil { requests.size == 2 && it.scope == LeaderboardScope.FOLLOWING && it.answered }
-                .eventSink(SegmentMayorsEvent.BoardChanged("walk"))
-            awaitUntil { requests.size == 3 && it.board == "walk" && it.answered }
-                .eventSink(SegmentMayorsEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_35))
-            val last = awaitUntil { requests.size == 4 && it.ageGroup != null && it.answered }
-            assertEquals(MayorPeriod.LAST_90_DAYS, last.period, "an unknown window changes nothing")
+            first.filters.eventSink(BoardFilterEvent.PeriodChanged("decade"))
+            first.filters.eventSink(BoardFilterEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
+            awaitUntil { requests.size == 2 && it.filters.scope == LeaderboardScope.FOLLOWING && it.answered }
+                .filters
+                .eventSink(BoardFilterEvent.BoardChanged("walk"))
+            awaitUntil { requests.size == 3 && it.filters.board == "walk" && it.answered }
+                .filters
+                .eventSink(BoardFilterEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_35))
+            val last = awaitUntil { requests.size == 4 && it.filters.ageGroup != null && it.answered }
+            assertEquals(MayorPeriod.LAST_90_DAYS, last.filters.period, "an unknown window changes nothing")
             assertEquals(
                 mapOf("segment" to uri, "period" to "last90Days", "scope" to "following", "board" to "walk", "ageGroup" to "35-44"),
                 requests.last(),

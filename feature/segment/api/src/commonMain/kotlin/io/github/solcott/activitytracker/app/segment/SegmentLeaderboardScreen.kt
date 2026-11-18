@@ -4,23 +4,13 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.boards.BoardChoice
-import io.github.solcott.activitytracker.app.boards.RankBoardTexts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.BoardMeta
-import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.pagedStateOf
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name], opening on [board] (a [SegmentBoard]
@@ -32,20 +22,8 @@ data class SegmentLeaderboardScreen(val uri: String, val name: String, val board
 @Immutable
 data class SegmentLeaderboardState(
     val name: String,
-    /** A [LeaderboardPeriod] value. */
-    val period: String = LeaderboardPeriod.ALL_TIME,
-    /** A [LeaderboardScope] value. */
-    val scope: String = LeaderboardScope.EVERYONE,
-    /** The board type shown (a [SegmentBoard] value), as the AppView served it; null until it answers, or when the segment has none. */
-    val board: String? = null,
-    /** The types the viewer may choose, most efforts first; a menu when there are two or more. */
-    val boards: ImmutableList<String> = persistentListOf(),
-    /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets); null for every age. */
-    val ageGroup: String? = null,
-    /** A [LeaderboardWeightClass] value, in kilograms; null for every weight. */
-    val weightClass: String? = null,
-    /** A [LeaderboardGender] value; null for every gender. */
-    val gender: String? = null,
+    /** The board's choices, whose events the presenter's filters handle. */
+    val filters: BoardFilterFields = BoardFilterFields(BoardKind.Leaderboard),
     /**
      * The chosen board's entries, fastest first, a page at a time (ui/content-loading), with the viewer's own entry and the board types as
      * its meta. A new filter starts from nothing, so no other board's entries show under it.
@@ -55,49 +33,12 @@ data class SegmentLeaderboardState(
     val viewerEntry: LeaderboardEntry? = null,
     val eventSink: (SegmentLeaderboardEvent) -> Unit = {},
 ) : CircuitUiState {
-    val periodChoice: BoardChoice
-        get() = SegmentBoardTexts.leaderboardPeriod(period)
-
-    /** The choice of board type, or null while there is none to show; a label when the segment lists one type. */
-    val typeChoice: BoardChoice?
-        get() = SegmentBoardTexts.type(board, boards)
-
-    val scopeChoice: BoardChoice
-        get() = RankBoardTexts.scope(scope)
-
-    val ageGroupChoice: BoardChoice
-        get() = LeaderboardBracketTexts.ageGroup(ageGroup)
-
-    val genderChoice: BoardChoice
-        get() = LeaderboardBracketTexts.gender(gender)
-
-    /** The weight classes in [units], the viewer's. */
-    fun weightClassChoice(units: UnitSystem): BoardChoice = LeaderboardBracketTexts.weightClass(weightClass, units)
-
     /** Whether [entry]'s rank is drawn in the accent colour: the first three, the podium. */
     fun accents(entry: LeaderboardEntry): Boolean = entry.rank <= PODIUM
 }
 
 sealed interface SegmentLeaderboardEvent {
     data object Back : SegmentLeaderboardEvent
-
-    /** Shows the board for [period], a [LeaderboardPeriod] value, from its first page. */
-    data class PeriodChanged(val period: String) : SegmentLeaderboardEvent
-
-    /** Shows the board for [scope], a [LeaderboardScope] value, from its first page. */
-    data class ScopeChanged(val scope: String) : SegmentLeaderboardEvent
-
-    /** Shows the board of [board], a listed [SegmentBoard] type, from its first page; ignored for the type already shown. */
-    data class BoardChanged(val board: String) : SegmentLeaderboardEvent
-
-    /** Shows only athletes in [ageGroup], a [LeaderboardAgeGroup] value, or every age when null, from its first page. */
-    data class AgeGroupChanged(val ageGroup: String?) : SegmentLeaderboardEvent
-
-    /** Shows only athletes in [weightClass], a [LeaderboardWeightClass] value, or every weight when null, from its first page. */
-    data class WeightClassChanged(val weightClass: String?) : SegmentLeaderboardEvent
-
-    /** Shows only athletes of [gender], a [LeaderboardGender] value, or every gender when null, from its first page. */
-    data class GenderChanged(val gender: String?) : SegmentLeaderboardEvent
 
     /** Loads the next page; ignored while a page is loading or when there are no more. */
     data object LoadMore : SegmentLeaderboardEvent

@@ -13,18 +13,22 @@ import io.github.solcott.activitytracker.data.segments.LeaderboardBrackets
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.hasAnswer
-import kotlinx.collections.immutable.ImmutableList
 
 /**
- * A board screen's choices (segments/segment-leaderboards, segments/segment-mayors): its period, one of [periods], the scope, the board
- * type asked for and the brackets (segments/leaderboard-brackets). Each `choose` ignores a value it doesn't know.
+ * A board screen's choices (segments/segment-leaderboards, segments/segment-mayors): its period, one of [kind]'s, the scope, the board type
+ * asked for and the brackets (segments/leaderboard-brackets). It owns their events ([fields]); each `choose` ignores a value it doesn't
+ * know.
  */
 @Stable
-internal class BoardFilters(private val periods: List<String>, period: String, board: String?) {
+internal class BoardFilters(private val kind: BoardKind, period: String, board: String?) {
+    private val periods: List<String> = if (kind == BoardKind.Mayors) MayorPeriod.all else LeaderboardPeriod.all
+
     var period by mutableStateOf(period)
         private set
 
@@ -50,6 +54,21 @@ internal class BoardFilters(private val periods: List<String>, period: String, b
     /** Every choice, for keying the board: each is its own list. */
     val key: List<String?>
         get() = listOf(period, scope, requested, ageGroup, weightClass, gender)
+
+    /** The choices as the state shows them, with [types] the board's type control; their events come back here. */
+    fun fields(types: BoardTypes): BoardFilterFields =
+        BoardFilterFields(kind, period, scope, types.shown, types.listed, ageGroup, weightClass, gender) { onEvent(it, types) }
+
+    private fun onEvent(event: BoardFilterEvent, types: BoardTypes) {
+        when (event) {
+            is BoardFilterEvent.PeriodChanged -> choosePeriod(event.period)
+            is BoardFilterEvent.ScopeChanged -> chooseScope(event.scope)
+            is BoardFilterEvent.BoardChanged -> chooseBoard(event.board, types)
+            is BoardFilterEvent.AgeGroupChanged -> chooseAgeGroup(event.ageGroup)
+            is BoardFilterEvent.WeightClassChanged -> chooseWeightClass(event.weightClass)
+            is BoardFilterEvent.GenderChanged -> chooseGender(event.gender)
+        }
+    }
 
     fun choosePeriod(value: String) {
         if (value in periods) period = value
@@ -78,13 +97,17 @@ internal class BoardFilters(private val periods: List<String>, period: String, b
 }
 
 /**
- * [BoardFilters] starting on [period] (one of [periods]), every athlete, the board type [board] and no brackets, saved across recreation.
+ * [BoardFilters] for a [kind] board starting on its default period, every athlete, the board type [board] and no brackets, saved across
+ * recreation.
  */
 @Composable
-internal fun rememberBoardFilters(periods: ImmutableList<String>, period: String, board: String?): BoardFilters =
-    rememberSaveable(saver = boardFiltersSaver(periods)) { BoardFilters(periods, period, board) }
+internal fun rememberBoardFilters(kind: BoardKind, board: String?): BoardFilters =
+    rememberSaveable(saver = boardFiltersSaver(kind)) { BoardFilters(kind, defaultPeriod(kind), board) }
 
-private fun boardFiltersSaver(periods: List<String>): Saver<BoardFilters, Any> =
+/** The period a [kind] board opens on. */
+private fun defaultPeriod(kind: BoardKind): String = if (kind == BoardKind.Mayors) MayorPeriod.LAST_90_DAYS else LeaderboardPeriod.ALL_TIME
+
+private fun boardFiltersSaver(kind: BoardKind): Saver<BoardFilters, Any> =
     mapSaver(
         save = {
             mapOf(
@@ -97,7 +120,7 @@ private fun boardFiltersSaver(periods: List<String>): Saver<BoardFilters, Any> =
             )
         },
         restore = { saved ->
-            BoardFilters(periods, saved["period"] as String, saved["requested"] as String?).apply {
+            BoardFilters(kind, saved["period"] as String, saved["requested"] as String?).apply {
                 chooseScope(saved["scope"] as String)
                 chooseAgeGroup(saved["ageGroup"] as String?)
                 chooseWeightClass(saved["weightClass"] as String?)

@@ -97,13 +97,17 @@ class SegmentBoardTextsTest {
     @Test
     fun theStatesOfferTheirChoices() {
         val board =
-            SegmentLeaderboardState("Ridge", board = "ride", boards = persistentListOf("ride", SegmentBoard.E_BIKE), ageGroup = "45-54")
+            SegmentLeaderboardState(
+                    "Ridge",
+                    BoardFilterFields(board = "ride", boards = persistentListOf("ride", SegmentBoard.E_BIKE), ageGroup = "45-54"),
+                )
+                .filters
         assertTrue(board.typeChoice!!.offersMenu)
         assertTrue(board.ageGroupChoice.narrows)
         assertFalse(board.genderChoice.narrows)
         assertFalse(board.scopeChoice.narrows)
         assertEquals(AppText.named("leaderboard_period_all_time"), board.periodChoice.label)
-        assertEquals(AppText.named("mayor_period_last_90_days"), SegmentMayorsState("Ridge").periodChoice.label)
+        assertEquals(AppText.named("mayor_period_last_90_days"), SegmentMayorsState("Ridge").filters.periodChoice.label)
     }
 
     @Test

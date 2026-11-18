@@ -11,6 +11,7 @@ import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.segment.BoardFilterEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
@@ -117,8 +118,8 @@ class SegmentLeaderboardPresenterTest {
             val first = awaitUntil { it.answered }
             assertEquals(listOf(1, 2), first.entries.items.map { it.rank })
             assertEquals(40, assertNotNull(first.viewerEntry).rank, "own place pinned")
-            assertEquals("ride", first.board, "the AppView's default")
-            assertEquals(listOf("ride", "eBike"), first.boards)
+            assertEquals("ride", first.filters.board, "the AppView's default")
+            assertEquals(listOf("ride", "eBike"), first.filters.boards)
             assertTrue(first.entries.canLoadMore)
             assertEquals(mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone"), requests.single())
 
@@ -137,12 +138,14 @@ class SegmentLeaderboardPresenterTest {
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
             // Each change waits for its own request, so the next one can't cancel it before it's sent.
-            first.eventSink(SegmentLeaderboardEvent.PeriodChanged(LeaderboardPeriod.MONTH))
-            awaitUntil { requests.size == 2 && it.period == LeaderboardPeriod.MONTH && it.answered }
-                .eventSink(SegmentLeaderboardEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
-            awaitUntil { requests.size == 3 && it.scope == LeaderboardScope.FOLLOWING && it.answered }
-                .eventSink(SegmentLeaderboardEvent.BoardChanged("eBike"))
-            awaitUntil { requests.size == 4 && it.board == "eBike" && it.answered }
+            first.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.MONTH))
+            awaitUntil { requests.size == 2 && it.filters.period == LeaderboardPeriod.MONTH && it.answered }
+                .filters
+                .eventSink(BoardFilterEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
+            awaitUntil { requests.size == 3 && it.filters.scope == LeaderboardScope.FOLLOWING && it.answered }
+                .filters
+                .eventSink(BoardFilterEvent.BoardChanged("eBike"))
+            awaitUntil { requests.size == 4 && it.filters.board == "eBike" && it.answered }
 
             assertEquals(
                 listOf(
@@ -162,16 +165,17 @@ class SegmentLeaderboardPresenterTest {
         val segments = segments()
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
-            assertNull(first.ageGroup, "every age by default")
-            first.eventSink(SegmentLeaderboardEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_45))
-            awaitUntil { requests.size == 2 && it.ageGroup == LeaderboardAgeGroup.FROM_45 && it.answered }
-                .eventSink(SegmentLeaderboardEvent.GenderChanged(LeaderboardGender.FEMALE))
-            val both = awaitUntil { requests.size == 3 && it.gender == LeaderboardGender.FEMALE && it.answered }
+            assertNull(first.filters.ageGroup, "every age by default")
+            first.filters.eventSink(BoardFilterEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_45))
+            awaitUntil { requests.size == 2 && it.filters.ageGroup == LeaderboardAgeGroup.FROM_45 && it.answered }
+                .filters
+                .eventSink(BoardFilterEvent.GenderChanged(LeaderboardGender.FEMALE))
+            val both = awaitUntil { requests.size == 3 && it.filters.gender == LeaderboardGender.FEMALE && it.answered }
             // An unknown class is ignored, so it changes nothing; clearing the age group reloads.
-            both.eventSink(SegmentLeaderboardEvent.WeightClassChanged("60-70"))
-            both.eventSink(SegmentLeaderboardEvent.AgeGroupChanged(null))
-            val cleared = awaitUntil { requests.size == 4 && it.ageGroup == null && it.answered }
-            assertNull(cleared.weightClass)
+            both.filters.eventSink(BoardFilterEvent.WeightClassChanged("60-70"))
+            both.filters.eventSink(BoardFilterEvent.AgeGroupChanged(null))
+            val cleared = awaitUntil { requests.size == 4 && it.filters.ageGroup == null && it.answered }
+            assertNull(cleared.filters.weightClass)
 
             assertEquals(
                 listOf(
@@ -194,9 +198,9 @@ class SegmentLeaderboardPresenterTest {
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val allTime = awaitUntil { it.answered }
             assertNotNull(allTime.viewerEntry)
-            allTime.eventSink(SegmentLeaderboardEvent.PeriodChanged(LeaderboardPeriod.YEAR))
+            allTime.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.YEAR))
             // The first state under this year already has none of the all-time board.
-            val loading = awaitUntil { it.period == LeaderboardPeriod.YEAR }
+            val loading = awaitUntil { it.filters.period == LeaderboardPeriod.YEAR }
             assertEquals(emptyList(), loading.entries.items, "no all-time entries under this year")
             assertNull(loading.viewerEntry, "nor the all-time place")
             assertEquals(LoadStatus.Loading, loading.entries.refresh)
@@ -213,8 +217,8 @@ class SegmentLeaderboardPresenterTest {
     fun anotherTypeHasTheViewersPlaceOnIt() = runTest {
         val segments = segments()
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
-            awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.BoardChanged("eBike"))
-            val eBike = awaitUntil { it.board == "eBike" && it.answered }
+            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.BoardChanged("eBike"))
+            val eBike = awaitUntil { it.filters.board == "eBike" && it.answered }
             assertEquals(listOf("frank.test"), eBike.entries.items.map { it.athlete.handle.value })
             assertEquals(5, eBike.viewerEntry?.rank)
             cancelAndIgnoreRemainingEvents()
@@ -225,8 +229,8 @@ class SegmentLeaderboardPresenterTest {
     fun nobodyOnABoardIsAnAnswer() = runTest {
         val segments = segments()
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
-            awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
-            val empty = awaitUntil { it.scope == LeaderboardScope.FOLLOWING && it.answered }
+            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
+            val empty = awaitUntil { it.filters.scope == LeaderboardScope.FOLLOWING && it.answered }
             assertEquals(emptyList(), empty.entries.items)
             assertNull(empty.viewerEntry)
             cancelAndIgnoreRemainingEvents()
@@ -239,7 +243,7 @@ class SegmentLeaderboardPresenterTest {
         val carried = SegmentLeaderboardScreen(uri, "Hill", board = "eBike")
         presenterTestOf({ SegmentLeaderboardPresenter(carried, FakeNavigator(carried), segments) }) {
             val state = awaitUntil { it.answered }
-            assertEquals("eBike", state.board)
+            assertEquals("eBike", state.filters.board)
             assertEquals(listOf("frank.test"), state.entries.items.map { it.athlete.handle.value })
             assertEquals(mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "board" to "eBike"), requests.single())
             cancelAndIgnoreRemainingEvents()
@@ -252,13 +256,13 @@ class SegmentLeaderboardPresenterTest {
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val state = awaitUntil { it.answered }
             // The default board was served as ride: asking for it by name would load it twice.
-            state.eventSink(SegmentLeaderboardEvent.BoardChanged("ride"))
-            state.eventSink(SegmentLeaderboardEvent.BoardChanged("kayak"))
+            state.filters.eventSink(BoardFilterEvent.BoardChanged("ride"))
+            state.filters.eventSink(BoardFilterEvent.BoardChanged("kayak"))
             testScheduler.runCurrent()
             // The load answers on a real thread, so a last recomposition from it can land after runCurrent, as an item with a new
             // eventSink and nothing else changed. Only a different board shown, or a second load, is the change this rules out.
             cancelAndConsumeRemainingEvents().filterIsInstance<Event.Item<SegmentLeaderboardState>>().forEach { later ->
-                assertEquals(state.board, later.value.board)
+                assertEquals(state.filters.board, later.value.filters.board)
                 assertEquals(state.entries, later.value.entries)
             }
             assertEquals(1, requests.size)
@@ -272,8 +276,8 @@ class SegmentLeaderboardPresenterTest {
         val run = SegmentLeaderboardScreen(uri, "Hill", board = "run")
         presenterTestOf({ SegmentLeaderboardPresenter(run, FakeNavigator(run), segments) }) {
             val state = awaitUntil { it.answered }
-            assertEquals("run", state.board)
-            assertEquals(listOf("run"), state.boards)
+            assertEquals("run", state.filters.board)
+            assertEquals(listOf("run"), state.filters.boards)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -323,8 +327,8 @@ class SegmentLeaderboardPresenterTest {
                 }
             },
         ) {
-            awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.PeriodChanged(LeaderboardPeriod.MONTH))
-            awaitUntil { it.period == LeaderboardPeriod.MONTH && it.answered }.eventSink(SegmentLeaderboardEvent.LoadMore)
+            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.MONTH))
+            awaitUntil { it.filters.period == LeaderboardPeriod.MONTH && it.answered }.eventSink(SegmentLeaderboardEvent.LoadMore)
             awaitUntil { it.entries.items.size == 3 && it.answered }
             val sent = requests.size
             // What the back stack does to a record it leaves.
@@ -335,7 +339,7 @@ class SegmentLeaderboardPresenterTest {
             saveable = SaveableStateRegistry(saved) { true }
             shown = true
             val back = awaitUntil { it.name == "Hill" }
-            assertEquals(LeaderboardPeriod.MONTH, back.period)
+            assertEquals(LeaderboardPeriod.MONTH, back.filters.period)
             assertEquals(listOf(1, 2, 3), back.entries.items.map { it.rank }, "no loading state in between")
             testScheduler.runCurrent()
             expectNoEvents()
