@@ -9,7 +9,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +49,6 @@ fun TimeZoneNotice(
 }
 
 /** A zone chosen by typing part of its city ("cancun", "new york") or offset ("utc+8"). */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val selected = zoneLabel(clock.zone)
