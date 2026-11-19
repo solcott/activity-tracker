@@ -62,7 +62,7 @@ A segment job of any kind that exhausts its retries SHALL be removed from the qu
 - **THEN** the queued job shows that failure's error
 
 ### Requirement: Failed segment jobs are cleared
-A failed segment job SHALL be removed when a job of the same kind and subject later succeeds, when the account whose record is its subject is deleted, and thirty days after it gave up.
+A failed segment job SHALL be removed when a job of the same kind and subject later succeeds, when the account whose record is its subject is deleted, when an operator requeues or drops it (admin/job-queues), and thirty days after it gave up.
 
 #### Scenario: Later success
 - **WHEN** a failed `segment` job's subject is enqueued again and that job succeeds
@@ -75,6 +75,14 @@ A failed segment job SHALL be removed when a job of the same kind and subject la
 #### Scenario: Old failure
 - **WHEN** a failed job gave up more than thirty days ago
 - **THEN** it is removed
+
+#### Scenario: Operator requeues it
+- **WHEN** an operator requeues a failed `track` job
+- **THEN** the failed job is gone and a `track` job for its subject is queued
+
+#### Scenario: Operator drops it
+- **WHEN** an operator drops a failed `group` job
+- **THEN** the failed job is gone and nothing is queued for it
 
 ### Requirement: Recorded errors never carry private content
 Error text the AppView records for operators, in worker status and in any stored failure, SHALL be the error's type and the first line of its message, at most 500 characters. Errors from decoding a record or blob SHALL be recorded by type alone. Recorded error text SHALL NOT contain the content of a record, a blob or a stream.
@@ -146,3 +154,22 @@ No metric's name or label SHALL contain a DID other than a configured service's,
 #### Scenario: Frequent scrapes
 - **WHEN** `/metrics` is scraped every second
 - **THEN** the database-backed counts are queried at most once every fifteen seconds
+
+### Requirement: A worker can be restarted on request
+The AppView SHALL be able to restart a running or backing-off loop or stream worker on request: end its current run, optionally run a step while it is stopped, then start a new run at once with no pause. Such a restart SHALL be counted in the worker's status apart from crash restarts, SHALL NOT lengthen the pause before a later crash restart, and SHALL NOT stop work the worker started in the shared worker scope.
+
+#### Scenario: Restart a loop
+- **WHEN** the handle sweep is restarted on request
+- **THEN** its current run ends, a new run starts without a pause, its requested restart count is one and its crash restart count is unchanged
+
+#### Scenario: Step while stopped
+- **WHEN** the Jetstream worker is restarted with a step that writes its cursor
+- **THEN** the step runs after the current run has ended and before the next begins
+
+#### Scenario: Syncs already running
+- **WHEN** the space syncer is restarted while it has syncs of single spaces in progress
+- **THEN** those syncs carry on to completion
+
+#### Scenario: Not restartable
+- **WHEN** a restart is requested for a disabled, stopped or one-off worker, or one whose restart is already in progress
+- **THEN** it is refused and the worker's status is unchanged
