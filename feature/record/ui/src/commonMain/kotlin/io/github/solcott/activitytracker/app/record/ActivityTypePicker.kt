@@ -2,7 +2,8 @@ package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,7 +78,12 @@ fun ActivityTypePicker(field: ActivityTypeField, modifier: Modifier = Modifier, 
 private fun SubSportChips(selected: ActivityType, onSelect: (ActivityType) -> Unit, enabled: Boolean, outdoorOnly: Boolean) {
     val types = SportTypeGroups.subSportChoices(selected, outdoorOnly)
     if (types.isEmpty()) return
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlexBox(
+        config = {
+            wrap(FlexWrap.Wrap)
+            gap(8.dp)
+        },
+    ) {
         types.forEach { type ->
             AppFilterChip(
                 selected = type == selected,

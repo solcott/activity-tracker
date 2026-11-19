@@ -2,8 +2,8 @@ package io.github.solcott.activitytracker.app.report
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +32,6 @@ import org.jetbrains.compose.resources.stringResource
  * offered, Block. Its words and conditions are Kotlin's (`ReportTexts`, `ReportState`), shared with the native sheet.
  */
 @SubCircuitInject(ReportScreen::class, SessionScope::class)
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
     if (state.sent) {
@@ -63,7 +62,13 @@ fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(ReportTexts.reasonPrompt.string(), style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlexBox(
+                config = {
+                    wrap(FlexWrap.Wrap)
+                    columnGap(8.dp)
+                    rowGap(4.dp)
+                },
+            ) {
                 ReportTexts.reasons.forEach { choice ->
                     AppFilterChip(
                         selected = state.chose(choice),

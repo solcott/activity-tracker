@@ -3,7 +3,8 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -139,7 +140,12 @@ private fun BatchFilters(state: ImportActivityState, batch: ImportBatch, enabled
         if (ImportActivityTexts.offersBulkActions(batch)) {
             Text(ImportActivityTexts.bulkHeading.string(), style = MaterialTheme.typography.labelLarge)
             // Buttons, not a segmented control: the shown duplicates can each be set differently, so none is "selected".
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlexBox(
+                config = {
+                    wrap(FlexWrap.Wrap)
+                    columnGap(8.dp)
+                },
+            ) {
                 ImportActivityTexts.bulkChoices.forEach { (action) ->
                     AppSecondaryButton(
                         onClick = { state.eventSink(ImportActivityEvent.ShownDuplicatesAction(action)) },

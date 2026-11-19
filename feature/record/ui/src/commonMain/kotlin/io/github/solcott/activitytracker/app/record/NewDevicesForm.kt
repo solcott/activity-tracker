@@ -3,8 +3,8 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -80,7 +80,6 @@ private fun NewDeviceCardUi(card: NewDeviceCard, fields: NewDevicesFields, enabl
 }
 
 /** The new item's name, type and kind, what it's mounted on and its collections. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled: Boolean) {
     val send = fields.eventSink
@@ -143,7 +142,13 @@ private fun NewItemFields(card: NewDeviceCard, fields: NewDevicesFields, enabled
         }
         if (fields.collections.isNotEmpty()) {
             Text(ImportActivityTexts.deviceCollectionsLabel.string(), style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlexBox(
+                config = {
+                    wrap(FlexWrap.Wrap)
+                    columnGap(8.dp)
+                    rowGap(4.dp)
+                },
+            ) {
                 fields.collections.forEach { collection ->
                     AppFilterChip(
                         selected = collection.rkey in card.collections,

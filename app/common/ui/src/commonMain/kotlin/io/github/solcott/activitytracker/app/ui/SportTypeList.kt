@@ -2,8 +2,8 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -105,7 +105,13 @@ fun QuickTypeChips(
     onClick: (ActivityType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlexBox(
+        modifier,
+        config = {
+            wrap(FlexWrap.Wrap)
+            gap(8.dp)
+        },
+    ) {
         types.forEach { type ->
             AppFilterChip(
                 selected = isSelected(type),
