@@ -21,7 +21,7 @@ A name pin that names one of the segment's proposals SHALL take that proposal's 
 ## MODIFIED Requirements
 
 ### Requirement: Only regulars may propose
-The AppView SHALL accept a proposal only if, when it's indexed, the segment is `active` and of kind `run` with no name pin, and the proposer has efforts on it on at least a configured number of distinct local dates, 5 by default. Efforts of every visibility SHALL count, but only efforts within the sport group's speed cap. It SHALL ignore any other proposal, and SHALL NOT drop an accepted proposal when the proposer later loses efforts. A segment whose status is pinned `active` SHALL count as `active`.
+The AppView SHALL accept a proposal only if, when it's indexed, the segment is `active` and of kind `run` with no name pin, and the proposer has efforts on it on at least a configured number of distinct local dates, 5 by default. Efforts of every visibility SHALL count, but only efforts within the sport group's speed cap. It SHALL ignore any other proposal, and SHALL keep an accepted one when its proposer later loses efforts. A segment whose status is pinned `active` SHALL count as `active`.
 
 #### Scenario: Five days of efforts
 - **WHEN** alice has efforts on a segment on 5 different dates, two of them from Only me activities, and proposes a name
@@ -78,7 +78,7 @@ A segment's original name SHALL be its record's name. Its current name SHALL be 
 - **THEN** its current name stays "Hogback Climb" and its original name changes
 
 ### Requirement: Labels remove a proposal or its name
-A proposal whose record or proposer's account carries `!hide` or `!takedown` SHALL NOT be counted or adopted, nor listed to anyone but, under `!hide` alone, its proposer, as their own hidden content is. If it was already adopted, its name SHALL leave the history and stop being in effect. If a name pin names it, the pin SHALL stop being in effect. The segment's current name then falls back to a pinned name still in effect, else the previous adopted name in effect, else the original. Negating the label SHALL restore it.
+A proposal whose record or proposer's account carries `!hide` or `!takedown` SHALL NOT be counted or adopted, nor listed to anyone but, under `!hide` alone, its proposer, as their own hidden content is. If it was already adopted, its name SHALL leave the history and stop being in effect. If a name pin names it, the pin SHALL stop being in effect. The current name then falls back to a pinned name in effect, else the previous adopted one, else the original. Negating the label SHALL restore it.
 
 #### Scenario: Offensive name adopted
 - **WHEN** the adopted name "Rooty Run" replaced "Wiggly Woods", and its proposal is then labelled `!takedown`

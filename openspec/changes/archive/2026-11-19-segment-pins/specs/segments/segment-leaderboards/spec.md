@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Only active segments have leaderboards
-`feed.getSegmentLeaderboard` SHALL return a segment's board only while the segment is `active` and of kind `run`, whether its status is derived or pinned (`segments/segment-pins`). For a segment of any other status, and for a lift, it SHALL return no entries. A segment that isn't indexed or isn't served to the viewer SHALL be `NotFound`. A pin that archives a segment SHALL keep its efforts, so its board SHALL return the same entries again once the segment is `active` again. A pin that makes it `duplicate` SHALL remove its efforts, so its board SHALL hold only efforts matched after it is live again.
+`feed.getSegmentLeaderboard` SHALL return a segment's board only while the segment is `active` and of kind `run`, whether its status is derived or pinned (`segments/segment-pins`). Any other segment, a lift too, SHALL return no entries, and one that isn't indexed or served to the viewer SHALL be `NotFound`. An `archived` pin SHALL keep its efforts, so its board returns once it is `active` again; a `duplicate` pin SHALL remove them, so its board holds only efforts matched after it is live again.
 
 #### Scenario: Proposed segment
 - **WHEN** a viewer asks for the leaderboard of a proposed segment that three efforts are on

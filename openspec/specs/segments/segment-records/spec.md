@@ -72,7 +72,7 @@ The AppView SHALL index a segment only if its line has at least two positions, i
 - **THEN** the AppView doesn't index it
 
 ### Requirement: Editing or deleting a segment updates it everywhere
-Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL remove the segment, every effort on it, and its name proposals and their votes, and its name history, except what a handoff keeps for an `active` segment that isn't the importer's (`segments/segment-handoffs`). Changing a segment's line or sport group SHALL recompute its efforts against the new version. Changing its name SHALL change only its original name (`segments/segment-names`).
+Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL remove the segment, its efforts, proposals, votes and name history, except what a handoff keeps (`segments/segment-handoffs`), but SHALL keep its pins (`segments/segment-pins`), which apply again when its URI is indexed again. Changing its line or sport group SHALL recompute its efforts. A new name SHALL change only its original name (`segments/segment-names`).
 
 #### Scenario: Segment deleted
 - **WHEN** a segment's creator deletes its record
@@ -89,6 +89,10 @@ Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL
 #### Scenario: Renamed after a community name
 - **WHEN** a segment's current name is an adopted "Wiggly Woods" and its creator renames the record
 - **THEN** its original name changes and its current name stays "Wiggly Woods"
+
+#### Scenario: Pinned segment deleted and written again
+- **WHEN** a segment pinned `archived` is deleted and its record is later written again under the same URI
+- **THEN** the AppView indexes it as `archived`
 
 ### Requirement: A segment can be looked up by URI
 `feed.getSegment` SHALL return a segment's view by its URI, whatever its status: its creator, current and original names, sport group, line, length, source, licence and status, and for a duplicate the segment it duplicates. It SHALL include its name history and open name proposals. For a signed-in viewer it SHALL also give the viewer's own fastest effort on it, if they have one, whether they may propose a name or vote, and their own votes. A URI not indexed or handed off SHALL be `NotFound`.
@@ -143,7 +147,7 @@ A development script SHALL write a `feed.segment` to a local test account's repo
 - **THEN** `alice.test`'s repo holds a `feed.segment` with that line, and the AppView indexes it
 
 ### Requirement: Every segment has a status
-The AppView SHALL give each indexed segment one status: `proposed`, `active`, `duplicate` or `archived`. It SHALL derive the status itself and never read it from the record. A new segment SHALL start `proposed`, except the segment importer's (see "The segment importer's segments start active"). It SHALL serve the status in every segment view, and for a `duplicate`, the URI of the segment it duplicates.
+The AppView SHALL give each indexed segment one status: `proposed`, `active`, `duplicate` or `archived`. It SHALL derive the status and never read it from the record, unless an operator pinned it (`segments/segment-pins`): then the pinned status SHALL be its status. A new segment SHALL start `proposed`, except the segment importer's (see "The segment importer's segments start active"). It SHALL serve the status in every segment view, and for a `duplicate`, the URI of the segment it duplicates.
 
 #### Scenario: New segment
 - **WHEN** the AppView indexes a new segment from an athlete's repo that duplicates nothing
@@ -153,8 +157,12 @@ The AppView SHALL give each indexed segment one status: `proposed`, `active`, `d
 - **WHEN** a `feed.segment` record in an athlete's repo carries a field claiming it is `active`
 - **THEN** the AppView ignores it and the segment starts `proposed`
 
+#### Scenario: Pinned status
+- **WHEN** an operator has pinned a proposed segment `active`
+- **THEN** its view shows the status `active`
+
 ### Requirement: A proposed segment becomes active once ridden
-A `proposed` segment SHALL become `active` once efforts on it come from at least a configured number of distinct athletes, 3 by default, its creator included. Efforts of every visibility SHALL count, but only the status SHALL be served, never who counted. An `active` segment SHALL stay `active` when efforts are later removed.
+A `proposed` segment without a status pin SHALL become `active` once efforts on it come from at least a configured number of distinct athletes, 3 by default, its creator included. Efforts of every visibility SHALL count, but only the status SHALL be served, never who counted. An `active` segment SHALL stay `active` when efforts are later removed.
 
 #### Scenario: Third athlete
 - **WHEN** a proposed segment has efforts from its creator and one other athlete, and a third athlete's run matches it
@@ -169,14 +177,18 @@ A `proposed` segment SHALL become `active` once efforts on it come from at least
 - **THEN** the segment stays `active`
 
 ### Requirement: Unridden segments are archived
-A segment still `proposed` 180 days after the AppView first indexed it SHALL become `archived`. An archived segment SHALL keep its existing efforts and SHALL be served by URI, but SHALL get no new efforts and SHALL NOT appear in search.
+A segment without a status pin still `proposed` 180 days after the AppView first indexed it SHALL become `archived`. An archived segment, whether archived this way or pinned `archived`, SHALL keep its existing efforts and SHALL be served by URI, but SHALL get no new efforts and SHALL NOT appear in search.
 
 #### Scenario: Never ridden
 - **WHEN** a segment created 181 days ago has efforts from only its creator
 - **THEN** it becomes `archived` and stops appearing in search
 
+#### Scenario: Pinned active, never ridden
+- **WHEN** a segment created 181 days ago with efforts from only its creator is pinned `active`
+- **THEN** it stays `active`
+
 ### Requirement: Duplicates are detected on indexing
-When the AppView indexes a new or changed segment, it SHALL mark it `duplicate` of the earliest-indexed `proposed` or `active` segment of the same sport group and kind whose line it duplicates, and SHALL NOT match it. One line SHALL duplicate another when they run the same direction, their lengths differ by at most 20%, and following both from start to end never takes them more than 30 m apart.
+On indexing a new or changed segment, the AppView SHALL mark it `duplicate` of the earliest-indexed `proposed` or `active` segment of its sport group and kind whose line it duplicates, and not match it. One line SHALL duplicate another when they run the same direction, their lengths differ by at most 20%, and they're never more than 30 m apart from start to end. A status pin in effect SHALL keep its status. Its efforts SHALL still be recomputed, and unpinning SHALL start from what was derived.
 
 #### Scenario: Same climb written straight to a PDS
 - **WHEN** a client writes a ride segment over an existing ride segment's climb, with endpoints 10 m off
@@ -198,12 +210,24 @@ When the AppView indexes a new or changed segment, it SHALL mark it `duplicate` 
 - **WHEN** an `alpine` run follows an existing lift's line in the same direction
 - **THEN** it isn't a duplicate
 
+#### Scenario: Pinned segment re-lined onto another
+- **WHEN** a segment pinned `active` is re-lined so it duplicates an earlier active segment
+- **THEN** it stays `active` and its efforts are recomputed against its new line
+
 ### Requirement: Duplicates are re-checked when their original changes
-When a segment that others duplicate is deleted, archived, or changed so they no longer duplicate it, the AppView SHALL check each of those duplicates again, earliest-indexed first. One that duplicates nothing else SHALL become `proposed` and be matched against past segment tracks. Earliest-indexed SHALL be when the AppView first indexed the segment, not when it was last changed.
+When a segment that others duplicate is deleted, archived (by the status pass or by a pin), pinned `duplicate`, or changed so they no longer duplicate it, the AppView SHALL check each of those duplicates again, earliest-indexed first. One that duplicates nothing else SHALL become `proposed` and be matched against past segment tracks. Earliest-indexed SHALL mean first indexed, not last changed. A duplicate whose status is pinned SHALL NOT be re-checked while its pin applies.
 
 #### Scenario: Original deleted
 - **WHEN** the creator of a segment that one other segment duplicates deletes theirs
 - **THEN** the other segment becomes `proposed`, and past activities that pass it get their efforts
+
+#### Scenario: Original pinned archived
+- **WHEN** an operator pins `archived` a segment that one other segment duplicates
+- **THEN** the other segment becomes `proposed`, and past activities that pass it get their efforts
+
+#### Scenario: Pinned duplicate kept
+- **WHEN** segment A is pinned `duplicate` of B, and B is then pinned `archived`
+- **THEN** A stays `duplicate` of B
 
 ### Requirement: Segment creation is limited per athlete
 The AppView SHALL index at most 10 new segments per creator in any 24 hours and SHALL drop any further new segment from that creator in that window. Re-writing an already indexed segment SHALL NOT count. Segments from the account the AppView is configured to accept as the segment importer SHALL NOT be limited, and `feed.checkSegment` SHALL always report that account's allowance as the full 10.

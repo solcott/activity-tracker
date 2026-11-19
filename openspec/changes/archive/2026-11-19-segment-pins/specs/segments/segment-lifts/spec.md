@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Lift rides are efforts
-A lift SHALL be matched against segment tracks, given efforts and given a status exactly as a run segment is, under the same consent, the same tests and the same visibility (`segments/segment-efforts`). Its efforts SHALL count toward its status. An operator MAY pin a lift's status or name as a run's (`segments/segment-pins`). A lift pinned `active` SHALL be matched and listed like an active lift, and SHALL still never be ranked, put on a Mayors board or take name proposals. A `duplicate` pin on a lift SHALL name another lift.
+A lift SHALL be matched, given efforts and given a status exactly as a run segment is, under the same consent, tests and visibility (`segments/segment-efforts`). Its efforts SHALL count toward its status. An operator MAY pin a lift's status or name as a run's (`segments/segment-pins`). A lift pinned `active` SHALL be matched and listed like an active lift, and SHALL still never be ranked, put on a Mayors board or take name proposals. A `duplicate` pin on a lift SHALL name another lift.
 
 #### Scenario: Riding a gondola
 - **WHEN** an athlete with matching on rides an active gondola from bottom to top on a ski day
