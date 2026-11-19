@@ -17,7 +17,7 @@
 - [x] 3.2 Add the actions `status-pass`, `naming-pass`, `elevation`, `rematch` (design decisions 3 and 4), each answering with before and after, "terrain queued" or "terrain not configured", or `not-live`; verify in `AdminSegmentsTest` the spec scenarios for each, and that a rematch queues a `segment` job only for a live segment
 - [x] 3.3 Add `pin-status`, `unpin-status`, `pin-name`, `unpin-name` over `indexer.segmentPins` with the `PinResult` mapping and the duplicate confirmation (design decisions 5 and 6); verify in `AdminSegmentsTest` the spec's pin scenarios: pin archived with note shown on the page, invalid cross-sport duplicate refused unchanged, unconfirmed duplicate refused, unpin with no pin says so, and pins on a deleted segment listed and unpinned
 - [x] 3.4 Verify gating and auditing in `AdminSegmentsTest`: a viewer's POST to each action answers `403` and changes nothing; a POST without the CSRF token, and one with a foreign `Origin`, is refused; every attempt writes one `admin_actions` row with the segment URI as target, the form fields as params and `ok`, `refused: <code>`, or `failed: <Type>` as outcome
-- [ ] 3.5 Pass `adminPages = listOf(SegmentsPage(…))` from `main` to `appView`, with a `SegmentPasses` built from the config and `indexer.segmentJobs`; verify `./gradlew :server-appview:run` against the local stack lists "Segments" in the admin navigation
+- [x] 3.5 Pass `adminPages = listOf(SegmentsPage(…))` from `main` to `appView`, with a `SegmentPasses` built from the config and `indexer.segmentJobs`; verify `./gradlew :server-appview:run` against the local stack lists "Segments" in the admin navigation
 
 ## 4. Privacy and docs
 
@@ -27,4 +27,4 @@
 
 ## 5. Local check
 
-- [ ] 5.1 With `scripts/dev.sh` (and `docker/scripts/seed-segment.sh` / `seed-effort.sh` for a segment with efforts), open `http://localhost:8081/admin` in the browser pane, sign in as `siteadmin.test`, search the seeded segment by name and by URI, open it, run the status pass, naming pass, elevation recompute and rematch, pin it `archived` with a note and unpin it, pin and unpin a name, and try a duplicate pin unconfirmed; verify each outcome on the page, the segment's status in `feed.getSegment`, and one audit row per action on the audit page filtered by its URI
+- [x] 5.1 With `scripts/dev.sh` (and `docker/scripts/seed-segment.sh` / `seed-effort.sh` for a segment with efforts), open `http://localhost:8081/admin` in the browser pane, sign in as `siteadmin.test`, search the seeded segment by name and by URI, open it, run the status pass, naming pass, elevation recompute and rematch, pin it `archived` with a note and unpin it, pin and unpin a name, and try a duplicate pin unconfirmed; verify each outcome on the page, the segment's status in `feed.getSegment`, and one audit row per action on the audit page filtered by its URI
