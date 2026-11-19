@@ -6,8 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -185,16 +185,14 @@ private fun GroupHeader(group: ThresholdHistoryGroup, onToggle: () -> Unit, modi
 /** A tile per threshold: its value now, a sparkline of its progress when it has one, and how it moved. */
 @Composable
 private fun Overview(group: ThresholdHistoryGroup, modifier: Modifier = Modifier) {
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val columns = (maxWidth / OVERVIEW_TILE_WIDTH).toInt().coerceAtLeast(2)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            group.thresholds.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { OverviewTile(it, Modifier.weight(1f)) }
-                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
+    Grid(
+        config = {
+            repeat((constraints.maxWidth / OVERVIEW_TILE_WIDTH.toPx()).toInt().coerceAtLeast(2)) { column(1.fr) }
+            gap(8.dp)
+        },
+        modifier.fillMaxWidth(),
+    ) {
+        group.thresholds.forEach { OverviewTile(it, Modifier.fillMaxWidth()) }
     }
 }
 

@@ -6,7 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -134,7 +135,12 @@ private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier:
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlexBox(
+            config = {
+                wrap(FlexWrap.Wrap)
+                gap(8.dp)
+            },
+        ) {
             fields.media.forEachIndexed { index, media ->
                 PhotoTile(media, onRemove = { fields.eventSink(DetailsEvent.RemoveMedia(index)) }, enabled = enabled)
             }

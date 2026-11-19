@@ -3,7 +3,9 @@ package io.github.solcott.activitytracker.app.feed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexJustifyContent
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -275,10 +277,13 @@ private fun GroupsPrompt(state: FeedState, modifier: Modifier = Modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(Res.string.feed_groups_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(Res.string.feed_groups_body), style = MaterialTheme.typography.bodyMedium)
-            FlowRow(
+            FlexBox(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                config = {
+                    wrap(FlexWrap.Wrap)
+                    gap(8.dp)
+                    justifyContent(FlexJustifyContent.End)
+                },
             ) {
                 AppTextButton(onClick = { state.eventSink(FeedEvent.AnswerGroups(GroupChoice.OFF)) }) {
                     Text(stringResource(Res.string.feed_segments_not_now))

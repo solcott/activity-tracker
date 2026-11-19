@@ -2,7 +2,8 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -60,7 +61,12 @@ private fun Filters(fields: BoardFilterFields) {
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         BoardSegments(fields.periodChoice, onSelect = { it?.let { period -> fields.eventSink(BoardFilterEvent.PeriodChanged(period)) } })
         BoardSegments(fields.scopeChoice, onSelect = { it?.let { scope -> fields.eventSink(BoardFilterEvent.ScopeChanged(scope)) } })
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlexBox(
+            config = {
+                wrap(FlexWrap.Wrap)
+                gap(8.dp)
+            },
+        ) {
             SegmentBoardChips(fields)
         }
     }

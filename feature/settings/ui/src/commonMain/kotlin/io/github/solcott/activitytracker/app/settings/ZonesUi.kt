@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Grid
+import androidx.compose.foundation.layout.GridTrackSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -182,26 +184,33 @@ internal fun ZoneList(model: ZoneModel, zones: ImmutableList<Zone>?, modifier: M
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            zones.forEach { ZoneRow(it, range(it)) }
+            // A row per zone; the columns are shared, so a long label moves every name over, not just its own.
+            Grid(
+                config = {
+                    column(GridTrackSize.Auto)
+                    column(1.fr)
+                    column(GridTrackSize.Auto)
+                    columnGap(12.dp)
+                    rowGap(8.dp)
+                },
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                zones.forEach { zone ->
+                    Text(
+                        ZoneTexts.label(zone).string(),
+                        Modifier.widthIn(min = ZONE_LABEL_WIDTH).gridItem(alignment = Alignment.CenterStart),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        ZoneTexts.name(zone).string(),
+                        Modifier.gridItem(alignment = Alignment.CenterStart),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(range(zone), Modifier.gridItem(alignment = Alignment.CenterEnd), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun ZoneRow(zone: Zone, range: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            ZoneTexts.label(zone).string(),
-            Modifier.widthIn(min = ZONE_LABEL_WIDTH),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(ZoneTexts.name(zone).string(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Text(range, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

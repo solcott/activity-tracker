@@ -2,7 +2,8 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlexBox
+import androidx.compose.foundation.layout.FlexWrap
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -89,7 +90,14 @@ fun CategoryLock(category: String, visibility: String, modifier: Modifier = Modi
 @Composable
 fun CategoryLocks(locked: ImmutableList<CategoryVisibility>, modifier: Modifier = Modifier) {
     if (locked.isEmpty()) return
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    FlexBox(
+        modifier,
+        config = {
+            wrap(FlexWrap.Wrap)
+            columnGap(12.dp)
+            rowGap(4.dp)
+        },
+    ) {
         locked.forEach { CategoryLock(it.category, it.visibility) }
     }
 }
