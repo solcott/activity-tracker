@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.admin.AccountsPage
 import io.github.solcott.activitytracker.appview.admin.AdminOAuth
 import io.github.solcott.activitytracker.appview.admin.AdminPage
 import io.github.solcott.activitytracker.appview.admin.AdminSite
@@ -138,15 +139,17 @@ fun main() {
     val workers = WorkerRegistry()
 
     metrics?.serve(config.metricsHost, checkNotNull(config.metricsPort), log)
+    val pds = ResolvingPdsLookup(identity)
+    val blockBackfill = BskyBlockBackfill(db, indexer, guarded, pds)
+    val accounts = AccountsPage(db, indexer, blockBackfill, reindexer, syncer)
     embeddedServer(Netty, port = config.port) {
-            val pds = ResolvingPdsLookup(identity)
             val ozone = ozoneOf(config, http, configuredIdentity)
             // Started before the routes are, so the health page is given them (admin/ingest-health); nothing is served until `start`.
             val supervisor = WorkerSupervisor(this, workers)
             val started =
                 startWorkers(
                     supervisor,
-                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics, reindexer),
+                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, log, metrics, reindexer, blockBackfill),
                 )
             val health = HealthSources(supervisor, started, db, config.jetstreamRewindMax, syncer != null, DatabaseSizes.of(db))
             appView(
@@ -162,7 +165,7 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
                 adminOAuth = AtprotoAdminOAuth(guarded, identity),
-                adminPages = adminPages(config, db, indexer, health),
+                adminPages = adminPages(config, db, indexer, health, accounts),
                 metrics = metrics,
             )
             metrics?.bind(workers, started)
@@ -243,11 +246,10 @@ private class WorkerInputs(
     val indexer: Indexer,
     val syncer: SpaceSyncer?,
     val spaceBlobs: SpaceBlobs?,
-    val guarded: HttpClient,
-    val pds: PdsLookup,
     val log: org.slf4j.Logger,
     val metrics: AppViewMetrics?,
     val reindexer: RepoReindexer,
+    val blockBackfill: BskyBlockBackfill,
 )
 
 /**
@@ -260,8 +262,7 @@ private fun startWorkers(supervisor: WorkerSupervisor, inputs: WorkerInputs): St
         val jetstream = config.jetstreamUrl?.let { JetstreamConsumer(http, it, db, indexer) }
         if (jetstream != null) supervisor.stream(WorkerNames.JETSTREAM) { jetstream.run(it) }
         else registry.disabled(WorkerNames.JETSTREAM, WorkerKind.STREAM, "JETSTREAM_URL is not set")
-        val backfill = BskyBlockBackfill(db, indexer, guarded, pds)
-        supervisor.loop(WorkerNames.BSKY_BLOCK_BACKFILL) { backfill.run(it) }
+        supervisor.loop(WorkerNames.BSKY_BLOCK_BACKFILL) { blockBackfill.run(it) }
         val handles = HandleSweep(db, indexer)
         supervisor.loop(WorkerNames.HANDLE_SWEEP) { handles.run(it) }
         // Segments indexed before segment groups get theirs (segments/segment-groups); indexing gives new ones theirs.

@@ -1,29 +1,43 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.admin.AccountsPage
 import io.github.solcott.activitytracker.appview.admin.AdminPage
 import io.github.solcott.activitytracker.appview.admin.AdminRoutes
 import io.github.solcott.activitytracker.appview.admin.AdminSite
 import io.github.solcott.activitytracker.appview.admin.HealthPage
 import io.github.solcott.activitytracker.appview.admin.HealthSources
 import io.github.solcott.activitytracker.appview.admin.JobQueuesPage
+import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
+import io.github.solcott.activitytracker.appview.db.GroupPrefs
+import io.github.solcott.activitytracker.appview.db.RepoReindexes
 import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
+import io.github.solcott.activitytracker.appview.db.SegmentPrefs
+import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
 import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
+import io.github.solcott.activitytracker.appview.reindex.ReindexState
+import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentQueue
+import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.GroupMode
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +51,7 @@ import kotlinx.serialization.json.jsonObject
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
+import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Admin pages reveal no private content (admin/admin-site): carol's non-public activity and comment carry a marker, and no registered page,
@@ -57,6 +72,14 @@ class AdminPrivacyTest : AdminTestBase() {
 
     @AfterTest fun forgetLabels() = segments.forgetLabels()
 
+    private val spaceSecret = "NOTIFY-SECRET-91c2"
+    private val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
+    private val unusedHttp = HttpClient(MockEngine { respond("unused", HttpStatusCode.NotFound) })
+    private val reindexer = RepoReindexer(db, indexer, unusedHttp, { error("not resolved") }, null)
+
+    /** What carol's account holds that no page may print, beyond the marker: her track's activity, her grouping mode, a space secret. */
+    private val alsoPrivate = listOf(activityUri, GroupMode.CONNECTED, spaceSecret)
+
     /** The operator pages the AppView registers. */
     private val pagesUnderTest: List<AdminPage> =
         listOf(
@@ -72,13 +95,13 @@ class AdminPrivacyTest : AdminTestBase() {
             ),
             JobQueuesPage(SegmentQueue(db, SegmentJobs(), clock), clock),
             segments.page,
+            AccountsPage(db, indexer, BskyBlockBackfill(db, indexer, unusedHttp, PdsLookup { null }), reindexer, null),
         )
 
     /** What no page may print: the marker (record content), the voter's and rider's DIDs, and the effort's elapsed time. */
     private val secrets = listOf(marker, voter, rider, "$elapsed")
 
     private fun seed() = runBlocking {
-        val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
         val self = SpaceUri.of(Did(carol), Nsid.SPACE_ATHLETE, AthleteSpace.SELF)
         val activity =
             """{"sport":"run","title":"$marker","description":"$marker","startedAt":"2026-10-01T07:00:00Z","elapsedTime":1800,""" +
@@ -134,20 +157,59 @@ class AdminPrivacyTest : AdminTestBase() {
         segments.label(hidden, "!takedown")
         segments.stage("us-vermont", "r1", "vt-1")
         segments.ride("vt-1", rider)
+        db.tx {
+            SpaceSync.insert {
+                it[space] = SpaceUri.of(Did(carol), Nsid.SPACE_ATHLETE, AthleteSpace.MUTUALS).value
+                it[authorityDid] = carol
+                it[failures] = 3
+                it[lastError] = "IOException: timed out"
+                it[notifyToken] = spaceSecret
+                it[setHash] = ByteArray(8) { 7 }
+                it[nextAttemptAt] = 0L
+                it[createdAt] = 0L
+            }
+            BskyBlockBackfillFailures.insert {
+                it[did] = carol
+                it[failures] = 2
+                it[lastError] = "IOException: refused"
+                it[nextAttemptAt] = 0L
+            }
+            GroupPrefs.insert {
+                it[did] = carol
+                it[mode] = GroupMode.CONNECTED
+                it[updatedAt] = 0L
+            }
+            SegmentPrefs.insert {
+                it[did] = carol
+                it[matching] = true
+                it[hideFromLeaderboards] = true
+                it[updatedAt] = 0L
+            }
+        }
+        reindexer.request(Did(carol), Did(alice))
+        db.tx { RepoReindexes.update { it[state] = ReindexState.SUCCEEDED.code } }
+        assertTrue(db.tx { SegmentTracks.selectAll().any { it[SegmentTracks.activityUri] == activityUri } })
         // The seed must hold the marker, or the test proves nothing.
         assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
         assertTrue(db.tx { SegmentJobFailures.selectAll().count() == 1L })
     }
 
-    /** Every probe of every page in [site], for carol and her records, that printed the marker. */
+    /**
+     * Every probe of every page in [site], for carol and her records, that printed one of the [secrets]; and every probe for carol that
+     * printed anything else of hers in [alsoPrivate]. (A probe for a record may name it: the audit log's filter shows what was asked for.)
+     */
     private suspend fun HttpClient.leaks(site: AdminSite, cookie: String): List<String> =
         site.pages
-            .flatMap { page -> listOf(carol, activityUri, segmentUri).flatMap { page.privacyProbes(it) } }
-            .distinct()
-            .filter { probe ->
-                val body = get("/admin/$probe".trimEnd('/')) { session(cookie) }.bodyAsText()
-                secrets.any { it in body }
+            .flatMap { page ->
+                listOf(carol, activityUri, segmentUri).flatMap { subject -> page.privacyProbes(subject).map { it to subject } }
             }
+            .distinct()
+            .filter { (probe, subject) ->
+                val body = get("/admin/$probe".trimEnd('/')) { session(cookie) }.bodyAsText()
+                secrets.any { it in body } || (subject == carol && alsoPrivate.any { it in body })
+            }
+            .map { it.first }
+            .distinct()
 
     @Test
     fun noPagePrintsPrivateContent() {
