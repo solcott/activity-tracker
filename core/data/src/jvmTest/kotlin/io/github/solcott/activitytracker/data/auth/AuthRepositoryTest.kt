@@ -54,18 +54,18 @@ class AuthRepositoryTest {
                 {
                     HttpStatusCode.OK to
                         """{"id":"$did","alsoKnownAs":["at://alice.test"],
-                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://pds.test"}]}"""
+                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.test"}]}"""
                 },
             "/xrpc/com.atproto.identity.resolveHandle" to { HttpStatusCode.OK to """{"did":"$did"}""" },
             "/.well-known/oauth-protected-resource" to
                 {
-                    HttpStatusCode.OK to """{"resource":"http://pds.test","authorization_servers":["http://pds.test"]}"""
+                    HttpStatusCode.OK to """{"resource":"https://pds.test","authorization_servers":["https://pds.test"]}"""
                 },
             "/.well-known/oauth-authorization-server" to
                 {
                     HttpStatusCode.OK to
-                        """{"issuer":"http://pds.test","authorization_endpoint":"http://pds.test/oauth/authorize",
-                   "token_endpoint":"http://pds.test/oauth/token","pushed_authorization_request_endpoint":"http://pds.test/oauth/par"}"""
+                        """{"issuer":"https://pds.test","authorization_endpoint":"https://pds.test/oauth/authorize",
+                   "token_endpoint":"https://pds.test/oauth/token","pushed_authorization_request_endpoint":"https://pds.test/oauth/par"}"""
                 },
         )
     private val http =
@@ -84,7 +84,7 @@ class AuthRepositoryTest {
         OAuthSessionManager(
             OAuthClient(
                 http,
-                IdentityResolver(http, "http://plc.test", "http://pds.test"),
+                IdentityResolver(http, "http://plc.test", "https://pds.test"),
                 OAuthClientConfig.loopback("http://127.0.0.1:8080/"),
             ),
             store,
@@ -98,10 +98,10 @@ class AuthRepositoryTest {
             OAuthSession(
                 did = Did(did),
                 handle = Handle("alice.test"),
-                pdsUrl = "http://pds.test",
-                issuer = "http://pds.test",
-                tokenEndpoint = "http://pds.test/oauth/token",
-                revocationEndpoint = "http://pds.test/oauth/revoke",
+                pdsUrl = "https://pds.test",
+                issuer = "https://pds.test",
+                tokenEndpoint = "https://pds.test/oauth/token",
+                revocationEndpoint = "https://pds.test/oauth/revoke",
                 accessToken = "at1",
                 refreshToken = "rt1",
                 expiresAt = null,
@@ -216,15 +216,15 @@ class AuthRepositoryTest {
                 state = "s1",
                 pkceVerifier = "v",
                 dpopKey = key.serialize(),
-                issuer = "http://pds.test",
-                tokenEndpoint = "http://pds.test/oauth/token",
+                issuer = "https://pds.test",
+                tokenEndpoint = "https://pds.test/oauth/token",
                 expectedDid = Did(did),
             ),
         )
         tokenAnswer =
             HttpStatusCode.OK to
                 """{"access_token":"at2","token_type":"DPoP","refresh_token":"rt2","expires_in":3600,"scope":"atproto","sub":"$did"}"""
-        auth.completeSignIn(mapOf("code" to "c", "state" to "s1", "iss" to "http://pds.test"))
+        auth.completeSignIn(mapOf("code" to "c", "state" to "s1", "iss" to "https://pds.test"))
 
         assertNull(auth.lastEnd.value)
         assertEquals("at2", auth.session.value?.accessToken)

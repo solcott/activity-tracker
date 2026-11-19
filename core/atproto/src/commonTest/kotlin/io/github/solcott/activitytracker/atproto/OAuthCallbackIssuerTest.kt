@@ -18,7 +18,7 @@ import kotlinx.serialization.json.jsonObject
 /** auth/oauth-session: the redirect's `iss` is checked, and required when the authorization server advertises it (RFC 9207). */
 class OAuthCallbackIssuerTest {
     private val did = "did:plc:alice"
-    private val issuer = "http://pds.test"
+    private val issuer = "https://pds.test"
 
     private fun network(advertisesIss: Boolean?) =
         MockNetwork().apply {
@@ -48,7 +48,7 @@ class OAuthCallbackIssuerTest {
     private fun MockNetwork.oauth() =
         OAuthClient(
             client,
-            IdentityResolver(client, "http://plc.test", "http://pds.test"),
+            IdentityResolver(client, "http://plc.test", "https://pds.test"),
             OAuthClientConfig.loopback("http://127.0.0.1:8080/"),
         )
 
