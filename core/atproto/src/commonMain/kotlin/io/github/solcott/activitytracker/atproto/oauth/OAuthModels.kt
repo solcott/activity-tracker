@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.ktor.http.URLProtocol
+import io.ktor.http.Url
 import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -128,3 +130,26 @@ interface OAuthStore {
 
     suspend fun clearPending(state: String)
 }
+
+/**
+ * Whether [url], taken from an untrusted server's metadata, may be used as an OAuth endpoint: https (as atproto OAuth requires), or plain
+ * http on a loopback host only, which the local stack's PDS serves (`http://localhost:2583`). Anything else, a `javascript:` URL the web
+ * app would open included, is refused.
+ */
+internal fun isSecureEndpoint(url: String): Boolean {
+    val parsed = runCatching { Url(url) }.getOrNull() ?: return false
+    return when {
+        url.startsWith("https://", ignoreCase = true) -> parsed.protocol == URLProtocol.HTTPS && parsed.host.isNotEmpty()
+        url.startsWith("http://", ignoreCase = true) -> parsed.protocol == URLProtocol.HTTP && parsed.host.lowercase() in LOOPBACK_HOSTS
+        else -> false
+    }
+}
+
+/** This metadata, once every endpoint in it, the issuer included, passes [isSecureEndpoint]. */
+internal fun AuthorizationServerMetadata.requireSecureEndpoints(): AuthorizationServerMetadata {
+    val endpoints = listOfNotNull(issuer, authorizationEndpoint, tokenEndpoint, parEndpoint, revocationEndpoint)
+    if (!endpoints.all(::isSecureEndpoint)) throw OAuthException("Authorization server $issuer gives an endpoint that isn't https")
+    return this
+}
+
+private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1", "[::1]")

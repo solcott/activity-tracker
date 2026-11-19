@@ -28,16 +28,16 @@ class OAuthFlowTest {
             on("plc.test/$did") {
                 respondJson(
                     """{"id":"$did","alsoKnownAs":["at://alice.test"],
-                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://pds.test"}]}""",
+                   "service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.test"}]}""",
                 )
             }
             on("pds.test/.well-known/oauth-protected-resource") {
-                respondJson("""{"resource":"http://pds.test","authorization_servers":["http://pds.test"]}""")
+                respondJson("""{"resource":"https://pds.test","authorization_servers":["https://pds.test"]}""")
             }
             on("pds.test/.well-known/oauth-authorization-server") {
                 respondJson(
-                    """{"issuer":"http://pds.test","authorization_endpoint":"http://pds.test/oauth/authorize",
-                   "token_endpoint":"http://pds.test/oauth/token","pushed_authorization_request_endpoint":"http://pds.test/oauth/par"}""",
+                    """{"issuer":"https://pds.test","authorization_endpoint":"https://pds.test/oauth/authorize",
+                   "token_endpoint":"https://pds.test/oauth/token","pushed_authorization_request_endpoint":"https://pds.test/oauth/par"}""",
                 )
             }
             // First PAR demands a nonce, second succeeds.
@@ -84,7 +84,7 @@ class OAuthFlowTest {
     private val oauth =
         OAuthClient(
             network.client,
-            IdentityResolver(network.client, "http://plc.test", "http://pds.test"),
+            IdentityResolver(network.client, "http://plc.test", "https://pds.test"),
             config,
         )
     private val manager = OAuthSessionManager(oauth, store)
@@ -92,7 +92,7 @@ class OAuthFlowTest {
     @Test
     fun fullSignInThenAuthenticatedPdsCall() = runTest {
         val authorizeUrl = manager.beginSignIn("alice.test")
-        assertTrue(authorizeUrl.startsWith("http://pds.test/oauth/authorize?client_id=http%3A%2F%2Flocalhost"))
+        assertTrue(authorizeUrl.startsWith("https://pds.test/oauth/authorize?client_id=http%3A%2F%2Flocalhost"))
         val pending = store.pending.values.single()
 
         val par = network.requests.filter { it.url.encodedPath == "/oauth/par" }
@@ -102,7 +102,7 @@ class OAuthFlowTest {
         assertEquals("S256", form["code_challenge_method"])
         assertEquals(pending.state, form["state"])
 
-        val session = manager.completeSignIn(mapOf("code" to "c1", "state" to pending.state, "iss" to "http://pds.test"))
+        val session = manager.completeSignIn(mapOf("code" to "c1", "state" to pending.state, "iss" to "https://pds.test"))
         assertEquals(Did(did), session.did)
         assertEquals("alice.test", session.handle.value)
         assertEquals(

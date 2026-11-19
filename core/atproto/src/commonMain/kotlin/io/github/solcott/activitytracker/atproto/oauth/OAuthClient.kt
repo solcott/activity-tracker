@@ -224,7 +224,7 @@ class OAuthClient(
                 AuthorizationServerMetadata.serializer(),
             )
         if (metadata.issuer != issuer) throw OAuthException("Authorization server issuer mismatch")
-        return metadata
+        return metadata.requireSecureEndpoints()
     }
 
     private suspend fun <T> getJson(url: String, serializer: KSerializer<T>): T {
