@@ -112,7 +112,7 @@ internal fun candidatesOf(
     refBridgeM: Double = TrailBuilder.DEFAULT_REF_BRIDGE_M,
 ): List<Candidate> {
     val cutter = CandidateCutter(data, words, climbOf)
-    val trails = TrailBuilder.build(data, words, refBridgeM).flatMap(cutter::cut)
+    val trails = RouteClimbs.inherit(TrailBuilder.build(data, words, refBridgeM).flatMap(cutter::cut))
     return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
 }
 

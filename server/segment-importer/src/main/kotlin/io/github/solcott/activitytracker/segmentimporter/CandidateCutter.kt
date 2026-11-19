@@ -41,8 +41,8 @@ internal class Candidate(
     /** Given in this direction only, by a one-way tag or because it is alpine (segments/segment-direction). */
     val oneWay: Boolean = false,
     /**
-     * Whether it climbs or descends in its direction of travel (segments/trail-candidates): its own line's clear climb, else its trail's;
-     * null without terrain, when neither clearly climbs, and for alpine.
+     * Whether it climbs or descends in its direction of travel (segments/trail-candidates): its own line's clear climb, else its trail's,
+     * else that of the one-way routes through it ([RouteClimbs]); null without terrain, when none clearly climbs, and for alpine.
      */
     val climb: SegmentClimb? = null,
 )
