@@ -5,12 +5,17 @@ import io.github.solcott.activitytracker.appview.admin.AdminRoutes
 import io.github.solcott.activitytracker.appview.admin.AdminSite
 import io.github.solcott.activitytracker.appview.admin.HealthPage
 import io.github.solcott.activitytracker.appview.admin.HealthSources
+import io.github.solcott.activitytracker.appview.admin.JobQueuesPage
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
+import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
 import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.SegmentQueue
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -30,6 +35,7 @@ import kotlinx.html.p
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.upsert
 
 /**
  * Admin pages reveal no private content (admin/admin-site): carol's non-public activity and comment carry a marker, and no registered page,
@@ -38,6 +44,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 class AdminPrivacyTest : AdminTestBase() {
     private val marker = "PRIVATE-MARKER-7f3a"
     private val activityUri = "at://$carol/${Nsid.FEED_ACTIVITY}/3kprivate"
+    private val trackUri = "at://$carol/${Nsid.FEED_SEGMENT_TRACK}/3kprivate"
 
     /** The operator pages the AppView registers. */
     private val pagesUnderTest: List<AdminPage> =
@@ -52,6 +59,7 @@ class AdminPrivacyTest : AdminTestBase() {
                     clock = clock,
                 ),
             ),
+            JobQueuesPage(SegmentQueue(db, SegmentJobs(), clock), clock),
         )
 
     private fun seed() = runBlocking {
@@ -78,8 +86,32 @@ class AdminPrivacyTest : AdminTestBase() {
                 it[createdAt] = 0
             }
         }
+        // Carol's Only me activity's segment track, retrying and, from an earlier run, given up (admin/job-queues).
+        val track =
+            """{"activity":"$activityUri","data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkdata"},""" +
+                """"mimeType":"application/json","size":10},"createdAt":"2026-10-01T08:00:00Z"}"""
+        indexer.spaceWrite(self, Nsid.FEED_SEGMENT_TRACK, "3kprivate", "bafytrack", AtJson.parseToJsonElement(track).jsonObject)
+        db.tx {
+            SegmentMatchJobs.upsert {
+                it[kind] = SegmentJobs.TRACK
+                it[subjectUri] = trackUri
+                it[enqueuedAt] = 0
+                it[attempts] = 2
+                it[lastError] = "IllegalStateException: the PDS is down"
+                it[firstFailedAt] = 0
+            }
+            SegmentJobFailures.insert {
+                it[kind] = SegmentJobs.TRACK
+                it[subjectUri] = trackUri
+                it[attempts] = 9
+                it[lastError] = "SerializationException"
+                it[firstFailedAt] = 0
+                it[failedAt] = 0
+            }
+        }
         // The seed must hold the marker, or the test proves nothing.
         assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
+        assertTrue(db.tx { SegmentJobFailures.selectAll().count() == 1L })
     }
 
     /** Every probe of every page in [site], for carol and her records, that printed the marker. */
@@ -95,6 +127,8 @@ class AdminPrivacyTest : AdminTestBase() {
         adminTest({ site(pages = pagesUnderTest) }) { http ->
             val cookie = http.signIn("alice.test")!!
             assertEquals(emptyList(), http.leaks(site(pages = pagesUnderTest), cookie))
+            // The queues page names the track, and nothing more of it.
+            assertTrue(trackUri in http.get("/admin/queues/failed?kind=track") { session(cookie) }.bodyAsText())
         }
     }
 

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.admin.AtprotoAdminOAuth
 import io.github.solcott.activitytracker.appview.admin.DatabaseSizes
 import io.github.solcott.activitytracker.appview.admin.HealthPage
 import io.github.solcott.activitytracker.appview.admin.HealthSources
+import io.github.solcott.activitytracker.appview.admin.JobQueuesPage
 import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
@@ -67,6 +68,7 @@ import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
 import io.github.solcott.activitytracker.appview.segments.SegmentJobOutcomes
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.appview.segments.SegmentQueue
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.appview.sync.SyncOutcomes
@@ -163,7 +165,7 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
                 adminOAuth = AtprotoAdminOAuth(guarded, identity),
-                adminPages = listOf(HealthPage(health)),
+                adminPages = listOf(HealthPage(health), JobQueuesPage(SegmentQueue(db, indexer.segmentJobs))),
                 metrics = metrics,
             )
             metrics?.bind(workers, started)
