@@ -226,6 +226,31 @@ class RefineTest {
     }
 
     @Test
+    fun aSegmentPublishedBeforeClimbsTakesItsCandidatesClimbOnce() = runTest {
+        repo["c1"] = segment(fine, name = "Clarks")
+        pds()
+
+        val result = refine(clients, file(candidate("c1", name = "Clarks").copy(climb = "downhill")))
+
+        assertEquals(listOf("c1"), result.climb)
+        assertEquals(1, fake.commits().size)
+        assertEquals(JsonObject(segment(fine, name = "Clarks") + ("climb" to JsonPrimitive("downhill"))), repo.getValue("c1"))
+        assertTrue(refine(clients, file(candidate("c1", name = "Clarks").copy(climb = "downhill"))).climb.isEmpty(), "a second run")
+        assertEquals(1, fake.commits().size)
+    }
+
+    @Test
+    fun aCandidateWithoutAClimbRemovesTheSegments() = runTest {
+        repo["c1"] = JsonObject(segment(fine, name = "Clarks") + ("climb" to JsonPrimitive("uphill")))
+        pds()
+
+        val result = refine(clients, file(candidate("c1", name = "Clarks")))
+
+        assertEquals(listOf("c1"), result.climb)
+        assertEquals(segment(fine, name = "Clarks"), repo.getValue("c1"), "the climb removed")
+    }
+
+    @Test
     fun aFailedPutStopsTheRunAndKeepsWhatItDid() = runTest {
         repo["c1"] = segment(coarse)
         pds(failPuts = true)
