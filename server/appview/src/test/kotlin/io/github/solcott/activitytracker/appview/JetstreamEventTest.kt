@@ -24,6 +24,7 @@ class JetstreamEventTest {
         assertEquals("create", commit.operation)
         assertEquals("3kabc", commit.rkey)
         assertEquals("bafyabc", commit.cid)
+        assertEquals("3l3qo2vutsw2b", commit.rev)
         assertEquals(1_790_797_562_329_309L, commit.witnessedAtUs)
     }
 

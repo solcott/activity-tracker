@@ -31,6 +31,8 @@ sealed interface JetstreamEvent {
         val rkey: String,
         val record: JsonObject? = null,
         val cid: String? = null,
+        /** The repo revision (a TID) this commit made; a reindex orders live commits against its snapshot by it (admin/repo-reindex). */
+        val rev: String? = null,
     ) : JetstreamEvent
 
     /** Wraps the upstream `com.atproto.sync.subscribeRepos#identity`. */
