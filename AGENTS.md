@@ -32,7 +32,7 @@ scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when 
 ./gradlew kotlinWasmUpgradeYarnLock               # after an npm dependency change: refresh kotlin-js-store/wasm/yarn.lock (Yarn, so the *PackageLock tasks fail)
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
-./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
+./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack; METRICS_PORT=9464 adds Prometheus /metrics there (loopback)
 scripts/run-appview.sh                            # the same AppView as a plain JVM, so no Gradle daemon stays busy while it runs (scripts/dev.sh uses it)
 ./gradlew :server-segment-importer:run --args="extract region.osm.pbf --agency usfs=build/usfs.geojsonl --region us-vermont --out build/us-vermont.ndjson"   # OSM and agency trails -> candidate segments
 ./gradlew :server-segment-importer:run --args="extract region.osm.pbf --region us-utah --out build/us-utah.ndjson --terrain build/terrain"   # also name two-way trails that climb "(uphill)"/"(downhill)" by terrain tiles
