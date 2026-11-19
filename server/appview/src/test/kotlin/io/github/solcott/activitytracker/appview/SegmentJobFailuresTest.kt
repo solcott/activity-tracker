@@ -8,10 +8,14 @@ import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.ops.RecordingWorker
 import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import io.github.solcott.activitytracker.appview.segments.JobOutcome
+import io.github.solcott.activitytracker.appview.segments.Requeued
 import io.github.solcott.activitytracker.appview.segments.SegmentJobOutcomes
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.appview.segments.SegmentQueue
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -19,6 +23,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerializationException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -127,6 +132,48 @@ class SegmentJobFailuresTest : SegmentTestBase() {
         assertEquals(listOf(SegmentJobs.TRACK to trackUri("3ka")), jobs())
         assertEquals(emptyList(), failures())
         assertEquals(listOf<Pair<String?, Long?>>(null to null), queuedErrors(), "enqueued afresh, with no earlier failures")
+    }
+
+    @Test
+    fun aRequeuedFailedJobRunsAgainAndClearsIt() {
+        failingTrackJob()
+        match()
+        assertEquals(1, failures().size)
+
+        blobsDown = false
+        val queue = SegmentQueue(db, indexer.segmentJobs)
+        assertEquals(Requeued.REQUEUED, runBlocking { queue.requeue(SegmentJobs.TRACK, trackUri("3ka")) })
+        assertEquals(emptyList(), failures(), "removed as soon as it's requeued")
+        assertEquals(listOf<Pair<String?, Long?>>(null to null), queuedErrors(), "queued afresh")
+        match()
+        assertEquals(emptyList(), jobs())
+        assertEquals(emptyList(), failures())
+        assertEquals(1, efforts().size)
+    }
+
+    @Test
+    fun aFailedJobsErrorDoesNotQuoteTheTrack() {
+        failingTrackJob()
+        val secret = "TRACK-SECRET-91c2"
+        val decoding =
+            SegmentMatcher(
+                db,
+                indexer.segmentJobs,
+                SpaceBlobs { _, _, _ ->
+                    // A decoder failure quoting the blob, wrapped as a lower layer might.
+                    val bytes = """{"pieces":"$secret"}"""
+                    try {
+                        AtJson.decodeFromString(SegmentTrackData.serializer(), bytes)
+                    } catch (e: SerializationException) {
+                        throw IllegalStateException(e.message, e)
+                    }
+                    error("unreachable")
+                },
+            )
+        runBlocking { decoding.runDue() }
+        val failure = failures().single()
+        assertEquals("IllegalStateException", failure.error)
+        assertTrue(secret !in failure.error)
     }
 
     @Test
