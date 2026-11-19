@@ -47,11 +47,13 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -61,7 +63,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.location.E7_PER_DEGREE
+import io.github.solcott.activitytracker.location.SegmentClimb
+import io.github.solcott.activitytracker.location.SegmentDirection
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.SegmentHeading
 import io.github.solcott.activitytracker.location.e7ToDegrees
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -505,9 +510,9 @@ class SegmentViews(
         if (rows.isEmpty()) return emptyList()
         val covered =
             Segments.join(PathSegments, JoinType.INNER, Segments.uri, PathSegments.segmentUri)
-                .select(PathSegments.pathUri, Segments.sport, groupKey)
+                .selectAll()
                 .where { (PathSegments.pathUri inList rows.map { it[Paths.uri] }) and onPathListed(viewer) }
-                .groupBy({ it[PathSegments.pathUri] }, { it[Segments.sport] to it[groupKey] })
+                .groupBy { it[PathSegments.pathUri] }
         return rows.map { row ->
             val on = covered[row[Paths.uri]].orEmpty()
             PathView(
@@ -520,11 +525,32 @@ class SegmentViews(
                 source = row[Paths.dataSource],
                 license = row[Paths.license],
                 attribution = row[Paths.attribution],
-                sports = SegmentSportGroup.all.filter { sport -> on.any { it.first == sport } },
-                groupCount = on.map { it.second }.distinct().size,
+                sports = SegmentSportGroup.all.filter { sport -> on.any { it[Segments.sport] == sport } },
+                groupCount = on.map { it[Segments.groupUri] ?: it[Segments.uri] }.distinct().size,
+                oneWays = oneWaysOf(on),
             )
         }
     }
+
+    /**
+     * The sport groups, other than alpine, whose segments [on] a path are all served one-way, each with its way (segments/segment-paths):
+     * its longest such segment's direction, by its served climb, else its served elevation, else its heading or turn.
+     */
+    private fun oneWaysOf(on: List<ResultRow>): List<PathOneWay> =
+        SegmentSportGroup.all
+            .filter { it != SegmentSportGroup.ALPINE }
+            .mapNotNull { sport ->
+                val rows = on.filter { it[Segments.sport] == sport }
+                if (rows.isEmpty()) return@mapNotNull null
+                val records = rows.map { it to AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record]) }
+                if (!records.all { (row, record) -> record.oneWay == true && byImporter(row[Segments.authorDid]) }) return@mapNotNull null
+                val (row, record) = records.sortedBy { it.first[Segments.uri] }.maxBy { it.first[Segments.distanceM] }
+                val points = SegmentGeometry.decodePolyline(row[Segments.line])?.takeIf { it.size >= 2 } ?: return@mapNotNull null
+                val climb =
+                    SegmentClimb.ofWord(SegmentClimbs.of(record.climb))
+                        ?: servedElevation(row, activeAthletes)?.let { SegmentClimb.of(it.gain, it.loss, row[Segments.distanceM]) }
+                PathOneWay(sport, SegmentDirection.of(SegmentHeading.of(points), climb).word)
+            }
 
     /**
      * The efforts on an activity the viewer may see, in the order they began; `NotFound` when they may not see the activity. The athlete's
@@ -909,6 +935,11 @@ class SegmentViews(
     private fun effortsVisibleTo(viewer: Did?): Op<Boolean> =
         SegmentEfforts.rowsVisibleTo(viewer) and visibleTo(viewer) and SegmentPlace.servedTo(viewer)
 
+    /**
+     * Whether [author] is the segment importer, whose segments alone may be served one-way or with a climb (segments/segment-direction).
+     */
+    private fun byImporter(author: String): Boolean = segmentImporter != null && author == segmentImporter.value
+
     private fun JdbcTransaction.views(rows: List<ResultRow>): List<SegmentView> {
         val creators = basicProfiles(rows.map { it[Segments.authorDid] }, avatars)
         val onPaths = pathsOf(rows.map { it[Segments.uri] })
@@ -931,8 +962,10 @@ class SegmentViews(
                 elevationGain = elevation?.gain,
                 elevationLoss = elevation?.loss,
                 elevationSource = elevation?.source,
-                // Only the importer's data-driven one-way rule is honoured, never an athlete's own (segments/segment-direction).
-                oneWay = true.takeIf { record.oneWay == true && segmentImporter != null && author == segmentImporter.value },
+                // Only the importer's data-driven one-way rule and terrain climb are honoured, never an athlete's own
+                // (segments/segment-direction).
+                oneWay = true.takeIf { record.oneWay == true && byImporter(author) },
+                climb = SegmentClimbs.of(record.climb)?.takeIf { byImporter(author) },
             )
         }
     }

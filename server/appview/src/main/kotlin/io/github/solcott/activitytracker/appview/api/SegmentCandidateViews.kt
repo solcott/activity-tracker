@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -235,6 +236,7 @@ class SegmentCandidateViews(
             attribution = row[SegmentCandidateRows.attribution],
             kind = row[SegmentCandidateRows.kind].takeIf { it != SegmentKind.RUN },
             oneWay = true.takeIf { row[SegmentCandidateRows.oneWay] },
+            climb = SegmentClimbs.of(row[SegmentCandidateRows.climb]),
         )
 
     /** A candidate that passed validation, with its decoded line. */
@@ -295,6 +297,7 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.license] = candidate.license
             this[SegmentCandidateRows.attribution] = staged.attribution
             this[SegmentCandidateRows.oneWay] = candidate.oneWay == true
+            this[SegmentCandidateRows.climb] = SegmentClimbs.of(candidate.climb)
             this[SegmentCandidateRows.ridden] = candidate.id !in changedIds && old.getValue(candidate.id)[SegmentCandidateRows.ridden]
             this[SegmentCandidateRows.stagedAt] = now
         }

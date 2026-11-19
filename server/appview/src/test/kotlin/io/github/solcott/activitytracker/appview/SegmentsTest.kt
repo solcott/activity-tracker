@@ -428,6 +428,32 @@ class SegmentsTest : SegmentTestBase() {
     }
 
     @Test
+    fun onlyTheImportersSegmentsAreServedWithAClimb() = testApplication {
+        application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
+        val downhill =
+            segmentJson(name = "Rush", sport = "ride")
+                .replace("\"source\":\"athlete\"", "\"source\":\"osm\",\"oneWay\":true,\"climb\":\"downhill\"")
+        commit(importer, Nsid.FEED_SEGMENT, "osm-rush", downhill)
+        val sideways =
+            segmentJson(path = listOf(0.0 to 9000.0, 0.0 to 10000.0))
+                .replace("\"source\":\"athlete\"", "\"source\":\"osm\",\"climb\":\"sideways\"")
+        commit(importer, Nsid.FEED_SEGMENT, "osm-other", sideways)
+        commit(
+            bob,
+            Nsid.FEED_SEGMENT,
+            "3kb",
+            segmentJson(path = listOf(0.0 to 5000.0, 0.0 to 6000.0)).replace("}", ",\"climb\":\"uphill\"}"),
+        )
+
+        assertEquals("downhill", client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("osm-rush", importer))).segment.climb)
+        assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("osm-other", importer))).segment.climb, "an unknown value")
+        assertNull(
+            client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3kb", bob))).segment.climb,
+            "an athlete's climb isn't honoured",
+        )
+    }
+
+    @Test
     fun theSegmentImporterIsNotLimited() = testApplication {
         application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
         (0 until 12).forEach { k -> segment("osm$k", path = listOf(k * 2000.0 to 0.0, k * 2000.0 to 1000.0), did = importer) }

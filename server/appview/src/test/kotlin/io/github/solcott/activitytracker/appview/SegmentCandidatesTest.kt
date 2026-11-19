@@ -376,6 +376,21 @@ class SegmentCandidatesTest : SegmentTestBase() {
     }
 
     @Test
+    fun aCandidatesClimbIsCheckedBackAndAnUnknownOneIsNone() = testApplication {
+        start()
+        val downhill = candidate("c-1", name = "Rush").copy(oneWay = true, climb = "downhill")
+        val unknown = candidate("c-2", path = listOf(0.0 to 0.0, 0.0 to 700.0)).copy(climb = "sideways")
+        val none = candidate("c-3", path = listOf(0.0 to 2000.0, 0.0 to 2700.0))
+        assertEquals(emptyList(), stage(downhill, unknown, none))
+        val response = client.check(listOf("c-1", "c-2", "c-3"))
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val checked = AtJson.decodeFromString(CheckSegmentCandidates.Output.serializer(), response.bodyAsText()).candidates
+        assertEquals("downhill", checked.single { it.id == "c-1" }.candidate?.climb)
+        assertNull(checked.single { it.id == "c-2" }.candidate?.climb, "an unknown value is stored as none")
+        assertNull(checked.single { it.id == "c-3" }.candidate?.climb)
+    }
+
+    @Test
     fun anAgencyCandidateIsStagedAndListedWithItsAttribution() = testApplication {
         start()
         rode(alice, "3ka")

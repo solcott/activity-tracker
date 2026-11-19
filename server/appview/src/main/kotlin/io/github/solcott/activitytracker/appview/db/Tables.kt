@@ -537,6 +537,11 @@ object SegmentCandidateRows : BoxedLineTable("segment_candidates") {
     val attribution = varchar("attribution", 1000).nullable()
     /** Its sport group may travel its line only this way (segments/segment-direction), as the importer staged it. */
     val oneWay = bool("one_way").default(false)
+    /**
+     * A [io.github.solcott.activitytracker.lexicon.app.SegmentClimbs] value the importer staged (segments/segment-direction); null for
+     * none.
+     */
+    val climb = varchar("climb", 16).nullable()
     /** Enough distinct athletes passed it; never undone until its line or sport changes. The only thing revealed about its riders. */
     val ridden = bool("ridden").default(false)
     val stagedAt = long("staged_at")
