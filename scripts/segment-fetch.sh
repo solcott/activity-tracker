@@ -2,6 +2,8 @@
 # Downloads a region's segment import inputs (segments/segment-import) from its preset, scripts/segment-regions/<region>.conf, into
 # build/segment-import/<region>/: its Geofabrik OpenStreetMap extract (only when Geofabrik's is newer), cut down to the features the importer
 # reads (<region>-trails.osm.pbf), and each preset agency's trails touching the region's box as a GeoJSON text sequence (<kind>.geojsonl).
+# It then fetches the terrain tiles over the box into build/terrain (scripts/terrain-fetch.sh, at TERRAIN_TILES_ZOOM or 12, skipping tiles
+# already there), so the import extracts with terrain and names directions by climb (segments/segment-direction).
 # Every file is written beside its target and moved into place only once complete, so a failed download never leaves a partial input.
 #
 #   scripts/segment-fetch.sh <region>
@@ -98,3 +100,7 @@ for kind in $AGENCIES; do
   # A service outage often answers with no features rather than an error.
   [[ $features -gt 0 ]] || echo "    warning: no $kind trails in the box; check the service before importing" >&2
 done
+
+# Terrain over the box, the tiles extract judges climbs by and the AppView samples segment elevation from.
+echo "==> terrain"
+scripts/terrain-fetch.sh "$region" --zoom "${TERRAIN_TILES_ZOOM:-12}"
