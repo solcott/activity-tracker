@@ -45,6 +45,9 @@ internal fun JdbcTransaction.repoHoldings(author: Did, collection: String): Map<
     return holdings(author, collection)
 }
 
+/** How many [collection] records are indexed from [author]'s repo: [repoHoldings]' size, for the admin site's account page. */
+internal fun JdbcTransaction.repoHoldingCount(author: Did, collection: String): Int = repoHoldings(author, collection).size
+
 /** The collections [repoHoldings] can list. */
 internal val repoHoldingCollections: Set<String>
     get() = REPO_HOLDINGS.keys

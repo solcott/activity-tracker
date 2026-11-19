@@ -581,10 +581,11 @@ class Indexer(
     /**
      * Checks a known account's handle both ways again and stores the result (identity/handle-verification): the verified handle or
      * `handle.invalid`, and the next check a day on; when the lookups can't be reached, the stored handle stays and the next check is
-     * sooner. An account with no `actors` row is left alone. Called for `#identity` events and by `HandleSweep`.
+     * sooner. An account with no `actors` row is left alone. Called for `#identity` events, by `HandleSweep` and by the admin site's
+     * account page (admin/account-tools). Returns the check it stored, or null when there's no `actors` row.
      */
-    suspend fun recheckHandle(did: Did) {
-        if (!actorExists(did)) return
+    suspend fun recheckHandle(did: Did): HandleCheck? {
+        if (!actorExists(did)) return null
         val check = handles.check(did)
         val now = clock.now()
         db.tx {
@@ -593,6 +594,7 @@ class Indexer(
                 it[handleCheckDueAt] = nextHandleCheck(check, now)
             }
         }
+        return check
     }
 
     /** The handle check for [author]'s first record, or null when their `actors` row already exists. */

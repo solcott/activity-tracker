@@ -82,29 +82,64 @@ class BskyBlockBackfill(
         }
         for ((did, failures) in due) {
             try {
-                backfill(Did(did))
-                db.tx {
-                    Actors.update({ Actors.did eq did }) { it[bskyBlocksSyncedAt] = clock.now().toEpochMilliseconds() }
-                    BskyBlockBackfillFailures.deleteWhere { BskyBlockBackfillFailures.did eq did }
-                }
+                backfillOne(Did(did), failures)
             } catch (e: CancellationException) {
                 throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                val pause = pauseAfter(failures + 1)
-                log.info("Backfilling {}'s Bluesky blocks failed; retrying in {}: {}", did, pause, e.message)
-                db.tx {
-                    BskyBlockBackfillFailures.upsert {
-                        it[BskyBlockBackfillFailures.did] = did
-                        it[BskyBlockBackfillFailures.failures] = failures + 1
-                        it[lastError] = ErrorSummary.of(e)
-                        it[nextAttemptAt] = (clock.now() + pause).toEpochMilliseconds()
-                    }
-                }
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                // Recorded by backfillOne; the next actor goes on.
             }
         }
     }
 
-    private suspend fun backfill(did: Did) {
+    /**
+     * Backfills [did]'s Bluesky blocks now, whether or not they were backfilled before or are backing off (admin/account-tools), recording
+     * the outcome as [runDue] does, and returns how many blocks it put. Throws after recording a failure; throws [NotIndexedException],
+     * recording nothing, when [did] has no `actors` row.
+     */
+    suspend fun backfillNow(did: Did): Int {
+        val failures =
+            db.tx {
+                if (Actors.select(Actors.did).where { Actors.did eq did.value }.empty()) null
+                else
+                    BskyBlockBackfillFailures.select(BskyBlockBackfillFailures.failures)
+                        .where { BskyBlockBackfillFailures.did eq did.value }
+                        .singleOrNull()
+                        ?.get(BskyBlockBackfillFailures.failures) ?: 0
+            } ?: throw NotIndexedException(did)
+        return backfillOne(did, failures)
+    }
+
+    /**
+     * One actor's backfill: on success stamps it and clears its failure row; on failure records [failures] + 1 with the doubled pause, then
+     * rethrows. Returns the blocks put.
+     */
+    private suspend fun backfillOne(did: Did, failures: Int): Int =
+        try {
+            val put = backfill(did)
+            db.tx {
+                Actors.update({ Actors.did eq did.value }) { it[bskyBlocksSyncedAt] = clock.now().toEpochMilliseconds() }
+                BskyBlockBackfillFailures.deleteWhere { BskyBlockBackfillFailures.did eq did.value }
+            }
+            put
+        } catch (e: CancellationException) {
+            throw e
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            val pause = pauseAfter(failures + 1)
+            log.info("Backfilling {}'s Bluesky blocks failed; retrying in {}: {}", did.value, pause, e.message)
+            db.tx {
+                BskyBlockBackfillFailures.upsert {
+                    it[BskyBlockBackfillFailures.did] = did.value
+                    it[BskyBlockBackfillFailures.failures] = failures + 1
+                    it[lastError] = ErrorSummary.of(e)
+                    it[nextAttemptAt] = (clock.now() + pause).toEpochMilliseconds()
+                }
+            }
+            throw e
+        }
+
+    /** Lists [did]'s Bluesky blocks from their PDS and indexes each; returns how many were put. */
+    private suspend fun backfill(did: Did): Int {
+        var put = 0
         val host = pds.pdsFor(did) ?: error("no PDS for $did")
         var cursor: String? = null
         do {
@@ -117,9 +152,10 @@ class BskyBlockBackfill(
                 }
             check(response.status == HttpStatusCode.OK) { "listRecords answered ${response.status}" }
             val page = AtJson.decodeFromString(ListRecords.Output.serializer(), response.bodyAsText())
-            page.records.forEach { record -> record.uri.rkey?.let { indexer.bskyBlocks.put(did, it, record.value) } }
+            page.records.forEach { record -> record.uri.rkey?.let { if (indexer.bskyBlocks.put(did, it, record.value)) put++ } }
             cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
         } while (cursor != null)
+        return put
     }
 
     private companion object {
@@ -135,3 +171,6 @@ class BskyBlockBackfill(
         const val PAGE = 100
     }
 }
+
+/** The account has no `actors` row, so there is nothing of it to repair. */
+class NotIndexedException(val did: Did) : Exception("$did isn't indexed")
