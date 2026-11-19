@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.terrain.TerrainTiles
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
@@ -97,6 +98,8 @@ data class AppViewConfig(
     val metricsHost: String = DEFAULT_METRICS_HOST,
     /** Limits on an operator's reindex of one account (`REINDEX_*`; admin/repo-reindex). */
     val reindex: ReindexLimits = ReindexLimits(),
+    /** How far back an operator may rewind Jetstream (`JETSTREAM_REWIND_MAX`, a Kotlin duration; admin/ingest-health). */
+    val jetstreamRewindMax: Duration = DEFAULT_JETSTREAM_REWIND_MAX,
 ) {
     /**
      * How much a reindex reads and how many run: the largest repo it fetches ([maxCarBytes], `REINDEX_MAX_CAR_BYTES`) and its most blocks
@@ -179,6 +182,9 @@ data class AppViewConfig(
 
         private fun list(value: String?): List<String> = value.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
+        /** A day: past it, a Jetstream instance may no longer hold the events, and reindexing the account is the tool. */
+        val DEFAULT_JETSTREAM_REWIND_MAX = 24.hours
+
         /** Terrarium tiles' deepest zoom. */
         const val MAX_TERRAIN_ZOOM = TerrainTiles.MAX_ZOOM
 
@@ -220,8 +226,13 @@ data class AppViewConfig(
                 metricsPort = metricsPort(env),
                 metricsHost = metricsHost(env),
                 reindex = ReindexLimits.fromEnv(env),
+                jetstreamRewindMax = jetstreamRewindMax(env),
             )
         }
+
+        /** `JETSTREAM_REWIND_MAX`, a positive Kotlin duration, else [DEFAULT_JETSTREAM_REWIND_MAX]. */
+        private fun jetstreamRewindMax(env: Map<String, String>): Duration =
+            env["JETSTREAM_REWIND_MAX"]?.trim()?.let(Duration::parseOrNull)?.takeIf { it.isPositive() } ?: DEFAULT_JETSTREAM_REWIND_MAX
 
         /**
          * `TERRAIN_TILES_DIR` and `TERRAIN_TILES_ZOOM` (1 to [MAX_TERRAIN_ZOOM], default [DEFAULT_TERRAIN_ZOOM]); null without a folder.

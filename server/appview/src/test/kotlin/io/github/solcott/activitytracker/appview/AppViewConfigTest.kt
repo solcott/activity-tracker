@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,6 +72,14 @@ class AppViewConfigTest {
             AppViewConfig.ReindexLimits(),
             AppViewConfig.fromEnv(mapOf("REINDEX_TIMEOUT" to "soon", "REINDEX_PARALLELISM" to "0")).reindex,
         )
+    }
+
+    @Test
+    fun jetstreamRewindMaxDefaultsToADayAndReadsAPositiveDuration() {
+        assertEquals(24.hours, AppViewConfig.fromEnv(emptyMap()).jetstreamRewindMax)
+        assertEquals(6.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "6h")).jetstreamRewindMax)
+        assertEquals(24.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "a while")).jetstreamRewindMax)
+        assertEquals(24.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "-1h")).jetstreamRewindMax)
     }
 
     @Test

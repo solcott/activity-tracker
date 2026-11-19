@@ -24,11 +24,25 @@ import org.slf4j.LoggerFactory
  * reconnect we rewind a few seconds, relying on idempotent indexing.
  */
 class JetstreamConsumer(
-    private val http: HttpClient,
     private val url: String,
     private val db: Database,
     private val indexer: Indexer,
+    /** Opens [url] with its query and calls the handler with each text message until the stream ends. */
+    private val frames: suspend (url: String, onText: suspend (String) -> Unit) -> Unit,
 ) {
+    /** Over Ktor websockets. */
+    constructor(
+        http: HttpClient,
+        url: String,
+        db: Database,
+        indexer: Indexer,
+    ) : this(
+        url,
+        db,
+        indexer,
+        { target, onText -> http.webSocket(target) { for (frame in incoming) if (frame is Frame.Text) onText(frame.readText()) } },
+    )
+
     private val log = LoggerFactory.getLogger(JetstreamConsumer::class.java)
 
     /**
@@ -60,20 +74,28 @@ class JetstreamConsumer(
             if (cursor != null) append("cursor=").append(cursor)
         }
         log.info("Connecting to Jetstream {} (cursor={})", url, cursor)
-        http.webSocket("$url?$query") {
-            var processed = 0
-            var lastUs = cursor ?: 0L
-            for (frame in incoming) {
-                val event = (frame as? Frame.Text)?.let { decode(it.readText()) } ?: continue
-                indexer.handle(event)
-                lastUs = event.witnessedAtUs
-                lastEventUs.set(lastUs)
-                worker.success()
-                if (++processed % CURSOR_SAVE_INTERVAL == 0) saveCursor(lastUs)
-            }
-            if (processed > 0) saveCursor(lastUs)
+        var processed = 0
+        var lastUs = cursor ?: 0L
+        frames("$url?$query") { text ->
+            val event = decode(text) ?: return@frames
+            indexer.handle(event)
+            lastUs = event.witnessedAtUs
+            lastEventUs.set(lastUs)
+            worker.success()
+            if (++processed % CURSOR_SAVE_INTERVAL == 0) saveCursor(lastUs)
         }
+        // A cancelled connection (shutdown, or a restart that rewinds the cursor) never gets here, so it can't overwrite a rewind.
+        if (processed > 0) saveCursor(lastUs)
     }
+
+    /** The stored cursor in unix µs, or null before the first save (admin/ingest-health). */
+    suspend fun storedCursorUs(): Long? = loadCursor()
+
+    /**
+     * Stores [timeUs] as the cursor. Only while the consumer is stopped, as a `WorkerSupervisor.restart` step: a running connection would
+     * save over it.
+     */
+    suspend fun storeCursor(timeUs: Long) = saveCursor(timeUs)
 
     /** Null for skipped message types and undecodable frames; a terminal error frame throws to force a reconnect. */
     private fun decode(text: String): JetstreamEvent? =
@@ -98,8 +120,10 @@ class JetstreamConsumer(
         }
     }
 
-    private companion object {
-        const val CURSOR_SAVE_INTERVAL = 100
+    companion object {
+        private const val CURSOR_SAVE_INTERVAL = 100
+
+        /** How far before the stored cursor each connection starts, replaying a little rather than missing anything. */
         const val REWIND_US = 5_000_000L
     }
 }
