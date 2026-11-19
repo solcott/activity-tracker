@@ -261,7 +261,7 @@ class AdminSite(
         const val HTMX_VERSION = "2.0.11"
 
         /** Bump with `admin/admin.css`, so browsers fetch the new one. */
-        const val CSS_VERSION = "1"
+        const val CSS_VERSION = "2"
         const val SESSION_COOKIE = "admin_session"
         const val SIGN_IN_COOKIE = "admin_signin"
         const val CSRF_FIELD = "_csrf"

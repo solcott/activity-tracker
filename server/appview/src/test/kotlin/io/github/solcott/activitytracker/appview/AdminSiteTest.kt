@@ -303,6 +303,18 @@ class AdminSiteTest : AdminTestBase() {
     }
 
     @Test
+    fun actionDetailAndRefusalAreRecorded() = adminTest { http ->
+        val cookie = http.signIn("alice.test")!!
+        val csrf = csrfOf(http.page("/admin", cookie).bodyAsText())
+        assertEquals(HttpStatusCode.OK, http.act("/admin/test/count", cookie, csrf).status)
+        val refused = http.act("/admin/test/refuse", cookie, csrf)
+        assertEquals(HttpStatusCode.UnprocessableEntity, refused.status)
+        assertTrue("That's not valid." in refused.bodyAsText())
+        assertEquals(HttpStatusCode.OK, http.act("/admin/test/poke", cookie, csrf).status)
+        assertEquals(listOf("ok", "refused: invalid", "ok: 3 counted"), entries().map { it.outcome })
+    }
+
+    @Test
     fun failedActionIsRecorded() = adminTest { http ->
         val cookie = http.signIn("alice.test")!!
         val csrf = csrfOf(http.page("/admin", cookie).bodyAsText())

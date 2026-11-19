@@ -89,7 +89,7 @@ open class AdminTestBase {
     protected fun config(publicUrl: String = "http://localhost:8081") =
         AppViewConfig.fromEnv(mapOf("APPVIEW_PUBLIC_URL" to publicUrl)).copy(admins = admins)
 
-    /** An action page for tests: `poke` reports its target, `boom` throws. */
+    /** An action page for tests: `poke` reports its target, `count` a detail, `refuse` a refusal, `boom` throws. */
     protected val testPage =
         object : AdminPage {
             override val path = "test"
@@ -98,6 +98,8 @@ open class AdminTestBase {
             override fun AdminRoutes.install() {
                 get(path) { page(title) { p { +"test page for ${admin.did.value}" } } }
                 action("test/poke", "test.poke") { ActionResult("poked ${target.orEmpty()}") }
+                action("test/count", "test.count") { ActionResult("counted 3", detail = "3 counted") }
+                action("test/refuse", "test.refuse") { ActionResult.refused("invalid", "That's not valid.") }
                 action("test/boom", "test.boom") { error("boom") }
             }
         }

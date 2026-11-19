@@ -7,7 +7,7 @@ header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; jus
 nav ul { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 0; padding: 0; }
 a { color: var(--accent); }
 .who { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-.who form { display: inline; }
+.who form, form.inline { display: inline; }
 .role { border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
 main { padding: 16px; max-width: 1200px; }
 h1 { font-size: 22px; margin: 4px 0 16px; }
