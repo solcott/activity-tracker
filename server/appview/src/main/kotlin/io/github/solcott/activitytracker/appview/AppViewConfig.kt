@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.terrain.TerrainTiles
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
@@ -93,7 +95,44 @@ data class AppViewConfig(
     val metricsPort: Int? = null,
     /** The address the metrics port binds to (`METRICS_HOST`), loopback unless set. */
     val metricsHost: String = DEFAULT_METRICS_HOST,
+    /** Limits on an operator's reindex of one account (`REINDEX_*`; admin/repo-reindex). */
+    val reindex: ReindexLimits = ReindexLimits(),
 ) {
+    /**
+     * How much a reindex reads and how many run: the largest repo it fetches ([maxCarBytes], `REINDEX_MAX_CAR_BYTES`) and its most blocks
+     * ([maxBlocks], `REINDEX_MAX_BLOCKS`), the longest one run takes ([timeout], `REINDEX_TIMEOUT`, a Kotlin duration such as `30m`), how
+     * many run at once ([parallelism], `REINDEX_PARALLELISM`), and how long after a run Jetstream commits its snapshot covers are still
+     * dropped ([watchGrace], `REINDEX_WATCH_GRACE`).
+     */
+    data class ReindexLimits(
+        val maxCarBytes: Long = DEFAULT_MAX_CAR_BYTES,
+        val maxBlocks: Int = DEFAULT_MAX_BLOCKS,
+        val timeout: Duration = 30.minutes,
+        val parallelism: Int = 2,
+        val watchGrace: Duration = 15.minutes,
+    ) {
+        companion object {
+            fun fromEnv(env: Map<String, String>): ReindexLimits {
+                val defaults = ReindexLimits()
+                fun positiveLong(key: String) = env[key]?.trim()?.toLongOrNull()?.takeIf { it > 0 }
+                fun duration(key: String) = env[key]?.trim()?.let(Duration::parseOrNull)?.takeIf { it.isPositive() }
+                return ReindexLimits(
+                    maxCarBytes = positiveLong("REINDEX_MAX_CAR_BYTES") ?: defaults.maxCarBytes,
+                    maxBlocks = positiveLong("REINDEX_MAX_BLOCKS")?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: defaults.maxBlocks,
+                    timeout = duration("REINDEX_TIMEOUT") ?: defaults.timeout,
+                    parallelism = positiveLong("REINDEX_PARALLELISM")?.coerceAtMost(MAX_PARALLELISM)?.toInt() ?: defaults.parallelism,
+                    watchGrace = duration("REINDEX_WATCH_GRACE") ?: defaults.watchGrace,
+                )
+            }
+
+            private const val DEFAULT_MAX_CAR_BYTES = 512L * 1024 * 1024
+            private const val DEFAULT_MAX_BLOCKS = 2_000_000
+
+            /** More at once would crowd out Jetstream's indexing. */
+            private const val MAX_PARALLELISM = 8L
+        }
+    }
+
     init {
         require(metricsPort != port) { "METRICS_PORT must not be APPVIEW_PORT ($port): metrics are never served on the public port" }
     }
@@ -180,6 +219,7 @@ data class AppViewConfig(
                 admins = AdminRole.parseAdmins(env["APPVIEW_ADMINS"]),
                 metricsPort = metricsPort(env),
                 metricsHost = metricsHost(env),
+                reindex = ReindexLimits.fromEnv(env),
             )
         }
 

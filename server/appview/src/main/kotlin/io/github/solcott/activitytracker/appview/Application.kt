@@ -60,6 +60,7 @@ import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
 import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
 import io.github.solcott.activitytracker.appview.ops.installRequestMetrics
 import io.github.solcott.activitytracker.appview.ops.serve
+import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
 import io.github.solcott.activitytracker.appview.segments.SegmentJobOutcomes
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -128,6 +129,8 @@ fun main() {
     val registrations = signingKey?.let { SyncRegistrations(db, config.publicUrl) }
     val member = signingKey?.let { spaceMember(config, it, checkNotNull(registrations), guarded, identity) }
     val syncer = member?.let { SpaceSyncer(db, indexer, it, outcomes = metrics?.syncOutcomes ?: SyncOutcomes.None) }
+    // An operator's reindex of one account (admin/repo-reindex): its DID document resolved afresh, its repo fetched through [guarded].
+    val reindexer = RepoReindexer(db, indexer, guarded, identity::resolveDid, syncer?.let { it::resyncAccount }, config.reindex)
     val spaceBlobs = member?.let(::MemberSpaceBlobs)
     // Every background worker's status (dev/worker-telemetry), for the metrics and the admin pages.
     val workers = WorkerRegistry()
@@ -154,7 +157,7 @@ fun main() {
             val started =
                 startWorkers(
                     WorkerSupervisor(this, workers),
-                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics),
+                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics, reindexer),
                 )
             metrics?.bind(workers, started)
         }
@@ -238,6 +241,7 @@ private class WorkerInputs(
     val pds: PdsLookup,
     val log: org.slf4j.Logger,
     val metrics: AppViewMetrics?,
+    val reindexer: RepoReindexer,
 )
 
 /**
@@ -270,6 +274,8 @@ private fun startWorkers(supervisor: WorkerSupervisor, inputs: WorkerInputs): St
         // The moderator audit log keeps entries a little over a year.
         val accessLog = ModerationAccessLog(db)
         supervisor.loop(WorkerNames.MODERATION_ACCESS_LOG) { accessLog.run(it) }
+        // Operators' reindexes (admin/repo-reindex); each run is launched in the supervisor's scope and outlives the round that started it.
+        supervisor.loop(WorkerNames.REPO_REINDEXER) { reindexer.run(supervisor.scope, it) }
         StartedWorkers(jetstream, labels)
     }
 

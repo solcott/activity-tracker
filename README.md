@@ -214,6 +214,10 @@ AppView. Device mode doesn't need it: every client addresses the AppView by its 
 dev the AppView refuses to fetch from private, loopback or link-local addresses it learns from DID documents and handles,
 and every PDS and `did:web` on the local stack is `localhost`. It logs a warning at startup while the flag is on.
 
+An operator can rebuild one account's indexed state from its repo and spaces when the AppView missed events (admin/repo-reindex;
+the admin site's account page offers it). `REINDEX_MAX_CAR_BYTES`, `REINDEX_MAX_BLOCKS`, `REINDEX_TIMEOUT`, `REINDEX_WATCH_GRACE`
+and `REINDEX_PARALLELISM` bound it; `docker/.env.example` lists their defaults.
+
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
 - **iOS Simulator** shares the Mac's network, so it needs nothing extra.

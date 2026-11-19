@@ -24,10 +24,13 @@ class BskyBlockIndex(private val db: Database, private val clock: Clock = Clock.
     private val log = LoggerFactory.getLogger(BskyBlockIndex::class.java)
 
     /** [author]'s block at [rkey] in their repo, as the backfill reads it from their PDS. */
-    suspend fun put(author: Did, rkey: String, json: JsonObject) = put(author, AtUri.of(author, Nsid.BSKY_GRAPH_BLOCK, rkey), json)
+    suspend fun put(author: Did, rkey: String, json: JsonObject): Boolean = put(author, AtUri.of(author, Nsid.BSKY_GRAPH_BLOCK, rkey), json)
 
-    /** [author]'s block at [uri], from Jetstream or the backfill. A malformed one is skipped: repos are untrusted input. */
-    suspend fun put(author: Did, uri: AtUri, json: JsonObject) {
+    /**
+     * [author]'s block at [uri], from Jetstream, the backfill or a reindex. A malformed one is skipped (repos are untrusted input): returns
+     * whether it decoded.
+     */
+    suspend fun put(author: Did, uri: AtUri, json: JsonObject): Boolean {
         try {
             val record = AtJson.decodeFromJsonElement(BskyBlockRecord.serializer(), json)
             db.tx {
@@ -35,11 +38,13 @@ class BskyBlockIndex(private val db: Database, private val clock: Clock = Clock.
                 val now = clock.now().toEpochMilliseconds()
                 upsertBlock(uri, Placement.REPO, author, record.subject, record.createdAt.toEpochMilliseconds(), now)
             }
+            return true
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
             log.debug("Skipping undecodable Bluesky block {}: {}", uri, e.message)
         } catch (e: IllegalArgumentException) {
             log.debug("Skipping invalid Bluesky block {}: {}", uri, e.message)
         }
+        return false
     }
 }

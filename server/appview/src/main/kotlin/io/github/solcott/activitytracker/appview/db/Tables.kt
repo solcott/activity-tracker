@@ -1033,3 +1033,31 @@ object BskyBlockBackfillFailures : Table("bsky_block_backfill_failures") {
     val nextAttemptAt = long("next_attempt_at")
     override val primaryKey = PrimaryKey(did)
 }
+
+/**
+ * One reindex of an account (admin/repo-reindex), queued by an operator and run by `RepoReindexer`: its progress and outcome, as counts,
+ * identifiers and short error codes, never record content. [state] is a `ReindexState` name, [phase] a `ReindexPhase` one.
+ */
+object RepoReindexes : Table("repo_reindexes") {
+    val id = long("id").autoIncrement()
+    val did = varchar("did", 255)
+    val requestedBy = varchar("requested_by", 255)
+    val requestedAt = long("requested_at")
+    val resyncSpaces = bool("resync_spaces")
+    val startedAt = long("started_at").nullable()
+    val finishedAt = long("finished_at").nullable()
+    val state = varchar("run_state", 16)
+    val phase = varchar("phase", 16).nullable()
+    val rev = varchar("rev", 32).nullable()
+    val carBytes = long("car_bytes").nullable()
+    val recordsSeen = integer("records_seen")
+    val recordsUnchanged = integer("records_unchanged")
+    val recordsIndexed = integer("records_indexed")
+    val recordsInvalid = integer("records_invalid")
+    val recordsRemoved = integer("records_removed")
+    val recordsLive = integer("records_live")
+    val spacesResynced = integer("spaces_resynced").nullable()
+    val errorCode = varchar("error_code", 32).nullable()
+    val errorMessage = varchar("error_message", 512).nullable()
+    override val primaryKey = PrimaryKey(id)
+}

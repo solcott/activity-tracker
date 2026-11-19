@@ -10,6 +10,7 @@ object WorkerNames {
     const val SEGMENT_GROUPS_BACKFILL = "segment-groups-backfill"
     const val LABEL_SWEEP = "label-sweep"
     const val MODERATION_ACCESS_LOG = "moderation-access-log"
+    const val REPO_REINDEXER = "repo-reindexer"
 
     /** One per configured labeler, named by its DID (a configured service, never an athlete's). */
     fun labelSubscriber(did: String) = "label-subscriber:$did"

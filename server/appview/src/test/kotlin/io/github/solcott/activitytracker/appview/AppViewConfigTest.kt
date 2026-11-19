@@ -7,6 +7,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class AppViewConfigTest {
     @Test
@@ -45,6 +47,30 @@ class AppViewConfigTest {
         val error =
             assertFailsWith<IllegalArgumentException> { AppViewConfig.fromEnv(mapOf("APPVIEW_PORT" to "8081", "METRICS_PORT" to "8081")) }
         assertTrue("METRICS_PORT" in error.message.orEmpty())
+    }
+
+    @Test
+    fun reindexLimitsHaveDefaultsAndReadOverrides() {
+        assertEquals(AppViewConfig.ReindexLimits(), AppViewConfig.fromEnv(emptyMap()).reindex)
+        val config =
+            AppViewConfig.fromEnv(
+                mapOf(
+                    "REINDEX_MAX_CAR_BYTES" to "1000",
+                    "REINDEX_MAX_BLOCKS" to "50",
+                    "REINDEX_TIMEOUT" to "5m",
+                    "REINDEX_WATCH_GRACE" to "90s",
+                    "REINDEX_PARALLELISM" to "40",
+                ),
+            )
+        assertEquals(
+            AppViewConfig.ReindexLimits(maxCarBytes = 1000, maxBlocks = 50, timeout = 5.minutes, parallelism = 8, watchGrace = 90.seconds),
+            config.reindex,
+        )
+        // Nonsense falls back to the defaults.
+        assertEquals(
+            AppViewConfig.ReindexLimits(),
+            AppViewConfig.fromEnv(mapOf("REINDEX_TIMEOUT" to "soon", "REINDEX_PARALLELISM" to "0")).reindex,
+        )
     }
 
     @Test

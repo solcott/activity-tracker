@@ -61,6 +61,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -144,6 +145,28 @@ class Indexer(
      */
     val segmentPins = SegmentPins(db, segmentJobs, pinLocks, clock, segmentImporter, segmentActiveAthletes)
 
+    /** Accounts being reindexed (admin/repo-reindex), and for a grace period after, so Jetstream and the reindex see each other. */
+    private val watches = ConcurrentHashMap<String, ReindexWatch>()
+
+    /** Starts watching [did]'s Jetstream commits for a reindex, before its repo is fetched; replaces an earlier watch of it. */
+    fun watch(did: Did): ReindexWatch = ReindexWatch(did.value).also { watches[did.value] = it }
+
+    /** The reindex [watch] was for has ended: it keeps dropping commits its snapshot covers for [grace], then goes. */
+    fun unwatch(watch: ReindexWatch, grace: Duration) {
+        watch.expiresAt = (clock.now() + grace).toEpochMilliseconds()
+        val now = clock.now().toEpochMilliseconds()
+        watches.values.removeIf { it.expired(now) }
+    }
+
+    private fun watchOf(did: Did): ReindexWatch? {
+        val watch = watches[did.value]
+        if (watch != null && watch.expired(clock.now().toEpochMilliseconds())) {
+            watches.remove(did.value, watch)
+            return null
+        }
+        return watch
+    }
+
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
             is JetstreamEvent.Commit -> {
@@ -174,12 +197,78 @@ class Indexer(
         val uri = AtUri.of(author, commit.collection, commit.rkey)
         val record = commit.record
         val cid = commit.cid
+        // While the account is reindexed, a commit its snapshot already covers is dropped, and a newer one keeps the snapshot off its URI.
+        val guard = watchOf(author)?.let { watch -> { watch.liveCommit(uri.value, commit.rev) } }
         when {
-            commit.operation == "delete" -> lockedOn(uri) { db.tx { delete(commit.collection, uri, Placement.REPO) } }
-            record != null && cid != null && commit.collection == Nsid.BSKY_GRAPH_BLOCK -> bskyBlocks.put(author, uri, record)
-            record != null && cid != null -> index(author, commit.collection, uri, cid, record, Placement.REPO)
+            commit.operation == "delete" -> repoDelete(commit.collection, uri, guard)
+            record != null && cid != null -> repoWrite(author, commit.collection, uri, cid, record, guard)
         }
     }
+
+    /** A record from [author]'s repo, from Jetstream or a reindex, written only if [guard] (checked under the URI lock) allows it. */
+    @Suppress("LongParameterList") // The record, and the check that may hold it back.
+    private suspend fun repoWrite(
+        author: Did,
+        collection: String,
+        uri: AtUri,
+        cid: String,
+        record: JsonObject,
+        guard: (() -> Boolean)?,
+    ): RepoWriteResult =
+        if (collection == Nsid.BSKY_GRAPH_BLOCK) {
+            lockedOn(uri) {
+                when {
+                    guard?.invoke() == false -> RepoWriteResult.HELD
+                    bskyBlocks.put(author, uri, record) -> RepoWriteResult.WRITTEN
+                    else -> RepoWriteResult.INVALID
+                }
+            }
+        } else {
+            index(author, collection, uri, cid, record, Placement.REPO, guard = guard)
+        }
+
+    /** A delete from the repo, applied only if [guard] (checked under the URI lock) allows it. Returns whether it was. */
+    private suspend fun repoDelete(collection: String, uri: AtUri, guard: (() -> Boolean)?): Boolean =
+        lockedOn(uri) {
+            if (guard?.invoke() == false) return@lockedOn false
+            db.tx { delete(collection, uri, Placement.REPO) }
+            true
+        }
+
+    /**
+     * A record of [author]'s repo snapshot (admin/repo-reindex), indexed as Jetstream would index it unless a newer live commit for it
+     * arrived while [watch] was on.
+     */
+    @Suppress("LongParameterList") // The record, and the reindex's watch.
+    suspend fun reindexWrite(
+        author: Did,
+        collection: String,
+        rkey: String,
+        cid: String,
+        record: JsonObject,
+        watch: ReindexWatch,
+    ): RepoWriteResult {
+        if (collection !in Nsid.indexedCollections) return RepoWriteResult.INVALID
+        val uri = AtUri.of(author, collection, rkey)
+        return repoWrite(author, collection, uri, cid, record) { watch.snapshotWrite(uri.value) }
+    }
+
+    /** A record [author]'s repo snapshot no longer holds, deleted as from the repo unless a newer live commit wrote it. */
+    suspend fun reindexDelete(author: Did, collection: String, rkey: String, watch: ReindexWatch): Boolean {
+        val uri = AtUri.of(author, collection, rkey)
+        return repoDelete(collection, uri) { watch.snapshotWrite(uri.value) }
+    }
+
+    /**
+     * Everything indexed from [author]'s repo, by collection: rkey → the CID it was indexed at, or null where the index keeps none
+     * (admin/repo-reindex compares a snapshot with it).
+     */
+    suspend fun repoHoldings(author: Did): Map<String, Map<String, String?>> = db.tx {
+        Nsid.indexedCollections.associateWith { repoHoldings(author, it) }
+    }
+
+    /** Whether [author] has an `actors` row. */
+    suspend fun knows(author: Did): Boolean = actorExists(author)
 
     /**
      * A put of [collection]/[rkey] in [space]'s authority repo. Only [spaceCollections] for the space's key are indexed. [whileSynced] (the
@@ -225,7 +314,7 @@ class Indexer(
         }
     }
 
-    @Suppress("LongParameterList") // The record, and where it's from.
+    @Suppress("LongParameterList") // The record, where it's from, and what may hold it back.
     private suspend fun index(
         author: Did,
         collection: String,
@@ -234,12 +323,14 @@ class Indexer(
         record: JsonObject,
         placement: Placement,
         syncedSpace: SpaceUri? = null,
-    ) {
+        guard: (() -> Boolean)? = null,
+    ): RepoWriteResult {
         val check = firstSightCheck(author)
         try {
             // Checked before the transaction: the rkey is a SHA-256, which suspends.
             if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
-            lockedOn(uri) {
+            return lockedOn(uri) {
+                if (guard?.invoke() == false) return@lockedOn RepoWriteResult.HELD
                 db.tx {
                     // Locks the space's sync row until this commits, so deleteActor (which drops it first) waits for this write or skips
                     // it.
@@ -258,6 +349,7 @@ class Indexer(
                         if (activity != null) activityChanged(activity, before, segmentJobs, now)
                     }
                 }
+                RepoWriteResult.WRITTEN
             }
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
@@ -265,6 +357,7 @@ class Indexer(
         } catch (e: IllegalArgumentException) {
             log.debug("Skipping invalid {} record {}: {}", collection, uri, e.message)
         }
+        return RepoWriteResult.INVALID
     }
 
     @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // The record, and where it's from; a branch per collection.
@@ -801,3 +894,15 @@ private class HeldRows(
     val collection: String? = null,
     val uri: Column<String>? = null,
 )
+
+/** What became of a record written from a repo (admin/repo-reindex counts these). */
+enum class RepoWriteResult {
+    /** Indexed (or, for a record the indexer keeps nothing of, considered). */
+    WRITTEN,
+
+    /** Held back: a newer live commit for it arrived during a reindex. */
+    HELD,
+
+    /** Dropped as undecodable or invalid, as the indexer drops any such record. */
+    INVALID,
+}
