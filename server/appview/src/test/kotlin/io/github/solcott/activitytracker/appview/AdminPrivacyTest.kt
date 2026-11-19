@@ -3,9 +3,14 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.admin.AdminPage
 import io.github.solcott.activitytracker.appview.admin.AdminRoutes
 import io.github.solcott.activitytracker.appview.admin.AdminSite
+import io.github.solcott.activitytracker.appview.admin.HealthPage
+import io.github.solcott.activitytracker.appview.admin.HealthSources
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
+import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
+import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -17,9 +22,13 @@ import io.ktor.client.statement.bodyAsText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.html.p
 import kotlinx.serialization.json.jsonObject
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /**
@@ -30,8 +39,20 @@ class AdminPrivacyTest : AdminTestBase() {
     private val marker = "PRIVATE-MARKER-7f3a"
     private val activityUri = "at://$carol/${Nsid.FEED_ACTIVITY}/3kprivate"
 
-    /** The operator pages the AppView registers; empty until a change adds one. */
-    private val pagesUnderTest: List<AdminPage> = emptyList()
+    /** The operator pages the AppView registers. */
+    private val pagesUnderTest: List<AdminPage> =
+        listOf(
+            HealthPage(
+                HealthSources(
+                    WorkerSupervisor(CoroutineScope(SupervisorJob()), WorkerRegistry(clock)),
+                    StartedWorkers(null, emptyList()),
+                    db,
+                    24.hours,
+                    syncing = true,
+                    clock = clock,
+                ),
+            ),
+        )
 
     private fun seed() = runBlocking {
         val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
@@ -45,6 +66,18 @@ class AdminPrivacyTest : AdminTestBase() {
             """{"subject":{"uri":"$activityUri","cid":"bafyprivate"},"text":"$marker","audience":"self",""" +
                 """"createdAt":"2026-10-01T08:00:00Z"}"""
         indexer.spaceWrite(interactions, Nsid.FEED_COMMENT, "3kcomment", "bafycomment", AtJson.parseToJsonElement(comment).jsonObject)
+        // Carol's Only me space failing to sync, for the health page (admin/ingest-health).
+        db.tx {
+            SpaceSync.insert {
+                it[space] = self.value
+                it[authorityDid] = carol
+                it[failures] = 3
+                it[lastError] = "IOException: host unreachable"
+                it[lastErrorAt] = 1
+                it[nextAttemptAt] = 2
+                it[createdAt] = 0
+            }
+        }
         // The seed must hold the marker, or the test proves nothing.
         assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
     }

@@ -5,6 +5,9 @@ import io.github.solcott.activitytracker.appview.admin.AdminOAuth
 import io.github.solcott.activitytracker.appview.admin.AdminPage
 import io.github.solcott.activitytracker.appview.admin.AdminSite
 import io.github.solcott.activitytracker.appview.admin.AtprotoAdminOAuth
+import io.github.solcott.activitytracker.appview.admin.DatabaseSizes
+import io.github.solcott.activitytracker.appview.admin.HealthPage
+import io.github.solcott.activitytracker.appview.admin.HealthSources
 import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
@@ -139,6 +142,14 @@ fun main() {
     embeddedServer(Netty, port = config.port) {
             val pds = ResolvingPdsLookup(identity)
             val ozone = ozoneOf(config, http, configuredIdentity)
+            // Started before the routes are, so the health page is given them (admin/ingest-health); nothing is served until `start`.
+            val supervisor = WorkerSupervisor(this, workers)
+            val started =
+                startWorkers(
+                    supervisor,
+                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics, reindexer),
+                )
+            val health = HealthSources(supervisor, started, db, config.jetstreamRewindMax, syncer != null, DatabaseSizes.of(db))
             appView(
                 config,
                 db,
@@ -152,13 +163,9 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
                 adminOAuth = AtprotoAdminOAuth(guarded, identity),
+                adminPages = listOf(HealthPage(health)),
                 metrics = metrics,
             )
-            val started =
-                startWorkers(
-                    WorkerSupervisor(this, workers),
-                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics, reindexer),
-                )
             metrics?.bind(workers, started)
         }
         .start(wait = true)
