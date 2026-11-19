@@ -6,7 +6,6 @@ import io.github.solcott.activitytracker.appview.admin.AdminPage
 import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.admin.AdminRoutes
 import io.github.solcott.activitytracker.appview.admin.AdminSite
-import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.oauth.AuthorizationRequest
@@ -26,10 +25,10 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.util.UUID
+import kotlin.test.AfterTest
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.html.p
-import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
@@ -41,12 +40,10 @@ open class AdminTestBase {
     protected val bob = "did:plc:bob"
     protected val carol = "did:plc:carol"
 
-    protected val db: Database =
-        JdbcDataSource().run {
-            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-            DatabaseFactory.migrate(this)
-            Database.connect(this)
-        }
+    private val h2 = TestH2()
+    protected val db: Database = h2.db
+
+    @AfterTest fun dropDatabase() = h2.close()
 
     protected var now: Instant = Instant.parse("2026-11-18T12:00:00Z")
     protected val clock =

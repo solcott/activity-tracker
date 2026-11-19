@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.admin.ImporterRun
 import io.github.solcott.activitytracker.appview.admin.SegmentAdminQueries
 import io.github.solcott.activitytracker.appview.admin.SegmentSearch
-import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.ProposalState
@@ -11,7 +10,6 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import java.util.UUID
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,19 +19,17 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
-import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.update
 
 /** The Segments admin page's reads (admin/segment-tools): search, names under the serving rules, counts, elevation, proposals, runs. */
 class SegmentAdminQueriesTest {
-    private val db: Database =
-        JdbcDataSource().run {
-            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-            DatabaseFactory.migrate(this)
-            Database.connect(this)
-        }
+    private val h2 = TestH2()
+    private val db: Database = h2.db
+
+    @AfterTest fun dropDatabase() = h2.close()
+
     private val clock = MutableClock(Instant.parse("2026-10-28T12:00:00Z"))
     private val f = SegmentAdminFixtures(db, clock)
     private val q = f.queries

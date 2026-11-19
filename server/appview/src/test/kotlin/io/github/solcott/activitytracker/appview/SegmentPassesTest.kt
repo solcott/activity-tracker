@@ -1,13 +1,12 @@
 package io.github.solcott.activitytracker.appview
 
-import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.StatusChange
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
-import java.util.UUID
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,17 +15,15 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
-import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 
 /** The one-segment status and naming passes (admin/segment-tools), which run the hourly passes' code narrowed to the segments named. */
 class SegmentPassesTest {
-    private val db: Database =
-        JdbcDataSource().run {
-            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-            DatabaseFactory.migrate(this)
-            Database.connect(this)
-        }
+    private val h2 = TestH2()
+    private val db: Database = h2.db
+
+    @AfterTest fun dropDatabase() = h2.close()
+
     private val clock = MutableClock(Instant.parse("2026-10-28T12:00:00Z"))
     private val f = SegmentAdminFixtures(db, clock)
     private val operator = Did("did:plc:operator")
