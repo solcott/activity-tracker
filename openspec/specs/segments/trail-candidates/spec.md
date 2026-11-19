@@ -78,11 +78,8 @@ A way SHALL qualify only with a non-empty `name`, or for `alpine` a non-empty `p
 - **THEN** it is a trail for `alpine` named "Upper Lynx", and for no other group
 
 ### Requirement: Route relations are trails
+
 A route relation tagged `route=mtb` or `route=bicycle` SHALL be a trail for `ride`; `route=hiking`, `route=foot` or `route=running` for `run` and `hike`; `route=ski` for `ski`; `route=piste` with `piste:type=downhill` for `alpine`; and `route=canoe` for `paddle`. Its member ways SHALL be joined in order into one trail named by the relation, whatever their own names. A relation whose ways can't be joined into one line SHALL give a trail for each joined stretch.
-
-A road member of at most 200 m, open to the relation's sport groups and joining the members on both sides of it, SHALL be kept in the line rather than breaking it.
-
-From each end of a joined stretch, member ways that belong to another named trail SHALL be dropped while a way of the relation's own name or family remains. A way belongs to another named trail when it has a name that, without its generic words, is neither the relation's name nor in its family. A stretch with no way of the relation's name or family SHALL keep all of its ways.
 
 #### Scenario: Named hiking route over unnamed paths
 - **WHEN** a `route=hiking` relation named "Ridge Loop" has three unnamed path members that join end to end
@@ -96,6 +93,18 @@ From each end of a joined stretch, member ways that belong to another named trai
 - **WHEN** a `route=piste` relation tagged `piste:type=downhill` and named "Lynx" joins two unnamed piste ways
 - **THEN** they form one `alpine` trail named "Lynx"
 
+### Requirement: A short road member stays in a route's line
+
+A road member of at most 200 m, open to the relation's sport groups and joining the members on both sides of it, SHALL be kept in the line rather than breaking it.
+
+#### Scenario: Short road member
+- **WHEN** a `route=mtb` relation's members are two trail ways joined by a 90 m `highway=service` way
+- **THEN** they form one trail through the service road
+
+### Requirement: A route's ends drop ways of other named trails
+
+From each end of a joined stretch, member ways that belong to another named trail SHALL be dropped while a way of the relation's own name or family remains. A way belongs to another named trail when it has a name that, without its generic words, is neither the relation's name nor in its family. A stretch with no way of the relation's name or family SHALL keep all of its ways.
+
 #### Scenario: Relation ending on another trail
 - **WHEN** a `route=mtb` relation named "Clarks Trail" joins three "Clarks Trail - Bikes Uphill Only Section" ways and then a way of "Ann's Trail"
 - **THEN** its trail follows only the three Clarks ways
@@ -103,10 +112,6 @@ From each end of a joined stretch, member ways that belong to another named trai
 #### Scenario: Route over differently named ways
 - **WHEN** a `route=mtb` relation named "Crest Loop" joins ways named "Ridge Trail" and "Saddle Trail" and none of its own name
 - **THEN** its trail follows all of them
-
-#### Scenario: Short road member
-- **WHEN** a `route=mtb` relation's members are two trail ways joined by a 90 m `highway=service` way
-- **THEN** they form one trail through the service road
 
 ### Requirement: Closed and unsuitable ways are left out
 A way SHALL NOT be a trail when it is tagged `access=private`, `access=no`, `area=yes`, `footway=sidewalk` or `footway=crossing`, or is a road, steps or a building passage. It SHALL be left out of route relations too, except where a trail or relation crosses short shared tread on a road. A way tagged `access=private` or `access=no`, or closed to the trail's sport group, SHALL never be crossed that way, alone or as part of a chain of ways.
@@ -128,11 +133,8 @@ A way SHALL NOT be a trail when it is tagged `access=private`, `access=no`, `are
 - **THEN** the trail isn't joined across them
 
 ### Requirement: Named ways join into trails
+
 Ways that qualify for the same sport group, share a name once each name's generic words are dropped, and meet end to end SHALL join into one trail, named by the longest of its ways. Where more than two such ways meet at a node, the trail SHALL end there.
-
-A trail that ends where no way of its name continues SHALL also join another trail of the same name and group when it shares tread with roads or other named ways to get there: the other trail starts at most 200 m away along a chain of connected ways, each open to the group. The trail SHALL follow those ways between the two trails, along the shortest such chain.
-
-The chain MAY be longer, up to the extract's ref bridge limit, when every way in it lists one of the trail's own refs. The trail's ways at both ends of the chain SHALL carry that ref. A way's refs are its `ref` tag's values, split at `;` and trimmed.
 
 #### Scenario: Trail mapped as several ways
 - **WHEN** "Oak Trail" is mapped as four ways that meet end to end
@@ -141,6 +143,10 @@ The chain MAY be longer, up to the extract's ref bridge limit, when every way in
 #### Scenario: Name with and without its generic word
 - **WHEN** a 2 km "Canyon Hollow Trail" is mapped with 126 m of ways named "Canyon Hollow" in its middle
 - **THEN** they form one trail
+
+### Requirement: A trail joins its namesake over shared tread
+
+A trail that ends where no way of its name continues SHALL also join another trail of the same name and group when it shares tread with roads or other named ways to get there: the other trail starts at most 200 m away along a chain of connected ways, each open to the group. The trail SHALL follow those ways between the two trails, along the shortest such chain.
 
 #### Scenario: Trail along a service road
 - **WHEN** "Canyon Hollow Trail" meets the service road "Lower Corner Canyon Trail", follows it for 103 m, and leaves it
@@ -153,6 +159,10 @@ The chain MAY be longer, up to the extract's ref bridge limit, when every way in
 #### Scenario: Too far along the road
 - **WHEN** a trail's two halves meet the same road 400 m apart, and the road carries none of the trail's refs
 - **THEN** they stay two trails
+
+### Requirement: A trail joins its namesake along roads that carry its ref
+
+The chain of ways joining two trails of one name MAY be longer than 200 m, up to the extract's ref bridge limit, when every way in it lists one of the trail's own refs. The trail's ways at both ends of the chain SHALL carry that ref. A way's refs are its `ref` tag's values, split at `;` and trimmed.
 
 #### Scenario: Roads that carry the trail's number
 - **WHEN** "Little Cottonwood Creek Trail", tagged `ref=1001`, leaves its path for Granite Cliffs Road (86 m) and Power Plant Lane (133 m), both tagged `ref=NF 87672;1001`, and resumes
@@ -167,17 +177,12 @@ The chain MAY be longer, up to the extract's ref bridge limit, when every way in
 - **THEN** they stay two trails
 
 ### Requirement: Each trail is cut at junctions into candidates
-Each trail SHALL give one candidate for its whole length, and one for each stretch between junctions, where a junction is a node it shares with another named trail or a named road. A trail whose edges allow different directions SHALL instead be cut where they change, into runs that each allow one set of directions. Each run SHALL then give a candidate for its whole length and one for each of its stretches between junctions, and the trail SHALL give no whole-trail candidate.
 
-A stretch shorter than the minimum segment length SHALL be joined to the next one. The minimum used for this is the largest of the sport groups that all of the trail's own ways are open to, so the trail's groups end their stretches at the same nodes. Candidates outside their own sport group's minimum and 50 km SHALL be dropped.
+Each trail SHALL give one candidate for its whole length, and one for each stretch between junctions, where a junction is a node it shares with another named trail or a named road.
 
 #### Scenario: Trail crossed by a fire road
 - **WHEN** a 4 km ride trail is crossed by a named fire road 1.5 km from its start
 - **THEN** it gives three `ride` candidates in each permitted direction: the whole trail, the first 1.5 km and the last 2.5 km
-
-#### Scenario: Short stretch joined
-- **WHEN** two junctions on a ride trail are 300 m apart
-- **THEN** that stretch is joined to the next one rather than becoming a candidate
 
 #### Scenario: Unnamed crossing
 - **WHEN** an unnamed social path meets a trail
@@ -187,13 +192,25 @@ A stretch shorter than the minimum segment length SHALL be joined to the next on
 - **WHEN** an informal "Canyon Hollow Trail" alternate leaves and rejoins "Canyon Hollow Trail"
 - **THEN** the trail isn't cut where they meet, since a way of the trail's own name is no other trail
 
-#### Scenario: Ride, run and hike cut alike
-- **WHEN** a trail open to ride, run and hike has junctions 300 m and 700 m from its start
-- **THEN** its `ride`, `run` and `hike` stretches all end 700 m from its start, not 300 m
+### Requirement: A trail is cut where its directions change
+
+A trail whose edges allow different directions SHALL give no such candidates, and SHALL instead be cut where they change, into runs that each allow one set of directions. Each run SHALL then give a candidate for its whole length and one for each of its stretches between junctions, and the trail SHALL give no whole-trail candidate.
 
 #### Scenario: Relation through a one-way trail
 - **WHEN** a 5 km `route=mtb` relation runs both ways for 3 km and then along a 2 km one-way climb
 - **THEN** it gives no 5 km candidate, and gives the 3 km run both ways and the 2 km run uphill only, each with its own stretches
+
+### Requirement: Short stretches join the next one
+
+A stretch shorter than the minimum segment length SHALL be joined to the next one. The minimum used for this is the largest of the sport groups that all of the trail's own ways are open to, so the trail's groups end their stretches at the same nodes. Candidates outside their own sport group's minimum and 50 km SHALL be dropped.
+
+#### Scenario: Short stretch joined
+- **WHEN** two junctions on a ride trail are 300 m apart
+- **THEN** that stretch is joined to the next one rather than becoming a candidate
+
+#### Scenario: Ride, run and hike cut alike
+- **WHEN** a trail open to ride, run and hike has junctions 300 m and 700 m from its start
+- **THEN** its `ride`, `run` and `hike` stretches all end 700 m from its start, not 300 m
 
 ### Requirement: Candidates follow the trail's permitted directions
 A trail SHALL give candidates in both directions, unless it is tagged one-way (`oneway`, or `oneway:bicycle` for `ride`), when it SHALL give them only in its permitted direction. A candidate given in one direction only, by a one-way tag or because it is `alpine`, SHALL be marked one-way; a candidate given both ways SHALL not. An `alpine` trail SHALL give candidates only in the direction its ways are drawn, top to bottom by OSM convention, whatever its one-way tags.
@@ -215,11 +232,16 @@ A trail SHALL give candidates in both directions, unless it is tagged one-way (`
 - **THEN** its `ride` candidates follow the way's direction only and are marked one-way, and its `run` and `hike` candidates appear both ways and aren't
 
 ### Requirement: Candidates are named after their trail
-A whole-trail candidate SHALL be named after its trail. A named-way trail whose ways are exactly those of a route relation's trail, of any sport group, SHALL be named after the relation.
+
+A whole-trail candidate SHALL be named after its trail. A named-way trail whose ways are exactly those of a route relation's trail, of any sport group, SHALL be named after the relation. Names SHALL be at most 100 graphemes.
+
+#### Scenario: Trail covered by a relation
+- **WHEN** the `route=mtb` relation "Clarks Trail" follows exactly the ways named "Clarks Trail - Bikes Uphill Only Section"
+- **THEN** the `run` and `hike` candidates of those ways are named "Clarks", like the relation's `ride` candidate
+
+### Requirement: Stretches are named after their ends
 
 A stretch, or a run cut at a change of direction, SHALL be named after its trail and the full names, sections included, of the named trails or roads at its ends, as "<trail>: <start> → <end>", or "<trail> (part n)" when an end has no name.
-
-When a trail has candidates in both directions, a whole-trail name SHALL add its direction of travel: clockwise or counterclockwise for a loop, whose ends are within 30 m, otherwise the compass direction. Names SHALL be at most 100 graphemes.
 
 #### Scenario: Stretch between two crossings
 - **WHEN** a stretch of "Oak Trail" runs from where "Fire Road 3" crosses it to where "Pine Trail" meets it
@@ -229,6 +251,10 @@ When a trail has candidates in both directions, a whole-trail name SHALL add its
 - **WHEN** a stretch of "Bonneville Shoreline Trail - Draper Section" runs from where "Rush Trail - Dreamline Section" meets it to where "Aqueduct Trail" meets it
 - **THEN** it is named "Bonneville Shoreline - Draper: Rush - Dreamline → Aqueduct"
 
+### Requirement: Two-way whole trails name their direction
+
+When a trail has candidates in both directions, a whole-trail name SHALL add its direction of travel: clockwise or counterclockwise for a loop, whose ends are within 30 m, otherwise the compass direction.
+
 #### Scenario: Whole two-way trail
 - **WHEN** "Oak Trail" runs mostly north from its start and may be ridden both ways
 - **THEN** its whole-trail candidates are named "Oak (northbound)" and "Oak (southbound)"
@@ -236,10 +262,6 @@ When a trail has candidates in both directions, a whole-trail name SHALL add its
 #### Scenario: Two-way loop
 - **WHEN** "Pond Loop" starts and ends at the same place and may be ridden both ways
 - **THEN** its whole-trail candidates are named "Pond Loop (clockwise)" and "Pond Loop (counterclockwise)"
-
-#### Scenario: Trail covered by a relation
-- **WHEN** the `route=mtb` relation "Clarks Trail" follows exactly the ways named "Clarks Trail - Bikes Uphill Only Section"
-- **THEN** the `run` and `hike` candidates of those ways are named "Clarks", like the relation's `ride` candidate
 
 ### Requirement: Generic words are dropped from names
 Each OSM, route or agency name a candidate name is built from SHALL lose one trailing generic word of the region's language, matched as a whole word in any case: in English, Foot Path, Footpath, Trail, Path or Section. A `<Parent> - <Section>` name SHALL lose one from each side, and a name ending in a parenthesised qualifier one from before it. A name that would be left empty or only an article SHALL keep its word. Every other word, Road included, SHALL stay.
