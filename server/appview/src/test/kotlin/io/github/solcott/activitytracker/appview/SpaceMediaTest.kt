@@ -25,8 +25,10 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.http.encodeURLParameter
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -104,13 +106,16 @@ class SpaceMediaTest {
         return AtJson.decodeFromString(method.output, response.bodyAsText())
     }
 
-    private val photoCid = "bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"
     private val photoBytes = byteArrayOf(1, 2, 3, 4)
+    private val photoCid = blobCid(photoBytes)
     private val fetchedFrom = mutableListOf<Pair<SpaceUri, String>>()
     private val spaceBlobs = SpaceBlobs { space, repo, cid ->
         fetchedFrom += space to cid
-        if (repo.value == alice && cid == photoCid) XrpcBytes(photoBytes, "image/jpeg") else null
+        if (repo.value == alice && cid == photoCid) pdsAnswer else null
     }
+
+    /** What alice's PDS answers for the photo: an untrusted host, which a test may make lie. */
+    private var pdsAnswer = XrpcBytes(photoBytes, "image/jpeg")
 
     private fun withPhoto(day: Int = 1) =
         record(day).removeSuffix("}") +
@@ -152,6 +157,38 @@ class SpaceMediaTest {
         assertContentEquals(photoBytes, response.readRawBytes())
         assertEquals("private, max-age=${(19.minutes + 59.seconds).inWholeSeconds}", response.headers[HttpHeaders.CacheControl])
         assertEquals(listOf(space(Visibility.FOLLOWERS) to photoCid), fetchedFrom)
+    }
+
+    /** Fetches the photo of a Followers activity as bob, a follower. */
+    private suspend fun ApplicationTestBuilder.followersPhoto(): HttpResponse {
+        startSigning()
+        follow(bob, alice)
+        postSpace("3kpic", Visibility.FOLLOWERS, withPhoto())
+        val url = client.query(GetActivity.method, bob, "?uri=${uri("3kpic").encodeURLParameter()}").activity.media!!.single()
+        return client.get((url as ActivityMediaView.Image).fullsize.removePrefix(config.publicUrl))
+    }
+
+    @Test
+    fun aPrivatePhotoIsServedAsAnImageThatNeverRuns() = testApplication {
+        val response = followersPhoto()
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(ContentType.Image.JPEG, response.contentType())
+        assertEquals("nosniff", response.headers["X-Content-Type-Options"])
+        assertEquals("default-src 'none'; sandbox", response.headers["Content-Security-Policy"])
+    }
+
+    @Test
+    fun aPrivatePhotoTheAthletesPdsTypesAsHtmlIsServedAsOpaqueBytes() = testApplication {
+        pdsAnswer = XrpcBytes(photoBytes, "text/html; charset=utf-8")
+        val response = followersPhoto()
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(ContentType.Application.OctetStream, response.contentType())
+    }
+
+    @Test
+    fun aPrivatePhotoWhoseBytesArentItsCidIsRefused() = testApplication {
+        pdsAnswer = XrpcBytes("<script>alert(1)</script>".encodeToByteArray(), "image/jpeg")
+        assertEquals(HttpStatusCode.NotFound, followersPhoto().status)
     }
 
     @Test
