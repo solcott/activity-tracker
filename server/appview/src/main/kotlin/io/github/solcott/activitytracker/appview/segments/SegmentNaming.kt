@@ -54,7 +54,8 @@ class SegmentNaming(
                 .map { it[SegmentNameProposals.uri] }
                 .toSet()
         val tallies = tallies(segment, counted)
-        val adopted = if (nameable(NamedPlace.of(segment))) adoptable(segment, open, tallies, now, since) else null
+        // A pinned name holds the segment's name, so nothing is adopted there while it's pinned (segments/segment-pins).
+        val adopted = if (nameable(NamedPlace.of(segment)) && !hasNamePin(segment)) adoptable(segment, open, tallies, now, since) else null
         for ((uri, openedAt) in open) {
             val tally = tallies[uri] ?: Tally.NONE
             val state =

@@ -177,7 +177,9 @@ class SegmentMatcher(
     suspend fun activateImporterSegments() {
         val importer = segmentImporter ?: return
         db.tx {
-            Segments.update({ (Segments.authorDid eq importer.value) and (Segments.status eq SegmentStatus.PROPOSED) }) {
+            Segments.update(
+                { (Segments.authorDid eq importer.value) and (Segments.status eq SegmentStatus.PROPOSED) and noFixedStatusPin() },
+            ) {
                 it[status] = SegmentStatus.ACTIVE
             }
         }
@@ -209,7 +211,8 @@ class SegmentMatcher(
                 Segments.select(Segments.uri)
                     .where {
                         (Segments.status eq SegmentStatus.PROPOSED) and
-                            (Segments.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds)
+                            (Segments.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds) and
+                            noFixedStatusPin()
                     }
                     .map { it[Segments.uri] }
             if (stale.isNotEmpty()) {
@@ -242,9 +245,12 @@ class SegmentMatcher(
     /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */
     suspend fun updateNames() = naming.update()
 
-    /** Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes. */
+    /**
+     * Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes, leaving alone those an
+     * operator pinned active or archived (segments/segment-pins).
+     */
     private fun JdbcTransaction.promote(uris: Collection<String>) =
-        promoteBy(uris, Segments.uri, Segments.status, SegmentEfforts.segmentUri, SegmentEfforts.authorDid)
+        promoteBy(withoutFixedStatusPins(uris), Segments.uri, Segments.status, SegmentEfforts.segmentUri, SegmentEfforts.authorDid)
 
     /**
      * Makes each of [uris] whose row (by [uri]) is proposed in [status] active once the rows naming it in [usedBy] come from

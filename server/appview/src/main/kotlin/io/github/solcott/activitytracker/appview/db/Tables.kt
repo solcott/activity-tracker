@@ -280,6 +280,31 @@ object Segments : BoxedLineTable("segments") {
 }
 
 /**
+ * Operators' pins on a segment (segments/segment-pins): one row per segment and [kind] (`SegmentPinKind`), beating the derived status or
+ * current name, kept when the segment's record is deleted. Operator data: never in a record, a space or an XRPC response.
+ */
+object SegmentPinRows : Table("segment_pins") {
+    val segmentUri = varchar("segment_uri", 512)
+    val kind = varchar("kind", 16)
+    /** For a status pin: active, archived or duplicate. */
+    val status = varchar("status", 16).nullable()
+    /** For a duplicate pin, the segment it duplicates. */
+    val duplicateOf = varchar("duplicate_of", 512).nullable()
+    /** For a name pin, the name, trimmed. */
+    val name = varchar("pinned_name", 1000).nullable()
+    /** For a name pin taken from a proposal, the proposal and its proposer, whose labels end the pin's effect. */
+    val proposalUri = varchar("proposal_uri", 512).nullable()
+    val proposerDid = varchar("proposer_did", 255).nullable()
+    /** For a status pin, the derived status at pin time, or as a change of line, sport or kind derived it since: unpinning starts here. */
+    val priorStatus = varchar("prior_status", 16).nullable()
+    /** The operator's DID. */
+    val pinnedBy = varchar("pinned_by", 255)
+    val pinnedAt = long("pinned_at")
+    val note = varchar("note", 500).nullable()
+    override val primaryKey = PrimaryKey(segmentUri, kind)
+}
+
+/**
  * An accepted `feed.segmentNameProposal` (segments/segment-names), from its proposer's repo. [state] is a `ProposalState` value. An adopted
  * proposal whose record was deleted keeps its row with [recordGone] set.
  */

@@ -221,6 +221,7 @@ private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityRes
         segmentImporter = config.segmentImporter,
         segmentNames = config.segmentNames,
         terrain = config.terrainTiles != null,
+        segmentActiveAthletes = config.segmentActiveAthletes,
     )
 
 /** What the background workers need. */

@@ -7,9 +7,13 @@ import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.applyPinsNaming
 import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
+import io.github.solcott.activitytracker.appview.segments.recordPriorStatus
+import io.github.solcott.activitytracker.appview.segments.statusPinFor
+import io.github.solcott.activitytracker.appview.segments.statusPinOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -107,10 +111,11 @@ internal fun JdbcTransaction.upsertSegment(
     }
     val changed = relined || old[Segments.sport] != record.sport || old[Segments.kind] != kind
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
-    val original = if (changed) duplicatesOf(record.sport, kind, line, before = IndexOrder(firstIndexed, uri.value)).firstOrNull() else null
-    val newStatus =
-        if (changed) (if (original != null) SegmentStatus.DUPLICATE else liveStatus(author.value, importer)) else old[Segments.status]
-    val newDuplicateOf = if (changed) original else old[Segments.duplicateOf]
+    val placed =
+        if (changed) placeChanged(uri.value, author.value, record.sport, kind, line, IndexOrder(firstIndexed, uri.value), importer)
+        else StatusPlacement(old[Segments.status], old[Segments.duplicateOf])
+    val newStatus = placed.status
+    val newDuplicateOf = placed.duplicateOf
     Segments.upsert {
         it[Segments.uri] = uri.value
         it[Segments.cid] = cid
@@ -138,9 +143,34 @@ internal fun JdbcTransaction.upsertSegment(
     resampleTerrain(uri.value, jobs, now)
     replaceSegmentCells(uri.value, line)
     repathSegment(uri.value, author.value, kind, record.sport, line)
-    if (original == null) jobs.enqueueSegment(uri.value, now)
+    if (newStatus in LIVE_STATUSES) jobs.enqueueSegment(uri.value, now)
     if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now, importer)
     regroup(uri.value)
+    applyPinsNaming(uri.value, jobs, now, importer)
+}
+
+/** A segment's status as indexing leaves it, and the segment it duplicates when that's `duplicate`. */
+private data class StatusPlacement(val status: String, val duplicateOf: String?)
+
+/**
+ * The status of [author]'s new or changed segment [uri] of [sport] and [kind] along [line]: `duplicate` of the earliest live segment it
+ * duplicates before [order], else [liveStatus]; unless an operator's status pin applies, which wins, keeping what was derived as where
+ * unpinning starts (segments/segment-pins).
+ */
+@Suppress("LongParameterList") // The segment as indexed, and the importer whose segments start active.
+private fun JdbcTransaction.placeChanged(
+    uri: String,
+    author: String,
+    sport: String,
+    kind: String,
+    line: List<GeoPoint>,
+    order: IndexOrder,
+    importer: Did?,
+): StatusPlacement {
+    val original = duplicatesOf(sport, kind, line, before = order).firstOrNull()
+    val derived = StatusPlacement(if (original != null) SegmentStatus.DUPLICATE else liveStatus(author, importer), original)
+    recordPriorStatus(uri, derived.status)
+    return statusPinFor(uri, sport, kind)?.let { StatusPlacement(it.status, it.duplicateOf) } ?: derived
 }
 
 /** [name] trimmed, if it's a valid segment name: not empty, and at most [MAX_NAME_GRAPHEMES] graphemes. Throws otherwise. */
@@ -262,6 +292,8 @@ internal fun JdbcTransaction.recheckDuplicatesOf(
             .where { (Segments.status eq SegmentStatus.DUPLICATE) and (Segments.duplicateOf inList originals) }
             .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
             .toList()
+            // A duplicate pin in effect holds it (segments/segment-pins); one whose target is gone leaves it to be checked like any other.
+            .filter { statusPinOf(it[Segments.uri]) == null }
     for (row in duplicates) {
         val uri = row[Segments.uri]
         val line = SegmentGeometry.decodePolyline(row[Segments.line]) ?: continue

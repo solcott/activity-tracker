@@ -32,7 +32,10 @@ import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.SegmentPins
+import io.github.solcott.activitytracker.appview.segments.UriLocks
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -91,7 +94,7 @@ import org.slf4j.LoggerFactory
  * Likes come from the repo (on public activities) or the giver's interactions space, and are never moved, so they need no shadows: a like's
  * row just records its origin, and only that origin's delete removes it.
  */
-@Suppress("TooManyFunctions") // Each kind of change it applies, and the transactions they share.
+@Suppress("TooManyFunctions", "LongParameterList") // Each kind of change it applies, and the transactions they share; its config.
 class Indexer(
     private val db: Database,
     private val handles: HandleLookup,
@@ -102,6 +105,8 @@ class Indexer(
     private val segmentNames: SegmentNameRules = SegmentNameRules(),
     /** Whether terrain tiles are configured (segments/segment-elevation): new and re-lined segments are then queued to be sampled. */
     terrain: Boolean = false,
+    /** How many distinct athletes make a proposed segment active: what unpinning a status promotes by (segments/segment-pins). */
+    segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -122,6 +127,22 @@ class Indexer(
 
     private suspend fun <T> lockedOn(uri: AtUri, block: suspend () -> T): T =
         uriLocks[uri.value.hashCode().mod(URI_LOCK_STRIPES)].withLock { block() }
+
+    /** The same locks for several URIs, each stripe taken once and in order, so two holders never wait on each other. */
+    private val pinLocks =
+        object : UriLocks {
+            override suspend fun <T> on(uris: Collection<String>, block: suspend () -> T): T {
+                val stripes = uris.map { it.hashCode().mod(URI_LOCK_STRIPES) }.distinct().sorted()
+                suspend fun from(i: Int): T = if (i == stripes.size) block() else uriLocks[stripes[i]].withLock { from(i + 1) }
+                return from(0)
+            }
+        }
+
+    /**
+     * Operators' pins on segments (segments/segment-pins), for the admin site's operator actions: under these locks, so a pin never
+     * interleaves with indexing the segments it names.
+     */
+    val segmentPins = SegmentPins(db, segmentJobs, pinLocks, clock, segmentImporter, segmentActiveAthletes)
 
     suspend fun handle(event: JetstreamEvent) {
         when (event) {

@@ -276,12 +276,13 @@ internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: St
 }
 
 /**
- * Whether [did] may propose a name for [segment] at [now]: it's an active run (never a lift, segments/segment-lifts) outside a cooldown,
- * they have no open proposal on it, and they have efforts on it on [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s
- * flag both ask this.
+ * Whether [did] may propose a name for [segment] at [now]: it's an active run (never a lift, segments/segment-lifts) with no pinned name
+ * (segments/segment-pins), outside a cooldown, they have no open proposal on it, and they have efforts on it on
+ * [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s flag both ask this.
  */
 internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean =
     nameable(NamedPlace.of(segment)) &&
+        !hasNamePin(segment) &&
         !inCooldown(segment, now, rules) &&
         openProposalOf(segment, did) == null &&
         proposerDays(segment, did) >= rules.proposerDays
@@ -322,7 +323,10 @@ private fun JdbcTransaction.latestVotes(segment: String, proposals: Collection<S
     }
 }
 
-/** Sets [segment]'s current name: its latest adopted proposal in effect ([unlabelledProposal]), else its record's name. */
+/**
+ * Sets [segment]'s current name: its pinned name in effect ([namePinInEffect]), else its latest adopted proposal in effect
+ * ([unlabelledProposal]), else its record's name.
+ */
 internal fun JdbcTransaction.recomputeCurrentName(segment: String) {
     val adopted =
         SegmentNameProposals.select(SegmentNameProposals.name)
@@ -338,7 +342,11 @@ internal fun JdbcTransaction.recomputeCurrentName(segment: String) {
         val name = adopted ?: DiveSites.select(DiveSites.name).where { DiveSites.uri eq segment }.firstOrNull()?.get(DiveSites.name)
         if (name != null) DiveSites.update({ (DiveSites.uri eq segment) and not(DiveSites.currentName eq name) }) { it[currentName] = name }
     } else {
-        val name = adopted ?: Segments.select(Segments.name).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.name)
+        // An operator's pinned name in effect beats every adopted one (segments/segment-pins).
+        val name =
+            namePinInEffect(segment)
+                ?: adopted
+                ?: Segments.select(Segments.name).where { Segments.uri eq segment }.firstOrNull()?.get(Segments.name)
         if (name != null) Segments.update({ (Segments.uri eq segment) and not(Segments.currentName eq name) }) { it[currentName] = name }
     }
 }
@@ -359,15 +367,22 @@ internal fun JdbcTransaction.recomputeNamesLabelled(subjects: Collection<String>
         }
         .withDistinct()
         .map { it[SegmentNameProposals.segmentUri] }
+        .plus(segmentsWithProposalNamePins(subjects))
+        .toSet()
         .forEach { recomputeCurrentName(it) }
 }
 
-/** Recomputes the current name of every segment with an adopted proposal: the naming pass's backstop, which also catches expired labels. */
+/**
+ * Recomputes the current name of every segment with an adopted proposal or a name pinned from a proposal: the naming pass's backstop, which
+ * also catches expired labels.
+ */
 internal fun JdbcTransaction.recomputeAllAdoptedNames() {
     SegmentNameProposals.select(SegmentNameProposals.segmentUri)
         .where { SegmentNameProposals.state eq ProposalState.ADOPTED }
         .withDistinct()
         .map { it[SegmentNameProposals.segmentUri] }
+        .plus(segmentsWithProposalNamePins())
+        .toSet()
         .forEach { recomputeCurrentName(it) }
 }
 
