@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakePath
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -64,14 +65,22 @@ object PathSamples {
 
     /**
      * Clarks (segments/segment-direction, segments/path-page): one line run and hiked both ways and ridden one way, clearly climbing, a
-     * single row "Clarks" whose details read "Run, Hike both ways · Ride uphill only".
+     * single row "Clarks" whose details read "Run, Hike both ways · Ride uphill only", under a header reading "Trail · 1.26 mi · Run, Hike
+     * · Ride uphill only".
      */
     val oneWay: PathState
         get() =
             page(
                 ContentStates.loaded(
                     content.copy(
-                        path = fakePath("clarks", name = "Clarks", lengthMeters = 2_022),
+                        path =
+                            fakePath(
+                                "clarks",
+                                name = "Clarks",
+                                lengthMeters = 2_022,
+                                sports = listOf(SegmentSportGroup.RIDE, SegmentSportGroup.RUN, SegmentSportGroup.HIKE),
+                                oneWays = listOf(PathOneWay(SegmentSportGroup.RIDE, "uphill")),
+                            ),
                         groups =
                             persistentListOf(
                                 SegmentGroupRow.groupOf(

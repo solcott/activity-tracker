@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -82,6 +83,7 @@ fun fakePath(
     sports: List<String> = listOf(SegmentSportGroup.RIDE),
     groupCount: Int = 1,
     source: String = SegmentSource.OSM,
+    oneWays: List<PathOneWay> = emptyList(),
 ): PathView =
     PathView(
         uri = Fixed.uri(Did("did:plc:importer"), Nsid.FEED_PATH, rkey),
@@ -94,4 +96,5 @@ fun fakePath(
         license = if (source == SegmentSource.OSM) "ODbL-1.0" else "CC0-1.0",
         sports = sports,
         groupCount = groupCount,
+        oneWays = oneWays,
     )

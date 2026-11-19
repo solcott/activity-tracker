@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
-import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentDirection
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentHeading
@@ -115,7 +114,7 @@ data class GroupSwitcher(
          */
         fun of(segment: SegmentView, members: List<GetSegment.GroupMember>): GroupSwitcher? {
             val reference = lineOf(segment.record.line) ?: return null
-            val climb = SegmentClimb.of(segment.elevationGain, segment.elevationLoss, segment.distanceMeters)
+            val climb = segment.servedClimb()
             fun option(uri: AtUri, sport: String, forward: Boolean, line: List<GeoPoint>): GroupOption {
                 val heading = SegmentHeading.of(line)
                 return GroupOption(uri, sport, forward, heading, SegmentDirection.of(heading, if (forward) climb else climb?.reversed()))

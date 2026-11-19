@@ -6,7 +6,9 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
+import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.location.SegmentDirection
 import kotlinx.collections.immutable.persistentListOf
 
 /** What segment browse says (segments/segment-browse, dev/shared-display-text), chosen here for the shared and the native UI. */
@@ -48,6 +50,14 @@ object SegmentBrowseTexts {
             is BrowseRow.Path -> AppText.written(row.path.name)
             is BrowseRow.Group -> groupName(row.group)
         }
+
+    /**
+     * A trail or road's [sports] and which of them go it one way only (segments/segment-browse): "Ride · Downhill only" when every one goes
+     * the same one way, else the others plain and then each one-way wording after its sport groups ("Run, Hike · Ride uphill only"); just
+     * the sports when none does.
+     */
+    fun pathSports(path: PathView, sports: List<String>): AppText? =
+        pathSportParts(path, sports).reduceOrNull { line, next -> AppText.named("segment_browse_details", line, next) }
 
     /** What a path is: "Trail" or "Road". */
     fun kind(path: BrowseRow.Path): AppText = AppText.named(if (path.road) "path_kind_road" else "path_kind_trail")
@@ -100,47 +110,51 @@ private fun joined(row: BrowseRow, metersAway: Int?, units: UnitSystem): AppText
             val sports = row.sport?.let(::listOf) ?: row.path.sports
             val count = if (row.sport != null && row.groups.isNotEmpty()) row.groups.size else row.path.groupCount
             val parts =
-                listOfNotNull(
-                    SegmentBrowseTexts.kind(row),
-                    StatText.distance(row.path.lengthMeters.toDouble(), units),
-                    AppText.joined(sports.map(SegmentTexts::sportGroup)),
-                    AppText.Plural("path_segment_count", count, persistentListOf(AppText.written(formatWhole(count)))),
-                    metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
-                )
+                listOf(SegmentBrowseTexts.kind(row), StatText.distance(row.path.lengthMeters.toDouble(), units)) +
+                    pathSportParts(row.path, sports) +
+                    listOfNotNull(
+                        AppText.Plural("path_segment_count", count, persistentListOf(AppText.written(formatWhole(count)))),
+                        metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
+                    )
             parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }
         }
     }
 
-private fun joined(group: SegmentGroupRow, metersAway: Int?, units: UnitSystem): AppText {
-    val shown = group.shown
-    val length = StatText.distance(shown.distanceMeters.toDouble(), units)
-    // Rows built before ways were known, or with one wording for every sport group: the sports, then that wording once.
-    val phrases = group.ways.groupBy { it.bothWays to it.direction }
+/** [SegmentBrowseTexts.pathSports] as the parts a line joins. */
+internal fun pathSportParts(path: PathView, sports: List<String>): List<AppText> {
+    val oneWays = path.oneWays.associate { it.sport to SegmentDirection.ofWord(it.direction) }
+    val ways = sports.map { SportWay(it, oneWays[it], bothWays = false) }
+    return sportsAndWays(ways, plainFirst = true) { AppText.joined(sports.map(SegmentTexts::sportGroup)) }
+}
+
+/**
+ * [ways]' sport groups with how each goes, as the parts of a line: [types] then the wording once when they all go one way, or every phrase
+ * in order joined as one part (both ways, then one way by direction, with the groups that say nothing first when [plainFirst], else last).
+ */
+private fun sportsAndWays(ways: List<SportWay>, plainFirst: Boolean, types: () -> AppText?): List<AppText> {
+    val phrases = ways.groupBy { it.bothWays to it.direction }
     if (phrases.size <= 1) {
-        val types =
-            if (group.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
-            else AppText.joined(group.sports.map(SegmentTexts::sportGroup))
-        val way = group.ways.firstOrNull()
+        val way = ways.firstOrNull()
         val wording =
             when {
-                way == null -> AppText.named("segment_browse_both_ways").takeIf { group.bothWays }
+                way == null -> null
                 way.bothWays -> AppText.named("segment_browse_both_ways")
                 else -> way.direction?.let { AppText.named("segment_one_way_${it.word}") }
             }
-        return joined(length, types, wording, metersAway, units)
+        return listOfNotNull(types(), wording)
     }
-    // Mixed: each wording after its sport groups, both ways first, then one way by direction, then the groups that say nothing.
+    val plain = if (plainFirst) Int.MIN_VALUE else Int.MAX_VALUE
     val ordered =
         phrases.entries.sortedBy { (key, _) ->
             val (bothWays, direction) = key
             when {
                 bothWays -> -1
                 direction != null -> direction.ordinal
-                else -> Int.MAX_VALUE
+                else -> plain
             }
         }
-    val parts = ordered.map { (key, ways) ->
-        val sports = checkNotNull(AppText.joined(ways.map { SegmentTexts.sportGroup(it.sport) }))
+    val parts = ordered.map { (key, phrase) ->
+        val sports = checkNotNull(AppText.joined(phrase.map { SegmentTexts.sportGroup(it.sport) }))
         val (bothWays, direction) = key
         when {
             bothWays -> AppText.named("segment_sports_both_ways", sports)
@@ -148,8 +162,23 @@ private fun joined(group: SegmentGroupRow, metersAway: Int?, units: UnitSystem):
             else -> sports
         }
     }
-    val types = parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }
-    return joined(length, types, null, metersAway, units)
+    return listOf(parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) })
+}
+
+private fun joined(group: SegmentGroupRow, metersAway: Int?, units: UnitSystem): AppText {
+    val shown = group.shown
+    val length = StatText.distance(shown.distanceMeters.toDouble(), units)
+    val types = {
+        if (group.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
+        else AppText.joined(group.sports.map(SegmentTexts::sportGroup))
+    }
+    // Rows built before ways were known: the sports, then Both ways when they go both ways.
+    if (group.ways.isEmpty()) {
+        return joined(length, types(), AppText.named("segment_browse_both_ways").takeIf { group.bothWays }, metersAway, units)
+    }
+    // The sports then one wording, or, mixed, each wording after its sport groups, the groups that say nothing last.
+    val parts = sportsAndWays(group.ways, plainFirst = false, types)
+    return joined(length, parts.getOrNull(0), parts.getOrNull(1), metersAway, units)
 }
 
 private fun joined(length: AppText, types: AppText?, bothWays: AppText?, metersAway: Int?, units: UnitSystem): AppText {

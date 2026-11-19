@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentDirection
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.SegmentHeading
@@ -79,10 +80,7 @@ data class SegmentGroupRow(
             val reference = lineOf(first)
             val bothWays = reference != null && members.mapNotNull(::lineOf).any { !sameWay(reference, it) }
             val oneWay = !bothWays && sport != SegmentSportGroup.ALPINE && members.all { it.oneWay == true }
-            val direction =
-                reference
-                    ?.takeIf { oneWay }
-                    ?.let { SegmentDirection.of(it, first.elevationGain, first.elevationLoss, first.distanceMeters) }
+            val direction = reference?.takeIf { oneWay }?.let { SegmentDirection.of(SegmentHeading.of(it), first.servedClimb()) }
             return SportWay(sport, direction, bothWays)
         }
 
@@ -113,6 +111,13 @@ data class SegmentGroupRow(
  * (segments/segment-direction), or neither, when its listed segments run one way without being one-way.
  */
 @Immutable data class SportWay(val sport: String, val direction: SegmentDirection?, val bothWays: Boolean)
+
+/**
+ * Whether this segment, run as drawn, clearly climbs or descends (segments/segment-direction): its served climb, which the importer judges
+ * along its whole trail, else its served elevation by the net-change rule; null when neither says.
+ */
+internal fun SegmentView.servedClimb(): SegmentClimb? =
+    SegmentClimb.ofWord(climb) ?: SegmentClimb.of(elevationGain, elevationLoss, distanceMeters)
 
 /** A direction the importer adds to a two-way trail's name, in parentheses at its end (segments/trail-candidates). */
 private val DIRECTION_SUFFIX = Regex(""" \(([a-z]+)\)$""")

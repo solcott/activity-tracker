@@ -134,6 +134,60 @@ class SegmentBrowseTextsTest {
     }
 
     @Test
+    fun aServedClimbWinsOverFlatElevation() {
+        // A flat piece of a trail that descends overall: the importer serves its trail's climb.
+        val flat = SegmentBrowseSamples.clarksRide.copy(elevationGain = 4, elevationLoss = 9, climb = "downhill")
+        val text = names(SegmentBrowseTexts.details(SegmentGroupRow.groupOf(listOf(flat)), UnitSystem.Metric))
+        assertTrue("segment_one_way_downhill" in text, "$text")
+    }
+
+    @Test
+    fun aOneWayTrailsRowSaysWhichWayAfterItsSport() {
+        val units = UnitSystem.Imperial
+        val row = BrowseRow.Path(SegmentBrowseSamples.rushTrail)
+        val parts =
+            listOf(
+                AppText.named("path_kind_trail"),
+                StatText.distance(7_564.0, units),
+                AppText.joined(listOf(SegmentTexts.sportGroup("ride")))!!,
+                AppText.named("segment_one_way_downhill"),
+                AppText.Plural("path_segment_count", 21, persistentListOf(AppText.written("21"))),
+            )
+        assertEquals(
+            parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) },
+            SegmentBrowseTexts.details(row, units),
+        )
+    }
+
+    @Test
+    fun aMixedTrailListsItsTwoWaySportsFirst() {
+        val path = PathSamples.oneWay.content.data.path!!
+        val sports = { list: List<String> -> AppText.joined(list.map(SegmentTexts::sportGroup))!! }
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                sports(listOf("run", "hike")),
+                AppText.named("segment_sports_one_way_uphill", sports(listOf("ride"))),
+            ),
+            SegmentBrowseTexts.pathSports(path, path.sports),
+        )
+        assertEquals(sports(listOf("run")), SegmentBrowseTexts.pathSports(path, listOf("run")), "narrowed to a two-way sport, no wording")
+        assertTrue(
+            "segment_one_way_uphill" in names(SegmentBrowseTexts.pathSports(path, listOf("ride"))!!),
+            "narrowed to the one-way sport",
+        )
+    }
+
+    @Test
+    fun theTrailPagesHeaderSaysWhichWay() {
+        val path = PathSamples.oneWay.content.data.path!!
+        val text = names(PathTexts.summary(path, UnitSystem.Metric))
+        assertTrue("path_kind_trail" in text && "segment_sports_one_way_uphill" in text, "$text")
+        val anns = names(PathTexts.summary(SegmentBrowseSamples.annsTrail, UnitSystem.Metric))
+        assertTrue(anns.none { it.startsWith("segment_one_way") || it.startsWith("segment_sports_one_way") }, "a two-way trail: $anns")
+    }
+
+    @Test
     fun aMixedGroupNamesEachSportGroupsWay() {
         val units = UnitSystem.Metric
         val foot = SegmentBrowseSamples.clarksFoot

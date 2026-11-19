@@ -29,6 +29,7 @@ class SegmentBrowseStates :
                 "selected" to SegmentBrowseSamples.selected,
                 "tooWide" to SegmentBrowseSamples.tooWide,
                 "nameResults" to SegmentBrowseSamples.nameResults,
+                "oneWayTrail" to SegmentBrowseSamples.oneWayTrail,
                 "nothingHere" to SegmentBrowseSamples.nothingHere,
                 "nowhere" to SegmentBrowseSamples.nowhere,
                 "locating" to SegmentBrowseSamples.locating,

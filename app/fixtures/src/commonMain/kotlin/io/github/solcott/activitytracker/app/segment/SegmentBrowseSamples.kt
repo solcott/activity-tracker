@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -185,6 +186,22 @@ object SegmentBrowseSamples {
             searching(PagedStates.end(listOf(BrowseRow.Path(annsTrail), BrowseRow.Group(alone(hogback))), Unit), NameScope.Everywhere)
                 .withBrowse { copy(query = textFieldStateOf("ann")) }
 
+    /**
+     * Rush, a trail ridden downhill only (segments/segment-browse): its row reads "Trail · 4.70 mi · Ride · Downhill only · 21 segments".
+     */
+    val rushTrail =
+        fakePath(
+            "rush",
+            name = "Rush Trail",
+            lengthMeters = 7_564,
+            groupCount = 21,
+            oneWays = listOf(PathOneWay(SegmentSportGroup.RIDE, "downhill")),
+        )
+
+    /** Searching "rush" here: the one-way trail Rush, saying it goes downhill only. */
+    val oneWayTrail: SegmentBrowseState
+        get() = searching(PagedStates.end(listOf(BrowseRow.Path(rushTrail)), Unit)).withBrowse { copy(query = textFieldStateOf("rush")) }
+
     /** Nothing named so in this area: offers to search everywhere. */
     val nothingHere: SegmentBrowseState
         get() = searching(PagedStates.end(emptyList(), Unit))
@@ -206,6 +223,7 @@ object SegmentBrowseSamples {
                     "tooWide" to tooWide,
                     "nameResults" to nameResults,
                     "groupResults" to groupResults,
+                    "oneWayTrail" to oneWayTrail,
                     "nothingHere" to nothingHere,
                     "nowhere" to nowhere,
                     "locating" to locating,
