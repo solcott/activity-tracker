@@ -31,8 +31,8 @@ import kotlin.time.Instant
 
 /** Who sees an activity's gear (`gear/activity-gear`: "Viewers see only gear they may see", "Gear shown on the activity page"). */
 class GearViewsTest : GearTestBase() {
-    private val photoCid = "bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"
     private val photoBytes = byteArrayOf(1, 2, 3, 4)
+    private val photoCid = blobCid(photoBytes)
     private val spaceBlobs = SpaceBlobs { _, repo, cid ->
         if (repo.value == alice && cid == photoCid) XrpcBytes(photoBytes, "image/jpeg") else null
     }

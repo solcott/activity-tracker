@@ -12,11 +12,11 @@ import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.isDid
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLBuilder
@@ -127,11 +127,19 @@ private suspend fun RoutingContext.privateMedia(
     val signed =
         tokens?.verify(did, cid, query[PrivateMediaTokens.VIEWER], query[PrivateMediaTokens.EXPIRES], query[PrivateMediaTokens.SIGNATURE])
     val origin = signed?.let { db.tx { visibleMediaOrigin(did, cid, it.viewer) } }
-    val blob = origin?.let { runSuspendCatching { blobs?.fetch(SpaceUri(it), Did(did), cid) }.getOrNull() }
+    // The PDS is untrusted: serve only the bytes the record's CID names.
+    val blob =
+        origin
+            ?.let { runSuspendCatching { blobs?.fetch(SpaceUri(it), Did(did), cid) }.getOrNull() }
+            ?.takeIf { blobMatchesCid(Cid(cid), it.bytes) }
     if (signed != null && blob != null) {
         // Never cached past the URL's expiry.
         call.response.header(HttpHeaders.CacheControl, "private, max-age=${signed.expiresIn.inWholeSeconds}")
-        call.respondBytes(blob.bytes, blob.contentType?.let(ContentType::parse) ?: ContentType.Application.OctetStream)
+        // Served from the AppView's own origin, so nothing the athlete uploaded may run there: an image type or opaque bytes, never
+        // sniffed.
+        call.response.header("X-Content-Type-Options", "nosniff")
+        call.response.header("Content-Security-Policy", "default-src 'none'; sandbox")
+        call.respondBytes(blob.bytes, servedImageType(blob.contentType))
     }
     return blob != null
 }

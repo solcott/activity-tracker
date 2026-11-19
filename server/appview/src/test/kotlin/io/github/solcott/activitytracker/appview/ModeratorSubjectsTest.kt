@@ -80,10 +80,12 @@ class ModeratorSubjectsTest : ModerationTestBase() {
             "http://pds.test"
         }
 
-    private val photoCid = "bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"
-    private val shoesCid = "bafkreiab5jo52o7fi55mh2xcgzx2cidemfoeqwsuc2bnwptc2kbsiecvuy"
+    private val photoBytes = byteArrayOf(7)
+    private val shoesBytes = byteArrayOf(8)
+    private val photoCid = blobCid(photoBytes)
+    private val shoesCid = blobCid(shoesBytes)
     private val spaceBlobs = SpaceBlobs { _, repo, cid ->
-        if (repo.value == bob && cid in setOf(photoCid, shoesCid)) XrpcBytes(byteArrayOf(7), "image/jpeg") else null
+        if (repo.value != bob) null else mapOf(photoCid to photoBytes, shoesCid to shoesBytes)[cid]?.let { XrpcBytes(it, "image/jpeg") }
     }
     private val mediaClock = MutableClock(Instant.parse("2026-10-15T12:00:01Z"))
     private val mediaTokens = PrivateMediaTokens(TEST_SIGNING_KEY, mediaClock)
