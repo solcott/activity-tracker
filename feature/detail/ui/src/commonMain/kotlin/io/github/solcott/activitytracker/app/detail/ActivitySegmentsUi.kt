@@ -47,18 +47,25 @@ import org.jetbrains.compose.resources.stringResource
 /** The activity's segment efforts in a card after the laps, each opening its segment; nothing when it has none the viewer may see. */
 internal fun LazyListScope.segments(state: ActivityDetailPage) {
     if (state.segments.isEmpty()) return
-    item(key = "segments") {
-        SegmentEffortsCard(
-            state.segments,
-            onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment.uri, it.eBike == true)) },
-        )
-    }
+    item(key = "segments") { SegmentEfforts(state) }
+}
+
+/** [segments]' card, for a list or grid that places it itself. */
+@Composable
+internal fun SegmentEfforts(state: ActivityDetailPage) {
+    SegmentEffortsCard(state.segments, onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment.uri, it.eBike == true)) })
 }
 
 /** The ski lifts the activity rode, in a card after its segments, each opening its lift; nothing when it rode none the viewer may see. */
 internal fun LazyListScope.lifts(state: ActivityDetailPage) {
     if (state.lifts.isEmpty()) return
-    item(key = "lifts") { LiftRidesCard(state.lifts, onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment)) }) }
+    item(key = "lifts") { LiftRides(state) }
+}
+
+/** [lifts]' card, for a list or grid that places it itself. */
+@Composable
+internal fun LiftRides(state: ActivityDetailPage) {
+    LiftRidesCard(state.lifts, onOpen = { state.eventSink(ActivityDetailEvent.SegmentOpened(it.segment)) })
 }
 
 /** [lifts] in a card (segments/segment-lifts): each lift's name, how many times it was ridden and the time on it, with no PR or rank. */
