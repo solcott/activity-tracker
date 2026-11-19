@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -46,6 +47,16 @@ class AdminPrivacyTest : AdminTestBase() {
     private val activityUri = "at://$carol/${Nsid.FEED_ACTIVITY}/3kprivate"
     private val trackUri = "at://$carol/${Nsid.FEED_SEGMENT_TRACK}/3kprivate"
 
+    /** A voter and a rider whose DIDs no page may show. */
+    private val voter = "did:plc:voter-$marker"
+    private val rider = "did:plc:rider-$marker"
+    /** The elapsed seconds of carol's Only me effort, which no page may show. */
+    private val elapsed = 87_654L
+    private val segments = SegmentAdminFixtures(db, clock)
+    private val segmentUri = segments.segmentUri("3kseg", carol)
+
+    @AfterTest fun forgetLabels() = segments.forgetLabels()
+
     /** The operator pages the AppView registers. */
     private val pagesUnderTest: List<AdminPage> =
         listOf(
@@ -60,7 +71,11 @@ class AdminPrivacyTest : AdminTestBase() {
                 ),
             ),
             JobQueuesPage(SegmentQueue(db, SegmentJobs(), clock), clock),
+            segments.page,
         )
+
+    /** What no page may print: the marker (record content), the voter's and rider's DIDs, and the effort's elapsed time. */
+    private val secrets = listOf(marker, voter, rider, "$elapsed")
 
     private fun seed() = runBlocking {
         val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
@@ -109,6 +124,16 @@ class AdminPrivacyTest : AdminTestBase() {
                 it[failedAt] = 0
             }
         }
+        // A segment carol has an Only me effort on, with an open proposal a voter voted on; a taken-down segment named with the marker; a
+        // staged candidate with one rider, below the threshold.
+        segments.segment("3kseg", did = carol)
+        segments.efforts(carol, segmentUri, visibility = "self", elapsed = elapsed)
+        val proposal = segments.proposal("3kprop", segmentUri, carol, "Carols Hill", 0)
+        segments.vote(proposal, voter)
+        val hidden = segments.segment("3khide", did = carol, east = 5000.0, name = marker)
+        segments.label(hidden, "!takedown")
+        segments.stage("us-vermont", "r1", "vt-1")
+        segments.ride("vt-1", rider)
         // The seed must hold the marker, or the test proves nothing.
         assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
         assertTrue(db.tx { SegmentJobFailures.selectAll().count() == 1L })
@@ -117,9 +142,12 @@ class AdminPrivacyTest : AdminTestBase() {
     /** Every probe of every page in [site], for carol and her records, that printed the marker. */
     private suspend fun HttpClient.leaks(site: AdminSite, cookie: String): List<String> =
         site.pages
-            .flatMap { page -> listOf(carol, activityUri).flatMap { page.privacyProbes(it) } }
+            .flatMap { page -> listOf(carol, activityUri, segmentUri).flatMap { page.privacyProbes(it) } }
             .distinct()
-            .filter { probe -> marker in get("/admin/$probe".trimEnd('/')) { session(cookie) }.bodyAsText() }
+            .filter { probe ->
+                val body = get("/admin/$probe".trimEnd('/')) { session(cookie) }.bodyAsText()
+                secrets.any { it in body }
+            }
 
     @Test
     fun noPagePrintsPrivateContent() {
@@ -129,6 +157,30 @@ class AdminPrivacyTest : AdminTestBase() {
             assertEquals(emptyList(), http.leaks(site(pages = pagesUnderTest), cookie))
             // The queues page names the track, and nothing more of it.
             assertTrue(trackUri in http.get("/admin/queues/failed?kind=track") { session(cookie) }.bodyAsText())
+            // The candidate's one rider shows nowhere: its run counts it as not ridden.
+            val importer = http.get("/admin/segments") { session(cookie) }.bodyAsText()
+            assertTrue("<td>r1</td><td>1</td><td>0</td><td>0</td>" in importer.replace(Regex(">\\s+<"), "><"))
+        }
+    }
+
+    /** The harness catches a page that prints a voter's DID, an effort's time or a taken-down name. */
+    @Test
+    fun catchesAPageThatPrintsAVoterOrAnEffort() {
+        seed()
+        for (leak in listOf(voter, "$elapsed s", marker)) {
+            val leaky =
+                object : AdminPage {
+                    override val path = "leaky"
+                    override val title = "Leaky"
+
+                    override fun AdminRoutes.install() {
+                        get(path) { page(title) { p { +leak } } }
+                    }
+                }
+            adminTest({ site(pages = listOf(leaky)) }) { http ->
+                val cookie = http.signIn("alice.test")!!
+                assertEquals(listOf("leaky"), http.leaks(site(pages = listOf(leaky)), cookie), leak)
+            }
         }
     }
 

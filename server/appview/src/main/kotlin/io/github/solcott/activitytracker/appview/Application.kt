@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.appview.admin.DatabaseSizes
 import io.github.solcott.activitytracker.appview.admin.HealthPage
 import io.github.solcott.activitytracker.appview.admin.HealthSources
 import io.github.solcott.activitytracker.appview.admin.JobQueuesPage
+import io.github.solcott.activitytracker.appview.admin.SegmentsPage
 import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
@@ -165,7 +166,12 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
                 adminOAuth = AtprotoAdminOAuth(guarded, identity),
-                adminPages = listOf(HealthPage(health), JobQueuesPage(SegmentQueue(db, indexer.segmentJobs))),
+                adminPages =
+                    listOf(
+                        HealthPage(health),
+                        JobQueuesPage(SegmentQueue(db, indexer.segmentJobs)),
+                        SegmentsPage.of(config, db, indexer.segmentPins, indexer.segmentJobs),
+                    ),
                 metrics = metrics,
             )
             metrics?.bind(workers, started)
