@@ -1,9 +1,12 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class AppViewConfigTest {
     @Test
@@ -148,5 +151,25 @@ class AppViewConfigTest {
             AppViewConfig.TerrainTilesConfig("/tiles", 13),
             AppViewConfig.fromEnv(mapOf("TERRAIN_TILES_DIR" to "/tiles", "TERRAIN_TILES_ZOOM" to "13")).terrainTiles,
         )
+    }
+
+    @Test
+    fun adminsAreParsedWithRoles() {
+        val config = AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to " did:plc:alice=operator, did:plc:bob = viewer ,"))
+        assertEquals(mapOf(Did("did:plc:alice") to AdminRole.Operator, Did("did:plc:bob") to AdminRole.Viewer), config.admins)
+    }
+
+    @Test
+    fun noAdminsWhenUnsetOrBlank() {
+        assertEquals(emptyMap(), AppViewConfig.fromEnv(emptyMap()).admins)
+        assertEquals(emptyMap(), AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to "  ")).admins)
+    }
+
+    @Test
+    fun malformedAdminEntryFailsNamingIt() {
+        for (bad in listOf("did:plc:alice", "did:plc:alice=root", "alice=operator", "=viewer", "did:=viewer")) {
+            val e = assertFailsWith<IllegalArgumentException> { AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to "did:plc:ok=viewer,$bad")) }
+            assertTrue(bad in e.message.orEmpty(), "${e.message} names $bad")
+        }
     }
 }

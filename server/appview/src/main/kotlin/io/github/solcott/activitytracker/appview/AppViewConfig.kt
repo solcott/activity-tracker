@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
@@ -80,6 +81,11 @@ data class AppViewConfig(
      * comma-separated). Empty: that file answers 404.
      */
     val appleAppIds: List<String> = emptyList(),
+    /**
+     * Who may use the admin site and with which role (`APPVIEW_ADMINS`, comma-separated `did=viewer|operator`; admin/admin-site). Empty:
+     * the site isn't mounted and every `/admin` path is `404`.
+     */
+    val admins: Map<Did, AdminRole> = emptyMap(),
 ) {
     /** Where terrain tiles live and at which zoom they were fetched. */
     data class TerrainTilesConfig(val dir: String, val zoom: Int)
@@ -148,6 +154,7 @@ data class AppViewConfig(
                 androidPackage = env["ANDROID_APP_PACKAGE"]?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_ANDROID_PACKAGE,
                 androidCertSha256 = list(env["ANDROID_CERT_SHA256"]),
                 appleAppIds = list(env["APPLE_APP_IDS"]),
+                admins = AdminRole.parseAdmins(env["APPVIEW_ADMINS"]),
             )
         }
 

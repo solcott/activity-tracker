@@ -1,6 +1,10 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.admin.AdminOAuth
+import io.github.solcott.activitytracker.appview.admin.AdminPage
+import io.github.solcott.activitytracker.appview.admin.AdminSite
+import io.github.solcott.activitytracker.appview.admin.AtprotoAdminOAuth
 import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
@@ -72,6 +76,10 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.RouteSelector
+import io.ktor.server.routing.RouteSelectorEvaluation
+import io.ktor.server.routing.RoutingResolveContext
 import io.ktor.server.routing.routing
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -115,14 +123,7 @@ fun main() {
 
     embeddedServer(Netty, port = config.port) {
             val pds = ResolvingPdsLookup(identity)
-            val ozone =
-                config.labeler?.let { labeler ->
-                    config.triage?.let { triage ->
-                        OzoneClient(http, labeler, triage) { did, service ->
-                            configuredIdentity.resolveDid(Did(did)).serviceEndpoint(service)
-                        }
-                    }
-                }
+            val ozone = ozoneOf(config, http, configuredIdentity)
             appView(
                 config,
                 db,
@@ -135,6 +136,7 @@ fun main() {
                 ozone = ozone,
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
+                adminOAuth = AtprotoAdminOAuth(guarded, identity),
             )
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, guarded, pds).start(this)
@@ -150,6 +152,14 @@ fun main() {
         }
         .start(wait = true)
 }
+
+/** The labeler's team API, signed in as the AppView's triage account; null without both (moderation/private-subjects). */
+private fun ozoneOf(config: AppViewConfig, http: HttpClient, identity: IdentityResolver): OzoneClient? =
+    config.labeler?.let { labeler ->
+        config.triage?.let { triage ->
+            OzoneClient(http, labeler, triage) { did, service -> identity.resolveDid(Did(did)).serviceEndpoint(service) }
+        }
+    }
 
 /**
  * The AppView's membership of athletes' spaces, with delegation tokens it signs itself. Each authorization of a synced space also registers
@@ -223,19 +233,14 @@ fun Application.appView(
     segmentJobs: SegmentJobs = SegmentJobs(),
     /** The syncer's notification tokens, which `confirmRegistration` and `notifySpaceUpdate` are checked against; null with no syncer. */
     registrations: SyncRegistrations? = null,
+    /** How admins prove who they are; the admin site is mounted only with this and at least one configured admin (admin/admin-site). */
+    adminOAuth: AdminOAuth? = null,
+    /** The operator pages the admin site shows besides its home and audit log. */
+    adminPages: List<AdminPage> = emptyList(),
 ) {
     // Labels from these sources apply to what's served; with none configured, none do.
     LabelSources.trusted = listOfNotNull(config.labeler?.did, config.bskyLabeler?.did)
     install(CallLogging)
-    install(CORS) {
-        // The web client calls the AppView directly from the browser.
-        anyHost()
-        allowMethod(HttpMethod.Get)
-        allowMethod(HttpMethod.Post)
-        allowHeader(HttpHeaders.Authorization)
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader("atproto-proxy")
-    }
     install(StatusPages) {
         exception<XrpcError> { call, e -> call.respondXrpcError(e.status, e.error, e.message) }
         // The moderator routes refuse rather than serve when the labeler can't be asked.
@@ -251,36 +256,91 @@ fun Application.appView(
             call.respondXrpcError(HttpStatusCode.InternalServerError.value, "InternalServerError", null)
         }
     }
+    val admin = adminOAuth?.takeIf { config.admins.isNotEmpty() }?.let { AdminSite(config, db, it, adminPages) }
+    admin?.startMaintenance(this)
     routing {
-        wellKnownRoutes(config, signingKey)
-        val avatars = AvatarUrls(config.publicUrl)
-        val views = Views(db, avatars, MediaUrls(config.publicUrl, mediaTokens))
-        val streams = ActivityStreamsViews(db, streamSource)
-        xrpcRoutes(
-            views,
-            GraphViews(db, avatars),
-            ActorSearch(db, avatars),
-            streams,
-            InviteViews(db, avatars, streams),
-            SpaceAccess(db, Did(config.serviceDid)),
-            verifier,
-            verifier.forAudiences(setOf(config.managingAppService)),
-        )
-        segmentRoutes(
-            SegmentViews(
+        // Mounted beside the rest, outside its any-host CORS: no other origin may read an admin page (admin/admin-site).
+        admin?.install(this)
+        createChild(NonAdminSelector).apply {
+            install(CORS) {
+                // The web client calls the AppView directly from the browser.
+                anyHost()
+                allowMethod(HttpMethod.Get)
+                allowMethod(HttpMethod.Post)
+                allowHeader(HttpHeaders.Authorization)
+                allowHeader(HttpHeaders.ContentType)
+                allowHeader("atproto-proxy")
+            }
+            publicRoutes(
+                config,
                 db,
-                avatars,
-                segmentImporter = config.segmentImporter,
-                names = config.segmentNames,
-                activeAthletes = config.segmentActiveAthletes,
-            ),
-            verifier,
-        )
-        segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
-        diveSiteRoutes(DiveSiteViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
-        moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
-        spaceSyncRoutes(syncer, registrations, verifier)
-        avatarRoutes(db, pds)
-        mediaRoutes(db, pds, spaceBlobs, mediaTokens)
+                verifier,
+                pds,
+                streamSource,
+                signingKey,
+                syncer,
+                spaceBlobs,
+                mediaTokens,
+                ozone,
+                segmentJobs,
+                registrations,
+            )
+        }
     }
+}
+
+/** Every path but `/admin` and below, consuming nothing, so the routes inside keep their full paths. */
+private object NonAdminSelector : RouteSelector() {
+    override suspend fun evaluate(context: RoutingResolveContext, segmentIndex: Int): RouteSelectorEvaluation =
+        if (context.segments.firstOrNull() == "admin") RouteSelectorEvaluation.FailedPath else RouteSelectorEvaluation.Transparent
+
+    override fun toString() = "(not /admin)"
+}
+
+/** The XRPC API, well-known documents and image routes: everything clients call. */
+@Suppress("LongParameterList")
+private fun Route.publicRoutes(
+    config: AppViewConfig,
+    db: Database,
+    verifier: ServiceAuthVerifier,
+    pds: PdsLookup,
+    streamSource: StreamSource,
+    signingKey: AppViewSigningKey?,
+    syncer: SpaceSyncer?,
+    spaceBlobs: SpaceBlobs?,
+    mediaTokens: PrivateMediaTokens?,
+    ozone: OzoneClient?,
+    segmentJobs: SegmentJobs,
+    registrations: SyncRegistrations?,
+) {
+    wellKnownRoutes(config, signingKey)
+    val avatars = AvatarUrls(config.publicUrl)
+    val views = Views(db, avatars, MediaUrls(config.publicUrl, mediaTokens))
+    val streams = ActivityStreamsViews(db, streamSource)
+    xrpcRoutes(
+        views,
+        GraphViews(db, avatars),
+        ActorSearch(db, avatars),
+        streams,
+        InviteViews(db, avatars, streams),
+        SpaceAccess(db, Did(config.serviceDid)),
+        verifier,
+        verifier.forAudiences(setOf(config.managingAppService)),
+    )
+    segmentRoutes(
+        SegmentViews(
+            db,
+            avatars,
+            segmentImporter = config.segmentImporter,
+            names = config.segmentNames,
+            activeAthletes = config.segmentActiveAthletes,
+        ),
+        verifier,
+    )
+    segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
+    diveSiteRoutes(DiveSiteViews(db, avatars, segmentImporter = config.segmentImporter, names = config.segmentNames), verifier)
+    moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
+    spaceSyncRoutes(syncer, registrations, verifier)
+    avatarRoutes(db, pds)
+    mediaRoutes(db, pds, spaceBlobs, mediaTokens)
 }

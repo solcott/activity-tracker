@@ -94,6 +94,8 @@ caffeine = "3.3.1"
 ipaddress = "5.6.2"
 jackson = "2.23.0"
 h2 = "2.5.252"
+# The AppView's admin site (admin/admin-site): partial page updates without a client build. 2.x: 4.0 changes the attribute API.
+htmx = "2.0.11"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
 osmpbf = "1.8.0"
 
@@ -135,6 +137,7 @@ ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
 ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
@@ -212,6 +215,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 ipaddress = { module = "com.github.seancfoley:ipaddress", version.ref = "ipaddress" }
 jackson-dataformat-cbor = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor", version.ref = "jackson" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
+htmx = { module = "org.webjars.npm:htmx.org", version.ref = "htmx" }
 osmpbf = { module = "org.openstreetmap.pbf:osmpbf", version.ref = "osmpbf" }
 
 molecule-runtime = { module = "app.cash.molecule:molecule-runtime", version.ref = "molecule" }

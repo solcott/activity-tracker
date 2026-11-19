@@ -945,3 +945,27 @@ object SpaceSync : Table("space_sync") {
     val createdAt = long("created_at")
     override val primaryKey = PrimaryKey(space)
 }
+
+/** Admin site sessions (admin/admin-site): a SHA-256 of each session cookie's secret, never the secret, and its CSRF token. */
+object AdminSessions : Table("admin_sessions") {
+    val tokenHash = varchar("token_hash", 64)
+    val did = varchar("did", 255)
+    val csrfToken = varchar("csrf_token", 64)
+    val createdAt = long("created_at")
+    val expiresAt = long("expires_at")
+    override val primaryKey = PrimaryKey(tokenHash)
+}
+
+/** The audit log of admin site actions and refused attempts (admin/admin-site): identifiers and settings only, never record content. */
+object AdminActions : Table("admin_actions") {
+    val id = long("id").autoIncrement()
+    val adminDid = varchar("admin_did", 255)
+    val action = varchar("action_name", 128)
+    val target = varchar("target", 512).nullable()
+    /** The action's other form fields as a JSON object of strings. */
+    val params = text("params")
+    /** `ok`, `refused: <why>` or `failed: <error class>`. */
+    val outcome = varchar("outcome", 255)
+    val at = long("acted_at")
+    override val primaryKey = PrimaryKey(id)
+}

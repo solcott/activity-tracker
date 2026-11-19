@@ -108,6 +108,8 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari)
+    // The admin site's htmx, served from the classpath (admin/admin-site).
+    implementation(libs.htmx)
     implementation(libs.ipaddress)
     // Decodes labelers' subscribeLabels frames (DAG-CBOR); the server only, clients never see CBOR.
     implementation(libs.jackson.dataformat.cbor)
@@ -120,6 +122,7 @@ dependencies {
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.html.builder)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.status.pages)
     implementation(libs.logback)
