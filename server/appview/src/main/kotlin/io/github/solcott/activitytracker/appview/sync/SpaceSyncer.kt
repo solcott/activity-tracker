@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
@@ -88,6 +89,12 @@ class SpaceSyncer(
     /** Spaces with a sync launched by [launchDue] and not yet finished, so a slow one is never launched twice. */
     private val running = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * Spaces an operator forced a resync of ([resyncAccount]): their next sync backfills whatever its stored state, even if a sync running
+     * when they were forced stores a set hash again.
+     */
+    private val forced = ConcurrentHashMap.newKeySet<String>()
+
     /** Spaces notified while a sync of them ran, which may have read the log before the write: they're pulled again at once. */
     private val renotified = ConcurrentHashMap.newKeySet<String>()
 
@@ -118,6 +125,27 @@ class SpaceSyncer(
             dueNow(space)
         }
         return known
+    }
+
+    /**
+     * An operator's forced resync of [authority]'s spaces (spaces/appview-syncer, admin/repo-reindex): every space synced for it is made
+     * due now and backfilled in full (its set hash is cleared, so the next sync lists everything and drops what's gone), and each standard
+     * athlete space it has no row for is announced, so its PDS decides whether it exists. Returns how many spaces were queued; their
+     * outcomes are their own sync state.
+     */
+    suspend fun resyncAccount(authority: Did): Int {
+        val known = db.tx {
+            SpaceSync.update({ SpaceSync.authorityDid eq authority.value }) {
+                it[setHash] = null
+                it[nextAttemptAt] = clock.now().toEpochMilliseconds()
+            }
+            SpaceSync.select(SpaceSync.space).where { SpaceSync.authorityDid eq authority.value }.map { it[SpaceSync.space] }.toSet()
+        }
+        val standard = (TIERS + AthleteSpace.INTERACTIONS).map { SpaceUri.of(authority, Nsid.SPACE_ATHLETE, it) }
+        forced += known
+        standard.filter { it.value !in known }.forEach { announce(it) }
+        wakeups.trySend(Unit)
+        return (known + standard.map { it.value }).size
     }
 
     /**
@@ -221,7 +249,7 @@ class SpaceSyncer(
      */
     private suspend fun pullOrBackfill(space: SpaceUri, state: ResultRow, now: Instant): Synced {
         val rev = state[SpaceSync.repoRev]
-        val stored = state[SpaceSync.setHash]
+        val stored = state[SpaceSync.setHash].takeUnless { forced.remove(space.value) }
         val pulled = if (rev != null && stored != null && state.syncedWithin(resyncAfter, now)) pull(space, rev, stored) else null
         return pulled ?: backfill(space)
     }
