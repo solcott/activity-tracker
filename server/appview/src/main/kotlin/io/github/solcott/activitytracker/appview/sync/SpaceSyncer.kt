@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.spaceRkeys
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
+import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -71,6 +73,8 @@ class SpaceSyncer(
     private val resyncAfter: Duration = 1.hours,
     private val notFoundGrace: Duration = 24.hours,
     parallelism: Int = 4,
+    /** Told how each sync ends, for the metrics (dev/worker-telemetry). */
+    private val outcomes: SyncOutcomes = SyncOutcomes.None,
 ) {
     private val log = LoggerFactory.getLogger(SpaceSyncer::class.java)
     private val wakeups = Channel<Unit>(Channel.CONFLATED)
@@ -117,21 +121,22 @@ class SpaceSyncer(
     }
 
     /**
-     * Runs until [scope] is cancelled: starts a sync of each due space, then waits for the next one to come due or a wakeup, without
-     * waiting for the syncs it started. A failure to read what's due is logged and retried on the next round.
+     * Runs until cancelled: starts a sync of each due space in [scope], then waits for the next one to come due or a wakeup, without
+     * waiting for the syncs it started. A failure to read what's due is logged, reported to [worker] and retried on the next round; a
+     * failing space is that space's own (`space_sync`), not the worker's.
      */
-    fun start(scope: CoroutineScope) {
-        scope.launch {
-            while (true) {
-                try {
-                    launchDue(scope)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                    log.warn("Reading the spaces due to sync failed; retrying: {}", e.message)
-                }
-                withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() }
+    suspend fun run(scope: CoroutineScope, worker: WorkerHandle = WorkerHandle.None): Nothing {
+        while (true) {
+            try {
+                launchDue(scope)
+                worker.success()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                worker.failure(e)
+                log.warn("Reading the spaces due to sync failed; retrying: {}", e.message)
             }
+            withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() }
         }
     }
 
@@ -181,11 +186,14 @@ class SpaceSyncer(
                                 it[notFoundSince] = null
                                 it[SpaceSync.registeredUntil] = renewed
                                 it[failures] = 0
+                                it[SpaceSync.lastError] = null
+                                it[SpaceSync.lastErrorAt] = null
                                 it[SpaceSync.syncedAt] = clock.now().toEpochMilliseconds()
                                 val next = if (renotified.contains(space.value)) clock.now() else clock.now() + reconcileInterval
                                 it[nextAttemptAt] = next.toEpochMilliseconds()
                             }
                         }
+                        outcomes.outcome(SyncOutcome.OK)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: XrpcException) {
@@ -346,6 +354,7 @@ class SpaceSyncer(
         indexer.dropSpace(space)
         db.tx { SpaceSync.deleteWhere { SpaceSync.space eq space.value } }
         renotified.remove(space.value)
+        outcomes.outcome(SyncOutcome.DROPPED)
     }
 
     /** A failed sync: back off. [notFoundSince] is the `SpaceNotFound` run this failure continues, or null for any other failure. */
@@ -353,13 +362,17 @@ class SpaceSyncer(
         val failures = state[SpaceSync.failures] + 1
         val delay = minOf(BACKOFF_BASE * (1 shl minOf(failures - 1, BACKOFF_DOUBLINGS)), BACKOFF_MAX)
         log.warn("Syncing {} failed ({} in a row), retrying in {}: {}", space, failures, delay, e.message)
+        val now = clock.now()
         db.tx {
             SpaceSync.update({ SpaceSync.space eq space.value }) {
                 it[SpaceSync.failures] = failures
+                it[SpaceSync.lastError] = ErrorSummary.of(e)
+                it[SpaceSync.lastErrorAt] = now.toEpochMilliseconds()
                 it[SpaceSync.notFoundSince] = notFoundSince
-                it[nextAttemptAt] = (clock.now() + delay).toEpochMilliseconds()
+                it[nextAttemptAt] = (now + delay).toEpochMilliseconds()
             }
         }
+        outcomes.outcome(SyncOutcome.FAILED)
     }
 
     private suspend fun dueNow(space: SpaceUri) {
@@ -416,3 +429,20 @@ private suspend fun isSynced(db: Database, space: SpaceUri): Boolean = db.tx {
 /** Whether this `space_sync` row last synced within [window] of [now]. */
 private fun ResultRow.syncedWithin(window: Duration, now: Instant): Boolean =
     this[SpaceSync.syncedAt]?.let { now.toEpochMilliseconds() - it <= window.inWholeMilliseconds } ?: false
+
+/** How a space sync ended: synced, failed and backing off, or the space dropped. */
+enum class SyncOutcome(val tag: String) {
+    OK("ok"),
+    FAILED("failed"),
+    DROPPED("dropped"),
+}
+
+/** Told how each space sync ends; the metrics count them (dev/worker-telemetry). */
+fun interface SyncOutcomes {
+    fun outcome(outcome: SyncOutcome)
+
+    companion object {
+        /** Counts nothing. */
+        val None = SyncOutcomes {}
+    }
+}

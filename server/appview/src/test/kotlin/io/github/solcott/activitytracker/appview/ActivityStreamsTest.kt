@@ -194,7 +194,7 @@ class ActivityStreamsTest {
         mapOf(
             "bafkdata" to AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray(),
             "bafkfollow" to AtJson.encodeToString(ActivityStreamData.serializer(), followersData).encodeToByteArray(),
-            "bafkbad" to "not stream data".encodeToByteArray(),
+            "bafkbad" to "junk bytes 4f2a".encodeToByteArray(),
             "bafkhuge" to ByteArray(ActivityStreamsRecord.MAX_DATA_BYTES.toInt() + 1) { ' '.code.toByte() },
         )
     }
@@ -220,6 +220,7 @@ class ActivityStreamsTest {
 
         repeat(10) { _ -> assertEquals(listOf(Visibility.PUBLIC), views.of(bob).parts!!.map { it.visibility }) }
         assertEquals(1, fake.calls("bafkfollow"))
+        assertEquals(listOf("IOException: unreachable" to clock.now.toEpochMilliseconds()), fetchFailures(), "why, and when")
 
         clock.now += 61.seconds
         views.of(bob)
@@ -274,6 +275,16 @@ class ActivityStreamsTest {
         }
         assertEquals(1, fake.calls("bafkbad"))
         assertEquals(1, fake.calls("bafkhuge"))
+        val reasons = fetchFailures().map { it.first }
+        assertEquals(setOf(ActivityStreamsViews.REASON_NOT_STREAM_DATA, ActivityStreamsViews.REASON_TOO_LARGE), reasons.toSet())
+        assertTrue(reasons.none { "4f2a" in it.orEmpty() }, "nothing of the data is recorded")
+    }
+
+    /** Each remembered fetch failure's recorded reason and time. */
+    private suspend fun fetchFailures() = db.tx {
+        ActivityStreamFetchFailures.selectAll().map {
+            it[ActivityStreamFetchFailures.lastError] to it[ActivityStreamFetchFailures.lastFailedAt]
+        }
     }
 
     @Test

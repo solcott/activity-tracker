@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Blocks
+import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DiveSiteCreations
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
+import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
@@ -531,6 +533,9 @@ class Indexer(
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
+        // Failed jobs about the account's records, and its block backfill's failures (dev/worker-telemetry).
+        SegmentJobFailures.deleteWhere { subjectUri like "at://${did.value}/%" }
+        BskyBlockBackfillFailures.deleteWhere { BskyBlockBackfillFailures.did eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 

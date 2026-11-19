@@ -6,6 +6,8 @@ import io.github.solcott.activitytracker.appview.index.HandleSweep
 import io.github.solcott.activitytracker.appview.index.HandleVerifier
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import java.util.UUID
@@ -13,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
@@ -96,4 +99,6 @@ class HandleSweepTest {
         sweep.runDue()
         assertEquals("alice.example.com" to (clock.now + 1.hours).toEpochMilliseconds(), stored(alice))
     }
+
+    @Test fun eachRoundIsReportedToItsWorker() = runBlocking { assertEquals(listOf(RecordingWorker.OK), reportsOf { sweep.run(it) }) }
 }

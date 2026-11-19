@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.appview.api.avatarRoutes
 import io.github.solcott.activitytracker.appview.api.diveSiteRoutes
 import io.github.solcott.activitytracker.appview.api.mediaRoutes
 import io.github.solcott.activitytracker.appview.api.moderationRoutes
+import io.github.solcott.activitytracker.appview.api.readinessRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
 import io.github.solcott.activitytracker.appview.api.segmentCandidateRoutes
 import io.github.solcott.activitytracker.appview.api.segmentRoutes
@@ -51,10 +52,20 @@ import io.github.solcott.activitytracker.appview.labels.LabelVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.moderation.OzoneClient
 import io.github.solcott.activitytracker.appview.net.GuardedHttp
+import io.github.solcott.activitytracker.appview.ops.AppViewMetrics
+import io.github.solcott.activitytracker.appview.ops.Readiness
+import io.github.solcott.activitytracker.appview.ops.WorkerKind
+import io.github.solcott.activitytracker.appview.ops.WorkerNames
+import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
+import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
+import io.github.solcott.activitytracker.appview.ops.installRequestMetrics
+import io.github.solcott.activitytracker.appview.ops.serve
+import io.github.solcott.activitytracker.appview.segments.SegmentJobOutcomes
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
+import io.github.solcott.activitytracker.appview.sync.SyncOutcomes
 import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -81,10 +92,10 @@ import io.ktor.server.routing.RouteSelector
 import io.ktor.server.routing.RouteSelectorEvaluation
 import io.ktor.server.routing.RoutingResolveContext
 import io.ktor.server.routing.routing
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.io.File
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.LoggerFactory
 
@@ -93,14 +104,12 @@ fun main() {
     Logger.setLogWriters(Slf4jLogWriter())
     val config = AppViewConfig.fromEnv()
     val log = LoggerFactory.getLogger("AppView")
-    log.info("Starting AppView {} at {}", config.serviceDid, config.publicUrl)
-    if (config.extraAudiences.isNotEmpty()) log.info("Also accepting service auth for {}", config.extraAudiences)
-    if (config.signingKey == null)
-        log.warn("APPVIEW_SIGNING_KEY isn't set: space syncing is disabled, so only public activities are served")
-    if (config.allowPrivateAddresses)
-        log.warn("APPVIEW_ALLOW_PRIVATE_ADDRESSES is set: hosts from DID documents and handles may be private addresses (local dev only)")
+    logStartup(config, log)
 
-    val db = DatabaseFactory.connect(config.databaseUrl, config.databaseUser, config.databasePassword)
+    // Prometheus metrics on the internal metrics port, when one is configured (dev/worker-telemetry); none are collected otherwise.
+    val meterRegistry = config.metricsPort?.let { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
+    val db = DatabaseFactory.connect(config.databaseUrl, config.databaseUser, config.databasePassword, meterRegistry)
+    val metrics = meterRegistry?.let { AppViewMetrics(db, it) }
     // Configured endpoints (PLC, the handle resolver, Jetstream, labelers, Ozone) are trusted; every host learned from a DID document or a
     // handle goes through the guarded client, which refuses private addresses (identity/outbound-requests).
     val http =
@@ -118,9 +127,12 @@ fun main() {
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val registrations = signingKey?.let { SyncRegistrations(db, config.publicUrl) }
     val member = signingKey?.let { spaceMember(config, it, checkNotNull(registrations), guarded, identity) }
-    val syncer = member?.let { SpaceSyncer(db, indexer, it) }
+    val syncer = member?.let { SpaceSyncer(db, indexer, it, outcomes = metrics?.syncOutcomes ?: SyncOutcomes.None) }
     val spaceBlobs = member?.let(::MemberSpaceBlobs)
+    // Every background worker's status (dev/worker-telemetry), for the metrics and the admin pages.
+    val workers = WorkerRegistry()
 
+    metrics?.serve(config.metricsHost, checkNotNull(config.metricsPort), log)
     embeddedServer(Netty, port = config.port) {
             val pds = ResolvingPdsLookup(identity)
             val ozone = ozoneOf(config, http, configuredIdentity)
@@ -137,18 +149,14 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
                 registrations = registrations,
                 adminOAuth = AtprotoAdminOAuth(guarded, identity),
+                metrics = metrics,
             )
-            config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
-            BskyBlockBackfill(db, indexer, guarded, pds).start(this)
-            HandleSweep(db, indexer).start(this)
-            // Segments indexed before segment groups get theirs (segments/segment-groups); indexing gives new ones theirs.
-            launch { assignMissingGroups(db, log) }
-            syncer?.start(this)
-            // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
-            spaceBlobs?.let { segmentMatcher(config, db, indexer, it).start(this) }
-            startLabelSubscribers(config, db, http, configuredIdentity)
-            // The moderator audit log keeps entries a little over a year.
-            ModerationAccessLog(db).start(this)
+            val started =
+                startWorkers(
+                    WorkerSupervisor(this, workers),
+                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, guarded, pds, log, metrics),
+                )
+            metrics?.bind(workers, started)
         }
         .start(wait = true)
 }
@@ -160,6 +168,22 @@ private fun ozoneOf(config: AppViewConfig, http: HttpClient, identity: IdentityR
             OzoneClient(http, labeler, triage) { did, service -> identity.resolveDid(Did(did)).serviceEndpoint(service) }
         }
     }
+
+private fun logStartup(config: AppViewConfig, log: org.slf4j.Logger) {
+    log.info("Starting AppView {} at {}", config.serviceDid, config.publicUrl)
+    if (config.extraAudiences.isNotEmpty()) log.info("Also accepting service auth for {}", config.extraAudiences)
+    if (config.signingKey == null)
+        log.warn("APPVIEW_SIGNING_KEY isn't set: space syncing is disabled, so only public activities are served")
+    if (config.allowPrivateAddresses)
+        log.warn("APPVIEW_ALLOW_PRIVATE_ADDRESSES is set: hosts from DID documents and handles may be private addresses (local dev only)")
+}
+
+/** The metrics of every started worker, Jetstream's lag and each labeler's stream. */
+private fun AppViewMetrics.bind(workers: WorkerRegistry, started: StartedWorkers) {
+    bindWorkers(workers)
+    started.jetstream?.let(::bindJetstream)
+    bindLabelers(started.labelSubscribers)
+}
 
 /**
  * The AppView's membership of athletes' spaces, with delegation tokens it signs itself. Each authorization of a synced space also registers
@@ -176,7 +200,7 @@ private fun spaceMember(
     return SpaceMember(SpaceCredentials(tokens, http, identity, notify = registrations::notifyFor), http)
 }
 
-private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer, blobs: SpaceBlobs) =
+private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer, blobs: SpaceBlobs, outcomes: SegmentJobOutcomes) =
     SegmentMatcher(
         db,
         indexer.segmentJobs,
@@ -186,6 +210,7 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
         names = config.segmentNames,
         segmentImporter = config.segmentImporter,
         terrain = config.terrainTiles?.let { TerrainTiles(File(it.dir), it.zoom) },
+        outcomes = outcomes,
     )
 
 /** The indexer for [config]: the segment importer, the naming rules, and whether terrain tiles are configured. */
@@ -198,23 +223,88 @@ private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityRes
         terrain = config.terrainTiles != null,
     )
 
+/** What the background workers need. */
+@Suppress("LongParameterList") // The workers' collaborators, built once in main.
+private class WorkerInputs(
+    val config: AppViewConfig,
+    val db: Database,
+    val http: HttpClient,
+    val configuredIdentity: IdentityResolver,
+    val indexer: Indexer,
+    val syncer: SpaceSyncer?,
+    val spaceBlobs: SpaceBlobs?,
+    val guarded: HttpClient,
+    val pds: PdsLookup,
+    val log: org.slf4j.Logger,
+    val metrics: AppViewMetrics?,
+)
+
 /**
- * One [LabelSubscriber] per configured labeler, each in its own coroutine so a failing stream stops nothing else, and an hourly sweep of
+ * Starts every background worker under [supervisor] (dev/worker-telemetry), by the names its registry and the metrics know them by. A
+ * worker configuration switches off is registered as disabled, with the reason.
+ */
+private fun startWorkers(supervisor: WorkerSupervisor, inputs: WorkerInputs): StartedWorkers =
+    with(inputs) {
+        val registry = supervisor.registry
+        val jetstream = config.jetstreamUrl?.let { JetstreamConsumer(http, it, db, indexer) }
+        if (jetstream != null) supervisor.stream(WorkerNames.JETSTREAM) { jetstream.run(it) }
+        else registry.disabled(WorkerNames.JETSTREAM, WorkerKind.STREAM, "JETSTREAM_URL is not set")
+        val backfill = BskyBlockBackfill(db, indexer, guarded, pds)
+        supervisor.loop(WorkerNames.BSKY_BLOCK_BACKFILL) { backfill.run(it) }
+        val handles = HandleSweep(db, indexer)
+        supervisor.loop(WorkerNames.HANDLE_SWEEP) { handles.run(it) }
+        // Segments indexed before segment groups get theirs (segments/segment-groups); indexing gives new ones theirs.
+        supervisor.oneOff(WorkerNames.SEGMENT_GROUPS_BACKFILL) {
+            val given = assignMissingGroups(db)
+            if (given > 0) log.info("Gave {} segments their groups", given)
+            it.success()
+        }
+        if (syncer != null) supervisor.loop(WorkerNames.SPACE_SYNCER) { syncer.run(supervisor.scope, it) }
+        else registry.disabled(WorkerNames.SPACE_SYNCER, WorkerKind.LOOP, NO_SIGNING_KEY)
+        // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
+        val matcher = spaceBlobs?.let { segmentMatcher(config, db, indexer, it, metrics?.segmentJobOutcomes ?: SegmentJobOutcomes.None) }
+        if (matcher != null) supervisor.loop(WorkerNames.SEGMENT_MATCHER) { matcher.run(it) }
+        else registry.disabled(WorkerNames.SEGMENT_MATCHER, WorkerKind.LOOP, NO_SIGNING_KEY)
+        val labels = startLabelSubscribers(supervisor, config, db, http, configuredIdentity)
+        // The moderator audit log keeps entries a little over a year.
+        val accessLog = ModerationAccessLog(db)
+        supervisor.loop(WorkerNames.MODERATION_ACCESS_LOG) { accessLog.run(it) }
+        StartedWorkers(jetstream, labels)
+    }
+
+/** The workers the metrics read state from beyond the registry: Jetstream's last event, each labeler's stream. */
+class StartedWorkers(val jetstream: JetstreamConsumer?, val labelSubscribers: List<LabelSubscriber>)
+
+private const val NO_SIGNING_KEY = "APPVIEW_SIGNING_KEY is not set"
+
+/**
+ * One [LabelSubscriber] per configured labeler, each a worker of its own so a failing stream stops nothing else, and an hourly sweep of
  * expired labels. Nothing without a labeler: no labels then apply.
  */
-private fun CoroutineScope.startLabelSubscribers(config: AppViewConfig, db: Database, http: HttpClient, identity: IdentityResolver) {
+private fun startLabelSubscribers(
+    supervisor: WorkerSupervisor,
+    config: AppViewConfig,
+    db: Database,
+    http: HttpClient,
+    identity: IdentityResolver,
+): List<LabelSubscriber> {
     val labelers = listOfNotNull(config.labeler, config.bskyLabeler)
-    if (labelers.isEmpty()) return
+    if (labelers.isEmpty()) {
+        supervisor.registry.disabled(WorkerNames.LABEL_SWEEP, WorkerKind.LOOP, "No labeler is configured (LABELER_DID, BSKY_LABELER_DID)")
+        return emptyList()
+    }
     val store = LabelStore(db, config.labeler?.did, config.bskyLabeler?.did)
     val verifier = LabelVerifier { did, _ -> identity.resolveDid(Did(did)).verificationKey("#atproto_label") }
     val endpoint: suspend (String) -> String? = { did -> identity.resolveDid(Did(did)).serviceEndpoint("#atproto_labeler") }
-    labelers.forEach { labeler -> launch { LabelSubscriber(http, labeler, store, verifier, endpoint).run() } }
-    launch {
+    val subscribers = labelers.map { labeler -> LabelSubscriber(http, labeler, store, verifier, endpoint) }
+    subscribers.forEach { subscriber -> supervisor.stream(WorkerNames.labelSubscriber(subscriber.did)) { subscriber.run(it) } }
+    supervisor.loop(WorkerNames.LABEL_SWEEP) { worker ->
         while (true) {
-            runSuspendCatching { store.sweepExpired() }
+            runSuspendCatching { store.sweepExpired() }.onSuccess { worker.success() }.onFailure { worker.failure(it) }
             delay(LabelSubscriber.SWEEP_INTERVAL)
         }
     }
+    return subscribers
 }
 
 @Suppress("LongParameterList") // The AppView's collaborators, each swappable in tests.
@@ -237,10 +327,15 @@ fun Application.appView(
     adminOAuth: AdminOAuth? = null,
     /** The operator pages the admin site shows besides its home and audit log. */
     adminPages: List<AdminPage> = emptyList(),
+    /** The readiness check `/xrpc/_ready` answers; a ping of [db] in production. */
+    readiness: Readiness = Readiness(db),
+    /** Times requests into the metrics, when the metrics port is configured. */
+    metrics: AppViewMetrics? = null,
 ) {
     // Labels from these sources apply to what's served; with none configured, none do.
     LabelSources.trusted = listOfNotNull(config.labeler?.did, config.bskyLabeler?.did)
     install(CallLogging)
+    metrics?.let { installRequestMetrics(it) }
     install(StatusPages) {
         exception<XrpcError> { call, e -> call.respondXrpcError(e.status, e.error, e.message) }
         // The moderator routes refuse rather than serve when the labeler can't be asked.
@@ -271,6 +366,7 @@ fun Application.appView(
                 allowHeader(HttpHeaders.ContentType)
                 allowHeader("atproto-proxy")
             }
+            readinessRoutes(readiness)
             publicRoutes(
                 config,
                 db,

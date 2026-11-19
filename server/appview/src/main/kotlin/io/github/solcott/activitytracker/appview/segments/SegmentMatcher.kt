@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
+import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
@@ -29,6 +30,8 @@ import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicates
 import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
 import io.github.solcott.activitytracker.appview.index.rederiveGroups
 import io.github.solcott.activitytracker.appview.index.siteCentre
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
+import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -62,9 +65,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.builtins.ListSerializer
@@ -95,6 +95,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.upsert
 import org.slf4j.LoggerFactory
 
 /**
@@ -133,29 +134,37 @@ class SegmentMatcher(
     private val segmentImporter: Did? = null,
     /** Terrain tiles (`TERRAIN_TILES_DIR`), which give segments terrain elevation (segments/segment-elevation); null for none. */
     private val terrain: TerrainTiles? = null,
+    /** Told how each job attempt ends, for the metrics. */
+    private val outcomes: SegmentJobOutcomes = SegmentJobOutcomes.None,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
     private val naming = SegmentNaming(db, clock, names)
     private val pairing = GroupPairing(db, blobs, clock)
 
     /**
-     * Runs until [scope] is cancelled: the one-off backfills, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
-     * status pass, then the naming pass, on start and every [STATUS_INTERVAL].
+     * Runs until cancelled: the one-off backfills, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the status pass,
+     * then the naming pass and the pruning of old failed jobs, on start and every [STATUS_INTERVAL]. Each round is reported to [worker]: a
+     * success when every step in it did, else its last failure.
      */
-    fun start(scope: CoroutineScope): Job = scope.launch {
-        guarded("Backfilling segment tracks") { backfill() }
-        guarded("Activating the importer's segments") { activateImporterSegments() }
-        guarded("Activating the importer's dive sites") { activateImporterSites() }
-        guarded("Backfilling terrain elevation") { backfillTerrain() }
+    suspend fun run(worker: WorkerHandle = WorkerHandle.None): Nothing {
+        val guard = Guard(worker)
+        guard("Backfilling segment tracks") { backfill() }
+        guard("Activating the importer's segments") { activateImporterSegments() }
+        guard("Activating the importer's dive sites") { activateImporterSites() }
+        guard("Backfilling terrain elevation") { backfillTerrain() }
         var statusesAt: Long? = null
         while (true) {
-            val now = clock.now().toEpochMilliseconds()
-            if (statusesAt == null || now - statusesAt >= STATUS_INTERVAL.inWholeMilliseconds) {
-                guarded("Updating segment statuses") { updateStatuses() }
-                guarded("Updating segment names") { updateNames() }
-                statusesAt = now
+            guard.round {
+                val now = clock.now().toEpochMilliseconds()
+                val last = statusesAt
+                if (last == null || now - last >= STATUS_INTERVAL.inWholeMilliseconds) {
+                    guard("Updating segment statuses") { updateStatuses() }
+                    guard("Updating segment names") { updateNames() }
+                    guard("Pruning failed segment jobs") { pruneFailedJobs() }
+                    statusesAt = now
+                }
+                guard("Running segment jobs") { runDue() }
             }
-            guarded("Running segment jobs") { runDue() }
             withTimeoutOrNull(POLL_INTERVAL) { jobs.wakeups.receive() }
         }
     }
@@ -335,6 +344,7 @@ class SegmentMatcher(
                             it[SegmentMatchJobs.subjectUri],
                             it[SegmentMatchJobs.enqueuedAt],
                             it[SegmentMatchJobs.attempts],
+                            it[SegmentMatchJobs.firstFailedAt],
                         )
                     }
             }
@@ -347,7 +357,7 @@ class SegmentMatcher(
         }
     }
 
-    private data class Queued(val kind: String, val subject: String, val enqueuedAt: Long, val attempts: Int)
+    private data class Queued(val kind: String, val subject: String, val enqueuedAt: Long, val attempts: Int, val firstFailedAt: Long?)
 
     private suspend fun run(job: Queued) {
         try {
@@ -368,17 +378,45 @@ class SegmentMatcher(
         }
     }
 
-    /** Removes [job], unless it was enqueued again while it ran. */
+    /** Removes [job], unless it was enqueued again while it ran, and any record of the same job giving up before. */
     private suspend fun done(job: Queued) {
-        db.tx { SegmentMatchJobs.deleteWhere { (kind eq job.kind) and (subjectUri eq job.subject) and (enqueuedAt eq job.enqueuedAt) } }
+        db.tx {
+            if (dequeue(job) > 0) {
+                SegmentJobFailures.deleteWhere { (kind eq job.kind) and (subjectUri eq job.subject) }
+                outcomes.outcome(job.kind, JobOutcome.DONE)
+            }
+        }
     }
 
+    /** Deletes [job] from the queue unless it was enqueued again while it ran; how many rows went. */
+    private fun dequeue(job: Queued): Int = SegmentMatchJobs.deleteWhere {
+        (kind eq job.kind) and (subjectUri eq job.subject) and (enqueuedAt eq job.enqueuedAt)
+    }
+
+    /**
+     * A failed attempt: due again after a pause doubling from [BACKOFF_BASE], with its error recorded; once that pause would pass
+     * [BACKOFF_MAX], kept as a failed job (`segment_job_failures`) and taken off the queue (dev/worker-telemetry).
+     */
     private suspend fun failed(job: Queued, e: Exception) {
         val attempts = job.attempts + 1
         val delay = BACKOFF_BASE * (1 shl minOf(attempts - 1, BACKOFF_DOUBLINGS))
+        val now = clock.now()
+        val error = ErrorSummary.of(e)
+        val firstFailedAt = job.firstFailedAt ?: now.toEpochMilliseconds()
         if (delay > BACKOFF_MAX) {
             log.warn("Segment job {} {} failed {} times; giving up: {}", job.kind, job.subject, attempts, e.message)
-            done(job)
+            db.tx {
+                if (dequeue(job) == 0) return@tx
+                SegmentJobFailures.upsert {
+                    it[kind] = job.kind
+                    it[subjectUri] = job.subject
+                    it[SegmentJobFailures.attempts] = attempts
+                    it[lastError] = error
+                    it[SegmentJobFailures.firstFailedAt] = firstFailedAt
+                    it[failedAt] = now.toEpochMilliseconds()
+                }
+                outcomes.outcome(job.kind, JobOutcome.DEAD)
+            }
             return
         }
         log.info("Segment job {} {} failed, retrying in {}: {}", job.kind, job.subject, delay, e.message)
@@ -391,9 +429,18 @@ class SegmentMatcher(
                 },
             ) {
                 it[SegmentMatchJobs.attempts] = attempts
-                it[enqueuedAt] = (clock.now() + delay).toEpochMilliseconds()
+                it[enqueuedAt] = (now + delay).toEpochMilliseconds()
+                it[lastError] = error
+                it[SegmentMatchJobs.firstFailedAt] = firstFailedAt
             }
         }
+        outcomes.outcome(job.kind, JobOutcome.RETRY)
+    }
+
+    /** Deletes failed jobs that gave up more than [SegmentJobFailures.RETENTION] ago; how many. Exposed for tests. */
+    suspend fun pruneFailedJobs(): Int {
+        val cutoff = (clock.now() - SegmentJobFailures.RETENTION).toEpochMilliseconds()
+        return db.tx { SegmentJobFailures.deleteWhere { failedAt less cutoff } }
     }
 
     /**
@@ -761,13 +808,26 @@ class SegmentMatcher(
         return java.time.Instant.ofEpochMilli(record.startedAt.toEpochMilliseconds()).atOffset(offset).toLocalDate().toString()
     }
 
-    private suspend fun guarded(what: String, block: suspend () -> Unit) {
-        try {
+    /** Runs steps so a failing one is logged and reported, never thrown, and reports each [round] that had no failure as a success. */
+    private inner class Guard(private val worker: WorkerHandle) {
+        private var failed = false
+
+        suspend operator fun invoke(what: String, block: suspend () -> Unit) {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                failed = true
+                worker.failure(e)
+                log.warn("{} failed; retrying: {}", what, e.message)
+            }
+        }
+
+        suspend fun round(block: suspend () -> Unit) {
+            failed = false
             block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            log.warn("{} failed; retrying: {}", what, e.message)
+            if (!failed) worker.success()
         }
     }
 

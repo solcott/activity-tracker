@@ -4,12 +4,15 @@ import io.github.solcott.activitytracker.appview.api.ModerationAccessLog
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.ModerationAccess
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -54,4 +57,6 @@ class ModerationAccessLogTest {
         assertEquals("12", row[ModerationAccess.reportRef])
         assertEquals(now.toEpochMilliseconds(), row[ModerationAccess.at])
     }
+
+    @Test fun eachPruneIsReportedToItsWorker() = runBlocking { assertEquals(listOf(RecordingWorker.OK), reportsOf { log.run(it) }) }
 }

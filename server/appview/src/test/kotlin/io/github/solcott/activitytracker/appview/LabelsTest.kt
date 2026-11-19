@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.appview.labels.LabelFrame
 import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,6 +23,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -214,7 +217,10 @@ class LabelsTest {
             store,
             LabelVerifier { _, _ -> key.multibase },
             endpoint = { null },
-            frames = frames,
+            frames = { url, onOpen, onFrame ->
+                onOpen()
+                frames(url, onFrame)
+            },
             maxBackoff = 10.milliseconds,
         )
 
@@ -295,5 +301,38 @@ class LabelsTest {
         subscriber(own) { _, onFrame -> onFrame(frame) }.consume()
         assertEquals(setOf(Triple(own, activity, "porn")), stored())
         assertEquals(9, store.cursor(own))
+    }
+
+    @Test
+    fun eachFrameAndEachDroppedConnectionIsReportedToItsWorker() = runBlocking {
+        var connections = 0
+        val subscriber =
+            subscriber(own) { _, onFrame ->
+                if (++connections == 1) error("connection reset")
+                onFrame(frame(1, label("!hide")))
+                onFrame(frame(2, label("porn")))
+                awaitCancellation()
+            }
+        assertEquals(
+            listOf("IllegalStateException: connection reset", RecordingWorker.OK, RecordingWorker.OK),
+            reportsOf(3) { subscriber.run(it) },
+        )
+        assertEquals(false, subscriber.connected.get(), "closed once cancelled")
+    }
+
+    @Test
+    fun aSubscriberSaysWhetherItsStreamIsOpen() = runBlocking {
+        val open = CompletableDeferred<Unit>()
+        val subscriber =
+            subscriber(own) { _, _ ->
+                open.complete(Unit)
+                awaitCancellation()
+            }
+        val job = launch { subscriber.consume() }
+        open.await()
+        assertEquals(true, subscriber.connected.get())
+        job.cancel()
+        job.join()
+        assertEquals(false, subscriber.connected.get())
     }
 }

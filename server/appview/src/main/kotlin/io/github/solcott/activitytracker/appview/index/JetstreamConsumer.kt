@@ -2,12 +2,14 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.JetstreamCursor
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import org.jetbrains.exposed.v1.core.eq
@@ -29,18 +31,28 @@ class JetstreamConsumer(
 ) {
     private val log = LoggerFactory.getLogger(JetstreamConsumer::class.java)
 
-    suspend fun run() {
+    /**
+     * The `time_us` of the last event indexed, or 0 before the first: the Jetstream lag the metrics show is now minus this
+     * (dev/worker-telemetry).
+     */
+    val lastEventUs = AtomicLong(0)
+
+    /** Runs until cancelled, reporting each indexed event and each failed connection to [worker]. */
+    suspend fun run(worker: WorkerHandle = WorkerHandle.None) {
         var backoff = 1.seconds
         while (true) {
-            runSuspendCatching { consume() }
+            runSuspendCatching { consume(worker) }
                 .onSuccess { backoff = 1.seconds }
-                .onFailure { log.warn("Jetstream connection failed ({}); retrying in {}", it.message, backoff) }
+                .onFailure {
+                    worker.failure(it)
+                    log.warn("Jetstream connection failed ({}); retrying in {}", it.message, backoff)
+                }
             delay(backoff)
             backoff = (backoff * 2).coerceAtMost(60.seconds)
         }
     }
 
-    private suspend fun consume() {
+    private suspend fun consume(worker: WorkerHandle) {
         val cursor = loadCursor()?.let { it - REWIND_US }
         val query = buildString {
             JetstreamEvent.kinds.forEach { append("kinds=").append(it).append('&') }
@@ -55,6 +67,8 @@ class JetstreamConsumer(
                 val event = (frame as? Frame.Text)?.let { decode(it.readText()) } ?: continue
                 indexer.handle(event)
                 lastUs = event.witnessedAtUs
+                lastEventUs.set(lastUs)
+                worker.success()
                 if (++processed % CURSOR_SAVE_INTERVAL == 0) saveCursor(lastUs)
             }
             if (processed > 0) saveCursor(lastUs)

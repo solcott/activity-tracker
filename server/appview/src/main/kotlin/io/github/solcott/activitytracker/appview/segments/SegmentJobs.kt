@@ -67,6 +67,8 @@ class SegmentJobs(
             this[SegmentMatchJobs.subjectUri] = id
             this[SegmentMatchJobs.enqueuedAt] = now
             this[SegmentMatchJobs.attempts] = 0
+            this[SegmentMatchJobs.lastError] = null
+            this[SegmentMatchJobs.firstFailedAt] = null
         }
         wakeups.trySend(Unit)
     }
@@ -86,6 +88,8 @@ class SegmentJobs(
             it[subjectUri] = subject
             it[enqueuedAt] = now
             it[attempts] = 0
+            it[lastError] = null
+            it[firstFailedAt] = null
         }
         wakeups.trySend(Unit)
     }
@@ -98,5 +102,8 @@ class SegmentJobs(
         const val GROUP = "group"
         const val SITE = "site"
         const val ELEVATION = "elevation"
+
+        /** Every kind, for the metrics' per-kind gauges. */
+        val KINDS = listOf(TRACK, SEGMENT, CANDIDATE, TIERS, GROUP, SITE, ELEVATION)
     }
 }

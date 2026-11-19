@@ -86,7 +86,18 @@ data class AppViewConfig(
      * the site isn't mounted and every `/admin` path is `404`.
      */
     val admins: Map<Did, AdminRole> = emptyMap(),
+    /**
+     * The internal port Prometheus metrics are served on at `/metrics` (`METRICS_PORT`; dev/worker-telemetry). Null: no metrics are
+     * collected or served. Never the public [port].
+     */
+    val metricsPort: Int? = null,
+    /** The address the metrics port binds to (`METRICS_HOST`), loopback unless set. */
+    val metricsHost: String = DEFAULT_METRICS_HOST,
 ) {
+    init {
+        require(metricsPort != port) { "METRICS_PORT must not be APPVIEW_PORT ($port): metrics are never served on the public port" }
+    }
+
     /** Where terrain tiles live and at which zoom they were fetched. */
     data class TerrainTilesConfig(val dir: String, val zoom: Int)
 
@@ -112,8 +123,20 @@ data class AppViewConfig(
         /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
         const val DEFAULT_TERRAIN_ZOOM = TerrainTiles.DEFAULT_ZOOM
 
+        /** Where the metrics port binds unless `METRICS_HOST` says otherwise. */
+        const val DEFAULT_METRICS_HOST = "127.0.0.1"
+
         /** The Android app's application id. */
         const val DEFAULT_ANDROID_PACKAGE = "io.github.solcott.activitytracker"
+
+        /** `METRICS_PORT`; null when unset. */
+        private fun metricsPort(env: Map<String, String>): Int? = nonBlank(env, "METRICS_PORT")?.toInt()
+
+        /** `METRICS_HOST`, or [DEFAULT_METRICS_HOST]. */
+        private fun metricsHost(env: Map<String, String>): String = nonBlank(env, "METRICS_HOST") ?: DEFAULT_METRICS_HOST
+
+        /** [key]'s value, trimmed; null when unset or blank. */
+        private fun nonBlank(env: Map<String, String>, key: String): String? = env[key]?.trim()?.takeIf { it.isNotEmpty() }
 
         private fun list(value: String?): List<String> = value.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -155,6 +178,8 @@ data class AppViewConfig(
                 androidCertSha256 = list(env["ANDROID_CERT_SHA256"]),
                 appleAppIds = list(env["APPLE_APP_IDS"]),
                 admins = AdminRole.parseAdmins(env["APPVIEW_ADMINS"]),
+                metricsPort = metricsPort(env),
+                metricsHost = metricsHost(env),
             )
         }
 

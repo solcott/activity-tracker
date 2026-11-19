@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.appview.db
 
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.time.Duration.Companion.days
 import org.jetbrains.exposed.v1.core.Table
 
 object Actors : Table("actors") {
@@ -567,13 +569,34 @@ object SegmentCandidateRiders : Table("segment_candidate_riders") {
 
 /** The matcher's queue (`SegmentMatcher`): one row per [kind] and subject, so enqueueing twice is one job. */
 object SegmentMatchJobs : Table("segment_match_jobs") {
-    /** A `SegmentJobs` kind: `track`, `segment`, `candidate` or `tiers`. */
+    /** A `SegmentJobs` kind: `track`, `segment`, `candidate`, `tiers`, `group`, `site` or `elevation`. */
     val kind = varchar("kind", 16)
     val subjectUri = varchar("subject_uri", 512)
     /** When it's due, epoch millis; pushed later on a failed attempt. */
     val enqueuedAt = long("enqueued_at")
     val attempts = integer("attempts").default(0)
+    /** The last failed attempt's error (`ErrorSummary`); null until one fails, and again once it's enqueued afresh. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    /** When its current run of failed attempts began, epoch millis. */
+    val firstFailedAt = long("first_failed_at").nullable()
     override val primaryKey = PrimaryKey(kind, subjectUri)
+}
+
+/**
+ * Segment jobs that gave up after their retries (dev/worker-telemetry), one per kind and subject, for operators to see and replay (enqueue
+ * the job again and delete the row). A later success of the same job, the subject's account's deletion and [RETENTION] remove a row.
+ */
+object SegmentJobFailures : Table("segment_job_failures") {
+    val kind = varchar("kind", 16)
+    val subjectUri = varchar("subject_uri", 512)
+    val attempts = integer("attempts")
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH)
+    val firstFailedAt = long("first_failed_at")
+    /** When it gave up, epoch millis. */
+    val failedAt = long("failed_at")
+    override val primaryKey = PrimaryKey(kind, subjectUri)
+
+    val RETENTION = 30.days
 }
 
 /** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
@@ -887,6 +910,9 @@ object ActivityStreamFetchFailures : Table("activity_stream_fetch_failures") {
     val kind = varchar("kind", 16)
     val failures = integer("failures")
     val retryAt = long("retry_at").nullable()
+    /** Why it last failed (`ErrorSummary`, or the AppView's own reason), never the fetched bytes. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    val lastFailedAt = long("last_failed_at").nullable()
     override val primaryKey = PrimaryKey(blobCid, authorDid, origin)
 
     /** Fetched, but not valid stream data or too large: the CID names those bytes, so they're as bad from anywhere. */
@@ -935,6 +961,9 @@ object SpaceSync : Table("space_sync") {
     val notifyToken = varchar("notify_token", 64).nullable()
     /** Consecutive failed syncs, for backoff. */
     val failures = integer("failures").default(0)
+    /** The last failed sync's error (`ErrorSummary`) and when; null once a sync succeeds. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    val lastErrorAt = long("last_error_at").nullable()
     /** When the last sync succeeded, epoch millis; null before the first one. */
     val syncedAt = long("synced_at").nullable()
     /** The authority repo's LtHash state as of [repoRev]; null until a backfill matches its head commit. */
@@ -968,4 +997,14 @@ object AdminActions : Table("admin_actions") {
     val outcome = varchar("outcome", 255)
     val at = long("acted_at")
     override val primaryKey = PrimaryKey(id)
+}
+
+/** Actors whose Bluesky block backfill failed (graph/blocks), backing off until [nextAttemptAt]; deleted on success. */
+object BskyBlockBackfillFailures : Table("bsky_block_backfill_failures") {
+    val did = varchar("did", 255)
+    /** Consecutive failures. */
+    val failures = integer("failures")
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH)
+    val nextAttemptAt = long("next_attempt_at")
+    override val primaryKey = PrimaryKey(did)
 }

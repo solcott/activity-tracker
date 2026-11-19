@@ -27,6 +27,27 @@ class AppViewConfigTest {
     }
 
     @Test
+    fun metricsAreOffUnlessAPortIsSet() {
+        val config = AppViewConfig.fromEnv(emptyMap())
+        assertEquals(null, config.metricsPort)
+        assertEquals("127.0.0.1", config.metricsHost)
+    }
+
+    @Test
+    fun metricsPortAndHostComeFromTheEnvironment() {
+        val config = AppViewConfig.fromEnv(mapOf("METRICS_PORT" to " 9464 ", "METRICS_HOST" to "0.0.0.0"))
+        assertEquals(9464, config.metricsPort)
+        assertEquals("0.0.0.0", config.metricsHost)
+    }
+
+    @Test
+    fun metricsAreNeverOnThePublicPort() {
+        val error =
+            assertFailsWith<IllegalArgumentException> { AppViewConfig.fromEnv(mapOf("APPVIEW_PORT" to "8081", "METRICS_PORT" to "8081")) }
+        assertTrue("METRICS_PORT" in error.message.orEmpty())
+    }
+
+    @Test
     fun signingKeyIsOptional() {
         assertEquals(null, AppViewConfig.fromEnv(emptyMap()).signingKey)
         assertEquals(null, AppViewConfig.fromEnv(mapOf("APPVIEW_SIGNING_KEY" to "  ")).signingKey)
