@@ -5,7 +5,7 @@ import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Labels
 import io.github.solcott.activitytracker.appview.db.tx
-import io.github.solcott.activitytracker.appview.labels.DagCbor
+import io.github.solcott.activitytracker.appview.ipld.DagCbor
 import io.github.solcott.activitytracker.appview.labels.Label
 import io.github.solcott.activitytracker.appview.labels.LabelFrame
 import io.github.solcott.activitytracker.appview.labels.LabelStore
