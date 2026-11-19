@@ -55,6 +55,8 @@ fun localStackEnvironment(
     // Terrain tiles scripts/terrain-fetch.sh writes into build/terrain, so segments get terrain elevation
     // (segments/segment-elevation).
     default("TERRAIN_TILES_DIR") { rootDir.resolve("build/terrain").takeIf { it.isDirectory }?.path }
+    // Who may use the admin site (docker/scripts/setup-admin.sh; admin/admin-site).
+    default("APPVIEW_ADMINS") { fromDockerEnv("APPVIEW_ADMINS") }
     // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
     for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) default(key) { fromDockerEnv(key) }
     // The local Ozone's labeler account (docker/scripts/setup-labeler.sh), at the port compose publishes.
