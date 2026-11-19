@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -90,6 +91,9 @@ fun ReadableScrollColumn(
 
 /** A scrollbar for a lazy list on desktop and web. Phones have none: their lists show a transient indicator of their own, or none. */
 @Composable expect fun AppVerticalScrollbar(state: LazyListState, modifier: Modifier = Modifier)
+
+/** A scrollbar for a lazy grid on desktop and web; nothing on phones. */
+@Composable expect fun AppVerticalScrollbar(state: LazyGridState, modifier: Modifier = Modifier)
 
 /** A scrollbar for a scrolling column on desktop and web; nothing on phones. */
 @Composable expect fun AppVerticalScrollbar(state: ScrollState, modifier: Modifier = Modifier)

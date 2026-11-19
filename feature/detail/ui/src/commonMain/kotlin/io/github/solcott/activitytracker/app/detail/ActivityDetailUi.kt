@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
@@ -199,13 +204,13 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
 
 /**
  * From 840dp: a side pane with the map, hero, avg/max table, training load, stats and comments, scrolling on its own so the map stays in
- * view, beside the cards, two to a row once their pane has room.
+ * view, beside the cards, as many to a row as their pane has room for.
  */
 @Composable
 private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues) {
     val page = state.page
     val paneState = rememberLazyListState()
-    val cardsState = rememberLazyListState()
+    val cardsState = rememberLazyGridState()
     val padding = contentPadding + PaddingValues(CARD_PADDING)
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
         Box(Modifier.width(SIDE_PANE_WIDTH).fillMaxHeight()) {
@@ -231,17 +236,30 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
             }
             AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
-        BoxWithConstraints(Modifier.weight(1f, fill = false).widthIn(max = CARDS_MAX_WIDTH).fillMaxHeight()) {
-            val columns = if (maxWidth >= TWO_CARD_COLUMNS) 2 else 1
-            LazyColumn(
+        Box(Modifier.weight(1f, fill = false).widthIn(max = CARDS_MAX_WIDTH).fillMaxHeight()) {
+            // As many columns as fit cards CARD_MIN_WIDTH wide; laps and the other tables, segments and lifts span them all.
+            val full: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
+            LazyVerticalGrid(
+                GridCells.Adaptive(CARD_MIN_WIDTH),
                 Modifier.fillMaxSize(),
                 state = cardsState,
                 contentPadding = padding,
                 verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+                horizontalArrangement = Arrangement.spacedBy(ITEM_GAP),
             ) {
-                metricCards(state, columns)
-                segments(state)
-                lifts(state)
+                state.page.charts?.let { charts ->
+                    val onSetThresholds = { state.eventSink(ActivityDetailEvent.OpenTrainingZones) }
+                    items(
+                        state.page.cards,
+                        key = { "cards/" + it.section.name },
+                        span = { if (it.section in FULL_WIDTH) GridItemSpan(maxLineSpan) else GridItemSpan(1) },
+                    ) { card ->
+                        val sources = state.chartSources.firstOrNull { it.section == card.section }?.members
+                        MetricCardUi(card, charts, Modifier.fillMaxWidth(), state.chartsMissingZones, onSetThresholds, sources)
+                    }
+                }
+                if (state.segments.isNotEmpty()) item(key = "segments", span = full) { SegmentEfforts(state) }
+                if (state.lifts.isNotEmpty()) item(key = "lifts", span = full) { LiftRides(state) }
             }
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
@@ -277,7 +295,9 @@ private fun LazyListScope.metricCards(state: ActivityDetailPage, columns: Int) {
 private val FULL_WIDTH = setOf(DetailSection.Laps, DetailSection.Legs, DetailSection.Lengths, DetailSection.Sets)
 private val SIDE_PANE_WIDTH = 400.dp
 private val CARDS_MAX_WIDTH = 1040.dp
-private val TWO_CARD_COLUMNS = 640.dp
+
+// Two columns from a 640dp pane (its 16dp padding each side and the 12dp gap leave each card 298dp), three from 950dp.
+private val CARD_MIN_WIDTH = 298.dp
 
 /**
  * Who, when and what: the author, the start, the title and type, the dive site and description, the other recordings, and what an action
