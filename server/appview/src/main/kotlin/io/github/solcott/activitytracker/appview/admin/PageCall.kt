@@ -53,7 +53,12 @@ private fun HTML.document(
         meta(charset = "utf-8")
         meta(name = "viewport", content = "width=device-width, initial-scale=1")
         // htmx would otherwise add a <style> the content security policy refuses, and never needs eval or inline scripts here.
-        meta(name = "htmx-config", content = """{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false}""")
+        meta(
+            name = "htmx-config",
+            content =
+                """{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false,""" +
+                    """"responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}]}""",
+        )
         refreshTo?.let {
             meta {
                 attributes["http-equiv"] = "refresh"

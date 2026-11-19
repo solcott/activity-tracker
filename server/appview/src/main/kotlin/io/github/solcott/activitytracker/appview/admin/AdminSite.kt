@@ -200,18 +200,24 @@ class AdminSite(
                         else -> null
                     }
                 var outcome = refusal?.let { "refused: $it" } ?: "failed: unknown"
+                val action = ActionCall(call, admin, target, params)
                 try {
                     if (refusal != null) return@post call.respondOutcome(HttpStatusCode.Forbidden, "Refused.")
-                    val result = ActionCall(call, admin, target, params).body()
-                    outcome = "ok"
-                    call.respondOutcome(HttpStatusCode.OK, result.message)
+                    val result = action.body()
+                    if (result.refused != null) {
+                        outcome = "refused: ${result.refused}"
+                        call.respondOutcome(result.status, result.message)
+                    } else {
+                        outcome = result.detail?.let { "ok: $it" } ?: "ok"
+                        call.respondOutcome(HttpStatusCode.OK, result.message)
+                    }
                 } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     // Any failure is the action's outcome, recorded below; the request still gets an answer.
                     outcome = "failed: ${e::class.simpleName}"
                     log.warn("Admin action {} by {} failed", name, admin.did.value, e)
                     call.respondOutcome(HttpStatusCode.InternalServerError, "Failed: ${e::class.simpleName}")
                 } finally {
-                    runSuspendCatching { audit.record(admin.did.value, name, target, params, outcome) }
+                    runSuspendCatching { audit.record(admin.did.value, name, target, params + action.audited, outcome) }
                         .onFailure { log.error("Couldn't audit admin action {} by {}", name, admin.did.value, it) }
                 }
             }

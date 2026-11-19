@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.admin
 
 import io.github.solcott.activitytracker.lexicon.Did
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import kotlinx.html.FlowContent
 
@@ -11,10 +12,33 @@ data class Admin(val did: Did, val role: AdminRole, val csrfToken: String) {
 }
 
 /** What an action handler is given: the call, its admin, the `target` form field and the action's other fields. */
-class ActionCall(val call: ApplicationCall, val admin: Admin, val target: String?, val params: Map<String, String>)
+class ActionCall(val call: ApplicationCall, val admin: Admin, val target: String?, val params: Map<String, String>) {
+    internal val audited = linkedMapOf<String, String>()
 
-/** What an action reports back to the operator; [message] is shown as is, so it holds identifiers and counts only. */
-data class ActionResult(val message: String)
+    /**
+     * Adds [key] to the audit entry's settings beside the posted fields, such as the value an action replaced (identifiers and times only).
+     */
+    fun audit(key: String, value: String) {
+        audited[key] = value
+    }
+}
+
+/**
+ * What an action reports back to the operator; [message] is shown as is, so it holds identifiers and counts only. [detail] (identifiers and
+ * counts only) is recorded as the audit outcome `ok: <detail>`. A [refused] action changed nothing: it's recorded as `refused: <refused>`,
+ * a short fixed reason, and answered [status].
+ */
+data class ActionResult(
+    val message: String,
+    val detail: String? = null,
+    val refused: String? = null,
+    val status: HttpStatusCode = HttpStatusCode.UnprocessableEntity,
+) {
+    companion object {
+        fun refused(reason: String, message: String, status: HttpStatusCode = HttpStatusCode.UnprocessableEntity) =
+            ActionResult(message, refused = reason, status = status)
+    }
+}
 
 /**
  * A page of the admin site (admin/admin-site). Each later change adds its operator pages as one of these, in its own files, and lists it in
