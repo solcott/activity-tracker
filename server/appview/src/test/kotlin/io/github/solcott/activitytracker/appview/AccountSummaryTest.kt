@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.appview.admin.AccountSummary
 import io.github.solcott.activitytracker.appview.admin.CollectionCounts
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
-import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
@@ -22,14 +21,13 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
-import java.util.UUID
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
-import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -38,12 +36,11 @@ import org.jetbrains.exposed.v1.jdbc.update
 /** admin/account-tools: what the account page reads about one account, and the lookup that finds it. */
 class AccountSummaryTest {
     private val bob = "did:plc:bob"
-    private val db: Database =
-        JdbcDataSource().run {
-            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-            DatabaseFactory.migrate(this)
-            Database.connect(this)
-        }
+    private val h2 = TestH2()
+    private val db: Database = h2.db
+
+    @AfterTest fun dropDatabase() = h2.close()
+
     private val indexer =
         Indexer(db, { did -> if (did.value == "did:plc:carol") "handle.invalid" else did.value.substringAfterLast(':') + ".test" })
     private val followers = SpaceUri.of(Did(bob), Nsid.SPACE_ATHLETE, AthleteSpace.FOLLOWERS)
