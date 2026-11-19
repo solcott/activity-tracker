@@ -26,7 +26,7 @@
 
 ## 5. Local stack and docs
 
-- [ ] 5.1 Add `docker/scripts/setup-admin.sh` (create `siteadmin.test`, write `APPVIEW_ADMINS=<did>=operator` to `docker/.env`), run it from `scripts/dev.sh` and after a wipe, add an empty `APPVIEW_ADMINS` to `.env.example`, and restart the AppView when the DID changes; verify by running `scripts/dev.sh` twice and once with `--reset` and checking `docker/.env`
+- [x] 5.1 Add `docker/scripts/setup-admin.sh` (create `siteadmin.test`, write `APPVIEW_ADMINS=<did>=operator` to `docker/.env`), run it from `scripts/dev.sh` and after a wipe, add an empty `APPVIEW_ADMINS` to `.env.example`, and restart the AppView when the DID changes; verify by running `scripts/dev.sh` twice and once with `--reset` and checking `docker/.env`
 - [x] 5.2 Document the admin site in `.agents/rules/appview.md` (admin list, sign-in, `adminAction`, `AdminPage`, privacy rule), `.agents/rules/docker.md` (the admin account) and the `local-stack` skill (signing in at `/admin`); verify `scripts/check-agent-sync.sh` passes
 
 ## 6. Integration check
