@@ -28,7 +28,7 @@ Each candidate SHALL hold its id, region, sport group, kind, name, line, length 
 ## ADDED Requirements
 
 ### Requirement: A candidate's climb follows its trail
-When extract was given terrain covering a candidate's line, its climb SHALL be its own line's clear climb or descent in its direction of travel (`segments/segment-direction`). When its own line neither clearly climbs nor descends, its climb SHALL be its trail's, judged over the whole trail's line where terrain covers it and reversed for travel against the trail's order. Otherwise it SHALL have none. Alpine runs and lifts SHALL have none.
+When extract was given terrain covering a candidate's line, its climb SHALL be its own line's clear climb or descent in its direction of travel (`segments/segment-direction`). When its own line neither clearly climbs nor descends, its climb SHALL be its trail's, judged over the whole trail's line where terrain covers it and reversed for travel against the trail's order. Otherwise it SHALL have none, unless the routes through it give one. Alpine runs and lifts SHALL have none.
 
 #### Scenario: Flat piece of a downhill trail
 - **WHEN** the one-way ride trail "Rush" descends clearly over its whole line, and its 522 m piece "Rush - Dreamline" is nearly flat by terrain
@@ -45,3 +45,14 @@ When extract was given terrain covering a candidate's line, its climb SHALL be i
 #### Scenario: No terrain given
 - **WHEN** a region is extracted without terrain
 - **THEN** no candidate has a climb
+
+### Requirement: A one-way candidate takes the climb of the routes through it
+When a one-way candidate has no climb of its own or its trail's, its climb SHALL be that of the longer one-way OSM candidates of its sport group whose ways include all of its ways in a row in its order, when every such candidate with a climb has the same one. Otherwise it SHALL have none. Two-way candidates, alpine runs and lifts SHALL take none this way.
+
+#### Scenario: Gentle section of a downhill trail system
+- **WHEN** the one-way ride way "Rush - Through the Trees Trail" drops 39 m over 1.7 km (under 3%), so neither it nor its piece "Exit Stage Left → Rush Access" clearly descends, and every longer one-way ride candidate through it, such as "Rush › Through the Trees Trail", descends
+- **THEN** both pieces' candidates have climb `downhill`
+
+#### Scenario: Routes through a section disagree
+- **WHEN** a one-way piece with no climb of its own or its trail's lies on one longer one-way route that descends and another that climbs
+- **THEN** its candidate has no climb

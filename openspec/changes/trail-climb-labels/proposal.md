@@ -26,7 +26,7 @@ None.
 ### Modified Capabilities
 
 - `segments/segment-direction`: a segment's direction comes from its served `climb` before its elevation; the record field, and whose segments it is served for.
-- `segments/trail-candidates`: a candidate holds its climb; a flat piece of a trail that clearly climbs or descends takes the trail's climb.
+- `segments/trail-candidates`: a candidate holds its climb; a flat piece of a trail that clearly climbs or descends takes the trail's climb, and a one-way piece that still has none takes the climb the one-way routes through it agree on.
 - `segments/segment-candidates`: staged candidates hold their climb, and checks return it.
 - `segments/segment-import`: a published segment carries its candidate's climb; `refine` updates it; presets fetch terrain.
 - `segments/segment-paths`: a path's view says which sport groups go one way only, and which way.

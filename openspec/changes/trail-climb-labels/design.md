@@ -34,10 +34,12 @@ See proposal.md for why. Today:
 In `CandidateCutter`, judge each trail once over `trail.points` (memoised per trail) and each piece as today. A candidate's climb = piece climb along travel ?: trail climb along travel ?: null; none for `alpine`. "Along travel" reverses for `reversed` candidates. Junction spans and parts use their parent trail's line (the `Trail` they're cut from), so every span of a Rush parent trail inherits that parent's climb.
 
 - **Why own first:** a piece that clearly climbs against its trail would otherwise be mislabelled. A flat piece is the only case that inherits.
+- **Then the routes through it:** a section named apart from the rest of its system is a trail of its own (Rush's "Through the Trees" way), so a gentle one gets no trail climb. After cutting, `RouteClimbs` gives a one-way candidate still without a climb the climb of the longer one-way candidates of its sport group that follow all its OSM ways in its order, when they all agree. It never lowers the 3% bar, so a rolling one-way trail with no descending route through it keeps its compass name.
+- **Alternative:** a lower grade for one-way trails. Rejected: any long, gently falling one-way trail would read "Downhill only".
 - Two-way whole-trail naming keeps using the piece climb (it *is* the trail), so names don't change.
 
 ### 3. Candidates carry the climb through stage, check, publish and refine
-`Candidate.climb: String?` in the candidates file; `importer.defs#candidate.climb`; Flyway `V67__segment_candidate_climb.sql` adds nullable `climb varchar(16)` to `segment_candidates`; staging stores it (dropping unknown values), checks return it. `publish` copies it into the record. `refine` compares and writes it in the same write as line, name and `oneWay`, removing it when the candidate has none.
+`Candidate.climb: String?` in the candidates file; `importer.defs#candidate.climb`; Flyway `V72__segment_candidate_climb.sql` adds nullable `climb varchar(16)` to `segment_candidates`; staging stores it (dropping unknown values), checks return it. `publish` copies it into the record. `refine` compares and writes it in the same write as line, name and `oneWay`, removing it when the candidate has none.
 
 ### 4. Apps take the served climb first
 A small helper in `feature/segment/api` — `SegmentView.climb(): SegmentClimb?` = parse served `climb` ?: `SegmentClimb.of(elevationGain, elevationLoss, distanceMeters)` — replaces the direct `SegmentClimb.of` calls in `SegmentGroupRow.wayOf` and `GroupSwitcher.of`. Reversal for the other direction stays as `GroupSwitcher` does it today.
