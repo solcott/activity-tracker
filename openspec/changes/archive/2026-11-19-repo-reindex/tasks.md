@@ -33,7 +33,7 @@
 ## 5. Integration
 
 - [x] 5.1 Run `./gradlew :server-appview:test` and `./gradlew check` (through the gradle-runner agent); verify both pass.
-- [ ] 5.2 On the local stack (`scripts/dev.sh --seed alice`), stop the AppView, have alice create and delete records, restart it with the Jetstream cursor moved past them, then call `RepoReindexer.request` from a test harness or `admin-accounts` once it exists; verify the created records appear, the deleted ones are gone, and the run reads `succeeded` with matching counts.
+The local stack check (records missed by Jetstream reappear after a reindex, deleted ones go, and the run reads `succeeded` with matching counts) moved to `admin-accounts`, whose "Reindex repo" action is the first thing that can start a run on the running AppView.
 
 ## Workflow follow-up
 
