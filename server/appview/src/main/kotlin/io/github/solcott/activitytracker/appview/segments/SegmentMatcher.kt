@@ -27,8 +27,6 @@ import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
 import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfActivity
 import io.github.solcott.activitytracker.appview.index.dropSegmentUseOfTracks
 import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicatesOf
-import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
-import io.github.solcott.activitytracker.appview.index.rederiveGroups
 import io.github.solcott.activitytracker.appview.index.siteCentre
 import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
@@ -69,7 +67,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
-import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -138,7 +135,7 @@ class SegmentMatcher(
     private val outcomes: SegmentJobOutcomes = SegmentJobOutcomes.None,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
-    private val naming = SegmentNaming(db, clock, names)
+    private val passes = SegmentPasses(db, jobs, clock, activeAthletes, names, segmentImporter)
     private val pairing = GroupPairing(db, blobs, clock)
 
     /**
@@ -199,27 +196,13 @@ class SegmentMatcher(
     }
 
     /**
-     * The status pass: promotes every proposed segment that already has enough athletes (those from before statuses, or after the threshold
-     * was lowered), then archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that
-     * duplicated them. Archived segments keep their efforts. Exposed for tests.
+     * The status pass: the segment step ([SegmentPasses.updateSegmentStatuses]: promotes, archives and rechecks duplicates), then the
+     * dive-site step, in one transaction. Exposed for tests.
      */
     suspend fun updateStatuses() {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
-            promote(Segments.select(Segments.uri).where { Segments.status eq SegmentStatus.PROPOSED }.map { it[Segments.uri] })
-            val stale =
-                Segments.select(Segments.uri)
-                    .where {
-                        (Segments.status eq SegmentStatus.PROPOSED) and
-                            (Segments.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds) and
-                            noFixedStatusPin()
-                    }
-                    .map { it[Segments.uri] }
-            if (stale.isNotEmpty()) {
-                Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
-                recheckDuplicatesOf(stale, jobs, now, segmentImporter)
-                rederiveGroups(stale)
-            }
+            with(passes) { updateSegmentStatuses(now, null) }
             updateSiteStatuses(now)
         }
     }
@@ -243,32 +226,7 @@ class SegmentMatcher(
     }
 
     /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */
-    suspend fun updateNames() = naming.update()
-
-    /**
-     * Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes, leaving alone those an
-     * operator pinned active or archived (segments/segment-pins).
-     */
-    private fun JdbcTransaction.promote(uris: Collection<String>) =
-        promoteBy(withoutFixedStatusPins(uris), Segments.uri, Segments.status, SegmentEfforts.segmentUri, SegmentEfforts.authorDid)
-
-    /**
-     * Makes each of [uris] whose row (by [uri]) is proposed in [status] active once the rows naming it in [usedBy] come from
-     * [activeAthletes] distinct [author]s: the shared promotion of segments by their efforts and dive sites by their visits.
-     */
-    private fun JdbcTransaction.promoteBy(
-        uris: Collection<String>,
-        uri: Column<String>,
-        status: Column<String>,
-        usedBy: Column<String>,
-        author: Column<String>,
-    ) {
-        for (each in uris) {
-            val athletes = author.table.select(author).where { usedBy eq each }.withDistinct().count()
-            if (athletes < activeAthletes) continue
-            status.table.update({ (uri eq each) and (status eq SegmentStatus.PROPOSED) }) { it[status] = SegmentStatus.ACTIVE }
-        }
-    }
+    suspend fun updateNames() = passes.updateNames()
 
     /** Queues a `track` job for each held track that was never matched (has no cells), such as those from before matching existed. */
     suspend fun backfill() {
@@ -583,7 +541,7 @@ class SegmentMatcher(
                 }
                 .distinctBy { it.segment to it.offset }
         rewriteEfforts({ activityUri eq track.activity }) { insertEfforts(efforts, trackUri, track, grouped, visibility, startedOn) }
-        promote(efforts.map { it.segment }.toSet())
+        promoteSegments(efforts.map { it.segment }.toSet(), activeAthletes)
     }
 
     /** Writes [efforts] of [track]'s activity, returning the segments they're on. */
@@ -739,7 +697,7 @@ class SegmentMatcher(
 
     /** Makes each of [uris] that is a proposed dive site active once visits to it come from [activeAthletes] distinct athletes. */
     private fun JdbcTransaction.promoteSites(uris: Collection<String>) =
-        promoteBy(uris, DiveSites.uri, DiveSites.status, DiveSiteVisits.siteUri, DiveSiteVisits.authorDid)
+        promoteBy(uris, DiveSites.uri, DiveSites.status, DiveSiteVisits.siteUri, DiveSiteVisits.authorDid, activeAthletes)
 
     /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */
     private suspend fun matchSegment(segmentUri: String) {

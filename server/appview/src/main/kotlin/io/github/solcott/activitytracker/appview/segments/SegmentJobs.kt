@@ -37,6 +37,10 @@ class SegmentJobs(
     /** Whether terrain tiles are configured, so new and re-lined segments are given terrain elevation (segments/segment-elevation). */
     val terrain: Boolean = false,
 ) {
+    /** Whether terrain tiles are configured, so [enqueueElevation] queues anything. */
+    val terrainConfigured: Boolean
+        get() = terrain
+
     /** Signals the matcher that a job was enqueued. */
     internal val wakeups = Channel<Unit>(Channel.CONFLATED)
 

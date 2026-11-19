@@ -26,16 +26,23 @@ class SegmentNaming(
     private val clock: Clock = Clock.System,
     private val rules: SegmentNameRules = SegmentNameRules(),
 ) {
-    suspend fun update() {
+    /**
+     * Runs the pass over every segment and dive site with open proposals, or only [only]: then it recomputes [only]'s current name instead
+     * of every adopted one.
+     */
+    suspend fun update(only: String? = null) {
         val now = clock.now().toEpochMilliseconds()
         val since = LocalDate.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC).minusDays(RIDER_WINDOW_DAYS - 1).toString()
         db.tx {
             SegmentNameProposals.select(SegmentNameProposals.segmentUri)
-                .where { SegmentNameProposals.state eq ProposalState.OPEN }
+                .where {
+                    val open = SegmentNameProposals.state eq ProposalState.OPEN
+                    if (only == null) open else open and (SegmentNameProposals.segmentUri eq only)
+                }
                 .withDistinct()
                 .map { it[SegmentNameProposals.segmentUri] }
                 .forEach { updateSegment(it, now, since) }
-            recomputeAllAdoptedNames()
+            if (only == null) recomputeAllAdoptedNames() else recomputeCurrentName(only)
         }
     }
 
