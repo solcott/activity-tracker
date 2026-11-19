@@ -2,15 +2,19 @@ package io.github.solcott.activitytracker.appview.ops
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.currentTime
@@ -137,5 +141,131 @@ class WorkerSupervisorTest {
         assertEquals(1, runs)
         assertEquals(listOf(WorkerState.STOPPED, WorkerState.STOPPED), registry.snapshot().map { it.state })
         assertEquals(0, registry["handle-sweep"]!!.restarts)
+    }
+
+    @Test
+    fun aRestartedLoopRunsAgainAtOnceWithItsCrashCountUnchanged() = runTest {
+        val supervisor = supervisor()
+        val startedAt = mutableListOf<Long>()
+        supervisor.loop("handle-sweep") {
+            startedAt += currentTime
+            awaitCancellation()
+        }
+        runCurrent()
+        advanceTimeBy(1.minutes)
+        assertNull(supervisor.restart("handle-sweep"))
+        runCurrent()
+        assertEquals(listOf(0L, 1.minutes.inWholeMilliseconds), startedAt)
+        registry["handle-sweep"]!!.let {
+            assertEquals(WorkerState.RUNNING, it.state)
+            assertEquals(1, it.manualRestarts)
+            assertEquals(0, it.restarts)
+        }
+    }
+
+    @Test
+    fun theStepRunsAfterTheRunEndsAndBeforeTheNextBegins() = runTest {
+        val supervisor = supervisor()
+        val events = mutableListOf<String>()
+        var runs = 0
+        supervisor.stream("jetstream") {
+            val run = ++runs
+            events += "start $run"
+            try {
+                awaitCancellation()
+            } finally {
+                events += "end $run"
+            }
+        }
+        runCurrent()
+        assertNull(supervisor.restart("jetstream") { events += "step" })
+        runCurrent()
+        assertEquals(listOf("start 1", "end 1", "step", "start 2"), events)
+    }
+
+    @Test
+    fun workLaunchedInTheSharedScopeSurvivesARestart() = runTest {
+        val supervisor = supervisor()
+        var synced = false
+        supervisor.loop("space-syncer") {
+            supervisor.scope.launch {
+                delay(30.seconds)
+                synced = true
+            }
+            awaitCancellation()
+        }
+        runCurrent()
+        assertNull(supervisor.restart("space-syncer"))
+        advanceTimeBy(31.seconds)
+        assertTrue(synced)
+    }
+
+    @Test
+    fun refusedRestartsLeaveTheStatusUnchanged() = runTest {
+        val supervisor = supervisor()
+        registry.disabled("segment-matcher", WorkerKind.LOOP, "APPVIEW_SIGNING_KEY is not set")
+        supervisor.oneOff("segment-groups-backfill") { awaitCancellation() }
+        supervisor.oneOff("finished") {}
+        runCurrent()
+        val before = registry.snapshot()
+        assertEquals(RestartRefusal.UNKNOWN, supervisor.restart("nope"))
+        assertEquals(RestartRefusal.NOT_RUNNING, supervisor.restart("segment-matcher"))
+        assertEquals(RestartRefusal.ONE_OFF, supervisor.restart("segment-groups-backfill"))
+        assertEquals(RestartRefusal.ONE_OFF, supervisor.restart("finished"))
+        assertEquals(before, registry.snapshot())
+    }
+
+    @Test
+    fun aSecondRestartWhileOneIsPendingIsRefused() = runTest {
+        val supervisor = supervisor()
+        supervisor.loop("handle-sweep") { awaitCancellation() }
+        runCurrent()
+        val step = CompletableDeferred<Unit>()
+        val first = async { supervisor.restart("handle-sweep") { step.await() } }
+        runCurrent()
+        assertEquals(RestartRefusal.ALREADY_RESTARTING, supervisor.restart("handle-sweep"))
+        step.complete(Unit)
+        assertNull(first.await())
+        runCurrent()
+        assertEquals(1, registry["handle-sweep"]!!.manualRestarts)
+        assertEquals(WorkerState.RUNNING, registry["handle-sweep"]!!.state)
+    }
+
+    @Test
+    fun aRestartDuringACrashPauseStartsAtOnceAndDoesNotLengthenTheNextPause() = runTest {
+        val supervisor = supervisor()
+        val startedAt = mutableListOf<Long>()
+        supervisor.loop("segment-matcher") {
+            startedAt += currentTime
+            error("crash")
+        }
+        // Crashes at 0, 1 s and 3 s; now in the 4 s pause.
+        advanceTimeBy(4.seconds)
+        assertEquals(3, startedAt.size)
+        assertNull(supervisor.restart("segment-matcher"))
+        runCurrent()
+        assertEquals(4_000L, startedAt[3])
+        advanceTimeBy(9.seconds)
+        // The run after the restart crashed too: its pause is 8 s, the next in the sequence, not longer.
+        assertEquals(12_000L, startedAt[4])
+        assertEquals(1, registry["segment-matcher"]!!.manualRestarts)
+        assertEquals(5, registry["segment-matcher"]!!.restarts)
+    }
+
+    @Test
+    fun shutdownDuringARestartEndsStopped() = runTest {
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job(backgroundScope.coroutineContext[Job]))
+        val supervisor = supervisor(app)
+        supervisor.loop("handle-sweep") { awaitCancellation() }
+        runCurrent()
+        val step = CompletableDeferred<Unit>()
+        val restarting = async { supervisor.restart("handle-sweep") { step.await() } }
+        runCurrent()
+        app.cancel()
+        runCurrent()
+        step.complete(Unit)
+        restarting.await()
+        runCurrent()
+        assertEquals(WorkerState.STOPPED, registry["handle-sweep"]!!.state)
     }
 }

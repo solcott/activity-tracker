@@ -42,6 +42,8 @@ data class WorkerStatus(
     val lastError: String? = null,
     val iterations: Long = 0,
     val restarts: Int = 0,
+    /** Restarts an operator asked for ([WorkerSupervisor.restart]), counted apart from crash [restarts]. */
+    val manualRestarts: Int = 0,
     val disabledReason: String? = null,
 )
 
@@ -89,6 +91,13 @@ class WorkerRegistry(private val clock: Clock = Clock.System) {
     internal fun crashed(name: String, e: Throwable) =
         update(name) {
             it.copy(state = WorkerState.RESTARTING, lastError = ErrorSummary.of(e), lastErrorAt = clock.now(), restarts = it.restarts + 1)
+        }
+
+    /** A run ended because a restart was requested; [e] is how it ended if it failed first, recorded as its last error. */
+    internal fun restartedOnRequest(name: String, e: Throwable? = null) =
+        update(name) { status ->
+            val failed = e?.let { status.copy(lastError = ErrorSummary.of(it), lastErrorAt = clock.now()) } ?: status
+            failed.copy(state = WorkerState.RESTARTING, manualRestarts = status.manualRestarts + 1)
         }
 
     internal fun ended(name: String, state: WorkerState) = update(name) { it.copy(state = state) }

@@ -53,4 +53,18 @@ class WorkerRegistryTest {
         assertEquals(WorkerState.DISABLED, snapshot[1].state)
         assertEquals("APPVIEW_SIGNING_KEY is not set", snapshot[1].disabledReason)
     }
+
+    @Test
+    fun restartsOnRequestCountApartFromCrashRestarts() {
+        registry.handle("handle-sweep", WorkerKind.LOOP)
+        registry.crashed("handle-sweep", IOException("lost"))
+        registry.restartedOnRequest("handle-sweep")
+        registry.restartedOnRequest("handle-sweep")
+        registry["handle-sweep"]!!.let {
+            assertEquals(1, it.restarts)
+            assertEquals(2, it.manualRestarts)
+            assertEquals(WorkerState.RESTARTING, it.state)
+            assertEquals("IOException: lost", it.lastError)
+        }
+    }
 }
