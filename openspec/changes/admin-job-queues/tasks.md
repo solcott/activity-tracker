@@ -26,7 +26,8 @@
 
 ## 5. Local stack check
 
-- [ ] 5.1 Run `scripts/dev.sh`, sign in at `http://localhost:8081/admin` as `siteadmin.test` in the browser pane, open Queues, and check: the summary lists every kind; a rematch preview shows a count, refuses without confirm, then queues that many and the summary's `track` depth rises and drains as the matcher runs; an elevation recompute for a box (or its "terrain tiles aren't configured" refusal when `TERRAIN_TILES_DIR` is unset); a dead letter produced by pointing a test account's track at an unreachable blob can be requeued and dropped; and each action appears on the Audit log page with its count. Record any defects as fixes with tests before closing.
+- [x] 5.1 Run `scripts/dev.sh`, sign in at `http://localhost:8081/admin` as `siteadmin.test` in the browser pane, open Queues, and check: the summary lists every kind; a rematch preview shows a count, refuses without confirm, then queues that many and the summary's `track` depth rises and drains as the matcher runs; an elevation recompute for a box (or its "terrain tiles aren't configured" refusal when `TERRAIN_TILES_DIR` is unset); a dead letter produced by pointing a test account's track at an unreachable blob can be requeued and dropped; and each action appears on the Audit log page with its count. Record any defects as fixes with tests before closing.
+  Checked 2026-11-19 on main's AppView (a0f23417), no defects found. Every kind was listed. The rematch preview counted 0 tracks: no local account matches segments, so the rise and drain of `track` depth was not seen (SegmentQueueTest covers it). It refused without confirm (`refused: unconfirmed`), then queued 0. Elevation refused with `no-terrain`. Two dead letters were inserted straight into Postgres, since no local track blob could be made unreachable; one was requeued (the matcher ran it and it cleared) and one dropped. The Audit log shows each action with its count or refusal.
 
 ## Workflow follow-up
 
