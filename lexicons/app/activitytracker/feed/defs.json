@@ -233,6 +233,15 @@
         }
       }
     },
+    "pathOneWay": {
+      "type": "object",
+      "description": "A sport group that goes a path one way only, and which way (segments/segment-paths): its longest one-way segment's direction (segments/segment-direction).",
+      "required": ["sport", "direction"],
+      "properties": {
+        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
+        "direction": { "type": "string", "maxLength": 32, "knownValues": ["uphill", "downhill", "northbound", "eastbound", "southbound", "westbound", "clockwise", "counterclockwise"] }
+      }
+    },
     "pathView": {
       "type": "object",
       "description": "A trail or road (segments/segment-paths) as a viewer sees it.",
@@ -248,7 +257,8 @@
         "license": { "type": "string", "maxLength": 64 },
         "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
         "sports": { "type": "array", "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] }, "description": "The sport groups of the segments on it the viewer could get from a segment search, in the app's order." },
-        "groupCount": { "type": "integer", "minimum": 0, "description": "How many segment groups those segments form." }
+        "groupCount": { "type": "integer", "minimum": 0, "description": "How many segment groups those segments form." },
+        "oneWays": { "type": "array", "items": { "type": "ref", "ref": "#pathOneWay" }, "description": "The sport groups among sports whose segments on it are all served one-way, other than alpine, each with the way it goes (segments/segment-paths), in the app's order. Absent or empty when none." }
       }
     },
     "segmentView": {
@@ -272,6 +282,7 @@
         "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters climbed from start to end, derived by the AppView (segments/segment-elevation), never read from the record: from smoothed terrain along the line wherever terrain covers it, else from enough distinct athletes' efforts. Absent when it has none." },
         "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
         "oneWay": { "type": "boolean", "description": "True when its sport group may travel its line only this way (segments/segment-direction): the segment importer's segment whose record says oneWay. Absent or false for every other segment." },
+        "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb (segments/segment-direction): served only for the segment importer's segment whose record holds uphill or downhill. Absent for every other segment; judge from elevationGain and elevationLoss then." },
         "elevationSource": {
           "type": "string",
           "maxLength": 16,

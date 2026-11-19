@@ -16,11 +16,13 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.PathKind
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
+import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import io.github.solcott.activitytracker.lexicon.app.SegmentElevationSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
@@ -146,6 +148,31 @@ class SegmentRecordsTest {
         assertEquals("true", json["oneWay"]?.jsonPrimitive?.content)
         assertEquals(record, AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json))
         assertFalse("oneWay" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), record.copy(oneWay = null)).jsonObject)
+    }
+
+    @Test
+    fun aSegmentsClimbAndAPathsOneWaysRoundTrip() {
+        val record =
+            SegmentRecord(
+                name = "Rush",
+                sport = SegmentSportGroup.RIDE,
+                line = "_p~iF~ps|U_ulLnnqC",
+                source = SegmentSource.OSM,
+                license = "ODbL-1.0",
+                createdAt = Instant.parse("2026-10-15T12:00:00Z"),
+                oneWay = true,
+                climb = SegmentClimbs.DOWNHILL,
+            )
+        val json = AtJson.encodeToJsonElement(SegmentRecord.serializer(), record).jsonObject
+        assertEquals("downhill", json["climb"]?.jsonPrimitive?.content)
+        assertEquals(record, AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json))
+        assertFalse("climb" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), record.copy(climb = null)).jsonObject)
+        assertEquals(null, SegmentClimbs.of("sideways"), "an unknown value reads as none")
+
+        val oneWay = PathOneWay(SegmentSportGroup.RIDE, "downhill")
+        val encoded = AtJson.encodeToJsonElement(PathOneWay.serializer(), oneWay).jsonObject
+        assertEquals("ride", encoded["sport"]?.jsonPrimitive?.content)
+        assertEquals(oneWay, AtJson.decodeFromJsonElement(PathOneWay.serializer(), encoded))
     }
 
     @Test

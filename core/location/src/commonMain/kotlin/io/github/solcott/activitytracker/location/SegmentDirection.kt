@@ -20,6 +20,9 @@ enum class SegmentClimb(val word: String) {
         /** The least net grade that counts: 3%, clearly felt on a bike or on foot, so rolling lines whose ups and downs cancel don't. */
         const val MIN_GRADE = 0.03
 
+        /** The climb named by [word] (a `feed.segment#climb` value), if it is one of [entries]' words. */
+        fun ofWord(word: String?): SegmentClimb? = entries.firstOrNull { it.word == word }
+
         /** Which way a line of [lengthM] meters that gains [gainM] and loses [lossM] meters clearly goes; null when neither or unknown. */
         fun of(gainM: Long?, lossM: Long?, lengthM: Long): SegmentClimb? {
             if (gainM == null || lossM == null || lengthM <= 0) return null

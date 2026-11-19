@@ -569,6 +569,17 @@ object SegmentSportGroup {
     private val ALPINE_RUN_TOLERANCE = PassTolerance(startM = 40, endM = 40, corridorM = 50)
 }
 
+/** `app.activitytracker.feed.segment#climb` values (segments/segment-direction), an open enum: any other value is read as none. */
+object SegmentClimbs {
+    const val UPHILL = "uphill"
+    const val DOWNHILL = "downhill"
+
+    val all = listOf(UPHILL, DOWNHILL)
+
+    /** [climb] when it is one of [all], else null. */
+    fun of(climb: String?): String? = climb?.takeIf { it in all }
+}
+
 /**
  * Known values of [SegmentRecord.kind] (segments/segment-lifts); an open string, where null means [RUN]. The AppView doesn't index a
  * segment of any other kind.
@@ -663,6 +674,11 @@ data class SegmentRecord(
      * (segments/segment-direction); null means false. Only the segment importer's is honoured: see [SegmentView.oneWay].
      */
     val oneWay: Boolean? = null,
+    /**
+     * A [SegmentClimbs] value: whether the line, travelled as drawn, climbs or descends as its trail does (segments/segment-direction);
+     * null says nothing. Only the segment importer's is honoured: see [SegmentView.climb].
+     */
+    val climb: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 

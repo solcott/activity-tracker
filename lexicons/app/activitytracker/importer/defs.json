@@ -15,7 +15,8 @@
         "source": { "type": "string", "maxLength": 64, "knownValues": ["athlete", "osm", "agency"], "description": "Where the line came from, as feed.segment#source." },
         "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." },
         "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, as feed.segment#attribution. Blank is taken as none." },
-        "oneWay": { "type": "boolean", "description": "As feed.segment#oneWay: its sport group may travel the line only this way, by its source data's rules. Absent means false." }
+        "oneWay": { "type": "boolean", "description": "As feed.segment#oneWay: its sport group may travel the line only this way, by its source data's rules. Absent means false." },
+        "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb: whether the line climbs or descends as its trail does, by terrain. Absent says nothing; any other value is stored as absent." }
       }
     },
     "rejection": {
