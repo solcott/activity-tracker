@@ -97,21 +97,26 @@ class AccountsPage(
 
     /** The operator repairs, each audited with the account's DID as its target. */
     private fun AdminRoutes.repairRoutes() {
-        action("$path/recheck-handle", "account.recheckHandle") { recheckHandle() }
-        action("$path/backfill-blocks", "account.backfillBlocks") { backfillBlocks() }
-        action("$path/reindex", "account.reindex") { reindex() }
+        accountAction("recheck-handle", "account.recheckHandle") { recheckHandle(it) }
+        accountAction("backfill-blocks", "account.backfillBlocks") { backfillBlocks(it) }
+        accountAction("reindex", "account.reindex") { reindex(it) }
         if (syncer != null) {
-            action("$path/resync-spaces", "account.resyncSpaces") {
-                val queued = syncer.resyncAccount(targetDid())
+            accountAction("resync-spaces", "account.resyncSpaces") { did ->
+                val queued = syncer.resyncAccount(did)
                 call.response.headers.append(ACCOUNT_HX_TRIGGER, ACCOUNT_SPACES_CHANGED)
-                ActionResult("$queued spaces queued.")
+                ActionResult("$queued spaces queued.", detail = "$queued spaces")
             }
         }
     }
 
-    private suspend fun ActionCall.recheckHandle(): ActionResult {
-        val did = targetDid()
-        val check = indexer.recheckHandle(did) ?: return ActionResult("Not indexed: nothing stored.")
+    /** An action on the account whose DID is its `target`, refused when the target isn't a DID. */
+    private fun AdminRoutes.accountAction(name: String, key: String, body: suspend ActionCall.(Did) -> ActionResult) =
+        action("$path/$name", key) {
+            accountDidOf(target)?.let { body(it) } ?: ActionResult.refused("invalid-target", "That is not a DID.")
+        }
+
+    private suspend fun recheckHandle(did: Did): ActionResult {
+        val check = indexer.recheckHandle(did) ?: return NOT_INDEXED
         val (handle, due) =
             db.tx {
                 Actors.select(Actors.handle, Actors.handleCheckDueAt)
@@ -128,26 +133,29 @@ class AccountsPage(
         return ActionResult("$outcome; next check ${shownTime(due)}.")
     }
 
-    private suspend fun ActionCall.backfillBlocks(): ActionResult {
+    private suspend fun backfillBlocks(did: Did): ActionResult {
         val put =
             try {
-                blockBackfill.backfillNow(targetDid())
+                blockBackfill.backfillNow(did)
             } catch (@Suppress("SwallowedException") e: NotIndexedException) {
-                return ActionResult("Not indexed: nothing stored.")
+                return NOT_INDEXED
             }
-        return ActionResult("$put Bluesky blocks indexed.")
+        return ActionResult("$put Bluesky blocks indexed.", detail = "$put blocks")
     }
 
     /** Queues a reindex, or reports the one already queued or running; `resyncSpaces` defaults on, and is off with no syncer. */
-    private suspend fun ActionCall.reindex(): ActionResult {
-        val did = targetDid()
+    private suspend fun ActionCall.reindex(did: Did): ActionResult {
         val resync = params["resyncSpaces"]?.let { it == "true" } ?: true
         val active = reindexer.runs(did).firstOrNull { it.state.active }
         val run = reindexer.request(did, admin.did, resyncSpaces = resync && syncer != null)
         call.response.headers.append(ACCOUNT_HX_TRIGGER, "$ACCOUNT_RUNS_CHANGED, $ACCOUNT_SPACES_CHANGED")
-        return if (run.id == active?.id) ActionResult("Run ${run.id} is already ${run.state.code}; no other run started.")
-        else ActionResult("Run ${run.id} ${run.state.code}.")
+        return if (run.id == active?.id)
+            ActionResult("Run ${run.id} is already ${run.state.code}; no other run started.", detail = "run ${run.id}")
+        else ActionResult("Run ${run.id} ${run.state.code}.", detail = "run ${run.id}")
     }
 
-    private fun ActionCall.targetDid(): Did = accountDidOf(target) ?: throw IllegalArgumentException("The target isn't a DID")
+    private companion object {
+        /** Nothing is stored for an account the AppView never indexed, so a repair of one changes nothing. */
+        val NOT_INDEXED = ActionResult.refused("not-indexed", "Not indexed: nothing stored.")
+    }
 }

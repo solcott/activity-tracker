@@ -45,7 +45,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 
 /** admin/account-tools: the account page, its fragments and its four audited repairs. Alice is an operator, bob a viewer. */
 class AccountsPageTest : AdminTestBase() {
-    private var handles = mutableMapOf(carol to "carol.test")
+    private val handles = mutableMapOf(carol to "carol.test")
     private val indexer = Indexer(db, { did -> handles[did.value] ?: "handle.invalid" }, clock)
 
     /** Carol's PDS holds one Bluesky block. */
@@ -208,7 +208,9 @@ class AccountsPageTest : AdminTestBase() {
         assertTrue("carol.example.com" in http.html("/admin/accounts/$carol", cookie))
         assertEquals(listOf(Audit(alice, "account.recheckHandle", carol, "{}", "ok")), audits())
         val unknown = http.post("/admin/accounts/recheck-handle", cookie, csrf, "target" to "did:plc:nobody")
+        assertEquals(HttpStatusCode.UnprocessableEntity, unknown.status)
         assertTrue("Not indexed" in unknown.bodyAsText())
+        assertEquals("refused: not-indexed", audits().last().outcome)
     }
 
     @Test
@@ -219,7 +221,7 @@ class AccountsPageTest : AdminTestBase() {
         val response = http.post("/admin/accounts/backfill-blocks", cookie, csrf, "target" to carol)
         assertTrue("1 Bluesky blocks indexed" in response.bodyAsText())
         assertEquals(1, runBlocking { db.tx { Blocks.selectAll().count() } })
-        assertEquals(listOf(Audit(alice, "account.backfillBlocks", carol, "{}", "ok")), audits())
+        assertEquals(listOf(Audit(alice, "account.backfillBlocks", carol, "{}", "ok: 1 blocks")), audits())
     }
 
     @Test
@@ -235,7 +237,7 @@ class AccountsPageTest : AdminTestBase() {
         val run = runBlocking { db.tx { RepoReindexes.selectAll().single() } }
         assertEquals(alice, run[RepoReindexes.requestedBy])
         assertFalse(run[RepoReindexes.resyncSpaces])
-        assertEquals(Audit(alice, "account.reindex", carol, """{"resyncSpaces":"false"}""", "ok"), audits().first())
+        assertEquals(Audit(alice, "account.reindex", carol, """{"resyncSpaces":"false"}""", "ok: run $id"), audits().first())
     }
 
     @Test
@@ -246,7 +248,7 @@ class AccountsPageTest : AdminTestBase() {
         val response = http.post("/admin/accounts/resync-spaces", cookie, csrf, "target" to carol)
         assertTrue("4 spaces queued" in response.bodyAsText())
         assertEquals(4, runBlocking { db.tx { SpaceSync.selectAll().where { SpaceSync.authorityDid eq carol }.count() } })
-        assertEquals(listOf(Audit(alice, "account.resyncSpaces", carol, "{}", "ok")), audits())
+        assertEquals(listOf(Audit(alice, "account.resyncSpaces", carol, "{}", "ok: 4 spaces")), audits())
     }
 
     @Test
@@ -277,12 +279,13 @@ class AccountsPageTest : AdminTestBase() {
     }
 
     @Test
-    fun aTargetThatIsntADidFails() = test { http ->
+    fun aTargetThatIsntADidIsRefused() = test { http ->
         val cookie = http.signIn("alice.test")!!
         val csrf = csrfOf(http.html("/admin/accounts", cookie))
         val response = http.post("/admin/accounts/reindex", cookie, csrf, "target" to "carol.test")
-        assertEquals(HttpStatusCode.InternalServerError, response.status)
-        assertEquals("failed: IllegalArgumentException", audits().single().outcome)
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertTrue("That is not a DID." in response.bodyAsText())
+        assertEquals("refused: invalid-target", audits().single().outcome)
         assertEquals(0, runs())
     }
 }
