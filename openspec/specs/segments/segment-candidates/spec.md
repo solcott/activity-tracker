@@ -129,3 +129,14 @@ A candidate SHALL become ridden once it has at least the configured number of di
 #### Scenario: One-way not said
 - **WHEN** the importer stages a candidate that doesn't say whether it is one-way
 - **THEN** checking it returns it not one-way
+
+### Requirement: Staged candidates carry their climb
+`importer.putSegmentCandidates` SHALL take, with each candidate, its climb (`uphill` or `downhill`) when it has one, and `importer.checkSegmentCandidates` SHALL return the stored climb with each candidate. A candidate staged without a climb, or with any other value, SHALL be returned without one.
+
+#### Scenario: Downhill candidate staged
+- **WHEN** the importer stages the `ride` candidate "Rush - Dreamline" with climb `downhill`
+- **THEN** checking it returns climb `downhill`
+
+#### Scenario: Candidate without a climb
+- **WHEN** the importer stages a candidate with no climb
+- **THEN** checking it returns no climb
