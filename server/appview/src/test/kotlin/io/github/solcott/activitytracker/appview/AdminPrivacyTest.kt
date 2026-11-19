@@ -157,6 +157,17 @@ class AdminPrivacyTest : AdminTestBase() {
         segments.label(hidden, "!takedown")
         segments.stage("us-vermont", "r1", "vt-1")
         segments.ride("vt-1", rider)
+        seedAccountState()
+        // The seed must hold the marker, or the test proves nothing.
+        assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
+        assertTrue(db.tx { SegmentJobFailures.selectAll().count() == 1L })
+    }
+
+    /**
+     * What the account page reads about carol beyond her records (admin/account-tools): a failing space with a secret, a block backfill
+     * failure, her opt-ins and a finished reindex run.
+     */
+    private suspend fun seedAccountState() {
         db.tx {
             SpaceSync.insert {
                 it[space] = SpaceUri.of(Did(carol), Nsid.SPACE_ATHLETE, AthleteSpace.MUTUALS).value
@@ -189,9 +200,6 @@ class AdminPrivacyTest : AdminTestBase() {
         reindexer.request(Did(carol), Did(alice))
         db.tx { RepoReindexes.update { it[state] = ReindexState.SUCCEEDED.code } }
         assertTrue(db.tx { SegmentTracks.selectAll().any { it[SegmentTracks.activityUri] == activityUri } })
-        // The seed must hold the marker, or the test proves nothing.
-        assertTrue(db.tx { Activities.selectAll().any { marker in it[Activities.record] } })
-        assertTrue(db.tx { SegmentJobFailures.selectAll().count() == 1L })
     }
 
     /**
