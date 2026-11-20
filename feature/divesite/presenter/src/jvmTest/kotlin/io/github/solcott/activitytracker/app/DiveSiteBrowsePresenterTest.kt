@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.TrackerPlaceLocator
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
 import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.uistate.LoadStatus
@@ -137,7 +138,7 @@ class DiveSiteBrowsePresenterTest {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val sites = DiveSiteRepository(clients)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
-        presenterTestOf({ DiveSiteBrowsePresenter(navigator, sites, feed, tracker) }, block = block)
+        presenterTestOf({ DiveSiteBrowsePresenter(navigator, sites, feed, TrackerPlaceLocator(tracker)) }, block = block)
     }
 
     private fun sample() =

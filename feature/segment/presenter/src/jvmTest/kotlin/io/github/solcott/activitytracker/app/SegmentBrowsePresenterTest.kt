@@ -41,8 +41,10 @@ import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.PlaceLocator
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.TrackMath
+import io.github.solcott.activitytracker.location.TrackerPlaceLocator
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.hasAnswer
@@ -58,8 +60,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -198,12 +203,13 @@ class SegmentBrowsePresenterTest {
 
     private suspend fun test(
         tracker: LocationTracker = FakeLocationTracker(listOf(sample())),
+        locator: PlaceLocator = TrackerPlaceLocator(tracker),
         block: suspend CircuitReceiveTurbine<SegmentBrowseState>.() -> Unit,
     ) {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val segments = SegmentRepository(clients)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
-        presenterTestOf({ SegmentBrowsePresenter(navigator, segments, feed, tracker) }, block = block)
+        presenterTestOf({ SegmentBrowsePresenter(navigator, segments, feed, locator) }, block = block)
     }
 
     private fun sample(lat: Double = centre.lat, lng: Double = centre.lng) =
@@ -357,28 +363,31 @@ class SegmentBrowsePresenterTest {
         }
     }
 
+    /** The athlete's latest activity, started at [start]. */
+    private fun latestActivityAt(start: GeoPoint) =
+        listOf(
+            ActivityView(
+                uri = AtUri.of(alice, Nsid.FEED_ACTIVITY, "3ka"),
+                cid = Cid("bafy3ka"),
+                author = ProfileViewBasic(alice, Handle("alice.test")),
+                record =
+                    ActivityRecord(
+                        Sport.RUN,
+                        Instant.parse("2026-11-01T08:00:00Z"),
+                        1800,
+                        Instant.parse("2026-11-01T08:00:00Z"),
+                        polyline = TrackMath.encodePolyline(listOf(sample(start.lat, start.lng), sample(start.lat + 0.01, start.lng))),
+                    ),
+                likeCount = 0,
+                commentCount = 0,
+                indexedAt = Instant.parse("2026-11-01T09:00:00Z"),
+            ),
+        )
+
     @Test
     fun aRefusedPermissionOpensAtTheLatestActivity() = runTest {
         val start = GeoPoint(44.4654, -72.6874)
-        latest =
-            listOf(
-                ActivityView(
-                    uri = AtUri.of(alice, Nsid.FEED_ACTIVITY, "3ka"),
-                    cid = Cid("bafy3ka"),
-                    author = ProfileViewBasic(alice, Handle("alice.test")),
-                    record =
-                        ActivityRecord(
-                            Sport.RUN,
-                            Instant.parse("2026-11-01T08:00:00Z"),
-                            1800,
-                            Instant.parse("2026-11-01T08:00:00Z"),
-                            polyline = TrackMath.encodePolyline(listOf(sample(start.lat, start.lng), sample(start.lat + 0.01, start.lng))),
-                        ),
-                    likeCount = 0,
-                    commentCount = 0,
-                    indexedAt = Instant.parse("2026-11-01T09:00:00Z"),
-                ),
-            )
+        latest = latestActivityAt(start)
         test(AskingLocationTracker()) {
             val asking = awaitUntil { it.browse.askLocation }
             assertEquals(BrowseStart.Locating, asking.browse.start)
@@ -401,6 +410,42 @@ class SegmentBrowsePresenterTest {
             assertEquals(listOf("Near Loop", "Far Climb"), names(loaded))
             assertEquals(BrowseStart.Placed, loaded.browse.start, "the athlete found somewhere")
             cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // The order of a late location and the fallback is MapBrowseLocateTest's (virtual time throughout); these only show the presenter
+    // hands browse its locator, so a location answering after the hold still moves the map. The presenter shares runTest's clock while
+    // the fallback reads on real threads, so a gate the test opens could land after the limit; the locator answers on that clock instead.
+
+    @Test
+    fun aLateLocationMovesAMapThatOpenedAtTheLatestActivity() = runTest {
+        latest = latestActivityAt(GeoPoint(44.4654, -72.6874))
+        test(locator = LateLocator(centre)) {
+            val moved = awaitUntil { it.browse.camera?.lat == centre.lat }
+            assertEquals(centre.lng, moved.browse.camera?.lng)
+            assertEquals(BrowseStart.Placed, moved.browse.start)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aLateLocationMovesAMapThatOpenedNowhere() = runTest {
+        test(locator = LateLocator(centre)) {
+            val moved = awaitUntil { it.browse.start == BrowseStart.Placed }
+            assertEquals(centre.lat, moved.browse.camera?.lat)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** A desktop whose location answers [at] ten (virtual) seconds in: past its one-second hold, inside the late limit. */
+    private class LateLocator(private val at: GeoPoint) : PlaceLocator {
+        override val hold: Duration = 1.seconds
+
+        override fun permission(): Boolean = true
+
+        override suspend fun here(): GeoPoint {
+            delay(10.seconds)
+            return at
         }
     }
 

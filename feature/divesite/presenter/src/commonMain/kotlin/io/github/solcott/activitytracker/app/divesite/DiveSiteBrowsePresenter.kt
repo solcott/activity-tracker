@@ -19,7 +19,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSiteNames
 import io.github.solcott.activitytracker.lexicon.app.SearchDiveSites
-import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.PlaceLocator
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.location.siteOutline
@@ -40,15 +40,15 @@ fun DiveSiteBrowsePresenter(
     navigator: Navigator,
     sites: DiveSiteRepository,
     feed: FeedRepository,
-    tracker: LocationTracker,
+    locator: PlaceLocator,
 ): DiveSiteBrowseState {
     // Saveable, so the query (and with it the results) is still there on coming back from a site.
     val query = rememberTextFieldState()
     val trimmed = query.text.trim().toString()
-    val browse = rememberRetained { MapBrowse(MapBrowse.initialPermission(tracker)) }
+    val browse = rememberRetained { MapBrowse(locator.permission()) }
 
     // Where to open, once: the athlete's location, else where their latest activity with a map started, else nowhere.
-    LaunchedEffect(browse.permission) { browse.locate(tracker, feed) }
+    LaunchedEffect(browse.permission) { browse.locate(locator) { feed.latestOwnStart() } }
 
     // The area's sites, while no name is searched and the map is close enough. A new area keeps the last one's outlines until it answers.
     val currentAreaRequest by rememberUpdatedState(browse.areaRequest(searching = trimmed.isNotEmpty()))

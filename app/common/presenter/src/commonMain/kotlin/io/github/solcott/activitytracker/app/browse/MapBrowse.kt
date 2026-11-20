@@ -7,23 +7,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.GeoPoint
-import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.PlaceLocator
+import io.github.solcott.activitytracker.location.e7ToDegrees
 import io.github.solcott.activitytracker.textfield.TextFieldState
+import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** How long typing must pause before a browse screen's name search runs, so each keystroke isn't a request. */
 val NAME_SEARCH_DEBOUNCE = 300.milliseconds
 
-/** How long browsing waits for a first location fix before opening at the latest activity instead. */
-val LOCATION_TIMEOUT = 5.seconds
+/**
+ * How long after opening a location may still arrive and move the map (segments/segment-browse), once browsing opened at the latest
+ * activity or nowhere because the location didn't answer within its locator's hold.
+ */
+val LATE_LOCATION_LIMIT = 30.seconds
+
+/**
+ * How near, in degrees, a reported centre must be to where the map was sent to count as the map arriving there, not the athlete moving it.
+ */
+private const val ARRIVED_DEGREES = 0.001
 
 /**
  * What a map browse screen keeps between compositions (segments/segment-browse, dive-sites/site-browse): the map's area and where it was
@@ -45,6 +54,14 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
 
     /** The map's area when the current name search's first page loaded, which its later pages search too. */
     var nameViewport: MapViewport? = null
+
+    /**
+     * Browsing opened at a fallback (the latest activity, or nowhere) and the athlete hasn't moved the map since, so a late location may
+     * still move it. [fallbackAt] is where the map was sent, null for nowhere; [arrived] is whether the map has reported being there.
+     */
+    private var provisional = false
+    private var fallbackAt: GeoPoint? = null
+    private var arrived = false
 
     /** What the screen's state shows of the map and search: [query] and the [mapLines] the presenter derived, and this holder's own. */
     fun state(query: TextFieldState, mapLines: ImmutableList<MapSegmentLine>): MapBrowseState =
@@ -82,25 +99,55 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
     /** The map stopped and shows [shown]. */
     override fun viewportChanged(shown: MapViewport) {
         super.viewportChanged(shown)
+        if (provisional) followFallback(shown)
         // The athlete found somewhere themselves.
         if (start == BrowseStart.Nowhere && !shown.tooWide) start = BrowseStart.Placed
     }
 
-    /**
-     * Finds where to open, once permission is known: a first location fix within [LOCATION_TIMEOUT] when granted, else where the latest
-     * activity with a map started, else nowhere.
-     */
-    suspend fun locate(tracker: LocationTracker, feed: FeedRepository) {
-        val granted = permission ?: return
-        if (start != BrowseStart.Locating) return
-        val here =
-            if (granted) withTimeoutOrNull(LOCATION_TIMEOUT) { runSuspendCatching { tracker.updates().first() }.getOrNull() } else null
-        val at = here?.let { GeoPoint(it.latitude, it.longitude) } ?: feed.latestOwnStart()
-        // The athlete may have moved the map meanwhile.
-        if (start == BrowseStart.Locating) placeAt(at)
+    /** Whether [shown] is the athlete moving a map that opened at a fallback, which keeps a late location from moving it. */
+    private fun followFallback(shown: MapViewport) {
+        val at = fallbackAt
+        when {
+            // Opened nowhere: the athlete moved it once they zoomed in somewhere.
+            at == null -> if (!shown.tooWide) provisional = false
+            shown.centres(at) -> arrived = true
+            // A viewport elsewhere before the map got there is the map's own start, not the athlete.
+            arrived -> provisional = false
+        }
     }
 
-    private fun placeAt(at: GeoPoint?) {
+    /**
+     * Finds where to open, once permission is known: the [locator]'s location when it answers within its hold, else [fallback] (where the
+     * latest activity with a map started), else nowhere. A location that answers later, within [LATE_LOCATION_LIMIT], still moves the map
+     * while the athlete hasn't moved it.
+     */
+    suspend fun locate(locator: PlaceLocator, fallback: suspend () -> GeoPoint?): Unit = coroutineScope {
+        val granted = permission ?: return@coroutineScope
+        if (start != BrowseStart.Locating) return@coroutineScope
+        if (!granted) {
+            placeAt(fallback(), provisional = false)
+            return@coroutineScope
+        }
+        val fix = async { withTimeoutOrNull(LATE_LOCATION_LIMIT) { locator.here() } }
+        val early = withTimeoutOrNull(locator.hold) { fix.await() }
+        if (early != null) {
+            // The athlete may have moved the map meanwhile.
+            if (start == BrowseStart.Locating) placeAt(early, provisional = false)
+            return@coroutineScope
+        }
+        if (start == BrowseStart.Locating) placeAt(fallback(), provisional = true)
+        val late = fix.await() ?: return@coroutineScope
+        if (provisional) {
+            provisional = false
+            centreOn(late)
+            start = BrowseStart.Placed
+        }
+    }
+
+    private fun placeAt(at: GeoPoint?, provisional: Boolean) {
+        this.provisional = provisional
+        fallbackAt = at
+        arrived = false
         if (at == null) {
             start = BrowseStart.Nowhere
         } else {
@@ -115,13 +162,9 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
     /** The box a name search in [scope] covers: the map's in This area when it's close enough to search, else everywhere (null). */
     fun nameBox(viewport: MapViewport?): MapViewport? = viewport?.takeIf { scope == NameScope.ThisArea && !it.tooWide }
 
-    companion object {
-        /** Whether [tracker]'s location may be read, as a new [MapBrowse] starts: false where there's none, null until asked. */
-        fun initialPermission(tracker: LocationTracker): Boolean? =
-            when {
-                !tracker.isSupported -> false
-                tracker.hasPermission() -> true
-                else -> null
-            }
+    private companion object {
+        /** Whether this viewport is centred on [at], as the map reports a camera sent there. */
+        fun MapViewport.centres(at: GeoPoint): Boolean =
+            abs(centerLat.e7ToDegrees() - at.lat) < ARRIVED_DEGREES && abs(centerLng.e7ToDegrees() - at.lng) < ARRIVED_DEGREES
     }
 }
