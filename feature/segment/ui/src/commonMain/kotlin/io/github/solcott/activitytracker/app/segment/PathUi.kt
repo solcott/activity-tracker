@@ -46,6 +46,7 @@ import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 
 /**
@@ -130,6 +131,7 @@ private fun PathList(
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 state.path?.let { Text(PathTexts.summary(it, units).string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
+                TrailDetails(state.trailDetails().toImmutableList(), Modifier.padding(vertical = 8.dp))
                 Row {
                     if (state.offersAllSports) {
                         AppTextButton(onClick = { state.eventSink(PathEvent.ShowAllSports) }) { Text(PathTexts.showAllSports.string()) }

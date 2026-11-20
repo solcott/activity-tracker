@@ -98,17 +98,26 @@ data class PathState(
     val groups: List<SegmentGroupRow>
         get() = content.data.groups.toList()
 
+    /**
+     * The Trail details rows (segments/trail-attributes): every difficulty scale the served `trail` holds; empty when the AppView sent
+     * none, so the section is left out.
+     */
+    fun trailDetails(): List<TrailDetail> = TrailTexts.rows(path?.trail, sport = null)
+
     /** Whether "Show all sports" is offered: while the list is narrowed to one sport group. */
     val offersAllSports: Boolean
         get() = sport != null
 
-    /** What the list holds, in order: sections and the rows in none. Swift reads it as an array, empty or not. */
+    /**
+     * What the list holds, in order: sections and the rows in none. Swift reads it as an array, empty or not: a copy, since the immutable
+     * library's shared empty list stops the iOS app when read through a `List`.
+     */
     val items: List<PathListItem>
-        get() = content.data.items
+        get() = content.data.items.toList()
 
-    /** The sections listed. */
+    /** The sections listed, a copy as [items] is. */
     val sections: List<PathListItem.Section>
-        get() = content.data.sections
+        get() = content.data.sections.toList()
 
     /** Whether [section]'s rows are shown. */
     fun isExpanded(section: PathListItem.Section): Boolean = section.name !in collapsed

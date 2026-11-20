@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentState
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.segmentStarRkey
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -180,6 +181,31 @@ class SegmentPresenterTest {
 
             val other = assertNotNull(group.directionEvent(group.directions.last()))
             assertEquals(SegmentEvent.SwitchGroup(AtUri("at://did:plc:carol/${Nsid.FEED_SEGMENT}/3krunb")), other)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-attributes: a run segment's Trail details show its hiking grade and leave out the MTB scale, which fits a ride. */
+    @Test
+    fun aRunSegmentShowsTheTrailDetailsThatFitIt() = runTest {
+        naming = ""","trail":{"mtbScale":2,"sacScale":"mountain_hiking","dog":"leashed"}"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val rows = awaitUntil { it.segment != null }.trailDetails()
+            assertEquals(
+                listOf("trail_detail_hiking", "trail_detail_dog"),
+                rows.map { (it.label as AppText.Named).name },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-attributes: a segment served with no `trail` has no Trail details. */
+    @Test
+    fun aSegmentWithoutTrailAttributesHasNoTrailDetails() = runTest {
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            assertTrue(awaitUntil { it.segment != null }.trailDetails().isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

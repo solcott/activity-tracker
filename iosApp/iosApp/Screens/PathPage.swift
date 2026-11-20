@@ -1,13 +1,13 @@
 import SwiftUI
 
 /// The Trail page (segments/path-page), drawn from the states `PathPresenter` publishes: the path's name in the bar, what it is and its
-/// data credit, its line muted on the native map (`SegmentsMapView`) with each segment group's line over it, and the segment groups
-/// longest first. On a phone the map is over the list; on a wider window the list is in a column beside it, as the shared page lays them
-/// out. The map and the list share a selection as browse's do: a tap on a line selects its row and scrolls to it, a tap on a row selects
-/// it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the path's sections fold under a
-/// `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two sections; Kotlin keeps
-/// which are collapsed and expands one when its line is selected. What it says is Kotlin's (`PathTexts`). Named so because `PathView`
-/// is the lexicon's.
+/// data credit, its Trail details (`TrailDetailsSection`), its line muted on the native map (`SegmentsMapView`) with each segment group's
+/// line over it, and the segment groups longest first. On a phone the map is over the list; on a wider window the list is in a column
+/// beside it, as the shared page lays them out. The map and the list share a selection as browse's do: a tap on a line selects its row and
+/// scrolls to it, a tap on a row selects it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the
+/// path's sections fold under a `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two
+/// sections; Kotlin keeps which are collapsed and expands one when its line is selected. What it says is Kotlin's (`PathTexts`). Named so
+/// because `PathView` is the lexicon's.
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
@@ -37,6 +37,7 @@ struct PathPage: View {
             List {
                 header
                 RefreshStatusView(state: state.content, errorKind: .LoadPath, retry: retry).listStatusRow()
+                TrailDetailsSection(rows: state.trailDetails())
                 ForEach(state.items.map(Entry.init)) { entry in
                     if let section = entry.item as? PathListItem.Section {
                         sectionRow(section)

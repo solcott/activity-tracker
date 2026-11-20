@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
+import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
 import io.github.solcott.activitytracker.data.segments.BoardMeta
@@ -140,9 +141,28 @@ object SegmentSamples {
                 LIFT to lift,
                 ELEVATION to elevation,
                 ELEVATION_FROM_EFFORTS to elevationFromEfforts,
+                TRAIL to trail,
             )
 
     const val LIFT = "lift"
+    const val TRAIL = "trail"
+
+    /**
+     * An imported ride segment with Trail details (segments/trail-attributes): its surface, MTB scale and access rows, and no hiking
+     * difficulty, which doesn't fit a ride.
+     */
+    val trail: SegmentState
+        get() =
+            state(
+                    ContentStates.loaded(
+                        segment.copy(
+                            record = segment.record.copy(source = SegmentSource.OSM, license = "ODbL-1.0"),
+                            trail = fakeTrailAttributes(),
+                        ),
+                    ),
+                )
+                .copy(credit = SegmentCredit.OpenStreetMap("ODbL-1.0"))
+
     const val ELEVATION = "elevation"
     const val ELEVATION_FROM_EFFORTS = "elevationFromEfforts"
 

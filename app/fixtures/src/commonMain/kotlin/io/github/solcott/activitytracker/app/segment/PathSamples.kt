@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakePath
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
+import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import kotlinx.collections.immutable.persistentListOf
@@ -147,6 +148,10 @@ object PathSamples {
             return page(ContentStates.loaded(PathContent(rush, rows.toImmutableList(), content.credit, items)))
         }
 
+    /** Ann's with Trail details (segments/trail-attributes): every scale its data holds, the hiking grade too, under its credit. */
+    val trail: PathState
+        get() = page(ContentStates.loaded(content.copy(path = SegmentBrowseSamples.annsTrail.copy(trail = fakeTrailAttributes()))))
+
     /** [sections] with Through the Trees Trail collapsed: its rows hidden, and the control offering Expand all. */
     val sectionsCollapsed: PathState
         get() = sections.copy(collapsed = persistentSetOf("Through the Trees Trail"))
@@ -162,11 +167,14 @@ object PathSamples {
                     ONE_WAY to oneWay,
                     SECTIONS to sections,
                     "sectionsCollapsed" to sectionsCollapsed,
+                    TRAIL to trail,
                 )
 
     const val ONE_WAY = "oneWay"
 
     const val SECTIONS = "sections"
+
+    const val TRAIL = "trail"
 }
 
 private const val BURLINGTON_LAT = 44.4759

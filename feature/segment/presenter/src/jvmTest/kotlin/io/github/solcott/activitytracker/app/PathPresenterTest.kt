@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.PathState
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.contentOf
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -23,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.uistate.ContentState
@@ -135,6 +137,31 @@ class PathPresenterTest {
             assertEquals("OpenStreetMap", loaded.credit?.let { it::class.simpleName })
             assertEquals(3, loaded.mapLines.size, "the trail's line and each group's")
             assertTrue(loaded.mapLines.first().lift, "the trail's line drawn muted under them")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-attributes: the Trail page shows every scale its trail holds, whatever sport it was opened with. */
+    @Test
+    fun theTrailPageShowsEveryScale() = runTest {
+        output = GetPath.Output(anns.copy(trail = TrailAttributes(sacScale = "hiking", mtbScale = 1, lit = "yes")), listOf(stretch))
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val rows = awaitUntil { it.path != null }.trailDetails()
+            assertEquals(
+                listOf("trail_detail_hiking", "trail_detail_mtb", "trail_detail_lit"),
+                rows.map { (it.label as AppText.Named).name },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-attributes: a path served with no `trail` has no Trail details. */
+    @Test
+    fun aPathWithoutTrailAttributesHasNoTrailDetails() = runTest {
+        val screen = PathScreen(anns.uri.value)
+        test(screen, FakeNavigator(screen)) {
+            assertTrue(awaitUntil { it.path != null }.trailDetails().isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -17,7 +17,7 @@ struct InteractiveMapsSnapshotTests {
     nonisolated private static let segmentBrowseSamples = browseSamples + ["groupResults"]
     /// The Trail page (segments/path-page).
     nonisolated private static let pathSamples = [
-        "loading", "failed", "loaded", "refreshFailed", "selected", "ride", "empty", "oneWay", "sections", "sectionsCollapsed",
+        "loading", "failed", "loaded", "refreshFailed", "selected", "ride", "empty", "oneWay", "sections", "sectionsCollapsed", "trail",
     ]
     nonisolated private static let inviteSamples = ["loading", "failed", "empty", "loaded", "overlapping", "accepting", "signInAgain"]
     /// An 11-inch iPad on its side: wide enough for browse's list beside its map.

@@ -169,6 +169,10 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     }
                 }
             }
+            state
+                .trailDetails()
+                .takeIf { it.isNotEmpty() }
+                ?.let { rows -> item { TrailDetails(rows.toImmutableList(), Modifier.padding(bottom = 12.dp)) } }
             if (!lift) item { SegmentNames(state, segment) }
             item { Text(SegmentPageTexts.efforts(lift).string(), style = MaterialTheme.typography.titleMedium) }
             if (state.efforts.isEmpty()) {

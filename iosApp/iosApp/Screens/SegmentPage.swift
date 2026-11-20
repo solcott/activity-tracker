@@ -1,16 +1,18 @@
 import SwiftUI
 
-/// A segment's page (segments/segment-efforts, segments/segment-elevation, segments/segment-names, segments/segment-mayors), drawn from
-/// the states `SegmentPresenter` publishes: Star in the bar, its line on the native route map (expanding to the enlarged map), "originally"
-/// its old name, its length and type with a ski segment's icon, its gain, loss and grade, its high and low points and the native
-/// elevation chart (`LineChartView`), who created it, its data's credit and licence, the status of a segment that isn't active with Open
-/// the original, the Leaderboard button and the Mayor card for an active run, the names (`PlaceNamesSection`, not for a lift), then the
-/// viewer's efforts. Every word and condition is Kotlin's (`SegmentPageTexts`, `EffortTexts`, `PlaceTexts`, `SegmentState`'s getters),
-/// shared with the Compose page. The place-name sheet and its delete confirmation show over it (`placeNames(_:)`).
+/// A segment's page (segments/segment-efforts, segments/segment-elevation, segments/segment-names, segments/segment-mayors), drawn from the
+/// states `SegmentPresenter` publishes: Star in the bar, its line on the native route map (expanding to the enlarged map), "originally" its
+/// old name, its length and type with a ski segment's icon, its gain, loss and grade, its high and low points and the native elevation
+/// chart (`LineChartView`), who created it, its data's credit and licence, the status of a segment that isn't active with Open the
+/// original, the Leaderboard button and the Mayor card for an active run, its Trail details (`TrailDetailsSection`), the names
+/// (`PlaceNamesSection`, not for a lift), then the viewer's efforts. Every word and condition is Kotlin's (`SegmentPageTexts`,
+/// `EffortTexts`, `PlaceTexts`, `SegmentState`'s getters), shared with the Compose page. The place-name sheet and its delete confirmation
+/// show over it (`placeNames(_:)`).
 ///
 /// Named `SegmentPage` because `SegmentView` is the lexicon class it shows.
 struct SegmentPage: View {
     let state: SegmentState
+    @Environment(\.stats) private var stats
 
     var body: some View {
         ContentStateView(state.content, errorKind: .LoadSegment, retry: retry) {
@@ -61,6 +63,7 @@ struct SegmentPage: View {
                     }
                 }
             }
+            TrailDetailsSection(rows: state.trailDetails())
             if !lift {
                 PlaceNamesSection(
                     fields: state.names, proposals: segment.nameProposals, history: segment.nameHistory,

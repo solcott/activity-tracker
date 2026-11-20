@@ -23,6 +23,21 @@ struct SegmentTextTests {
         #expect(state.offersLeaderboard)
     }
 
+    @Test func aRideSegmentReadsItsTrailDetails() throws {
+        let state = try #require(Samples.segment["trail"])
+        let rows = state.trailDetails()
+        let read = rows.map { "\(AppStrings.string($0.label)): \(AppStrings.string($0.value))" }
+        #expect(read.contains("Surface: 70% paved · 30% gravel · Rough"))
+        #expect(read.contains("MTB: Intermediate: roots, rocks and small steps"))
+        #expect(read.contains("Width: Singletrack"))
+        #expect(read.contains("Dogs: Dogs on leash"))
+        #expect(read.contains("Season: Open Jun 15 – Oct 15"))
+        #expect(!read.contains { $0.hasPrefix("Hiking:") })
+        #expect(rows.last?.link == "https://kingdomtrails.org")
+        #expect(TrailLink.url("javascript:alert(1)") == nil)
+        #expect(TrailLink.url("https://kingdomtrails.org") != nil)
+    }
+
     @Test func aLoneOneWaySegmentReadsUphillOnly() throws {
         let group = try #require(Samples.segmentVariants["oneWay"]?.group)
         #expect(group.offered && group.oneWay && !group.showsSports)

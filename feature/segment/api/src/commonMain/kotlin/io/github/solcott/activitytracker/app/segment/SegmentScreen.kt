@@ -92,6 +92,12 @@ data class SegmentState(
     /** [profile] as a chart in [units], as both UIs draw it; null without a profile. */
     fun chart(units: UnitSystem): LineChart? = profile?.chart(units)
 
+    /**
+     * The Trail details rows (segments/trail-attributes): the served `trail`, with only the difficulty scales that fit the segment's sport
+     * group; empty when the AppView sent none, so the section is left out.
+     */
+    fun trailDetails(): List<TrailDetail> = TrailTexts.rows(segment?.trail, segment?.record?.sport)
+
     /** A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names. */
     val isLift: Boolean
         get() = segment?.let { !SegmentKind.isRanked(it.record.kind) } == true

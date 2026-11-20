@@ -18,6 +18,13 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailDog
+import io.github.solcott.activitytracker.lexicon.app.TrailHorse
+import io.github.solcott.activitytracker.lexicon.app.TrailLit
+import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
+import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 
 fun fakeSegmentRecord(
     name: String = "Ridge Trail",
@@ -97,4 +104,27 @@ fun fakePath(
         sports = sports,
         groupCount = groupCount,
         oneWays = oneWays,
+    )
+
+/**
+ * Trail attributes as the AppView serves an imported trail's (segments/trail-attributes): 70% paved and 30% gravel, rough, MTB S2
+ * (intermediate) with a hiking grade a ride page leaves out, trail class 3, 60 cm wide (singletrack), lit, dogs on leash, shared with
+ * horses, open Jun 15 to Oct 15, and who maintains it with their website.
+ */
+@Suppress("MagicNumber") // The sample's own figures.
+fun fakeTrailAttributes(): TrailAttributes =
+    TrailAttributes(
+        surfaces = listOf(TrailSurface(TrailSurfaces.PAVED, 70), TrailSurface(TrailSurfaces.GRAVEL, 30)),
+        smoothness = "bad",
+        sacScale = TrailSacScale.HIKING,
+        mtbScale = 2,
+        trailClass = 3,
+        widthCm = 60,
+        lit = TrailLit.YES,
+        dog = TrailDog.LEASHED,
+        horse = TrailHorse.YES,
+        openFrom = "06-15",
+        openUntil = "10-15",
+        operator = "Kingdom Trail Association",
+        website = "https://kingdomtrails.org",
     )

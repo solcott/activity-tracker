@@ -11,7 +11,7 @@ import Testing
 struct SegmentSnapshotTests {
     nonisolated private static let samples = [
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "renamed", "votingUnavailable", "lift", "elevation",
-        "elevationFromEfforts",
+        "elevationFromEfforts", "trail",
     ]
     nonisolated private static let variants = ["openStreetMap", "duplicate", "group", "oneWay", "groupByClimb"]
     /// Tall enough for the whole page down to its efforts.
