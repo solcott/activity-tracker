@@ -111,6 +111,40 @@ class ReindexIndexerTest {
     }
 
     @Test
+    fun `a watch registered while a covered commit waits for its lock still drops it`() = runBlocking {
+        // The first sight of a new account checks its handle before the URI lock: the reindex starts and applies the snapshot then.
+        lateinit var racing: Indexer
+        var raced = false
+        racing =
+            Indexer(
+                db,
+                { did ->
+                    if (!raced) {
+                        raced = true
+                        val watch = racing.watch(alice)
+                        watch.snapshotRev = "3c"
+                        racing.reindexWrite(alice, Nsid.FEED_ACTIVITY, "3kr1", "bafysnap", run("Snapshot"), watch)
+                    }
+                    did.value.substringAfterLast(':') + ".test"
+                },
+            )
+        racing.handle(
+            JetstreamEvent.Commit(
+                did = alice.value,
+                time = "2026-09-30T12:00:00.000000Z",
+                operation = "create",
+                collection = Nsid.FEED_ACTIVITY,
+                rkey = "3kr1",
+                record = run("Old"),
+                cid = "bafyold",
+                rev = "3a",
+            ),
+        )
+        assertTrue(raced)
+        assertEquals("bafysnap", db.tx { Activities.select(Activities.cid).single()[Activities.cid] })
+    }
+
+    @Test
     fun `a live commit newer than the snapshot holds the snapshot's write back`() = runBlocking {
         val watch = indexer.watch(alice)
         live(Nsid.ACTOR_PROFILE, "self", profile("Live"), "3b")

@@ -198,7 +198,8 @@ class Indexer(
         val record = commit.record
         val cid = commit.cid
         // While the account is reindexed, a commit its snapshot already covers is dropped, and a newer one keeps the snapshot off its URI.
-        val guard = watchOf(author)?.let { watch -> { watch.liveCommit(uri.value, commit.rev) } }
+        // The watch is looked up when the guard runs, under the URI lock, so one registered while this commit waited is still seen.
+        val guard = { watchOf(author)?.liveCommit(uri.value, commit.rev) ?: true }
         when {
             commit.operation == "delete" -> repoDelete(commit.collection, uri, guard)
             record != null && cid != null -> repoWrite(author, commit.collection, uri, cid, record, guard)
