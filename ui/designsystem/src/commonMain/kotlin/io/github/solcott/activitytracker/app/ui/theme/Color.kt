@@ -7,7 +7,8 @@ import androidx.compose.ui.graphics.Color
 
 /*
  * The brand: deep teal, with amber for likes and highlights (tertiary). Full Material 3 tonal role sets, so nothing falls back to the
- * baseline purple. Light tertiary is a dark amber because the bright one (#F2B705, dark tertiary) is unreadable on light surfaces.
+ * baseline purple. Light neutrals are plain greys around #FAFAFA rather than teal-tinted ones. Light tertiary is a dark amber because
+ * the bright one (#F2B705, dark tertiary) is unreadable on light surfaces.
  */
 
 internal val BrandLight: ColorScheme =
@@ -25,29 +26,29 @@ internal val BrandLight: ColorScheme =
         onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFFFDEA0),
         onTertiaryContainer = Color(0xFF261A00),
-        background = Color(0xFFF5FBF9),
-        onBackground = Color(0xFF171D1C),
-        surface = Color(0xFFF5FBF9),
-        onSurface = Color(0xFF171D1C),
-        surfaceVariant = Color(0xFFDAE5E1),
-        onSurfaceVariant = Color(0xFF3F4947),
+        background = Color(0xFFFAFAFA),
+        onBackground = Color(0xFF1C1C1C),
+        surface = Color(0xFFFAFAFA),
+        onSurface = Color(0xFF1C1C1C),
+        surfaceVariant = Color(0xFFE2E2E2),
+        onSurfaceVariant = Color(0xFF474747),
         surfaceTint = Color(0xFF00796B),
-        inverseSurface = Color(0xFF2B3230),
-        inverseOnSurface = Color(0xFFECF2EF),
+        inverseSurface = Color(0xFF303030),
+        inverseOnSurface = Color(0xFFF1F1F1),
         error = Color(0xFFBA1A1A),
         onError = Color(0xFFFFFFFF),
         errorContainer = Color(0xFFFFDAD6),
         onErrorContainer = Color(0xFF410002),
-        outline = Color(0xFF6F7977),
-        outlineVariant = Color(0xFFBEC9C6),
+        outline = Color(0xFF757575),
+        outlineVariant = Color(0xFFC6C6C6),
         scrim = Color(0xFF000000),
-        surfaceBright = Color(0xFFF5FBF9),
-        surfaceDim = Color(0xFFD5DBD9),
+        surfaceBright = Color(0xFFFAFAFA),
+        surfaceDim = Color(0xFFDADADA),
         surfaceContainerLowest = Color(0xFFFFFFFF),
-        surfaceContainerLow = Color(0xFFEFF5F3),
-        surfaceContainer = Color(0xFFE9EFED),
-        surfaceContainerHigh = Color(0xFFE3EAE7),
-        surfaceContainerHighest = Color(0xFFDEE4E2),
+        surfaceContainerLow = Color(0xFFF4F4F4),
+        surfaceContainer = Color(0xFFEEEEEE),
+        surfaceContainerHigh = Color(0xFFE8E8E8),
+        surfaceContainerHighest = Color(0xFFE2E2E2),
     )
 
 val BrandDark: ColorScheme =
