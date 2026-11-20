@@ -22,7 +22,7 @@ Every admin page SHALL be reached from the site's navigation, show who is signed
 - **THEN** she can reach every page from the navigation and the page doesn't scroll sideways, though a wide table may scroll within itself
 
 ### Requirement: Admin pages reveal no private content
-Admin pages and their responses SHALL show only identifiers (DIDs, handles, record URIs, ids), statuses, counts, sizes and times. They SHALL NOT show the content of any record, blob, track, effort time, like, comment, private profile detail, privacy zone or anything else the AppView holds for an athlete beyond what it serves publicly. Reviewing non-public content SHALL stay with `moderation.getSubject`. This SHALL hold for Home, its tiles and the navigation's flags as for every other page and fragment.
+Admin pages and their responses SHALL show only identifiers (DIDs, handles, record URIs, ids), statuses, counts, sizes and times. They SHALL NOT show the content of any record, blob, track, effort time, like, comment, private profile detail, privacy zone or anything else the AppView holds for an athlete beyond what it serves publicly. Reviewing non-public content SHALL stay with `moderation.getSubject`.
 
 #### Scenario: Account with private activities
 - **WHEN** an admin page concerns an athlete with Only me activities
