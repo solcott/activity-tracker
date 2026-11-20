@@ -66,9 +66,9 @@ import org.slf4j.LoggerFactory
  * A run resolves the account's DID document afresh, starts watching its Jetstream commits ([ReindexWatch]), fetches its whole repo with
  * `com.atproto.sync.getRepo` from the PDS that document names (over [http], the guarded client), checks the commit's signature against the
  * document's key and every block it reads against its CID, then indexes every record of an indexed collection whose CID differs from the
- * indexed one, and deletes what the AppView holds from the repo that the repo no longer has. Finally it forces a resync of the account's
- * spaces ([resyncSpaces]). Progress and outcome are stored in [RepoReindexes]; at most one run per account, and [ReindexLimits.parallelism]
- * in all, run at once.
+ * indexed one (or that isn't held, where the index keeps no CID), and deletes what the AppView holds from the repo that the repo no longer
+ * has. Finally it forces a resync of the account's spaces ([resyncSpaces]). Progress and outcome are stored in [RepoReindexes]; at most one
+ * run per account, and [ReindexLimits.parallelism] in all, run at once.
  */
 @Suppress("LongParameterList", "TooManyFunctions") // Collaborators, each swappable in tests; one run's steps.
 class RepoReindexer(
@@ -327,7 +327,7 @@ class RepoReindexer(
         val (entries, changed) =
             withContext(io) {
                 val entries = snapshot.entries().filter { it.collection in indexed }.toList()
-                val changed = entries.filter { held[it.collection]?.get(it.rkey) != it.cid }
+                val changed = entries.filter { changedSince(held, it) }
                 changed.forEach(snapshot::verify)
                 entries to changed
             }
@@ -361,6 +361,21 @@ class RepoReindexer(
             }
         }
         update(id) { it.counts(counts) }
+    }
+
+    /**
+     * Whether [entry] must be written: it isn't held, or is held at another CID. A collection whose index keeps no CID (likes, follows,
+     * reposts, blocks…) can't say, so a held record of one counts as unchanged, except the profile, a single record that is edited in
+     * place, which is always written.
+     */
+    private fun changedSince(held: Map<String, Map<String, String?>>, entry: RepoEntry): Boolean {
+        val collection = held[entry.collection].orEmpty()
+        val cid = collection[entry.rkey]
+        return when {
+            entry.rkey !in collection -> true
+            cid == null -> entry.collection == Nsid.ACTOR_PROFILE
+            else -> cid != entry.cid
+        }
     }
 
     private fun UpdateStatement.counts(counts: ReindexCounts) {

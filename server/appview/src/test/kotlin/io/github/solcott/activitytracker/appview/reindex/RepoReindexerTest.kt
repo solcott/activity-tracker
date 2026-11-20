@@ -215,7 +215,8 @@ class RepoReindexerTest {
         assertEquals(2, runBlocking { db.tx { Activities.selectAll().count() } }, "the followers-space run stays")
         assertEquals("3b0", run.rev)
         assertTrue((run.carBytes ?: 0) > 0)
-        assertEquals(ReindexCounts(seen = 3, unchanged = 0, indexed = 3, invalid = 0, removed = 1, live = 0), run.counts)
+        // The held follow keeps no CID, so it counts as unchanged; the profile is always written.
+        assertEquals(ReindexCounts(seen = 3, unchanged = 1, indexed = 2, invalid = 0, removed = 1, live = 0), run.counts)
         assertEquals(operator, run.requestedBy)
         assertEquals(4, run.spacesResynced)
         assertEquals(listOf(alice), resyncs)
@@ -229,8 +230,9 @@ class RepoReindexerTest {
         reindex()
         val second = reindex()
         assertEquals(ReindexState.SUCCEEDED, second.state)
-        // The activity's CID is kept, so it's skipped; the profile and follows keep none, so they're written again (idempotently).
-        assertEquals(ReindexCounts(seen = 3, unchanged = 1, indexed = 2, invalid = 0, removed = 0, live = 0), second.counts)
+        // The activity is held at the repo's CID and the follow is held (its collection keeps no CID), so both are skipped; the profile,
+        // edited in place, is always written again (idempotently).
+        assertEquals(ReindexCounts(seen = 3, unchanged = 2, indexed = 1, invalid = 0, removed = 0, live = 0), second.counts)
     }
 
     @Test
