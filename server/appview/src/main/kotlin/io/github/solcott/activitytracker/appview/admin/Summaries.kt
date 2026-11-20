@@ -15,9 +15,9 @@ import org.slf4j.LoggerFactory
 
 /** One page's summary as read: its [tiles], or null when they couldn't be read in time. */
 class PageSummary(val page: AdminPage, val tiles: List<Tile>?) {
-    /** The worst status among the tiles, which the navigation flags; none when all are fine or none could be read. */
+    /** The worst status among the tiles, which the navigation flags: `warn` when none could be read, none when all are fine. */
     val worst: TileStatus?
-        get() = tiles.orEmpty().mapNotNull { it.status }.filter { it != TileStatus.Ok }.maxOrNull()
+        get() = tiles?.mapNotNull { it.status }?.filter { it != TileStatus.Ok }?.maxOrNull() ?: TileStatus.Warn.takeIf { tiles == null }
 }
 
 /**

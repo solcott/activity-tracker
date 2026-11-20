@@ -73,11 +73,11 @@ internal data class PlacedTile(val page: String, val tile: Tile)
 
 /**
  * Every page's tiles in Home's order: `bad`, then `warn`, then the rest, keeping navigation order within each; a page whose summary
- * couldn't be read gives one tile saying so, with no status.
+ * couldn't be read gives one `warn` tile saying so, since a summary that fails or times out is itself worth a look.
  */
 internal fun placedTiles(read: List<PageSummary>): List<PlacedTile> {
     val all = read.flatMap { summary ->
-        val tiles = summary.tiles ?: listOf(Tile("Summary", "Unavailable", null, "/admin/${summary.page.path}".trimEnd('/')))
+        val tiles = summary.tiles ?: listOf(Tile("Summary", "Unavailable", TileStatus.Warn, "/admin/${summary.page.path}".trimEnd('/')))
         tiles.map { PlacedTile(summary.page.title, it) }
     }
     fun rank(status: TileStatus?) =

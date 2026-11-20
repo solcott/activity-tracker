@@ -116,6 +116,13 @@ class AdminShellTest : AdminTestBase() {
         adminTest({ site(pages = listOf(broken, health)) }) { http ->
             val html = http.page("/admin", http.signIn("bob.test")!!)
             assertTrue(">Unavailable<" in html && ">H warn<" in html, html)
+            assertFalse("Nothing needs attention" in html, "an unreadable summary needs attention")
+            assertTrue(
+                html.indexOf("Needs attention") < html.indexOf(">Unavailable<") &&
+                    html.indexOf(">Unavailable<") < html.indexOf("Everything else"),
+            )
+            val nav = http.page("/admin/nav", http.signIn("bob.test")!!)
+            assertTrue(Regex("""href="/admin/broken">\s*<span>Broken</span>\s*<span class="flag warn"""").containsMatchIn(nav), nav)
         }
     }
 
