@@ -36,22 +36,4 @@ internal object RouteClimbs {
 }
 
 /** This candidate with [climb] in place of its own. */
-internal fun Candidate.withClimb(climb: SegmentClimb): Candidate =
-    Candidate(
-        id = id,
-        group = group,
-        name = name,
-        line = line,
-        points = points,
-        lengthMeters = lengthMeters,
-        osmWays = osmWays,
-        kind = kind,
-        whole = whole,
-        source = source,
-        license = license,
-        attribution = attribution,
-        agencyFeatures = agencyFeatures,
-        segmentKind = segmentKind,
-        oneWay = oneWay,
-        climb = climb,
-    )
+internal fun Candidate.withClimb(climb: SegmentClimb): Candidate = copy(climb = climb)

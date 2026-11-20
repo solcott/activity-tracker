@@ -19,7 +19,7 @@ import kotlin.time.Instant
 
 /** A candidate segment before it's written (segments/trail-candidates). */
 @Suppress("LongParameterList") // A plain holder of what the writer and dedup read.
-internal class Candidate(
+internal data class Candidate(
     val id: String,
     val group: String,
     val name: String,
