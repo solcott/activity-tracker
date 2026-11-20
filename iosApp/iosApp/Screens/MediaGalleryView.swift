@@ -39,7 +39,9 @@ struct MediaGalleryView: View {
     private var bar: some View {
         let texts = MediaGalleryTexts.shared
         return HStack(spacing: 12) {
-            Button { send(MediaGalleryEvent.Back.shared) } label: {
+            Button {
+                send(MediaGalleryEvent.Back.shared)
+            } label: {
                 Image(.close).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
             }
             .accessibilityLabel(Text(texts.close))
@@ -49,7 +51,11 @@ struct MediaGalleryView: View {
             }
             if texts.offersReport(state: state) {
                 Menu {
-                    Button { send(MediaGalleryEvent.ReportPhoto.shared) } label: { Text(texts.reportPhoto) }
+                    Button {
+                        send(MediaGalleryEvent.ReportPhoto.shared)
+                    } label: {
+                        Text(texts.reportPhoto)
+                    }
                 } label: {
                     Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
@@ -197,7 +203,9 @@ private struct ZoomablePhoto: UIViewRepresentable {
             } else {
                 let point = recognizer.location(in: image)
                 let size = CGSize(width: scroll.bounds.width / 2.5, height: scroll.bounds.height / 2.5)
-                scroll.zoom(to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2, width: size.width, height: size.height), animated: true)
+                scroll.zoom(
+                    to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2, width: size.width, height: size.height),
+                    animated: true)
             }
         }
     }

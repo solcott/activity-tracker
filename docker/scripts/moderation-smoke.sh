@@ -10,7 +10,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -60,8 +63,14 @@ for name in alice bob mod; do
   eval "did_$name=$(jq -r .did <<<"$session")"
   eval "jwt_$name=$(jq -r .accessJwt <<<"$session")"
 done
-did() { local v="did_$1"; echo "${!v}"; }
-jwt() { local v="jwt_$1"; echo "${!v}"; }
+did() {
+  local v="did_$1"
+  echo "${!v}"
+}
+jwt() {
+  local v="jwt_$1"
+  echo "${!v}"
+}
 appview_did=$(curl -s "$appview/.well-known/did.json" | jq -r .id)
 ok "signed in as alice, bob and mod; the AppView is $appview_did"
 
@@ -96,7 +105,10 @@ put_repo alice app.activitytracker.graph.follow 3kmodfollow "{\"\$type\":\"app.a
 # Two photos, one per activity and unique to this run (trailing bytes after the JPEG's end), so no other activity holds either: a CID's
 # photo is served for any activity it's on.
 upload() {
-  { base64 -d <<<"$photo_b64"; printf "$1"; } | xrpc "$pds" com.atproto.repo.uploadBlob POST -H "Authorization: Bearer $(jwt bob)" \
+  {
+    base64 -d <<<"$photo_b64"
+    printf '%s' "$1"
+  } | xrpc "$pds" com.atproto.repo.uploadBlob POST -H "Authorization: Bearer $(jwt bob)" \
     -H 'Content-Type: image/jpeg' --data-binary @- | jq -c .blob
 }
 stamp=$(date +%s)
@@ -130,7 +142,10 @@ xrpc "$appview" app.activitytracker.space.notifySpace POST -H "Authorization: Be
   -H 'Content-Type: application/json' -d "{\"space\":\"$followers_space\"}" >/dev/null
 ok "bob posted a Public and a Followers activity, each with a photo; alice follows bob"
 
-lookup_status() { query "$1" app.activitytracker.feed.getActivity "uri=$(jq -rn --arg u "$2" '$u|@uri')"; echo "$last_status"; }
+lookup_status() {
+  query "$1" app.activitytracker.feed.getActivity "uri=$(jq -rn --arg u "$2" '$u|@uri')"
+  echo "$last_status"
+}
 in_timeline() { q alice app.activitytracker.feed.getTimeline "limit=100" | jq -e --arg u "$1" '[.feed[].uri] | index($u) != null' >/dev/null; }
 indexed() { [[ $(lookup_status alice "$1") == 200 ]]; }
 wait_for "the Public activity" indexed "$public_uri"
@@ -173,11 +188,14 @@ ok "alice, not on the team, is refused ($last_status)"
 # --------------------------------------------------------------------------------------------- labels
 label() { # value, negate (true|false)
   local create="[\"$1\"]" negate="[]"
-  [[ $2 == true ]] && { negate=$create; create="[]"; }
+  [[ $2 == true ]] && {
+    negate=$create
+    create="[]"
+  }
   xrpc "$ozone" tools.ozone.moderation.emitEvent POST "${admin[@]}" -H 'Content-Type: application/json' -d "{
     \"event\":{\"\$type\":\"tools.ozone.moderation.defs#modEventLabel\",\"createLabelVals\":$create,\"negateLabelVals\":$negate},
     \"subject\":{\"\$type\":\"com.atproto.repo.strongRef\",\"uri\":\"$public_uri\",\"cid\":\"$(q bob app.activitytracker.feed.getActivity \
-      "uri=$(jq -rn --arg u "$public_uri" '$u|@uri')" | jq -r .activity.cid)\"},\"createdBy\":\"$labeler\"}" >/dev/null
+    "uri=$(jq -rn --arg u "$public_uri" '$u|@uri')" | jq -r .activity.cid)\"},\"createdBy\":\"$labeler\"}" >/dev/null
 }
 public_photo="$appview/img/media/$(did bob)/$cid"
 not_in_timeline() { ! in_timeline "$public_uri"; }

@@ -42,6 +42,11 @@ tasks.test {
     val catalog = layout.projectDirectory.file("../../gradle/libs.versions.toml")
     inputs.file(catalog).withPropertyName("versionCatalog")
     systemProperty("activitytracker.versionCatalog", catalog.asFile.absolutePath)
+    // The lint convention's fixtures run the real pinned tools, from the machine's shared cache.
+    val lintTools = layout.projectDirectory.file("../../gradle/lint-tools.properties")
+    inputs.file(lintTools).withPropertyName("lintTools")
+    systemProperty("activitytracker.lintTools", lintTools.asFile.absolutePath)
+    systemProperty("activitytracker.lintToolsCache", gradle.gradleUserHomeDir.resolve("caches/activitytracker-lint-tools").absolutePath)
 }
 
 gradlePlugin {
@@ -69,6 +74,10 @@ gradlePlugin {
         register("cpd") {
             id = "activitytracker.cpd"
             implementationClass = "CpdConventionPlugin"
+        }
+        register("lint") {
+            id = "activitytracker.lint"
+            implementationClass = "LintConventionPlugin"
         }
         register("ktfmt") {
             id = "activitytracker.ktfmt"

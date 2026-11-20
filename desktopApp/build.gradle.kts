@@ -18,6 +18,7 @@ dependencies {
     implementation(projects.appCommonUi)
     implementation(projects.composeApp)
     implementation(projects.coreData)
+    implementation(projects.coreLocation)
     implementation(projects.featureDetailPresenter)
     implementation(projects.featureDetailUi)
     implementation(projects.featureDivesitePresenter)
@@ -61,12 +62,16 @@ dependencies {
     implementation(libs.compose.components.resources)
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui)
+    implementation(libs.dbus.java.core)
     implementation(libs.kotlinx.coroutines.swing)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.maplibre.compose)
 
+    runtimeOnly(libs.dbus.java.transport.native.unixsocket)
     runtimeOnly(maplibreDesktopRuntime())
 
     testImplementation(kotlin("test"))
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 compose.desktop {
@@ -76,12 +81,49 @@ compose.desktop {
     }
 }
 
+// macOS location for map browse (segments/segment-browse): Location Services answers only an app bundle that says why it wants the
+// location, so `DesktopPlaceLocator` launches this small Swift helper app, which run and hotRun name in a system property. Built only
+// on macOS hosts (it needs swiftc and codesign); elsewhere the desktop app asks Windows' or Linux's own service instead. Ad-hoc signed,
+// and rebuilt only when its sources change, so macOS keeps the athlete's grant across builds.
+val macLocationHelperSources = layout.projectDirectory.dir("src/macosHelper")
+val macLocationHelperApp = layout.buildDirectory.dir("macosHelper/ActivityTrackerLocation.app")
+val macLocationHelper =
+    if (System.getProperty("os.name").lowercase().startsWith("mac")) {
+        tasks.register<Exec>("buildMacLocationHelper") {
+            description = "Builds the macOS location helper app the desktop app launches for map browse."
+            inputs.dir(macLocationHelperSources)
+            outputs.dir(macLocationHelperApp)
+            val sources = macLocationHelperSources.asFile.path
+            val app = macLocationHelperApp.get().asFile.path
+            commandLine(
+                "/bin/sh",
+                "-ec",
+                """
+                rm -rf "${'$'}2"; mkdir -p "${'$'}2/Contents/MacOS"
+                cp "${'$'}1/Info.plist" "${'$'}2/Contents/Info.plist"
+                xcrun swiftc -O -o "${'$'}2/Contents/MacOS/ActivityTrackerLocation" "${'$'}1/main.swift"
+                codesign --force --sign - "${'$'}2"
+                """
+                    .trimIndent(),
+                "build-helper",
+                sources,
+                app,
+            )
+        }
+    } else {
+        null
+    }
+
 // Compose Hot Reload launches through its own tasks (hotRun, hotRunAsync), not `run`, so configure both. `-PoauthPort=` moves the
 // OAuth loopback listener off its default port, e.g. to run two instances.
 tasks.withType<JavaExec>().configureEach {
     if (name.startsWith("hotRun")) jvmArgs(maplibreJvmArgs) // `run` gets them from compose.desktop.application.
     if (name == "run" || name.startsWith("hotRun")) {
         providers.gradleProperty("oauthPort").orNull?.let { systemProperty("activitytracker.oauthPort", it) }
+        if (macLocationHelper != null) {
+            dependsOn(macLocationHelper)
+            systemProperty("activitytracker.macLocationHelper", macLocationHelperApp.get().asFile.path)
+        }
     }
 }
 

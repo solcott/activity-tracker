@@ -28,7 +28,8 @@ struct ZonesPagesSnapshotTests {
     func trainingZones(sample: String) throws {
         let state = try #require(Samples.trainingZones[sample] ?? Samples.trainingZonesVariants[sample])
         assertAppSnapshot(
-            of: NavigationStack { TrainingZonesView(state: state) }, size: Self.trainingSize, named: sample, precision: Snapshots.barButtons)
+            of: NavigationStack { TrainingZonesView(state: state) }, size: Self.trainingSize, named: sample, precision: Snapshots.barButtons
+        )
     }
 
     @Test(arguments: zonesSamples + zonesVariants)

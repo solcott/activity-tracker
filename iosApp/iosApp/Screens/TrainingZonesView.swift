@@ -43,7 +43,9 @@ struct TrainingZonesView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(.zonesVisibilityHelp)
-                    if let note = VisibilityTexts.shared.followersNote(selected: state.visibility, approvesFollowers: zones.approvesFollowers) {
+                    if let note = VisibilityTexts.shared.followersNote(
+                        selected: state.visibility, approvesFollowers: zones.approvesFollowers)
+                    {
                         Text(note)
                     }
                 }
@@ -90,7 +92,9 @@ struct TrainingZonesView: View {
             if summary.offers(kind: .Speed) {
                 kind(.Speed, model: summary.speedModel, zones: summary.speedZones?.elements(as: Zone.self), paceUnit: summary.paceUnit)
             }
-            kind(.HeartRate, model: summary.heartRateModel, zones: summary.heartRateZones?.elements(as: Zone.self), paceUnit: summary.paceUnit)
+            kind(
+                .HeartRate, model: summary.heartRateModel, zones: summary.heartRateZones?.elements(as: Zone.self),
+                paceUnit: summary.paceUnit)
             if summary.offers(kind: .Power) {
                 kind(.Power, model: summary.powerModel, zones: summary.powerZones?.elements(as: Zone.self), paceUnit: summary.paceUnit)
             }

@@ -28,7 +28,7 @@ import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
-import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.activitytracker.location.PlaceLocator
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
@@ -49,17 +49,17 @@ fun SegmentBrowsePresenter(
     navigator: Navigator,
     segments: SegmentRepository,
     feed: FeedRepository,
-    tracker: LocationTracker,
+    locator: PlaceLocator,
 ): SegmentBrowseState {
     // Saveable, so the query (and with it the results) is still there on coming back from a segment.
     val query = rememberTextFieldState()
     val trimmed = query.text.trim().toString()
-    val browse = rememberRetained { MapBrowse(MapBrowse.initialPermission(tracker)) }
+    val browse = rememberRetained { MapBrowse(locator.permission()) }
     // Only segments of this `SegmentSportGroup`; null for every group.
     var sport by rememberRetained { mutableStateOf<String?>(null) }
 
     // Where to open, once: the athlete's location, else where their latest activity with a map started, else nowhere.
-    LaunchedEffect(browse.permission) { browse.locate(tracker, feed) }
+    LaunchedEffect(browse.permission) { browse.locate(locator) { feed.latestOwnStart() } }
 
     // The area's segments, while no name is searched and the map is close enough. A new area keeps the last one's lines until it answers;
     // a new sport group drops them (ui/content-loading).

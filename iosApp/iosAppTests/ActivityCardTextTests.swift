@@ -37,7 +37,9 @@ struct ActivityCardTextTests {
         #expect(read(content.title()) == "Morning Ride")
         #expect(read(content.typeDescription()) == "Ride")
         // Started at 07:00 UTC on May 31 at UTC-6, seen at noon UTC on June 1: yesterday at 1:00 AM on the activity's clock.
-        #expect(read(content.start(now: clock.now, zone: clock.kotlinZone)) == "Yesterday at \(time("2026-05-31T07:00:00Z", offsetMinutes: -360))")
+        #expect(
+            read(content.start(now: clock.now, zone: clock.kotlinZone))
+                == "Yesterday at \(time("2026-05-31T07:00:00Z", offsetMinutes: -360))")
         let stats = content.stats(units: .Metric).map { (read($0.label) ?? "", read($0.value) ?? "") }
         #expect(stats.map(\.0) == ["Distance", "Time", "Speed"])
         #expect(stats[1].1 == "1:00:00")
@@ -91,7 +93,8 @@ struct ActivityCardTextTests {
         #expect(shape.breaks.elements(as: RouteBreak.self).count == 1)
         let points = pieces.flatMap { $0.points.elements(as: ShapePoint.self) } + [shape.start, shape.end].compactMap { $0 }
         #expect(points.allSatisfy { (11.9...288.1).contains($0.x) && (11.9...148.1).contains($0.y) })
-        #expect(try card("ride").routeShape(width: 300, height: 160, pad: 12).map { $0.breaks.elements(as: RouteBreak.self).isEmpty } == true)
+        #expect(
+            try card("ride").routeShape(width: 300, height: 160, pad: 12).map { $0.breaks.elements(as: RouteBreak.self).isEmpty } == true)
     }
 
     @Test func anOffsetTimeReadsOnItsOwnClock() {

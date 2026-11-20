@@ -13,6 +13,9 @@ pds="${PDS_URL:-http://localhost:2583}"
 
 [[ $(curl -sS "$pds/xrpc/com.atproto.server.describeServer" | jq -r '.inviteCodeRequired // false') == true ]] || exit 0
 code=$(curl -sS -f -u "admin:$PDS_ADMIN_PASSWORD" -X POST -H 'Content-Type: application/json' \
-  -d '{"useCount":1}' "$pds/xrpc/com.atproto.server.createInviteCode" | jq -r .code) \
-  || { echo "FAIL couldn't mint an invite code (admin:\$PDS_ADMIN_PASSWORD)" >&2; exit 1; }
+  -d '{"useCount":1}' "$pds/xrpc/com.atproto.server.createInviteCode" | jq -r .code) ||
+  {
+    echo "FAIL couldn't mint an invite code (admin:\$PDS_ADMIN_PASSWORD)" >&2
+    exit 1
+  }
 printf '"inviteCode":"%s",' "$code"

@@ -45,17 +45,33 @@ struct UploadsView: View {
             }
             banners(queue)
             if let current = queue.current {
-                Section { itemRow(current) } header: { Text(.uploadsUploadingNow) }
+                Section {
+                    itemRow(current)
+                } header: {
+                    Text(.uploadsUploadingNow)
+                }
             }
             if !queue.own.isEmpty {
-                Section { ForEach(queue.own, id: \.id) { itemRow($0) } } header: { Text(.uploadsYours) }
+                Section {
+                    ForEach(queue.own, id: \.id) { itemRow($0) }
+                } header: {
+                    Text(.uploadsYours)
+                }
             }
             ForEach(queue.imports, id: \.id) { group in importSection(group) }
             if !queue.finished.isEmpty {
-                Section { ForEach(queue.finished, id: \.id) { itemRow($0) } } header: { Text(.uploadsFinished) }
+                Section {
+                    ForEach(queue.finished, id: \.id) { itemRow($0) }
+                } header: {
+                    Text(.uploadsFinished)
+                }
             }
             if !queue.refusedOther.isEmpty {
-                Section { ForEach(queue.refusedOther, id: \.rkey) { changeRow($0) } } header: { Text(.uploadsRefusedOther) }
+                Section {
+                    ForEach(queue.refusedOther, id: \.rkey) { changeRow($0) }
+                } header: {
+                    Text(.uploadsRefusedOther)
+                }
             }
             if queue.isEmpty {
                 EmptyMessage(.uploadsEmpty)
@@ -94,7 +110,11 @@ struct UploadsView: View {
             importHeader(group)
             ForEach(state.shownLive(group: group), id: \.id) { itemRow($0) }
             if state.showsShowAll(group: group) {
-                Button { send(UploadsEvent.ShowAll(batchId: group.id)) } label: { Text(UploadImportTexts.shared.showAll(group: group)) }
+                Button {
+                    send(UploadsEvent.ShowAll(batchId: group.id))
+                } label: {
+                    Text(UploadImportTexts.shared.showAll(group: group))
+                }
             }
             ForEach(group.finished, id: \.id) { itemRow($0) }
         }
@@ -113,7 +133,8 @@ struct UploadsView: View {
             }
             clock.text(texts.saved(group: group, now: clock.now, zone: clock.kotlinZone)).font(.subheadline).foregroundStyle(.secondary)
             if let save = texts.saveStatus(group: group) {
-                Text(save).font(.subheadline).foregroundStyle(group.save is ImportSaveStopped ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                Text(save).font(.subheadline).foregroundStyle(
+                    group.save is ImportSaveStopped ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
             }
             Text(texts.progress(group: group)).font(.subheadline)
             if let counts = texts.counts(group: group) {

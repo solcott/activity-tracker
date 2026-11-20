@@ -47,7 +47,10 @@ struct SegmentsAndGroupsView: View {
 
     /// Off, people the athlete follows or who follow them, or anyone: the options Kotlin offers, each holding its choice.
     private var groups: some View {
-        Picker(selection: Binding(get: { state.shownGroupChoice }, set: { state.eventSink(SegmentsAndGroupsEvent.GroupActivitiesChanged(choice: $0)) })) {
+        Picker(
+            selection: Binding(
+                get: { state.shownGroupChoice }, set: { state.eventSink(SegmentsAndGroupsEvent.GroupActivitiesChanged(choice: $0)) })
+        ) {
             ForEach(state.groupOptions.elements(as: GroupOption.self), id: \.choice) { option in
                 Text(option.label).tag(option.choice)
             }

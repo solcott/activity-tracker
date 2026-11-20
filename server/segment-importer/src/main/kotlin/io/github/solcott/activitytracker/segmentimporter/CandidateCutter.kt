@@ -45,6 +45,13 @@ internal data class Candidate(
      * else that of the one-way routes through it ([RouteClimbs]); null without terrain, when none clearly climbs, and for alpine.
      */
     val climb: SegmentClimb? = null,
+    /**
+     * The section of its trail's family its name comes from, without generic words (segments/trail-candidates), or null; with [family],
+     * which path's sections it goes in ([TrailSections]). Neither is written to the candidates file.
+     */
+    val section: String? = null,
+    /** Its trail's family, as its path is grouped by; only read with [section]. */
+    val family: String? = null,
 )
 
 /**
@@ -235,13 +242,16 @@ internal class CandidateCutter(
             agencyFeatures = features,
             oneWay = !bothWays,
             climb = climbOf(trail, reversed) { ownClimb },
+            section = sectionOf(trail, piece),
+            family = trail.familyKey,
         )
     }
 
     /**
      * A candidate's name: a whole trail's, with its direction when it goes both ways; a junction span's, `<trail> → <junction>` or `<trail>
      * from <junction>` in its direction of travel, after its own parent trail when it follows a way no other one does and else its family;
-     * or a stretch's, named after the places at its ends or else numbered. Every name in it is without its generic [words].
+     * or a stretch's, named after the places at its ends (with no trail name between two of its family's own sections) or else numbered.
+     * Every name in it is without its generic [words].
      */
     private fun nameOf(
         trail: Trail,
@@ -255,9 +265,20 @@ internal class CandidateCutter(
         return when {
             piece.junction != null -> spanName(trail, piece, piece.junction, nodes)
             piece.part == null -> if (bothWays) "${trail.label} (${direction().word})" else trail.label
+            from != null && to != null && betweenOwnSections(trail, from, to) -> "${words.shorten(from)} → ${words.shorten(to)}"
             from != null && to != null -> "${trail.label}: ${words.shorten(from)} → ${words.shorten(to)}"
             else -> "${trail.label} (part ${piece.part})"
         }
+    }
+
+    /**
+     * Whether a stretch of [trail] runs between two sections of its own family, [from] and [to] (segments/trail-candidates): [trail] is
+     * named after its family alone (a plain "Rush Trail", not a section or a route relation's), so each end already names it.
+     */
+    private fun betweenOwnSections(trail: Trail, from: String, to: String): Boolean {
+        val family = words.shorten(trail.name)
+        if (trail.kind != TrailKind.NAMED || trail.section != null || trail.label != family) return false
+        return listOf(from, to).all { end -> " - " in end && TrailBuilder.familyOf(words.shorten(end)) == family }
     }
 
     /**
@@ -284,10 +305,20 @@ internal class CandidateCutter(
         return if (reversed) climb?.reversed() else climb
     }
 
+    /**
+     * The section [piece] of [trail] is named after (segments/trail-candidates): its trail's, unless it's a junction span named after the
+     * family because it follows no way its own parent trail alone does.
+     */
+    private fun sectionOf(trail: Trail, piece: Piece): String? = trail.section?.takeIf { piece.junction == null || ownSpan(trail, piece) }
+
+    /** Whether a parent trail's span follows a way on none of its family's other parent trails, so it's named after its own. */
+    private fun ownSpan(trail: Trail, piece: Piece): Boolean =
+        (piece.range.first until piece.range.last).any { trail.edgeWays[it] in trail.ownWays }
+
     /** A junction span's name, travelling along [nodes]: to [junction] when it ends there, else from it. */
     private fun spanName(trail: Trail, piece: Piece, junction: Long, nodes: List<Long>): String {
         val place = junctionName(trail, junction)?.let(words::shorten)
-        val own = (piece.range.first until piece.range.last).any { trail.edgeWays[it] in trail.ownWays }
+        val own = ownSpan(trail, piece)
         val base = if (own) trail.label else words.shorten(trail.family ?: trail.name)
         return if (nodes.last() == junction) "$base → $place" else "$base from $place"
     }

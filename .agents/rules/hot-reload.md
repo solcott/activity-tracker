@@ -8,6 +8,9 @@ paths:
 
 `:desktopApp` is the JVM shell (like `:webApp`): `DesktopAppGraph`, `main()`, and `LoopbackRedirectServer`. It is mainly a dev
 target for fast UI iteration. It has no GPS recording (`UnsupportedLocationTracker`, shared with web), so the feed hides Record.
+Map browse still opens at the OS's location through `DesktopPlaceLocator` (`desktop/location/`): on macOS `run` and `hotRun` build
+and name the `ActivityTrackerLocation.app` helper (`src/macosHelper`, `buildMacLocationHelper`), whose first run shows macOS's
+location prompt for that helper; System Settings > Privacy & Security > Location Services lists it as Activity Tracker.
 
 **Nothing in the build declares hot reload.** The Compose Multiplatform Gradle plugin auto-applies
 `org.jetbrains.compose.hot-reload` to every Kotlin JVM/Multiplatform project that applies it, so there is no catalog alias to bump.

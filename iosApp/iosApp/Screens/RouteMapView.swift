@@ -106,7 +106,9 @@ private struct LiveRouteMap: View {
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControlVisibility(.hidden)
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { newSize in
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
+        } action: { newSize in
             size = newSize
             frame()
         }

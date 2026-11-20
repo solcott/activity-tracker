@@ -43,12 +43,16 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.notInList
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateStatement
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -140,6 +144,34 @@ class RepoReindexer(
             .limit(limit)
             .map(ReindexRun::of)
     }
+
+    /**
+     * Across every account, the runs queued or running now and those that failed at or after [since] (epoch ms), newest first, for the
+     * admin site (admin/account-tools). A run that ended `unavailable` isn't a failure.
+     */
+    suspend fun recentRuns(since: Long, limit: Int = RECENT_RUNS): List<ReindexRun> = db.tx {
+        RepoReindexes.selectAll()
+            .where { inFlight() or failedSince(since) }
+            .orderBy(RepoReindexes.id, SortOrder.DESC)
+            .limit(limit)
+            .map(ReindexRun::of)
+    }
+
+    /** How many runs are queued or running now, and how many failed at or after [since] (epoch ms), across every account. */
+    suspend fun recentCounts(since: Long): RecentRunCounts = db.tx {
+        RecentRunCounts(
+            inFlight = RepoReindexes.selectAll().where { inFlight() }.count(),
+            failed = RepoReindexes.selectAll().where { failedSince(since) }.count(),
+        )
+    }
+
+    private fun inFlight(): Op<Boolean> = RepoReindexes.state inList ReindexState.entries.filter { it.active }.map { it.code }
+
+    /** Failed at or after [since]; a run failed without an end time (none should be) counts by when it was requested. */
+    private fun failedSince(since: Long): Op<Boolean> =
+        (RepoReindexes.state eq ReindexState.FAILED.code) and
+            ((RepoReindexes.finishedAt greaterEq since) or
+                (RepoReindexes.finishedAt.isNull() and (RepoReindexes.requestedAt greaterEq since)))
 
     /**
      * Runs until [scope] is cancelled: first marks runs a previous process left running as failed (`interrupted`), then starts queued runs
@@ -411,6 +443,7 @@ class RepoReindexer(
         private val PRUNE_INTERVAL = 1.days
         private val POLL_INTERVAL = 1.minutes
         private const val DEFAULT_RUNS = 20
+        private const val RECENT_RUNS = 50
         private const val PROGRESS_EVERY = 1000
         private const val MAX_MESSAGE = 512
         private const val REV_LENGTH = 32

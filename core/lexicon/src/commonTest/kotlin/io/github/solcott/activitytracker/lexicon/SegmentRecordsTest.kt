@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.lexicon
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegmentNames
@@ -298,6 +300,11 @@ class SegmentRecordsTest {
         assertEquals(record, AtJson.decodeFromJsonElement(PathRecord.serializer(), json))
         val credited = record.copy(attribution = "USDA Forest Service")
         assertEquals(credited, AtJson.decodeFromString(PathRecord.serializer(), AtJson.encodeToString(PathRecord.serializer(), credited)))
+        assertFalse("sections" in json, "no sections, left out")
+        val sectioned = record.copy(sections = listOf(PathSection("Through the Trees Trail", listOf("3kbranch", "3kspan"))))
+        val sectionedJson = AtJson.encodeToJsonElement(PathRecord.serializer(), sectioned).jsonObject
+        assertEquals("3kspan", sectionedJson["sections"]!!.jsonArray.single().jsonObject["segments"]!!.jsonArray[1].jsonPrimitive.content)
+        assertEquals(sectioned, AtJson.decodeFromJsonElement(PathRecord.serializer(), sectionedJson))
 
         val uri = AtUri("at://did:plc:importer/${Nsid.FEED_PATH}/anns")
         val view =
@@ -326,6 +333,18 @@ class SegmentRecordsTest {
         val encoded = AtJson.encodeToJsonElement(SegmentView.serializer(), segment).jsonObject
         assertEquals(uri.value, encoded["paths"]!!.jsonArray.single().jsonPrimitive.content)
         assertEquals(segment, AtJson.decodeFromJsonElement(SegmentView.serializer(), encoded))
+
+        val bare =
+            AtJson.decodeFromString(
+                GetPath.Output.serializer(),
+                """{"path":${AtJson.encodeToString(PathView.serializer(), view)},"segments":[]}""",
+            )
+        assertEquals(emptyList(), bare.sections, "an older AppView's output has no sections")
+        val output = GetPath.Output(view, listOf(segment), listOf(GetPath.SectionView("Through the Trees Trail", listOf(segment.uri))))
+        assertEquals(
+            output,
+            AtJson.decodeFromString(GetPath.Output.serializer(), AtJson.encodeToString(GetPath.Output.serializer(), output)),
+        )
     }
 
     @Test

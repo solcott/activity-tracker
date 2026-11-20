@@ -49,9 +49,13 @@ enum RemoteImages {
     /// With `maxSize` (points, drawn at `scale` pixels a point) the picture is scaled down to fill it, keeping its shape.
     static func request(for url: String?, maxSize: CGSize? = nil, scale: CGFloat = 1) -> ImageRequest? {
         guard let url, !url.isEmpty else { return nil }
-        let processors: [any ImageProcessing] = maxSize.map {
-            [ImageProcessors.Resize(size: CGSize(width: $0.width * scale, height: $0.height * scale), unit: .pixels, contentMode: .aspectFill)]
-        } ?? []
+        let processors: [any ImageProcessing] =
+            maxSize.map {
+                [
+                    ImageProcessors.Resize(
+                        size: CGSize(width: $0.width * scale, height: $0.height * scale), unit: .pixels, contentMode: .aspectFill)
+                ]
+            } ?? []
         if url.hasPrefix(heldScheme) {
             // Kotlin's session state is the main thread's, so the bytes are read there; the request's id keys Nuke's cache.
             return ImageRequest(id: url, data: { try await MainActor.run { try heldBytes(url) } }, processors: processors)

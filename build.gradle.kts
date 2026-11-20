@@ -16,6 +16,8 @@ plugins {
     id("activitytracker.ktfmt")
     // Root-only: one cpdCheck over every module's sources.
     id("activitytracker.cpd")
+    // Root-only: Swift, shell, workflow, Dockerfile and TOML linters and formatters, in check and format.
+    id("activitytracker.lint")
 }
 
 tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(gradle.includedBuild("build-logic").task(":convention:ktfmtCheck")) }

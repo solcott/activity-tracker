@@ -14,7 +14,9 @@ struct PostsSnapshotTests {
         "proposal", "voted", "votedDown", "adopted", "own", "pending", "quote", "quoteOfQuote", "unavailableQuote", "ownQuote", "unknown",
     ]
     nonisolated private static let reposts = ["repostedByOthers", "repostedByOne", "repostedByYou"]
-    nonisolated private static let pages = ["loading", "failed", "loaded", "refreshing", "refreshFailed", "notFound", "reposters", "ownQuote"]
+    nonisolated private static let pages = [
+        "loading", "failed", "loaded", "refreshing", "refreshFailed", "notFound", "reposters", "ownQuote",
+    ]
     nonisolated private static let pageVariants = [
         "likers", "actionFailed", "ownHidden", "replying", "moreReplies", "commentsFailed", "quoting", "confirmDelete", "reportable",
     ]

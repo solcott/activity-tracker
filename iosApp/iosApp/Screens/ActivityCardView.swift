@@ -28,9 +28,13 @@ struct ActivityCardView: View {
             notices
             title
             if let site = content.diveSite() {
-                Label { Text(verbatim: site) } icon: { Image(.location) }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Label {
+                    Text(verbatim: site)
+                } icon: {
+                    Image(.location)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             if let about = content.descriptionText() {
                 Text(verbatim: about).font(.subheadline).lineLimit(2)
@@ -75,8 +79,12 @@ struct ActivityCardView: View {
         }
         if authorClickable {
             // Plain, so the line keeps its colours rather than the accent's, and only it takes the tap, not the whole row.
-            Button { send(ActivityListEvent.OpenAuthor(activity: content.activity)) } label: { line }
-                .buttonStyle(.plain)
+            Button {
+                send(ActivityListEvent.OpenAuthor(activity: content.activity))
+            } label: {
+                line
+            }
+            .buttonStyle(.plain)
         } else {
             line
         }
@@ -170,7 +178,9 @@ struct CardStats: View {
         List {
             ForEach(Samples.activityCards.sorted { $0.key < $1.key }, id: \.key) { name, activity in
                 Section(name) {
-                    ActivityCardView(content: ActivityCardContent.Companion.shared.of(activity: activity, viewerDid: Samples.cardViewer)) { _ in }
+                    ActivityCardView(content: ActivityCardContent.Companion.shared.of(activity: activity, viewerDid: Samples.cardViewer)) {
+                        _ in
+                    }
                 }
             }
         }

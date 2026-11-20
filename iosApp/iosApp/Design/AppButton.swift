@@ -82,16 +82,22 @@ struct AppSecondaryButton: View {
 
 /// An action in line with what it acts on, drawn as text in the app's colour: Retry beside an error, Cancel under a notice.
 struct AppTextButton: View {
-    private let title: LocalizedStringResource
+    private let title: Text
     private let action: () -> Void
 
     init(_ title: LocalizedStringResource, action: @escaping () -> Void) {
-        self.title = title
+        self.title = Text(title)
+        self.action = action
+    }
+
+    /// A button whose words Kotlin chose (`AppText`), such as the Trail page's Expand all or Collapse all.
+    init(_ title: any AppText, action: @escaping () -> Void) {
+        self.title = Text(title)
         self.action = action
     }
 
     var body: some View {
-        Button(action: action) { Text(title) }
+        Button(action: action) { title }
             .buttonStyle(.borderless)
     }
 }

@@ -73,7 +73,9 @@ struct SportZonesView: View {
             }
             if state.saved {
                 Section {
-                    Button(role: .destructive) { send(SportZonesEvent.Remove.shared) } label: {
+                    Button(role: .destructive) {
+                        send(SportZonesEvent.Remove.shared)
+                    } label: {
                         Text(SportZonesTexts.shared.remove(sport: state.sport))
                     }
                 }

@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.app.segment
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,7 +18,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -27,15 +31,22 @@ import io.github.solcott.activitytracker.app.ui.MapBrowseHover
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.SegmentsMap
 import io.github.solcott.activitytracker.app.ui.SelectableRow
+import io.github.solcott.activitytracker.app.ui.TestTags
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
+import io.github.solcott.activitytracker.app.ui.mapBrowseHover
 import io.github.solcott.activitytracker.app.ui.rememberMapBrowseHover
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * The Trail page (segments/path-page): the path's name, what it is and its credit, its line with its segments over it, and its segment
@@ -47,9 +58,11 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     val hover = rememberMapBrowseHover()
+    // Keyed on the selection alone: collapsing or expanding another section leaves the list where it is. A selection that expands its
+    // section changes both at once, so the row's index here is already the expanded one.
     LaunchedEffect(state.selected) {
-        val selected = state.selected ?: return@LaunchedEffect
-        val index = state.content.data.groups.indexOfFirst { it.shown.uri == selected }
+        val selected = state.selected?.value ?: return@LaunchedEffect
+        val index = visibleKeys(state).indexOf(selected)
         // The header and refresh rows come first.
         if (index >= 0) listState.animateScrollToItem(index + HEADER_ROWS)
     }
@@ -91,8 +104,18 @@ private fun PathMap(state: PathState, hover: MapBrowseHover, modifier: Modifier 
         modifier = modifier,
         hovered = hover.uri,
         onHover = { hover.uri = it },
+        hoveredLines = state.sections.find { it.key == hover.uri }?.lineUris?.toImmutableSet() ?: persistentSetOf(),
     )
 }
+
+/** The keys of the list's items below its header, in order, as [PathList] lays them out: a collapsed section's rows left out. */
+private fun visibleKeys(state: PathState): List<String> =
+    state.items.flatMap { item ->
+        when (item) {
+            is PathListItem.Group -> listOf(item.key)
+            is PathListItem.Section -> listOf(item.key) + if (state.isExpanded(item)) item.rows.map { it.shown.uri.value } else emptyList()
+        }
+    }
 
 @Composable
 private fun PathList(
@@ -107,27 +130,91 @@ private fun PathList(
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 state.path?.let { Text(PathTexts.summary(it, units).string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
-                if (state.offersAllSports) {
-                    AppTextButton(onClick = { state.eventSink(PathEvent.ShowAllSports) }) { Text(PathTexts.showAllSports.string()) }
+                Row {
+                    if (state.offersAllSports) {
+                        AppTextButton(onClick = { state.eventSink(PathEvent.ShowAllSports) }) { Text(PathTexts.showAllSports.string()) }
+                    }
+                    if (state.offersAllSections) {
+                        AppTextButton(onClick = { state.eventSink(state.allSectionsEvent) }, Modifier.testTag(TestTags.PATH_ALL_SECTIONS)) {
+                            Text(PathTexts.allSections(state.allSectionsExpanded).string())
+                        }
+                    }
                 }
             }
         }
         item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadPath, { state.eventSink(PathEvent.Retry) }) }
-        items(state.content.data.groups, key = { it.shown.uri.value }) { group ->
-            SelectableRow(
-                key = group.shown.uri.value,
-                name = PathTexts.name(group),
-                details = PathTexts.details(group, units),
-                selected = state.isSelected(group),
-                hover = hover,
-                onTap = { state.eventSink(state.tapRowEvent(group)) },
-                onOpen = { state.eventSink(state.openEvent(group)) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        for (entry in state.content.data.items) {
+            when (entry) {
+                is PathListItem.Group -> item(key = entry.key) { GroupRow(state, entry.group, hover, units) }
+                is PathListItem.Section -> {
+                    val expanded = state.isExpanded(entry)
+                    item(key = entry.key) { SectionRow(state, entry, expanded, hover, units) }
+                    if (expanded) {
+                        items(entry.rows, key = { it.shown.uri.value }) { group ->
+                            GroupRow(state, group, hover, units, Modifier.padding(start = SECTION_INDENT))
+                        }
+                    }
+                }
+            }
         }
         if (state.empty) item(key = "none") { EmptyListText(PathTexts.noneHere.string()) }
     }
 }
+
+@Composable
+private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        SelectableRow(
+            key = group.shown.uri.value,
+            name = PathTexts.name(group),
+            details = PathTexts.details(group, units),
+            selected = state.isSelected(group),
+            hover = hover,
+            onTap = { state.eventSink(state.tapRowEvent(group)) },
+            onOpen = { state.eventSink(state.openEvent(group)) },
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * A section's row (segments/path-page): a chevron, its name and what it covers. A tap collapses or expands it, and a mouse pointer over it
+ * highlights its rows' lines on the map, as [hover] under the section's key.
+ */
+@Composable
+private fun SectionRow(
+    state: PathState,
+    section: PathListItem.Section,
+    expanded: Boolean,
+    hover: MapBrowseHover,
+    units: UnitSystem,
+) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth()
+                .then(if (hover.uri == section.key) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                .mapBrowseHover(hover, section.key)
+                .clickable(onClickLabel = PathTexts.toggleLabel(section, expanded).string()) { state.eventSink(state.toggleEvent(section)) }
+                .testTag(TestTags.PATH_SECTION)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlatformIcon(if (expanded) AppIcon.ChevronDown else AppIcon.Chevron, null)
+            Column(Modifier.padding(start = 8.dp)) {
+                Text(PathTexts.name(section).string(), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    PathTexts.details(section, units).string(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** How far a section's rows sit in from its own. */
+private val SECTION_INDENT = 24.dp
 
 /** The rows above the first segment group: the header and the refresh status. */
 private const val HEADER_ROWS = 2

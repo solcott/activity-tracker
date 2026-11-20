@@ -10,7 +10,10 @@ root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}
 file=$(jq -r '.toolCall.args.TargetFile // .tool_input.file_path // empty' <<<"$input")
 # Claude Code rejects a top-level "decision" other than approve/block, so only Antigravity gets one.
 claude=$(jq 'has("tool_input")' <<<"$input")
-allow() { [[ $claude == true ]] || echo '{"decision": "allow"}'; exit 0; }
+allow() {
+  [[ $claude == true ]] || echo '{"decision": "allow"}'
+  exit 0
+}
 [[ -z $file ]] && allow
 
 # Normalize relative path

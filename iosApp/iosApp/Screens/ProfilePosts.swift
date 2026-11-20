@@ -63,8 +63,9 @@ struct ProfilePosts: View {
         switch status.sealedType() {
         case .progress:
             AppProgress(small: true).frame(maxWidth: .infinity).listStatusRow()
-        case let .failure(failure):
-            ErrorMessage(failure.value.error, layout: .row) { send(ProfileEvent.RetryPosts.shared) }.frame(maxWidth: .infinity).listStatusRow()
+        case .failure(let failure):
+            ErrorMessage(failure.value.error, layout: .row) { send(ProfileEvent.RetryPosts.shared) }.frame(maxWidth: .infinity)
+                .listStatusRow()
         }
     }
 }

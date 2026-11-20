@@ -66,7 +66,11 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
          * [lines] with [selected] and [hovered] (runs' URIs; the run under the pointer, in a row or on the map) highlighted alike; a lift
          * is never highlighted. Lines that don't decode to two points are left out.
          */
-        fun of(lines: List<MapSegmentLine>, selected: String?, hovered: String? = null): SegmentsMap {
+        fun of(lines: List<MapSegmentLine>, selected: String?, hovered: String? = null): SegmentsMap =
+            of(lines, selected, hoveredLines = setOfNotNull(hovered))
+
+        /** [lines] with [selected] and every one of [hoveredLines] (a section of rows under the pointer) highlighted alike. */
+        fun of(lines: List<MapSegmentLine>, selected: String?, hoveredLines: Set<String>): SegmentsMap {
             val drawn =
                 lines
                     .mapNotNull { line ->
@@ -74,7 +78,7 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
                         val role =
                             when {
                                 line.lift -> MapSegmentRole.Lift
-                                line.uri == selected || line.uri == hovered -> MapSegmentRole.Selected
+                                line.uri == selected || line.uri in hoveredLines -> MapSegmentRole.Selected
                                 else -> MapSegmentRole.Run
                             }
                         MapSegment(line.uri, points.toImmutableList(), role)
@@ -82,7 +86,8 @@ class SegmentsMap private constructor(val drawn: ImmutableList<MapSegment>, val 
                     .sortedBy { it.role.ordinal }
             return SegmentsMap(
                 drawn.toImmutableList(),
-                lines.joinToString(";") { "${it.uri}|${it.lift}|${it.polyline}" } + "#$selected#$hovered",
+                lines.joinToString(";") { "${it.uri}|${it.lift}|${it.polyline}" } +
+                    "#$selected#${hoveredLines.sorted().joinToString(",").ifEmpty { "null" }}",
             )
         }
     }

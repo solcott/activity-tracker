@@ -92,7 +92,10 @@ struct PostsTextTests {
         #expect(!tooLong.textValid && !tooLong.canPost)
         #expect(read(QuoteSheetTexts.shared.tooLong) == "Keep it under 1,000 characters.")
         let open = try #require(Samples.quoteSheet["open"])
-        #expect(open.audiences.elements(as: String.self).map { read(QuoteSheetTexts.shared.audience(visibility: $0)) } == ["Followers", "Mutuals"])
+        #expect(
+            open.audiences.elements(as: String.self).map { read(QuoteSheetTexts.shared.audience(visibility: $0)) } == [
+                "Followers", "Mutuals",
+            ])
         #expect(open.canPost)
     }
 

@@ -1,0 +1,7 @@
+# Hadolint for the Dockerfiles (LintConventionPlugin.kt: `./gradlew lintDockerfiles`). Fails on warnings and errors; infos only show.
+failure-threshold: warning
+ignored:
+  # The images are pinned by digest or commit (docker.md); the few Alpine packages the local stack adds follow that release.
+  - DL3018
+  # The PDS image runs as its own `node` user, named in its passwd, so switching back by name is right.
+  - DL3066

@@ -102,7 +102,8 @@ struct EditProfileTextTests {
     }
 
     @Test func thePhotoIsSavedPickedOrNone() throws {
-        #expect((try #require(Samples.editProfileVariants["savedPhoto"]).avatar as? AvatarImage.Saved)?.url == "https://example.test/alice.jpg")
+        #expect(
+            (try #require(Samples.editProfileVariants["savedPhoto"]).avatar as? AvatarImage.Saved)?.url == "https://example.test/alice.jpg")
         let pickedState = try #require(Samples.editProfileVariants["pickedPhoto"])
         let picked = try #require(pickedState.avatar as? AvatarImage.Picked)
         #expect(UIImage(data: picked.jpeg.data) != nil)

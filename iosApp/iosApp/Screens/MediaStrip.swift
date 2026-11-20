@@ -22,14 +22,14 @@ struct MediaStrip: View {
     var body: some View {
         let photos = content.media.elements(as: MediaPhoto.self)
         if photos.isEmpty {
-            if (showsRoute && content.hasRoute) {
+            if showsRoute && content.hasRoute {
                 route.frame(maxWidth: .infinity).frame(height: Self.height).clipShape(tile)
             }
         } else {
             GeometryReader { geometry in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Self.gap) {
-                        if (showsRoute && content.hasRoute) {
+                        if showsRoute && content.hasRoute {
                             route.frame(width: geometry.size.width * 0.8).clipShape(tile)
                         }
                         ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in

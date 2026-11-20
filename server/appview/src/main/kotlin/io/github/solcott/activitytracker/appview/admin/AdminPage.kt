@@ -3,12 +3,17 @@ package io.github.solcott.activitytracker.appview.admin
 import io.github.solcott.activitytracker.lexicon.Did
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import kotlin.time.Instant
 import kotlinx.html.FlowContent
 
 /** The signed-in admin a request is for, with the role configured now and their session's CSRF token. */
 data class Admin(val did: Did, val role: AdminRole, val csrfToken: String) {
     val isOperator: Boolean
         get() = role == AdminRole.Operator
+
+    /** The CSRF token when this admin may run actions, else null: what draws a page's action controls, or none for a viewer. */
+    val operatorCsrf: String?
+        get() = csrfToken.takeIf { isOperator }
 }
 
 /** What an action handler is given: the call, its admin, the `target` form field and the action's other fields. */
@@ -59,7 +64,26 @@ interface AdminPage {
      * record's content.
      */
     fun privacyProbes(subject: String): List<String> = listOf(path)
+
+    /**
+     * The page's summary for Home and the navigation's flags (admin/admin-site): a few tiles whose status follows the page's own fixed
+     * rules. None by default. Values are counts, sizes, times and durations only, and the same for every admin, since they are shared.
+     */
+    suspend fun summary(now: Instant): List<Tile> = emptyList()
 }
+
+/** How a tile stands. A tile with no status (null) is information only. */
+enum class TileStatus {
+    Ok,
+    Warn,
+    Bad,
+}
+
+/**
+ * One fact a page summarises: [value] is already formatted (a count, size, time or duration, never record content), [href] the place on the
+ * page that shows the detail.
+ */
+data class Tile(val label: String, val value: String, val status: TileStatus?, val href: String)
 
 /** How a page registers routes: every route is admin-only, and every state change goes through [action], which audits it. */
 interface AdminRoutes {
@@ -77,6 +101,9 @@ interface AdminRoutes {
 interface AdminGet {
     val call: ApplicationCall
     val admin: Admin
+
+    /** The site clock's time for this request, which relative times are drawn against. */
+    val now: Instant
 
     suspend fun page(title: String, body: FlowContent.() -> Unit)
 

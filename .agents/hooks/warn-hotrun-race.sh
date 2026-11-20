@@ -5,7 +5,10 @@ set -eu
 
 input=$(cat)
 claude=$(jq 'has("tool_input")' <<<"$input")
-allow() { [[ $claude == true ]] || echo '{"decision": "allow"}'; exit 0; }
+allow() {
+  [[ $claude == true ]] || echo '{"decision": "allow"}'
+  exit 0
+}
 cmd=$(jq -r '.toolCall.args.CommandLine // .tool_input.command // empty' <<<"$input")
 
 if ! grep -q 'gradlew' <<<"$cmd"; then
@@ -16,11 +19,15 @@ if grep -qE 'hotRun|hotMcpServer|:reload|--stop' <<<"$cmd"; then
   allow
 fi
 
-# Bracketed first characters keep grep from matching its own command line.
+# Bracketed first characters keep grep from matching its own command line. Two greps, not pgrep, so the task and its flag match in
+# either order.
+# shellcheck disable=SC2009
 if ! ps -axo command 2>/dev/null | grep -E '[h]otRun' | grep -qE '[-]-auto|[-]-continuous'; then
   allow
 fi
 
+# The backticks are Markdown for the agent, not a command substitution.
+# shellcheck disable=SC2016
 msg='A `:desktopApp:hotRun --auto` continuous build is running. It shares build/ with this Gradle run, which can fail with errors in modules you did not touch. Stop it first (pkill -f "desktopApp:hotRun"), or treat such a failure as contention and re-run.'
 
 # Claude: a non-blocking warning. Antigravity: ask before running.

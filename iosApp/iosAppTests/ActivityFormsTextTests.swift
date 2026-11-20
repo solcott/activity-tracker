@@ -14,7 +14,10 @@ struct ActivityFormsTextTests {
         #expect(read(GearFieldTexts.shared.summary(field: field)) == "Tarmac")
         let options = field.options.elements(as: GearOption.self)
         #expect(options.map { field.isSelected(option: $0) } == [true, false, false])
-        #expect(options.map { read(GearFieldTexts.shared.line(option: $0)) } == ["Road · Public", "Shoes · Followers", "Road · Only me · Retired"])
+        #expect(
+            options.map { read(GearFieldTexts.shared.line(option: $0)) } == [
+                "Road · Public", "Shoes · Followers", "Road · Only me · Retired",
+            ])
         let collection = try #require(field.collections.elements(as: GearCollectionOption.self).first)
         #expect(read(GearFieldTexts.shared.collection(collection: collection)) == "Race day · 3 items")
         #expect(GearFieldTexts.shared.notAdded(field: field) == nil)

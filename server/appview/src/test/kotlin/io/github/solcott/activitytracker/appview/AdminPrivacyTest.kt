@@ -41,6 +41,7 @@ import io.ktor.http.HttpStatusCode
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.CoroutineScope
@@ -229,7 +230,30 @@ class AdminPrivacyTest : AdminTestBase() {
             assertTrue(trackUri in http.get("/admin/queues/failed?kind=track") { session(cookie) }.bodyAsText())
             // The candidate's one rider shows nowhere: its run counts it as not ridden.
             val importer = http.get("/admin/segments") { session(cookie) }.bodyAsText()
-            assertTrue("<td>r1</td><td>1</td><td>0</td><td>0</td>" in importer.replace(Regex(">\\s+<"), "><"))
+            assertTrue(
+                "<td>r1</td><td class=\"num\">1</td><td class=\"num\">0</td><td class=\"num\">0</td>" in
+                    importer.replace(Regex(">\\s+<"), "><"),
+            )
+        }
+    }
+
+    /**
+     * No page or fragment uses an inline style, a style element or an inline script: the CSP refuses them, so the site's look has to come
+     * from its stylesheet (admin/admin-site, "The site's look loads from the AppView alone").
+     */
+    @Test
+    fun noPageUsesInlineStylesOrScripts() {
+        seed()
+        adminTest({ site(pages = pagesUnderTest) }) { http ->
+            val cookie = http.signIn("alice.test")!!
+            val probes =
+                site(pages = pagesUnderTest).pages.flatMap { page -> listOf(carol, activityUri, segmentUri).flatMap(page::privacyProbes) }
+            for (probe in probes.distinct()) {
+                val body = http.get("/admin/$probe".trimEnd('/')) { session(cookie) }.bodyAsText()
+                assertFalse(Regex("\\sstyle=").containsMatchIn(body), "inline style on $probe")
+                assertFalse("<style" in body, "style element on $probe")
+                assertFalse(Regex("<script(?![^>]*\\ssrc=)").containsMatchIn(body), "inline script on $probe")
+            }
         }
     }
 

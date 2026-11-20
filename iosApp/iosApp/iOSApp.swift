@@ -1,8 +1,10 @@
 import IosShell
 import SwiftUI
 
+// The name Xcode gave the app; the target and file are named after it.
+// swift-format-ignore: TypeNamesShouldBeCapitalized
 @main
-struct iOSApp: App {
+struct iOSApp: App {  // swiftlint:disable:this type_name
     @Environment(\.scenePhase) private var scenePhase
 
     /// The app's screens, run in Kotlin with no UI. Whichever of this and a background task comes first creates the app's graph, so both

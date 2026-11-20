@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 
 /** No MapLibre on wasmJs yet: segment browse leaves the map out on web and browses by name only (segments/segment-browse). */
 actual val interactiveMapSupported: Boolean = false
@@ -21,4 +22,5 @@ actual fun SegmentsMap(
     modifier: Modifier,
     hovered: String?,
     onHover: (String?) -> Unit,
-) = SegmentsPreview(segments, selected, modifier, hovered)
+    hoveredLines: ImmutableSet<String>,
+) = SegmentsPreview(segments, selected, modifier, hovered, hoveredLines)

@@ -151,8 +151,12 @@ struct EditGearView: View {
         HStack(spacing: 12) {
             Text(.gearAcquired).frame(maxWidth: .infinity, alignment: .leading)
             if let date = state.acquiredOn {
-                Button { pickingDate = true } label: { Text(EditGearTexts.shared.date(date: date)) }
-                    .accessibilityHint(Text(.gearAcquiredChoose))
+                Button {
+                    pickingDate = true
+                } label: {
+                    Text(EditGearTexts.shared.date(date: date))
+                }
+                .accessibilityHint(Text(.gearAcquiredChoose))
                 AppIconButton(.clear, label: .gearAcquiredClear) { send(EditGearEvent.AcquiredChanged(date: nil)) }
                     .foregroundStyle(.secondary)
             } else {
@@ -198,7 +202,11 @@ struct EditGearView: View {
     @ViewBuilder private var management: some View {
         Section {
             if let mounted = state.mountedOnLabel {
-                Button { send(EditGearEvent.OpenMountedOn.shared) } label: { Text(mounted) }
+                Button {
+                    send(EditGearEvent.OpenMountedOn.shared)
+                } label: {
+                    Text(mounted)
+                }
             }
             if let retired = state.retiredOnLabel {
                 Text(retired)

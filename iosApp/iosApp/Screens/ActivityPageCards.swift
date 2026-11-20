@@ -39,8 +39,10 @@ struct FigureBlock: View {
                 Text(FigureTexts.shared.label(figure: figure)).font(.caption).foregroundStyle(.secondary)
                 MarkBadge(mark: figure.mark)
             }
-            FigureRuns.text(FigureValueText.string(figure.value, units: stats.units, clock: clock), font: font.weight(.semibold), unitFont: unitFont)
-                .monospacedDigit()
+            FigureRuns.text(
+                FigureValueText.string(figure.value, units: stats.units, clock: clock), font: font.weight(.semibold), unitFont: unitFont
+            )
+            .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -67,9 +69,13 @@ struct FigureRowView: View {
         }
         .accessibilityElement(children: .combine)
         if let uri = FigureTexts.shared.gearUri(figure: figure), let openGear {
-            Button { openGear(uri) } label: { row.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(.isButton)
+            Button {
+                openGear(uri)
+            } label: {
+                row.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isButton)
         } else {
             row
         }
@@ -140,7 +146,9 @@ struct MetricCardSection: View {
             }
             if !headline.isEmpty {
                 HStack(alignment: .top, spacing: 12) {
-                    ForEach(Array(headline.enumerated()), id: \.offset) { _, figure in FigureBlock(figure: figure, font: .title3, unitFont: .footnote) }
+                    ForEach(Array(headline.enumerated()), id: \.offset) { _, figure in
+                        FigureBlock(figure: figure, font: .title3, unitFont: .footnote)
+                    }
                 }
             }
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
@@ -160,7 +168,8 @@ struct MetricCardSection: View {
                 ZoneTimesView(heading: ZoneTimeRows.shared.heading(section: card.section), rows: zones)
             } else if missingZones, card.section == .HeartRate || card.section == .Power {
                 HStack(spacing: 12) {
-                    Text(ZoneTimeRows.shared.missing).font(.footnote).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(ZoneTimeRows.shared.missing).font(.footnote).foregroundStyle(.secondary).frame(
+                        maxWidth: .infinity, alignment: .leading)
                     Button(action: setThresholds) { Text(ZoneTimeRows.shared.setThresholds) }.buttonStyle(.borderless)
                 }
             }

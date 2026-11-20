@@ -11,18 +11,30 @@
 # Needs curl, osmium (brew install osmium-tool) and ogr2ogr (brew install gdal). scripts/segment-import.sh <region> runs this first.
 set -euo pipefail
 
-[[ $# -eq 1 ]] || { echo "usage: scripts/segment-fetch.sh <region>" >&2; exit 2; }
+[[ $# -eq 1 ]] || {
+  echo "usage: scripts/segment-fetch.sh <region>" >&2
+  exit 2
+}
 region="$1"
 cd "$(dirname "$0")/.."
 
 preset="scripts/segment-regions/$region.conf"
-[[ -f "$preset" ]] || { echo "No preset for $region: add $preset (see scripts/segment-regions/us-utah.conf)" >&2; exit 2; }
+[[ -f "$preset" ]] || {
+  echo "No preset for $region: add $preset (see scripts/segment-regions/us-utah.conf)" >&2
+  exit 2
+}
 GEOFABRIK='' BBOX='' AGENCIES=''
 # shellcheck source=/dev/null
 source "$preset"
-[[ -n "$GEOFABRIK" && -n "$BBOX" ]] || { echo "$preset must set GEOFABRIK and BBOX" >&2; exit 2; }
+[[ -n "$GEOFABRIK" && -n "$BBOX" ]] || {
+  echo "$preset must set GEOFABRIK and BBOX" >&2
+  exit 2
+}
 read -r west south east north <<<"$BBOX"
-[[ -n "$north" ]] || { echo "$preset: BBOX is west south east north" >&2; exit 2; }
+[[ -n "$north" ]] || {
+  echo "$preset: BBOX is west south east north" >&2
+  exit 2
+}
 
 missing=()
 command -v curl >/dev/null || missing+=("curl")

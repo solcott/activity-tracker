@@ -13,7 +13,10 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The Trail page (segments/path-page): a trail or road, its line, and every segment on it the athlete may find, one row per segment group.
@@ -21,13 +24,51 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @CircuitSerializable(SessionScope::class) data class PathScreen(val uri: String, val sport: String? = null) : Screen
 
-/** The Trail page's content: the path, its segment groups, longest first, and its data's [credit]. */
+/**
+ * The Trail page's content: the path, its segment groups, longest first, its data's [credit], and [sectioned], the groups as the list shows
+ * them when the path has sections (sections holding two or more of them, and the rest); empty when it has none.
+ */
 @Immutable
 data class PathContent(
     val path: PathView? = null,
     val groups: ImmutableList<SegmentGroupRow> = persistentListOf(),
     val credit: SegmentCredit? = null,
-)
+    val sectioned: ImmutableList<PathListItem> = persistentListOf(),
+) {
+    /** What the list shows, in order: [sectioned], or each of [groups] as a row when there are no sections. Worked out once. */
+    val items: ImmutableList<PathListItem> = sectioned.ifEmpty { groups.map { PathListItem.Group(it) }.toImmutableList() }
+
+    /** The sections among [items]. */
+    val sections: ImmutableList<PathListItem.Section> = items.filterIsInstance<PathListItem.Section>().toImmutableList()
+}
+
+/** One entry of the Trail page's list (segments/path-page): a segment group's row, or a section of rows. */
+@Immutable
+sealed interface PathListItem {
+    /** What the list keys the item by: the row's segment group, or the section's name. */
+    val key: String
+
+    /** A segment group in no section, or alone in its section. */
+    @Immutable
+    data class Group(val group: SegmentGroupRow) : PathListItem {
+        override val key: String
+            get() = group.shown.uri.value
+    }
+
+    /**
+     * A section of the path's trail family holding [rows], longest first. [summary] gathers every row's members, the longest row's first,
+     * so it reads like a segment group's row: its longest length, its sport groups and which ways they go.
+     */
+    @Immutable
+    data class Section(val name: String, val rows: ImmutableList<SegmentGroupRow>, val summary: SegmentGroupRow) : PathListItem {
+        override val key: String
+            get() = "section:$name"
+
+        /** Its rows' shown segments, by URI, as the map holds their lines. */
+        val lineUris: Set<String>
+            get() = rows.mapTo(mutableSetOf()) { it.shown.uri.value }
+    }
+}
 
 @Immutable
 data class PathState(
@@ -41,6 +82,8 @@ data class PathState(
     val selected: AtUri? = null,
     /** Where the map should move: the whole path when loaded, or a selected row's line; a new [MapCameraRequest.id] moves it once. */
     val camera: MapCameraRequest? = null,
+    /** The names of the sections collapsed; every section starts expanded. */
+    val collapsed: ImmutableSet<String> = persistentSetOf(),
     val eventSink: (PathEvent) -> Unit = {},
 ) : CircuitUiState {
     /** The path, once loaded. */
@@ -58,6 +101,32 @@ data class PathState(
     /** Whether "Show all sports" is offered: while the list is narrowed to one sport group. */
     val offersAllSports: Boolean
         get() = sport != null
+
+    /** What the list holds, in order: sections and the rows in none. Swift reads it as an array, empty or not. */
+    val items: List<PathListItem>
+        get() = content.data.items
+
+    /** The sections listed. */
+    val sections: List<PathListItem.Section>
+        get() = content.data.sections
+
+    /** Whether [section]'s rows are shown. */
+    fun isExpanded(section: PathListItem.Section): Boolean = section.name !in collapsed
+
+    /** Whether the list offers to expand or collapse every section at once: with two or more sections. */
+    val offersAllSections: Boolean
+        get() = sections.size >= 2
+
+    /** Whether every section is expanded, so the all-sections control collapses them; else it expands them. */
+    val allSectionsExpanded: Boolean
+        get() = sections.none { it.name in collapsed }
+
+    /** The event for the all-sections control. */
+    val allSectionsEvent: PathEvent
+        get() = PathEvent.SetAllSections(expanded = !allSectionsExpanded)
+
+    /** The event for a tap on [section]'s row. */
+    fun toggleEvent(section: PathListItem.Section): PathEvent = PathEvent.ToggleSection(section.name)
 
     /** Whether there's nothing to list once loaded. */
     val empty: Boolean
@@ -102,4 +171,10 @@ sealed interface PathEvent {
 
     /** Lists every sport group's segments. */
     data object ShowAllSports : PathEvent
+
+    /** A tap on a section's row: collapses it when expanded, else expands it. */
+    data class ToggleSection(val name: String) : PathEvent
+
+    /** Expands every section, or collapses every one. */
+    data class SetAllSections(val expanded: Boolean) : PathEvent
 }

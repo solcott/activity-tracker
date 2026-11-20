@@ -141,6 +141,67 @@ class SegmentPathsTest : SegmentTestBase() {
         assertEquals(listOf(PathOneWay("ride", "eastbound")), hogbackView.oneWays, "by compass with no climb")
     }
 
+    /** Ann's as a path with [sections], each a name and the importer segment keys named after it. */
+    private fun sectionedPath(vararg sections: Pair<String, List<String>>) {
+        val json =
+            sections.joinToString(",", prefix = ",\"sections\":[", postfix = "]") { (name, keys) ->
+                """{"name":"$name","segments":[${keys.joinToString(",") { "\"$it\"" }}]}"""
+            }
+        commit(importer, Nsid.FEED_PATH, "anns", pathJson(anns).replace(",\"createdAt\"", "$json,\"createdAt\""))
+    }
+
+    private suspend fun io.ktor.client.HttpClient.sectionsOfAnns(viewer: String = carol) =
+        xrpcOk(GetPath.method, mapOf("uri" to pathUri("anns")), viewer = viewer).sections.map { section ->
+            section.name to section.segments.map { it.value.substringAfterLast('/') }
+        }
+
+    @Test
+    fun aPathServesItsSectionsForWhatTheViewerGets() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        importerSegment("osm-a", listOf(0.0 to 0.0, 0.0 to 3000.0), "ride", oneWay = true)
+        importerSegment("osm-b", listOf(0.0 to 3000.0, 0.0 to 4500.0), "ride", oneWay = true)
+        importerSegment("osm-c", listOf(0.0 to 0.0, 0.0 to 2000.0), "run", oneWay = true)
+        importerSegment("osm-d", listOf(0.0 to 2500.0, 0.0 to 4500.0), "run", oneWay = true)
+        sectionedPath(
+            "Through the Trees Trail" to listOf("osm-b", "osm-a", "never-indexed"),
+            "Exit Stage Left" to listOf("osm-c", "osm-a"),
+            "Limelight" to listOf("osm-d"),
+            " " to listOf("osm-d"),
+        )
+        assertEquals(
+            listOf(
+                "Through the Trees Trail" to listOf("osm-a", "osm-b"),
+                "Exit Stage Left" to listOf("osm-c"),
+                "Limelight" to listOf("osm-d"),
+            ),
+            client.sectionsOfAnns(),
+            "record order; a key in two sections stays in the first; listed in the segments' order; unknown keys and blank names dropped",
+        )
+
+        db.tx {
+            Segments.update({ Segments.uri inList listOf(segmentUri("osm-d", importer)) }) { it[Segments.status] = SegmentStatus.ARCHIVED }
+        }
+        assertEquals(
+            listOf("Through the Trees Trail", "Exit Stage Left"),
+            client.sectionsOfAnns().map { it.first },
+            "nothing visible, left out",
+        )
+
+        sectionedPath("Exit Stage Left" to listOf("osm-a"))
+        assertEquals(listOf("Exit Stage Left" to listOf("osm-a")), client.sectionsOfAnns(), "indexing again replaces them")
+        commit(importer, Nsid.FEED_PATH, "anns", pathJson(anns))
+        assertEquals(emptyList(), client.sectionsOfAnns(), "a record without sections has none")
+    }
+
+    @Test
+    fun anAthletesPathSectionsAreNeverIndexed() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        importerSegment("osm-a", listOf(0.0 to 0.0, 0.0 to 3000.0), "ride", oneWay = true)
+        val json = pathJson(anns).replace(",\"createdAt\"", ",\"sections\":[{\"name\":\"Mine\",\"segments\":[\"osm-a\"]}],\"createdAt\"")
+        commit(bob, Nsid.FEED_PATH, "anns", json)
+        assertEquals("NotFound", client.xrpcError(GetPath.method, mapOf("uri" to pathUri("anns", bob)), viewer = carol))
+    }
+
     @Test
     fun anAthletesOneWayFlagDoesntMakeAPathOneWay() = testApplication {
         application { appView(withImporter, db, verifier) }

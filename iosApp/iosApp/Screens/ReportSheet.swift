@@ -58,7 +58,9 @@ struct ReportSheet: View {
     /// A reason, checked once chosen; a tap chooses it, as the shared sheet's chip does.
     private func reasonRow(_ choice: ReportReasonChoice) -> some View {
         let chosen = state.chose(choice: choice)
-        return Button { send(ReportEvent.PickReason(reason: choice.reason)) } label: {
+        return Button {
+            send(ReportEvent.PickReason(reason: choice.reason))
+        } label: {
             HStack {
                 Text(choice.label).foregroundStyle(Color.primary)
                 Spacer()
@@ -81,8 +83,12 @@ struct ReportSheet: View {
                 if state.sending {
                     AppProgress(small: true)
                 } else {
-                    Button { send(ReportEvent.Send.shared) } label: { Text(ReportTexts.shared.send) }
-                        .disabled(!state.canSend)
+                    Button {
+                        send(ReportEvent.Send.shared)
+                    } label: {
+                        Text(ReportTexts.shared.send)
+                    }
+                    .disabled(!state.canSend)
                 }
             }
         }
@@ -144,7 +150,9 @@ private struct ReportingModifier: ViewModifier {
                 Text(reporting.confirmBlock.map { ReportTexts.shared.blockConfirmTitle(offer: $0) } ?? ReportTexts.shared.block),
                 isPresented: confirming
             ) {
-                Button(role: .destructive) { reporting.eventSink(ReportingEvent.ConfirmBlock(confirmed: true)) } label: {
+                Button(role: .destructive) {
+                    reporting.eventSink(ReportingEvent.ConfirmBlock(confirmed: true))
+                } label: {
                     Text(ReportTexts.shared.block)
                 }
                 Button(.actionCancel, role: .cancel) { reporting.eventSink(ReportingEvent.ConfirmBlock(confirmed: false)) }

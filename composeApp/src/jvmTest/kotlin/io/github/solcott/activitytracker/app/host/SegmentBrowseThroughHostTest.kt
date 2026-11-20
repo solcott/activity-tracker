@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.location.FakeLocationTracker
+import io.github.solcott.activitytracker.location.TrackerPlaceLocator
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -49,7 +50,8 @@ class SegmentBrowseThroughHostTest {
                     setOf(
                         Presenter.Factory { screen, navigator, _ ->
                             when (screen) {
-                                SegmentBrowseScreen -> presenterOf { SegmentBrowsePresenter(navigator, segments, repos.feed, tracker) }
+                                SegmentBrowseScreen ->
+                                    presenterOf { SegmentBrowsePresenter(navigator, segments, repos.feed, TrackerPlaceLocator(tracker)) }
                                 else -> IdlePresenter
                             }
                         },

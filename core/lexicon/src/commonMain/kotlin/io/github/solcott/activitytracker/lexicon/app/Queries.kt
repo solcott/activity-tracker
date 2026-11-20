@@ -511,7 +511,11 @@ object SearchSegmentNames {
 object GetPath {
     @Serializable data class Params(val uri: AtUri)
 
-    @Serializable data class Output(val path: PathView, val segments: List<SegmentView>)
+    /** [sections]: the path's sections holding any of [segments], in its record's order, each with only those segments. */
+    @Serializable data class Output(val path: PathView, val segments: List<SegmentView>, val sections: List<SectionView> = emptyList())
+
+    /** `app.activitytracker.feed.getPath#sectionView`: a section of the path and the URIs of the returned segments in it. */
+    @Immutable @Serializable data class SectionView(val name: String, val segments: List<AtUri>)
 
     val method = XrpcQuery(Nsid.FEED_GET_PATH, Params.serializer(), Output.serializer())
 }

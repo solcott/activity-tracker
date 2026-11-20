@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
+import io.github.solcott.activitytracker.appview.db.PathSectionSegments
 import io.github.solcott.activitytracker.appview.db.PathSegments
 import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -334,7 +335,36 @@ class SegmentViews(
                 .where { (PathSegments.pathUri eq params.uri.value) and onPathListed(viewer) }
                 .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
                 .toList()
-        GetPath.Output(pathViews(viewer, listOf(row)).single(), views(segments))
+        val views = views(segments)
+        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }))
+    }
+
+    /**
+     * [path]'s sections holding any of [listed], in its record's order, each with only those, in [listed]'s order (segments/segment-paths):
+     * sections only narrow what the viewer already gets.
+     */
+    private fun JdbcTransaction.sectionsOf(path: AtUri, listed: List<AtUri>): List<GetPath.SectionView> {
+        if (listed.isEmpty()) return emptyList()
+        // Only the listed segments' rows, so a family of thousands of section keys costs no more than the segments the viewer gets.
+        val bySegment =
+            listed
+                .map { it.value }
+                .chunked(SECTION_CHUNK)
+                .flatMap { chunk ->
+                    PathSectionSegments.selectAll()
+                        .where { (PathSectionSegments.pathUri eq path.value) and (PathSectionSegments.segmentUri inList chunk) }
+                        .map {
+                            it[PathSectionSegments.segmentUri] to
+                                (it[PathSectionSegments.sectionOrder] to it[PathSectionSegments.sectionName])
+                        }
+                }
+                .toMap()
+        return listed
+            .mapNotNull { uri -> bySegment[uri.value]?.let { it to uri } }
+            .groupBy({ it.first }, { it.second })
+            .entries
+            .sortedBy { (section, _) -> section.first }
+            .map { (section, uris) -> GetPath.SectionView(section.second, uris) }
     }
 
     /** The views of up to [GetPaths.MAX_URIS] paths, in the order asked, leaving out those not indexed. */
@@ -1046,6 +1076,9 @@ internal data class DateWindow(val since: String?, val until: String?)
 
 /** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
 private const val LAST_DAYS = 90L
+
+/** How many segment URIs one `IN` list of `sectionsOf` carries. */
+private const val SECTION_CHUNK = 1_000
 
 /** A search box, 1e-7 degrees. */
 internal data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)

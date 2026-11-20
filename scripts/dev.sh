@@ -211,8 +211,8 @@ ensure_lexicons() {
     # Not `up -d pds`: the relay and Jetstream share the PDS's network namespace, and only a full `up`
     # recreates them along with it.
     "${COMPOSE[@]}" up -d --remove-orphans
-    wait_http "http://localhost:2583/xrpc/_health" 180 "PDS recreated with lexicon authority $did" \
-      || die "PDS not healthy; see: ${COMPOSE[*]} logs pds"
+    wait_http "http://localhost:2583/xrpc/_health" 180 "PDS recreated with lexicon authority $did" ||
+      die "PDS not healthy; see: ${COMPOSE[*]} logs pds"
     wait_http "http://localhost:2470/xrpc/_health" 180 "relay :2470" || die "relay not healthy; see: ${COMPOSE[*]} logs relay"
   else
     ok "lexicons.test ($did)"
@@ -306,7 +306,11 @@ ensure_app_links() {
     set_env ANDROID_CERT_SHA256 "$sha"
     RESTART_APPVIEW=1
   fi
-  [[ -n ${sha:-} ]] && ok "Android App Links: debug keystore $sha" || warn "no debug keystore (or keytool): Android verifies no links"
+  if [[ -n ${sha:-} ]]; then
+    ok "Android App Links: debug keystore $sha"
+  else
+    warn "no debug keystore (or keytool): Android verifies no links"
+  fi
 
   team=$(user_property activitytracker.appleTeamId)
   [[ -z $team ]] && team=$(property activitytracker.appleTeamId)
@@ -456,8 +460,9 @@ ensure_named_tunnel() {
   step "cloudflared named tunnel"
   local host=$1 waited=0
   migrate_device_config "$host"
-  [[ -f $DEVICE_CONFIG ]] && grep -q "hostname: $host\$" "$DEVICE_CONFIG" \
-    || die "no tunnel config for $host; run: scripts/dev.sh device-setup"
+  if ! [[ -f $DEVICE_CONFIG ]] || ! grep -q "hostname: $host\$" "$DEVICE_CONFIG"; then
+    die "no tunnel config for $host; run: scripts/dev.sh device-setup"
+  fi
   if [[ -n $(tunnel_pids) ]]; then
     pkill -f "cloudflared tunnel --url http://localhost:$APPVIEW_PORT" || true
     ok "stopped the quick tunnel (device mode doesn't use it)"
@@ -511,10 +516,10 @@ cmd_device_setup() {
   appview=$(sibling appview "$host")
   step "Zone $zone"
   # Exactly one level: Cloudflare's free certificate covers *.zone, not *.dev.zone, so the host's parent must be the zone.
-  [[ -n $(dig +noall +answer SOA "$zone" @1.1.1.1 | awk -v z="$zone." '$1 == z && $4 == "SOA"') ]] \
-    || die "$zone isn't a DNS zone: $DEVICE_HOST_KEY must be exactly one label below the zone you added to Cloudflare"
-  dig +short NS "$zone" @1.1.1.1 | grep -q '\.ns\.cloudflare\.com\.$' \
-    || die "$zone isn't on Cloudflare's nameservers yet (dig NS $zone): add it to Cloudflare and switch its nameservers first"
+  [[ -n $(dig +noall +answer SOA "$zone" @1.1.1.1 | awk -v z="$zone." '$1 == z && $4 == "SOA"') ]] ||
+    die "$zone isn't a DNS zone: $DEVICE_HOST_KEY must be exactly one label below the zone you added to Cloudflare"
+  dig +short NS "$zone" @1.1.1.1 | grep -q '\.ns\.cloudflare\.com\.$' ||
+    die "$zone isn't on Cloudflare's nameservers yet (dig NS $zone): add it to Cloudflare and switch its nameservers first"
   ok "$zone is on Cloudflare"
   step "Tunnel $DEVICE_TUNNEL"
   if [[ ! -f $HOME/.cloudflared/cert.pem ]]; then
@@ -730,7 +735,7 @@ ensure_android() {
   if [[ ${URL_CHANGED:-0} == 1 || ${LABELER_CHANGED:-0} == 1 || ${FORCE_ANDROID:-0} == 1 ]]; then
     echo "    installing the debug app (${URL_CHANGED:+tunnel URL changed}${LABELER_CHANGED:+labeler changed}${FORCE_ANDROID:+--android})"
     ./gradlew -q :androidApp:installDebug || die "installDebug failed"
-    ok "installed on: $(echo $devices)"
+    ok "installed on: ${devices//$'\n'/ }"
   fi
 }
 
@@ -755,7 +760,10 @@ cmd_up() {
   SEEDS=()
   while (($#)); do
     case $1 in
-      --seed) SEEDS+=("${2:?--seed needs a name}"); shift ;;
+      --seed)
+        SEEDS+=("${2:?--seed needs a name}")
+        shift
+        ;;
       --android) FORCE_ANDROID=1 ;;
       --no-android) NO_ANDROID=1 ;;
       --no-tunnel) NO_TUNNEL=1 ;;
@@ -884,7 +892,10 @@ cmd_down() {
 }
 
 case ${1:-up} in
-  up) shift || true; cmd_up "$@" ;;
+  up)
+    shift || true
+    cmd_up "$@"
+    ;;
   status) cmd_status ;;
   down) cmd_down ;;
   device-setup) cmd_device_setup ;;

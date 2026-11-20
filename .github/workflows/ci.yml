@@ -124,6 +124,10 @@ jobs:
           EOF
           sysctl -n hw.memsize hw.ncpu
 
+      # swift-format and SwiftLint over the app's Swift. `check` skips them on Linux, where there is no Xcode.
+      - name: Lint the iOS app's Swift
+        run: ./gradlew lintSwift
+
       # Its build phase runs :iosExport:embedSwiftExportForXcode and :iosExport:checkSwiftExportStubs, then Xcode compiles the generated
       # Swift and the app's own. The ad-hoc signature needs no team and no secret.
       - name: Build the iOS app

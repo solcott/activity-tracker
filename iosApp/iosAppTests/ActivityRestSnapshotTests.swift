@@ -15,7 +15,9 @@ struct ActivityRestSnapshotTests {
     nonisolated private static let galleries = [
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "report", "zoomed", "blurred", "takenDown",
     ]
-    nonisolated private static let pickers = ["loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "combining", "combineFailed"]
+    nonisolated private static let pickers = [
+        "loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "combining", "combineFailed",
+    ]
     private static let tall = CGSize(width: 393, height: 2_600)
 
     @Test(arguments: pages)

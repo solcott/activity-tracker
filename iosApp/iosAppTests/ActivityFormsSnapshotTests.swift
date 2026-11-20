@@ -49,7 +49,8 @@ struct ActivityFormsSnapshotTests {
 
     @Test func gearSheet() throws {
         let state = try #require(Samples.manualActivityVariants["full"])
-        assertAppSnapshot(of: GearFieldSheet(field: state.gear), size: CGSize(width: 393, height: 500), named: "full",
+        assertAppSnapshot(
+            of: GearFieldSheet(field: state.gear), size: CGSize(width: 393, height: 500), named: "full",
             precision: Snapshots.barButtons)
     }
 

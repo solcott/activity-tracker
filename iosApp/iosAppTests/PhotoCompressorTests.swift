@@ -123,7 +123,10 @@ struct PhotoCompressorTests {
         let tagged = try picture(
             width: 640, height: 480,
             properties: [kCGImagePropertyGPSDictionary: gps, kCGImagePropertyExifDictionary: [kCGImagePropertyExifUserComment: "alice"]]
-        ) { $0.setFillColor(red: 0.2, green: 0.6, blue: 0.4, alpha: 1); $0.fill(CGRect(x: 0, y: 0, width: 640, height: 480)) }
+        ) {
+            $0.setFillColor(red: 0.2, green: 0.6, blue: 0.4, alpha: 1)
+            $0.fill(CGRect(x: 0, y: 0, width: 640, height: 480))
+        }
         let source = try #require(CGImageSourceCreateWithData(tagged as CFData, nil))
         let original = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
         #expect(original[kCGImagePropertyGPSDictionary] != nil)
@@ -137,7 +140,8 @@ struct PhotoCompressorTests {
 
     @Test func aHeicIsReadDirectly() async throws {
         let heic = try picture(width: 1_200, height: 900, type: .heic) {
-            $0.setFillColor(red: 0.9, green: 0.4, blue: 0.1, alpha: 1); $0.fill(CGRect(x: 0, y: 0, width: 1_200, height: 900))
+            $0.setFillColor(red: 0.9, green: 0.4, blue: 0.1, alpha: 1)
+            $0.fill(CGRect(x: 0, y: 0, width: 1_200, height: 900))
         }
         let photo = try #require(await PhotoCompressor.compress(heic))
         #expect(isWebP(photo.bytes))

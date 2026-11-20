@@ -282,6 +282,31 @@ class CandidateCutterTest {
         assertTrue("Oak: Rush - Dreamline → Aqueduct" in names, "$names")
     }
 
+    /** A trail of [name] north along lng -72.7, 8 nodes 500 m apart, as two ways split at the middle node, crossed at nodes 3 and 6. */
+    private fun crossedTrail(name: String, atThree: String, atSix: String) = osm {
+        for (i in 0 until 8) node(i + 1L, north(44.4, i * 500.0), -72.7)
+        way(100, 1, 2, 3, 4, 5, tags = path(name))
+        way(101, 5, 6, 7, 8, tags = path(name))
+        crossing(20, at = 3, tags = path(atThree))
+        crossing(30, at = 6, tags = path(atSix))
+    }
+
+    @Test
+    fun aStretchBetweenTwoOfItsFamilysSectionsIsNamedByThemAlone() {
+        val data = crossedTrail("Rush Trail", "Rush Trail - Exit Stage Left Section", "Rush Trail - Mystic Rhythms Section")
+        val names = candidates(data).map { it.name }.toSet()
+        assertTrue("Rush - Exit Stage Left → Rush - Mystic Rhythms" in names, "$names")
+        assertTrue("Rush - Mystic Rhythms → Rush - Exit Stage Left" in names, "the way back")
+        assertTrue(names.none { it.startsWith("Rush: ") }, "no trail name before two of its own sections: $names")
+    }
+
+    @Test
+    fun aSectionsStretchKeepsItsTrailsName() {
+        val data = crossedTrail("Rush Trail - Through the Trees Trail Section", "Rush Trail - Exit Stage Left Section", "Rush Access Trail")
+        val names = candidates(data).map { it.name }.toSet()
+        assertTrue("Rush - Through the Trees Trail: Rush - Exit Stage Left → Rush Access" in names, "$names")
+    }
+
     @Test
     fun aRegionWithNoWordListKeepsItsNames() {
         val data = osm {

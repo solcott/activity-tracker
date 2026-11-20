@@ -16,6 +16,8 @@ import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapSegmentRole
 import io.github.solcott.activitytracker.app.SegmentsMap
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * [SegmentsMap]'s stand-in where MapLibre can't run (previews, tests and screenshot tools): every line scaled together to fit, runs in the
@@ -28,8 +30,12 @@ internal fun SegmentsPreview(
     selected: String?,
     modifier: Modifier = Modifier,
     hovered: String? = null,
+    hoveredLines: ImmutableSet<String> = persistentSetOf(),
 ) {
-    val map = remember(segments, selected, hovered) { SegmentsMap.of(segments, selected, hovered) }
+    val map =
+        remember(segments, selected, hovered, hoveredLines) {
+            SegmentsMap.of(segments, selected, hoveredLines = hoveredLines + setOfNotNull(hovered))
+        }
     val run = MaterialTheme.colorScheme.primary
     val lift = MaterialTheme.colorScheme.outline
     val highlight = MaterialTheme.colorScheme.tertiary

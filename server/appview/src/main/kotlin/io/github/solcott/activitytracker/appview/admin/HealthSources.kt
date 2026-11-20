@@ -11,11 +11,13 @@ import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -38,8 +40,11 @@ class HealthSources(
     val sizes: DatabaseSizes = DatabaseSizes.Unavailable,
     val clock: Clock = Clock.System,
 ) {
-    /** How many spaces are synced, failing, reported missing by their host, and due now. */
-    data class SpaceCounts(val synced: Long, val failing: Long, val notFound: Long, val due: Long)
+    /**
+     * How many spaces are synced, failing, reported missing by their host, and due now, and how many are failing for another reason than
+     * their host reporting them missing ([failingOther]).
+     */
+    data class SpaceCounts(val synced: Long, val failing: Long, val notFound: Long, val due: Long, val failingOther: Long = 0)
 
     /** One failing space, by identifier: no record of it, no token or hash. */
     data class FailingSpace(
@@ -60,12 +65,14 @@ class HealthSources(
         val failing = countOf(SpaceSync.failures greater 0)
         val notFound = countOf(SpaceSync.notFoundSince.isNotNull())
         val due = countOf(SpaceSync.nextAttemptAt lessEq now)
-        val row = SpaceSync.select(total, failing, notFound, due).single()
+        val failingOther = countOf((SpaceSync.failures greater 0) and SpaceSync.notFoundSince.isNull())
+        val row = SpaceSync.select(total, failing, notFound, due, failingOther).single()
         SpaceCounts(
             synced = row[total],
             failing = row[failing]?.toLong() ?: 0,
             notFound = row[notFound]?.toLong() ?: 0,
             due = row[due]?.toLong() ?: 0,
+            failingOther = row[failingOther]?.toLong() ?: 0,
         )
     }
 

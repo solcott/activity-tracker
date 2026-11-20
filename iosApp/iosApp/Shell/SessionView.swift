@@ -71,7 +71,11 @@ private struct StackView: View {
                         StackDestination(record: entry.record, stack: stack).id(entry.record.key)
                     }
             }
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { stack.setSize(width: Double($0.width), height: Double($0.height)) }
+            .onGeometryChange(for: CGSize.self) {
+                $0.size
+            } action: {
+                stack.setSize(width: Double($0.width), height: Double($0.height))
+            }
         }
     }
 

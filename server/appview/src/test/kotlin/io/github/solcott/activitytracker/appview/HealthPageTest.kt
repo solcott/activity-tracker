@@ -165,11 +165,17 @@ class HealthPageTest : AdminTestBase() {
         val before = http.page("/admin/health/jetstream", cookie).bodyAsText()
         assertTrue("2026-11-18T11:50:00Z" in before)
         assertTrue("No event indexed yet" in before)
+        // Stamped 11:58, received at 12:00: two minutes behind when it arrived.
         consumer.lastEventUs.set(us(now - 2.minutes))
+        consumer.lastReceivedAtMs.set(now.toEpochMilliseconds())
         val after = http.page("/admin/health/jetstream", cookie).bodyAsText()
         assertTrue("2026-11-18T11:58:00Z" in after)
-        assertTrue("2m" in after, after)
+        assertTrue("Catch-up lag" in after && ">2 min<" in after, after)
         assertTrue("2026-11-17T12:00:00Z" in after, "the earliest rewind")
+        // Three quiet hours later the lag is still the two minutes it had when the event arrived.
+        now += 3.hours
+        val quiet = http.page("/admin/health/jetstream", cookie).bodyAsText()
+        assertTrue(">2 min<" in quiet && "3 h ago" in quiet, quiet)
     }
 
     @Test

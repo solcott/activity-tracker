@@ -11,8 +11,9 @@ struct AppStringsTests {
 
     @Test func aSymbolReadsAsTheSharedString() {
         #expect(String(localized: .loginSignIn) == "Sign in")
-        #expect(String(localized: .errorWithReason("Couldn't load your feed", "Couldn't reach the server."))
-            == "Couldn't load your feed. Couldn't reach the server.")
+        #expect(
+            String(localized: .errorWithReason("Couldn't load your feed", "Couldn't reach the server."))
+                == "Couldn't load your feed. Couldn't reach the server.")
     }
 
     @Test func aPercentSignIsWrittenOnce() {

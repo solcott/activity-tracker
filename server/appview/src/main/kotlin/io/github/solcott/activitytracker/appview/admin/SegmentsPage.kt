@@ -20,7 +20,6 @@ import kotlinx.html.checkBoxInput
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.h2
-import kotlinx.html.hiddenInput
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.option
@@ -31,7 +30,6 @@ import kotlinx.html.tbody
 import kotlinx.html.td
 import kotlinx.html.textInput
 import kotlinx.html.th
-import kotlinx.html.thead
 import kotlinx.html.tr
 import org.jetbrains.exposed.v1.jdbc.Database
 
@@ -55,6 +53,8 @@ class SegmentsPage(
         return listOf(path, "$path?uri=$q", "$path?name=$q", "$path/segment?uri=$q")
     }
 
+    override suspend fun summary(now: Instant): List<Tile> = tilesOf(pins.orphanedPinCount(), queries.importerRuns(), now)
+
     override fun AdminRoutes.install() {
         get(path) {
             val query = call.request.queryParameters
@@ -71,18 +71,21 @@ class SegmentsPage(
             val results = queries.search(search, param("cursor"))
             val runs = queries.importerRuns()
             val orphans = pins.orphanedPins(PINS_PAGE + 1, param("pinsAfter"))
+            val now = now
             page(title) {
+                if (admin.isOperator) outcome(OUTCOME)
                 searchForm(search)
                 results(search, results)
-                importer(runs)
-                orphanedPins(admin, orphans)
+                importer(runs, now)
+                orphanedPins(admin, orphans, now)
             }
         }
         get("$path/segment") {
             val uri = call.request.queryParameters["uri"]?.trim().orEmpty()
             val detail = uri.takeIf { it.isNotEmpty() }?.let { queries.detail(it) }
+            val now = now
             page("Segment") {
-                if (detail == null) p { +"No indexed segment at ${uri.ifEmpty { "(none given)" }}." } else segmentPage(admin, detail)
+                if (detail == null) p { +"No indexed segment at ${uri.ifEmpty { "(none given)" }}." } else segmentPage(admin, detail, now)
             }
         }
         installActions()
@@ -167,7 +170,7 @@ class SegmentsPage(
     // ---------------------------------------------------------------- The search page
 
     private fun FlowContent.searchForm(search: SegmentSearch) {
-        form(action = "/admin/$path", method = FormMethod.get) {
+        form(action = "/admin/$path", method = FormMethod.get, classes = "filters") {
             field("AT-URI or rkey", "uri", search.uri)
             field("Name", "name", search.name)
             label {
@@ -192,7 +195,7 @@ class SegmentsPage(
             field("Importer region", "region", search.region)
             button { +"Search" }
         }
-        p { +"Region search finds segments whose candidates are still staged; search by URI finds the rest." }
+        p("muted") { +"Region search finds segments whose candidates are still staged; search by URI finds the rest." }
     }
 
     private fun FlowContent.results(search: SegmentSearch, results: SegmentResults) {
@@ -200,18 +203,15 @@ class SegmentsPage(
             p { +"No segment found." }
             return
         }
-        table {
-            thead { tr { listOf("Segment", "Name", "Status", "Sport", "Kind", "Author").forEach { th { +it } } } }
-            tbody {
-                results.rows.forEach { row ->
-                    tr {
-                        td { segmentLink(row.uri) }
-                        td { +(row.name ?: WITHHELD) }
-                        td { +row.status }
-                        td { +row.sport }
-                        td { +row.kind }
-                        td { +row.authorDid }
-                    }
+        dataTable(listOf("Segment", "Name", "Status", "Sport", "Kind", "Author")) {
+            results.rows.forEach { row ->
+                tr {
+                    td { segmentLink(row.uri) }
+                    td { +(row.name ?: WITHHELD) }
+                    td { statusBadge(row.status) }
+                    td { +row.sport }
+                    td { +row.kind }
+                    td { +row.authorDid }
                 }
             }
         }
@@ -224,38 +224,38 @@ class SegmentsPage(
         }
     }
 
-    private fun FlowContent.importer(runs: List<ImporterRun>?) {
-        h2 { +"Importer" }
+    private fun FlowContent.importer(runs: List<ImporterRun>?, now: Instant) {
+        h2 {
+            attributes["id"] = IMPORTER_SECTION
+            +"Importer"
+        }
         when {
             runs == null -> p { +"No segment importer is configured." }
             runs.isEmpty() -> p { +"No candidates are staged." }
             else ->
-                table {
-                    thead {
+                dataTable(
+                    listOf("Region", "Revision", "Candidates", "Ridden, unpublished", "Published", "Last staged"),
+                    numeric = setOf("Candidates", "Ridden, unpublished", "Published"),
+                ) {
+                    runs.forEach { run ->
                         tr {
-                            listOf("Region", "Revision", "Candidates", "Ridden, unpublished", "Published", "Last staged").forEach {
-                                th { +it }
-                            }
-                        }
-                    }
-                    tbody {
-                        runs.forEach { run ->
-                            tr {
-                                td { +run.region }
-                                td { +run.revision }
-                                td { +"${run.candidates}" }
-                                td { +"${run.riddenUnpublished}" }
-                                td { +"${run.published}" }
-                                td { +time(run.lastStagedAt) }
-                            }
+                            td { +run.region }
+                            td { +run.revision }
+                            num(run.candidates)
+                            num(run.riddenUnpublished)
+                            num(run.published)
+                            timeCell(instantOfMs(run.lastStagedAt), now)
                         }
                     }
                 }
         }
     }
 
-    private fun FlowContent.orphanedPins(admin: Admin, fetched: List<SegmentPin>) {
-        h2 { +"Pins on missing segments" }
+    private fun FlowContent.orphanedPins(admin: Admin, fetched: List<SegmentPin>, now: Instant) {
+        h2 {
+            attributes["id"] = PINS_SECTION
+            +"Pins on missing segments"
+        }
         // A page ends between segments, since the cursor is a segment URI and a segment has up to two pins.
         val more = fetched.size > PINS_PAGE
         val page =
@@ -265,105 +265,105 @@ class SegmentsPage(
             p { +"None." }
             return
         }
-        pinsTable(admin, page, showSegment = true)
+        pinsTable(admin, page, showSegment = true, now)
         if (more) p { a(href = "/admin/$path?pinsAfter=${page.last().segmentUri.encodeURLParameter()}") { +"More pins" } }
     }
 
     // ---------------------------------------------------------------- A segment's page
 
-    private fun FlowContent.segmentPage(admin: Admin, d: SegmentDetail) {
-        table {
-            tbody {
-                row("URI", d.uri)
-                row("Author", d.authorDid)
-                row("Sport group", d.sport)
-                row("Kind", d.kind)
-                row("Distance", "${d.distanceM} m")
-                row("First indexed", time(d.firstIndexedAt))
-                row("Indexed", time(d.indexedAt))
-                row("Original name", d.originalName ?: WITHHELD)
-                row("Current name", d.currentName ?: WITHHELD)
-                row("Status", d.status)
-                row("Duplicate of", d.duplicateOf ?: "—")
-                row("Segment group", d.groupUri)
-                row("Efforts", "${d.efforts} from ${d.athletes} athletes, every visibility; ${d.activeAthletes} athletes make it active")
-                row("Queued jobs", d.queuedJobs.joinToString().ifEmpty { "none" })
+    private fun FlowContent.segmentPage(admin: Admin, d: SegmentDetail, now: Instant) {
+        div("table-wrap") {
+            table {
+                tbody {
+                    row("URI", d.uri)
+                    row("Author", d.authorDid)
+                    row("Sport group", d.sport)
+                    row("Kind", d.kind)
+                    row("Distance", "${d.distanceM} m")
+                    row("First indexed") { at(instantOfMs(d.firstIndexedAt), now) }
+                    row("Indexed") { at(instantOfMs(d.indexedAt), now) }
+                    row("Original name", d.originalName ?: WITHHELD)
+                    row("Current name", d.currentName ?: WITHHELD)
+                    row("Status") { statusBadge(d.status) }
+                    row("Duplicate of", d.duplicateOf ?: "—")
+                    row("Segment group", d.groupUri)
+                    row(
+                        "Efforts",
+                        "${d.efforts} from ${d.athletes} athletes, every visibility; ${d.activeAthletes} athletes make it active",
+                    )
+                    row("Queued jobs", d.queuedJobs.joinToString().ifEmpty { "none" })
+                }
             }
         }
         p { a(href = "/admin/audit?target=${d.uri.encodeURLParameter()}") { +"Audit log for this segment" } }
         elevation(d)
         h2 { +"Pins" }
-        if (d.pins.isEmpty()) p { +"None." } else pinsTable(admin, d.pins, showSegment = false)
-        proposals(d)
+        if (d.pins.isEmpty()) p { +"None." } else pinsTable(admin, d.pins, showSegment = false, now)
+        proposals(d, now)
         if (admin.isOperator) actions(admin, d)
     }
 
     private fun FlowContent.elevation(d: SegmentDetail) {
         val e = d.elevation
         h2 { +"Elevation" }
-        table {
-            tbody {
-                row("Served", e.served?.let { "+${it.gain} m / -${it.loss} m from ${it.source}" } ?: "none")
-                row(
-                    "Terrain",
-                    if (e.terrainGainM == null) "not covered or not sampled"
-                    else "+${e.terrainGainM} m / -${e.terrainLossM} m, max grade ${e.terrainMaxGrade?.let { "${it / TENTHS}%" } ?: "—"}",
-                )
-                row("Athletes with effort elevation", "${e.effortAthletes} (served from ${d.activeAthletes})")
-                row("From efforts", e.effortGainM?.let { "+$it m / -${e.effortLossM} m" } ?: "not served")
+        div("table-wrap") {
+            table {
+                tbody {
+                    row("Served", e.served?.let { "+${it.gain} m / -${it.loss} m from ${it.source}" } ?: "none")
+                    row(
+                        "Terrain",
+                        if (e.terrainGainM == null) "not covered or not sampled"
+                        else
+                            "+${e.terrainGainM} m / -${e.terrainLossM} m, max grade ${e.terrainMaxGrade?.let { "${it / TENTHS}%" } ?: "—"}",
+                    )
+                    row("Athletes with effort elevation", "${e.effortAthletes} (served from ${d.activeAthletes})")
+                    row("From efforts", e.effortGainM?.let { "+$it m / -${e.effortLossM} m" } ?: "not served")
+                }
             }
         }
     }
 
-    private fun FlowContent.proposals(d: SegmentDetail) {
+    private fun FlowContent.proposals(d: SegmentDetail, now: Instant) {
         h2 { +"Name proposals" }
         if (d.proposals.isEmpty()) {
             p { +"None." }
             return
         }
-        table {
-            thead { tr { listOf("Proposal", "Name", "Proposer", "State", "Opened", "Closed", "Up", "Down").forEach { th { +it } } } }
-            tbody {
-                d.proposals.forEach { proposal ->
-                    tr {
-                        td { +proposal.uri }
-                        td { +(proposal.name ?: WITHHELD) }
-                        td { +proposal.proposerDid }
-                        td { +proposal.state }
-                        td { +time(proposal.openedAt) }
-                        td { +(proposal.closedAt?.let(::time) ?: "—") }
-                        td { +"${proposal.up}" }
-                        td { +"${proposal.down}" }
-                    }
+        dataTable(listOf("Proposal", "Name", "Proposer", "State", "Opened", "Closed", "Up", "Down"), numeric = setOf("Up", "Down")) {
+            d.proposals.forEach { proposal ->
+                tr {
+                    td { +proposal.uri }
+                    td { +(proposal.name ?: WITHHELD) }
+                    td { +proposal.proposerDid }
+                    td { badge(proposal.state, null) }
+                    timeCell(instantOfMs(proposal.openedAt), now)
+                    timeCell(instantOfMs(proposal.closedAt), now)
+                    num(proposal.up)
+                    num(proposal.down)
                 }
             }
         }
     }
 
-    private fun FlowContent.pinsTable(admin: Admin, list: List<SegmentPin>, showSegment: Boolean) {
-        table {
-            thead {
+    private fun FlowContent.pinsTable(admin: Admin, list: List<SegmentPin>, showSegment: Boolean, now: Instant) {
+        val headers =
+            listOfNotNull("Segment".takeIf { showSegment }) +
+                listOf("Pin", "Value", "In effect", "By", "When", "Note") +
+                listOfNotNull("".takeIf { admin.isOperator })
+        dataTable(headers) {
+            list.forEach { pin ->
                 tr {
-                    if (showSegment) th { +"Segment" }
-                    listOf("Pin", "Value", "In effect", "By", "When", "Note").forEach { th { +it } }
-                    if (admin.isOperator) th {}
-                }
-            }
-            tbody {
-                list.forEach { pin ->
-                    tr {
-                        if (showSegment) td { +pin.segmentUri }
-                        td { +pin.kind }
-                        td { +pinValue(pin) }
-                        td { +(if (pin.inEffect) "yes" else "no") }
-                        td { +pin.pinnedBy }
-                        td { +time(pin.pinnedAt) }
-                        td { +pin.note.orEmpty() }
-                        if (admin.isOperator) {
-                            td {
-                                val action = if (pin.kind == SegmentPinKind.STATUS) "unpin-status" else "unpin-name"
-                                actionForm(admin, action, pin.segmentUri, "Unpin")
-                            }
+                    if (showSegment) td { +pin.segmentUri }
+                    td { +pin.kind }
+                    td { +pinValue(pin) }
+                    td { if (pin.inEffect) badge("in effect", TileStatus.Ok) else badge("not in effect", null) }
+                    td { +pin.pinnedBy }
+                    timeCell(instantOfMs(pin.pinnedAt), now)
+                    td { +pin.note.orEmpty() }
+                    if (admin.isOperator) {
+                        td {
+                            val action = if (pin.kind == SegmentPinKind.STATUS) "unpin-status" else "unpin-name"
+                            actionForm(admin, action, pin.segmentUri, "Unpin", confirm = "Unpin this segment's ${pin.kind}?")
                         }
                     }
                 }
@@ -381,10 +381,7 @@ class SegmentsPage(
 
     private fun FlowContent.actions(admin: Admin, d: SegmentDetail) {
         h2 { +"Actions" }
-        div {
-            attributes["id"] = OUTCOME
-            attributes["aria-live"] = "polite"
-        }
+        outcome(OUTCOME)
         actionForm(admin, "status-pass", d.uri, "Run status pass")
         actionForm(admin, "naming-pass", d.uri, "Run naming pass")
         actionForm(admin, "elevation", d.uri, "Recompute elevation")
@@ -442,21 +439,16 @@ class SegmentsPage(
     }
 
     /** A form posting [action] on [uri], with htmx into the outcome slot and the CSRF field so it works without htmx too. */
+    @Suppress("LongParameterList") // The shared form's settings, each but the first four with a default.
     private fun FlowContent.actionForm(
         admin: Admin,
         action: String,
         uri: String,
         label: String,
+        confirm: String? = null,
         fields: kotlinx.html.FORM.() -> Unit = {},
     ) {
-        form(action = "/admin/$path/$action", method = FormMethod.post) {
-            attributes["hx-post"] = "/admin/$path/$action"
-            attributes["hx-target"] = "#$OUTCOME"
-            hiddenInput(name = AdminSite.CSRF_FIELD) { value = admin.csrfToken }
-            hiddenInput(name = "target") { value = uri }
-            fields()
-            button { +label }
-        }
+        actionForm("/admin/$path/$action", label, admin.csrfToken, OUTCOME, target = uri, confirm = confirm, fields = fields)
     }
 
     private fun FlowContent.field(text: String, name: String, value: String?) {
@@ -470,17 +462,40 @@ class SegmentsPage(
         a(href = "/admin/$path/segment?uri=${uri.encodeURLParameter()}") { +uri }
     }
 
-    private fun kotlinx.html.TBODY.row(name: String, value: String) {
+    private fun kotlinx.html.TBODY.row(name: String, value: String) = row(name) { +value }
+
+    private fun kotlinx.html.TBODY.row(name: String, value: FlowContent.() -> Unit) {
         tr {
             th { +name }
-            td { +value }
+            td { value() }
         }
     }
 
-    private fun time(epochMillis: Long) = Instant.fromEpochMilliseconds(epochMillis).toString()
+    private fun FlowContent.statusBadge(status: String) {
+        badge(
+            status,
+            when (status) {
+                SegmentStatus.ACTIVE -> TileStatus.Ok
+                SegmentStatus.DUPLICATE -> TileStatus.Warn
+                else -> null
+            },
+        )
+    }
 
     companion object {
         const val PINS_PAGE = 50
+        private const val IMPORTER_SECTION = "importer"
+        private const val PINS_SECTION = "missing-pins"
+
+        /** The Segments page's tiles (admin/segment-tools): pins on missing segments, and the importer's latest staging if it has one. */
+        fun tilesOf(orphanedPins: Long, runs: List<ImporterRun>?, now: Instant): List<Tile> = buildList {
+            val pinsStatus = if (orphanedPins > 0) TileStatus.Warn else TileStatus.Ok
+            add(Tile("Pins on missing segments", "$orphanedPins", pinsStatus, "/admin/segments#$PINS_SECTION"))
+            if (runs != null) {
+                val latest = runs.maxOfOrNull { it.lastStagedAt }?.let { relative(Instant.fromEpochMilliseconds(it), now) }
+                add(Tile("Latest import", latest ?: "Nothing staged", null, "/admin/segments#$IMPORTER_SECTION"))
+            }
+        }
 
         /** The page `main` mounts: reads and passes built from [config], over the indexer's [pins] and [jobs]. */
         fun of(config: AppViewConfig, db: Database, pins: SegmentPins, jobs: SegmentJobs) =

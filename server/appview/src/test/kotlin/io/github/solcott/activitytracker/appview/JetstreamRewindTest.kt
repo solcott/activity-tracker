@@ -12,6 +12,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +21,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.h2.jdbcx.JdbcDataSource
@@ -42,6 +45,28 @@ class JetstreamRewindTest {
         val at = start + n.seconds
         return """{"${'$'}type":"message","payload":{"${'$'}type":"network.bsky.jetstream.subscribeEvents#commit",""" +
             """"did":"did:plc:alice","time":"$at","witnessedAt":"$at","operation":"create","collection":"app.example.other","rkey":"3k$n"}}"""
+    }
+
+    /** Catch-up lag (admin/ingest-health): the consumer records when each event arrived, so a quiet stream doesn't add to the lag. */
+    @Test
+    fun theConsumerRecordsWhenTheLastEventArrived() = runBlocking {
+        var clockNow = start + 2.minutes
+        val clock =
+            object : kotlin.time.Clock {
+                override fun now() = clockNow
+            }
+        val consumer =
+            JetstreamConsumer("ws://jetstream.test", db, Indexer(db, { "x.test" }), clock) { _, onText ->
+                onText(event(0))
+                awaitCancellation()
+            }
+        val job = launch { consumer.run() }
+        withTimeout(10.seconds) { while (consumer.lastEventUs.get() == 0L) delay(5) }
+        assertEquals((start + 2.minutes).toEpochMilliseconds(), consumer.lastReceivedAtMs.get())
+        assertEquals(start.epochSeconds * 1_000_000, consumer.lastEventUs.get(), "the event's own time")
+        clockNow += 3.hours
+        assertEquals((start + 2.minutes).toEpochMilliseconds(), consumer.lastReceivedAtMs.get(), "nothing arrived since")
+        job.cancel()
     }
 
     @Test

@@ -9,7 +9,9 @@ struct GearCollectionsSection: View {
     var body: some View {
         Section {
             ForEach(choices, id: \.rkey) { choice in
-                AppCheckRow(checked: choice.member) { toggle(choice) } label: {
+                AppCheckRow(checked: choice.member) {
+                    toggle(choice)
+                } label: {
                     Text(verbatim: choice.name).foregroundStyle(.primary)
                 }
             }

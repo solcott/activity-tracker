@@ -17,7 +17,8 @@ struct ArchiveShareTests {
     private func writes(_ success: Bool) -> ArchiveShare.Write {
         { archive, path in
             guard success else { return false }
-            try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(
+                atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
             return FileManager.default.createFile(atPath: path, contents: Data("zip".utf8))
         }
     }
@@ -50,7 +51,12 @@ struct ArchiveShareTests {
 
     @Test func aFailedWriteSaysSoAndOffersNothing() async throws {
         var presented = false
-        let share = ArchiveShare(write: writes(false), present: { _ in presented = true; return true }, folder: folder)
+        let share = ArchiveShare(
+            write: writes(false),
+            present: { _ in
+                presented = true
+                return true
+            }, folder: folder)
         #expect(await share.share(try archive) is AccountEvent.ExportSaveFailed)
         #expect(!presented)
     }

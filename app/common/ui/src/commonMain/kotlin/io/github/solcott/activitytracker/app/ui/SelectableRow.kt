@@ -41,20 +41,7 @@ fun SelectableRow(
         modifier
             .fillMaxWidth()
             .then(if (selected || hover.uri == key) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
-            .pointerInput(key) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.changes.firstOrNull()?.type != PointerType.Mouse) continue
-                        when (event.type) {
-                            PointerEventType.Enter -> hover.uri = key
-                            // Another row or the map may have taken the hover since.
-                            PointerEventType.Exit -> if (hover.uri == key) hover.uri = null
-                            else -> Unit
-                        }
-                    }
-                }
-            }
+            .mapBrowseHover(hover, key)
             .semantics { this.selected = selected }
             .clickable(onClickLabel = MapBrowseTexts.rowAction(selected, touch).string()) { if (touch) onTap() else onOpen() }
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -63,3 +50,22 @@ fun SelectableRow(
         Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+/**
+ * Puts [key] in [hover] while a mouse pointer is over this element, so the map highlights what [key] names, and takes it out when the
+ * pointer leaves, unless another row or the map has taken the hover since. Touch and stylus pointers never hover.
+ */
+fun Modifier.mapBrowseHover(hover: MapBrowseHover, key: String): Modifier =
+    pointerInput(hover, key) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent()
+                if (event.changes.firstOrNull()?.type != PointerType.Mouse) continue
+                when (event.type) {
+                    PointerEventType.Enter -> hover.uri = key
+                    PointerEventType.Exit -> if (hover.uri == key) hover.uri = null
+                    else -> Unit
+                }
+            }
+        }
+    }

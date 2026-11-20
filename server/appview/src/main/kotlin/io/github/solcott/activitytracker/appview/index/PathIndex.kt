@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.PathCellIndex
+import io.github.solcott.activitytracker.appview.db.PathSectionSegments
 import io.github.solcott.activitytracker.appview.db.PathSegments
 import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
@@ -69,6 +70,7 @@ internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUr
         it[Paths.sports] = sports
         it[indexedAt] = now
     }
+    replaceSections(uri, author, record.sections.orEmpty())
     if (!moved) return
     val cells = pieces.flatMapTo(mutableSetOf()) { SegmentCells.cellsOf(it) }
     // The segments it held too, since a path that moved may no longer be nearest to them.
@@ -113,6 +115,7 @@ private fun JdbcTransaction.deletePaths(uris: List<String>) {
             .where { PathSegments.pathUri inList uris }
             .mapTo(mutableSetOf()) { it[PathSegments.segmentUri] }
     PathSegments.deleteWhere { pathUri inList uris }
+    PathSectionSegments.deleteWhere { pathUri inList uris }
     PathCellIndex.deleteWhere { pathUri inList uris }
     Paths.deleteWhere { Paths.uri inList uris }
     repathSegments(held)

@@ -54,7 +54,8 @@ struct ImportActivityView: View {
             }
             .listStyle(.insetGrouped)
             .sheet(
-                isPresented: Binding(get: { state.batch?.preview != nil }, set: { shown in if !shown { send(ImportActivityEvent.ItemClosed.shared) } })
+                isPresented: Binding(
+                    get: { state.batch?.preview != nil }, set: { shown in if !shown { send(ImportActivityEvent.ItemClosed.shared) } })
             ) {
                 if let item = state.batch?.preview {
                     ImportItemSheet(state: state, item: item).id(item.index)
@@ -110,7 +111,11 @@ struct ImportPickSections: View {
                 Text(texts.hint).font(.subheadline)
             }
             Button(action: pick) {
-                Label { Text(texts.pick(picked: picked)) } icon: { Image(systemName: "doc.badge.plus") }
+                Label {
+                    Text(texts.pick(picked: picked))
+                } icon: {
+                    Image(systemName: "doc.badge.plus")
+                }
             }
             .disabled(state.reading || state.saving)
             if state.reading {
@@ -118,7 +123,11 @@ struct ImportPickSections: View {
                     AppProgress(small: true)
                     Text(texts.reading(progress: state.readProgress)).font(.subheadline).foregroundStyle(.secondary)
                 }
-                Button { state.eventSink(ImportActivityEvent.CancelReading.shared) } label: { Text(texts.cancel) }
+                Button {
+                    state.eventSink(ImportActivityEvent.CancelReading.shared)
+                } label: {
+                    Text(texts.cancel)
+                }
             }
             // Once files are read, errors are saving's, shown with the form.
             if !picked, let error = state.error {
@@ -135,13 +144,19 @@ struct ImportPickSections: View {
                         Text(texts.savingTitle).font(.headline)
                         Text(texts.savingProgress(saving: saving)).font(.subheadline)
                     }
-                    Button { state.eventSink(ImportActivityEvent.Saved.ViewUploads.shared) } label: { Text(texts.viewUploads) }
+                    Button {
+                        state.eventSink(ImportActivityEvent.Saved.ViewUploads.shared)
+                    } label: {
+                        Text(texts.viewUploads)
+                    }
                 }
             }
             ForEach(state.stoppedImports.elements(as: StoppedImport.self), id: \.batchId) { stopped in
                 Section {
                     Text(texts.stopped(stopped: stopped)).font(.subheadline)
-                    Button { state.eventSink(ImportActivityEvent.StoppedImportDismissed(batchId: stopped.batchId)) } label: {
+                    Button {
+                        state.eventSink(ImportActivityEvent.StoppedImportDismissed(batchId: stopped.batchId))
+                    } label: {
                         Text(texts.stoppedDismiss)
                     }
                 }
@@ -206,7 +221,8 @@ struct ImportPageSections: View {
             if let start = page.start {
                 Section {
                     HStack(spacing: 8) {
-                        Text(verbatim: FigureValueText.string(start.value, units: stats.units, clock: clock)).font(.footnote).foregroundStyle(.secondary)
+                        Text(verbatim: FigureValueText.string(start.value, units: stats.units, clock: clock)).font(.footnote)
+                            .foregroundStyle(.secondary)
                         MarkBadge(mark: start.mark)
                     }
                 }
@@ -477,13 +493,25 @@ struct AfterImportList: View {
                             Text(texts.pastProgress(past: past)).font(.footnote).foregroundStyle(.secondary)
                         }
                     } else {
-                        Button { send(ImportActivityEvent.After.ApplyToPast.shared) } label: { Text(texts.pastApply) }
-                        Button { send(ImportActivityEvent.After.Done.shared) } label: { Text(texts.pastSkip) }
+                        Button {
+                            send(ImportActivityEvent.After.ApplyToPast.shared)
+                        } label: {
+                            Text(texts.pastApply)
+                        }
+                        Button {
+                            send(ImportActivityEvent.After.Done.shared)
+                        } label: {
+                            Text(texts.pastSkip)
+                        }
                     }
                 }
             } else {
                 Section {
-                    Button { send(ImportActivityEvent.After.Done.shared) } label: { Text(texts.afterDone) }
+                    Button {
+                        send(ImportActivityEvent.After.Done.shared)
+                    } label: {
+                        Text(texts.afterDone)
+                    }
                 }
             }
         }
@@ -513,7 +541,8 @@ struct SavedImportList: View {
                     ForEach(suggestions, id: \.uri.value) { suggestion in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(texts.suggestionCue(suggestion: suggestion)).font(.subheadline.weight(.semibold))
-                            clock.text(texts.suggestionRow(suggestion: suggestion, now: clock.now, zone: clock.kotlinZone)).font(.subheadline)
+                            clock.text(texts.suggestionRow(suggestion: suggestion, now: clock.now, zone: clock.kotlinZone)).font(
+                                .subheadline)
                             AppSecondaryButton(texts.suggestionCombine, small: true) {
                                 send(ImportActivityEvent.Saved.Open(uri: suggestion.uri))
                             }
@@ -528,9 +557,17 @@ struct SavedImportList: View {
             }
             Section {
                 if state.batchSaved != nil {
-                    Button { send(ImportActivityEvent.Saved.ViewUploads.shared) } label: { Text(texts.viewUploads) }
+                    Button {
+                        send(ImportActivityEvent.Saved.ViewUploads.shared)
+                    } label: {
+                        Text(texts.viewUploads)
+                    }
                 }
-                Button { send(ImportActivityEvent.Saved.Done.shared) } label: { Text(texts.savedDone).fontWeight(.semibold) }
+                Button {
+                    send(ImportActivityEvent.Saved.Done.shared)
+                } label: {
+                    Text(texts.savedDone).fontWeight(.semibold)
+                }
             }
         }
         .listStyle(.insetGrouped)

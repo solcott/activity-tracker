@@ -57,23 +57,25 @@ extension Snapshotting where Value == UIViewController, Format == UIImage {
     static func settledImage(precision: Float, perceptualPrecision: Float, size: CGSize, traits: UITraitCollection) -> Snapshotting {
         let base = Snapshotting.image(
             drawHierarchyInKeyWindow: true, precision: precision, perceptualPrecision: perceptualPrecision, size: size, traits: traits)
-        return Snapshotting(pathExtension: base.pathExtension, diffing: base.diffing, asyncSnapshot: { controller in
-            var last: (image: UIImage, png: Data?)?
-            var agreeing = 0
-            for _ in 0..<Snapshots.settleDraws {
-                var drawn: UIImage?
-                base.snapshot(controller).run { drawn = $0 }
-                // A draw the library finishes later (a web view's) isn't one this app has: leave it to the library.
-                guard let image = drawn else { return base.snapshot(controller) }
-                let png = image.pngData()
-                // A draw that couldn't be encoded never agrees, or two such would pass for a settled view.
-                agreeing = png != nil && last?.png == png ? agreeing + 1 : 1
-                if agreeing == Snapshots.settledDraws { return Async(value: image) }
-                last = (image, png)
-                usleep(50_000)
-            }
-            return Async(value: last!.image)
-        })
+        return Snapshotting(
+            pathExtension: base.pathExtension, diffing: base.diffing,
+            asyncSnapshot: { controller in
+                var last: (image: UIImage, png: Data?)?
+                var agreeing = 0
+                for _ in 0..<Snapshots.settleDraws {
+                    var drawn: UIImage?
+                    base.snapshot(controller).run { drawn = $0 }
+                    // A draw the library finishes later (a web view's) isn't one this app has: leave it to the library.
+                    guard let image = drawn else { return base.snapshot(controller) }
+                    let png = image.pngData()
+                    // A draw that couldn't be encoded never agrees, or two such would pass for a settled view.
+                    agreeing = png != nil && last?.png == png ? agreeing + 1 : 1
+                    if agreeing == Snapshots.settledDraws { return Async(value: image) }
+                    last = (image, png)
+                    usleep(50_000)
+                }
+                return Async(value: last!.image)
+            })
     }
 }
 
@@ -159,7 +161,8 @@ final class KeptSafeArea: UIViewController {
         // none when the window runs past the screen's bottom. The bottom kept is the one the reference screen gives, so a layout that
         // splits the height (segment browse's map over its list) is drawn the same on every simulator.
         var kept = window.safeAreaInsets
-        let height = window.bounds.height, screen = Snapshots.referenceScreenHeight
+        let height = window.bounds.height
+        let screen = Snapshots.referenceScreenHeight
         kept.bottom = height > screen ? 0 : max(0, Snapshots.homeIndicator - (screen - height))
         let own = view.safeAreaInsets
         let additional = UIEdgeInsets(

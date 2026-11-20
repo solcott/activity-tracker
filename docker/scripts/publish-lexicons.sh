@@ -7,7 +7,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -48,7 +51,10 @@ while IFS= read -r file; do
   published+=("$id")
 done < <(find ../lexicons -name '*.json' | sort)
 
-((${#published[@]} > 0)) || { echo "FAIL no space lexicons found under lexicons/" >&2; exit 1; }
+((${#published[@]} > 0)) || {
+  echo "FAIL no space lexicons found under lexicons/" >&2
+  exit 1
+}
 
 # The PDS keeps each declaration it resolved in its database, across restarts, and grants new sessions' space: scopes from that
 # copy until it refreshes on its own schedule, so a collection added here would be refused as ScopeMissingError. Drop the

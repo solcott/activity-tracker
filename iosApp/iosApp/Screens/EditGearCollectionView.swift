@@ -62,7 +62,9 @@ struct EditGearCollectionView: View {
                     }
                 }
                 .onDelete { offsets in
-                    offsets.map { members[$0].rkey }.forEach { send(EditGearCollectionEvent.Remove(rkey: $0)) }
+                    for rkey in offsets.map({ members[$0].rkey }) {
+                        send(EditGearCollectionEvent.Remove(rkey: rkey))
+                    }
                 }
             } header: {
                 Text(.gearCollectionItems)
@@ -142,7 +144,9 @@ struct AddItemsList: View {
             }
             ForEach(others, id: \.rkey) { row in
                 let isTicked = ticked.isTicked(row.rkey)
-                Button { ticked.toggle(row.rkey) } label: {
+                Button {
+                    ticked.toggle(row.rkey)
+                } label: {
                     AppItemRow(Text(verbatim: row.name), lines: [Text(GearListTexts.shared.detail(row: row, showRetired: true))]) {
                         Thumbnail(url: row.photoUrl)
                     } trailing: {

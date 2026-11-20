@@ -31,7 +31,9 @@ struct ProposePlaceNameSheet: View {
                         if state.sending {
                             AppProgress(small: true)
                         } else {
-                            Button { send(ProposePlaceNameEvent.Send.shared) } label: {
+                            Button {
+                                send(ProposePlaceNameEvent.Send.shared)
+                            } label: {
                                 Text(ProposePlaceNameTexts.shared.confirm(state: state))
                             }
                             .disabled(!state.canSend)
@@ -48,8 +50,9 @@ struct ProposePlaceNameSheet: View {
                 AppTextField(
                     label: texts.field, model: name, state: state.name, layout: .row,
                     options: TextFieldOptions(capitalization: .words, submitLabel: .done),
-                    supportingText: state.showsInvalid ? AppStrings.string(texts.invalid) : nil, isError: state.showsInvalid)
-                    .disabled(state.sending)
+                    supportingText: state.showsInvalid ? AppStrings.string(texts.invalid) : nil, isError: state.showsInvalid
+                )
+                .disabled(state.sending)
             } footer: {
                 // What proposing shows others, or that saving clears the votes: said before it's sent, as the shared sheet does above it.
                 Text(texts.lead(state: state))
@@ -123,7 +126,9 @@ private struct PlaceNamesModifier: ViewModifier {
                 }
             }
             .alert(Text(ProposePlaceNameTexts.shared.deleteConfirmTitle), isPresented: confirming) {
-                Button(role: .destructive) { fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed: true)) } label: {
+                Button(role: .destructive) {
+                    fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed: true))
+                } label: {
                     Text(ProposePlaceNameTexts.shared.delete)
                 }
                 Button(.actionCancel, role: .cancel) { fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed: false)) }

@@ -54,7 +54,11 @@ struct RecordView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { controls }
         .pageTitle(Text(texts.title), back: { send(RecordEvent.Back.shared) })
         .confirmationDialog(Text(texts.discardConfirm), isPresented: $confirmingDiscard, titleVisibility: .visible) {
-            Button(role: .destructive) { send(RecordEvent.Discard.shared) } label: { Text(texts.label(action: .Discard)) }
+            Button(role: .destructive) {
+                send(RecordEvent.Discard.shared)
+            } label: {
+                Text(texts.label(action: .Discard))
+            }
         }
         .onAppear(perform: readAccess)
         .onChange(of: scenePhase) { _, phase in

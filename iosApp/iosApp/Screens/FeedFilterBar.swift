@@ -177,7 +177,9 @@ struct TypePickerSheet: View {
                             // A category would pick types the search hides, so its header is plain.
                             Text(group.label)
                         } else {
-                            Button { eventSink(FeedFilterEvent.ToggleCategory(category: group.category)) } label: {
+                            Button {
+                                eventSink(FeedFilterEvent.ToggleCategory(category: group.category))
+                            } label: {
                                 HStack {
                                     Text(group.label)
                                     Spacer()

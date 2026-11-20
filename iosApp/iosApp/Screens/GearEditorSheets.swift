@@ -86,7 +86,9 @@ struct TypeChoiceList: View {
 
     private func choice(_ type: KotlinActivityType) -> some View {
         let chosen = isChosen(type)
-        return AppCheckRow(checked: chosen, spacing: 12) { toggle(type) } label: {
+        return AppCheckRow(checked: chosen, spacing: 12) {
+            toggle(type)
+        } label: {
             SportIcon(type).foregroundStyle(.tint)
             Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
         }

@@ -68,7 +68,7 @@ class HealthSourcesTest {
         seed("worse", failures = 5, lastErrorAt = now - 20)
         seed("recent", failures = 2, lastErrorAt = now - 1)
         seed("missing", failures = 1, lastErrorAt = now - 30, notFoundSince = now - 60)
-        assertEquals(HealthSources.SpaceCounts(synced = 6, failing = 4, notFound = 1, due = 2), sources.spaceCounts())
+        assertEquals(HealthSources.SpaceCounts(synced = 6, failing = 4, notFound = 1, due = 2, failingOther = 3), sources.spaceCounts())
         val failing = sources.failingSpaces()
         assertEquals(listOf("did:plc:worse", "did:plc:recent", "did:plc:failing", "did:plc:missing"), failing.map { it.authorityDid })
         assertEquals("IOException: worse", failing.first().lastError)

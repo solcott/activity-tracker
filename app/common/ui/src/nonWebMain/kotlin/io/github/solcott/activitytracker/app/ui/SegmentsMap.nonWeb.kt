@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.map_zoom_in
 import io.github.solcott.activitytracker.composeApp.resources.map_zoom_out
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -77,17 +78,18 @@ actual fun SegmentsMap(
     modifier: Modifier,
     hovered: String?,
     onHover: (String?) -> Unit,
+    hoveredLines: ImmutableSet<String>,
 ) {
     // Previews, tests and screenshot tools draw the lines without MapLibre, its native view or a remote style.
     if (LocalInspectionMode.current) {
-        SegmentsPreview(segments, selected, modifier, hovered)
+        SegmentsPreview(segments, selected, modifier, hovered, hoveredLines)
         return
     }
     val runsJson = remember(segments) { featuresJson(segments.filterNot { it.lift }) }
     val liftsJson = remember(segments) { featuresJson(segments.filter { it.lift }) }
     // The selected and hovered runs: one small source, so a hover rebuilds a layer of a line or two.
-    val selectedJson =
-        remember(segments, selected, hovered) { featuresJson(segments.filter { !it.lift && (it.uri == selected || it.uri == hovered) }) }
+    val highlighted = remember(selected, hovered, hoveredLines) { hoveredLines + listOfNotNull(selected, hovered) }
+    val selectedJson = remember(segments, highlighted) { featuresJson(segments.filter { !it.lift && it.uri in highlighted }) }
     val runColor = MaterialTheme.colorScheme.primary
     val liftColor = MaterialTheme.colorScheme.outline
     val selectedColor = MaterialTheme.colorScheme.tertiary

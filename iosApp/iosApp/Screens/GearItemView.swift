@@ -249,7 +249,11 @@ struct GearItemView: View {
 
     private func figures(_ figures: [GearFigure]) -> some View {
         ForEach(Array(figures.enumerated()), id: \.offset) { _, figure in
-            LabeledContent { Text(figure.value) } label: { Text(figure.label) }
+            LabeledContent {
+                Text(figure.value)
+            } label: {
+                Text(figure.label)
+            }
         }
     }
 

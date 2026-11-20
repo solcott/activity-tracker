@@ -1023,6 +1023,10 @@
     <string name="path_none_here">No segments here yet</string>
     <string name="path_show_all_sports">Show all sports</string>
     <string name="path_title">Trail</string>
+    <string name="path_section_collapse">Collapse %1$s</string>
+    <string name="path_section_expand">Expand %1$s</string>
+    <string name="path_sections_collapse_all">Collapse all</string>
+    <string name="path_sections_expand_all">Expand all</string>
     <string name="dive_site_browse_search_label">Dive site name</string>
     <string name="dive_site_browse_nowhere">Move the map to a place, or search dive sites by name.</string>
     <string name="dive_site_browse_web_prompt">Search dive sites by name.</string>

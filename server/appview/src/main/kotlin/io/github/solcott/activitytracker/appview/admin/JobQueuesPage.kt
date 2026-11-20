@@ -12,8 +12,9 @@ import io.github.solcott.activitytracker.appview.segments.SegmentQueue
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.html.ButtonType
@@ -32,12 +33,8 @@ import kotlinx.html.p
 import kotlinx.html.section
 import kotlinx.html.select
 import kotlinx.html.span
-import kotlinx.html.table
-import kotlinx.html.tbody
 import kotlinx.html.td
 import kotlinx.html.textInput
-import kotlinx.html.th
-import kotlinx.html.thead
 import kotlinx.html.tr
 import org.jetbrains.exposed.v1.core.VarCharColumnType
 
@@ -56,6 +53,8 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
     override fun privacyProbes(subject: String) =
         listOf(path) + SegmentJobs.KINDS.flatMap { listOf("$path/retrying?kind=$it", "$path/failed?kind=$it") }
 
+    override suspend fun summary(now: Instant): List<Tile> = tilesOf(queue.summary(), now)
+
     override fun AdminRoutes.install() {
         installPages()
         installPreviews()
@@ -71,19 +70,21 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
             page(title) {
                 summaryTable(summary)
                 section {
+                    attributes["id"] = RETRYING_SECTION
                     h2 { +"Retrying" }
                     kindFilter("retrying")
                     div {
                         attributes["id"] = "retrying"
-                        retryingList(null, retrying, admin.isOperator)
+                        retryingList(null, retrying, admin.operatorCsrf)
                     }
                 }
                 section {
+                    attributes["id"] = GAVE_UP_SECTION
                     h2 { +"Gave up" }
                     kindFilter("failed")
                     div {
                         attributes["id"] = "failed"
-                        failedList(null, failed, admin.isOperator)
+                        failedList(null, failed, admin.operatorCsrf)
                     }
                 }
                 if (admin.isOperator) bulkForms(admin)
@@ -92,12 +93,12 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
         get("$path/retrying") {
             val kind = kindParam() ?: return@get fragment { p("error") { +"Unknown kind." } }
             val page = queue.retrying(kind.value, call.request.queryParameters["cursor"])
-            fragment { retryingList(kind.value, page, admin.isOperator) }
+            fragment { retryingList(kind.value, page, admin.operatorCsrf) }
         }
         get("$path/failed") {
             val kind = kindParam() ?: return@get fragment { p("error") { +"Unknown kind." } }
             val page = queue.failed(kind.value, call.request.queryParameters["cursor"])
-            fragment { failedList(kind.value, page, admin.isOperator) }
+            fragment { failedList(kind.value, page, admin.operatorCsrf) }
         }
     }
 
@@ -228,18 +229,18 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
 
     private fun FlowContent.summaryTable(summary: List<KindSummary>) {
         val now = clock.now().toEpochMilliseconds()
-        table {
-            thead { tr { listOf("Kind", "Queued", "Due now", "Oldest due", "Retrying", "Gave up").forEach { th { +it } } } }
-            tbody {
-                summary.forEach { s ->
-                    tr {
-                        td { +s.kind }
-                        td { +s.queued.toString() }
-                        td { +s.due.toString() }
-                        td { +(s.oldestDueAt?.let { ageOf(now - it) } ?: "–") }
-                        td { +s.retrying.toString() }
-                        td { +s.failed.toString() }
-                    }
+        dataTable(
+            listOf("Kind", "Queued", "Due now", "Oldest due", "Retrying", "Gave up"),
+            numeric = setOf("Queued", "Due now", "Oldest due", "Retrying", "Gave up"),
+        ) {
+            summary.forEach { s ->
+                tr {
+                    td { +s.kind }
+                    num(s.queued)
+                    num(s.due)
+                    num(s.oldestDueAt?.let { durationText((now - it).coerceAtLeast(0).milliseconds) } ?: "–")
+                    num(s.retrying)
+                    td("num") { if (s.failed > 0) badge(s.failed.toString(), TileStatus.Bad) else +"0" }
                 }
             }
         }
@@ -264,78 +265,70 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
         }
     }
 
-    private fun FlowContent.retryingList(kind: String?, page: QueuePage<RetryingJob>, operator: Boolean) {
+    private fun FlowContent.retryingList(kind: String?, page: QueuePage<RetryingJob>, csrf: String?) {
         if (page.items.isEmpty()) return p { +"No retrying jobs." }
-        table {
-            thead {
+        val now = clock.now()
+        val headers =
+            listOf("Kind", "Subject", "Attempts", "Last error", "Failing since", "Next due") + if (csrf != null) listOf("") else emptyList()
+        dataTable(headers, numeric = setOf("Attempts")) {
+            page.items.forEach { job ->
                 tr {
-                    (listOf("Kind", "Subject", "Attempts", "Last error", "Failing since", "Next due") +
-                            if (operator) listOf("") else emptyList())
-                        .forEach { th { +it } }
-                }
-            }
-            tbody {
-                page.items.forEach { job ->
-                    tr {
-                        td { +job.kind }
-                        td { +job.subject }
-                        td { +job.attempts.toString() }
-                        td { +job.lastError.orEmpty() }
-                        td { +timeOf(job.firstFailedAt) }
-                        td { +timeOf(job.dueAt) }
-                        if (operator)
-                            td {
-                                jobButton("retry", "Retry now", job.kind, job.subject)
-                                jobButton("drop", "Drop", job.kind, job.subject, list = "retrying")
-                            }
-                    }
+                    td { +job.kind }
+                    td { +job.subject }
+                    num(job.attempts)
+                    td { +job.lastError.orEmpty() }
+                    timeCell(instantOfMs(job.firstFailedAt), now)
+                    timeCell(instantOfMs(job.dueAt), now)
+                    if (csrf != null)
+                        td {
+                            jobButton(csrf, "retry", "Retry now", job.kind, job.subject)
+                            jobButton(csrf, "drop", "Drop", job.kind, job.subject, list = "retrying")
+                        }
                 }
             }
         }
         olderLink("retrying", kind, page.cursor)
     }
 
-    private fun FlowContent.failedList(kind: String?, page: QueuePage<FailedJob>, operator: Boolean) {
+    private fun FlowContent.failedList(kind: String?, page: QueuePage<FailedJob>, csrf: String?) {
         if (page.items.isEmpty()) return p { +"No jobs gave up." }
-        table {
-            thead {
+        val now = clock.now()
+        val headers =
+            listOf("Kind", "Subject", "Attempts", "Last error", "First failure", "Gave up") + if (csrf != null) listOf("") else emptyList()
+        dataTable(headers, numeric = setOf("Attempts")) {
+            page.items.forEach { job ->
                 tr {
-                    (listOf("Kind", "Subject", "Attempts", "Last error", "First failure", "Gave up") +
-                            if (operator) listOf("") else emptyList())
-                        .forEach { th { +it } }
-                }
-            }
-            tbody {
-                page.items.forEach { job ->
-                    tr {
-                        td { +job.kind }
-                        td { +job.subject }
-                        td { +job.attempts.toString() }
-                        td { +job.lastError }
-                        td { +timeOf(job.firstFailedAt) }
-                        td { +timeOf(job.failedAt) }
-                        if (operator)
-                            td {
-                                jobButton("requeue", "Requeue", job.kind, job.subject)
-                                jobButton("drop", "Drop", job.kind, job.subject, list = "failed")
-                            }
-                    }
+                    td { +job.kind }
+                    td { +job.subject }
+                    num(job.attempts)
+                    td { +job.lastError }
+                    timeCell(instantOfMs(job.firstFailedAt), now)
+                    timeCell(instantOfMs(job.failedAt), now)
+                    if (csrf != null)
+                        td {
+                            jobButton(csrf, "requeue", "Requeue", job.kind, job.subject)
+                            jobButton(csrf, "drop", "Drop", job.kind, job.subject, list = "failed")
+                        }
                 }
             }
         }
         olderLink("failed", kind, page.cursor)
     }
 
-    /** A button posting [action] for one job; htmx puts the outcome in its place. */
-    private fun FlowContent.jobButton(action: String, label: String, kind: String, subject: String, list: String? = null) {
-        form(action = "/admin/$path/$action", method = FormMethod.post, classes = "inline") {
-            attributes["hx-post"] = "/admin/$path/$action"
-            attributes["hx-target"] = "this"
-            attributes["hx-swap"] = "outerHTML"
-            hiddenInput(name = "target") { value = subject }
+    /** A button posting [action] for one job; htmx puts the outcome in its place. Drop is destructive, so it asks first. */
+    @Suppress("LongParameterList") // The CSRF token, the action and its label, and the job it acts on.
+    private fun FlowContent.jobButton(csrf: String, action: String, label: String, kind: String, subject: String, list: String? = null) {
+        actionForm(
+            "/admin/$path/$action",
+            label,
+            csrf,
+            outcome = null,
+            target = subject,
+            confirm = if (action == "drop") "Drop this $kind job? It won't run again unless requeued." else null,
+            inline = true,
+        ) {
             hiddenInput(name = "kind") { value = kind }
             list?.let { hiddenInput(name = "list") { value = it } }
-            button { +label }
         }
     }
 
@@ -388,9 +381,10 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
     /** A bulk action's form, with its [fields], a preview of what it would queue and the confirmation it needs. */
     private fun FlowContent.bulkForm(admin: Admin, action: String, label: String, target: String?, fields: FlowContent.() -> Unit) {
         val outcome = "bulk-$action"
-        form(action = "/admin/$path/$action", method = FormMethod.post) {
+        form(action = "/admin/$path/$action", method = FormMethod.post, classes = "filters") {
             attributes["hx-post"] = "/admin/$path/$action"
             attributes["hx-target"] = "#$outcome"
+            attributes["hx-confirm"] = "$label? This queues work in bulk."
             hiddenInput(name = AdminSite.CSRF_FIELD) { value = admin.csrfToken }
             target?.let { hiddenInput(name = "target") { value = it } }
             p {
@@ -410,37 +404,58 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
                     +" Confirm"
                 }
                 +" "
-                button { +label }
+                button(classes = "danger") { +label }
             }
-            span { attributes["id"] = outcome }
+            span("outcome-slot") { attributes["id"] = outcome }
         }
     }
-
-    private fun timeOf(epochMillis: Long) = Instant.fromEpochMilliseconds(epochMillis).toString()
-
-    /** An age to the second, as `1h 2m 3s`. */
-    private fun ageOf(millis: Long) = millis.coerceAtLeast(0).milliseconds.inWholeSeconds.seconds.toString()
 
     /** A form field read as [value], or the [error] to refuse it with. */
     private class Parsed<T>(val value: T?, val error: String? = null)
 
-    private companion object {
-        const val NO_TERRAIN = "Terrain tiles aren't configured."
-        const val UNKNOWN_KIND = "Unknown job kind."
+    companion object {
+        /** The oldest due job past these is `warn` and `bad` (admin/job-queues, "Queues page summary"). */
+        val DUE_WARN = 5.minutes
+        val DUE_BAD = 1.hours
+
+        private const val RETRYING_SECTION = "retrying-jobs"
+        private const val GAVE_UP_SECTION = "gave-up"
+
+        /** The Queues page's tiles over every kind together, under the fixed rules of admin/job-queues. */
+        fun tilesOf(summary: List<KindSummary>, now: Instant): List<Tile> {
+            val oldest = summary.mapNotNull { it.oldestDueAt }.minOrNull()
+            val age = oldest?.let { (now.toEpochMilliseconds() - it).coerceAtLeast(0).milliseconds }
+            val dueStatus =
+                when {
+                    age == null || age < DUE_WARN -> TileStatus.Ok
+                    age <= DUE_BAD -> TileStatus.Warn
+                    else -> TileStatus.Bad
+                }
+            val retrying = summary.sumOf { it.retrying }
+            val failed = summary.sumOf { it.failed }
+            return listOf(
+                Tile("Oldest due job", age?.let(::durationText) ?: "None due", dueStatus, "/admin/queues"),
+                Tile("Retrying jobs", "$retrying", if (retrying > 0) TileStatus.Warn else TileStatus.Ok, "/admin/queues#$RETRYING_SECTION"),
+                Tile("Jobs that gave up", "$failed", if (failed > 0) TileStatus.Bad else TileStatus.Ok, "/admin/queues#$GAVE_UP_SECTION"),
+            )
+        }
+
+        private const val NO_TERRAIN = "Terrain tiles aren't configured."
+        private const val UNKNOWN_KIND = "Unknown job kind."
 
         /** A job subject's column width. */
-        val MAX_SUBJECT = (SegmentMatchJobs.subjectUri.columnType as VarCharColumnType).colLength
+        private val MAX_SUBJECT = (SegmentMatchJobs.subjectUri.columnType as VarCharColumnType).colLength
 
         private val SPORT = Regex("[A-Za-z]{1,64}")
 
         /** A sport id, matched exactly; none given is every sport. */
-        fun sportOf(text: String?): Parsed<String> {
+        private fun sportOf(text: String?): Parsed<String> {
             val sport = text?.trim()?.takeIf { it.isNotEmpty() } ?: return Parsed(null)
             return if (SPORT.matches(sport)) Parsed(sport) else Parsed(null, "That isn't a sport id.")
         }
 
         /** A box of degrees; none given is every segment. */
-        fun boxOf(text: String?): Parsed<Box> {
+        private fun boxOf(text: String?): Parsed<Box> {
             val raw = text?.trim()?.takeIf { it.isNotEmpty() } ?: return Parsed(null)
             return Box.parse(raw)?.takeIf { it.isValid }?.let { Parsed(it) }
                 ?: Parsed(null, "The box is invalid: give west,south,east,north degrees, west before east.")

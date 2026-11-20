@@ -716,9 +716,17 @@ data class PathRecord(
      * Only the importer reads it; the AppView ignores it. At most [MAX_REGIONS].
      */
     val regions: List<String>? = null,
+    /**
+     * The sections of its trail family that its imported segments are named after (segments/segment-paths), in the Trail page's order. At
+     * most [MAX_SECTIONS]. Null for none.
+     */
+    val sections: List<PathSection>? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_PATH,
 ) {
     companion object {
+        /** The lexicon's `maxLength` for [sections]. */
+        const val MAX_SECTIONS = 64
+
         /** The lexicon's `maxLength` for [regions]. */
         const val MAX_REGIONS = 16
 
@@ -730,6 +738,23 @@ data class PathRecord(
 
         /** The lexicon's `maxLength` for each of [lines]. */
         const val MAX_PIECE_CHARS = 100_000
+    }
+}
+
+/**
+ * `app.activitytracker.feed.path#section`: a section of a trail family, such as Through the Trees Trail on Rush Trail, and the record keys
+ * of the importer's segments named after it (segments/segment-paths).
+ */
+@Serializable
+data class PathSection(
+    /** At most 100 graphemes, not empty once trimmed. */
+    val name: String,
+    /** Record keys of `feed.segment`s in the path's own repo, at most [MAX_SEGMENTS]. */
+    val segments: List<String>,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for [segments]. */
+        const val MAX_SEGMENTS = 1000
     }
 }
 

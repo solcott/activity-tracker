@@ -488,6 +488,7 @@ typealias PathScreen = SegmentPackage.PathScreen
 typealias PathState = SegmentPackage.PathState
 typealias PathEvent = SegmentPackage.PathEvent
 typealias PathContent = SegmentPackage.PathContent
+typealias PathListItem = SegmentPackage.PathListItem
 typealias PathTexts = SegmentPackage.PathTexts
 typealias SegmentGroupRow = SegmentPackage.SegmentGroupRow
 typealias GroupSwitcher = SegmentPackage.GroupSwitcher
