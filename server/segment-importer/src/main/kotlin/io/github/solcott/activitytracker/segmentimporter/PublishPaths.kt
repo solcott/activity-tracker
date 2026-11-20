@@ -2,6 +2,7 @@
 
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
@@ -87,9 +88,14 @@ internal suspend fun publishPaths(
         )
         released += shared.map { it.key }
 
-        val needs = pathsNeeded(clients, paths, repo.value)
-        unpathed = needs.unpathed
-        val publishable = paths.map { it.withSectionsOf(needs.importerKeys) }
+        // The scan decides sections and new paths, but a failed scan still lets the held paths' other changes through: they keep the
+        // sections they hold, and the failure ends the run once they're written.
+        val scan = runSuspendCatching { pathsNeeded(clients, paths, repo.value) }
+        val found = scan.getOrNull()
+        found?.let { unpathed = it.unpathed }
+        val publishable = paths.map { path ->
+            if (found != null) path.withSectionsOf(found.importerKeys) else path.copy(sections = held[path.id]?.sections)
+        }
         val changed = publishable.mapNotNull { path ->
             val old = held[path.id] ?: return@mapNotNull null
             val stale = old.name != path.name || old.lines != path.lines || old.sports != path.sports || old.sections != path.sections
@@ -100,6 +106,7 @@ internal suspend fun publishPaths(
         clients.writer.update(repo, changed)
         refreshed += changed.map { it.rkey }
 
+        val needs = scan.getOrThrow()
         val drafts =
             publishable
                 .filter { it.id in needs.paths && it.id !in held }

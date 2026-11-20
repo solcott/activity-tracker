@@ -9,8 +9,10 @@ import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -102,6 +104,21 @@ class PublishPathsTest {
         assertEquals(listOf("anns"), result.refreshed)
         assertEquals(listOf(listOf(Triple("update", Nsid.FEED_PATH, "anns"))), fake.commits())
         assertEquals(anns.lines, AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns")).lines)
+    }
+
+    @Test
+    fun aFailedScanStillRefreshesHeldPathsKeepingTheirSections() = runTest {
+        services()
+        val held = listOf(PathSection("Limelight", listOf("branch")))
+        repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns.copy(name = "Old Ann's", sections = held), clock, listOf(VT))
+        fake.on(Nsid.IMPORTER_GET_SEGMENT_LINES) { error(HttpStatusCode.BadGateway, "UpstreamFailure") }
+        val result = publishPaths(clients, listOf(anns, pine), VT, clock)
+        assertNotNull(result.stoppedBy, "the failed scan ends the run")
+        assertEquals(listOf("anns"), result.refreshed, "after the held path's rename is written")
+        assertEquals(emptyList(), result.published, "nothing new without the scan")
+        val record = AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns"))
+        assertEquals("Ann's", record.name)
+        assertEquals(held, record.sections, "it keeps the sections it held")
     }
 
     @Test
