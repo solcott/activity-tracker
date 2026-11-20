@@ -29,10 +29,11 @@
 
 ## 6. Integration
 
-- [x] 6.1 On macOS, run `./gradlew :desktopApp:hotRun --auto`, open Search › Trails & roads, and verify with the compose-hot-reload MCP screenshots: the OS prompt names the helper, allowing it centres the map on the current location (moving from the latest activity if it opened there first), denying it leaves the map at the latest activity, and the feed still shows no Record.
+- [ ] 6.1 On macOS, run `./gradlew :desktopApp:hotRun --auto`, open Search › Trails & roads, and verify with the compose-hot-reload MCP screenshots: the OS prompt names the helper, allowing it centres the map on the current location (moving from the latest activity if it opened there first), denying it leaves the map at the latest activity, and the feed still shows no Record. Run only with Location Services off for the helper: denying opened at the latest activity with no prompt of the app's own, and the feed showed no Record. The OS prompt and the allow path (centring, and moving from the latest activity) are unverified.
 - [x] 6.2 Run `./gradlew check` and verify it passes (detekt, module boundaries, stability, presenter and desktop tests).
 
 ## Workflow follow-up
 
 - Run the Windows and Linux bridges on a real machine or VM before archiving, or note them as unverified in the archive.
+  - Not run before archiving: the Windows (PowerShell WinRT `Geolocator`) and Linux (GeoClue2 over D-Bus) OS calls are unverified; only their parsers are tested.
 - Archive the change with `/opsx:archive` after review, syncing the delta into `segments/segment-browse`.
