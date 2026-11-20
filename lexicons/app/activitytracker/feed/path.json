@@ -28,6 +28,7 @@
             "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] },
             "description": "The sport groups the path is open to, from its source's tags; a segment of another group never lies on it. Absent means any, as for a road."
           },
+          "trail": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailAttributes", "description": "What the path's source data says about it, such as its surface and difficulty (segments/trail-attributes), combined over all its ways." },
           "regions": {
             "type": "array",
             "maxLength": 16,

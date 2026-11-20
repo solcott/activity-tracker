@@ -233,6 +233,43 @@
         }
       }
     },
+    "trailAttributes": {
+      "type": "object",
+      "description": "What the segment importer's source data says about a trail or road (segments/trail-attributes): OpenStreetMap tags or a public agency's fields, combined over the ways the line follows. Every field is optional and absent means unknown, never a default. Served only for the segment importer's records, with any value outside a field's vocabulary or range dropped.",
+      "properties": {
+        "surfaces": { "type": "array", "maxLength": 8, "items": { "type": "ref", "ref": "#trailSurface" }, "description": "Each surface's whole-number share of the length whose surface is known, largest first; the shares sum to at most 100, rounding and dropped small shares making up the rest." },
+        "smoothness": { "type": "string", "maxLength": 32, "knownValues": ["excellent", "good", "intermediate", "bad", "very_bad", "horrible", "very_horrible", "impassable"], "description": "The roughest smoothness along at least 50 m of the line." },
+        "sacScale": { "type": "string", "maxLength": 32, "knownValues": ["hiking", "mountain_hiking", "demanding_mountain_hiking", "alpine_hiking", "demanding_alpine_hiking", "difficult_alpine_hiking"], "description": "The hardest SAC hiking grade along at least 50 m of the line." },
+        "mtbScale": { "type": "integer", "minimum": 0, "maximum": 6, "description": "The hardest MTB scale (S0-S6) along at least 50 m of the line." },
+        "mtbScaleImba": { "type": "integer", "minimum": 0, "maximum": 4, "description": "The hardest IMBA trail difficulty, as OSM mtb:scale:imba (0 white circle, easiest, to 4 double black diamond) along at least 50 m of the line." },
+        "mtbScaleUphill": { "type": "integer", "minimum": 0, "maximum": 5, "description": "The hardest MTB uphill scale along at least 50 m of the line." },
+        "pisteDifficulty": { "type": "string", "maxLength": 32, "knownValues": ["novice", "easy", "intermediate", "advanced", "expert", "freeride", "extreme"], "description": "The hardest piste difficulty along at least 50 m of the line." },
+        "pisteGrooming": { "type": "string", "maxLength": 32, "knownValues": ["classic", "skating", "classic_skating", "mogul", "backcountry", "scooter"], "description": "How the piste is groomed, covering the most of the line." },
+        "trailClass": { "type": "integer", "minimum": 1, "maximum": 5, "description": "An agency's trail class, 1 (minimally developed) to 5 (fully developed): the least developed along at least 50 m of the line." },
+        "visibility": { "type": "string", "maxLength": 32, "knownValues": ["excellent", "good", "intermediate", "bad", "horrible", "no"], "description": "The worst trail visibility along at least 50 m of the line." },
+        "widthCm": { "type": "integer", "minimum": 1, "maximum": 100000, "description": "The typical width in centimetres: the length-weighted median of the known widths." },
+        "gradePercent": { "type": "integer", "minimum": 0, "maximum": 1000, "description": "An agency's typical grade in percent: the steepest along at least 50 m of the line." },
+        "lit": { "type": "string", "maxLength": 16, "knownValues": ["yes", "partly", "no"], "description": "Yes when at least 90% of the line is lit, no when at least 90% is known unlit and none lit, partly otherwise when any of it is lit." },
+        "dog": { "type": "string", "maxLength": 16, "knownValues": ["yes", "leashed", "no"], "description": "The strictest known rule for dogs along the line." },
+        "horse": { "type": "string", "maxLength": 16, "knownValues": ["designated", "yes", "no"], "description": "The most open known rule for horses along the line, so riders know whether they may meet them." },
+        "wheelchair": { "type": "string", "maxLength": 16, "knownValues": ["yes", "limited", "no"], "description": "No or limited when any of the line is; yes only when at least 90% of it is known accessible." },
+        "seasons": { "type": "array", "minLength": 1, "maxLength": 6, "items": { "type": "string", "maxLength": 16, "knownValues": ["spring", "summer", "autumn", "winter", "dry_season", "wet_season"] }, "description": "The seasons it is open in. Empty is not allowed; a seasonal trail with no season known has seasonal set instead." },
+        "seasonal": { "type": "boolean", "description": "True when it is open only part of the year, with no seasons or dates known." },
+        "openFrom": { "type": "string", "minLength": 5, "maxLength": 5, "description": "The first day it is open each year, as MM-DD. Given only with openUntil." },
+        "openUntil": { "type": "string", "minLength": 5, "maxLength": 5, "description": "The last day it is open each year, as MM-DD. Given only with openFrom." },
+        "operator": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who maintains it, as the source writes it." },
+        "website": { "type": "string", "format": "uri", "maxLength": 512, "description": "An http or https URL about it. Clients open it only in the system browser and only after checking its scheme." }
+      }
+    },
+    "trailSurface": {
+      "type": "object",
+      "description": "A surface and its share of a line (segments/trail-attributes).",
+      "required": ["surface", "percent"],
+      "properties": {
+        "surface": { "type": "string", "maxLength": 32, "knownValues": ["paved", "compacted", "gravel", "dirt", "grass", "rock", "sand", "wood", "snow", "other"], "description": "The surface, with every source value mapped onto these (segments/trail-attributes); other for one that maps to none." },
+        "percent": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
     "pathOneWay": {
       "type": "object",
       "description": "A sport group that goes a path one way only, and which way (segments/segment-paths): its longest one-way segment's direction (segments/segment-direction).",
@@ -258,7 +295,8 @@
         "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
         "sports": { "type": "array", "items": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "alpine", "paddle"] }, "description": "The sport groups of the segments on it the viewer could get from a segment search, in the app's order." },
         "groupCount": { "type": "integer", "minimum": 0, "description": "How many segment groups those segments form." },
-        "oneWays": { "type": "array", "items": { "type": "ref", "ref": "#pathOneWay" }, "description": "The sport groups among sports whose segments on it are all served one-way, other than alpine, each with the way it goes (segments/segment-paths), in the app's order. Absent or empty when none." }
+        "oneWays": { "type": "array", "items": { "type": "ref", "ref": "#pathOneWay" }, "description": "The sport groups among sports whose segments on it are all served one-way, other than alpine, each with the way it goes (segments/segment-paths), in the app's order. Absent or empty when none." },
+        "trail": { "type": "ref", "ref": "#trailAttributes", "description": "As feed.path#trail, with any value outside its vocabulary or range dropped. Absent when nothing is known." }
       }
     },
     "segmentView": {
@@ -283,6 +321,7 @@
         "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
         "oneWay": { "type": "boolean", "description": "True when its sport group may travel its line only this way (segments/segment-direction): the segment importer's segment whose record says oneWay. Absent or false for every other segment." },
         "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb (segments/segment-direction): served only for the segment importer's segment whose record holds uphill or downhill. Absent for every other segment; judge from elevationGain and elevationLoss then." },
+        "trail": { "type": "ref", "ref": "#trailAttributes", "description": "As feed.segment#trail (segments/trail-attributes): served only for the segment importer's segment, with any value outside its vocabulary or range dropped. Absent for every other segment and when nothing is known." },
         "elevationSource": {
           "type": "string",
           "maxLength": 16,

@@ -280,6 +280,8 @@ data class SegmentView(
      * otherwise, when the apps judge from [elevationGain] and [elevationLoss].
      */
     val climb: String? = null,
+    /** As [SegmentRecord.trail], cleaned: served only for the segment importer's segment (segments/trail-attributes); null otherwise. */
+    val trail: TrailAttributes? = null,
     /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].
@@ -325,6 +327,8 @@ data class PathView(
      * The sport groups among [sports] that go it one way only, other than alpine, each with its way, in app order (segments/segment-paths).
      */
     val oneWays: List<PathOneWay> = emptyList(),
+    /** As [PathRecord.trail], cleaned (segments/trail-attributes); null when nothing is known. */
+    val trail: TrailAttributes? = null,
 )
 
 /**

@@ -812,6 +812,8 @@ data class SegmentCandidate(
     val oneWay: Boolean? = null,
     /** As [SegmentRecord.climb]: a [SegmentClimbs] value, or null for none. */
     val climb: String? = null,
+    /** As [SegmentRecord.trail]: what the line's source data says about its trail, or null for nothing. */
+    val trail: TrailAttributes? = null,
 )
 
 /** `app.activitytracker.importer.defs#rejection`: a staged candidate the AppView refused, and why. */

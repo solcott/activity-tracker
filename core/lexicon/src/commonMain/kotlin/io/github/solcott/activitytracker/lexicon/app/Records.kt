@@ -679,6 +679,11 @@ data class SegmentRecord(
      * null says nothing. Only the segment importer's is honoured: see [SegmentView.climb].
      */
     val climb: String? = null,
+    /**
+     * What the line's source data says about its trail (segments/trail-attributes); null says nothing. Only the segment importer's is
+     * honoured: see [SegmentView.trail].
+     */
+    val trail: TrailAttributes? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 
@@ -721,6 +726,8 @@ data class PathRecord(
      * most [MAX_SECTIONS]. Null for none.
      */
     val sections: List<PathSection>? = null,
+    /** What its source data says about it, combined over all its ways (segments/trail-attributes); null says nothing. */
+    val trail: TrailAttributes? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_PATH,
 ) {
     companion object {

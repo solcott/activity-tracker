@@ -16,7 +16,8 @@
         "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." },
         "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, as feed.segment#attribution. Blank is taken as none." },
         "oneWay": { "type": "boolean", "description": "As feed.segment#oneWay: its sport group may travel the line only this way, by its source data's rules. Absent means false." },
-        "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb: whether the line climbs or descends as its trail does, by terrain. Absent says nothing; any other value is stored as absent." }
+        "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb: whether the line climbs or descends as its trail does, by terrain. Absent says nothing; any other value is stored as absent." },
+        "trail": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailAttributes", "description": "As feed.segment#trail: what the line's source data says about its trail. Any value outside its vocabulary or range is stored as absent." }
       }
     },
     "rejection": {
