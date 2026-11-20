@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.desktop.location
 
 import io.github.solcott.activitytracker.location.GeoPoint
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -14,11 +16,12 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * macOS Location Services through `ActivityTrackerLocation.app` (`desktopApp/src/macosHelper`, built by `buildMacLocationHelper`): macOS
  * grants location only to an app bundle that says why it wants it, which the JVM running this app isn't. Launched through LaunchServices
- * (`open`), the helper gets its own prompt and grant, writes one location to a file and quits.
+ * (`open`), the helper gets its own prompt and grant, writes one location to a file and quits. The helper only writes into the file this
+ * makes (owner-only) and never creates it, so deleting it here, cancelled too, leaves no location on disk however late the helper answers.
  */
 class MacLocationBackend(private val helper: File, private val io: CoroutineDispatcher = Dispatchers.IO) : LocationBackend {
     override suspend fun locate(): GeoPoint? {
-        val out = File.createTempFile("activitytracker-location", ".json")
+        val out = Files.createTempFile("activitytracker-location", ".json", OWNER_ONLY).toFile()
         try {
             val exited =
                 runInterruptible(io) {
@@ -43,6 +46,8 @@ class MacLocationBackend(private val helper: File, private val io: CoroutineDisp
 
         /** The helper gives up after 30 seconds of its own; this only stops a wedged `open`. */
         private const val HELPER_WAIT_SECONDS = 40L
+
+        private val OWNER_ONLY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
 
         /** The backend for the helper [HELPER_PROPERTY] names, or null when it's unset or wasn't built. */
         fun fromSystemProperty(): MacLocationBackend? =

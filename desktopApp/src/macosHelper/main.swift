@@ -1,6 +1,8 @@
 // ActivityTrackerLocation: the desktop app's macOS location helper (segments/segment-browse). macOS grants location only to an app
 // bundle that says why it wants it, so the JVM app launches this one through LaunchServices (`open -W -n … --args --out <file>`).
-// It asks for location while in use, writes one answer to <file> as {"lat":…,"lng":…} or {"error":"…"}, and quits.
+// It asks for location while in use, writes one answer to <file> as {"lat":…,"lng":…} or {"error":"…"}, and quits. The app creates
+// <file> and deletes it once it stops waiting, so the helper only writes into it and never creates it: an answer after the app gave
+// up leaves no location on disk.
 import AppKit
 import CoreLocation
 import Foundation
@@ -49,7 +51,12 @@ final class OneLocation: NSObject, CLLocationManagerDelegate {
     private func finish(json: String) {
         if done { return }
         done = true
-        try? json.write(toFile: out, atomically: true, encoding: .utf8)
+        // Into the app's file only: nil once the app has deleted it. Opened before that, the bytes go to the unlinked file and vanish.
+        if let file = FileHandle(forWritingAtPath: out) {
+            try? file.truncate(atOffset: 0)
+            try? file.write(contentsOf: Data(json.utf8))
+            try? file.close()
+        }
         exit(0)
     }
 }
