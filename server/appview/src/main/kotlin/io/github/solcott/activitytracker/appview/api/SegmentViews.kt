@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
+import io.github.solcott.activitytracker.appview.db.PathSectionSegments
 import io.github.solcott.activitytracker.appview.db.PathSegments
 import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -334,7 +335,28 @@ class SegmentViews(
                 .where { (PathSegments.pathUri eq params.uri.value) and onPathListed(viewer) }
                 .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
                 .toList()
-        GetPath.Output(pathViews(viewer, listOf(row)).single(), views(segments))
+        val views = views(segments)
+        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }))
+    }
+
+    /**
+     * [path]'s sections holding any of [listed], in its record's order, each with only those, in [listed]'s order (segments/segment-paths):
+     * sections only narrow what the viewer already gets.
+     */
+    private fun JdbcTransaction.sectionsOf(path: AtUri, listed: List<AtUri>): List<GetPath.SectionView> {
+        if (listed.isEmpty()) return emptyList()
+        val bySegment =
+            PathSectionSegments.selectAll()
+                .where { PathSectionSegments.pathUri eq path.value }
+                .associate {
+                    it[PathSectionSegments.segmentUri] to (it[PathSectionSegments.sectionOrder] to it[PathSectionSegments.sectionName])
+                }
+        return listed
+            .mapNotNull { uri -> bySegment[uri.value]?.let { it to uri } }
+            .groupBy({ it.first }, { it.second })
+            .entries
+            .sortedBy { (section, _) -> section.first }
+            .map { (section, uris) -> GetPath.SectionView(section.second, uris) }
     }
 
     /** The views of up to [GetPaths.MAX_URIS] paths, in the order asked, leaving out those not indexed. */

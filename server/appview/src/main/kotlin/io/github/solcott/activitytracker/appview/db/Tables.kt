@@ -411,6 +411,18 @@ object PathSegments : Table("path_segments") {
     override val primaryKey = PrimaryKey(pathUri, segmentUri)
 }
 
+/**
+ * The sections of a trail path (segments/segment-paths): each importer segment named after one, by URI, with the section's name and place
+ * in the path record. A segment is in at most one section of a path.
+ */
+object PathSectionSegments : Table("path_section_segments") {
+    val pathUri = varchar("path_uri", 512)
+    val segmentUri = varchar("segment_uri", 512)
+    val sectionName = varchar("section_name", 1000)
+    val sectionOrder = integer("section_order")
+    override val primaryKey = PrimaryKey(pathUri, segmentUri)
+}
+
 /** The [io.github.solcott.activitytracker.location.SegmentCells] each segment's line passes through. */
 object SegmentCellIndex : Table("segment_cells") {
     val cell = long("cell")
