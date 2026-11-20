@@ -35,9 +35,11 @@ data class PathContent(
     val credit: SegmentCredit? = null,
     val sectioned: ImmutableList<PathListItem> = persistentListOf(),
 ) {
-    /** What the list shows, in order: [sectioned], or each of [groups] as a row when there are no sections. */
-    val items: ImmutableList<PathListItem>
-        get() = sectioned.ifEmpty { groups.map { PathListItem.Group(it) } }.toImmutableList()
+    /** What the list shows, in order: [sectioned], or each of [groups] as a row when there are no sections. Worked out once. */
+    val items: ImmutableList<PathListItem> = sectioned.ifEmpty { groups.map { PathListItem.Group(it) }.toImmutableList() }
+
+    /** The sections among [items]. */
+    val sections: ImmutableList<PathListItem.Section> = items.filterIsInstance<PathListItem.Section>().toImmutableList()
 }
 
 /** One entry of the Trail page's list (segments/path-page): a segment group's row, or a section of rows. */
@@ -102,11 +104,11 @@ data class PathState(
 
     /** What the list holds, in order: sections and the rows in none. Swift reads it as an array, empty or not. */
     val items: List<PathListItem>
-        get() = content.data.items.toList()
+        get() = content.data.items
 
     /** The sections listed. */
     val sections: List<PathListItem.Section>
-        get() = content.data.items.filterIsInstance<PathListItem.Section>()
+        get() = content.data.sections
 
     /** Whether [section]'s rows are shown. */
     fun isExpanded(section: PathListItem.Section): Boolean = section.name !in collapsed
@@ -136,9 +138,6 @@ data class PathState(
 
     /** [segmentsMap] with [hovered], a row or line under the pointer (a UI's own state), highlighted too. */
     fun segmentsMap(hovered: String?): SegmentsMap = SegmentsMap.of(mapLines, selected?.value, hovered)
-
-    /** [segmentsMap] with [section]'s rows highlighted, while the pointer is over its row. */
-    fun segmentsMap(section: PathListItem.Section): SegmentsMap = SegmentsMap.of(mapLines, selected?.value, section.lineUris)
 
     /** Whether [group]'s row is the one selected. */
     fun isSelected(group: SegmentGroupRow): Boolean = group.shown.uri == selected

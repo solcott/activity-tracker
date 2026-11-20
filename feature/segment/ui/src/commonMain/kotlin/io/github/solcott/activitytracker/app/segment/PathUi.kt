@@ -20,9 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -43,6 +40,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
+import io.github.solcott.activitytracker.app.ui.mapBrowseHover
 import io.github.solcott.activitytracker.app.ui.rememberMapBrowseHover
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -60,7 +58,9 @@ import kotlinx.collections.immutable.toImmutableSet
 fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     val hover = rememberMapBrowseHover()
-    LaunchedEffect(state.selected, state.collapsed) {
+    // Keyed on the selection alone: collapsing or expanding another section leaves the list where it is. A selection that expands its
+    // section changes both at once, so the row's index here is already the expanded one.
+    LaunchedEffect(state.selected) {
         val selected = state.selected?.value ?: return@LaunchedEffect
         val index = visibleKeys(state).indexOf(selected)
         // The header and refresh rows come first.
@@ -193,19 +193,7 @@ private fun SectionRow(
         Row(
             Modifier.fillMaxWidth()
                 .then(if (hover.uri == section.key) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
-                .pointerInput(section.key) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.changes.firstOrNull()?.type != PointerType.Mouse) continue
-                            when (event.type) {
-                                PointerEventType.Enter -> hover.uri = section.key
-                                PointerEventType.Exit -> if (hover.uri == section.key) hover.uri = null
-                                else -> Unit
-                            }
-                        }
-                    }
-                }
+                .mapBrowseHover(hover, section.key)
                 .clickable(onClickLabel = PathTexts.toggleLabel(section, expanded).string()) { state.eventSink(state.toggleEvent(section)) }
                 .testTag(TestTags.PATH_SECTION)
                 .padding(horizontal = 12.dp, vertical = 10.dp),

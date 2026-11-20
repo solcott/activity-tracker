@@ -64,7 +64,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
 
     /** Shows the row of [uri]: its section, when collapsed, expands. */
     fun reveal(uri: AtUri?) {
-        val section = content.data.items.filterIsInstance<PathListItem.Section>().find { s -> s.rows.any { it.shown.uri == uri } }
+        val section = content.data.sections.find { s -> s.rows.any { it.shown.uri == uri } }
         if (section != null) collapsed = collapsed.removing(section.name)
     }
 
@@ -88,9 +88,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
             is PathEvent.ToggleSection ->
                 collapsed = if (event.name in collapsed) collapsed.removing(event.name) else collapsed.adding(event.name)
             is PathEvent.SetAllSections ->
-                collapsed =
-                    if (event.expanded) persistentSetOf()
-                    else content.data.items.filterIsInstance<PathListItem.Section>().map { it.name }.toPersistentSet()
+                collapsed = if (event.expanded) persistentSetOf() else content.data.sections.map { it.name }.toPersistentSet()
             is PathEvent.Open -> open(event.uri)
             is PathEvent.TapRow ->
                 if (event.uri == selection.selected) {
