@@ -63,6 +63,9 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
     private var fallbackAt: GeoPoint? = null
     private var arrived = false
 
+    /** The map's own first view while browsing is still locating, so a later view centred elsewhere is the athlete moving it. */
+    private var locatingView: MapViewport? = null
+
     /** What the screen's state shows of the map and search: [query] and the [mapLines] the presenter derived, and this holder's own. */
     fun state(query: TextFieldState, mapLines: ImmutableList<MapSegmentLine>): MapBrowseState =
         MapBrowseState(
@@ -100,6 +103,7 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
     override fun viewportChanged(shown: MapViewport) {
         super.viewportChanged(shown)
         if (provisional) followFallback(shown)
+        if (start == BrowseStart.Locating) followWhileLocating(shown)
         // The athlete found somewhere themselves.
         if (start == BrowseStart.Nowhere && !shown.tooWide) start = BrowseStart.Placed
     }
@@ -117,6 +121,19 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
     }
 
     /**
+     * Whether [shown], while browsing is still locating, is the athlete moving the map: its first view is the map's own start, and a later
+     * one centred elsewhere ends locating where they put it, so neither a location nor the fallback moves it afterwards.
+     */
+    private fun followWhileLocating(shown: MapViewport) {
+        val first = locatingView
+        if (first == null) {
+            locatingView = shown
+        } else if (!shown.centres(GeoPoint(first.centerLat.e7ToDegrees(), first.centerLng.e7ToDegrees()))) {
+            start = if (shown.tooWide) BrowseStart.Nowhere else BrowseStart.Placed
+        }
+    }
+
+    /**
      * Finds where to open, once permission is known: the [locator]'s location when it answers within its hold, else [fallback] (where the
      * latest activity with a map started), else nowhere. A location that answers later, within [LATE_LOCATION_LIMIT], still moves the map
      * while the athlete hasn't moved it.
@@ -125,7 +142,7 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
         val granted = permission ?: return@coroutineScope
         if (start != BrowseStart.Locating) return@coroutineScope
         if (!granted) {
-            placeAt(fallback(), provisional = false)
+            placeAtFallback(fallback, provisional = false)
             return@coroutineScope
         }
         val fix = async { withTimeoutOrNull(LATE_LOCATION_LIMIT) { locator.here() } }
@@ -135,13 +152,20 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
             if (start == BrowseStart.Locating) placeAt(early, provisional = false)
             return@coroutineScope
         }
-        if (start == BrowseStart.Locating) placeAt(fallback(), provisional = true)
+        placeAtFallback(fallback, provisional = true)
         val late = fix.await() ?: return@coroutineScope
         if (provisional) {
             provisional = false
             centreOn(late)
             start = BrowseStart.Placed
         }
+    }
+
+    /** Opens at [fallback]'s answer, unless the athlete moved the map while it was being read. */
+    private suspend fun placeAtFallback(fallback: suspend () -> GeoPoint?, provisional: Boolean) {
+        if (start != BrowseStart.Locating) return
+        val at = fallback()
+        if (start == BrowseStart.Locating) placeAt(at, provisional)
     }
 
     private fun placeAt(at: GeoPoint?, provisional: Boolean) {

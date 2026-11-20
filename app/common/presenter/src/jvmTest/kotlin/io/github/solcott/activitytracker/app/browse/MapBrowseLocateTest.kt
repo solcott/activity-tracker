@@ -130,6 +130,38 @@ class MapBrowseLocateTest {
     }
 
     @Test
+    fun aPanWhileLocatingKeepsTheMapWhereTheAthletePutIt() = runTest {
+        val locator = Locator()
+        val browse = MapBrowse(locator.permission())
+        launch { browse.locate(locator) { stowe } }
+        advanceTimeBy(1.seconds)
+        // The map's own first view, then the athlete panning to Montpelier before the hold passes.
+        browse.viewportChanged(viewportAt(GeoPoint(0.0, 0.0), halfSpan = 0.5))
+        browse.viewportChanged(viewportAt(GeoPoint(44.26, -72.58)))
+        assertEquals(BrowseStart.Placed, browse.start)
+        advanceTimeBy(3.seconds)
+        runCurrent()
+        assertNull(browse.camera, "the fallback doesn't move a map the athlete moved")
+        locator.answer.complete(here)
+        advanceUntilIdle()
+        assertNull(browse.camera, "nor does a late location")
+    }
+
+    @Test
+    fun theMapsOwnViewsWhileLocatingDontStopTheFallback() = runTest {
+        val locator = Locator()
+        val browse = MapBrowse(locator.permission())
+        launch { browse.locate(locator) { stowe } }
+        advanceTimeBy(1.seconds)
+        browse.viewportChanged(viewportAt(GeoPoint(0.0, 0.0), halfSpan = 40.0))
+        // The same centre again, as a resize reports it.
+        browse.viewportChanged(viewportAt(GeoPoint(0.0, 0.0), halfSpan = 30.0))
+        advanceTimeBy(2.seconds)
+        runCurrent()
+        assertEquals(stowe, browse.cameraAt)
+    }
+
+    @Test
     fun aLocationAfterTheLimitIsIgnored() = runTest {
         val locator = Locator()
         val browse = MapBrowse(locator.permission())
