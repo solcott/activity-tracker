@@ -38,7 +38,8 @@ struct SegmentMayorsView: View {
     private func row(_ entry: MayorEntry) -> some View {
         RankRow(
             rank: RankBoardTexts.shared.rank(rank: entry.rank), accented: state.accents(entry: entry), athlete: entry.athlete,
-            detail: SegmentBoardTexts.shared.reached(entry: entry), value: AppStrings.string(SegmentBoardTexts.shared.efforts(entry: entry)),
+            detail: SegmentBoardTexts.shared.reached(entry: entry),
+            value: AppStrings.string(SegmentBoardTexts.shared.efforts(entry: entry)),
             opens: { send(SegmentMayorsEvent.OpenAthlete(did: entry.athlete.did)) })
     }
 

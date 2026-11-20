@@ -10,10 +10,10 @@ struct RootView: View {
             // Not yet known whether an account is signed in: nothing, for the moment the stored session takes to read.
             case .restoring:
                 Color(.systemGroupedBackground).ignoresSafeArea()
-            case let .signedOut(signedOut):
+            case .signedOut(let signedOut):
                 // A new record each time the athlete signs out, so the screen starts afresh.
                 SingleScreen(record: signedOut.value.login).id(signedOut.value.login.key)
-            case let .signedIn(signedIn):
+            case .signedIn(let signedIn):
                 SessionView(session: signedIn.value.session).id(ObjectIdentifier(signedIn.value.session))
             }
         }

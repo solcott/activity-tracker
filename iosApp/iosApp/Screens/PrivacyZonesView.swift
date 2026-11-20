@@ -49,7 +49,8 @@ struct PrivacyZonesView: View {
                         String(localized: .privacyZonesHideEnds),
                         selection: Binding(get: { state.hideEndsMeters }, set: { send(PrivacyZonesEvent.HideEndsChanged(meters: $0)) }),
                         options: state.hideEndsChoices.elements(as: Int32.self),
-                        optionLabel: distance)
+                        optionLabel: distance
+                    )
                     .disabled(!state.enabled)
                 } footer: {
                     VStack(alignment: .leading, spacing: 8) {
@@ -79,7 +80,9 @@ struct PrivacyZonesView: View {
         .disabled(!state.enabled)
         .swipeActions {
             if state.enabled {
-                Button(role: .destructive) { send(PrivacyZonesEvent.Remove(index: Int32(index))) } label: {
+                Button(role: .destructive) {
+                    send(PrivacyZonesEvent.Remove(index: Int32(index)))
+                } label: {
                     Text(.privacyZonesRemove)
                 }
             }
@@ -92,10 +95,13 @@ struct PrivacyZonesView: View {
         Section {
             AppTextField(
                 label: .privacyZonesLabel, model: label, state: state.label, layout: .row,
-                options: TextFieldOptions(capitalization: .words))
-                .disabled(!state.canAddHere)
+                options: TextFieldOptions(capitalization: .words)
+            )
+            .disabled(!state.canAddHere)
             Button {
-                send(state.hasLocationPermission ? PrivacyZonesEvent.AddAtCurrentLocation.shared : PrivacyZonesEvent.PermissionResult(granted: true))
+                send(
+                    state.hasLocationPermission
+                        ? PrivacyZonesEvent.AddAtCurrentLocation.shared : PrivacyZonesEvent.PermissionResult(granted: true))
             } label: {
                 HStack(spacing: 8) {
                     Text(PrivacyZonesTexts.shared.addHere(locating: state.locating))

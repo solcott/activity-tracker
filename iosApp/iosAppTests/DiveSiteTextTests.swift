@@ -79,9 +79,9 @@ struct DiveSiteTextTests {
     }
 }
 
-private extension MKMapPoint {
+extension MKMapPoint {
     /// The coordinate at the centre of a rect starting here.
-    func coordinate(offsetBy size: MKMapSize) -> CLLocationCoordinate2D {
+    fileprivate func coordinate(offsetBy size: MKMapSize) -> CLLocationCoordinate2D {
         MKMapPoint(x: x + size.width / 2, y: y + size.height / 2).coordinate
     }
 }

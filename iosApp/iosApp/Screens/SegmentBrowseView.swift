@@ -25,7 +25,8 @@ struct SegmentBrowseView: View {
             MapBrowseHeader(browse: state.browse, query: query, searchLabel: SegmentBrowseTexts.shared.searchLabel) {
                 AppMenuChip(
                     nil, filled: state.sport != nil,
-                    selection: Binding(get: { state.sport ?? "" }, set: { send(SegmentBrowseEvent.SportChanged(sport: $0.isEmpty ? nil : $0)) }),
+                    selection: Binding(
+                        get: { state.sport ?? "" }, set: { send(SegmentBrowseEvent.SportChanged(sport: $0.isEmpty ? nil : $0)) }),
                     options: [""] + state.sports,
                     optionLabel: { sport in AppStrings.string(SegmentBrowseTexts.shared.sportChoice(sport: sport.isEmpty ? nil : sport)) })
             }

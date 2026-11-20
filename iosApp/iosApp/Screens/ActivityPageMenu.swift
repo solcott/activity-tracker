@@ -18,8 +18,14 @@ struct ActivityPageMenu: View {
             let items = texts.ownerMenu(page: page)
             Menu {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    Button(role: item.destructive ? .destructive : nil) { choose(item) } label: {
-                        Label { Text(item.label) } icon: { Image(Self.icon(item.action)) }
+                    Button(role: item.destructive ? .destructive : nil) {
+                        choose(item)
+                    } label: {
+                        Label {
+                            Text(item.label)
+                        } icon: {
+                            Image(Self.icon(item.action))
+                        }
                     }
                 }
             } label: {
@@ -28,23 +34,38 @@ struct ActivityPageMenu: View {
             .disabled(!texts.menuEnabled(manage: manage))
             .accessibilityLabel(Text(texts.more))
             .alert(Text(texts.splitTitle), isPresented: $splitting) {
-                Button(role: .destructive) { send(ActivityDetailEvent.Split.shared) } label: { Text(texts.split) }
-                Button(role: .cancel) {} label: { Text(texts.cancel) }
+                Button(role: .destructive) {
+                    send(ActivityDetailEvent.Split.shared)
+                } label: {
+                    Text(texts.split)
+                }
+                Button(role: .cancel) {
+                } label: {
+                    Text(texts.cancel)
+                }
             } message: {
                 Text(texts.splitMessage)
             }
             .alert(Text(texts.deleteTitle), isPresented: $deleting) {
                 ForEach(Array(texts.deleteChoices(manage: manage).enumerated()), id: \.offset) { _, choice in
-                    Button(role: .destructive) { send(choice.event()) } label: { Text(choice.label) }
+                    Button(role: .destructive) {
+                        send(choice.event())
+                    } label: {
+                        Text(choice.label)
+                    }
                 }
-                Button(role: .cancel) {} label: { Text(texts.cancel) }
+                Button(role: .cancel) {
+                } label: {
+                    Text(texts.cancel)
+                }
             } message: {
                 Text(texts.deleteMessage(manage: manage))
             }
         } else if texts.offersReport(page: page) {
             Menu {
                 Button {
-                    if let report = texts.reportEvent(page: page, authorName: AppStrings.string(texts.reportName(activity: page.activity))) {
+                    if let report = texts.reportEvent(page: page, authorName: AppStrings.string(texts.reportName(activity: page.activity)))
+                    {
                         page.reporting.eventSink(report)
                     }
                 } label: {
@@ -108,8 +129,12 @@ struct ActivityExportSheet: View {
                             Text(texts.exportOriginalExplained).font(.footnote).foregroundStyle(.secondary)
                         }
                         if count > 0 {
-                            Button { send(ActivityDetailEvent.DownloadOriginal.shared) } label: { Text(texts.exportDownload) }
-                                .disabled(export.busy)
+                            Button {
+                                send(ActivityDetailEvent.DownloadOriginal.shared)
+                            } label: {
+                                Text(texts.exportDownload)
+                            }
+                            .disabled(export.busy)
                         }
                     } header: {
                         Text(texts.exportOriginal)
@@ -149,7 +174,11 @@ struct ActivityExportSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: { Text(texts.cancel) }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text(texts.cancel)
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {

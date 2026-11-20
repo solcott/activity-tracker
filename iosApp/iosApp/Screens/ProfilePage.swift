@@ -26,7 +26,11 @@ struct ProfilePage: View {
             Text(ProfileTexts.shared.blockConfirmTitle(name: blockName)),
             isPresented: $confirmingBlock
         ) {
-            Button(role: .destructive) { send(ProfileEvent.ToggleBlock.shared) } label: { Text(ProfileTexts.shared.block(blocking: false)) }
+            Button(role: .destructive) {
+                send(ProfileEvent.ToggleBlock.shared)
+            } label: {
+                Text(ProfileTexts.shared.block(blocking: false))
+            }
             Button(.actionCancel, role: .cancel) {}
         } message: {
             Text(ProfileTexts.shared.blockConfirmMessage)
@@ -104,18 +108,34 @@ struct ProfilePage: View {
             AppIconButton(.settings, label: .profileSettings) { send(ProfileEvent.OpenSettings.shared) }
         } else if state.profile != nil {
             Menu {
-                Button { send(ProfileEvent.ToggleMute.shared) } label: { Text(ProfileTexts.shared.mute(muting: state.muting)) }
+                Button {
+                    send(ProfileEvent.ToggleMute.shared)
+                } label: {
+                    Text(ProfileTexts.shared.mute(muting: state.muting))
+                }
                 if state.offersBlock {
                     if state.blocking {
-                        Button { send(ProfileEvent.ToggleBlock.shared) } label: { Text(ProfileTexts.shared.block(blocking: true)) }
+                        Button {
+                            send(ProfileEvent.ToggleBlock.shared)
+                        } label: {
+                            Text(ProfileTexts.shared.block(blocking: true))
+                        }
                     } else {
                         // Blocking asks first, saying they won't be told; unblocking doesn't.
-                        Button(role: .destructive) { confirmingBlock = true } label: { Text(ProfileTexts.shared.block(blocking: false)) }
+                        Button(role: .destructive) {
+                            confirmingBlock = true
+                        } label: {
+                            Text(ProfileTexts.shared.block(blocking: false))
+                        }
                     }
                 }
                 // Kept on a profile the viewer blocks, which has nothing else to report from (moderation/reports).
                 if let report = state.reportEvent(authorName: AppStrings.string(blockName)) {
-                    Button { state.reporting.eventSink(report) } label: { Text(ReportTexts.shared.menuEntry) }
+                    Button {
+                        state.reporting.eventSink(report)
+                    } label: {
+                        Text(ReportTexts.shared.menuEntry)
+                    }
                 }
             } label: {
                 Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
@@ -199,7 +219,9 @@ struct ProfileHeader: View {
     @ViewBuilder private var avatar: some View {
         let picture = Avatar(url: profile.avatar, name: AppStrings.string(ProfileTexts.shared.title(profile: profile)), size: 72)
         if let blur = state.avatarBlur, profile.avatar != nil {
-            Button { state.revealed.eventSink(profile.did.value) } label: {
+            Button {
+                state.revealed.eventSink(profile.did.value)
+            } label: {
                 picture.blur(radius: 12).clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -236,8 +258,16 @@ struct ProfileHeader: View {
     private var counts: some View {
         HStack(spacing: 16) {
             Text(ProfileTexts.shared.activities(count: profile.activitiesCount)).foregroundStyle(.secondary)
-            Button { send(ProfileEvent.OpenFollowers.shared) } label: { Text(ProfileTexts.shared.followers(count: profile.followersCount)) }
-            Button { send(ProfileEvent.OpenFollowing.shared) } label: { Text(ProfileTexts.shared.following(count: profile.followsCount)) }
+            Button {
+                send(ProfileEvent.OpenFollowers.shared)
+            } label: {
+                Text(ProfileTexts.shared.followers(count: profile.followersCount))
+            }
+            Button {
+                send(ProfileEvent.OpenFollowing.shared)
+            } label: {
+                Text(ProfileTexts.shared.following(count: profile.followsCount))
+            }
         }
         .font(.footnote)
         // Borderless, so each count takes only its own tap in the list row.

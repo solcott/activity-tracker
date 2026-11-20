@@ -57,7 +57,11 @@ struct GearListView: View {
                     Text(verbatim: row.name), summary: Text(GearListTexts.shared.collectionCount(row: row)),
                     opens: { send(GearListEvent.OpenCollection(rkey: row.rkey)) })
             }
-            Button { send(GearListEvent.AddCollection.shared) } label: { Text(.gearCollectionNew) }
+            Button {
+                send(GearListEvent.AddCollection.shared)
+            } label: {
+                Text(.gearCollectionNew)
+            }
         } header: {
             Text(.gearCollections)
         } footer: {
@@ -84,7 +88,11 @@ struct GearListView: View {
     @ViewBuilder private var actions: some View {
         AppIconButton(.add, label: .gearAdd) { send(GearListEvent.Add.shared) }
         Menu {
-            Button { send(GearListEvent.OpenIgnoredSensors.shared) } label: { Text(.gearIgnoredSensors) }
+            Button {
+                send(GearListEvent.OpenIgnoredSensors.shared)
+            } label: {
+                Text(.gearIgnoredSensors)
+            }
         } label: {
             Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
         }

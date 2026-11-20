@@ -18,7 +18,9 @@ struct EditCombinationSheet: View {
                     ForEach(Array((page.activity.members ?? []).enumerated()), id: \.offset) { _, member in
                         HStack(spacing: 12) {
                             Text(RecordingTexts.shared.memberName(member: member)).frame(maxWidth: .infinity, alignment: .leading)
-                            Button(role: .destructive) { removing = member } label: {
+                            Button(role: .destructive) {
+                                removing = member
+                            } label: {
                                 Image(.close).frame(minWidth: 32, minHeight: 32).contentShape(Rectangle())
                             }
                             .buttonStyle(.borderless)
@@ -37,7 +39,11 @@ struct EditCombinationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { dismiss() } label: { Text(texts.done) }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text(texts.done)
+                    }
                 }
             }
             .alert(
@@ -45,9 +51,16 @@ struct EditCombinationSheet: View {
                 isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })
             ) {
                 if let member = removing {
-                    Button(role: .destructive) { send(texts.removeEvent(member: member)) } label: { Text(texts.remove(member: member)) }
+                    Button(role: .destructive) {
+                        send(texts.removeEvent(member: member))
+                    } label: {
+                        Text(texts.remove(member: member))
+                    }
                 }
-                Button(role: .cancel) {} label: { Text(texts.cancel) }
+                Button(role: .cancel) {
+                } label: {
+                    Text(texts.cancel)
+                }
             } message: {
                 Text(texts.removeMessage)
             }
@@ -75,7 +88,11 @@ private struct DataSourcesSection: View {
             }
             if let error = sources.error {
                 ErrorMessage(error, layout: .row)
-                Button { send(ActivityDetailEvent.RetrySources.shared) } label: { Text(texts.retry) }
+                Button {
+                    send(ActivityDetailEvent.RetrySources.shared)
+                } label: {
+                    Text(texts.retry)
+                }
             }
             ForEach(Array(sources.kinds.elements(as: DataSourceRow.self).enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 8) {
@@ -107,7 +124,11 @@ private struct DataSourcesSection: View {
                         if let event = texts.chooseEvent(row: row, member: member) { send(event) }
                     } label: {
                         if member.uri.value == chosen.uri.value {
-                            Label { Text(texts.sourceName(member: member)) } icon: { Image(systemName: "checkmark") }
+                            Label {
+                                Text(texts.sourceName(member: member))
+                            } icon: {
+                                Image(systemName: "checkmark")
+                            }
                         } else {
                             Text(texts.sourceName(member: member))
                         }

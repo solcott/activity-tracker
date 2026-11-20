@@ -75,19 +75,22 @@ private struct LiveSegmentsMap: View {
             }
             // Ahead of the map's own gestures: a plain or simultaneous tap gesture on a `Map` never fires (seen on iOS 26), and a tap
             // doesn't compete with its pan and pinch, which still work.
-            .highPriorityGesture(SpatialTapGesture().onEnded { tapped in
-                let point = tapped.location
-                guard let tap = proxy.convert(point, from: .local),
-                    let edge = proxy.convert(CGPoint(x: point.x + SegmentsMapStyle.tapSlop, y: point.y), from: .local)
-                else { return }
-                let reach = SegmentsMapGeometry.meters(from: tap, to: edge)
-                onSelect(map.nearest(lat: tap.latitude, lng: tap.longitude, withinMeters: reach))
-            })
+            .highPriorityGesture(
+                SpatialTapGesture().onEnded { tapped in
+                    let point = tapped.location
+                    guard let tap = proxy.convert(point, from: .local),
+                        let edge = proxy.convert(CGPoint(x: point.x + SegmentsMapStyle.tapSlop, y: point.y), from: .local)
+                    else { return }
+                    let reach = SegmentsMapGeometry.meters(from: tap, to: edge)
+                    onSelect(map.nearest(lat: tap.latitude, lng: tap.longitude, withinMeters: reach))
+                })
         }
         .overlay(alignment: .topTrailing) {
             VStack(spacing: 0) { MapZoomButtons(shown: shown, position: $position) }
         }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { newSize in
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
+        } action: { newSize in
             size = newSize
             move()
         }
@@ -108,9 +111,9 @@ private struct LiveSegmentsMap: View {
     }
 }
 
-private extension MapSegment {
+extension MapSegment {
     /// A line's identity on the map: its URI and how it's drawn, so a change of role replaces its overlay.
-    var mapIdentity: String { "\(uri)|\(role)" }
+    fileprivate var mapIdentity: String { "\(uri)|\(role)" }
 }
 
 /// The conversions between MapKit's geometry and Kotlin's (a coordinate, a region's box, a tap's reach), kept apart for their tests.

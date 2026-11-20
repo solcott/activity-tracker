@@ -101,7 +101,8 @@ private struct GroupChoices: View {
             if group.showsSports {
                 AppMenuChip(
                     nil, filled: true,
-                    selection: Binding(get: { group.currentSport }, set: { sport in if let event = group.sportEvent(sport: sport) { send(event) } }),
+                    selection: Binding(
+                        get: { group.currentSport }, set: { sport in if let event = group.sportEvent(sport: sport) { send(event) } }),
                     options: group.sports,
                     optionLabel: { AppStrings.string(GroupSwitcherTexts.shared.sport(sport: $0)) })
             }
@@ -115,10 +116,12 @@ private struct GroupChoices: View {
                 .pickerStyle(.segmented)
                 .disabled(true)
             } else if directions.count > 1 {
-                Picker(selection: Binding(
-                    get: { directions.firstIndex { group.isCurrent(direction: $0) } ?? 0 },
-                    set: { index in if let event = group.directionEvent(direction: directions[index]) { send(event) } }
-                )) {
+                Picker(
+                    selection: Binding(
+                        get: { directions.firstIndex { group.isCurrent(direction: $0) } ?? 0 },
+                        set: { index in if let event = group.directionEvent(direction: directions[index]) { send(event) } }
+                    )
+                ) {
                     ForEach(directions.indices, id: \.self) { index in
                         Text(GroupSwitcherTexts.shared.direction(direction: directions[index])).tag(index)
                     }

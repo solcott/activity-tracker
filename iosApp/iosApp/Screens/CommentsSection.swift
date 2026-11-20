@@ -59,7 +59,10 @@ struct CommentsSection: View {
             } label: {
                 Text(confirmation.texts.confirm)
             }
-            Button(role: .cancel) {} label: { Text(CommentsTexts.shared.cancel) }
+            Button(role: .cancel) {
+            } label: {
+                Text(CommentsTexts.shared.cancel)
+            }
         } message: { confirmation in
             Text(confirmation.texts.message)
         }
@@ -168,8 +171,12 @@ struct CommentRowView: View {
                     Text(note).font(.caption).foregroundStyle(.secondary)
                 }
                 if row.offersReply {
-                    Button { send(CommentEvent.ReplyTo(uri: row.uri)) } label: { Text(CommentsTexts.shared.label(action: .Reply)).font(.footnote) }
-                        .buttonStyle(.borderless)
+                    Button {
+                        send(CommentEvent.ReplyTo(uri: row.uri))
+                    } label: {
+                        Text(CommentsTexts.shared.label(action: .Reply)).font(.footnote)
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
             .opacity(row.hidden ? 0.55 : 1)
@@ -190,7 +197,11 @@ struct CommentRowView: View {
         if !items.isEmpty {
             Menu {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    Button(role: item.destructive ? .destructive : nil) { choose(item, author) } label: { Text(item.label) }
+                    Button(role: item.destructive ? .destructive : nil) {
+                        choose(item, author)
+                    } label: {
+                        Text(item.label)
+                    }
                 }
             } label: {
                 Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())

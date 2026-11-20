@@ -24,7 +24,7 @@ struct FeedPage: View {
             switch shown.sealedType() {
             case .progress:
                 AppProgress().frame(maxWidth: .infinity).padding(.vertical, 24).listStatusRow()
-            case let .failure(failure):
+            case .failure(let failure):
                 ErrorMessage(failure.value.error, retry: refresh).frame(maxWidth: .infinity).padding(.vertical, 24).listStatusRow()
             case .content:
                 loaded
@@ -39,7 +39,7 @@ struct FeedPage: View {
     }
 
     private func refreshing(_ shown: ContentShown) -> Bool {
-        if case let .content(content) = shown.sealedType() { return content.value.refreshing }
+        if case .content(let content) = shown.sealedType() { return content.value.refreshing }
         return false
     }
 
@@ -89,8 +89,14 @@ struct FeedPage: View {
     private var addMenu: some View {
         Menu {
             ForEach(Array(FeedTexts.shared.addChoices(state: state, recordInMenu: true).enumerated()), id: \.offset) { _, choice in
-                Button { send(choice.event) } label: {
-                    Label { Text(choice.label) } icon: { Image(Self.icon(choice.kind)) }
+                Button {
+                    send(choice.event)
+                } label: {
+                    Label {
+                        Text(choice.label)
+                    } icon: {
+                        Image(Self.icon(choice.kind))
+                    }
                 }
             }
         } label: {

@@ -238,7 +238,9 @@ struct GearFieldSheet: View {
 
     private func row(_ option: GearOption) -> some View {
         let chosen = field.isSelected(option: option)
-        return AppCheckRow(checked: chosen, spacing: 12) { field.eventSink(GearFieldEvent.Toggle(uri: option.uri)) } label: {
+        return AppCheckRow(checked: chosen, spacing: 12) {
+            field.eventSink(GearFieldEvent.Toggle(uri: option.uri))
+        } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: option.name).foregroundStyle(.primary)
                 Text(GearFieldTexts.shared.line(option: option)).font(.footnote).foregroundStyle(.secondary)
@@ -258,8 +260,11 @@ struct ActivityTypeRow: View {
 
     var body: some View {
         let selected = field.selected
-        let choices = SportTypeGroups.shared.subSportChoices(selected: selected, outdoorOnly: outdoorOnly).elements(as: KotlinActivityType.self)
-        Button { choosing = true } label: {
+        let choices = SportTypeGroups.shared.subSportChoices(selected: selected, outdoorOnly: outdoorOnly).elements(
+            as: KotlinActivityType.self)
+        Button {
+            choosing = true
+        } label: {
             HStack(spacing: 12) {
                 Text(.sportPickerLabel).foregroundStyle(.primary).frame(maxWidth: .infinity, alignment: .leading)
                 SportIcon(selected).foregroundStyle(.tint)
@@ -278,7 +283,9 @@ struct ActivityTypeRow: View {
             FlowRow {
                 ForEach(choices, id: \.key) { type in
                     let chosen = type.key == selected.key
-                    Button { field.eventSink(ActivityTypeEvent.Select(type: type)) } label: {
+                    Button {
+                        field.eventSink(ActivityTypeEvent.Select(type: type))
+                    } label: {
                         Text(LabelText.shared.activityType(type: type))
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(chosen ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
@@ -349,7 +356,9 @@ struct ActivityTypeSheet: View {
                                 DisclosureGroup(isExpanded: searching ? .constant(true) : isExpanded(sport.type.sport)) {
                                     ForEach(nested, id: \.key) { choice($0) }
                                 } label: {
-                                    choice(sport.type, hidden: searching || expanded.contains(sport.type.sport) ? nil : hiddenChoice(in: nested))
+                                    choice(
+                                        sport.type,
+                                        hidden: searching || expanded.contains(sport.type.sport) ? nil : hiddenChoice(in: nested))
                                 }
                             }
                         }

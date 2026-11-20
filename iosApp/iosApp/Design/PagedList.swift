@@ -75,7 +75,7 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
         switch status?.sealedType() {
         case .progress:
             AppProgress().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failure(failure):
+        case .failure(let failure):
             ErrorMessage(failure.value.error, retry: retry)
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -132,7 +132,7 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
         switch status.sealedType() {
         case .progress:
             AppProgress(small: !firstPage).frame(maxWidth: .infinity).padding(.vertical, firstPage ? 24 : 0).listStatusRow()
-        case let .failure(failure):
+        case .failure(let failure):
             ErrorMessage(failure.value.error, layout: layout, retry: retry).frame(maxWidth: .infinity).listStatusRow()
         }
     }

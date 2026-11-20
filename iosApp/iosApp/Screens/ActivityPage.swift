@@ -84,10 +84,20 @@ private struct ActivityPageBody: View {
         }
         .alert(
             Text(page.combineSuggestion.map { texts.combineCue(cue: $0.cue) } ?? texts.title),
-            isPresented: Binding(get: { page.combineSuggestion?.asPrompt == true }, set: { shown in if !shown { send(ActivityDetailEvent.NotNowSuggestion.shared) } })
+            isPresented: Binding(
+                get: { page.combineSuggestion?.asPrompt == true },
+                set: { shown in if !shown { send(ActivityDetailEvent.NotNowSuggestion.shared) } })
         ) {
-            Button { send(ActivityDetailEvent.CombineSuggested.shared) } label: { Text(texts.combine) }
-            Button(role: .cancel) { send(ActivityDetailEvent.NotNowSuggestion.shared) } label: { Text(texts.notNow) }
+            Button {
+                send(ActivityDetailEvent.CombineSuggested.shared)
+            } label: {
+                Text(texts.combine)
+            }
+            Button(role: .cancel) {
+                send(ActivityDetailEvent.NotNowSuggestion.shared)
+            } label: {
+                Text(texts.notNow)
+            }
         } message: {
             if let suggestion = page.combineSuggestion {
                 clock.text(texts.combineMessage(suggestion: suggestion, now: clock.now, zone: clock.kotlinZone))
@@ -259,7 +269,9 @@ private struct ActivitySections {
         if !lifts.isEmpty {
             Section {
                 ForEach(Array(lifts.enumerated()), id: \.offset) { _, lift in
-                    Button { send(texts.openLift(lift: lift)) } label: {
+                    Button {
+                        send(texts.openLift(lift: lift))
+                    } label: {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(verbatim: lift.name)
@@ -309,7 +321,9 @@ private struct ActivityHeader: View {
                 NoticeChip(notice: notice)
             }
             HStack(spacing: 8) {
-                Button { send(ActivityDetailEvent.OpenAuthor.shared) } label: {
+                Button {
+                    send(ActivityDetailEvent.OpenAuthor.shared)
+                } label: {
                     Text(texts.author(activity: activity)).font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.borderless)
@@ -324,25 +338,40 @@ private struct ActivityHeader: View {
             }
             if let start = page.page.start {
                 HStack(spacing: 8) {
-                    Text(verbatim: FigureValueText.string(start.value, units: stats.units, clock: clock)).font(.footnote).foregroundStyle(.secondary)
+                    Text(verbatim: FigureValueText.string(start.value, units: stats.units, clock: clock)).font(.footnote).foregroundStyle(
+                        .secondary)
                     MarkBadge(mark: start.mark)
                 }
             }
             Text(texts.heading(activity: activity)).font(.title2.weight(.semibold))
             if let type = texts.typeLine(activity: activity) {
-                Label { Text(type) } icon: { SportIcon(card.type) }
-                    .font(.subheadline)
-                    .foregroundStyle(.tint)
+                Label {
+                    Text(type)
+                } icon: {
+                    SportIcon(card.type)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.tint)
             }
             if let site = texts.diveSite(activity: activity) {
                 if texts.opensDiveSite(activity: activity) {
-                    Button { send(ActivityDetailEvent.OpenDiveSite.shared) } label: {
-                        Label { Text(site) } icon: { Image(.location) }
+                    Button {
+                        send(ActivityDetailEvent.OpenDiveSite.shared)
+                    } label: {
+                        Label {
+                            Text(site)
+                        } icon: {
+                            Image(.location)
+                        }
                     }
                     .buttonStyle(.borderless)
                     .font(.subheadline)
                 } else {
-                    Label { Text(site) } icon: { Image(.location) }.font(.subheadline).foregroundStyle(.secondary)
+                    Label {
+                        Text(site)
+                    } icon: {
+                        Image(.location)
+                    }.font(.subheadline).foregroundStyle(.secondary)
                 }
             }
             if let about = card.descriptionText() {
@@ -371,12 +400,18 @@ private struct ActivityHeader: View {
         let activity = page.activity
         if let recordingOf = activity.record.recordingOf {
             Text(texts.recordingOf).font(.subheadline)
-            Button { send(ActivityDetailEvent.OpenActivity(uri: recordingOf)) } label: { Text(texts.openRecorded) }
-                .buttonStyle(.borderless)
+            Button {
+                send(ActivityDetailEvent.OpenActivity(uri: recordingOf))
+            } label: {
+                Text(texts.openRecorded)
+            }
+            .buttonStyle(.borderless)
         } else if let recordings = activity.recordings, !recordings.isEmpty {
             Text(texts.recordings).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
             ForEach(Array(recordings.enumerated()), id: \.offset) { _, recording in
-                Button { send(ActivityDetailEvent.OpenActivity(uri: recording.uri)) } label: {
+                Button {
+                    send(ActivityDetailEvent.OpenActivity(uri: recording.uri))
+                } label: {
                     Text(texts.recordingName(recording: recording, activityStart: activity.record.startedAt))
                 }
                 .buttonStyle(.borderless)
@@ -390,22 +425,34 @@ private struct ActivityHeader: View {
         let activity = page.activity
         if let combinedInto = activity.combinedInto {
             Text(texts.memberOf).font(.subheadline)
-            Button { send(ActivityDetailEvent.OpenActivity(uri: combinedInto)) } label: { Text(texts.openCombined) }
-                .buttonStyle(.borderless)
+            Button {
+                send(ActivityDetailEvent.OpenActivity(uri: combinedInto))
+            } label: {
+                Text(texts.openCombined)
+            }
+            .buttonStyle(.borderless)
         } else if let members = activity.members, !members.isEmpty {
             HStack {
                 Text(texts.members).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 if CombinationTexts.shared.offersEdit(page: page) {
-                    Button { editing = true } label: { Text(CombinationTexts.shared.edit) }
-                        .buttonStyle(.borderless)
-                        .font(.footnote)
-                        .accessibilityLabel(Text(CombinationTexts.shared.editDescription))
+                    Button {
+                        editing = true
+                    } label: {
+                        Text(CombinationTexts.shared.edit)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.footnote)
+                    .accessibilityLabel(Text(CombinationTexts.shared.editDescription))
                 }
             }
             ForEach(Array(members.enumerated()), id: \.offset) { _, member in
-                Button { send(ActivityDetailEvent.OpenActivity(uri: member.uri)) } label: { Text(texts.memberName(member: member)) }
-                    .buttonStyle(.borderless)
+                Button {
+                    send(ActivityDetailEvent.OpenActivity(uri: member.uri))
+                } label: {
+                    Text(texts.memberName(member: member))
+                }
+                .buttonStyle(.borderless)
             }
         }
     }
@@ -431,9 +478,13 @@ private struct CombineBanner: View {
             HStack(spacing: 12) {
                 AppButton(texts.combine) { send(ActivityDetailEvent.CombineSuggested.shared) }
                     .disabled(suggestion.busy)
-                Button { send(ActivityDetailEvent.DontCombineSuggestion.shared) } label: { Text(texts.dontCombine) }
-                    .buttonStyle(.borderless)
-                    .disabled(suggestion.busy)
+                Button {
+                    send(ActivityDetailEvent.DontCombineSuggestion.shared)
+                } label: {
+                    Text(texts.dontCombine)
+                }
+                .buttonStyle(.borderless)
+                .disabled(suggestion.busy)
             }
         }
         .padding(12)
@@ -454,15 +505,23 @@ private struct ActivityLikes: View {
                 Text(texts.likeCount(activity: page.activity))
             } else {
                 let liked = page.activity.viewer?.like != nil
-                Button { send(ActivityDetailEvent.ToggleLike.shared) } label: {
-                    Label { Text(texts.likeButton(activity: page.activity)) } icon: { Image(.like) }
+                Button {
+                    send(ActivityDetailEvent.ToggleLike.shared)
+                } label: {
+                    Label {
+                        Text(texts.likeButton(activity: page.activity))
+                    } icon: {
+                        Image(.like)
+                    }
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(liked ? Color("LikeColor") : Color.accentColor)
             }
             Spacer(minLength: 8)
             if texts.showsLikesToggle(page: page) {
-                Button { send(ActivityDetailEvent.ToggleLikesList.shared) } label: {
+                Button {
+                    send(ActivityDetailEvent.ToggleLikesList.shared)
+                } label: {
                     Text(texts.likesToggle(shown: page.likesList != nil))
                 }
                 .buttonStyle(.borderless)
@@ -497,17 +556,29 @@ private struct ActivityTogether: View {
             }
             if let own = page.ownGroup {
                 if own.left { Text(texts.groupLeft).font(.footnote).foregroundStyle(.secondary) }
-                Button { send(texts.groupEvent(own: own)) } label: { Text(texts.groupButton(own: own)) }
-                    .disabled(own.busy)
+                Button {
+                    send(texts.groupEvent(own: own))
+                } label: {
+                    Text(texts.groupButton(own: own))
+                }
+                .disabled(own.busy)
                 if let error = own.error { ErrorMessage(error, layout: .row) }
             }
             if page.isOwnCopy {
-                Button { send(ActivityDetailEvent.LeaveCopyGroup.shared) } label: { Text(texts.leaveCopyGroup) }
-                    .disabled(page.leavingCopyGroup)
+                Button {
+                    send(ActivityDetailEvent.LeaveCopyGroup.shared)
+                } label: {
+                    Text(texts.leaveCopyGroup)
+                }
+                .disabled(page.leavingCopyGroup)
                 if let error = page.copyGroupError { ErrorMessage(error, layout: .row) }
             }
             if page.canAddPeople {
-                Button { send(ActivityDetailEvent.AddPeople.shared) } label: { Text(texts.addPeople) }
+                Button {
+                    send(ActivityDetailEvent.AddPeople.shared)
+                } label: {
+                    Text(texts.addPeople)
+                }
             }
         } header: {
             if !page.partners.elements(as: GroupPartner.self).isEmpty { Text(texts.togetherWith) }
@@ -535,7 +606,10 @@ private struct SegmentEffortRowView: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: row.label)
-                        ForEach(Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()), id: \.offset) {
+                        ForEach(
+                            Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()),
+                            id: \.offset
+                        ) {
                             _, note in Text(note).font(.footnote).foregroundStyle(.secondary)
                         }
                     }

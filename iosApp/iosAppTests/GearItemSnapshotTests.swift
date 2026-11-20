@@ -37,7 +37,8 @@ struct GearItemSnapshotTests {
     @Test(arguments: ["replacing", "mountingNone"])
     func mountSheet(sample: String) throws {
         let picker = try #require(Samples.gearVariants[sample]?.picker)
-        assertAppSnapshot(of: MountSheet(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 420), named: sample,
+        assertAppSnapshot(
+            of: MountSheet(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 420), named: sample,
             precision: Snapshots.barButtons)
     }
 

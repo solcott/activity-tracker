@@ -43,7 +43,9 @@ struct PostPage: View {
             if page.showsLikesToggle || page.showsRepostsToggle || page.showsQuotes {
                 Section {
                     if page.showsLikesToggle {
-                        toggle(PostPageTexts.shared.likesToggle(shown: page.likesList != nil)) { send(PostPageEvent.ToggleLikesList.shared) }
+                        toggle(PostPageTexts.shared.likesToggle(shown: page.likesList != nil)) {
+                            send(PostPageEvent.ToggleLikesList.shared)
+                        }
                         if let likers = page.likesList { people(likers) }
                     }
                     if page.showsRepostsToggle {

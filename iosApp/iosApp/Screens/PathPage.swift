@@ -15,7 +15,11 @@ struct PathPage: View {
 
     var body: some View {
         ContentStateView(state.content, as: PathContent.self, errorKind: .LoadPath, retry: retry) { _ in
-            MapBrowseLayout { map } list: { list }
+            MapBrowseLayout {
+                map
+            } list: {
+                list
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .pageTitle(state.path.map { Text(verbatim: $0.name) } ?? Text(PathTexts.shared.title))

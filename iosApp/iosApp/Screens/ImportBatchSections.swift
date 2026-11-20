@@ -17,7 +17,8 @@ struct ImportBatchSections: View {
         summary
         ForEach(batch.clocks.elements(as: FileClock.self), id: \.key) { file in
             Section {
-                TimeZoneRows(notice: texts.zoneNotice(clock: file.clock, fileName: file.fileName), clock: file.clock, enabled: enabled) { id in
+                TimeZoneRows(notice: texts.zoneNotice(clock: file.clock, fileName: file.fileName), clock: file.clock, enabled: enabled) {
+                    id in
                     send(ImportActivityEvent.FileZoneChanged(key: file.key, id: id))
                 }
             }
@@ -38,7 +39,10 @@ struct ImportBatchSections: View {
         if let gear = state.gear {
             GearSection(gear: gear, enabled: enabled, footer: texts.detailsHint)
         } else {
-            Section {} footer: { Text(texts.detailsHint) }
+            Section {
+            } footer: {
+                Text(texts.detailsHint)
+            }
         }
         NewDevicesSections(fields: state.newDevices, enabled: enabled)
         ImportVisibilitySections(fields: state.visibility, heading: Text(texts.batchVisibilityHeading), enabled: enabled)
@@ -46,7 +50,9 @@ struct ImportBatchSections: View {
             if let failure = texts.saveFailure(state: state, batch: batch) {
                 Text(failure).font(.subheadline).foregroundStyle(.red)
             }
-            Button { send(state.saveBatchEvent(source: CatalogText.shared)) } label: {
+            Button {
+                send(state.saveBatchEvent(source: CatalogText.shared))
+            } label: {
                 HStack(spacing: 8) {
                     if state.saving { AppProgress(small: true) }
                     Text(texts.saveBatch(state: state, batch: batch)).fontWeight(.semibold)
@@ -96,9 +102,13 @@ struct ImportBatchSections: View {
             HStack(spacing: 12) {
                 Text(texts.selected(batch: batch)).font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, alignment: .leading)
                 if let selectAll = texts.selectAll(batch: batch) {
-                    Button { send(ImportActivityEvent.AllShownSelected(selected: !batch.allShownSelected)) } label: { Text(selectAll) }
-                        .buttonStyle(.borderless)
-                        .fixedSize()
+                    Button {
+                        send(ImportActivityEvent.AllShownSelected(selected: !batch.allShownSelected))
+                    } label: {
+                        Text(selectAll)
+                    }
+                    .buttonStyle(.borderless)
+                    .fixedSize()
                 }
             }
             if texts.offersBulkActions(batch: batch) {
@@ -107,7 +117,9 @@ struct ImportBatchSections: View {
                     // Buttons, not segments: the shown duplicates can each be set differently, so none is chosen.
                     FlowRow {
                         ForEach(texts.bulkChoices, id: \.action) { choice in
-                            Button { send(ImportActivityEvent.ShownDuplicatesAction(action: choice.action)) } label: {
+                            Button {
+                                send(ImportActivityEvent.ShownDuplicatesAction(action: choice.action))
+                            } label: {
                                 Text(texts.action(action: choice.action)).font(.subheadline)
                             }
                             .buttonStyle(.bordered)
@@ -140,7 +152,9 @@ struct ImportBatchRowView: View {
         let texts = ImportActivityTexts.shared
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                Button { send(ImportActivityEvent.ItemToggled(index: row.index)) } label: {
+                Button {
+                    send(ImportActivityEvent.ItemToggled(index: row.index))
+                } label: {
                     Image(systemName: row.selected ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
                         .foregroundStyle(row.selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
@@ -148,7 +162,9 @@ struct ImportBatchRowView: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Text(texts.rowTitle(row: row)))
                 .accessibilityAddTraits(row.selected ? .isSelected : [])
-                Button { send(ImportActivityEvent.ItemOpened(index: row.index)) } label: {
+                Button {
+                    send(ImportActivityEvent.ItemOpened(index: row.index))
+                } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(texts.rowTitle(row: row)).foregroundStyle(.primary)
                         Text(texts.rowDetails(row: row, units: stats.units)).font(.footnote).foregroundStyle(.secondary)
@@ -164,7 +180,8 @@ struct ImportBatchRowView: View {
                 .buttonStyle(.plain)
             }
             if let duplicate = row.duplicate {
-                DuplicateWarningView(info: duplicate, inFileNumber: texts.inFileNumber(batch: batch, row: row), enabled: enabled) { action in
+                DuplicateWarningView(info: duplicate, inFileNumber: texts.inFileNumber(batch: batch, row: row), enabled: enabled) {
+                    action in
                     send(ImportActivityEvent.DuplicateActionChanged(index: row.index, action: action))
                 }
                 .padding(.leading, 36)
@@ -225,7 +242,11 @@ struct ImportItemSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { state.eventSink(ImportActivityEvent.ItemClosed.shared) } label: { Text(texts.itemDone) }
+                    Button {
+                        state.eventSink(ImportActivityEvent.ItemClosed.shared)
+                    } label: {
+                        Text(texts.itemDone)
+                    }
                 }
             }
         }
@@ -385,7 +406,9 @@ struct NewDeviceSection: View {
                         FlowRow {
                             ForEach(collections, id: \.rkey) { collection in
                                 let selected = chosen.contains(collection.rkey)
-                                Button { send(NewDeviceEvent.ToggleCollection(id: id, rkey: collection.rkey)) } label: {
+                                Button {
+                                    send(NewDeviceEvent.ToggleCollection(id: id, rkey: collection.rkey))
+                                } label: {
                                     Text(verbatim: collection.name).font(.subheadline)
                                 }
                                 .collectionChip(selected: selected)

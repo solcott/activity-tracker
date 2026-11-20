@@ -30,7 +30,11 @@ struct SegmentMapView: View {
             VStack(spacing: 8) {
                 if let credit = content.credit {
                     CreditBox(credit: credit)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { creditHeight = $0 }
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.height
+                        } action: {
+                            creditHeight = $0
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 RefreshStatusView(state: state.content, errorKind: .LoadSegment, retry: retry)

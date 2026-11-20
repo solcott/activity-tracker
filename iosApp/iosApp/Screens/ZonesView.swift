@@ -66,7 +66,8 @@ struct ZonesView: View {
                 Text(ZoneTexts.shared.heading(kind: .HeartRate))
             }
             Section {
-                ZoneRows.modelPicker(model: state.powerModel, models: state.powerModels.elements(as: ZoneModel.self), enabled: state.loaded) {
+                ZoneRows.modelPicker(model: state.powerModel, models: state.powerModels.elements(as: ZoneModel.self), enabled: state.loaded)
+                {
                     send(ZonesEvent.PowerModelChanged(token: $0))
                 }
                 ZoneRows.zones(state.powerZones?.elements(as: Zone.self), model: state.powerModel, kind: .Power, paceUnit: .PerKilometer)

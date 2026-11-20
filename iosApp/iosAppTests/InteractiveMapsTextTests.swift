@@ -61,7 +61,8 @@ struct InteractiveMapsTextTests {
         #expect(lines == ["1.26 mi · Run, Hike both ways · Ride uphill only"])
         #expect(AppStrings.string(PathTexts.shared.name(group: state.groups[0])) == "Clarks")
         let path = try #require(state.path)
-        #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Imperial)) == "Trail · 1.26 mi · Run, Hike · Ride uphill only")
+        #expect(
+            AppStrings.string(PathTexts.shared.summary(path: path, units: .Imperial)) == "Trail · 1.26 mi · Run, Hike · Ride uphill only")
     }
 
     @Test func aTrailsSectionsFoldTheirRowsAndOfferAllSections() throws {
@@ -117,7 +118,10 @@ struct InteractiveMapsTextTests {
         let content = try #require(state.content.data as? SegmentMapContent)
         let credit = try #require(content.credit)
         #expect(SegmentCreditTexts.shared.links(credit: credit))
-        #expect(SegmentCreditTexts.shared.lines(credit: credit).map(AppStrings.string) == ["© OpenStreetMap contributors", "Data licence: ODbL-1.0"])
+        #expect(
+            SegmentCreditTexts.shared.lines(credit: credit).map(AppStrings.string) == [
+                "© OpenStreetMap contributors", "Data licence: ODbL-1.0",
+            ])
         #expect(content.routeMap != nil)
     }
 

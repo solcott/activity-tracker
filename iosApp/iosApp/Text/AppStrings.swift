@@ -1,6 +1,6 @@
 import Foundation
-import SwiftUI
 import KotlinRuntime
+import SwiftUI
 
 /// The String Catalog as Kotlin reads it: a string by its shared name, filled with arguments that are already text. Kotlin's
 /// `resolve` walks a choice of text (its arguments first, its fallback when a name has no string) and asks this for each string, so

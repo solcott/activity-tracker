@@ -24,7 +24,11 @@ struct RouteMapImage: View {
                 RouteSketch { size in map.sketch(width: size.width, height: size.height, pad: RouteMarkerStyle.sketchPad) }
             }
         }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
+        } action: {
+            size = $0
+        }
         .task(id: key) { await draw() }
         .accessibilityHidden(true)
     }
@@ -126,7 +130,8 @@ enum RouteMapImages {
             for gap in breaks {
                 context.saveGState()
                 context.setLineDash(phase: 0, lengths: [RouteMarkerStyle.dash, RouteMarkerStyle.space])
-                stroke([gap.stop, gap.resume], in: context, at: point, color: breakColor, width: RouteMarkerStyle.connectorWidth, round: false)
+                stroke(
+                    [gap.stop, gap.resume], in: context, at: point, color: breakColor, width: RouteMarkerStyle.connectorWidth, round: false)
                 context.restoreGState()
             }
             for gap in breaks {

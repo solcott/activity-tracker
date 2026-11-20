@@ -150,8 +150,12 @@ struct EditProfileView: View {
         HStack(spacing: 12) {
             Text(.editProfileBirthDate).frame(maxWidth: .infinity, alignment: .leading)
             if let shown = EditProfileTexts.shared.birthDate(state: state) {
-                Button { pickingBirthDate = true } label: { Text(shown) }
-                    .accessibilityHint(Text(.editProfileBirthDateChoose))
+                Button {
+                    pickingBirthDate = true
+                } label: {
+                    Text(shown)
+                }
+                .accessibilityHint(Text(.editProfileBirthDateChoose))
                 AppIconButton(.clear, label: .editProfileClear) { send(EditProfileEvent.BirthDateChanged(value: "")) }
                     .foregroundStyle(.secondary)
             } else {

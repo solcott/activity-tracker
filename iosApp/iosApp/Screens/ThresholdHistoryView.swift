@@ -34,7 +34,9 @@ struct ThresholdHistoryView: View {
         }
         .pageTitle(Text(.zonesHistory), back: { send(ThresholdHistoryEvent.Back.shared) }) {
             if !groups.isEmpty {
-                Button { send(ThresholdHistoryEvent.ToggleAll.shared) } label: {
+                Button {
+                    send(ThresholdHistoryEvent.ToggleAll.shared)
+                } label: {
                     Image(state.anyExpanded ? AppIcon.collapseAll : AppIcon.expandAll)
                 }
                 .accessibilityLabel(Text(ThresholdHistoryTexts.shared.toggleAll(state: state)))
@@ -56,7 +58,9 @@ private struct GroupSection: View {
         let texts = ThresholdHistoryTexts.shared
         let thresholds = group.thresholds.elements(as: ThresholdHistorySection.self)
         Section {
-            Button { state.eventSink(ThresholdHistoryEvent.ToggleGroup(sport: group.sport)) } label: {
+            Button {
+                state.eventSink(ThresholdHistoryEvent.ToggleGroup(sport: group.sport))
+            } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.semibold))
@@ -121,7 +125,9 @@ private struct ThresholdRows: View {
             ValueRow(section: section, row: row, state: state)
         }
         if section.canShowAll {
-            Button { state.eventSink(ThresholdHistoryEvent.ToggleShowAll(threshold: section.threshold, sport: section.sport)) } label: {
+            Button {
+                state.eventSink(ThresholdHistoryEvent.ToggleShowAll(threshold: section.threshold, sport: section.sport))
+            } label: {
                 Text(texts.showAll(section: section))
             }
         }
@@ -156,8 +162,14 @@ private struct ValueRow: View {
                 AppProgress(small: true).frame(width: 28)
             } else {
                 Menu {
-                    Button(role: .destructive) { state.eventSink(ThresholdHistoryEvent.Remove(entry: row.entry)) } label: {
-                        Label { Text(.zonesHistoryRemove) } icon: { Image(AppIcon.delete) }
+                    Button(role: .destructive) {
+                        state.eventSink(ThresholdHistoryEvent.Remove(entry: row.entry))
+                    } label: {
+                        Label {
+                            Text(.zonesHistoryRemove)
+                        } icon: {
+                            Image(AppIcon.delete)
+                        }
                     }
                 } label: {
                     Image(AppIcon.delete).frame(width: 28, height: 28).contentShape(Rectangle())

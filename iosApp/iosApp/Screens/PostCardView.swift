@@ -42,10 +42,16 @@ struct PostCardView: View {
 
     @ViewBuilder private var repostedBy: some View {
         if let line = content.repostedBy(), let reposter = content.reposter {
-            Button { send(PostEvent.OpenReposter(reposter: reposter)) } label: {
-                Label { Text(line) } icon: { Image(.repost) }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            Button {
+                send(PostEvent.OpenReposter(reposter: reposter))
+            } label: {
+                Label {
+                    Text(line)
+                } icon: {
+                    Image(.repost)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityHint(Text(PostCardContent.Companion.shared.openReposter()))
@@ -55,7 +61,9 @@ struct PostCardView: View {
     private var header: some View {
         HStack(spacing: 8) {
             // Plain, so the line keeps its colours rather than the accent's, and only it takes the tap.
-            Button { send(PostEvent.OpenAuthor(post: post)) } label: {
+            Button {
+                send(PostEvent.OpenAuthor(post: post))
+            } label: {
                 HStack(spacing: 8) {
                     Avatar(url: post.author.avatar, name: AppStrings.string(content.author()), size: 32)
                     VStack(alignment: .leading, spacing: 2) {
@@ -70,7 +78,11 @@ struct PostCardView: View {
             // Delete only on the viewer's own quote (feed/quote-posts), Report only on someone else's post.
             if content.offersMenu(reportAvailable: canReport) {
                 Menu {
-                    Button(role: content.offersDelete ? .destructive : nil) { send(content.menuEvent()) } label: { Text(content.menuItem()) }
+                    Button(role: content.offersDelete ? .destructive : nil) {
+                        send(content.menuEvent())
+                    } label: {
+                        Text(content.menuItem())
+                    }
                 } label: {
                     Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
@@ -83,9 +95,13 @@ struct PostCardView: View {
         if let proposes = content.proposes() {
             VStack(alignment: .leading, spacing: 8) {
                 if let place = content.place() {
-                    Button { send(PostEvent.Open(post: post)) } label: { Text(place).font(.footnote) }
-                        .buttonStyle(.borderless)
-                        .accessibilityHint(Text(PostCardContent.Companion.shared.openPlace()))
+                    Button {
+                        send(PostEvent.Open(post: post))
+                    } label: {
+                        Text(place).font(.footnote)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityHint(Text(PostCardContent.Companion.shared.openPlace()))
                 }
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -110,13 +126,16 @@ struct PostCardView: View {
 
     @ViewBuilder private var quoted: some View {
         if let quoted = content.quoted {
-            Button { send(PostEvent.OpenQuoted(uri: quoted.uri)) } label: {
+            Button {
+                send(PostEvent.OpenQuoted(uri: quoted.uri))
+            } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     if let header = content.quotedHeader() {
                         Text(header).font(.footnote).foregroundStyle(.secondary)
                     }
                     if let text = quoted.text {
-                        Text(verbatim: text).font(.subheadline).lineLimit(6).fixedSize(horizontal: false, vertical: true).foregroundStyle(.primary)
+                        Text(verbatim: text).font(.subheadline).lineLimit(6).fixedSize(horizontal: false, vertical: true).foregroundStyle(
+                            .primary)
                     }
                     if let proposes = content.quotedProposes() {
                         Text(proposes).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
@@ -129,9 +148,13 @@ struct PostCardView: View {
             .buttonStyle(.plain)
             .accessibilityHint(Text(content.quotedOpen()))
             if let link = content.quotedLink {
-                Button { send(PostEvent.OpenQuoted(uri: link)) } label: { Text(content.quotedLinkText()).font(.footnote) }
-                    .buttonStyle(.borderless)
-                    .accessibilityHint(Text(content.quotedOpen()))
+                Button {
+                    send(PostEvent.OpenQuoted(uri: link))
+                } label: {
+                    Text(content.quotedLinkText()).font(.footnote)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityHint(Text(content.quotedOpen()))
             }
         } else if content.quotedUnavailable {
             Text(content.quotedUnavailableText())
@@ -181,7 +204,9 @@ extension View {
         List {
             ForEach(Samples.postCards.sorted { $0.key < $1.key }, id: \.key) { name, post in
                 Section(name) {
-                    PostCardView(content: PostCardContent.Companion.shared.of(post: post, viewerDid: Samples.postViewer, reason: nil)) { _ in }
+                    PostCardView(content: PostCardContent.Companion.shared.of(post: post, viewerDid: Samples.postViewer, reason: nil)) {
+                        _ in
+                    }
                 }
             }
         }

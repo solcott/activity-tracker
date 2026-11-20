@@ -27,7 +27,7 @@ struct ContentStateView<Value, Content: View>: View {
         switch ContentShown.Companion.shared.of(state: state, errorKind: errorKind).sealedType() {
         case .progress:
             AppProgress().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failure(failure):
+        case .failure(let failure):
             ErrorMessage(failure.value.error, retry: retry)
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -59,7 +59,7 @@ struct RefreshStatusView: View {
     let retry: () -> Void
 
     var body: some View {
-        if case let .content(content) = ContentShown.Companion.shared.of(state: state, errorKind: errorKind).sealedType() {
+        if case .content(let content) = ContentShown.Companion.shared.of(state: state, errorKind: errorKind).sealedType() {
             if let error = content.value.refreshError {
                 ErrorMessage(error, layout: .row, retry: retry)
             } else if content.value.refreshing, showsProgress {

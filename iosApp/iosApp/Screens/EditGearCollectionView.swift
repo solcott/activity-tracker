@@ -144,7 +144,9 @@ struct AddItemsList: View {
             }
             ForEach(others, id: \.rkey) { row in
                 let isTicked = ticked.isTicked(row.rkey)
-                Button { ticked.toggle(row.rkey) } label: {
+                Button {
+                    ticked.toggle(row.rkey)
+                } label: {
                     AppItemRow(Text(verbatim: row.name), lines: [Text(GearListTexts.shared.detail(row: row, showRetired: true))]) {
                         Thumbnail(url: row.photoUrl)
                     } trailing: {

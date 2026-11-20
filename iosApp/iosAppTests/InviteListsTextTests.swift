@@ -10,7 +10,9 @@ struct InviteListsTextTests {
 
     private func invites(_ state: ActivityInvitesState) -> [InviteView] { state.invites.elements(as: InviteView.self) }
 
-    private func titles(_ state: ActivityInvitesState) -> [String?] { invites(state).map { read(ActivityInvitesTexts.shared.title(invite: $0)) } }
+    private func titles(_ state: ActivityInvitesState) -> [String?] {
+        invites(state).map { read(ActivityInvitesTexts.shared.title(invite: $0)) }
+    }
 
     private func error(_ notice: SignInAgainNotice?) -> String? { notice.map { AppStrings.string(ErrorTexts.shared.of(error: $0.error)) } }
 

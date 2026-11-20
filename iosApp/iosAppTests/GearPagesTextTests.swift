@@ -19,9 +19,10 @@ struct GearPagesTextTests {
         #expect(read(state.title) == "Dive kit")
         #expect(collection.notes == "Cold water setup")
         let members = collection.members.elements(as: GearRow.self)
-        #expect(members.map { read(GearListTexts.shared.detail(row: $0, showRetired: true)) } == [
-            "Regulator · Public", "Fullsuit · Only me · Retired", "Fins · Public",
-        ])
+        #expect(
+            members.map { read(GearListTexts.shared.detail(row: $0, showRetired: true)) } == [
+                "Regulator · Public", "Fullsuit · Only me · Retired", "Fins · Public",
+            ])
         #expect(members.map(\.rkey) == ["3kreg", "3ksuit", "3kfins"])
     }
 
@@ -67,9 +68,10 @@ struct GearPagesTextTests {
 
     @Test func ignoredDevicesReadByMakerModelAndSerial() {
         #expect(sensors.map { read(LinkedSensorTexts.shared.name(sensor: $0)) } == ["Garmin Edge 840", "Polar H10"])
-        #expect(sensors.map { read(LinkedSensorTexts.shared.detail(sensor: $0)) } == [
-            "Serial …2071", "Known only by its model, so it may match other units",
-        ])
+        #expect(
+            sensors.map { read(LinkedSensorTexts.shared.detail(sensor: $0)) } == [
+                "Serial …2071", "Known only by its model, so it may match other units",
+            ])
         #expect(sensors.map(\.serialTail) == ["2071", nil])
         #expect(sensors.map(\.weak) == [false, true])
         #expect(String(localized: .gearUnignore) == "Un-ignore")

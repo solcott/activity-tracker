@@ -30,7 +30,8 @@ struct GearItemTextTests {
         #expect(figures.map { read($0.label) } == ["Activities", "Moving time", "Distance", "Elevation gain", "Vertical", "Days used"])
         #expect(read(figures[2].value) == "2,065 km")
         #expect(read(GearPageTexts.shared.starting(starting: bike.usage.starting, units: .Metric)) == "Includes 2,000 km before tracking")
-        #expect(GearPageTexts.shared.bySport(page: bike, units: .Metric).map { read($0.value) } == ["1 activity · 32 km", "1 activity · 32 km"])
+        #expect(
+            GearPageTexts.shared.bySport(page: bike, units: .Metric).map { read($0.value) } == ["1 activity · 32 km", "1 activity · 32 km"])
         #expect(GearPageTexts.shared.byYear(page: bike, units: .Metric).map { read($0.label) } == ["2026", "2025"])
     }
 

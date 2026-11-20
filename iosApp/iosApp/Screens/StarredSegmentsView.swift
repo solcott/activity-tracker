@@ -56,7 +56,11 @@ struct StarredSegmentsView: View {
             }
         } else {
             // A segment that's gone opens nothing, and its star still unstars it.
-            AppItemRow(Text(.starredSegmentUnavailable).foregroundStyle(.secondary)) { EmptyView() } trailing: { unstar }
+            AppItemRow(Text(.starredSegmentUnavailable).foregroundStyle(.secondary)) {
+                EmptyView()
+            } trailing: {
+                unstar
+            }
         }
     }
 

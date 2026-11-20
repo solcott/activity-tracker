@@ -70,7 +70,7 @@ struct LoginView: View {
 
     @ViewBuilder private var status: some View {
         switch state.status.sealedType() {
-        case let .failed(failed):
+        case .failed(let failed):
             ErrorMessage(text: AppStrings.string(LoginTexts.shared.failure(status: failed.value)))
         case .waitingForBrowser:
             Text(.loginWaitingForBrowser)

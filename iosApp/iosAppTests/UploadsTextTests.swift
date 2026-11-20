@@ -35,7 +35,9 @@ struct UploadsTextTests {
         let state = try #require(Samples.uploads["importPartWay"])
         let group = try #require(try queue("importPartWay").imports.first)
         #expect(read(UploadImportTexts.shared.source(source: group.source)) == "Strava export")
-        #expect(read(UploadImportTexts.shared.saved(group: group, now: clock.now, zone: clock.kotlinZone)) == "Saved Today at \(time("2026-06-01T07:00:00Z"))")
+        #expect(
+            read(UploadImportTexts.shared.saved(group: group, now: clock.now, zone: clock.kotlinZone))
+                == "Saved Today at \(time("2026-06-01T07:00:00Z"))")
         #expect(read(UploadImportTexts.shared.progress(group: group)) == "412 of 1,362 uploaded")
         #expect(read(UploadImportTexts.shared.counts(group: group)) == "1 refused · 3 skipped")
         #expect(state.shownLive(group: group).count == 20)
@@ -72,7 +74,9 @@ struct UploadsTextTests {
         #expect(!state.offersCancel(item: current))
         let ride = view.own[0]
         #expect(state.offersCancel(item: ride))
-        #expect(read(UploadsTexts.shared.cancel(name: UploadsTexts.shared.itemName(item: ride, zone: clock.kotlinZone))) == "Cancel Morning Ride")
+        #expect(
+            read(UploadsTexts.shared.cancel(name: UploadsTexts.shared.itemName(item: ride, zone: clock.kotlinZone)))
+                == "Cancel Morning Ride")
         #expect(read(UploadsTexts.shared.itemName(item: view.own[1], zone: clock.kotlinZone)) == "Updating Lunch Swim")
 
         let finished = try #require(try queue("loaded").finished.first)

@@ -37,10 +37,14 @@ private struct QuoteSheetModifier: ViewModifier {
                     get: { fields.confirmDelete != nil },
                     set: { if !$0 && fields.confirmDelete != nil { fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: false)) } })
             ) {
-                Button(role: .destructive) { fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: true)) } label: {
+                Button(role: .destructive) {
+                    fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: true))
+                } label: {
                     Text(QuoteSheetTexts.shared.deleteConfirm)
                 }
-                Button(role: .cancel) { fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: false)) } label: {
+                Button(role: .cancel) {
+                    fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: false))
+                } label: {
                     Text(QuoteSheetTexts.shared.cancel)
                 }
             } message: {
@@ -77,7 +81,8 @@ struct QuoteSheet: View {
                     AppTextField(
                         label: QuoteSheetTexts.shared.field, model: text, state: fields.text, layout: .multiline,
                         supportingText: fields.textValid ? nil : AppStrings.string(QuoteSheetTexts.shared.tooLong),
-                        isError: !fields.textValid)
+                        isError: !fields.textValid
+                    )
                     .disabled(fields.posting)
                     AppPickerRow(
                         AppStrings.string(QuoteSheetTexts.shared.audienceName),
@@ -100,14 +105,22 @@ struct QuoteSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { fields.eventSink(QuoteEvent.Cancel.shared) } label: { Text(QuoteSheetTexts.shared.cancel) }
+                    Button {
+                        fields.eventSink(QuoteEvent.Cancel.shared)
+                    } label: {
+                        Text(QuoteSheetTexts.shared.cancel)
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if fields.posting {
                         AppProgress(small: true)
                     } else {
-                        Button { fields.eventSink(QuoteEvent.Post.shared) } label: { Text(QuoteSheetTexts.shared.post) }
-                            .disabled(!fields.canPost)
+                        Button {
+                            fields.eventSink(QuoteEvent.Post.shared)
+                        } label: {
+                            Text(QuoteSheetTexts.shared.post)
+                        }
+                        .disabled(!fields.canPost)
                     }
                 }
             }

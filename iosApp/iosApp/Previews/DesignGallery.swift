@@ -73,9 +73,16 @@
         static var checkRows: some View {
             List {
                 Section {
-                    AppCheckRow(checked: true) {} label: { Text(verbatim: "Commute bikes").foregroundStyle(.primary) }
-                    AppCheckRow(checked: false) {} label: { Text(verbatim: "Race day").foregroundStyle(.primary) }
-                    AppCheckRow(checked: true, spacing: 12) {} label: {
+                    AppCheckRow(checked: true) {
+                    } label: {
+                        Text(verbatim: "Commute bikes").foregroundStyle(.primary)
+                    }
+                    AppCheckRow(checked: false) {
+                    } label: {
+                        Text(verbatim: "Race day").foregroundStyle(.primary)
+                    }
+                    AppCheckRow(checked: true, spacing: 12) {
+                    } label: {
                         SportIcon(KotlinActivityType(sport: "ride", subSport: nil)).foregroundStyle(.tint)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: "Ride").foregroundStyle(.primary)
@@ -195,7 +202,11 @@
                     }
                     AppItemRow(
                         Text(verbatim: "dave.test"), lines: [Text(verbatim: "@dave.test"), Text(.blockedOnBluesky)], opens: {}
-                    ) { Avatar(url: nil, name: "dave.test") } trailing: { EmptyView() }
+                    ) {
+                        Avatar(url: nil, name: "dave.test")
+                    } trailing: {
+                        EmptyView()
+                    }
                 }
             }
         }
@@ -242,7 +253,11 @@
             } row: { account in
                 Text(verbatim: account.profile.handle.value)
             } after: {
-                Section { Text(verbatim: "carol.test") } header: { Text(.leaderboardYourPlace) }
+                Section {
+                    Text(verbatim: "carol.test")
+                } header: {
+                    Text(.leaderboardYourPlace)
+                }
             } empty: {
                 EmptyMessage(.blockedAccountsEmpty)
             }

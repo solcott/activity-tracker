@@ -19,7 +19,9 @@ struct AppIconTests {
     }
 
     @Test func aSportsImageFollowsItsSubSport() {
-        #expect(SportIconNames.shared.of(type: KotlinActivityType(sport: "ride", subSport: "eBike")) != SportIconNames.shared.of(type: KotlinActivityType(sport: "ride", subSport: nil)))
+        #expect(
+            SportIconNames.shared.of(type: KotlinActivityType(sport: "ride", subSport: "eBike"))
+                != SportIconNames.shared.of(type: KotlinActivityType(sport: "ride", subSport: nil)))
         #expect(SportIconNames.shared.of(type: KotlinActivityType(sport: "quidditch", subSport: nil)) == "sports_and_outdoors")
     }
 }
