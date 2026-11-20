@@ -2,6 +2,7 @@
 
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.api.TrailAttributesSanitizer
 import io.github.solcott.activitytracker.appview.db.BoxedLineTable
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
@@ -124,7 +125,10 @@ internal fun JdbcTransaction.upsertSegment(
         it[sport] = record.sport
         it[Segments.kind] = kind
         it[Segments.line] = record.line
-        it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution))
+        // Only the importer's trail attributes are ever served, so no one else's is kept (segments/trail-attributes).
+        val trail = if (author == importer) TrailAttributesSanitizer.clean(record.trail) else null
+        it[Segments.record] =
+            AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution, trail = trail))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
         it.setBox(line, Segments)
         it[dataSource] = record.source.take(MAX_TOKEN_LENGTH)

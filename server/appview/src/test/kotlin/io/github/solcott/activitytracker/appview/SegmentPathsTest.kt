@@ -24,11 +24,14 @@ import io.ktor.server.testing.testApplication
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
 /** Trails and roads that segments lie on (segments/segment-paths). */
@@ -235,6 +238,8 @@ class SegmentPathsTest : SegmentTestBase() {
         )
         activate("3ka")
         assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ka", alice)), carol).segment.trail, "an athlete's")
+        val stored = db.tx { Segments.selectAll().where { Segments.uri eq segmentUri("3ka", alice) }.single()[Segments.record] }
+        assertFalse("\"trail\"" in stored, "an athlete's trail attributes aren't kept")
         assertEquals(
             TrailAttributes(mtbScale = 2),
             client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("osm-a", importer)), carol).segment.trail,
