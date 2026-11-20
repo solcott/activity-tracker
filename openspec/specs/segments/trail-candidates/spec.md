@@ -337,7 +337,7 @@ For OSM data, the features a candidate's id follows SHALL be its ways and its en
 - **THEN** the candidates that follow it get new ids
 
 ### Requirement: A candidate holds what a segment needs
-Each candidate SHALL hold its id, region, sport group, kind, name, line, length in metres, source, licence, whether it is one-way, and its climb when it has one (`uphill` or `downhill`). An OSM candidate SHALL have `source` `osm`, `license` `ODbL-1.0` and the ids of the OSM ways it follows. An agency candidate SHALL have `source` `agency`, `license` `CC0-1.0`, an attribution naming its agency, and the feature ids it follows. Its line SHALL be encoded as a `feed.segment` line is, stay within 1 m of the trail, and fit a `feed.segment` record.
+Each candidate SHALL hold its id, region, sport group, kind, name, line, length in metres, source, licence, whether it is one-way, its climb when it has one (`uphill` or `downhill`), and its trail attributes when any are known (`segments/trail-attributes`). An OSM candidate SHALL have `source` `osm`, `license` `ODbL-1.0` and the ids of the OSM ways it follows. An agency candidate SHALL have `source` `agency`, `license` `CC0-1.0`, an attribution naming its agency, and the feature ids it follows. Its line SHALL be encoded as a `feed.segment` line is, stay within 1 m of the trail, and fit a `feed.segment` record.
 
 #### Scenario: Candidate written
 - **WHEN** an extract gives a candidate for a 2 km ride trail
@@ -358,6 +358,14 @@ Each candidate SHALL hold its id, region, sport group, kind, name, line, length 
 #### Scenario: Lift candidate written
 - **WHEN** an extract gives a candidate for a named chairlift
 - **THEN** its entry holds sport group `alpine`, kind `lift`, `source` `osm` and the id of the chairlift's way
+
+#### Scenario: Candidate with trail attributes
+- **WHEN** an extract gives a candidate for a ride trail whose ways are all tagged `surface=gravel` and `mtb:scale=1`
+- **THEN** its entry holds trail attributes with `surfaces` of 100% `gravel` and MTB scale 1
+
+#### Scenario: Candidate with no attribute data
+- **WHEN** an extract gives a candidate whose ways carry none of the tags trail attributes read
+- **THEN** its entry holds no trail attributes
 
 ### Requirement: Candidates don't duplicate one another
 When two candidates of one sport group and kind duplicate each other, by the test the AppView uses for segments, the importer SHALL keep one, in this order of preference:
@@ -741,3 +749,10 @@ Every other candidate SHALL have none.
 #### Scenario: Plain trail
 - **WHEN** a trail of ways named "Ann's Trail" gives its whole candidate and stretches
 - **THEN** none of them has a section
+
+### Requirement: The candidates file names its format version
+The candidates file's header SHALL name its format version, and a version that adds trail attributes SHALL be newer than any version that didn't. `stage`, `publish --all` and `refine` SHALL refuse a candidates file of any other version and name the version they read.
+
+#### Scenario: Older file refused
+- **WHEN** `stage` is given a candidates file written before candidates held trail attributes
+- **THEN** it refuses the file, naming its version and the version it reads
