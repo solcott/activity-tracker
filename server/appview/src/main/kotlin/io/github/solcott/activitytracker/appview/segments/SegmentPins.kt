@@ -391,6 +391,13 @@ internal constructor(
             .map { pinOf(it) }
     }
 
+    /** How many pins are on segments that aren't indexed, for the admin site's summary. */
+    suspend fun orphanedPinCount(): Long = db.tx {
+        SegmentPinRows.selectAll()
+            .where { notExists(Segments.select(Segments.uri).where { Segments.uri eq SegmentPinRows.segmentUri }) }
+            .count()
+    }
+
     private fun JdbcTransaction.pinOf(row: ResultRow): SegmentPin {
         val uri = row[SegmentPinRows.segmentUri]
         val kind = row[SegmentPinRows.kind]

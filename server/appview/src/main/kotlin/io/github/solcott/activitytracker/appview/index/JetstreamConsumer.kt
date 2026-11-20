@@ -10,6 +10,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import org.jetbrains.exposed.v1.core.eq
@@ -27,6 +28,8 @@ class JetstreamConsumer(
     private val url: String,
     private val db: Database,
     private val indexer: Indexer,
+    /** What [lastReceivedAtMs] is read from. */
+    private val clock: Clock = Clock.System,
     /** Opens [url] with its query and calls the handler with each text message until the stream ends. */
     private val frames: suspend (url: String, onText: suspend (String) -> Unit) -> Unit,
 ) {
@@ -40,6 +43,7 @@ class JetstreamConsumer(
         url,
         db,
         indexer,
+        Clock.System,
         { target, onText -> http.webSocket(target) { for (frame in incoming) if (frame is Frame.Text) onText(frame.readText()) } },
     )
 
@@ -50,6 +54,12 @@ class JetstreamConsumer(
      * (dev/worker-telemetry).
      */
     val lastEventUs = AtomicLong(0)
+
+    /**
+     * When the event at [lastEventUs] was received, in unix ms, or 0 before the first. The catch-up lag the admin site shows is this minus
+     * the event's own time, so a quiet stream doesn't read as falling behind (admin/ingest-health).
+     */
+    val lastReceivedAtMs = AtomicLong(0)
 
     /** Runs until cancelled, reporting each indexed event and each failed connection to [worker]. */
     suspend fun run(worker: WorkerHandle = WorkerHandle.None) {
@@ -78,8 +88,10 @@ class JetstreamConsumer(
         var lastUs = cursor ?: 0L
         frames("$url?$query") { text ->
             val event = decode(text) ?: return@frames
+            val receivedAt = clock.now().toEpochMilliseconds()
             indexer.handle(event)
             lastUs = event.witnessedAtUs
+            lastReceivedAtMs.set(receivedAt)
             lastEventUs.set(lastUs)
             worker.success()
             if (++processed % CURSOR_SAVE_INTERVAL == 0) saveCursor(lastUs)

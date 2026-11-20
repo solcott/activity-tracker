@@ -162,6 +162,17 @@ class JobQueuesPageTest : AdminTestBase() {
     }
 
     @Test
+    fun dropAndBulkRequeuesAskFirstWhileRetryDoesNot() = queuesTest { http, _ ->
+        retrying(SegmentJobs.ELEVATION, "at://s1")
+        val html = http.html("/admin/queues", http.signIn("alice.test")!!)
+        fun formOf(action: String) = Regex("<form[^>]*hx-post=\"/admin/queues/$action\"[^>]*>").find(html)!!.value
+        assertTrue("hx-confirm" in formOf("drop"), formOf("drop"))
+        assertFalse("hx-confirm" in formOf("retry"), formOf("retry"))
+        assertTrue("hx-confirm" in formOf("rematch") && "hx-confirm" in formOf("requeue-kind"))
+        assertTrue(Regex("<button class=\"danger\">Drop</button>").containsMatchIn(html))
+    }
+
+    @Test
     fun listsFilterByKindAndPage() = queuesTest { http, _ ->
         retrying(SegmentJobs.ELEVATION, "at://s1")
         retrying(SegmentJobs.TRACK, trackUri)

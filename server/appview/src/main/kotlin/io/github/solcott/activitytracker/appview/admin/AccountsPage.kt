@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.HandleCheck
 import io.github.solcott.activitytracker.appview.index.Indexer
+import io.github.solcott.activitytracker.appview.reindex.RecentRunCounts
 import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.NotIndexedException
@@ -13,6 +14,8 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.ktor.http.encodeURLParameter
 import io.ktor.http.encodeURLPathPart
 import io.ktor.server.response.respondRedirect
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 import kotlinx.html.div
 import kotlinx.html.h2
 import kotlinx.html.p
@@ -43,6 +46,8 @@ class AccountsPage(
             listOf(path, "$path?q=${subject.encodeURLParameter()}")
         }
 
+    override suspend fun summary(now: Instant): List<Tile> = tilesOf(reindexer.recentCounts((now - RECENT).toEpochMilliseconds()))
+
     override fun AdminRoutes.install() {
         pageRoutes()
         repairRoutes()
@@ -54,13 +59,16 @@ class AccountsPage(
             val q = call.request.queryParameters["q"]?.trim()?.takeIf { it.isNotEmpty() }
             val found = q?.let { AccountLookup.of(db, it) }
             if (found is AccountLookup.Found) return@get call.respondRedirect(accountUrl(found.did))
+            val now = now
+            val recent = reindexer.recentRuns((now - RECENT).toEpochMilliseconds())
             page(title) {
                 lookupForm()
                 when (found) {
-                    AccountLookup.NoMatch -> p { +"No indexed account has that verified handle. Paste its DID instead." }
-                    AccountLookup.Malformed -> p { +"That is neither a DID nor a handle." }
+                    AccountLookup.NoMatch -> p("error") { +"No indexed account has that verified handle. Paste its DID instead." }
+                    AccountLookup.Malformed -> p("error") { +"That is neither a DID nor a handle." }
                     else -> Unit
                 }
+                recentRuns(recent, now)
             }
         }
         get("$path/{did}") {
@@ -72,26 +80,29 @@ class AccountsPage(
                     }
             val summary = AccountSummary.load(db, did)
             val runs = reindexer.runs(did)
-            val operator = admin.isOperator
+            val csrf = admin.operatorCsrf
+            val now = now
             page(title) {
                 lookupForm()
-                account(summary)
+                account(summary, now)
                 h2 { +"Spaces" }
-                spaces(did, summary)
+                spaces(did, summary, now)
                 h2 { +"Reindex runs" }
-                runs(did, runs)
-                if (operator) actions(did, syncer != null)
+                runs(did, runs, now)
+                if (csrf != null) actions(did, syncer != null, csrf)
             }
         }
         get("$path/{did}/runs") {
             val did = accountDidOf(call.parameters["did"]) ?: return@get fragment { p { +"Not a DID." } }
             val runs = reindexer.runs(did)
-            fragment { runs(did, runs) }
+            val now = now
+            fragment { runs(did, runs, now) }
         }
         get("$path/{did}/spaces") {
             val did = accountDidOf(call.parameters["did"]) ?: return@get fragment { p { +"Not a DID." } }
             val summary = AccountSummary.load(db, did)
-            fragment { spaces(did, summary) }
+            val now = now
+            fragment { spaces(did, summary, now) }
         }
     }
 
@@ -154,8 +165,21 @@ class AccountsPage(
         else ActionResult("Run ${run.id} ${run.state.code}.", detail = "run ${run.id}")
     }
 
-    private companion object {
+    companion object {
+        /** How far back failed reindex runs are listed and counted (admin/account-tools). */
+        val RECENT = 24.hours
+
+        /** The Accounts page's tiles (admin/account-tools): runs in flight with no status, recent failures `warn` when any. */
+        fun tilesOf(counts: RecentRunCounts): List<Tile> {
+            val href = "/admin/accounts#$RECENT_RUNS_SECTION"
+            val failed = if (counts.failed > 0) TileStatus.Warn else TileStatus.Ok
+            return listOf(
+                Tile("Reindex runs in flight", "${counts.inFlight}", null, href),
+                Tile("Reindex runs failed (24 h)", "${counts.failed}", failed, href),
+            )
+        }
+
         /** Nothing is stored for an account the AppView never indexed, so a repair of one changes nothing. */
-        val NOT_INDEXED = ActionResult.refused("not-indexed", "Not indexed: nothing stored.")
+        private val NOT_INDEXED = ActionResult.refused("not-indexed", "Not indexed: nothing stored.")
     }
 }

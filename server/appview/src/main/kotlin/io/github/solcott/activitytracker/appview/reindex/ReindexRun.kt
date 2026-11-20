@@ -100,3 +100,6 @@ data class ReindexRun(
             )
     }
 }
+
+/** Reindex runs across every account: queued or running now, and failed recently (admin/account-tools). */
+data class RecentRunCounts(val inFlight: Long, val failed: Long)
