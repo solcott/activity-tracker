@@ -384,7 +384,7 @@ class SegmentMatcher(
             return
         }
         log.info("Segment job {} {} failed, retrying in {}: {}", job.kind, job.subject, delay, e.message)
-        db.tx {
+        val updated = db.tx {
             SegmentMatchJobs.update(
                 {
                     (SegmentMatchJobs.kind eq job.kind) and
@@ -398,7 +398,8 @@ class SegmentMatcher(
                 it[SegmentMatchJobs.firstFailedAt] = firstFailedAt
             }
         }
-        outcomes.outcome(job.kind, JobOutcome.RETRY)
+        // Enqueued again while it ran: that newer job runs as queued, so this attempt retries nothing.
+        if (updated > 0) outcomes.outcome(job.kind, JobOutcome.RETRY)
     }
 
     /** Deletes failed jobs that gave up more than [SegmentJobFailures.RETENTION] ago; how many. Exposed for tests. */

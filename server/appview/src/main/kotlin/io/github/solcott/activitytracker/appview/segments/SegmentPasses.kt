@@ -148,12 +148,12 @@ class SegmentPasses(
 }
 
 /**
- * Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes, leaving alone those an
- * operator pinned active or archived (segments/segment-pins).
+ * Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes. A segment an operator
+ * pinned active or archived (segments/segment-pins) already holds that status, never `proposed`, so [promoteBy]'s guard leaves it alone.
  */
 internal fun JdbcTransaction.promoteSegments(uris: Collection<String>, activeAthletes: Int) =
     promoteBy(
-        withoutFixedStatusPins(uris),
+        uris,
         Segments.uri,
         Segments.status,
         SegmentEfforts.segmentUri,

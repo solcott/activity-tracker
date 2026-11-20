@@ -108,7 +108,7 @@ class SegmentsPage(
         action("$path/elevation", "segments.elevation") {
             val uri = target ?: return@action notFound(null)
             if (!passes.recomputeElevation(uri)) return@action notFound(uri)
-            val terrain = if (jobs.terrainConfigured) "terrain queued" else "terrain not configured"
+            val terrain = if (jobs.terrain) "terrain queued" else "terrain not configured"
             ActionResult("Effort elevation recomputed; $terrain.")
         }
         action("$path/rematch", "segments.rematch") {

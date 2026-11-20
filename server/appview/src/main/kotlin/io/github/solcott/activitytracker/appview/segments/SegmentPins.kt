@@ -92,8 +92,9 @@ internal fun JdbcTransaction.statusPinOf(uri: String): StatusPin? {
 }
 
 /**
- * No `active` or `archived` pin on the segment row in the query: what the status pass's promotions and archives require. Those pins always
- * apply; a duplicate pin that applies holds the row at `duplicate`, which neither step touches, and one that doesn't leaves it derived.
+ * No `active` or `archived` pin on the segment row in the query: what the status pass's archives and
+ * [SegmentMatcher.activateImporterSegments] require. Those pins always apply; a duplicate pin that applies holds the row at `duplicate`,
+ * which neither step touches, and one that doesn't leaves it derived.
  */
 internal fun noFixedStatusPin(): Op<Boolean> =
     notExists(
@@ -103,16 +104,6 @@ internal fun noFixedStatusPin(): Op<Boolean> =
                 (SegmentPinRows.status inList listOf(SegmentStatus.ACTIVE, SegmentStatus.ARCHIVED))
         },
     )
-
-/**
- * Those of [uris] with no `active` or `archived` pin ([noFixedStatusPin]), checked in chunks well under a statement's bind parameter limit.
- */
-internal fun withoutFixedStatusPins(uris: Collection<String>): List<String> =
-    uris.chunked(PIN_CHECK_CHUNK).flatMap { chunk ->
-        Segments.select(Segments.uri).where { (Segments.uri inList chunk) and noFixedStatusPin() }.map { it[Segments.uri] }
-    }
-
-private const val PIN_CHECK_CHUNK = 1000
 
 /** Records [derived], the status a change of [uri]'s line, sport or kind just derived, as where unpinning its status pin starts. */
 internal fun JdbcTransaction.recordPriorStatus(uri: String, derived: String) {

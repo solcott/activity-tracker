@@ -91,8 +91,8 @@ class SegmentPassesTest {
     }
 
     @Test
-    fun terrainConfiguredSaysWhetherElevationIsQueued() {
-        assertTrue(SegmentJobs(terrain = true).terrainConfigured)
-        assertFalse(SegmentJobs().terrainConfigured)
+    fun terrainSaysWhetherElevationIsQueued() {
+        assertTrue(SegmentJobs(terrain = true).terrain)
+        assertFalse(SegmentJobs().terrain)
     }
 }
