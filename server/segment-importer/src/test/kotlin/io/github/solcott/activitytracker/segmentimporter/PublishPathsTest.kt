@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import kotlin.test.Test
@@ -101,6 +102,33 @@ class PublishPathsTest {
         assertEquals(listOf("anns"), result.refreshed)
         assertEquals(listOf(listOf(Triple("update", Nsid.FEED_PATH, "anns"))), fake.commits())
         assertEquals(anns.lines, AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns")).lines)
+    }
+
+    @Test
+    fun aPathWhoseSectionsChangedIsRefreshedWithOnlyPublishedSegments() = runTest {
+        services()
+        repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns, clock, listOf(VT))
+        segments +=
+            GetSegmentLines.SegmentLine(AtUri("at://${FakeServices.DID}/${Nsid.FEED_SEGMENT}/branch"), "ride", line(0.0, 1_000.0, 2_500.0))
+        segments += GetSegmentLines.SegmentLine(AtUri("at://did:plc:alice/${Nsid.FEED_SEGMENT}/span"), "ride", line(0.0, 1_000.0, 2_500.0))
+        val sectioned =
+            anns.copy(
+                sections =
+                    listOf(
+                        PathSection("Limelight", listOf("unridden")),
+                        PathSection("Through the Trees Trail", listOf("branch", "span", "unridden")),
+                    ),
+            )
+        val result = publishPaths(clients, listOf(sectioned), VT, clock)
+        assertEquals(listOf("anns"), result.refreshed, "only its sections changed")
+        val record = AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns"))
+        assertEquals(
+            listOf(PathSection("Through the Trees Trail", listOf("branch"))),
+            record.sections,
+            "only the importer's published segments; a section with none is left out",
+        )
+
+        assertEquals(emptyList(), publishPaths(clients, listOf(sectioned), VT, clock).refreshed, "the same sections again")
     }
 
     @Test

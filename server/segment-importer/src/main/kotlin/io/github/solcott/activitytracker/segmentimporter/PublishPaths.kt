@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -16,6 +17,7 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.toE7
 import java.io.File
 import kotlin.time.Clock
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -23,10 +25,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * What a `publish-paths` run did: paths published new ([published]), rewritten with a changed name, line or sports or newly listed by the
- * region ([refreshed]), deleted as no longer listed by any region's file ([removed]), and kept for the other regions listing them but no
- * longer this one ([released]), and how many of the region's segments lie on none of its paths ([unpathed]); [stoppedBy] is the error that
- * ended the run early, if one did.
+ * What a `publish-paths` run did: paths published new ([published]), rewritten with a changed name, line, sports or sections or newly
+ * listed by the region ([refreshed]), deleted as no longer listed by any region's file ([removed]), and kept for the other regions listing
+ * them but no longer this one ([released]), and how many of the region's segments lie on none of its paths ([unpathed]); [stoppedBy] is the
+ * error that ended the run early, if one did.
  */
 internal data class PublishPathsResult(
     val published: List<String> = emptyList(),
@@ -46,14 +48,17 @@ private const val TILE_E7 = SearchSegments.MAX_SPAN_E7 - 1_000
 /** `feed.path#regions`. */
 private const val REGIONS = "regions"
 
+/** How `feed.path#sections` reads. */
+private val SECTIONS = ListSerializer(PathSection.serializer())
+
 /**
  * Publishes the [paths] of [region]'s file that the region's segments lie on (segments/path-import): asks the AppView, tile by tile over
  * the paths' box, for every live segment's line and sport group, and publishes as a `feed.path` each path one of them lies on
  * ([PathOverlap], the AppView's own test, among the file's paths) that the repo doesn't hold yet. Each record names the regions whose files
  * list it (`regions`), so ownership lives with the record: a path the repo holds is rewritten, under its key, when its name, line or sports
- * changed or [region] isn't among its regions yet (every one with `rewrite`, so an AppView that missed them indexes them again), and one
- * [region] listed that its file no longer holds loses [region], deleted once no region is left. A path published before records named their
- * regions is never deleted. Stops at the first failed call, keeping what it did; running again carries on.
+ * or sections changed or [region] isn't among its regions yet (every one with `rewrite`, so an AppView that missed them indexes them
+ * again), and one [region] listed that its file no longer holds loses [region], deleted once no region is left. A path published before
+ * records named their regions is never deleted. Stops at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun publishPaths(
     clients: Clients,
@@ -82,9 +87,12 @@ internal suspend fun publishPaths(
         )
         released += shared.map { it.key }
 
-        val changed = paths.mapNotNull { path ->
+        val needs = pathsNeeded(clients, paths, repo.value)
+        unpathed = needs.unpathed
+        val publishable = paths.map { it.withSectionsOf(needs.importerKeys) }
+        val changed = publishable.mapNotNull { path ->
             val old = held[path.id] ?: return@mapNotNull null
-            val stale = old.name != path.name || old.lines != path.lines || old.sports != path.sports
+            val stale = old.name != path.name || old.lines != path.lines || old.sports != path.sports || old.sections != path.sections
             val unlisted = region !in old.regions.orEmpty()
             if (!rewrite && !stale && !unlisted) return@mapNotNull null
             Draft(Nsid.FEED_PATH, path.id, pathRecord(path, clock, regionsWith(old.regions, region)))
@@ -92,10 +100,8 @@ internal suspend fun publishPaths(
         clients.writer.update(repo, changed)
         refreshed += changed.map { it.rkey }
 
-        val needs = pathsNeeded(clients, paths, repo.value)
-        unpathed = needs.unpathed
         val drafts =
-            paths
+            publishable
                 .filter { it.id in needs.paths && it.id !in held }
                 .map { Draft(Nsid.FEED_PATH, it.id, pathRecord(it, clock, listOf(region))) }
         clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey }
@@ -107,8 +113,24 @@ internal suspend fun publishPaths(
 private fun regionsWith(regions: List<String>?, region: String): List<String> =
     (listOf(region) + regions.orEmpty().filter { it != region }.sorted()).take(PathRecord.MAX_REGIONS).sorted()
 
-/** The ids of the [paths] the region's live segments lie on, and how many of those segments lie on none ([unpathed]). */
-private class PathNeeds(val paths: Set<String>, val unpathed: Int)
+/**
+ * The ids of the [paths] the region's live segments lie on, how many of those segments lie on none ([unpathed]), and the record keys of
+ * those segments in the importer's own repo ([importerKeys]).
+ */
+private class PathNeeds(val paths: Set<String>, val unpathed: Int, val importerKeys: Set<String>)
+
+/**
+ * This path with only the sections naming segments the importer has published ([published], their record keys), listing only those
+ * (segments/path-import); none when no section names one.
+ */
+internal fun PathEntry.withSectionsOf(published: Set<String>): PathEntry =
+    copy(
+        sections =
+            sections
+                ?.map { section -> section.copy(segments = section.segments.filter { it in published }) }
+                ?.filter { it.segments.isNotEmpty() }
+                ?.ifEmpty { null },
+    )
 
 /**
  * Asks the AppView, tile by tile over [paths]' box, for every live segment's line and sport group, and tests each against [paths], the
@@ -117,6 +139,7 @@ private class PathNeeds(val paths: Set<String>, val unpathed: Int)
 private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: String): PathNeeds {
     val index = PathIndex(paths)
     val needed = linkedSetOf<String>()
+    val importerKeys = mutableSetOf<String>()
     var unpathed = 0
     // Tiles share their edges, so a segment crossing one comes back from each tile it touches: each is tested once.
     val seen = mutableSetOf<String>()
@@ -125,6 +148,7 @@ private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: 
         do {
             val page = clients.asImporter { clients.appView.query(GetSegmentLines.method, tile.copy(cursor = cursor)) }
             for (segment in page.segments.filter { seen.add(it.uri.value) }) {
+                if (segment.uri.authority == repo) segment.uri.rkey?.let(importerKeys::add)
                 val line = SegmentGeometry.decodePolyline(segment.line) ?: continue
                 val on = index.pathsUnder(line, segment.sport, imported = segment.uri.authority == repo)
                 if (on.isEmpty()) unpathed++ else needed += on
@@ -132,15 +156,16 @@ private suspend fun pathsNeeded(clients: Clients, paths: List<PathEntry>, repo: 
             cursor = page.cursor?.takeIf { page.segments.isNotEmpty() }
         } while (cursor != null)
     }
-    return PathNeeds(needed, unpathed)
+    return PathNeeds(needed, unpathed, importerKeys)
 }
 
-/** A published path's name, line pieces, sport groups and regions, and its [record] as the repo holds it. */
+/** A published path's name, line pieces, sport groups, regions and sections, and its [record] as the repo holds it. */
 private data class HeldPath(
     val name: String?,
     val lines: List<String>,
     val sports: List<String>?,
     val regions: List<String>?,
+    val sections: List<PathSection>?,
     val record: JsonObject,
 ) {
     /** The record as held, listing only [regions]. */
@@ -157,7 +182,9 @@ private suspend fun heldPaths(clients: Clients, repo: String): Map<String, HeldP
             val rkey = record.uri.rkey ?: continue
             val name = (record.value["name"] as? JsonPrimitive)?.content
             fun strings(key: String) = runCatching { record.value.getValue(key).jsonArray.map { it.jsonPrimitive.content } }.getOrNull()
-            held[rkey] = HeldPath(name, strings("lines").orEmpty(), strings("sports"), strings(REGIONS), record.value)
+            val sections =
+                record.value["sections"]?.let { runCatching { AtJson.decodeFromJsonElement(SECTIONS, it) }.getOrNull() }?.ifEmpty { null }
+            held[rkey] = HeldPath(name, strings("lines").orEmpty(), strings("sports"), strings(REGIONS), sections, record.value)
         }
         cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
     } while (cursor != null)
@@ -178,6 +205,7 @@ internal fun pathRecord(path: PathEntry, clock: Clock, regions: List<String>? = 
                 attribution = path.attribution,
                 sports = path.sports,
                 regions = regions,
+                sections = path.sections,
             ),
         )
         .let { it as JsonObject }
