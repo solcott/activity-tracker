@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD - created by archiving change trail-attributes. Update Purpose after archive.
+What public trail data says about a trail (its surface, how hard it is for each sport, its width and grade, whether it is lit, who and what may use it, when it is open, and who maintains it), carried from OSM tags and agency fields through the importer's segments and paths to the Segment and Trail pages, so athletes can tell what a segment or trail is like before they go.
 
 ## Requirements
 
