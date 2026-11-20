@@ -87,7 +87,7 @@ internal fun extract(
     for ((group, n) in closures.leftOut) println("Left out $n $group candidates along agency closures")
     for ((rules, skipped) in agencyData?.skipped.orEmpty()) println("Skipped $skipped ${rules.kind} features with no feature id or no line")
     paths?.let { file ->
-        val entries = pathsOf(data, words, refBridgeM)
+        val entries = pathsOf(data, words, refBridgeM, candidates)
         file.bufferedWriter().use { writePaths(it, region, entries) }
         val kinds = entries.groupingBy { it.kind }.eachCount().toSortedMap()
         println("Wrote ${entries.size} paths for $region to $file: ${kinds.entries.joinToString { (k, n) -> "$n $k" }}")
@@ -116,14 +116,18 @@ internal fun candidatesOf(
     return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
 }
 
-/** [data]'s trail paths and road paths (segments/path-import), sorted by id; a road and a trail never share an id. */
+/**
+ * [data]'s trail paths and road paths (segments/path-import), sorted by id; a road and a trail never share an id. Trail paths list the
+ * sections of the kept [candidates] on them.
+ */
 internal fun pathsOf(
     data: OsmData,
     words: GenericWords = GenericWords.ENGLISH,
     refBridgeM: Double = TrailBuilder.DEFAULT_REF_BRIDGE_M,
+    candidates: List<Candidate> = emptyList(),
 ): List<PathEntry> {
     val agencyKeys = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
-    return (TrailPaths.of(TrailBuilder.build(data, words, refBridgeM), agencyKeys) + RoadPaths.of(data))
+    return (TrailPaths.of(TrailBuilder.build(data, words, refBridgeM), agencyKeys, candidates) + RoadPaths.of(data))
         .distinctBy { it.id }
         .sortedBy { it.id }
 }

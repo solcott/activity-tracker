@@ -42,11 +42,20 @@ internal class Trail(
     val wayNames: Map<Long, String> = emptyMap(),
     /** The ways it follows only as short shared tread, a road or another trail it runs along between two of its own ways. */
     val bridged: Set<Long> = emptySet(),
+    /**
+     * The section of its family it is named after, without its generic words (segments/trail-candidates): a branching parent trail's
+     * section after `›` or `from`, or the `<Section>` of a trail of ways named `<Parent> - <Section>`; null for any other trail.
+     */
+    val section: String? = null,
 ) {
+    /** The family its candidates' sections belong to, as its path is grouped by ([TrailPaths]). */
+    val familyKey: String
+        get() = family ?: TrailBuilder.familyOf(name)
+
     /** The ways it follows, so a crossing by one of its own ways isn't a junction. */
     val ways: Set<Long> = edgeWays.toSet()
 
-    /** This trail labelled [label] instead, for candidates' names. */
+    /** This trail labelled [label] instead, for candidates' names: a route relation's, so it is no longer named after a section. */
     fun withLabel(label: String): Trail =
         Trail(
             name,
@@ -64,6 +73,7 @@ internal class Trail(
             ownWays,
             wayNames,
             bridged,
+            section = null,
         )
 }
 
@@ -102,7 +112,10 @@ internal object TrailBuilder {
     private const val PARENT_SEARCH_STEPS = 1_000
 
     /** The family a way named [name] belongs to: the part before the first `" - "`, or the whole name. */
-    fun familyOf(name: String): String = name.substringBefore(" - ").trim().ifEmpty { name }
+    fun familyOf(name: String): String = name.substringBefore(SECTION).trim().ifEmpty { name }
+
+    /** What joins a family's name to a section's in a way's name. */
+    private const val SECTION = " - "
 
     /**
      * A way placed in a trail: its nodes [from] to [to], all of them unless it's a [bridge], [reversed] when the trail runs against the
@@ -161,7 +174,8 @@ internal object TrailBuilder {
                 else bridged(list, dangling.getValue(key), SharedTread(waysAt, data, group, label, words, refBridgeM))
             joined.map { chain ->
                 val name = chain.filter { !it.bridge }.maxBy { lengthOf(listOf(it), data) }.way.name.orEmpty()
-                trail(name, label, group, TrailKind.NAMED, chain, data)
+                val section = label.substringAfter(SECTION, "").trim().ifEmpty { null }
+                trail(name, label, group, TrailKind.NAMED, chain, data, section = section)
             }
         }
     }
@@ -465,7 +479,8 @@ internal object TrailBuilder {
                             ?: words.shorten(name)
                     val elsewhere = kept.filter { it !== path }.flatMapTo(mutableSetOf()) { other -> other.map { it.way.id } }
                     val own = path.map { it.way.id }.filterTo(mutableSetOf()) { it !in elsewhere }
-                    trail(trailName, label, group, TrailKind.PARENT, path, data, family = name, ownWays = own)
+                    val section = branch?.let { (_, part) -> words.shorten(part) }
+                    trail(trailName, label, group, TrailKind.PARENT, path, data, family = name, ownWays = own, section = section)
                 }
             }
 
@@ -545,6 +560,7 @@ internal object TrailBuilder {
         data: OsmData,
         family: String? = null,
         ownWays: Set<Long> = emptySet(),
+        section: String? = null,
     ): Trail {
         val nodes = mutableListOf<Long>()
         val edgeWays = mutableListOf<Long>()
@@ -579,6 +595,7 @@ internal object TrailBuilder {
             ownWays = ownWays,
             wayNames = if (family == null) emptyMap() else chain.associate { it.way.id to it.way.name.orEmpty() },
             bridged = chain.filter { it.bridge }.mapTo(mutableSetOf()) { it.way.id },
+            section = section,
         )
     }
 }

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.atproto.crypto.base32
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
+import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -40,6 +41,11 @@ internal data class PathEntry(
     val attribution: String? = null,
     /** The sport groups it is open to; null for any, as a road. */
     val sports: List<String>? = null,
+    /**
+     * The sections of its trail family that the extract's kept candidates on it are named after, by name, each with those candidates' ids
+     * sorted (segments/path-import); null for none. Files written before sections read as none.
+     */
+    val sections: List<PathSection>? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -110,11 +116,42 @@ internal object PathPieces {
  * only OSM's path ([folded]).
  */
 internal object TrailPaths {
-    fun of(trails: List<Trail>, agencyKeys: Map<Long, String>): List<PathEntry> =
-        trails
-            .groupBy { trail -> (trail.family ?: TrailBuilder.familyOf(trail.name)) to trail.rules.source }
-            .flatMap { (key, family) -> touching(family).mapNotNull { entry(key.first, it, agencyKeys) } }
+    /** [trails]' paths, each listing the sections of the kept [candidates] on it ([sectionsOf]). */
+    fun of(trails: List<Trail>, agencyKeys: Map<Long, String>, candidates: List<Candidate> = emptyList()): List<PathEntry> {
+        val sectioned = candidates.filter { it.section != null && it.family != null }.groupBy { it.family to it.source }
+        return trails
+            .groupBy { trail -> trail.familyKey to trail.rules.source }
+            .flatMap { (key, family) ->
+                touching(family).mapNotNull { near ->
+                    entry(key.first, near, agencyKeys)?.copy(sections = sectionsOf(near, sectioned[key].orEmpty(), agencyKeys))
+                }
+            }
             .let(::folded)
+    }
+
+    /**
+     * The sections of [candidates] of one family and source that lie wholly on [trails]' ways, by name, each with its candidates' ids
+     * sorted (segments/path-import); null when there are none. Over the record's limits, the first sections and ids by order are kept.
+     */
+    private fun sectionsOf(trails: List<Trail>, candidates: List<Candidate>, agencyKeys: Map<Long, String>): List<PathSection>? {
+        if (candidates.isEmpty()) return null
+        val ways = trails.flatMapTo(mutableSetOf()) { it.ways }
+        val features = ways.mapNotNullTo(mutableSetOf(), agencyKeys::get)
+        fun onPath(candidate: Candidate) =
+            if (candidate.osmWays.isNotEmpty()) ways.containsAll(candidate.osmWays)
+            else candidate.agencyFeatures.isNotEmpty() && features.containsAll(candidate.agencyFeatures)
+        val sections =
+            candidates.filter(::onPath).groupBy({ requireNotNull(it.section) }, { it.id }).toSortedMap().map { (name, ids) ->
+                PathSection(name, ids.distinct().sorted())
+            }
+        if (sections.size > PathRecord.MAX_SECTIONS || sections.any { it.segments.size > PathSection.MAX_SEGMENTS }) {
+            println("Kept only part of the sections of ${trails.first().familyKey}: more than a path record holds")
+        }
+        return sections
+            .take(PathRecord.MAX_SECTIONS)
+            .map { it.copy(segments = it.segments.take(PathSection.MAX_SEGMENTS)) }
+            .ifEmpty { null }
+    }
 
     /**
      * [paths] without each agency trail path that mostly follows one OSM trail path, at least [PathOverlap.IMPORTED_SHARE] of its length by

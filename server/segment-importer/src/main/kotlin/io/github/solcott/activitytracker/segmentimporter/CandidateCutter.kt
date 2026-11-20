@@ -45,6 +45,13 @@ internal data class Candidate(
      * else that of the one-way routes through it ([RouteClimbs]); null without terrain, when none clearly climbs, and for alpine.
      */
     val climb: SegmentClimb? = null,
+    /**
+     * The section of its trail's family its name comes from, without generic words (segments/trail-candidates), or null; with [family],
+     * which path's sections it goes in ([TrailSections]). Neither is written to the candidates file.
+     */
+    val section: String? = null,
+    /** Its trail's family, as its path is grouped by; only read with [section]. */
+    val family: String? = null,
 )
 
 /**
@@ -235,6 +242,8 @@ internal class CandidateCutter(
             agencyFeatures = features,
             oneWay = !bothWays,
             climb = climbOf(trail, reversed) { ownClimb },
+            section = sectionOf(trail, piece),
+            family = trail.familyKey,
         )
     }
 
@@ -284,10 +293,20 @@ internal class CandidateCutter(
         return if (reversed) climb?.reversed() else climb
     }
 
+    /**
+     * The section [piece] of [trail] is named after (segments/trail-candidates): its trail's, unless it's a junction span named after the
+     * family because it follows no way its own parent trail alone does.
+     */
+    private fun sectionOf(trail: Trail, piece: Piece): String? = trail.section?.takeIf { piece.junction == null || ownSpan(trail, piece) }
+
+    /** Whether a parent trail's span follows a way on none of its family's other parent trails, so it's named after its own. */
+    private fun ownSpan(trail: Trail, piece: Piece): Boolean =
+        (piece.range.first until piece.range.last).any { trail.edgeWays[it] in trail.ownWays }
+
     /** A junction span's name, travelling along [nodes]: to [junction] when it ends there, else from it. */
     private fun spanName(trail: Trail, piece: Piece, junction: Long, nodes: List<Long>): String {
         val place = junctionName(trail, junction)?.let(words::shorten)
-        val own = (piece.range.first until piece.range.last).any { trail.edgeWays[it] in trail.ownWays }
+        val own = ownSpan(trail, piece)
         val base = if (own) trail.label else words.shorten(trail.family ?: trail.name)
         return if (nodes.last() == junction) "$base → $place" else "$base from $place"
     }
