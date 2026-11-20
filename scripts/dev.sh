@@ -306,7 +306,11 @@ ensure_app_links() {
     set_env ANDROID_CERT_SHA256 "$sha"
     RESTART_APPVIEW=1
   fi
-  [[ -n ${sha:-} ]] && ok "Android App Links: debug keystore $sha" || warn "no debug keystore (or keytool): Android verifies no links"
+  if [[ -n ${sha:-} ]]; then
+    ok "Android App Links: debug keystore $sha"
+  else
+    warn "no debug keystore (or keytool): Android verifies no links"
+  fi
 
   team=$(user_property activitytracker.appleTeamId)
   [[ -z $team ]] && team=$(property activitytracker.appleTeamId)
@@ -456,8 +460,9 @@ ensure_named_tunnel() {
   step "cloudflared named tunnel"
   local host=$1 waited=0
   migrate_device_config "$host"
-  [[ -f $DEVICE_CONFIG ]] && grep -q "hostname: $host\$" "$DEVICE_CONFIG" \
-    || die "no tunnel config for $host; run: scripts/dev.sh device-setup"
+  if ! [[ -f $DEVICE_CONFIG ]] || ! grep -q "hostname: $host\$" "$DEVICE_CONFIG"; then
+    die "no tunnel config for $host; run: scripts/dev.sh device-setup"
+  fi
   if [[ -n $(tunnel_pids) ]]; then
     pkill -f "cloudflared tunnel --url http://localhost:$APPVIEW_PORT" || true
     ok "stopped the quick tunnel (device mode doesn't use it)"
@@ -730,7 +735,7 @@ ensure_android() {
   if [[ ${URL_CHANGED:-0} == 1 || ${LABELER_CHANGED:-0} == 1 || ${FORCE_ANDROID:-0} == 1 ]]; then
     echo "    installing the debug app (${URL_CHANGED:+tunnel URL changed}${LABELER_CHANGED:+labeler changed}${FORCE_ANDROID:+--android})"
     ./gradlew -q :androidApp:installDebug || die "installDebug failed"
-    ok "installed on: $(echo $devices)"
+    ok "installed on: ${devices//$'\n'/ }"
   fi
 }
 

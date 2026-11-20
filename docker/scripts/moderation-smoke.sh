@@ -96,7 +96,7 @@ put_repo alice app.activitytracker.graph.follow 3kmodfollow "{\"\$type\":\"app.a
 # Two photos, one per activity and unique to this run (trailing bytes after the JPEG's end), so no other activity holds either: a CID's
 # photo is served for any activity it's on.
 upload() {
-  { base64 -d <<<"$photo_b64"; printf "$1"; } | xrpc "$pds" com.atproto.repo.uploadBlob POST -H "Authorization: Bearer $(jwt bob)" \
+  { base64 -d <<<"$photo_b64"; printf '%s' "$1"; } | xrpc "$pds" com.atproto.repo.uploadBlob POST -H "Authorization: Bearer $(jwt bob)" \
     -H 'Content-Type: image/jpeg' --data-binary @- | jq -c .blob
 }
 stamp=$(date +%s)

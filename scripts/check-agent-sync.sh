@@ -98,19 +98,19 @@ if [[ "$claude_hooks" != "$agents_hooks" ]]; then
   diff <(echo "$claude_hooks") <(echo "$agents_hooks") || true
   FAILED=1
 else
-  echo "✅ Both configs wire: $(echo $claude_hooks)"
+  echo "✅ Both configs wire: ${claude_hooks//$'\n'/ }"
 fi
 
 echo ""
 echo "=== Checking OpenSpec Command Parity ==="
-claude_cmds="$(cd .claude/commands/opsx && ls *.md | sed 's/\.md$//')"
-gemini_cmds="$(cd .gemini/commands/opsx && ls *.toml | sed 's/\.toml$//')"
+claude_cmds="$(cd .claude/commands/opsx && find . -maxdepth 1 -name '*.md' | sed 's#^\./##; s/\.md$//' | sort)"
+gemini_cmds="$(cd .gemini/commands/opsx && find . -maxdepth 1 -name '*.toml' | sed 's#^\./##; s/\.toml$//' | sort)"
 if [[ "$claude_cmds" != "$gemini_cmds" ]]; then
   echo "❌ Error: .claude/commands/opsx and .gemini/commands/opsx differ:"
   diff <(echo "$claude_cmds") <(echo "$gemini_cmds") || true
   FAILED=1
 else
-  echo "✅ opsx commands match: $(echo $claude_cmds)"
+  echo "✅ opsx commands match: ${claude_cmds//$'\n'/ }"
 fi
 
 echo ""
