@@ -9,8 +9,9 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ## Commands
 
 ```bash
-./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps
-./gradlew format                                  # format Kotlin/scripts (ktfmt kotlinlang style) and sort dependency blocks
+./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps + lintNonKotlin
+./gradlew format                                  # format Kotlin/scripts (ktfmt kotlinlang style), sort dependency blocks, and format Swift (swift-format, macOS), shell (shfmt) and TOML (Taplo)
+./gradlew lintNonKotlin                           # Swift (swift-format, SwiftLint; macOS only), shell (ShellCheck, shfmt), workflows (actionlint), Dockerfiles (Hadolint), TOML (Taplo); all in check
 ./gradlew composeStabilityCheck                   # fail on unstable Compose params (and State fields in -api modules); reports in build/compose/stability
 ./gradlew cpdCheck                                # duplicated Kotlin across modules and Swift in iosApp (PMD CPD), report-only: build/reports/cpd/cpd.txt, cpd-swift.txt; -Pcpd.minTokens=N, -Pcpd.fail=true
 ./gradlew checkModuleBoundaries                   # fail when a presenter and a UI module depend on each other, or a feature reaches past another's -api
