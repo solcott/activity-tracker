@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.admin.AccountsPage
+import io.github.solcott.activitytracker.appview.admin.TileStatus
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.db.AdminActions
@@ -10,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.reindex.RecentRunCounts
 import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
@@ -37,6 +39,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.exposed.v1.core.eq
@@ -127,6 +130,47 @@ class AccountsPageTest : AdminTestBase() {
 
     private fun test(withSyncer: Boolean = true, block: suspend (HttpClient) -> Unit) =
         adminTest({ site(pages = listOf(page(withSyncer))) }) { http -> block(http) }
+
+    /** Seeds runs across accounts: one running, one failed an hour ago, one failed two days ago, one unavailable, one succeeded. */
+    private fun seedRuns() = runBlocking {
+        fun run(did: String, state: String, finishedAgo: kotlin.time.Duration?) {
+            val id = runBlocking { reindexer.request(Did(did), Did(alice)).id }
+            runBlocking {
+                db.tx {
+                    RepoReindexes.update({ RepoReindexes.id eq id }) {
+                        it[RepoReindexes.state] = state
+                        it[finishedAt] = finishedAgo?.let { ago -> (now - ago).toEpochMilliseconds() }
+                        if (state == "failed") it[errorCode] = "bad_signature"
+                    }
+                }
+            }
+        }
+        run("did:plc:running", "running", null)
+        run("did:plc:recent", "failed", 1.hours)
+        run("did:plc:old", "failed", 48.hours)
+        run("did:plc:gone", "unavailable", 1.hours)
+        run("did:plc:fine", "succeeded", 1.hours)
+    }
+
+    @Test
+    fun recentRunsAcrossAccountsAreListedAndCounted() = test { http ->
+        seedRuns()
+        val since = (now - 24.hours).toEpochMilliseconds()
+        assertEquals(
+            listOf("did:plc:recent", "did:plc:running"),
+            runBlocking { reindexer.recentRuns(since) }.map { it.did.value },
+            "in flight and failed within a day, newest first; never unavailable, succeeded or older failures",
+        )
+        assertEquals(RecentRunCounts(inFlight = 1, failed = 1), runBlocking { reindexer.recentCounts(since) })
+        val html = http.html("/admin/accounts", http.signIn("bob.test")!!)
+        assertTrue("id=\"recent-runs\"" in html)
+        assertTrue("href=\"/admin/accounts/did:plc:recent\"" in html && "bad_signature" in html, html)
+        assertTrue("did:plc:running" in html)
+        for (absent in listOf("did:plc:old", "did:plc:gone", "did:plc:fine")) assertFalse(absent in html, absent)
+        val tiles = runBlocking { page().summary(now) }.associate { it.label to (it.value to it.status) }
+        assertEquals("1" to null, tiles["Reindex runs in flight"])
+        assertEquals("1" to TileStatus.Warn, tiles["Reindex runs failed (24 h)"])
+    }
 
     @Test
     fun aViewerSeesEverySectionWithoutControls() = test { http ->

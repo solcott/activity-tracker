@@ -51,13 +51,16 @@ class AdminSite(
     db: Database,
     private val oauth: AdminOAuth,
     pages: List<AdminPage> = emptyList(),
-    clock: Clock = Clock.System,
+    private val clock: Clock = Clock.System,
 ) {
     val sessions = AdminSessionStore(db, clock)
     val audit = AdminAudit(db, clock)
 
+    /** Every page's summary, read for Home and the navigation's flags; lazily over [pages], which Home itself is one of. */
+    val summaries = Summaries({ this.pages }, clock)
+
     /** Every page in navigation order: home, the operator pages, then the audit log. */
-    val pages: List<AdminPage> = listOf(HomePage) + pages + AuditPage(audit)
+    val pages: List<AdminPage> = listOf(HomePage(summaries)) + pages + AuditPage(audit)
 
     /** Sign-ins between `/signin` and the callback, by OAuth `state`. Memory only: a restart mid-sign-in asks to start again. */
     private val pending: Cache<String, PendingSignIn> =
@@ -87,6 +90,12 @@ class AdminSite(
             staticRoutes()
             signInRoutes()
             val routes = SiteRoutes(this)
+            routes.get("nav") {
+                // `current` is only matched against the pages' own paths, never echoed.
+                val current = pages.firstOrNull { it.path == call.request.queryParameters["current"] }
+                val flags = summaries.read().mapNotNull { s -> s.worst?.let { s.page.path to it } }.toMap()
+                call.respondText(navFragment(pages, current, flags), ContentType.Text.Html)
+            }
             pages.forEach { it.installOn(routes) }
         }
     }
@@ -181,7 +190,7 @@ class AdminSite(
             route.get(path) {
                 if (call.redirectedToLoopbackIp()) return@get
                 val admin = adminOf(call) ?: return@get
-                PageCall(call, admin, pages).body()
+                PageCall(call, admin, pages, clock.now()).body()
             }
         }
 
@@ -261,7 +270,7 @@ class AdminSite(
         const val HTMX_VERSION = "2.0.11"
 
         /** Bump with `admin/admin.css`, so browsers fetch the new one. */
-        const val CSS_VERSION = "2"
+        const val CSS_VERSION = "3"
         const val SESSION_COOKIE = "admin_session"
         const val SIGN_IN_COOKIE = "admin_signin"
         const val CSRF_FIELD = "_csrf"

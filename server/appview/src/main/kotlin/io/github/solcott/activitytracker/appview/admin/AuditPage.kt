@@ -7,28 +7,9 @@ import kotlinx.html.button
 import kotlinx.html.form
 import kotlinx.html.label
 import kotlinx.html.p
-import kotlinx.html.table
-import kotlinx.html.tbody
 import kotlinx.html.td
 import kotlinx.html.textInput
-import kotlinx.html.th
-import kotlinx.html.thead
 import kotlinx.html.tr
-
-/** The admin site's home page: what each page is for. */
-internal object HomePage : AdminPage {
-    override val path = ""
-    override val title = "Home"
-
-    override fun AdminRoutes.install() {
-        get(path) {
-            page(title) {
-                p { +"Signed in as ${admin.did.value} (${admin.role.id})." }
-                p { +"Reports, labels and takedowns are handled in the labeler, not here." }
-            }
-        }
-    }
-}
 
 /** The audit log (admin/admin-site): every action and refused attempt, newest first, filterable by admin, action and target. */
 internal class AuditPage(private val audit: AdminAudit) : AdminPage {
@@ -43,8 +24,9 @@ internal class AuditPage(private val audit: AdminAudit) : AdminPage {
             fun param(name: String) = query[name]?.trim()?.takeIf { it.isNotEmpty() }
             val filter = AuditFilter(admin = param("admin"), action = param("action"), target = param("target"))
             val (entries, next) = audit.page(filter, param("cursor"), PAGE_SIZE)
+            val now = now
             page(title) {
-                form(action = "/admin/$path", method = FormMethod.get) {
+                form(action = "/admin/$path", method = FormMethod.get, classes = "filters") {
                     label {
                         +"Admin "
                         textInput(name = "admin") { value = filter.admin.orEmpty() }
@@ -61,18 +43,15 @@ internal class AuditPage(private val audit: AdminAudit) : AdminPage {
                 }
                 if (entries.isEmpty()) p { +"No entries." }
                 else
-                    table {
-                        thead { tr { listOf("When", "Admin", "Action", "Target", "Settings", "Outcome").forEach { th { +it } } } }
-                        tbody {
-                            entries.forEach { e ->
-                                tr {
-                                    td { +e.at.toString() }
-                                    td { +e.admin }
-                                    td { +e.action }
-                                    td { +e.target.orEmpty() }
-                                    td { +e.params.entries.joinToString(", ") { "${it.key}=${it.value}" } }
-                                    td { +e.outcome }
-                                }
+                    dataTable(listOf("When", "Admin", "Action", "Target", "Settings", "Outcome")) {
+                        entries.forEach { e ->
+                            tr {
+                                timeCell(e.at, now)
+                                td { +e.admin }
+                                td("mono") { +e.action }
+                                td { +e.target.orEmpty() }
+                                td { +e.params.entries.joinToString(", ") { "${it.key}=${it.value}" } }
+                                td { badge(e.outcome, outcomeStatus(e.outcome)) }
                             }
                         }
                     }
@@ -91,5 +70,14 @@ internal class AuditPage(private val audit: AdminAudit) : AdminPage {
 
     companion object {
         const val PAGE_SIZE = 50
+
+        /** An audit outcome's status: `ok…` fine, `refused…` a warning, `failed…` bad. */
+        fun outcomeStatus(outcome: String): TileStatus? =
+            when (outcome.substringBefore(':')) {
+                "ok" -> TileStatus.Ok
+                "refused" -> TileStatus.Warn
+                "failed" -> TileStatus.Bad
+                else -> null
+            }
     }
 }
