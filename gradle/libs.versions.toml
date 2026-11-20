@@ -100,6 +100,8 @@ h2 = "2.5.252"
 htmx = "2.0.11"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
 osmpbf = "1.8.0"
+# GeoClue over the system D-Bus, the desktop app's location on Linux (segments/segment-browse). MIT; JDK unix sockets, no native code.
+dbusJava = "5.2.2"
 
 # Runs presenters with no UI attached (:app-host). The version circuit-test already resolves, which the presenter tests run on.
 molecule = "2.2.0"
@@ -114,6 +116,8 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-serialization-json-io = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-io", version.ref = "kotlinxSerialization" }
+dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }
+dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-io-bytestring = { module = "org.jetbrains.kotlinx:kotlinx-io-bytestring", version.ref = "kotlinxIo" }
