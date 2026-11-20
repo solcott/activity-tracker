@@ -191,4 +191,19 @@ class RepoReadingTest {
         repeat(80) { deep = listOf(deep) }
         assertEquals("bad_cbor", assertFailsWith<RepoFormatException> { DagCbor.decode(DagCbor.encode(deep)) }.code)
     }
+
+    @Test
+    fun `DAG-CBOR map keys must be text`() {
+        // {1: "x"}: an integer key, which Jackson would name "1".
+        val intKey = byteArrayOf(0xA1.toByte(), 0x01, 0x61, 0x78)
+        assertEquals("bad_cbor", assertFailsWith<RepoFormatException> { DagCbor.decode(intKey) }.code)
+        // {"a": {h'00': 1}}: a byte-string key, nested.
+        val bytesKey = byteArrayOf(0xA1.toByte(), 0x61, 0x61, 0xA1.toByte(), 0x41, 0x00, 0x01)
+        assertEquals("bad_cbor", assertFailsWith<RepoFormatException> { DagCbor.decode(bytesKey) }.code)
+        // Text keys after a value of every shape still read, so each key's offset is where its head is.
+        val nested = mapOf("a" to listOf(1L, "two", mapOf("b" to byteArrayOf(1, 2))), "cc" to mapOf("d" to null), "eee" to 300L)
+        val decoded = DagCbor.decode(DagCbor.encode(nested)) as Map<*, *>
+        assertEquals(setOf("a", "cc", "eee"), decoded.keys)
+        assertEquals(300L, decoded["eee"])
+    }
 }

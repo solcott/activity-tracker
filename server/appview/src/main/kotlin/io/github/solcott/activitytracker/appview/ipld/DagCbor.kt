@@ -26,15 +26,15 @@ object DagCbor {
 
     /**
      * Decodes one DAG-CBOR value that fills [bytes]. Throws [RepoFormatException] for what DAG-CBOR forbids or the atproto data model
-     * lacks: floats, tags other than 42, integers outside 64 bits, duplicate map keys, and nesting deeper than [MAX_DEPTH]. Jackson reads
-     * definite and indefinite lengths alike; nothing here hashes re-encoded bytes except a commit, whose signature fails if it wasn't
-     * canonical.
+     * lacks: floats, tags other than 42, integers outside 64 bits, map keys that aren't text, duplicate map keys, and nesting deeper than
+     * [MAX_DEPTH]. Jackson reads definite and indefinite lengths alike; nothing here hashes re-encoded bytes except a commit, whose
+     * signature fails if it wasn't canonical.
      */
     internal fun decode(bytes: ByteArray): Any? =
         try {
             factory.createParser(bytes).use { parser ->
                 parser.nextToken() ?: throw RepoFormatException("bad_cbor", "Empty DAG-CBOR")
-                val value = (parser as CBORParser).readValue(0)
+                val value = (parser as CBORParser).readValue(bytes, 0)
                 if (parser.nextToken() != null) throw RepoFormatException("bad_cbor", "Trailing DAG-CBOR")
                 value
             }
@@ -48,7 +48,7 @@ object DagCbor {
     private val factory = CBORFactory()
 
     @Suppress("ThrowsCount") // Untrusted input: each malformed part is refused with its own reason.
-    private fun CBORParser.readValue(depth: Int): Any? {
+    private fun CBORParser.readValue(bytes: ByteArray, depth: Int): Any? {
         if (depth > MAX_DEPTH) throw RepoFormatException("bad_cbor", "DAG-CBOR nested too deeply")
         val tag = currentTag
         if (tag != NO_TAG && !(tag == CID_TAG && currentToken == JsonToken.VALUE_EMBEDDED_OBJECT)) {
@@ -58,16 +58,21 @@ object DagCbor {
             JsonToken.START_OBJECT -> {
                 val map = LinkedHashMap<String, Any?>()
                 while (nextToken() != JsonToken.END_OBJECT) {
+                    // Jackson names integer and other keys too, so the key's own head byte is checked: text, untagged.
+                    val at = currentTokenLocation().byteOffset
+                    if (at !in bytes.indices || (bytes[at.toInt()].toInt() and BYTE) ushr MAJOR_SHIFT != MAJOR_TEXT) {
+                        throw RepoFormatException("bad_cbor", "Map key isn't text")
+                    }
                     val key = currentName()
                     nextToken()
                     if (key in map) throw RepoFormatException("bad_cbor", "Duplicate map key")
-                    map[key] = readValue(depth + 1)
+                    map[key] = readValue(bytes, depth + 1)
                 }
                 map
             }
             JsonToken.START_ARRAY -> {
                 val list = mutableListOf<Any?>()
-                while (nextToken() != JsonToken.END_ARRAY) list += readValue(depth + 1)
+                while (nextToken() != JsonToken.END_ARRAY) list += readValue(bytes, depth + 1)
                 list
             }
             JsonToken.VALUE_STRING -> text
@@ -169,6 +174,7 @@ object DagCbor {
     private const val MAJOR_MAP = 5
     private const val MAJOR_TAG = 6
     private const val MAJOR_SHIFT = 5
+    private const val BYTE = 0xFF
 
     /** Arguments below 24 sit in the head byte; 24 to 27 mean 1, 2, 4 or 8 bytes follow. */
     private const val INLINE_LIMIT = 24
