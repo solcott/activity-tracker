@@ -4,7 +4,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 

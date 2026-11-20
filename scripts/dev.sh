@@ -211,8 +211,8 @@ ensure_lexicons() {
     # Not `up -d pds`: the relay and Jetstream share the PDS's network namespace, and only a full `up`
     # recreates them along with it.
     "${COMPOSE[@]}" up -d --remove-orphans
-    wait_http "http://localhost:2583/xrpc/_health" 180 "PDS recreated with lexicon authority $did" \
-      || die "PDS not healthy; see: ${COMPOSE[*]} logs pds"
+    wait_http "http://localhost:2583/xrpc/_health" 180 "PDS recreated with lexicon authority $did" ||
+      die "PDS not healthy; see: ${COMPOSE[*]} logs pds"
     wait_http "http://localhost:2470/xrpc/_health" 180 "relay :2470" || die "relay not healthy; see: ${COMPOSE[*]} logs relay"
   else
     ok "lexicons.test ($did)"
@@ -516,10 +516,10 @@ cmd_device_setup() {
   appview=$(sibling appview "$host")
   step "Zone $zone"
   # Exactly one level: Cloudflare's free certificate covers *.zone, not *.dev.zone, so the host's parent must be the zone.
-  [[ -n $(dig +noall +answer SOA "$zone" @1.1.1.1 | awk -v z="$zone." '$1 == z && $4 == "SOA"') ]] \
-    || die "$zone isn't a DNS zone: $DEVICE_HOST_KEY must be exactly one label below the zone you added to Cloudflare"
-  dig +short NS "$zone" @1.1.1.1 | grep -q '\.ns\.cloudflare\.com\.$' \
-    || die "$zone isn't on Cloudflare's nameservers yet (dig NS $zone): add it to Cloudflare and switch its nameservers first"
+  [[ -n $(dig +noall +answer SOA "$zone" @1.1.1.1 | awk -v z="$zone." '$1 == z && $4 == "SOA"') ]] ||
+    die "$zone isn't a DNS zone: $DEVICE_HOST_KEY must be exactly one label below the zone you added to Cloudflare"
+  dig +short NS "$zone" @1.1.1.1 | grep -q '\.ns\.cloudflare\.com\.$' ||
+    die "$zone isn't on Cloudflare's nameservers yet (dig NS $zone): add it to Cloudflare and switch its nameservers first"
   ok "$zone is on Cloudflare"
   step "Tunnel $DEVICE_TUNNEL"
   if [[ ! -f $HOME/.cloudflared/cert.pem ]]; then
@@ -760,7 +760,10 @@ cmd_up() {
   SEEDS=()
   while (($#)); do
     case $1 in
-      --seed) SEEDS+=("${2:?--seed needs a name}"); shift ;;
+      --seed)
+        SEEDS+=("${2:?--seed needs a name}")
+        shift
+        ;;
       --android) FORCE_ANDROID=1 ;;
       --no-android) NO_ANDROID=1 ;;
       --no-tunnel) NO_TUNNEL=1 ;;
@@ -889,7 +892,10 @@ cmd_down() {
 }
 
 case ${1:-up} in
-  up) shift || true; cmd_up "$@" ;;
+  up)
+    shift || true
+    cmd_up "$@"
+    ;;
   status) cmd_status ;;
   down) cmd_down ;;
   device-setup) cmd_device_setup ;;

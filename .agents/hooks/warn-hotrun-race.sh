@@ -5,7 +5,10 @@ set -eu
 
 input=$(cat)
 claude=$(jq 'has("tool_input")' <<<"$input")
-allow() { [[ $claude == true ]] || echo '{"decision": "allow"}'; exit 0; }
+allow() {
+  [[ $claude == true ]] || echo '{"decision": "allow"}'
+  exit 0
+}
 cmd=$(jq -r '.toolCall.args.CommandLine // .tool_input.command // empty' <<<"$input")
 
 if ! grep -q 'gradlew' <<<"$cmd"; then

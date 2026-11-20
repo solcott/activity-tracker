@@ -9,7 +9,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -18,7 +21,10 @@ pds="http://localhost:2583"
 ozone="http://localhost:3010"
 admin_password=${OZONE_ADMIN_PASSWORD:-local-dev-ozone-admin}
 
-(($# == 0)) || { echo "usage: setup-labeler.sh" >&2; exit 1; }
+(($# == 0)) || {
+  echo "usage: setup-labeler.sh" >&2
+  exit 1
+}
 
 # Sets KEY=VALUE in .env, replacing an existing line.
 set_env() {
@@ -60,7 +66,10 @@ if [[ ! ${OZONE_SIGNING_KEY_HEX:-} =~ ^[0-9a-f]{64}$ ]]; then
   key=$(openssl ecparam -name secp256k1 -genkey -noout | openssl ec -text -noout 2>/dev/null |
     sed -n '/^priv:/,/^pub:/p' | grep -v -e '^priv:' -e '^pub:' | tr -d ' :\n')
   key=$(printf '%064s' "${key: -64}" | tr ' ' 0)
-  [[ $key =~ ^[0-9a-f]{64}$ ]] || { echo "FAIL couldn't generate a secp256k1 key with openssl" >&2; exit 1; }
+  [[ $key =~ ^[0-9a-f]{64}$ ]] || {
+    echo "FAIL couldn't generate a secp256k1 key with openssl" >&2
+    exit 1
+  }
   set_env OZONE_SIGNING_KEY_HEX "$key"
   OZONE_SIGNING_KEY_HEX=$key
   echo "generated OZONE_SIGNING_KEY_HEX" >&2
@@ -126,7 +135,10 @@ fi
 "${COMPOSE[@]}" up -d --remove-orphans 2>/dev/null
 waited=0
 until [[ $(curl -s -o /dev/null -m 5 -w '%{http_code}' "$ozone/xrpc/_health") == 2* ]]; do
-  ((waited >= 120)) && { echo "FAIL Ozone not healthy; see: docker compose -f docker/compose.yaml logs ozone" >&2; exit 1; }
+  ((waited >= 120)) && {
+    echo "FAIL Ozone not healthy; see: docker compose -f docker/compose.yaml logs ozone" >&2
+    exit 1
+  }
   sleep 2
   waited=$((waited + 2))
 done

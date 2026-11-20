@@ -16,12 +16,18 @@ fi
 case $source_name in
   athlete | agency) license=CC0-1.0 ;;
   osm) license=ODbL-1.0 ;;
-  *) echo "--source must be athlete, osm or agency" >&2; exit 1 ;;
+  *)
+    echo "--source must be athlete, osm or agency" >&2
+    exit 1
+    ;;
 esac
 
 gpx_path="$(cd "$(dirname "${4:?usage: seed-segment.sh [--source athlete|osm|agency] <name> <segment-name> <sport> <gpx> [start end] [pds-url]}")" && pwd)/$(basename "$4")"
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -31,17 +37,27 @@ sport=$3
 start=${5:-0}
 end=${6:--1}
 pds="${7:-http://localhost:2583}"
-case $sport in ride | run | hike | ski | paddle) ;; *) echo "sport must be ride, run, hike, ski or paddle" >&2; exit 1 ;; esac
+case $sport in
+  ride | run | hike | ski | paddle) ;;
+  *)
+    echo "sport must be ride, run, hike, ski or paddle" >&2
+    exit 1
+    ;;
+esac
 
 json_field() { sed -nE "s/.*\"$1\":\"([^\"]+)\".*/\1/p"; }
 
 session=$(curl -sSf -X POST "$pds/xrpc/com.atproto.server.createSession" -H 'Content-Type: application/json' \
-  -d "{\"identifier\":\"$name.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}") || { echo "FAIL createSession as $name.test" >&2; exit 1; }
+  -d "{\"identifier\":\"$name.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}") || {
+  echo "FAIL createSession as $name.test" >&2
+  exit 1
+}
 did=$(json_field did <<<"$session")
 token=$(json_field accessJwt <<<"$session")
 
 # The putRecord body: the GPX's points cut to [start, end] and encoded at precision 6, under a fresh TID.
-body=$(python3 -I - "$gpx_path" "$start" "$end" "$did" "$segment_name" "$sport" "$source_name" "$license" <<'PY'
+body=$(
+  python3 -I - "$gpx_path" "$start" "$end" "$did" "$segment_name" "$sport" "$source_name" "$license" <<'PY'
 import json, sys, time, random
 import xml.etree.ElementTree as ET
 
@@ -102,5 +118,8 @@ out=$(curl -sS -w '\n%{http_code}' -X POST "$pds/xrpc/com.atproto.repo.putRecord
   -H 'Content-Type: application/json' -d "$body")
 status=${out##*$'\n'}
 out=${out%$'\n'*}
-[[ $status == 2* ]] || { echo "FAIL putRecord: HTTP $status ${out:0:300}" >&2; exit 1; }
+[[ $status == 2* ]] || {
+  echo "FAIL putRecord: HTTP $status ${out:0:300}" >&2
+  exit 1
+}
 echo "ok   $(json_field uri <<<"$out")"

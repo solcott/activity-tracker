@@ -20,4 +20,4 @@ while read -r id sha; do
     echo "$sha"
     exit 0
   fi
-done <<< "$runs"
+done <<<"$runs"

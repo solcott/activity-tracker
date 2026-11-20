@@ -7,7 +7,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -22,7 +25,10 @@ pds="${1:-http://localhost:2583}"
 stub_port=8099
 metrics_port=20299
 
-command -v cloudflared >/dev/null || { echo "cloudflared not installed: brew install cloudflared" >&2; exit 1; }
+command -v cloudflared >/dev/null || {
+  echo "cloudflared not installed: brew install cloudflared" >&2
+  exit 1
+}
 log=$(mktemp -t syncer-smoke-tunnel)
 cloudflared tunnel --url "http://localhost:$stub_port" --metrics "127.0.0.1:$metrics_port" >"$log" 2>&1 &
 tunnel_pid=$!
@@ -34,7 +40,10 @@ for _ in $(seq 30); do
   [[ -n $host ]] && break
   sleep 1
 done
-[[ -n $host ]] || { echo "FAIL cloudflared didn't report a hostname; see $log" >&2; exit 1; }
+[[ -n $host ]] || {
+  echo "FAIL cloudflared didn't report a hostname; see $log" >&2
+  exit 1
+}
 for _ in $(seq 30); do
   curl -s -m 2 "http://127.0.0.1:$metrics_port/metrics" 2>/dev/null | grep -qE '^cloudflared_tunnel_ha_connections [1-9]' && break
   sleep 1

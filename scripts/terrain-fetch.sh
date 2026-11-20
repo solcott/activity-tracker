@@ -10,7 +10,10 @@
 # A region is a preset in scripts/segment-regions/<region>.conf. The default output folder is build/terrain. Needs curl.
 set -euo pipefail
 
-usage() { echo "usage: scripts/terrain-fetch.sh <region | west,south,east,north> [--zoom N] [--out DIR]" >&2; exit 2; }
+usage() {
+  echo "usage: scripts/terrain-fetch.sh <region | west,south,east,north> [--zoom N] [--out DIR]" >&2
+  exit 2
+}
 [[ $# -ge 1 ]] || usage
 target="$1"
 shift
@@ -19,25 +22,43 @@ cd "$(dirname "$0")/.."
 out="build/terrain"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --zoom) zoom="${2:?}"; shift 2 ;;
-    --out) out="${2:?}"; shift 2 ;;
+    --zoom)
+      zoom="${2:?}"
+      shift 2
+      ;;
+    --out)
+      out="${2:?}"
+      shift 2
+      ;;
     *) usage ;;
   esac
 done
-[[ "$zoom" =~ ^[0-9]+$ && "$zoom" -ge 1 && "$zoom" -le 15 ]] || { echo "--zoom is 1 to 15" >&2; exit 2; }
-command -v curl >/dev/null || { echo "Install curl first" >&2; exit 1; }
+[[ "$zoom" =~ ^[0-9]+$ && "$zoom" -ge 1 && "$zoom" -le 15 ]] || {
+  echo "--zoom is 1 to 15" >&2
+  exit 2
+}
+command -v curl >/dev/null || {
+  echo "Install curl first" >&2
+  exit 1
+}
 
 if [[ "$target" == *,* ]]; then
   IFS=, read -r west south east north <<<"$target"
 else
   preset="scripts/segment-regions/$target.conf"
-  [[ -f "$preset" ]] || { echo "No preset for $target: add $preset, or give west,south,east,north" >&2; exit 2; }
+  [[ -f "$preset" ]] || {
+    echo "No preset for $target: add $preset, or give west,south,east,north" >&2
+    exit 2
+  }
   BBOX=''
   # shellcheck source=/dev/null
   source "$preset"
   read -r west south east north <<<"$BBOX"
 fi
-[[ -n "${north:-}" ]] || { echo "The box is west south east north" >&2; exit 2; }
+[[ -n "${north:-}" ]] || {
+  echo "The box is west south east north" >&2
+  exit 2
+}
 
 # Web Mercator tile columns and rows covering the box (north is the smaller row).
 tiles=$(awk -v w="$west" -v s="$south" -v e="$east" -v n="$north" -v z="$zoom" '
@@ -45,7 +66,10 @@ tiles=$(awk -v w="$west" -v s="$south" -v e="$east" -v n="$north" -v z="$zoom" '
   function row(lat,  r, pi) { pi = atan2(0, -1); r = lat * pi / 180; return int((1 - log(sin(r) / cos(r) + 1 / cos(r)) / pi) / 2 * 2 ^ z) }
   BEGIN { print col(w), col(e), row(n), row(s) }')
 read -r x0 x1 y0 y1 <<<"$tiles"
-[[ -n "${y1:-}" ]] || { echo "Couldn't work out the tiles for $west,$south,$east,$north" >&2; exit 1; }
+[[ -n "${y1:-}" ]] || {
+  echo "Couldn't work out the tiles for $west,$south,$east,$north" >&2
+  exit 1
+}
 count=$(((x1 - x0 + 1) * (y1 - y0 + 1)))
 echo "Fetching $count tiles at zoom $zoom into $out"
 

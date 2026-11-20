@@ -70,11 +70,17 @@ while [[ $# -gt 0 ]]; do
   elif [[ $1 == --agency ]]; then
     [[ $# -ge 2 && $2 == *=* ]] || usage
     file="${2#*=}"
-    [[ -f "$file" ]] || { echo "No such agency dataset: $file" >&2; exit 2; }
+    [[ -f "$file" ]] || {
+      echo "No such agency dataset: $file" >&2
+      exit 2
+    }
     inputs+=(--agency "$2")
     shift 2
   else
-    [[ -f "$1" ]] || { echo "No such extract: $1" >&2; exit 2; }
+    [[ -f "$1" ]] || {
+      echo "No such extract: $1" >&2
+      exit 2
+    }
     inputs+=("$1")
     pbf="$1"
     shift
@@ -83,7 +89,10 @@ done
 
 if [[ ${#inputs[@]} -eq 0 ]]; then
   preset="scripts/segment-regions/$region.conf"
-  [[ -f "$preset" ]] || { echo "No inputs and no preset for $region: give its files, or add $preset" >&2; exit 2; }
+  [[ -f "$preset" ]] || {
+    echo "No inputs and no preset for $region: give its files, or add $preset" >&2
+    exit 2
+  }
   scripts/segment-fetch.sh "$region"
   AGENCIES='' REGION_LANG='' SITES_BBOX=''
   # shellcheck source=/dev/null
@@ -137,9 +146,15 @@ fi
 if $sites; then
   sites_out="build/segment-import/$region-sites.ndjson"
   if [[ -n "$sites_bbox" ]]; then
-    command -v osmium >/dev/null || { echo "Install first: osmium (brew install osmium-tool)" >&2; exit 1; }
+    command -v osmium >/dev/null || {
+      echo "Install first: osmium (brew install osmium-tool)" >&2
+      exit 1
+    }
     read -r west south east north <<<"$sites_bbox"
-    [[ -n "$north" ]] || { echo "SITES_BBOX is west south east north" >&2; exit 2; }
+    [[ -n "$north" ]] || {
+      echo "SITES_BBOX is west south east north" >&2
+      exit 2
+    }
     clipped="build/segment-import/$region-sites.osm.pbf"
     echo "==> clip $pbf to $sites_bbox"
     osmium extract -b "$west,$south,$east,$north" "$pbf" -O -o "$clipped.part.osm.pbf"

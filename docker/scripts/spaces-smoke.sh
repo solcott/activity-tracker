@@ -5,7 +5,10 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
+[[ -f .env ]] || {
+  echo "docker/.env missing: cp docker/.env.example docker/.env" >&2
+  exit 1
+}
 # shellcheck disable=SC1091
 source .env
 
@@ -20,7 +23,10 @@ allow=""
 xrpc() {
   local method=$1 verb=$2 out status
   shift 2
-  out=$(curl -sS -w '\n%{http_code}' -X "$verb" "$@" "$pds/xrpc/$method") || { echo "FAIL $method: no response from $pds" >&2; exit 1; }
+  out=$(curl -sS -w '\n%{http_code}' -X "$verb" "$@" "$pds/xrpc/$method") || {
+    echo "FAIL $method: no response from $pds" >&2
+    exit 1
+  }
   status=${out##*$'\n'}
   out=${out%$'\n'*}
   if [[ $status != 2* ]]; then
@@ -63,13 +69,19 @@ echo "ok   putRecord"
 
 query=(-G --data "space=$(urlencode "$space")" --data "repo=$did" --data "collection=$collection" --data "rkey=self")
 record=$(xrpc com.atproto.space.getRecord GET "${auth[@]}" "${query[@]}")
-[[ $record == *"\"text\":\"$marker\""* ]] || { echo "FAIL com.atproto.space.getRecord: value didn't round-trip: ${record:0:300}" >&2; exit 1; }
+[[ $record == *"\"text\":\"$marker\""* ]] || {
+  echo "FAIL com.atproto.space.getRecord: value didn't round-trip: ${record:0:300}" >&2
+  exit 1
+}
 echo "ok   getRecord as owner"
 
 allow="AuthMissing AuthRequired"
 anonymous=$(xrpc com.atproto.space.getRecord GET "${query[@]}")
 allow=""
-[[ $anonymous == *'"error"'* ]] || { echo "FAIL com.atproto.space.getRecord: anonymous read wasn't refused" >&2; exit 1; }
+[[ $anonymous == *'"error"'* ]] || {
+  echo "FAIL com.atproto.space.getRecord: anonymous read wasn't refused" >&2
+  exit 1
+}
 echo "ok   getRecord refused without credentials"
 
 xrpc com.atproto.space.deleteRecord POST "${auth[@]}" -H 'Content-Type: application/json' \
@@ -88,6 +100,9 @@ echo "ok   deleteSpace again is a no-op"
 allow="SpaceNotFound"
 after=$(xrpc com.atproto.space.getSpace GET "${auth[@]}" -G --data "space=$(urlencode "$gone")")
 allow=""
-[[ $after == *SpaceNotFound* || $after == *deleted* ]] || { echo "FAIL com.atproto.space.getSpace: deleted space still served: ${after:0:300}" >&2; exit 1; }
+[[ $after == *SpaceNotFound* || $after == *deleted* ]] || {
+  echo "FAIL com.atproto.space.getSpace: deleted space still served: ${after:0:300}" >&2
+  exit 1
+}
 echo "ok   getSpace after deleteSpace: ${after:0:80}"
 echo "Spaces smoke check passed on $pds"
