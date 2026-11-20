@@ -249,9 +249,11 @@ class SpaceSyncer(
      */
     private suspend fun pullOrBackfill(space: SpaceUri, state: ResultRow, now: Instant): Synced {
         val rev = state[SpaceSync.repoRev]
-        val stored = state[SpaceSync.setHash].takeUnless { forced.remove(space.value) }
+        // A forced space stays forced until a backfill of it succeeds, so a failed one is backfilled again rather than pulled.
+        val force = space.value in forced
+        val stored = state[SpaceSync.setHash].takeUnless { force }
         val pulled = if (rev != null && stored != null && state.syncedWithin(resyncAfter, now)) pull(space, rev, stored) else null
-        return pulled ?: backfill(space)
+        return pulled ?: backfill(space).also { if (force) forced.remove(space.value) }
     }
 
     /**
