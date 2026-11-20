@@ -394,6 +394,8 @@ object Paths : BoxedLineTable("paths") {
     val indexedAt = long("indexed_at")
     /** The sport groups it is open to, comma-separated; null for any, as a road. */
     val sports = varchar("sports", 255).nullable()
+    /** Its record's `trail` (segments/trail-attributes), AtJson-encoded and cleaned; null when nothing is known. */
+    val trail = text("trail").nullable()
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -554,6 +556,8 @@ object SegmentCandidateRows : BoxedLineTable("segment_candidates") {
      * none.
      */
     val climb = varchar("climb", 16).nullable()
+    /** Its trail attributes as staged (segments/trail-attributes), AtJson-encoded and cleaned; null when none are known. */
+    val trail = text("trail").nullable()
     /** Enough distinct athletes passed it; never undone until its line or sport changes. The only thing revealed about its riders. */
     val ridden = bool("ridden").default(false)
     val stagedAt = long("staged_at")

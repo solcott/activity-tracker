@@ -559,6 +559,8 @@ class SegmentViews(
                 sports = SegmentSportGroup.all.filter { sport -> on.any { it[Segments.sport] == sport } },
                 groupCount = on.map { it[groupKey] }.distinct().size,
                 oneWays = oneWays[row[Paths.uri]].orEmpty(),
+                // Stored cleaned, and cleaned again so a tightened rule needs no reindex (segments/trail-attributes).
+                trail = TrailAttributesSanitizer.decoded(row[Paths.trail]),
             )
         }
     }
@@ -1011,6 +1013,8 @@ class SegmentViews(
                 // (segments/segment-direction).
                 oneWay = true.takeIf { record.oneWay == true && byImporter(author) },
                 climb = SegmentClimbs.of(record.climb)?.takeIf { byImporter(author) },
+                // Trail attributes come only from the importer's source data, never an athlete's own (segments/trail-attributes).
+                trail = if (byImporter(author)) TrailAttributesSanitizer.clean(record.trail) else null,
             )
         }
     }

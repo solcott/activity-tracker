@@ -22,6 +22,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.ktor.client.HttpClient
@@ -388,6 +390,28 @@ class SegmentCandidatesTest : SegmentTestBase() {
         assertEquals("downhill", checked.single { it.id == "c-1" }.candidate?.climb)
         assertNull(checked.single { it.id == "c-2" }.candidate?.climb, "an unknown value is stored as none")
         assertNull(checked.single { it.id == "c-3" }.candidate?.climb)
+    }
+
+    @Test
+    fun aCandidatesTrailAttributesAreCheckedBackCleanedAndReplacedOnRestage() = testApplication {
+        start()
+        val hogback =
+            candidate("c-1", name = "Hogback Trail")
+                .copy(trail = TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), mtbScale = 1, website = "javascript:x"))
+        val plain = candidate("c-2", path = listOf(0.0 to 2000.0, 0.0 to 2700.0))
+        assertEquals(emptyList(), stage(hogback, plain))
+        suspend fun trails(): Map<String, TrailAttributes?> {
+            val response = client.check(listOf("c-1", "c-2"))
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(CheckSegmentCandidates.Output.serializer(), response.bodyAsText()).candidates.associate {
+                it.id to it.candidate?.trail
+            }
+        }
+        val first = trails()
+        assertEquals(TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), mtbScale = 1), first["c-1"], "the website dropped")
+        assertNull(first["c-2"], "staged without attributes")
+        assertEquals(emptyList(), stage(hogback.copy(trail = TrailAttributes(mtbScale = 2)), plain, revision = "r2"))
+        assertEquals(TrailAttributes(mtbScale = 2), trails()["c-1"], "restaged with new attributes")
     }
 
     @Test

@@ -237,6 +237,7 @@ class SegmentCandidateViews(
             kind = row[SegmentCandidateRows.kind].takeIf { it != SegmentKind.RUN },
             oneWay = true.takeIf { row[SegmentCandidateRows.oneWay] },
             climb = SegmentClimbs.of(row[SegmentCandidateRows.climb]),
+            trail = TrailAttributesSanitizer.decoded(row[SegmentCandidateRows.trail]),
         )
 
     /** A candidate that passed validation, with its decoded line. */
@@ -298,6 +299,7 @@ class SegmentCandidateViews(
             this[SegmentCandidateRows.attribution] = staged.attribution
             this[SegmentCandidateRows.oneWay] = candidate.oneWay == true
             this[SegmentCandidateRows.climb] = SegmentClimbs.of(candidate.climb)
+            this[SegmentCandidateRows.trail] = TrailAttributesSanitizer.encoded(candidate.trail)
             this[SegmentCandidateRows.ridden] = candidate.id !in changedIds && old.getValue(candidate.id)[SegmentCandidateRows.ridden]
             this[SegmentCandidateRows.stagedAt] = now
         }

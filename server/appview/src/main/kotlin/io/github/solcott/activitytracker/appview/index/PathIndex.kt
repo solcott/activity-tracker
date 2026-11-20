@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.api.TrailAttributesSanitizer
 import io.github.solcott.activitytracker.appview.db.PathCellIndex
 import io.github.solcott.activitytracker.appview.db.PathSectionSegments
 import io.github.solcott.activitytracker.appview.db.PathSegments
@@ -68,6 +69,7 @@ internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUr
         it[license] = record.license.take(MAX_TOKEN_LENGTH)
         it[Paths.attribution] = attribution
         it[Paths.sports] = sports
+        it[Paths.trail] = TrailAttributesSanitizer.encoded(record.trail)
         it[indexedAt] = now
     }
     replaceSections(uri, author, record.sections.orEmpty())

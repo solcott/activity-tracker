@@ -16,6 +16,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -200,6 +202,43 @@ class SegmentPathsTest : SegmentTestBase() {
         val json = pathJson(anns).replace(",\"createdAt\"", ",\"sections\":[{\"name\":\"Mine\",\"segments\":[\"osm-a\"]}],\"createdAt\"")
         commit(bob, Nsid.FEED_PATH, "anns", json)
         assertEquals("NotFound", client.xrpcError(GetPath.method, mapOf("uri" to pathUri("anns", bob)), viewer = carol))
+    }
+
+    @Test
+    fun aPathServesItsTrailAttributesCleaned() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        val trail = ""","trail":{"surfaces":[{"surface":"gravel","percent":100}],"lit":"yes","website":"javascript:alert(1)"}"""
+        commit(importer, Nsid.FEED_PATH, "anns", pathJson(anns).replace(",\"createdAt\"", "$trail,\"createdAt\""))
+        val view = client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("anns")), viewer = carol).path
+        assertEquals(TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), lit = "yes"), view.trail, "the website dropped")
+        path("hogback", hogback, name = "Hogback")
+        assertNull(client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("hogback")), viewer = carol).path.trail)
+    }
+
+    @Test
+    fun onlyTheImportersSegmentsServeTrailAttributes() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        val trail = ""","trail":{"mtbScale":2}}"""
+        commit(
+            alice,
+            Nsid.FEED_SEGMENT,
+            "3ka",
+            segmentJson(path = listOf(0.0 to 1000.0, 0.0 to 2200.0), sport = "ride").dropLast(1) + trail,
+        )
+        commit(
+            importer,
+            Nsid.FEED_SEGMENT,
+            "osm-a",
+            segmentJson(path = listOf(0.0 to 3000.0, 0.0 to 4500.0), sport = "ride")
+                .replace("\"source\":\"athlete\"", "\"source\":\"osm\"")
+                .dropLast(1) + trail,
+        )
+        activate("3ka")
+        assertNull(client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ka", alice)), carol).segment.trail, "an athlete's")
+        assertEquals(
+            TrailAttributes(mtbScale = 2),
+            client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("osm-a", importer)), carol).segment.trail,
+        )
     }
 
     @Test
