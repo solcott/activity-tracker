@@ -18,17 +18,33 @@ package=io.github.solcott.activitytracker
 dir=build/compose-trace
 script="$dir/record_recomposition_trace-${commit:0:12}.py"
 
-command -v adb >/dev/null || { echo "Put adb (Android SDK platform-tools) on the PATH first" >&2; exit 1; }
-command -v python3 >/dev/null || { echo "Install Python 3.10+ first" >&2; exit 1; }
-adb get-state >/dev/null 2>&1 || { echo "No device or emulator attached (adb devices)" >&2; exit 1; }
+command -v adb >/dev/null || {
+  echo "Put adb (Android SDK platform-tools) on the PATH first" >&2
+  exit 1
+}
+command -v python3 >/dev/null || {
+  echo "Install Python 3.10+ first" >&2
+  exit 1
+}
+adb get-state >/dev/null 2>&1 || {
+  echo "No device or emulator attached (adb devices)" >&2
+  exit 1
+}
 adb shell pm list packages "$package" | grep -qx "package:$package" ||
-  { echo "Install the debug app first: ./gradlew :androidApp:installDebug" >&2; exit 1; }
+  {
+    echo "Install the debug app first: ./gradlew :androidApp:installDebug" >&2
+    exit 1
+  }
 
 mkdir -p "$dir"
 if [[ ! -f "$script" ]]; then
   curl -sfL "https://raw.githubusercontent.com/android/performance-samples/$commit/RecompositionTracing/record_recomposition_trace.py" \
     -o "$script.part"
-  echo "$sha256  $script.part" | shasum -a 256 -c --status || { rm -f "$script.part"; echo "Checksum mismatch" >&2; exit 1; }
+  echo "$sha256  $script.part" | shasum -a 256 -c --status || {
+    rm -f "$script.part"
+    echo "Checksum mismatch" >&2
+    exit 1
+  }
   mv "$script.part" "$script"
 fi
 
