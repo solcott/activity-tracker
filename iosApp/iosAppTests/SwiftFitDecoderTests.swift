@@ -21,7 +21,7 @@ struct SwiftFitDecoderTests {
         #expect(SwiftFitDecoder.data(from: kotlinBytes(Data())).isEmpty)
     }
 
-    @Test func rejectsBytesThatAreNotFit() {
+    @Test func rejectsBytesThatAreNotFit() throws {
         #expect(throws: (any Error).self) {
             try SwiftFitDecoder().decode(bytes: kotlinBytes(Data("not a fit file".utf8)))
         }

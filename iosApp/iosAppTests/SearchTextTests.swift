@@ -17,33 +17,36 @@ struct SearchTextTests {
         }
     }
 
-    @Test func theModesAndTheirTitles() {
+    @Test func theModesAndTheirTitles() throws {
         #expect(SearchMode.allCases.map { read(AthleteSearchTexts.shared.mode(mode: $0)) } == ["Athletes", "Trails & roads", "Dive sites"])
         #expect(read(AthleteSearchTexts.shared.title(mode: .Athletes)) == "Find athletes")
         #expect(read(AthleteSearchTexts.shared.title(mode: .Segments)) == "Search")
         #expect(read(AthleteSearchTexts.shared.title(mode: .DiveSites)) == "Search")
-        #expect(Samples.athleteSearchVariants["segments"]!.mode == .Segments)
+        #expect(try #require(Samples.athleteSearchVariants["segments"]).mode == .Segments)
     }
 
-    @Test func aBlankQueryPromptsAndNoMatchSaysSo() {
-        let blank = Samples.athleteSearchVariants["blank"]!
+    @Test func aBlankQueryPromptsAndNoMatchSaysSo() throws {
+        let blank = try #require(Samples.athleteSearchVariants["blank"])
         #expect(read(AthleteSearchTexts.shared.prompt(state: blank)) == "Find athletes who use this app by name, @handle or DID.")
         #expect(read(AthleteSearchTexts.shared.empty(state: blank)) == nil)
-        let none = Samples.athleteSearchVariants["noMatch"]!
+        let none = try #require(Samples.athleteSearchVariants["noMatch"])
         #expect(read(AthleteSearchTexts.shared.prompt(state: none)) == nil)
         #expect(read(AthleteSearchTexts.shared.empty(state: none)) == "No athletes match “zzz”.")
     }
 
-    @Test func everyLeftElsewhereSampleReads() {
+    @Test func everyLeftElsewhereSampleReads() throws {
         for state in Samples.leftElsewhere.values {
             #expect(read(LeftElsewhereTexts.shared.intro(state: state))?.contains("bob.test") == true)
         }
-        let everything = Samples.leftElsewhere["everything"]!
+        let everything = try #require(Samples.leftElsewhere["everything"])
         #expect(
             LeftElsewhereTexts.shared.lines(state: everything).map { read($0) } == [
                 "12 changes are pending.", "An import is still saving.", "A data export hasn't been saved.",
                 "A recording is in progress.",
             ])
-        #expect(LeftElsewhereTexts.shared.lines(state: Samples.leftElsewhere["loaded"]!).map { read($0) } == ["1 change is pending."])
+        #expect(
+            LeftElsewhereTexts.shared.lines(state: try #require(Samples.leftElsewhere["loaded"])).map { read($0) } == [
+                "1 change is pending."
+            ])
     }
 }

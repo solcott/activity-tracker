@@ -32,20 +32,21 @@ struct SettingsPagesSnapshotTests {
 
     @Test func activityDefaultsBesideTheList() throws {
         let page = ActivityDefaultsView(state: try #require(Samples.activityDefaults["loaded"]))
-        assertAppSnapshot(of: beside(SettingsRows.activityDefaults, page), size: wide, named: "loaded")
+        assertAppSnapshot(of: try beside(SettingsRows.activityDefaults, page), size: wide, named: "loaded")
     }
 
     @Test func segmentsAndGroupsBesideTheList() throws {
         let page = SegmentsAndGroupsView(state: try #require(Samples.segmentsAndGroups["loaded"]))
-        assertAppSnapshot(of: beside(SettingsRows.segmentsAndGroups, page), size: wide, named: "loaded")
+        assertAppSnapshot(of: try beside(SettingsRows.segmentsAndGroups, page), size: wide, named: "loaded")
     }
 
     /// The list with `row` marked, and `page` in the column beside it, as the shell draws them.
-    private func beside(_ row: any SettingsPage, _ page: some View) -> some View {
-        NavigationStack {
+    private func beside(_ row: any SettingsPage, _ page: some View) throws -> some View {
+        let settings = try #require(Samples.settings["loaded"])
+        return NavigationStack {
             SettingsColumns(
                 list: {
-                    SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(row))
+                    SettingsView(state: settings).environment(\.settingsLayout, .beside(row))
                 },
                 page: page.environment(\.inPane, true))
         }

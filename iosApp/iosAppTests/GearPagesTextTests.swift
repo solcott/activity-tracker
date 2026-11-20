@@ -11,7 +11,9 @@ struct GearPagesTextTests {
 
     private func detail(_ state: GearCollectionState?) -> GearCollectionDetail? { state?.content.data as? GearCollectionDetail }
 
-    private var sensors: [LinkedSensor] { Samples.ignoredSensors["loaded"]!.sensors.elements(as: LinkedSensor.self) }
+    private var sensors: [LinkedSensor] {
+        get throws { try #require(Samples.ignoredSensors["loaded"]).sensors.elements(as: LinkedSensor.self) }
+    }
 
     @Test func aCollectionListsItsItemsInOrderWithRetiredMarked() throws {
         let state = try #require(Samples.gearCollection["loaded"])
@@ -66,7 +68,8 @@ struct GearPagesTextTests {
         #expect(try #require(detail(state)).members.size == 3)
     }
 
-    @Test func ignoredDevicesReadByMakerModelAndSerial() {
+    @Test func ignoredDevicesReadByMakerModelAndSerial() throws {
+        let sensors = try self.sensors
         #expect(sensors.map { read(LinkedSensorTexts.shared.name(sensor: $0)) } == ["Garmin Edge 840", "Polar H10"])
         #expect(
             sensors.map { read(LinkedSensorTexts.shared.detail(sensor: $0)) } == [

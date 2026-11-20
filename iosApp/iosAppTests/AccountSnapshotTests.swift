@@ -44,27 +44,29 @@ struct AccountSnapshotTests {
 
     @Test func accountBesideTheList() throws {
         let page = AccountView(state: try #require(Samples.account["exportRunning"]))
-        assertAppSnapshot(of: beside(page, paneRoot: true), size: wide, named: "exportRunning")
+        assertAppSnapshot(of: try beside(page, paneRoot: true), size: wide, named: "exportRunning")
     }
 
     /// Leave opened from Account: deeper than the column's first page, so its header has a back button.
     @Test func leaveBesideTheList() throws {
         let page = LeaveView(state: try #require(Samples.leave["confirmed"]))
-        assertAppSnapshot(of: beside(page, paneRoot: false), size: wide, named: "confirmed")
+        assertAppSnapshot(of: try beside(page, paneRoot: false), size: wide, named: "confirmed")
     }
 
     /// A running leave beside the list: no back button.
     @Test func runningLeaveBesideTheList() throws {
         let page = LeaveView(state: try #require(Samples.leave["deletingRecords"]))
-        assertAppSnapshot(of: beside(page, paneRoot: false), size: wide, named: "deletingRecords")
+        assertAppSnapshot(of: try beside(page, paneRoot: false), size: wide, named: "deletingRecords")
     }
 
     /// The list with Account marked, and `page` in the column beside it, as the shell draws them.
-    private func beside(_ page: some View, paneRoot: Bool) -> some View {
-        NavigationStack {
+    private func beside(_ page: some View, paneRoot: Bool) throws -> some View {
+        let settings = try #require(Samples.settings["loaded"])
+        return NavigationStack {
             SettingsColumns(
                 list: {
-                    SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(SettingsRows.account))
+                    SettingsView(state: settings).environment(
+                        \.settingsLayout, .beside(SettingsRows.account))
                 },
                 page: page.environment(\.inPane, true).environment(\.paneRoot, paneRoot))
         }

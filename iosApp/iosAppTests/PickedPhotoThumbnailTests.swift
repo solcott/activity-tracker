@@ -10,10 +10,11 @@ import UniformTypeIdentifiers
 /// A picked photo's preview, decoded by ImageIO only as large as it is drawn.
 struct PickedPhotoThumbnailTests {
     private func jpeg(width: Int, height: Int) throws -> Data {
+        let sRGB = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let context = try #require(
             CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.setFillColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         let image = try #require(context.makeImage())

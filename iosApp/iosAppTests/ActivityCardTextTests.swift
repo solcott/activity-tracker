@@ -17,9 +17,10 @@ struct ActivityCardTextTests {
     }
 
     /// A time of day as the device's clock style writes it, at a UTC offset.
-    private func time(_ iso: String, offsetMinutes: Int) -> String {
-        let date = ISO8601DateFormatter().date(from: iso)!
-        return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: TimeZone(secondsFromGMT: offsetMinutes * 60)!))
+    private func time(_ iso: String, offsetMinutes: Int) throws -> String {
+        let date = try Date(iso, strategy: .iso8601)
+        return date.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened, timeZone: try #require(TimeZone(secondsFromGMT: offsetMinutes * 60))))
     }
 
     @Test func everyCardSampleReads() throws {
@@ -38,7 +39,7 @@ struct ActivityCardTextTests {
         #expect(read(content.typeDescription()) == "Ride")
         // Started at 07:00 UTC on May 31 at UTC-6, seen at noon UTC on June 1: yesterday at 1:00 AM on the activity's clock.
         #expect(
-            read(content.start(now: clock.now, zone: clock.kotlinZone))
+            try read(content.start(now: clock.now, zone: clock.kotlinZone))
                 == "Yesterday at \(time("2026-05-31T07:00:00Z", offsetMinutes: -360))")
         let stats = content.stats(units: .Metric).map { (read($0.label) ?? "", read($0.value) ?? "") }
         #expect(stats.map(\.0) == ["Distance", "Time", "Speed"])
@@ -97,10 +98,10 @@ struct ActivityCardTextTests {
             try card("ride").routeShape(width: 300, height: 160, pad: 12).map { $0.breaks.elements(as: RouteBreak.self).isEmpty } == true)
     }
 
-    @Test func anOffsetTimeReadsOnItsOwnClock() {
+    @Test func anOffsetTimeReadsOnItsOwnClock() throws {
         // 16:00 UTC at UTC-7, whatever the clock's zone.
         let text = AppText.Time(epochSeconds: 1_794_326_400, utcOffsetMinutes: -420)
-        #expect(clock.string(text) == time("2026-11-10T16:00:00Z", offsetMinutes: -420))
+        #expect(try clock.string(text) == time("2026-11-10T16:00:00Z", offsetMinutes: -420))
         #expect(clock.string(text).hasPrefix("9:00"))
     }
 

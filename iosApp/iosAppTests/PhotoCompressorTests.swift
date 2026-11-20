@@ -12,10 +12,11 @@ struct PhotoCompressorTests {
     private func picture(
         width: Int, height: Int, type: UTType = .jpeg, properties: [CFString: Any] = [:], paint: (CGContext) -> Void
     ) throws -> Data {
+        let sRGB = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let context = try #require(
             CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         paint(context)
         let image = try #require(context.makeImage())
         let data = NSMutableData()
@@ -65,9 +66,11 @@ struct PhotoCompressorTests {
         let source = try #require(CGImageSourceCreateWithData(webp as CFData, nil))
         let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
         var rgba = [UInt8](repeating: 0, count: 4)
+        let sRGB = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let context = try #require(
             CGContext(
-                data: &rgba, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                data: &rgba, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: sRGB,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
         return (Int(rgba[0]), Int(rgba[1]), Int(rgba[2]))

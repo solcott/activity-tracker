@@ -16,9 +16,9 @@ struct UploadsTextTests {
     }
 
     /// A time of day as the device's clock style writes it, in the samples' zone.
-    private func time(_ iso: String) -> String {
-        let date = ISO8601DateFormatter().date(from: iso)!
-        return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: TimeZone(identifier: "UTC")!))
+    private func time(_ iso: String) throws -> String {
+        let date = try Date(iso, strategy: .iso8601)
+        return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: .gmt))
     }
 
     @Test func theEmptyQueueReadsAsEmpty() throws {
@@ -36,7 +36,7 @@ struct UploadsTextTests {
         let group = try #require(try queue("importPartWay").imports.first)
         #expect(read(UploadImportTexts.shared.source(source: group.source)) == "Strava export")
         #expect(
-            read(UploadImportTexts.shared.saved(group: group, now: clock.now, zone: clock.kotlinZone))
+            try read(UploadImportTexts.shared.saved(group: group, now: clock.now, zone: clock.kotlinZone))
                 == "Saved Today at \(time("2026-06-01T07:00:00Z"))")
         #expect(read(UploadImportTexts.shared.progress(group: group)) == "412 of 1,362 uploaded")
         #expect(read(UploadImportTexts.shared.counts(group: group)) == "1 refused · 3 skipped")
@@ -59,7 +59,7 @@ struct UploadsTextTests {
         #expect(state.importsPaused)
         #expect(!state.showsPauseImports)
         #expect(
-            read(UploadsTexts.shared.serverPaused(state: state, now: clock.now, zone: clock.kotlinZone))
+            try read(UploadsTexts.shared.serverPaused(state: state, now: clock.now, zone: clock.kotlinZone))
                 == "Uploads paused by the server until \(time("2026-06-01T15:40:00Z"))")
         let group = try #require(try queue("paused").imports.first)
         #expect(read(UploadImportTexts.shared.source(source: group.source)) == "Strava and Garmin exports")
@@ -80,8 +80,8 @@ struct UploadsTextTests {
         #expect(read(UploadsTexts.shared.itemName(item: view.own[1], zone: clock.kotlinZone)) == "Updating Lunch Swim")
 
         let finished = try #require(try queue("loaded").finished.first)
-        #expect(Samples.uploads["loaded"]!.opens(item: finished))
-        #expect(Samples.uploads["loaded"]!.canClear)
+        #expect(try #require(Samples.uploads["loaded"]).opens(item: finished))
+        #expect(try #require(Samples.uploads["loaded"]).canClear)
     }
 
     @Test func refusedChanges() throws {
@@ -95,7 +95,7 @@ struct UploadsTextTests {
         #expect(read(name) == "A like")
         #expect(read(UploadsTexts.shared.sendAgain(name: name)) == "Send A like again")
         #expect(!state.isBusy(key: like.rkey))
-        #expect(Samples.uploads["sendingAgain"]!.isBusy(key: like.rkey))
+        #expect(try #require(Samples.uploads["sendingAgain"]).isBusy(key: like.rkey))
     }
 
     @Test func savingAndStoppedImports() throws {
@@ -120,7 +120,7 @@ struct UploadsTextTests {
         #expect(read(UploadsTexts.shared.cancelRestMessage(state: saving))?.hasPrefix("Activities not saved yet won't be saved") == true)
     }
 
-    @Test func aLengthOfTime() {
-        #expect(read(DurationText.shared.approximate(duration: Samples.uploads["importPartWay"]!.timeLeft!)) == "1 day")
+    @Test func aLengthOfTime() throws {
+        #expect(read(DurationText.shared.approximate(duration: try #require(Samples.uploads["importPartWay"]?.timeLeft))) == "1 day")
     }
 }

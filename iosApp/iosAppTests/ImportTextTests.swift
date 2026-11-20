@@ -12,9 +12,10 @@ struct ImportTextTests {
     private func read(_ text: (any AppText)?) -> String? { text.map { AppStrings.string($0) } }
 
     /// A time of day as the device's clock style writes it, at a UTC offset.
-    private func time(_ iso: String, offsetMinutes: Int = 0) -> String {
-        let date = ISO8601DateFormatter().date(from: iso)!
-        return date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: TimeZone(secondsFromGMT: offsetMinutes * 60)!))
+    private func time(_ iso: String, offsetMinutes: Int = 0) throws -> String {
+        let date = try Date(iso, strategy: .iso8601)
+        return date.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened, timeZone: try #require(TimeZone(secondsFromGMT: offsetMinutes * 60))))
     }
 
     @Test func pickingSaysWhatItRead() throws {
@@ -34,11 +35,11 @@ struct ImportTextTests {
         #expect(months.map { read($0.heading) } == ["Apr 2024", "May 2024"])
         let rows = batch.rows.elements(as: ImportRow.self)
         #expect(read(texts.rowTitle(row: rows[1])) == "Morning Ride")
-        let start = "Apr 28, 2024 at \(time("2024-04-28T07:02:00Z"))"
+        let start = try "Apr 28, 2024 at \(time("2024-04-28T07:02:00Z"))"
         #expect(read(texts.rowDetails(row: rows[0], units: .Metric)) == "\(start) · Run · 8.12 km · 52:00 · Garmin Forerunner 965")
         let logged = try #require(rows[3].duplicate)
         #expect(
-            read(texts.duplicateWarning(info: logged, inFileNumber: nil))
+            try read(texts.duplicateWarning(info: logged, inFileNumber: nil))
                 == "Already in your log: Lunch loop · May 14, 2024 at \(time("2024-05-14T12:01:00Z")) · Garmin Fenix 7")
         #expect(read(texts.saveBatch(state: state, batch: batch)) == "Import 3 activities")
         #expect(state.canSaveBatch)
@@ -56,7 +57,7 @@ struct ImportTextTests {
         #expect(!(try #require(Samples.importActivityVariants["tooFar"])).canSave)
         let target = try #require(Samples.importActivityVariants["addsRecording"]?.addingTo)
         #expect(
-            read(texts.addingTo(target: target))
+            try read(texts.addingTo(target: target))
                 == "Adds this file as another recording of: Lunch loop · May 14, 2024 at \(time("2024-05-14T12:01:00Z")) · Garmin Fenix 7")
         let duplicate = try #require(Samples.importActivityVariants["duplicateUploading"]?.preview?.duplicate)
         #expect(texts.duplicateChoices(info: duplicate).map { read(texts.action(action: $0.action)) } == ["Ignore", "Import anyway"])
@@ -78,6 +79,6 @@ struct ImportTextTests {
         let clock = try #require(Samples.importActivityVariants["diveZone"]?.preview?.clock)
         let notice = try #require(read(texts.zoneNotice(clock: clock, fileName: nil)))
         // The dive computer's 17:30, whatever the device's zone, on the device's clock.
-        #expect(notice.contains("its start (Oct 16, 2024 at \(time("2024-10-16T17:30:00Z")))"))
+        #expect(try notice.contains("its start (Oct 16, 2024 at \(time("2024-10-16T17:30:00Z")))"))
     }
 }

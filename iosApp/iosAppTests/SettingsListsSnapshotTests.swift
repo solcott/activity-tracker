@@ -39,20 +39,21 @@ struct SettingsListsSnapshotTests {
 
     @Test func gearBesideTheList() throws {
         let page = GearListView(state: try #require(Samples.gearList["loaded"]))
-        assertAppSnapshot(of: beside(SettingsRows.gear, page), size: wide, named: "loaded")
+        assertAppSnapshot(of: try beside(SettingsRows.gear, page), size: wide, named: "loaded")
     }
 
     @Test func blockedAccountsBesideTheList() throws {
         let page = BlockListView(state: try #require(Samples.blockListVariants["actions"]))
-        assertAppSnapshot(of: beside(SettingsRows.blocked, page), size: wide, named: "actions")
+        assertAppSnapshot(of: try beside(SettingsRows.blocked, page), size: wide, named: "actions")
     }
 
     /// The list with `row` marked, and `page` in the column beside it, as the shell draws them.
-    private func beside(_ row: any SettingsPage, _ page: some View) -> some View {
-        NavigationStack {
+    private func beside(_ row: any SettingsPage, _ page: some View) throws -> some View {
+        let settings = try #require(Samples.settings["loaded"])
+        return NavigationStack {
             SettingsColumns(
                 list: {
-                    SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(row))
+                    SettingsView(state: settings).environment(\.settingsLayout, .beside(row))
                 },
                 page: page.environment(\.inPane, true))
         }

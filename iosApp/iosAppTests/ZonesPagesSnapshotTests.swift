@@ -57,11 +57,13 @@ struct ZonesPagesSnapshotTests {
     @Test func sportZonesBesideTheList() throws {
         let state = try #require(Samples.sportZonesVariants["saved"])
         let page = SportZonesView(state: state).environment(\.inPane, true).environment(\.paneRoot, false)
+        let settings = try #require(Samples.settings["loaded"])
         assertAppSnapshot(
             of: NavigationStack {
                 SettingsColumns(
                     list: {
-                        SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(SettingsRows.trainingZones))
+                        SettingsView(state: settings).environment(
+                            \.settingsLayout, .beside(SettingsRows.trainingZones))
                     },
                     page: page)
             },

@@ -9,47 +9,50 @@ import Testing
 struct SettingsListsTextTests {
     private func read(_ text: (any AppText)?) -> String? { text.map { AppStrings.string($0) } }
 
-    private var gear: GearLists { Samples.gearList["loaded"]!.content.data as! GearLists }
+    private var gear: GearLists { get throws { try #require(Samples.gearList["loaded"]?.content.data as? GearLists) } }
 
-    private func row(_ name: String) -> GearRow {
+    private func row(_ name: String) throws -> GearRow {
+        let gear = try self.gear
         let active = gear.active.elements(as: GearGroup.self).flatMap { $0.items.elements(as: GearRow.self) }
-        return (active + gear.retired.elements(as: GearRow.self)).first { $0.name == name }!
+        return try #require((active + gear.retired.elements(as: GearRow.self)).first { $0.name == name })
     }
 
-    @Test func eachItemReadsItsKindVisibilityAndTotal() {
+    @Test func eachItemReadsItsKindVisibilityAndTotal() throws {
         let metric = UnitSystem.Metric
-        #expect(read(GearListTexts.shared.detail(row: row("Gravel bike"), showRetired: false)) == "Bike · Public")
-        #expect(read(GearListTexts.shared.total(row: row("Gravel bike"), units: metric)) == "3,200 km")
-        #expect(read(GearListTexts.shared.detail(row: row("Trail shoes"), showRetired: false)) == "Shoes · Only me")
-        #expect(read(GearListTexts.shared.total(row: row("Trail shoes"), units: metric)) == "No activities yet")
-        #expect(read(GearListTexts.shared.total(row: row("Powder skis"), units: metric)) == "14 days · 41,000 m")
-        #expect(read(GearListTexts.shared.total(row: row("Powder skis"), units: .Imperial)) == "14 days · 134,514 ft")
-        #expect(read(GearListTexts.shared.total(row: row("Helmet"), units: metric)) == "120 h")
+        #expect(try read(GearListTexts.shared.detail(row: row("Gravel bike"), showRetired: false)) == "Bike · Public")
+        #expect(try read(GearListTexts.shared.total(row: row("Gravel bike"), units: metric)) == "3,200 km")
+        #expect(try read(GearListTexts.shared.detail(row: row("Trail shoes"), showRetired: false)) == "Shoes · Only me")
+        #expect(try read(GearListTexts.shared.total(row: row("Trail shoes"), units: metric)) == "No activities yet")
+        #expect(try read(GearListTexts.shared.total(row: row("Powder skis"), units: metric)) == "14 days · 41,000 m")
+        #expect(try read(GearListTexts.shared.total(row: row("Powder skis"), units: .Imperial)) == "14 days · 134,514 ft")
+        #expect(try read(GearListTexts.shared.total(row: row("Helmet"), units: metric)) == "120 h")
         // Totals not yet read: no figure.
-        #expect(read(GearListTexts.shared.total(row: row("Old road bike"), units: metric)) == nil)
-        #expect(read(GearListTexts.shared.detail(row: row("Old road bike"), showRetired: true)) == "Bike · Public · Retired")
+        #expect(try read(GearListTexts.shared.total(row: row("Old road bike"), units: metric)) == nil)
+        #expect(try read(GearListTexts.shared.detail(row: row("Old road bike"), showRetired: true)) == "Bike · Public · Retired")
     }
 
-    @Test func theGroupsAreNamedByType() {
+    @Test func theGroupsAreNamedByType() throws {
+        let gear = try self.gear
         let types = gear.active.elements(as: GearGroup.self).map { read(GearTexts.shared.type(type: $0.type)) }
         #expect(types == ["Bike", "Shoes", "Skis", "Helmet"])
         #expect(read(GearTexts.shared.type(type: "hoverboard")) == "Other")
         #expect(read(GearTexts.shared.kind(type: "bike", kind: "hoverboard")) == "Bike")
     }
 
-    @Test func collectionsShowWithTheirCountsOnceThereIsGear() {
+    @Test func collectionsShowWithTheirCountsOnceThereIsGear() throws {
+        let gear = try self.gear
         let collections = gear.collections.elements(as: GearCollectionRow.self)
         #expect(collections.map { read(GearListTexts.shared.collectionCount(row: $0)) } == ["4 items", "3 items"])
         #expect(gear.showsCollections)
         #expect(!gear.explainsCollections)
-        let empty = Samples.gearList["empty"]!.content.data as! GearLists
+        let empty = try #require(Samples.gearList["empty"]?.content.data as? GearLists)
         #expect(empty.isEmpty)
         #expect(!empty.showsCollections)
     }
 
-    @Test func theBlockedListsWords() {
-        let blocked = Samples.blockList["loaded"]!
-        let muted = Samples.blockListVariants["muted"]!
+    @Test func theBlockedListsWords() throws {
+        let blocked = try #require(Samples.blockList["loaded"])
+        let muted = try #require(Samples.blockListVariants["muted"])
         #expect(read(BlockListTexts.shared.title(kind: blocked.kind)) == "Blocked accounts")
         #expect(read(BlockListTexts.shared.title(kind: muted.kind)) == "Muted accounts")
         #expect(read(BlockListTexts.shared.remove(kind: blocked.kind)) == "Unblock")
@@ -60,15 +63,15 @@ struct SettingsListsTextTests {
         #expect(muted.loadErrorKind == .LoadMutes)
     }
 
-    @Test func accountsReachSwiftWithTheirNamesAndIds() {
-        let accounts = Samples.blockList["loaded"]!.accounts.items.compactMap { $0 as? BlockListAccount }
+    @Test func accountsReachSwiftWithTheirNamesAndIds() throws {
+        let accounts = try #require(Samples.blockList["loaded"]).accounts.items.compactMap { $0 as? BlockListAccount }
         #expect(accounts.map { AppPackage.getShownName($0.profile) } == ["Bob", "Carol"])
         #expect(accounts.map { read(LabelText.shared.handle(handle: $0.profile.handle.value)) } == ["@bob.test", "@carol.test"])
         #expect(accounts.map(\.profile.did.value) == ["did:plc:bob", "did:plc:carol"])
     }
 
-    @Test func anUnblockInFlightABlueskyBlockAndAFailure() {
-        let state = Samples.blockListVariants["actions"]!
+    @Test func anUnblockInFlightABlueskyBlockAndAFailure() throws {
+        let state = try #require(Samples.blockListVariants["actions"])
         let accounts = state.accounts.items.compactMap { $0 as? BlockListAccount }
         #expect(state.removing.elements(as: Did.self).map(\.value) == ["did:plc:bob"])
         #expect(accounts.map { state.isRemoving(account: $0) } == [true, false, false])

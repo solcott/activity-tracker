@@ -9,9 +9,9 @@ import UIKit
 /// A calendar day between Kotlin and a date picker, in time zones either side of UTC (dev/ios-swift-interop).
 @MainActor
 struct CalendarDayTests {
-    private func calendar(_ zone: String) -> Calendar {
+    private func calendar(_ zone: String) throws -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: zone)!
+        calendar.timeZone = try #require(TimeZone(identifier: zone))
         return calendar
     }
 
@@ -20,7 +20,7 @@ struct CalendarDayTests {
         let since = try #require(GearPackage.EditGearSamples.shared.mounted.mountedOn?.since)
         let day = CalendarDay(since)
         #expect(day == CalendarDay(year: 2026, month: 7, day: 1))
-        let calendar = calendar(zone)
+        let calendar = try calendar(zone)
         let shown = day.date(in: calendar)
         #expect(calendar.component(.day, from: shown) == 1)
         #expect(calendar.component(.month, from: shown) == 7)
@@ -28,10 +28,10 @@ struct CalendarDayTests {
     }
 
     @Test(arguments: ["America/Denver", "Pacific/Auckland"])
-    func aChosenDayReachesKotlinAsThatDay(zone: String) {
-        let calendar = calendar(zone)
+    func aChosenDayReachesKotlinAsThatDay(zone: String) throws {
+        let calendar = try calendar(zone)
         // Late in the evening of 2 July there, which is already 3 July in UTC west of it and still 2 July east of it.
-        let chosen = calendar.date(from: DateComponents(year: 2026, month: 7, day: 2, hour: 23, minute: 30))!
+        let chosen = try #require(calendar.date(from: DateComponents(year: 2026, month: 7, day: 2, hour: 23, minute: 30)))
         #expect(CalendarDay(chosen, in: calendar).localDate.description == "2026-07-02")
     }
 }
@@ -66,7 +66,7 @@ struct TickedItemsTests {
         #expect(ticked.isTicked("3kpower"))
     }
 
-    @Test func untickingAndTickingAgainPutsItLast() {
+    @Test func untickingAndTickingAgainPutsItLast() throws {
         var ticked = TickedItems()
         ticked.toggle("a")
         ticked.toggle("b")
@@ -85,13 +85,14 @@ struct PhotoPickTests {
         bytes: ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(Data([1, 2, 3]) as NSData), mimeType: "image/webp", width: 1,
         height: 1)
 
-    private func jpeg() -> Data {
+    private func jpeg() throws -> Data {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8), format: format).image { context in
-            UIColor.systemTeal.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
-        }.jpegData(compressionQuality: 0.9)!
+        return try #require(
+            UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8), format: format).image { context in
+                UIColor.systemTeal.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+            }.jpegData(compressionQuality: 0.9))
     }
 
     @Test func aCompressedPictureIsSent() async {
@@ -101,14 +102,14 @@ struct PhotoPickTests {
         #expect(sent.count == 1)
     }
 
-    @Test func aPictureTheCompressionRefusesIsntTriedAgain() async {
+    @Test func aPictureTheCompressionRefusesIsntTriedAgain() async throws {
         var tried = 0
         var sent: [PickedPhoto] = []
         let pick = PhotoPick { _ in
             tried += 1
             return nil
         }
-        await pick.pick({ jpeg() }) { sent.append($0) }
+        await pick.pick({ try jpeg() }) { sent.append($0) }
         #expect(tried == 1)
         #expect(sent.isEmpty)
     }
@@ -124,7 +125,7 @@ struct PhotoPickTests {
 
     @Test func theRealCompressionMakesAWebpOfAJpeg() async throws {
         var sent: [PickedPhoto] = []
-        await PhotoPick.app.pick({ jpeg() }) { sent.append($0) }
+        await PhotoPick.app.pick({ try jpeg() }) { sent.append($0) }
         let picked = try #require(sent.first)
         #expect(picked.mimeType == "image/webp")
         #expect(picked.width == 8 && picked.height == 8)

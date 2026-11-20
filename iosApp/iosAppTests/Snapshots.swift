@@ -74,7 +74,7 @@ extension Snapshotting where Value == UIViewController, Format == UIImage {
                     last = (image, png)
                     usleep(50_000)
                 }
-                return Async(value: last!.image)
+                return last.map { Async(value: $0.image) } ?? base.snapshot(controller)
             })
     }
 }
