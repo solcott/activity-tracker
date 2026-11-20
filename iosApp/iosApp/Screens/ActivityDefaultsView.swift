@@ -49,13 +49,15 @@ struct ActivityDefaultsView: View {
     }
 
     #Preview("Activity defaults beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!)
-                        .environment(\.settingsLayout, .beside(SettingsRows.activityDefaults))
-                },
-                page: ActivityDefaultsView(state: Samples.activityDefaults["loaded"]!).environment(\.inPane, true))
+        if let settings = Samples.settings["loaded"], let activityDefaults = Samples.activityDefaults["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings)
+                            .environment(\.settingsLayout, .beside(SettingsRows.activityDefaults))
+                    },
+                    page: ActivityDefaultsView(state: activityDefaults).environment(\.inPane, true))
+            }
         }
     }
 #endif

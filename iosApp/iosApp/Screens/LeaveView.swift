@@ -187,13 +187,15 @@ struct LeaveView: View {
     }
 
     #Preview("Leave beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!)
-                        .environment(\.settingsLayout, .beside(SettingsRows.account))
-                },
-                page: LeaveView(state: Samples.leave["loaded"]!).environment(\.inPane, true).environment(\.paneRoot, false))
+        if let settings = Samples.settings["loaded"], let leave = Samples.leave["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings)
+                            .environment(\.settingsLayout, .beside(SettingsRows.account))
+                    },
+                    page: LeaveView(state: leave).environment(\.inPane, true).environment(\.paneRoot, false))
+            }
         }
     }
 #endif

@@ -90,8 +90,8 @@ struct UnmountSheet: View {
 
 #if DEBUG
     #Preview("Mount sheet") {
-        SamplePages(Samples.gearVariants.filter { $0.value.picker != nil }) { state in
-            MountSheet(picker: state.picker!, send: { _ in })
+        SamplePages(Samples.gearVariants.compactMapValues(\.picker)) { picker in
+            MountSheet(picker: picker, send: { _ in })
         }
     }
 

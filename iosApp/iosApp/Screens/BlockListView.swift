@@ -52,12 +52,14 @@ struct BlockListView: View {
     }
 
     #Preview("Blocked accounts beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(SettingsRows.blocked))
-                },
-                page: BlockListView(state: Samples.blockList["loaded"]!).environment(\.inPane, true))
+        if let settings = Samples.settings["loaded"], let blockList = Samples.blockList["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings).environment(\.settingsLayout, .beside(SettingsRows.blocked))
+                    },
+                    page: BlockListView(state: blockList).environment(\.inPane, true))
+            }
         }
     }
 #endif

@@ -57,7 +57,9 @@ struct SegmentLeaderboardView: View {
     }
 
     #Preview("Filtered, in pounds") {
-        NavigationStack { SegmentLeaderboardView(state: Samples.segmentLeaderboardVariants["filtered"]!) }
-            .environment(\.stats, Stats(units: .Imperial))
+        if let segmentLeaderboardVariants = Samples.segmentLeaderboardVariants["filtered"] {
+            NavigationStack { SegmentLeaderboardView(state: segmentLeaderboardVariants) }
+                .environment(\.stats, Stats(units: .Imperial))
+        }
     }
 #endif

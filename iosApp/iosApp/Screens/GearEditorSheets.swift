@@ -159,10 +159,14 @@ extension PhotoPickOf where Photo == PickedPhoto {
 
 #if DEBUG
     #Preview("Sports sheet") {
-        TypeChoiceSheet(choice: .sports, state: Samples.editGear["loaded"]!)
+        if let editGear = Samples.editGear["loaded"] {
+            TypeChoiceSheet(choice: .sports, state: editGear)
+        }
     }
 
     #Preview("Default-for sheet") {
-        TypeChoiceSheet(choice: .defaultFor, state: Samples.editGear["loaded"]!)
+        if let editGear = Samples.editGear["loaded"] {
+            TypeChoiceSheet(choice: .defaultFor, state: editGear)
+        }
     }
 #endif

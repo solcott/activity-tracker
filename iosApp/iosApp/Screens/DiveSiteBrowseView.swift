@@ -90,6 +90,8 @@ struct DiveSiteBrowseView: View {
     }
 
     #Preview("Dive site browse on an iPad", traits: .landscapeLeft) {
-        DiveSiteBrowseView(state: Samples.diveSiteBrowse["selected"]!, memory: SegmentsMapMemory())
+        if let diveSiteBrowse = Samples.diveSiteBrowse["selected"] {
+            DiveSiteBrowseView(state: diveSiteBrowse, memory: SegmentsMapMemory())
+        }
     }
 #endif

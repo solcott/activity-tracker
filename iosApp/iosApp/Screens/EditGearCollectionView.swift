@@ -171,6 +171,8 @@ struct AddItemsList: View {
     }
 
     #Preview("Add items") {
-        AddItemsSheet(others: Samples.editGearCollection["loaded"]!.others.elements(as: GearRow.self)) { _ in }
+        if let editGearCollection = Samples.editGearCollection["loaded"] {
+            AddItemsSheet(others: editGearCollection.others.elements(as: GearRow.self)) { _ in }
+        }
     }
 #endif

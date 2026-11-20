@@ -110,12 +110,14 @@ struct GearListView: View {
     }
 
     #Preview("Gear beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!).environment(\.settingsLayout, .beside(SettingsRows.gear))
-                },
-                page: GearListView(state: Samples.gearList["loaded"]!).environment(\.inPane, true))
+        if let settings = Samples.settings["loaded"], let gearList = Samples.gearList["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings).environment(\.settingsLayout, .beside(SettingsRows.gear))
+                    },
+                    page: GearListView(state: gearList).environment(\.inPane, true))
+            }
         }
     }
 #endif

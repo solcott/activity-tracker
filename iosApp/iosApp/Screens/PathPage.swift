@@ -133,6 +133,8 @@ struct PathPage: View {
     }
 
     #Preview("Trail on an iPad", traits: .landscapeLeft) {
-        PathPage(state: Samples.path["selected"]!)
+        if let path = Samples.path["selected"] {
+            PathPage(state: path)
+        }
     }
 #endif

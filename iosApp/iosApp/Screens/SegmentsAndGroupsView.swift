@@ -74,13 +74,15 @@ struct SegmentsAndGroupsView: View {
     }
 
     #Preview("Segments & groups beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!)
-                        .environment(\.settingsLayout, .beside(SettingsRows.segmentsAndGroups))
-                },
-                page: SegmentsAndGroupsView(state: Samples.segmentsAndGroups["loaded"]!).environment(\.inPane, true))
+        if let settings = Samples.settings["loaded"], let segmentsAndGroups = Samples.segmentsAndGroups["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings)
+                            .environment(\.settingsLayout, .beside(SettingsRows.segmentsAndGroups))
+                    },
+                    page: SegmentsAndGroupsView(state: segmentsAndGroups).environment(\.inPane, true))
+            }
         }
     }
 #endif

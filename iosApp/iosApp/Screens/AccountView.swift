@@ -159,13 +159,15 @@ struct AccountView: View {
     }
 
     #Preview("Account beside the list", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!)
-                        .environment(\.settingsLayout, .beside(SettingsRows.account))
-                },
-                page: AccountView(state: Samples.account["exportRunning"]!).environment(\.inPane, true))
+        if let settings = Samples.settings["loaded"], let account = Samples.account["exportRunning"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings)
+                            .environment(\.settingsLayout, .beside(SettingsRows.account))
+                    },
+                    page: AccountView(state: account).environment(\.inPane, true))
+            }
         }
     }
 #endif

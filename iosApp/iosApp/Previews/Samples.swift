@@ -112,7 +112,7 @@
         /// host runs it: at the default, or narrowed for a narrowed feed.
         static var feed: [String: FeedState] { FeedPackage.FeedSamples.shared.all }
         static var feedVariants: [String: FeedState] { FeedPackage.FeedSamples.shared.variants }
-        static var feedFilterBar: FeedFilterState { feedFilter["loaded"]! }
+        static var feedFilterBar: FeedFilterState { FeedFilterPackage.FeedFilterSamples.shared.`default` }
         static func feedFilterBar(for state: FeedState) -> FeedFilterState {
             state.filter.isNarrowed ? FeedFilterPackage.FeedFilterSamples.shared.narrowed : feedFilterBar
         }
@@ -194,7 +194,7 @@
         static var clock: ShownClock {
             ShownClock.fixed(
                 atEpochSeconds: ExportedKotlinPackages.io.github.solcott.activitytracker.app.fixtures.Fixed.shared.NOW.epochSeconds,
-                zone: TimeZone(identifier: "UTC")!)
+                zone: .gmt)
         }
 
         /// A paged list in each state of ui/content-loading, around items a test gives.

@@ -184,13 +184,15 @@ enum SettingsColumnsMetrics {
     }
 
     #Preview("Settings beside a page", traits: .landscapeLeft) {
-        NavigationStack {
-            SettingsColumns(
-                list: {
-                    SettingsView(state: Samples.settings["loaded"]!)
-                        .environment(\.settingsLayout, .beside(SettingsRows.privacyZones))
-                },
-                page: Text(verbatim: "Privacy zones"))
+        if let settings = Samples.settings["loaded"] {
+            NavigationStack {
+                SettingsColumns(
+                    list: {
+                        SettingsView(state: settings)
+                            .environment(\.settingsLayout, .beside(SettingsRows.privacyZones))
+                    },
+                    page: Text(verbatim: "Privacy zones"))
+            }
         }
     }
 #endif

@@ -228,38 +228,41 @@
 
         /// A paged list in the state the block list's sample `name` is in (`PagedStates`: loading, failed, empty, loaded, refreshing,
         /// refreshFailed, loadingMore, pageFailed, end), with plain rows.
-        static func paged(_ name: String) -> some View {
-            PagedList(
-                Samples.blockList[name]!.accounts, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value },
-                retry: {}, loadMore: {}
-            ) {
-                EmptyView()
-            } row: { account in
-                Text(verbatim: account.profile.handle.value)
-            } empty: {
-                EmptyMessage(.blockedAccountsEmpty)
+        @ViewBuilder static func paged(_ name: String) -> some View {
+            if let accounts = Samples.blockList[name]?.accounts {
+                PagedList(
+                    accounts, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value },
+                    retry: {}, loadMore: {}
+                ) {
+                    EmptyView()
+                } row: { account in
+                    Text(verbatim: account.profile.handle.value)
+                } empty: {
+                    EmptyMessage(.blockedAccountsEmpty)
+                }
             }
         }
 
         /// A paged list with rows of its own around the items: "Choices" over them and "Your place" after them, loaded (`after`), and
         /// while a first page loads with the top kept (`keepsTop`).
-        static func pagedWithRows(_ name: String) -> some View {
-            let state = Samples.blockList[name == "keepsTop" ? "loading" : "loadingMore"]!.accounts
-            return PagedList(
-                state, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value }, keepsTop: name == "keepsTop",
-                retry: {}, loadMore: {}
-            ) {
-                Text(verbatim: "Choices").listStatusRow()
-            } row: { account in
-                Text(verbatim: account.profile.handle.value)
-            } after: {
-                Section {
-                    Text(verbatim: "carol.test")
-                } header: {
-                    Text(.leaderboardYourPlace)
+        @ViewBuilder static func pagedWithRows(_ name: String) -> some View {
+            if let state = Samples.blockList[name == "keepsTop" ? "loading" : "loadingMore"]?.accounts {
+                PagedList(
+                    state, of: BlockListAccount.self, errorKind: .LoadBlocks, id: { $0.profile.did.value }, keepsTop: name == "keepsTop",
+                    retry: {}, loadMore: {}
+                ) {
+                    Text(verbatim: "Choices").listStatusRow()
+                } row: { account in
+                    Text(verbatim: account.profile.handle.value)
+                } after: {
+                    Section {
+                        Text(verbatim: "carol.test")
+                    } header: {
+                        Text(.leaderboardYourPlace)
+                    }
+                } empty: {
+                    EmptyMessage(.blockedAccountsEmpty)
                 }
-            } empty: {
-                EmptyMessage(.blockedAccountsEmpty)
             }
         }
 
@@ -362,12 +365,13 @@
         }
 
         /// The loaded-content layout in the state `name` gives: `loading`, `failed`, `loaded`, `refreshing` or `refreshFailed`.
-        static func content(_ name: String) -> some View {
-            let state = contentStates[name]!
-            return ContentStateView(state, as: UiError.self, errorKind: .LoadFeed, retry: {}) { _ in
-                List {
-                    RefreshStatusView(state: state, errorKind: .LoadFeed) {}
-                    ForEach(1..<4) { Text(verbatim: "Loaded row \($0)") }
+        @ViewBuilder static func content(_ name: String) -> some View {
+            if let state = contentStates[name] {
+                ContentStateView(state, as: UiError.self, errorKind: .LoadFeed, retry: {}) { _ in
+                    List {
+                        RefreshStatusView(state: state, errorKind: .LoadFeed) {}
+                        ForEach(1..<4) { Text(verbatim: "Loaded row \($0)") }
+                    }
                 }
             }
         }

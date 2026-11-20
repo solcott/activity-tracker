@@ -102,6 +102,8 @@ struct SegmentBrowseView: View {
     }
 
     #Preview("Trails & roads on an iPad", traits: .landscapeLeft) {
-        SegmentBrowseView(state: Samples.segmentBrowse["selected"]!, memory: SegmentsMapMemory())
+        if let segmentBrowse = Samples.segmentBrowse["selected"] {
+            SegmentBrowseView(state: segmentBrowse, memory: SegmentsMapMemory())
+        }
     }
 #endif
