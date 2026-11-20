@@ -1,7 +1,6 @@
 # SwiftLint for the iOS app (LintConventionPlugin.kt: `./gradlew lintSwift`). swift-format (`.swift-format` beside this file) owns layout,
-# so the rules that would argue with it are off here, as ktfmt owns Kotlin's and detekt its other rules. Findings older than this file are
-# in swiftlint-baseline.json, which only new code must pass: fix one and regenerate the baseline (`swiftlint lint --config
-# iosApp/.swiftlint.yml --write-baseline iosApp/swiftlint-baseline.json` with the pinned binary), as for detekt-baseline.xml.
+# so the rules that would argue with it are off here, as ktfmt owns Kotlin's and detekt its other rules. There is no baseline: fix a
+# finding, or disable its rule on the one line with `// swiftlint:disable:next <rule>` and the reason (EditProfileView.swift).
 excluded:
   - iosApp/Design/Generated
 

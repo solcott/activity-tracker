@@ -47,8 +47,8 @@ const val LINT_NON_KOTLIN_TASK_NAME = "lintNonKotlin"
  *
  * Every tool but swift-format, which ships with Xcode, is pinned in `gradle/lint-tools.properties` and fetched once per machine into the
  * Gradle user home ([LintTools]). The Swift tasks run only on macOS, where Xcode is; CI's iOS job runs them, and its Linux `check` the
- * rest. Each config file lives where its tool looks for it: `iosApp/.swift-format`, `iosApp/.swiftlint.yml` (with the baseline beside it),
- * `.shellcheckrc`, `.editorconfig` (shfmt reads its `[*.sh]` section), `.hadolint.yaml` and `.taplo.toml`.
+ * rest. Each config file lives where its tool looks for it: `iosApp/.swift-format`, `iosApp/.swiftlint.yml`, `.shellcheckrc`,
+ * `.editorconfig` (shfmt reads its `[*.sh]` section), `.hadolint.yaml` and `.taplo.toml`.
  */
 class LintConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -75,7 +75,6 @@ class LintConventionPlugin : Plugin<Project> {
                 }
             val swiftFormatConfig = file("iosApp/.swift-format")
             val swiftLintConfig = file("iosApp/.swiftlint.yml")
-            val swiftLintBaseline = file("iosApp/swiftlint-baseline.json")
             // The scripts and the agents' hooks; gradlew is Gradle's own.
             val shell = fileTree(".") { include("scripts/**/*.sh", "docker/scripts/**/*.sh", ".agents/hooks/**/*.sh") }
             val workflows = fileTree(".github/workflows") { include("*.yml", "*.yaml") }
@@ -118,7 +117,7 @@ class LintConventionPlugin : Plugin<Project> {
                     onlyIf("swift-format ships with Xcode") { macOs }
                 }
             val lintSwiftLint =
-                lint("lintSwiftLint", "Checks the iOS app's Swift with SwiftLint, past the findings in its baseline.") {
+                lint("lintSwiftLint", "Checks the iOS app's Swift with SwiftLint.") {
                     tool.set("swiftlint")
                     args.set(
                         listOf(
@@ -128,12 +127,10 @@ class LintConventionPlugin : Plugin<Project> {
                             "--no-cache",
                             "--config",
                             swiftLintConfig.path,
-                            "--baseline",
-                            swiftLintBaseline.path,
                         ),
                     )
                     sources.from(swift)
-                    configFiles.from(swiftLintConfig, swiftLintBaseline)
+                    configFiles.from(swiftLintConfig)
                     onlyIf("SwiftLint needs the Swift toolchain Xcode brings") { macOs }
                 }
             val lintSwift =
