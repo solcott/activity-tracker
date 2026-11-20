@@ -7,8 +7,8 @@ import AppKit
 import CoreLocation
 import Foundation
 
-/** How long the helper waits for the athlete's answer and a fix before giving up, in seconds. */
-let giveUpAfter: TimeInterval = 30
+/** How long the helper waits for the athlete's answer and a fix before giving up, in seconds, unless `--give-up <seconds>` says. */
+let defaultGiveUpAfter: TimeInterval = 30
 
 final class OneLocation: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
@@ -64,6 +64,9 @@ final class OneLocation: NSObject, CLLocationManagerDelegate {
 let arguments = CommandLine.arguments
 guard let flag = arguments.firstIndex(of: "--out"), flag + 1 < arguments.count else { exit(64) }
 let finder = OneLocation(out: arguments[flag + 1])
+// The app passes how long it still listens, so the helper's answer, a timeout too, reaches it in time.
+let giveUpAfter = arguments.firstIndex(of: "--give-up").flatMap { $0 + 1 < arguments.count ? TimeInterval(arguments[$0 + 1]) : nil }
+    .flatMap { $0 > 0 ? $0 : nil } ?? defaultGiveUpAfter
 DispatchQueue.main.async { finder.start() }
 DispatchQueue.main.asyncAfter(deadline: .now() + giveUpAfter) { finder.finish(error: "timeout") }
 // An app's run loop, not a bare one: without it macOS never shows the location prompt.

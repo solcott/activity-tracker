@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.desktop.location
 
+import io.github.solcott.activitytracker.app.browse.LATE_LOCATION_LIMIT
 import io.github.solcott.activitytracker.location.GeoPoint
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
@@ -26,7 +28,9 @@ class MacLocationBackend(private val helper: File, private val io: CoroutineDisp
             val exited =
                 runInterruptible(io) {
                     val open =
-                        ProcessBuilder("open", "-W", "-n", helper.path, "--args", "--out", out.path).redirectErrorStream(true).start()
+                        ProcessBuilder("open", "-W", "-n", helper.path, "--args", "--out", out.path, "--give-up", "$HELPER_GIVE_UP_SECONDS")
+                            .redirectErrorStream(true)
+                            .start()
                     try {
                         open.inputStream.readAllBytes()
                         open.waitFor(HELPER_WAIT_SECONDS, TimeUnit.SECONDS)
@@ -44,7 +48,13 @@ class MacLocationBackend(private val helper: File, private val io: CoroutineDisp
         /** The system property `run` and `hotRun` pass the built helper's path in. */
         const val HELPER_PROPERTY = "activitytracker.macLocationHelper"
 
-        /** The helper gives up after 30 seconds of its own; this only stops a wedged `open`. */
+        /**
+         * How long the helper waits for the athlete and a fix: inside [LATE_LOCATION_LIMIT], the time map browse still listens from
+         * opening, less what launching the helper through LaunchServices takes, so an answer the athlete gives in time arrives in time.
+         */
+        private val HELPER_GIVE_UP_SECONDS = (LATE_LOCATION_LIMIT - HELPER_LAUNCH_MARGIN).inWholeSeconds
+
+        /** Stops only a wedged `open`: the helper has given up well before. */
         private const val HELPER_WAIT_SECONDS = 40L
 
         private val OWNER_ONLY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
@@ -54,6 +64,9 @@ class MacLocationBackend(private val helper: File, private val io: CoroutineDisp
             System.getProperty(HELPER_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }?.let(::MacLocationBackend)
     }
 }
+
+/** Time for `open` and LaunchServices to start the helper before its own wait begins. */
+private val HELPER_LAUNCH_MARGIN = 5.seconds
 
 /** The helper's answer, `{"lat":…,"lng":…}` or `{"error":"…"}`, as a place; null for an error or anything malformed. */
 internal fun parseHelperOutput(text: String): GeoPoint? {
