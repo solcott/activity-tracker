@@ -55,6 +55,7 @@ internal fun readCandidates(lines: Sequence<String>): CandidatesFile {
                 entry.kind,
                 entry.oneWay,
                 SegmentClimbs.of(entry.climb),
+                entry.trail,
             )
     }
     return CandidatesFile(header.region, candidates)

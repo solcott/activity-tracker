@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -116,6 +118,48 @@ class RefineTest {
         assertEquals(fine, stored["line"]?.jsonPrimitive?.content)
         assertEquals(segment(coarse) + ("line" to JsonPrimitive(fine)), stored, "every other field kept, unknown ones too")
         assertTrue(SegmentGeometry.decodePolyline(fine)!!.size > SegmentGeometry.decodePolyline(coarse)!!.size)
+    }
+
+    @Test
+    fun aSegmentPublishedWithoutAttributesIsBackfilled() = runTest {
+        repo["c1"] = segment(fine)
+        pds()
+        val dirt = TrailAttributes(surfaces = listOf(TrailSurface("dirt", 100)))
+
+        val result = refine(clients, file(candidate("c1").copy(trail = dirt)))
+
+        assertEquals(listOf("c1"), result.trail)
+        assertEquals(listOf("c1"), result.unchanged, "its line was already fine")
+        val stored = repo.getValue("c1")
+        assertEquals(dirt, AtJson.decodeFromJsonElement(TrailAttributes.serializer(), stored.getValue("trail")))
+        assertEquals(segment(fine), JsonObject(stored - "trail"), "every other field kept")
+    }
+
+    @Test
+    fun equalAttributesInAnotherOrderAreUnchanged() = runTest {
+        repo["c1"] =
+            JsonObject(
+                segment(fine) +
+                    ("trail" to AtJson.parseToJsonElement("""{"dog":"leashed","surfaces":[{"percent":100,"surface":"dirt"}]}""")),
+            )
+        pds()
+        val trail = TrailAttributes(surfaces = listOf(TrailSurface("dirt", 100)), dog = "leashed")
+
+        val result = refine(clients, file(candidate("c1").copy(trail = trail)))
+
+        assertEquals(emptyList(), result.trail)
+        assertEquals(emptyList(), fake.commits())
+    }
+
+    @Test
+    fun attributesGoneFromTheCandidateAreRemoved() = runTest {
+        repo["c1"] = JsonObject(segment(fine) + ("trail" to AtJson.parseToJsonElement("""{"lit":"yes"}""")))
+        pds()
+
+        val result = refine(clients, file(candidate("c1")))
+
+        assertEquals(listOf("c1"), result.trail)
+        assertEquals(segment(fine), repo.getValue("c1"))
     }
 
     @Test

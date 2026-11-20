@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -13,7 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The candidates file's format; bump it when what a line holds changes, so a reader can refuse a file it doesn't know. */
-internal const val IMPORTER_VERSION = 5
+internal const val IMPORTER_VERSION = 6
 
 /** The licence of OSM-derived lines, on every candidate and on the segments published from them. */
 internal const val LICENSE_OSM = "ODbL-1.0"
@@ -56,6 +57,8 @@ internal data class CandidateEntry(
      * A `feed.segment#climb` value: whether it climbs or descends as its trail does, by terrain (segments/trail-candidates); null for none.
      */
     val climb: String? = null,
+    /** What its ways say about its trail (segments/trail-attributes); null when nothing is known. */
+    val trail: TrailAttributes? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -78,7 +81,8 @@ internal fun extract(
 ) {
     val osm = pbf?.let { OsmReader.read(it) } ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
     val agencyData = agency.takeIf { it.isNotEmpty() }?.let(AgencyReader::read)
-    val data = agencyData?.let { osm + it } ?: osm
+    // Ways take the access, operator and website tags of their route relations once, before trails are built (segments/trail-attributes).
+    val data = RouteInheritance.applied(agencyData?.let { osm + it } ?: osm)
     val closures = ClosureFilter(data.agencyLines)
     val candidates = candidatesOf(data, closures, words, terrain?.let(::climbByTerrain), refBridgeM)
     out.bufferedWriter().use { write(it, region, data.timestamp, candidates) }
@@ -127,7 +131,8 @@ internal fun pathsOf(
     candidates: List<Candidate> = emptyList(),
 ): List<PathEntry> {
     val agencyKeys = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
-    return (TrailPaths.of(TrailBuilder.build(data, words, refBridgeM), agencyKeys, candidates) + RoadPaths.of(data))
+    val ways = data.ways.associateBy { it.id }
+    return (TrailPaths.of(TrailBuilder.build(data, words, refBridgeM), agencyKeys, candidates, ways) + RoadPaths.of(data))
         .distinctBy { it.id }
         .sortedBy { it.id }
 }
@@ -152,6 +157,7 @@ internal fun write(out: Writer, region: String, timestamp: Instant?, candidates:
                 c.segmentKind.takeIf { it != SegmentKind.RUN },
                 true.takeIf { c.oneWay },
                 c.climb?.word,
+                c.trail,
             )
         out.appendLine(json.encodeToString(CandidateEntry.serializer(), entry))
     }

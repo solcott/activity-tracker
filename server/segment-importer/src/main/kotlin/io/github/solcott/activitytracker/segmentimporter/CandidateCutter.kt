@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.atproto.crypto.base32
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.SegmentClimb
@@ -52,6 +53,8 @@ internal data class Candidate(
     val section: String? = null,
     /** Its trail's family, as its path is grouped by; only read with [section]. */
     val family: String? = null,
+    /** What the ways it follows say about its trail, combined over its line (segments/trail-attributes); null when nothing is known. */
+    val trail: TrailAttributes? = null,
 )
 
 /**
@@ -89,6 +92,9 @@ internal class CandidateCutter(
 
     /** Each way by id, for the sport groups a trail's own ways are open to. */
     private val waysById: Map<Long, OsmWay> = data.ways.associateBy { it.id }
+
+    /** What each way says about its trail for a sport group, read once ([TrailRules.facts]). */
+    private val facts = HashMap<Pair<Long, String>, WayFacts>()
 
     fun cut(trail: Trail): List<Candidate> {
         val pieces = buildList {
@@ -244,8 +250,19 @@ internal class CandidateCutter(
             climb = climbOf(trail, reversed) { ownClimb },
             section = sectionOf(trail, piece),
             family = trail.familyKey,
+            trail = attributesOf(trail, piece.range),
         )
     }
+
+    /** What the ways along [range] of [trail] say about it, each weighted by the length of its edges there (segments/trail-attributes). */
+    private fun attributesOf(trail: Trail, range: IntRange): TrailAttributes? =
+        TrailAttributeCombiner.combine(
+            (range.first until range.last).map { edge ->
+                val way = waysById[trail.edgeWays[edge]]
+                val wayFacts = way?.let { facts.getOrPut(it.id to trail.group) { it.rules.facts(it.tags, trail.group) } } ?: WayFacts.NONE
+                FactsAlong(wayFacts, SegmentGeometry.distanceMeters(trail.points[edge], trail.points[edge + 1]))
+            },
+        )
 
     /**
      * A candidate's name: a whole trail's, with its direction when it goes both ways; a junction span's, `<trail> → <junction>` or `<trail>

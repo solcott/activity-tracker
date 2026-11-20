@@ -25,6 +25,12 @@ internal interface TrailRules {
 
     /** Which ways a way may be travelled for [group], along its own node order: forward and backward. */
     fun directions(tags: Map<String, String>, group: String): Directions
+
+    /**
+     * What a way says about its trail, in the trail attributes' vocabulary (segments/trail-attributes). [group] is the sport group of the
+     * line it is part of, for facts that differ by use (a Forest Service use's open dates); null when the line isn't one group's.
+     */
+    fun facts(tags: Map<String, String>, group: String?): WayFacts
 }
 
 /** Which ways a way may be travelled along its own node order: [forward], [backward], or both. */

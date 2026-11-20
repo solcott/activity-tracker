@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.lexicon.app.PathSection
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.ktor.http.HttpStatusCode
@@ -104,6 +106,38 @@ class PublishPathsTest {
         assertEquals(listOf("anns"), result.refreshed)
         assertEquals(listOf(listOf(Triple("update", Nsid.FEED_PATH, "anns"))), fake.commits())
         assertEquals(anns.lines, AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns")).lines)
+    }
+
+    @Test
+    fun aPathGivenTrailAttributesIsRefreshedWithThem() = runTest {
+        services()
+        repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns, clock, listOf(VT))
+        val gravel = TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)))
+        val result = publishPaths(clients, listOf(anns.copy(trail = gravel)), VT, clock)
+        assertEquals(listOf("anns"), result.refreshed)
+        assertEquals(listOf("anns"), result.trail)
+        assertEquals(gravel, AtJson.decodeFromJsonElement(PathRecord.serializer(), repo.getValue(Nsid.FEED_PATH to "anns")).trail)
+    }
+
+    @Test
+    fun equalTrailAttributesInAnotherOrderLeaveThePath() = runTest {
+        services()
+        val trail = TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), lit = "yes")
+        val held = pathRecord(anns, clock, listOf(VT))
+        repo[Nsid.FEED_PATH to "anns"] =
+            JsonObject(held + ("trail" to AtJson.parseToJsonElement("""{"lit":"yes","surfaces":[{"percent":100,"surface":"gravel"}]}""")))
+        val result = publishPaths(clients, listOf(anns.copy(trail = trail)), VT, clock)
+        assertEquals(emptyList(), result.refreshed)
+        assertEquals(emptyList(), fake.commits())
+    }
+
+    @Test
+    fun trailAttributesGoneFromThePathAreRemoved() = runTest {
+        services()
+        repo[Nsid.FEED_PATH to "anns"] = pathRecord(anns.copy(trail = TrailAttributes(lit = "yes")), clock, listOf(VT))
+        val result = publishPaths(clients, listOf(anns), VT, clock)
+        assertEquals(listOf("anns"), result.trail)
+        assertEquals(null, repo.getValue(Nsid.FEED_PATH to "anns")["trail"])
     }
 
     @Test

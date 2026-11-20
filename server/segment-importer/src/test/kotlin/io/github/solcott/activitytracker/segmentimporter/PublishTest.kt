@@ -14,6 +14,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.ktor.http.HttpStatusCode
 import java.io.File
 import kotlin.test.Test
@@ -67,6 +69,9 @@ class PublishTest {
         if (id.startsWith("oneway-")) {
             """{"id":"$id","sport":"ride","name":"Clarks","line":"line-$id","source":"osm","license":"ODbL-1.0","oneWay":true,""" +
                 """"climb":"downhill"}"""
+        } else if (id.startsWith("trail-")) {
+            """{"id":"$id","sport":"ride","name":"Hogback","line":"line-$id","source":"osm","license":"ODbL-1.0",""" +
+                """"trail":{"surfaces":[{"surface":"gravel","percent":100}],"dog":"leashed"}}"""
         } else if (id.startsWith("lift-")) {
             """{"id":"$id","sport":"alpine","kind":"lift","name":"Summit Quad","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
         } else if (id.startsWith("usfs-")) {
@@ -138,6 +143,17 @@ class PublishTest {
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES}",
             fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().auth,
         )
+    }
+
+    @Test
+    fun aCandidatesTrailAttributesArePublishedAsChecked() = runTest {
+        appView(listOf("c1", "trail-1"))
+        publish(clients, "us-vermont", clock)
+        assertEquals(
+            TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), dog = "leashed"),
+            written("trail-1").trail,
+        )
+        assertNull(written("c1").trail, "no attributes, no trail")
     }
 
     @Test

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.TrailHorse
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -32,6 +33,36 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                 .values
                 .flatten()
                 .toSet()
+
+        // A getter: the companion's tables aren't initialized while the entries are.
+        override val attributeFields: List<String>
+            get() =
+                listOf("trail_surface", "trail_class", "typical_tread_width", "typical_trail_grade", "accessibility_status") +
+                    (USFS_USES.keys + PACK_SADDLE).flatMap { use -> USFS_SEASONS.map { "${use}_$it" } } +
+                    "${PACK_SADDLE}_restricted"
+
+        override fun facts(tags: Map<String, String>, group: String?): WayFacts {
+            val fields = tags.attributeFields()
+            return WayFacts(
+                surface = AgencyFacts.usfsSurface(fields["trail_surface"]),
+                trailClass = AgencyFacts.trailClass(fields["trail_class"]),
+                widthCm = AgencyFacts.usfsWidth(fields["typical_tread_width"]),
+                gradePercent = AgencyFacts.usfsGrade(fields["typical_trail_grade"]),
+                wheelchair = AgencyFacts.usfsAccessibility(fields["accessibility_status"]),
+                horse =
+                    when {
+                        usfsSeason(fields, "${PACK_SADDLE}_managed") != null -> TrailHorse.DESIGNATED
+                        usfsAllowed(fields, PACK_SADDLE) -> TrailHorse.YES
+                        fields["${PACK_SADDLE}_restricted"]?.trim() == USFS_ALL_YEAR -> TrailHorse.NO
+                        else -> null
+                    },
+                open =
+                    USFS_USES.entries
+                        .firstOrNull { group in it.value }
+                        ?.key
+                        ?.let { use -> USFS_SEASONS.firstNotNullOfOrNull { usfsSeason(fields, "${use}_$it") }?.let(FactDates::slashRange) },
+            )
+        }
     },
 
     /** The Park Service's public trails (`NPS_Public_Trails`), whose listed uses are free text in practice. */
@@ -52,6 +83,23 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                 .split('|', ',', '/')
                 .flatMap { use -> NPS_USES[use.filter(Char::isLetter).lowercase()].orEmpty() }
                 .toSet()
+        }
+
+        override val attributeFields = listOf("trlsurface", "trlclass", "seasonal", "maintainer")
+
+        override fun facts(tags: Map<String, String>, group: String?): WayFacts {
+            val fields = tags.attributeFields()
+            return WayFacts(
+                surface = AgencyFacts.npsSurface(fields["trlsurface"]),
+                trailClass = AgencyFacts.trailClass(fields["trlclass"]),
+                seasonal =
+                    when (FactValues.meaningful(fields["seasonal"])) {
+                        "yes" -> true
+                        "no" -> false
+                        else -> null
+                    },
+                operator = fields["maintainer"]?.takeIf { FactValues.meaningful(it) != null }?.let(FactValues::operator),
+            )
         }
     },
 
@@ -91,6 +139,11 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                 else -> FOOT_GROUPS + SegmentSportGroup.RIDE - open
             }
         }
+
+        override val attributeFields = listOf("obsrve_srfce_type")
+
+        override fun facts(tags: Map<String, String>, group: String?): WayFacts =
+            WayFacts(surface = AgencyFacts.blmSurface(tags.attributeFields()["obsrve_srfce_type"]))
     };
 
     override val source: String
@@ -126,6 +179,9 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
 
     override fun directions(tags: Map<String, String>, group: String): Directions = Directions.BOTH
 
+    /** The feature properties [AgencyReader] keeps in a way's tags as `agency:<field>`, for [facts] (segments/trail-attributes). */
+    abstract val attributeFields: List<String>
+
     companion object {
         /** The tags [AgencyReader] gives an agency way. */
         const val NAME = "name"
@@ -134,7 +190,25 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         /** `<kind>:<feature key>`, with `#<part>` for a MultiLineString's parts after the first. */
         const val KEY = "agency:key"
 
+        /** What prefixes a kept attribute field in an agency way's tags. */
+        const val FIELD = "agency:"
+
+        /** The kept attribute fields among an agency way's tags, by field name. */
+        private fun Map<String, String>.attributeFields(): Map<String, String> =
+            entries.filter { it.key.startsWith(FIELD) }.associate { it.key.removePrefix(FIELD) to it.value }
+
         private const val MILEPOST_DECIMALS = 3
+
+        /** The Forest Service's pack and saddle use, as its fields' prefix. */
+        private const val PACK_SADDLE = "pack_saddle"
+
+        /** The suffixes of a Forest Service use's fields that hold a season it is allowed in. */
+        private val USFS_SEASONS = listOf("managed", "accpt", "accpt_disc")
+
+        /** [field]'s season, when it holds one. */
+        private fun usfsSeason(properties: Map<String, String?>, field: String): String? =
+            properties[field]?.trim()?.takeIf { it.isNotEmpty() && !it.equals("N/A", ignoreCase = true) }
+
         private val FOOT_GROUPS = setOf(SegmentSportGroup.RUN, SegmentSportGroup.HIKE)
 
         /** Each Forest Service use, as its fields' prefix, and the groups it names. */
@@ -150,10 +224,9 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         private const val USFS_ALL_YEAR = "01/01-12/31"
 
         /** Whether [use]'s managed, accepted or accepted/discouraged field holds a season. */
-        private fun usfsAllowed(properties: Map<String, String?>, use: String): Boolean =
-            listOf("managed", "accpt", "accpt_disc").any { suffix ->
-                properties["${use}_$suffix"]?.trim()?.let { it.isNotEmpty() && !it.equals("N/A", ignoreCase = true) } == true
-            }
+        private fun usfsAllowed(properties: Map<String, String?>, use: String): Boolean = USFS_SEASONS.any { suffix ->
+            usfsSeason(properties, "${use}_$suffix") != null
+        }
 
         /** Each `TRLUSE` part, letters only and lower-cased, and the groups it names. */
         private val NPS_USES: Map<String, Set<String>> = buildMap {

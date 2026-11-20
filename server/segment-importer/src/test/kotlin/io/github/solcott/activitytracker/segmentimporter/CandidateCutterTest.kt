@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RUN
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -635,5 +637,36 @@ class CandidateCutterTest {
         }
         val oak = candidates(data).filter { 102L !in it.osmWays }
         assertTrue(oak.none { ": " in it.name }, oak.map { it.name }.toString())
+    }
+
+    @Test
+    fun aCandidateHoldsWhatItsWaysSayAboutItsTrail() {
+        val data = osm { oak(nodes = 5, spacing = 500.0, "surface" to "gravel", "mtb:scale" to "1") }
+        val whole = candidates(data).filter { it.whole }
+        assertTrue(whole.isNotEmpty())
+        for (candidate in whole) {
+            assertEquals(TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), mtbScale = 1), candidate.trail)
+        }
+    }
+
+    @Test
+    fun aCandidateWithNoAttributeDataHoldsNone() {
+        val data = osm { oak(nodes = 5) }
+        assertTrue(candidates(data).all { it.trail == null })
+    }
+
+    @Test
+    fun aStretchHoldsOnlyItsOwnWaysAttributes() {
+        val data = osm {
+            for (i in 0 until 5) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            way(100, 1, 2, 3, tags = path("Oak Trail", "surface" to "asphalt"))
+            way(101, 3, 4, 5, tags = path("Oak Trail", "surface" to "dirt"))
+            crossing(20, at = 3, tags = highway("unclassified", "Fire Road 3"))
+        }
+        val ride = candidates(data)
+        val whole = ride.first { it.whole }
+        assertEquals(setOf(TrailSurface("paved", 50), TrailSurface("dirt", 50)), whole.trail?.surfaces?.toSet())
+        val stretches = ride.filter { !it.whole }.map { it.trail?.surfaces?.single()?.surface }.toSet()
+        assertEquals(setOf("paved", "dirt"), stretches)
     }
 }

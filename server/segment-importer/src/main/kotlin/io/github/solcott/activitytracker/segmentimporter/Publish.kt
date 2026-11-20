@@ -86,6 +86,7 @@ private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElemen
             kind = candidate.kind,
             oneWay = candidate.oneWay?.takeIf { it },
             climb = SegmentClimbs.of(candidate.climb),
+            trail = candidate.trail,
         ),
     )
 

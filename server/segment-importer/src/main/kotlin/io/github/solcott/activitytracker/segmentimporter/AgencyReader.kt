@@ -38,6 +38,7 @@ internal class AgencyLine(val open: Set<String>, val closed: Set<String>, val po
  * data always gives the same ids.
  */
 internal object AgencyReader {
+    @Suppress("LongParameterList") // A feature as read: its id, name, groups, lines and attribute fields.
     private class Feature(
         val rules: AgencyRules,
         val key: String,
@@ -45,6 +46,8 @@ internal object AgencyReader {
         val groups: Set<String>,
         val closed: Set<String>,
         val lines: List<List<GeoPoint>>,
+        /** Its trail attribute fields ([AgencyRules.attributeFields]) that hold anything, as `agency:<field>` tags. */
+        val attributes: Map<String, String> = emptyMap(),
     )
 
     fun read(datasets: List<AgencyDataset>): AgencyData {
@@ -78,7 +81,9 @@ internal object AgencyReader {
         val ways = mutableListOf<OsmWay>()
         var nextWay = -1L
         for (feature in features) {
-            val tags = mapOf(AgencyRules.NAME to feature.name, AgencyRules.GROUPS to feature.groups.sorted().joinToString(","))
+            val tags =
+                feature.attributes +
+                    mapOf(AgencyRules.NAME to feature.name, AgencyRules.GROUPS to feature.groups.sorted().joinToString(","))
             for ((part, points) in feature.lines.withIndex()) {
                 val ids = points.map(snapper::idOf)
                 val nodes = ids.filterIndexed { i, id -> i == 0 || id != ids[i - 1] }
@@ -112,7 +117,19 @@ internal object AgencyReader {
             }
         val lines = parts.map { part -> part.mapNotNull(::position) }.filter { it.size >= 2 }
         if (lines.isEmpty()) return null
-        return Feature(rules, key, rules.nameFrom(properties).orEmpty(), rules.groupsOf(properties), rules.closedTo(properties), lines)
+        val attributes =
+            rules.attributeFields
+                .mapNotNull { field -> properties[field]?.trim()?.takeIf { it.isNotEmpty() }?.let { "${AgencyRules.FIELD}$field" to it } }
+                .toMap()
+        return Feature(
+            rules,
+            key,
+            rules.nameFrom(properties).orEmpty(),
+            rules.groupsOf(properties),
+            rules.closedTo(properties),
+            lines,
+            attributes,
+        )
     }
 
     /** A GeoJSON position, `[longitude, latitude]` with an optional height, or null when it isn't one in range. */

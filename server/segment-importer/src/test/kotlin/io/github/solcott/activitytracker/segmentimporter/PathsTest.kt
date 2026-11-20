@@ -71,7 +71,8 @@ class PathsTest {
 
     @Test
     fun aPathsFileReadsBack() {
-        val paths = pathsOf(osm { chain("Ann's Trail", 100, 3, { path(it) }) })
+        val paths = pathsOf(osm { chain("Ann's Trail", 100, 3, { path(it, "surface" to "gravel", "dog" to "leashed") }) })
+        assertEquals("leashed", paths.single().trail?.dog)
         val out = StringWriter()
         writePaths(out, "us-vermont", paths)
         val read = readPaths(out.toString().lineSequence())
@@ -127,12 +128,18 @@ class PathsTest {
     }
 
     /** A Forest Service dataset of one feature, `TRAIL_CN` [cn] named [name], 3 km north from the origin [east] m east, open to [uses]. */
-    private fun agency(name: String, east: Double = 0.0, cn: String = "1001", uses: String = "HIKER_PEDESTRIAN_MANAGED"): AgencyData {
+    private fun agency(
+        name: String,
+        east: Double = 0.0,
+        cn: String = "1001",
+        uses: String = "HIKER_PEDESTRIAN_MANAGED",
+        more: String = "",
+    ): AgencyData {
         val dLng = east / (111_320.0 * kotlin.math.cos(Math.toRadians(lat)))
         val coordinates = (0..30).joinToString(",") { "[${lng + dLng},${north(lat, it * 100.0)}]" }
         val file = kotlin.io.path.createTempFile("usfs", ".geojsonl").toFile()
         file.writeText(
-            """{"type":"Feature","properties":{"TRAIL_NAME":"$name","TRAIL_CN":"$cn","BMP":0,"$uses":"01/01-12/31"},""" +
+            """{"type":"Feature","properties":{"TRAIL_NAME":"$name","TRAIL_CN":"$cn","BMP":0,"$uses":"01/01-12/31"$more},""" +
                 """"geometry":{"type":"LineString","coordinates":[$coordinates]}}""" +
                 "\n",
         )
@@ -163,5 +170,48 @@ class PathsTest {
         val osmData = osm { chain("Creek Trail", 100, 3, { path(it) }) }
         val paths = pathsOf(osmData + agency("Ridge", east = 2_000.0))
         assertEquals(setOf("osm", "agency"), paths.map { it.source }.toSet())
+    }
+
+    @Test
+    fun aPathHoldsItsTrailAttributesOverEveryWay() {
+        val data = osm { chain("Long Trail", 100, 5, { path(it) }) }
+        // Three of its five 1 km ways are mountain hiking, the rest hiking.
+        val tagged =
+            OsmData(
+                data.ways.map { way ->
+                    val sac = if (way.id % 10 < 3) "mountain_hiking" else "hiking"
+                    OsmWay(way.id, way.tags + ("sac_scale" to sac), way.nodes)
+                },
+                data.relations,
+                data.coords,
+            )
+        val trail = pathsOf(tagged).single().trail
+        assertEquals("mountain_hiking", trail?.sacScale)
+        assertEquals(null, pathsOf(data).single().trail, "nothing known, nothing held")
+    }
+
+    @Test
+    fun anOsmPathFillsInTheAgencyPathsTrailClass() {
+        val osmData = osm { chain("Creek Trail", 100, 3, { path(it, "surface" to "ground") }) }
+        val paths = pathsOf(osmData + agency("Creek", more = ""","TRAIL_CLASS":"3","TRAIL_SURFACE":"AGG - CRUSHED AGGREGATE OR GRAVEL""""))
+        val kept = paths.single()
+        assertEquals("osm", kept.source)
+        assertEquals(3, kept.trail?.trailClass, "filled in from the agency path")
+        assertEquals(listOf("dirt"), kept.trail?.surfaces?.map { it.surface }, "the OSM path's own surface stands")
+    }
+
+    @Test
+    fun aRoadPathHoldsItsAttributes() {
+        val data = osm { chain("Pine St", 100, 2, { highway("residential", it, "surface" to "asphalt", "lit" to "yes") }) }
+        val road = pathsOf(data).single { it.kind == PathKind.ROAD }
+        assertEquals("paved", road.trail?.surfaces?.single()?.surface)
+        assertEquals("yes", road.trail?.lit)
+    }
+
+    @Test
+    fun anOlderPathsFileIsRefused() {
+        val old = sequenceOf("""{"region":"us-vermont","pathsVersion":2}""")
+        val refused = kotlin.test.assertFailsWith<IllegalArgumentException> { readPaths(old) }
+        assertTrue("format version 2" in refused.message.orEmpty())
     }
 }

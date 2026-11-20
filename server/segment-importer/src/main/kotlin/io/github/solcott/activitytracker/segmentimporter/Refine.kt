@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import java.io.File
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,8 +19,8 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * What a `refine` run did: segments given their candidate's finer line ([refined]), already holding it ([unchanged]), whose trail moved
  * further than [REFINE_MAX_M] ([moved]), or whose candidate isn't in the file ([missing]), and those given their candidate's name
- * ([renamed]), whatever their line, and those given their candidate's one-way flag ([oneWay]; segments/segment-direction) or climb
- * ([climb]); [stoppedBy] is the error that ended the run early, if one did.
+ * ([renamed]), whatever their line, and those given their candidate's one-way flag ([oneWay]; segments/segment-direction), climb ([climb])
+ * or trail attributes ([trail]; segments/trail-attributes); [stoppedBy] is the error that ended the run early, if one did.
  */
 internal data class RefineResult(
     val refined: List<String> = emptyList(),
@@ -29,6 +30,7 @@ internal data class RefineResult(
     val renamed: List<Renamed> = emptyList(),
     val oneWay: List<String> = emptyList(),
     val climb: List<String> = emptyList(),
+    val trail: List<String> = emptyList(),
     val stoppedBy: Exception? = null,
 )
 
@@ -67,6 +69,7 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
     val renamed = mutableListOf<Renamed>()
     val oneWay = mutableListOf<String>()
     val climb = mutableListOf<String>()
+    val trail = mutableListOf<String>()
     val stoppedBy = stopOnError {
         val repo = clients.session.did()
         var cursor: String? = null
@@ -89,9 +92,10 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
                         LineChange.MOVED -> moved += rkey
                         LineChange.REFINED -> refined += rkey
                     }
-                    changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
+                    changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.jsonPrimitive.content) }
                     if (ONE_WAY in changes) oneWay += rkey
                     if (CLIMB in changes) climb += rkey
+                    if (TRAIL_FIELD in changes) trail += rkey
                 }
             }
             clients.writer.update(repo, rewrites)
@@ -99,7 +103,7 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
             cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
         } while (cursor != null)
     }
-    return RefineResult(refined, unchanged, moved, missing, renamed, oneWay, climb, stoppedBy)
+    return RefineResult(refined, unchanged, moved, missing, renamed, oneWay, climb, trail, stoppedBy)
 }
 
 /** How a stored segment's line compares with its candidate's. */
@@ -111,9 +115,10 @@ private enum class LineChange {
 
 /**
  * How [value], a stored segment, compares with its [candidate]'s line, and the fields to rewrite to give it the candidate's line, name,
- * one-way flag and climb; a [JsonNull] removes the flag or the climb.
+ * one-way flag, climb and trail attributes; a [JsonNull] removes the flag, the climb or the attributes. Attributes are compared as values,
+ * so a stored object differing only in its fields' order is unchanged.
  */
-private fun refinementOf(value: JsonObject, candidate: SegmentCandidate): Pair<LineChange?, Map<String, JsonPrimitive>> {
+private fun refinementOf(value: JsonObject, candidate: SegmentCandidate): Pair<LineChange?, Map<String, JsonElement>> {
     val stored = value.stringOrNull("line")
     val line =
         when {
@@ -122,7 +127,7 @@ private fun refinementOf(value: JsonObject, candidate: SegmentCandidate): Pair<L
             else -> LineChange.REFINED
         }
     val changes =
-        buildMap<String, JsonPrimitive> {
+        buildMap<String, JsonElement> {
             if (line == LineChange.REFINED) put("line", JsonPrimitive(candidate.line))
             if (value.stringOrNull("name") != candidate.name) put("name", JsonPrimitive(candidate.name))
             val storedOneWay = (value[ONE_WAY] as? JsonPrimitive)?.booleanOrNull == true
@@ -131,6 +136,7 @@ private fun refinementOf(value: JsonObject, candidate: SegmentCandidate): Pair<L
             if (SegmentClimbs.of(value.stringOrNull(CLIMB)) != climb || (climb == null && CLIMB in value)) {
                 put(CLIMB, climb?.let(::JsonPrimitive) ?: JsonNull)
             }
+            trailChange(value, candidate.trail)?.let { put(TRAIL_FIELD, it) }
         }
     return line to changes
 }
@@ -153,10 +159,12 @@ internal suspend fun refineFile(clients: Clients, path: File) {
     for ((id, from, to) in result.renamed) println("Renamed $id: \"${from.orEmpty()}\" -> \"$to\"")
     for (id in result.oneWay) println("One-way flag set to its candidate's: $id")
     for (id in result.climb) println("Climb set to its candidate's: $id")
+    for (id in result.trail) println("Trail attributes set to its candidate's: $id")
     println(
         "Refined ${result.refined.size} segments from ${file.region}'s candidates; ${result.unchanged.size} unchanged, " +
             "${result.moved.size} moved, ${result.missing.size} not in this file; renamed ${result.renamed.size}, " +
-            "one-way flag changed on ${result.oneWay.size}, climb changed on ${result.climb.size}",
+            "one-way flag changed on ${result.oneWay.size}, climb changed on ${result.climb.size}, " +
+            "trail attributes changed on ${result.trail.size}",
     )
     result.stoppedBy?.let { throw it }
 }

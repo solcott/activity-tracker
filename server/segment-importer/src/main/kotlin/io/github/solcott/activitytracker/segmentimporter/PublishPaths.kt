@@ -26,10 +26,10 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * What a `publish-paths` run did: paths published new ([published]), rewritten with a changed name, line, sports or sections or newly
- * listed by the region ([refreshed]), deleted as no longer listed by any region's file ([removed]), and kept for the other regions listing
- * them but no longer this one ([released]), and how many of the region's segments lie on none of its paths ([unpathed]); [stoppedBy] is the
- * error that ended the run early, if one did.
+ * What a `publish-paths` run did: paths published new ([published]), rewritten with a changed name, line, sports, sections or trail
+ * attributes or newly listed by the region ([refreshed]), of which those whose trail attributes changed ([trail]), deleted as no longer
+ * listed by any region's file ([removed]), and kept for the other regions listing them but no longer this one ([released]), and how many of
+ * the region's segments lie on none of its paths ([unpathed]); [stoppedBy] is the error that ended the run early, if one did.
  */
 internal data class PublishPathsResult(
     val published: List<String> = emptyList(),
@@ -38,6 +38,7 @@ internal data class PublishPathsResult(
     val released: List<String> = emptyList(),
     val unpathed: Int = 0,
     val stoppedBy: Exception? = null,
+    val trail: List<String> = emptyList(),
 )
 
 /** A page of the repo's paths; listRecords allows up to 100. */
@@ -56,10 +57,11 @@ private val SECTIONS = ListSerializer(PathSection.serializer())
  * Publishes the [paths] of [region]'s file that the region's segments lie on (segments/path-import): asks the AppView, tile by tile over
  * the paths' box, for every live segment's line and sport group, and publishes as a `feed.path` each path one of them lies on
  * ([PathOverlap], the AppView's own test, among the file's paths) that the repo doesn't hold yet. Each record names the regions whose files
- * list it (`regions`), so ownership lives with the record: a path the repo holds is rewritten, under its key, when its name, line or sports
- * or sections changed or [region] isn't among its regions yet (every one with `rewrite`, so an AppView that missed them indexes them
- * again), and one [region] listed that its file no longer holds loses [region], deleted once no region is left. A path published before
- * records named their regions is never deleted. Stops at the first failed call, keeping what it did; running again carries on.
+ * list it (`regions`), so ownership lives with the record: a path the repo holds is rewritten, under its key, when its name, line, sports,
+ * sections or trail attributes (compared as values, so field order doesn't count; segments/trail-attributes) changed or [region] isn't
+ * among its regions yet (every one with `rewrite`, so an AppView that missed them indexes them again), and one [region] listed that its
+ * file no longer holds loses [region], deleted once no region is left. A path published before records named their regions is never
+ * deleted. Stops at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun publishPaths(
     clients: Clients,
@@ -72,6 +74,7 @@ internal suspend fun publishPaths(
     val refreshed = mutableListOf<String>()
     val removed = mutableListOf<String>()
     val released = mutableListOf<String>()
+    val trail = mutableListOf<String>()
     var unpathed = 0
     val stoppedBy = stopOnError {
         val repo = clients.session.did()
@@ -96,15 +99,18 @@ internal suspend fun publishPaths(
         val publishable = paths.map { path ->
             if (found != null) path.withSectionsOf(found.importerKeys) else path.copy(sections = held[path.id]?.sections)
         }
+        val trailChanged = mutableListOf<String>()
         val changed = publishable.mapNotNull { path ->
             val old = held[path.id] ?: return@mapNotNull null
-            val stale = old.name != path.name || old.lines != path.lines || old.sports != path.sports || old.sections != path.sections
-            val unlisted = region !in old.regions.orEmpty()
-            if (!rewrite && !stale && !unlisted) return@mapNotNull null
+            val newTrail = trailChange(old.record, path.trail) != null
+            val due = rewrite || old.staleFor(path) || newTrail || region !in old.regions.orEmpty()
+            if (!due) return@mapNotNull null
+            if (newTrail) trailChanged += path.id
             Draft(Nsid.FEED_PATH, path.id, pathRecord(path, clock, regionsWith(old.regions, region)))
         }
         clients.writer.update(repo, changed)
         refreshed += changed.map { it.rkey }
+        trail += trailChanged
 
         val needs = scan.getOrThrow()
         val drafts =
@@ -113,7 +119,7 @@ internal suspend fun publishPaths(
                 .map { Draft(Nsid.FEED_PATH, it.id, pathRecord(it, clock, listOf(region))) }
         clients.writer.create(repo, drafts) { draft, created -> if (created) published += draft.rkey }
     }
-    return PublishPathsResult(published, refreshed, removed, released, unpathed, stoppedBy)
+    return PublishPathsResult(published, refreshed, removed, released, unpathed, stoppedBy, trail)
 }
 
 /** [regions] with [region] added, sorted, at most [PathRecord.MAX_REGIONS] (the rest dropped, never [region]). */
@@ -175,6 +181,9 @@ private data class HeldPath(
     val sections: List<PathSection>?,
     val record: JsonObject,
 ) {
+    /** Whether its name, line, sports or sections differ from [path]'s. */
+    fun staleFor(path: PathEntry): Boolean = name != path.name || lines != path.lines || sports != path.sports || sections != path.sections
+
     /** The record as held, listing only [regions]. */
     fun withRegions(regions: List<String>): JsonObject = JsonObject(record + (REGIONS to JsonArray(regions.map(::JsonPrimitive))))
 }
@@ -213,6 +222,7 @@ internal fun pathRecord(path: PathEntry, clock: Clock, regions: List<String>? = 
                 sports = path.sports,
                 regions = regions,
                 sections = path.sections,
+                trail = path.trail,
             ),
         )
         .let { it as JsonObject }
@@ -267,6 +277,7 @@ internal suspend fun publishPathsFile(clients: Clients, path: File, rewrite: Boo
     println(
         "Published ${result.published.size} of ${file.region}'s ${file.paths.size} paths, refreshed ${result.refreshed.size}, " +
             "removed ${result.removed.size} and left ${result.released.size} to the other regions listing them; " +
+            "trail attributes changed on ${result.trail.size}; " +
             "${result.unpathed} segments there lie on none of them",
     )
     result.stoppedBy?.let { throw it }

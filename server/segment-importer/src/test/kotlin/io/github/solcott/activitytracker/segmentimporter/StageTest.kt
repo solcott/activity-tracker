@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.location.SegmentClimb
 import io.ktor.http.HttpStatusCode
 import java.io.File
@@ -88,6 +89,8 @@ class StageTest {
         assertEquals(true, "format version 1" in first.message.orEmpty(), "re-extract a version 1 file")
         val coarse = assertFailsWith<IllegalArgumentException> { file(3, version = 2) }
         assertEquals(true, "format version 2" in coarse.message.orEmpty(), "re-extract a file of 5 m lines")
+        val untrailed = assertFailsWith<IllegalArgumentException> { file(3, version = 5) }
+        assertEquals(true, "format version 5" in untrailed.message.orEmpty(), "re-extract a file without trail attributes")
         val region = assertFailsWith<IllegalArgumentException> { file(3, otherRegion = 1) }
         assertEquals(true, "us-maine" in region.message.orEmpty())
         assertEquals(emptyList(), fake.calls)
@@ -109,6 +112,7 @@ class StageTest {
                     whole = true,
                     oneWay = true,
                     climb = SegmentClimb.Downhill,
+                    trail = TrailAttributes(mtbScale = 2, dog = "leashed"),
                 ),
             )
         val out = java.io.StringWriter()
@@ -119,6 +123,7 @@ class StageTest {
         assertEquals("osm" to "ODbL-1.0", read.candidates.single().source to read.candidates.single().license)
         assertEquals(true, read.candidates.single().oneWay)
         assertEquals("downhill", read.candidates.single().climb)
+        assertEquals(TrailAttributes(mtbScale = 2, dog = "leashed"), read.candidates.single().trail)
     }
 
     @Test
@@ -133,6 +138,23 @@ class StageTest {
             fake.calls(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES).single().body!!.getValue("candidates").jsonArray.map { it.jsonObject }
         assertEquals("downhill", uploaded[0].getValue("climb").jsonPrimitive.content)
         assertEquals(null, uploaded[1]["climb"])
+    }
+
+    @Test
+    fun aCandidatesTrailAttributesAreUploaded() = runTest {
+        accept()
+        val header = """{"region":"us-vermont","importerVersion":$IMPORTER_VERSION}"""
+        fun entry(id: String, trail: String) =
+            """{"id":"$id","region":"us-vermont","sport":"ride","name":"Hogback","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
+                """"source":"osm","license":"ODbL-1.0"$trail}"""
+        val trail = ""","trail":{"surfaces":[{"surface":"gravel","percent":100}],"mtbScale":1}"""
+        stage(clients, readCandidates(sequenceOf(header, entry("c1", trail), entry("c2", ""))), clock)
+        val uploaded =
+            fake.calls(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES).single().body!!.getValue("candidates").jsonArray.map { it.jsonObject }
+        val sent = uploaded[0].getValue("trail").jsonObject
+        assertEquals("gravel", sent.getValue("surfaces").jsonArray.single().jsonObject.getValue("surface").jsonPrimitive.content)
+        assertEquals("1", sent.getValue("mtbScale").jsonPrimitive.content)
+        assertEquals(null, uploaded[1]["trail"])
     }
 
     @Test

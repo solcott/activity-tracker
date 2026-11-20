@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.app.PathRecord
 import io.github.solcott.activitytracker.lexicon.app.PathSection
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.PathCandidate
 import io.github.solcott.activitytracker.location.PathOverlap
@@ -20,7 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The paths file's format; bump it when what a line holds changes. */
-internal const val PATHS_VERSION = 2
+internal const val PATHS_VERSION = 3
 
 /** The first line of a paths file. */
 @Serializable internal data class PathsHeader(val region: String, val pathsVersion: Int)
@@ -46,6 +47,11 @@ internal data class PathEntry(
      * sorted (segments/path-import); null for none. Files written before sections read as none.
      */
     val sections: List<PathSection>? = null,
+    /**
+     * What its ways say about it, combined over all of them across its sport groups (segments/trail-attributes); null when nothing is
+     * known.
+     */
+    val trail: TrailAttributes? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -116,18 +122,58 @@ internal object PathPieces {
  * only OSM's path ([folded]).
  */
 internal object TrailPaths {
-    /** [trails]' paths, each listing the sections of the kept [candidates] on it ([sectionsOf]). */
-    fun of(trails: List<Trail>, agencyKeys: Map<Long, String>, candidates: List<Candidate> = emptyList()): List<PathEntry> {
+    /**
+     * [trails]' paths, each listing the sections of the kept [candidates] on it ([sectionsOf]) and holding what its [ways] say about it
+     * ([attributesOf]).
+     */
+    fun of(
+        trails: List<Trail>,
+        agencyKeys: Map<Long, String>,
+        candidates: List<Candidate> = emptyList(),
+        ways: Map<Long, OsmWay> = emptyMap(),
+    ): List<PathEntry> {
         val sectioned = candidates.filter { it.section != null && it.family != null }.groupBy { it.family to it.source }
         return trails
             .groupBy { trail -> trail.familyKey to trail.rules.source }
             .flatMap { (key, family) ->
                 touching(family).mapNotNull { near ->
-                    entry(key.first, near, agencyKeys)?.copy(sections = sectionsOf(near, sectioned[key].orEmpty(), agencyKeys))
+                    entry(key.first, near, agencyKeys)
+                        ?.copy(sections = sectionsOf(near, sectioned[key].orEmpty(), agencyKeys), trail = attributesOf(near, ways))
                 }
             }
             .let(::folded)
     }
+
+    /**
+     * What [trails]' ways say about their path (segments/trail-attributes): each way once, weighted by its length along them, read for the
+     * most open of its trails' sport groups, the one whose use is open longest (a Forest Service use's open dates).
+     */
+    private fun attributesOf(trails: List<Trail>, ways: Map<Long, OsmWay>): TrailAttributes? {
+        val meters = mutableMapOf<Long, Double>()
+        val groups = mutableMapOf<Long, MutableSet<String>>()
+        for (trail in trails) {
+            val along = mutableMapOf<Long, Double>()
+            for (edge in 0 until trail.nodes.lastIndex) {
+                along.merge(trail.edgeWays[edge], SegmentGeometry.distanceMeters(trail.points[edge], trail.points[edge + 1]), Double::plus)
+            }
+            for ((way, m) in along) {
+                meters.merge(way, m, ::maxOf)
+                groups.getOrPut(way) { sortedSetOf() } += trail.group
+            }
+        }
+        return TrailAttributeCombiner.combine(
+            meters.entries
+                .sortedBy { it.key }
+                .map { (id, m) ->
+                    val way = ways[id]
+                    val facts = way?.let { groups.getValue(id).map { group -> it.rules.facts(it.tags, group) }.mostOpen() } ?: WayFacts.NONE
+                    FactsAlong(facts, m)
+                },
+        )
+    }
+
+    /** The facts whose use is open longest: open all year (no dates) first, then the longest window. */
+    private fun List<WayFacts>.mostOpen(): WayFacts = minBy { facts -> facts.open?.let { -it.days() } ?: Int.MIN_VALUE }
 
     /**
      * The sections of [candidates] of one family and source that lie wholly on [trails]' ways, by name, each with its candidates' ids
@@ -168,13 +214,16 @@ internal object TrailPaths {
         val into = agency.mapNotNull { path -> coveringOsm(path, osm, lines, boxes)?.let { path to it } }
         val dropped = into.mapTo(mutableSetOf()) { it.first.id }
         val opened = into.groupBy({ it.second }, { it.first.sports.orEmpty() }).mapValues { (_, sports) -> sports.flatten() }
+        // The OSM path's attributes stand; it takes from the agency paths it covers only those it lacks (segments/path-import).
+        val filling = into.groupBy({ it.second }, { it.first }).mapValues { (_, folded) -> folded.sortedBy { it.id } }
         val order = SegmentSportGroup.all
         return paths
             .filter { it.id !in dropped }
             .map { path ->
                 val more = opened[path.id] ?: return@map path
                 val sports = (path.sports.orEmpty() + more).distinct()
-                path.copy(sports = sports.sortedBy { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size })
+                val trail = filling[path.id].orEmpty().fold(path.trail) { trail, agency -> trail.filledFrom(agency.trail) }
+                path.copy(sports = sports.sortedBy { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size }, trail = trail)
             }
     }
 
@@ -366,6 +415,10 @@ internal object RoadPaths {
         val points = nodes.mapNotNull { data.coords[it] }
         val lines = PathPieces.of(points)
         if (lines.isEmpty()) return null
+        val stretches = chain.map { placed ->
+            val wayPoints = placed.way.nodes.asList().mapNotNull { data.coords[it] }
+            FactsAlong(TrailTags.facts(placed.way.tags, group = null), SegmentGeometry.lengthMeters(wayPoints))
+        }
         return PathEntry(
             id = PathIds.of(PathKind.ROAD, name, "w${chain.first().way.id}", "w${chain.last().way.id}"),
             kind = PathKind.ROAD,
@@ -374,6 +427,7 @@ internal object RoadPaths {
             lengthMeters = PathPieces.lengthOf(lines),
             source = TrailTags.source,
             license = TrailTags.license,
+            trail = TrailAttributeCombiner.combine(stretches),
         )
     }
 }

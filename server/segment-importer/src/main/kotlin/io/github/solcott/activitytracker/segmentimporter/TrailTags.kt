@@ -59,6 +59,8 @@ internal object TrailTags : TrailRules {
             tags["highway"] == "steps" ||
             tags["tunnel"] == "building_passage"
 
+    override fun facts(tags: Map<String, String>, group: String?): WayFacts = OsmFacts.of(tags)
+
     /** Highways never crossed as shared tread: roads no one on a bike or on foot may use, and steps. */
     private val NOT_CROSSABLE = setOf("motorway", "motorway_link", "trunk", "trunk_link", "steps")
 
