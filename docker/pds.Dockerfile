@@ -17,6 +17,8 @@
 FROM ghcr.io/bluesky-social/atproto:pds-spaces-alpha@sha256:1b3113b40eac2581b8f928bcec8840c8a0912c3a3d90bf3b965a775f8a97067a
 # The image runs as `node`, which can't write under /app; patch as root, then drop back.
 USER root
+# The one pipe counts the find's lines inside a substitution, whose status the test after it doesn't use.
+# hadolint ignore=DL4006
 RUN set -e; \
     f=$(find /app -path '*/oauth-provider/dist/router/assets/csrf.js'); \
     if [ "$(printf '%s' "$f" | grep -c .)" -ne 1 ]; then echo "expected exactly one oauth-provider csrf.js, found: '$f'" >&2; exit 1; fi; \
