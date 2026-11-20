@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "A trail or road (segments/segment-paths) and every segment on it the viewer could get from a segment search, never lifts.",
+      "description": "A trail or road (segments/segment-paths), every segment on it the viewer could get from a segment search, never lifts, and the path's sections holding any of them.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -17,11 +17,25 @@
           "required": ["path", "segments"],
           "properties": {
             "path": { "type": "ref", "ref": "app.activitytracker.feed.defs#pathView" },
-            "segments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" } }
+            "segments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" } },
+            "sections": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#sectionView" },
+              "description": "The path's sections, in its record's order, each with only the returned segments in it; a section holding none is left out. Absent means none."
+            }
           }
         }
       },
       "errors": [{ "name": "NotFound", "description": "The path isn't indexed." }]
+    },
+    "sectionView": {
+      "type": "object",
+      "description": "A section of the path (feed.path#section) and the URIs of the returned segments in it.",
+      "required": ["name", "segments"],
+      "properties": {
+        "name": { "type": "string" },
+        "segments": { "type": "array", "items": { "type": "string", "format": "at-uri" } }
+      }
     }
   }
 }

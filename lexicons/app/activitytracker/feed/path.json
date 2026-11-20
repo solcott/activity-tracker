@@ -34,7 +34,27 @@
             "items": { "type": "string", "maxLength": 64 },
             "description": "The import regions whose paths files list the path, such as us-vermont (segments/path-import): the importer deletes it once none does. Only the importer reads it; the AppView ignores it."
           },
+          "sections": {
+            "type": "array",
+            "maxLength": 64,
+            "items": { "type": "ref", "ref": "#section" },
+            "description": "The sections of the path's trail family that its imported segments are named after (segments/segment-paths), in the order the Trail page lists them by. A segment is in the first section naming it. Absent means none."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "description": "A section of a trail family, such as Through the Trees Trail on Rush Trail, and the importer's segments named after it.",
+      "required": ["name", "segments"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+        "segments": {
+          "type": "array",
+          "maxLength": 1000,
+          "items": { "type": "string", "format": "record-key" },
+          "description": "Record keys of feed.segment records in the path's own repo, the segment importer's. A key naming no indexed segment is ignored."
         }
       }
     }
