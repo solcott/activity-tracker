@@ -1,0 +1,7 @@
+# Commits that only reformat, which git blame skips: GitHub reads this file on its own; locally run
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format Swift with swift-format
+a8a03328ebf759c14cf51ac8c37f35b9beb44f21
+# Format shell scripts with shfmt
+9ac78e789510838a2c7813009ad5c9d3c76f0e2d
