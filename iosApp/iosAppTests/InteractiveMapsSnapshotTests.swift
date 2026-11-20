@@ -16,7 +16,7 @@ struct InteractiveMapsSnapshotTests {
     /// Segment browse also lists a segment group's segments as one row (segments/segment-groups); dive sites have no segment groups.
     nonisolated private static let segmentBrowseSamples = browseSamples + ["groupResults"]
     /// The Trail page (segments/path-page).
-    nonisolated private static let pathSamples = ["loading", "failed", "loaded", "refreshFailed", "selected", "ride", "empty", "oneWay"]
+    nonisolated private static let pathSamples = ["loading", "failed", "loaded", "refreshFailed", "selected", "ride", "empty", "oneWay", "sections", "sectionsCollapsed"]
     nonisolated private static let inviteSamples = ["loading", "failed", "empty", "loaded", "overlapping", "accepting", "signInAgain"]
     /// An 11-inch iPad on its side: wide enough for browse's list beside its map.
     private static let iPad = CGSize(width: 1_180, height: 820)

@@ -64,6 +64,22 @@ struct InteractiveMapsTextTests {
         #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Imperial)) == "Trail · 1.26 mi · Run, Hike · Ride uphill only")
     }
 
+    @Test func aTrailsSectionsFoldTheirRowsAndOfferAllSections() throws {
+        let state = try #require(Samples.path["sections"])
+        #expect(state.items.count == 4)
+        let section = try #require(state.items.first as? PathListItem.Section)
+        #expect(AppStrings.string(PathTexts.shared.name(section: section)) == "Through the Trees Trail")
+        #expect(
+            AppStrings.string(PathTexts.shared.details(section: section, units: .Imperial))
+                == "4.16 mi · Ride · Downhill only · 3 segments")
+        #expect(state.isExpanded(section: section))
+        #expect(state.offersAllSections && state.allSectionsExpanded)
+        #expect(state.allSectionsEvent as? PathEvent.SetAllSections != nil)
+        let collapsed = try #require(Samples.path["sectionsCollapsed"])
+        #expect(!collapsed.isExpanded(section: try #require(collapsed.sections.first)))
+        #expect(AppStrings.string(PathTexts.shared.allSections(allExpanded: collapsed.allSectionsExpanded)) == "Expand all")
+    }
+
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {
         let state = try #require(Samples.diveSiteBrowse["loaded"])
         #expect(state.browse.listShows(mapSupported: true) == .Area)

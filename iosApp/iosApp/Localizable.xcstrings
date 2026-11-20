@@ -15379,6 +15379,50 @@
         }
       }
     },
+    "path_section_collapse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse %1$@"
+          }
+        }
+      }
+    },
+    "path_section_expand" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand %1$@"
+          }
+        }
+      }
+    },
+    "path_sections_collapse_all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse all"
+          }
+        }
+      }
+    },
+    "path_sections_expand_all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand all"
+          }
+        }
+      }
+    },
     "path_segment_count" : {
       "extractionState" : "manual",
       "localizations" : {
