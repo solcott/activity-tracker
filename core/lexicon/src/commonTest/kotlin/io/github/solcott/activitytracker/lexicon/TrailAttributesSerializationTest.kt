@@ -81,6 +81,20 @@ class TrailAttributesSerializationTest {
     }
 
     @Test
+    fun websitesAndDaysFollowOneRule() {
+        assertTrue(TrailAttributes.isWebsite("https://kingdomtrails.org/a?b=1"))
+        assertTrue(TrailAttributes.isWebsite("HTTP://Example.org:8080"))
+        assertFalse(TrailAttributes.isWebsite("https:///nohost"))
+        assertFalse(TrailAttributes.isWebsite("http://my_trails.org"))
+        assertFalse(TrailAttributes.isWebsite("https://example.org/a b"))
+        assertFalse(TrailAttributes.isWebsite("https://example.org/" + "a".repeat(600)))
+        assertTrue(TrailAttributes.isMonthDay("02-29"))
+        assertFalse(TrailAttributes.isMonthDay("02-30"))
+        assertFalse(TrailAttributes.isMonthDay("04-31"))
+        assertFalse(TrailAttributes.isMonthDay("2-15"))
+    }
+
+    @Test
     fun unknownWordsStillDecode() {
         val decoded = AtJson.decodeFromString(TrailAttributes.serializer(), """{"lit":"sometimes","future":1}""")
         assertEquals("sometimes", decoded.lit)

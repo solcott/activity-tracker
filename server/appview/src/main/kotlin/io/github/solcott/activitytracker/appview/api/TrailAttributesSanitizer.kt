@@ -15,7 +15,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
 import io.github.solcott.activitytracker.lexicon.app.TrailWheelchair
-import java.net.URI
 
 /**
  * Cleans untrusted [TrailAttributes] (segments/trail-attributes): when a candidate is staged and whenever a segment or path view serves
@@ -28,6 +27,7 @@ internal object TrailAttributesSanitizer {
     fun clean(trail: TrailAttributes?): TrailAttributes? {
         if (trail == null) return null
         val dates = datesOf(trail.openFrom, trail.openUntil)
+        val seasons = trail.seasons?.filter { it in TrailSeason.all }?.distinct()?.ifEmpty { null }
         val cleaned =
             TrailAttributes(
                 surfaces = surfacesOf(trail.surfaces),
@@ -46,8 +46,9 @@ internal object TrailAttributesSanitizer {
                 dog = trail.dog.within(TrailDog.all),
                 horse = trail.horse.within(TrailHorse.all),
                 wheelchair = trail.wheelchair.within(TrailWheelchair.all),
-                seasons = trail.seasons?.filter { it in TrailSeason.all }?.distinct()?.ifEmpty { null },
-                seasonal = true.takeIf { trail.seasonal == true },
+                seasons = seasons,
+                // Only for a seasonal trail with no seasons or dates known, as the lexicon defines it.
+                seasonal = true.takeIf { trail.seasonal == true && seasons == null && dates == null },
                 openFrom = dates?.first,
                 openUntil = dates?.second,
                 operator = operatorOf(trail.operator),
@@ -67,20 +68,23 @@ internal object TrailAttributesSanitizer {
 
     private fun Int?.within(range: IntRange): Int? = this?.takeIf { it in range }
 
-    /** Known surfaces with a share of 1 to 100, each once, at most 8, largest first, kept only while their sum stays at most 100. */
+    /**
+     * Known surfaces with a share of 1 to 100, each once at its largest share, at most 8, largest first, kept only while their sum stays at
+     * most 100.
+     */
     private fun surfacesOf(surfaces: List<TrailSurface>?): List<TrailSurface>? {
         var total = 0
         return surfaces
             ?.filter { it.surface in TrailSurfaces.all && it.percent in 1..MAX_PERCENT }
-            ?.distinctBy { it.surface }
             ?.sortedByDescending { it.percent }
+            ?.distinctBy { it.surface }
             ?.take(TrailAttributes.MAX_SURFACES)
             ?.filter { (total + it.percent <= MAX_PERCENT).also { fits -> if (fits) total += it.percent } }
             ?.ifEmpty { null }
     }
 
     private fun datesOf(from: String?, until: String?): Pair<String, String>? =
-        listOfNotNull(from, until).filter(TrailAttributes.MONTH_DAY::matches).takeIf { it.size == 2 }?.let { it[0] to it[1] }
+        listOfNotNull(from, until).filter(TrailAttributes::isMonthDay).takeIf { it.size == 2 }?.let { it[0] to it[1] }
 
     private fun operatorOf(operator: String?): String? =
         operator
@@ -88,13 +92,6 @@ internal object TrailAttributesSanitizer {
             ?.takeIf { it.isNotEmpty() && it.length <= TrailAttributes.MAX_OPERATOR_LENGTH }
             ?.takeIf { graphemes(it) <= TrailAttributes.MAX_OPERATOR_GRAPHEMES }
 
-    /** [website] when it is an absolute http or https URL with a host, at most 512 characters, with no spaces or control characters. */
-    private fun websiteOf(website: String?): String? {
-        val text = website?.trim()?.takeIf { it.isNotEmpty() && it.length <= TrailAttributes.MAX_WEBSITE_LENGTH }
-        val uri = text?.takeIf { t -> t.none { it.isWhitespace() || it.isISOControl() } }?.let { runCatching { URI(it) }.getOrNull() }
-        val web = uri?.scheme?.lowercase() in WEB_SCHEMES && !uri?.host.isNullOrBlank()
-        return text.takeIf { web }
-    }
-
-    private val WEB_SCHEMES = setOf("http", "https")
+    /** [website] trimmed, when it is one the lexicon holds ([TrailAttributes.isWebsite], the importer's rule too). */
+    private fun websiteOf(website: String?): String? = website?.trim()?.takeIf(TrailAttributes::isWebsite)
 }

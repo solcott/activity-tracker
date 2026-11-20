@@ -134,12 +134,14 @@ class TrailTextsTest {
         assertEquals(AppText.named("trail_season_only_winter"), TrailTexts.season(TrailAttributes(seasons = listOf("winter"))))
         assertEquals(AppText.named("trail_season_seasonal"), TrailTexts.season(TrailAttributes(seasonal = true, openFrom = "06-15")))
         assertNull(TrailTexts.season(TrailAttributes()))
+        assertNull(TrailTexts.season(TrailAttributes(openFrom = "02-30", openUntil = "04-15")), "a day its month lacks")
     }
 
     @Test
     fun onlyWebLinksAreOpened() {
         assertNull(TrailTexts.website("javascript:alert(1)"))
         assertNull(TrailTexts.website("ftp://example.com"))
+        assertNull(TrailTexts.website("https://example.org/a|b"))
         assertEquals("https://kingdomtrails.org", TrailTexts.website("https://kingdomtrails.org"))
         val rows = TrailTexts.rows(TrailAttributes(website = "javascript:alert(1)"), null)
         assertTrue(rows.isEmpty())

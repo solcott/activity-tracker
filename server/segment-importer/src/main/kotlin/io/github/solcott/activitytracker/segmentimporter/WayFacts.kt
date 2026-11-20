@@ -78,7 +78,6 @@ internal object FactValues {
     private val METRIC = Regex("""^$NUMBER\s*(cm|m|ft)?$""")
     private val FEET_INCHES = Regex("""^$NUMBER\s*'\s*(?:$NUMBER\s*")?$""")
     private val INCHES = Regex("""^$NUMBER\s*"$""")
-    private val HTTP = Regex("""^https?://\S+$""", RegexOption.IGNORE_CASE)
 
     /** Field values that say nothing: blanks, `N/A`, `None`, `Unknown`, `Not Applicable` and `N`. */
     private val NOTHING = setOf("", "n/a", "na", "none", "unknown", "not applicable", "n", "null")
@@ -117,11 +116,8 @@ internal object FactValues {
 
     private fun positiveCm(cm: Double): Int? = cm.roundToInt().takeIf { it in 1..TrailAttributes.MAX_WIDTH_CM }
 
-    /** [value] trimmed, when it is an absolute http or https URL the lexicon holds. */
-    fun website(value: String?): String? =
-        value?.trim()?.takeIf {
-            it.length <= TrailAttributes.MAX_WEBSITE_LENGTH && HTTP.matches(it) && it.substringAfter("://").isNotEmpty()
-        }
+    /** [value] trimmed, when it is a website the lexicon holds ([TrailAttributes.isWebsite], the AppView's rule too). */
+    fun website(value: String?): String? = value?.trim()?.takeIf(TrailAttributes::isWebsite)
 
     /** [value] trimmed, when it fits `trailAttributes#operator`. */
     fun operator(value: String?): String? =

@@ -145,6 +145,10 @@ class TrailTagsFactsTest {
         assertEquals("http://a.example", facts("website" to "http://a.example", "contact:website" to "https://b.example").website)
         assertEquals(null, facts("website" to "kingdomtrails.org").website, "only an absolute http(s) URL")
         assertEquals(null, facts("website" to "javascript:alert(1)").website)
+        assertEquals(null, facts("website" to "https://example.org/a|b").website, "a character no URL holds")
+        assertEquals(null, facts("website" to "http://my_trails.org").website, "a host the AppView can't read")
+        assertEquals(null, facts("website" to "https://user@example.org").website, "user info")
+        assertEquals("https://example.org:8443/a?b=1#c", facts("website" to "https://example.org:8443/a?b=1#c").website)
         assertEquals(null, facts("operator" to "x".repeat(101)).operator, "over 100 graphemes")
     }
 }

@@ -79,8 +79,30 @@ data class TrailAttributes(
         const val MAX_OPERATOR_LENGTH = 1_000
         const val MAX_WEBSITE_LENGTH = 512
 
-        /** `MM-DD`, as [openFrom] and [openUntil] hold. */
+        /** `MM-DD`, as [openFrom] and [openUntil] hold; [isMonthDay] also checks the day is in its month. */
         val MONTH_DAY = Regex("""(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])""")
+
+        /** Each month's days, February's 29 so a leap day is allowed. */
+        private val MONTH_DAYS = intArrayOf(31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+        /** Whether [text] is a day of the year as `MM-DD`: [MONTH_DAY]'s form, on a day its month has. */
+        fun isMonthDay(text: String): Boolean = MONTH_DAY.matches(text) && text.takeLast(2).toInt() <= MONTH_DAYS[text.take(2).toInt() - 1]
+
+        /**
+         * An absolute http or https URL: a host of letters, digits, hyphens and dots, an optional port, then only URL characters. No user
+         * info, spaces or control characters; an international host must be written in punycode.
+         */
+        private val WEBSITE =
+            Regex(
+                """https?://(?:[a-z0-9-]+\.)*[a-z0-9-]+(?::\d{1,5})?(?:[/?#][a-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]*)?""",
+                RegexOption.IGNORE_CASE,
+            )
+
+        /**
+         * Whether [text] may be a [website]: [WEBSITE]'s form and at most [MAX_WEBSITE_LENGTH] characters. The importer, the AppView and
+         * both clients ask this one rule, so none keeps a value another drops.
+         */
+        fun isWebsite(text: String): Boolean = text.length <= MAX_WEBSITE_LENGTH && WEBSITE.matches(text)
     }
 }
 

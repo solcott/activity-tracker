@@ -142,12 +142,7 @@ object TrailTexts {
     }
 
     /** [website] when it is an http or https URL a row may open, else null: clients check the scheme again before opening anything. */
-    fun website(website: String?): String? =
-        website?.trim()?.takeIf { url ->
-            (url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)) &&
-                url.length > "https://".length &&
-                url.none { it.isWhitespace() }
-        }
+    fun website(website: String?): String? = website?.trim()?.takeIf(TrailAttributes::isWebsite)
 
     /** Which difficulty scales a segment of one sport group shows; every scale on the Trail page, where [sport] is null. */
     private class ScaleFilter(sport: String?) {
@@ -163,7 +158,7 @@ object TrailTexts {
         named("trail_surface_share", whole(surface.percent), named("trail_surface_${surface.surface}"))
 
     private fun monthDay(text: String?): AppText? {
-        if (text == null || !TrailAttributes.MONTH_DAY.matches(text)) return null
+        if (text == null || !TrailAttributes.isMonthDay(text)) return null
         return DateText.monthDay(text.take(2).toInt(), text.takeLast(2).toInt())
     }
 

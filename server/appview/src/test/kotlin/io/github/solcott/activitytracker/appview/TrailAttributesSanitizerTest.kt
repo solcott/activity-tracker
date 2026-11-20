@@ -19,6 +19,8 @@ class TrailAttributesSanitizerTest {
         assertNull(clean(TrailAttributes(website = "https:///nohost")), "no host")
         assertNull(clean(TrailAttributes(website = "ftp://example.org")))
         assertNull(clean(TrailAttributes(website = "https://example.org/" + "a".repeat(600))), "over 512 characters")
+        assertNull(clean(TrailAttributes(website = "https://example.org/a|b")), "a character no URL holds")
+        assertNull(clean(TrailAttributes(website = "http://my_trails.org")), "an underscore in the host")
     }
 
     @Test
@@ -31,6 +33,8 @@ class TrailAttributesSanitizerTest {
     fun openDatesComeOnlyInValidPairs() {
         assertNull(clean(TrailAttributes(openFrom = "06-15")), "a lone openFrom")
         assertNull(clean(TrailAttributes(openFrom = "13-01", openUntil = "10-15")))
+        assertNull(clean(TrailAttributes(openFrom = "02-30", openUntil = "04-31")), "days their months lack")
+        assertEquals("02-29", clean(TrailAttributes(openFrom = "02-29", openUntil = "03-31"))?.openFrom, "a leap day")
         assertEquals(
             TrailAttributes(openFrom = "06-15", openUntil = "10-15"),
             clean(TrailAttributes(openFrom = "06-15", openUntil = "10-15")),
@@ -48,6 +52,18 @@ class TrailAttributesSanitizerTest {
         assertNull(clean(TrailAttributes(seasons = listOf("monsoon"))))
         assertEquals(listOf("winter"), clean(TrailAttributes(seasons = listOf("winter", "winter")))?.seasons)
         assertNull(clean(TrailAttributes(seasonal = false)))
+        assertEquals(TrailAttributes(seasons = listOf("winter")), clean(TrailAttributes(seasons = listOf("winter"), seasonal = true)))
+        assertEquals(
+            TrailAttributes(openFrom = "06-15", openUntil = "10-15"),
+            clean(TrailAttributes(openFrom = "06-15", openUntil = "10-15", seasonal = true)),
+            "seasonal only when nothing else is known",
+        )
+        assertEquals(
+            listOf(TrailSurface("paved", 60), TrailSurface("gravel", 35)),
+            clean(TrailAttributes(surfaces = listOf(TrailSurface("gravel", 5), TrailSurface("paved", 60), TrailSurface("gravel", 35))))
+                ?.surfaces,
+            "a repeated surface keeps its largest share",
+        )
     }
 
     @Test
