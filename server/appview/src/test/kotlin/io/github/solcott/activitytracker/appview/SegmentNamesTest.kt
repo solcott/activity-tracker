@@ -719,6 +719,57 @@ class SegmentNamesTest : SegmentTestBase() {
         assertEquals("Trail 214", currentName())
     }
 
+    // ---------------------------------------------------------------- Pinned names (segments/segment-pins)
+
+    private val operator = Did("did:plc:operator")
+
+    @Test
+    fun aPinnedNameHoldsOffProposalsAndAdoptionUntilUnpinned() {
+        activeSegment()
+        efforts(alice, 5)
+        val wiggly = votedProposal(up = 6, down = 1)
+        runBlocking { names.segmentPins.pinName(seg, "Hogback Climb", null, operator) }
+        assertEquals("Hogback Climb", currentName())
+
+        later(8.days)
+        pass()
+        assertEquals(ProposalState.OPEN, state(wiggly), "not adopted while the name is pinned")
+        assertEquals("Hogback Climb", currentName())
+
+        efforts(bob, 5)
+        propose("3kb", "Bob's Bend", did = bob)
+        assertNull(state(proposalUri("3kb", bob)), "no new proposals while pinned")
+        val bobs = view(bob).viewer!!
+        assertFalse(bobs.canProposeName)
+        assertTrue(bobs.canVoteOnNames, "riders still vote on the open ones")
+
+        runBlocking { names.segmentPins.unpinName(seg) }
+        assertEquals("Trail 214", currentName())
+        pass()
+        assertEquals(ProposalState.ADOPTED, state(wiggly))
+        assertEquals("Wiggly Woods", currentName())
+    }
+
+    @Test
+    fun aNamePinnedFromAProposalFollowsItsLabels() {
+        adoptWigglyWoods()
+        later(91.days)
+        efforts(bob, 5)
+        propose("3kq", "Rooty Run", did = bob)
+        val rooty = proposalUri("3kq", bob)
+        runBlocking { names.segmentPins.pinName(seg, null, rooty, operator) }
+        assertEquals("Rooty Run", currentName())
+        assertEquals(listOf("Wiggly Woods"), view().nameHistory.map { it.name }, "a pinned name isn't history")
+
+        label(rooty, "!takedown")
+        assertEquals("Wiggly Woods", currentName())
+        label(rooty, "!takedown", neg = true, cts = "2026-10-29T11:00:00Z")
+        assertEquals("Rooty Run", currentName())
+
+        label(bob, "!takedown")
+        assertEquals("Wiggly Woods", currentName(), "its proposer's label ends it too")
+    }
+
     @Test
     fun aHiddenOpenProposalIsntListedCountedOrAdopted() {
         activeSegment()

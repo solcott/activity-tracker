@@ -65,7 +65,8 @@ class PublishTest {
 
     private fun candidate(id: String) =
         if (id.startsWith("oneway-")) {
-            """{"id":"$id","sport":"ride","name":"Clarks","line":"line-$id","source":"osm","license":"ODbL-1.0","oneWay":true}"""
+            """{"id":"$id","sport":"ride","name":"Clarks","line":"line-$id","source":"osm","license":"ODbL-1.0","oneWay":true,""" +
+                """"climb":"downhill"}"""
         } else if (id.startsWith("lift-")) {
             """{"id":"$id","sport":"alpine","kind":"lift","name":"Summit Quad","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
         } else if (id.startsWith("usfs-")) {
@@ -145,6 +146,8 @@ class PublishTest {
         assertEquals(listOf("c1", "oneway-1"), publish(clients, "us-vermont", clock).published)
         assertEquals(true, written("oneway-1").oneWay)
         assertNull(written("c1").oneWay, "a two-way candidate's segment doesn't say")
+        assertEquals("downhill", written("oneway-1").climb)
+        assertNull(written("c1").climb, "a candidate with no climb gives none")
     }
 
     @Test

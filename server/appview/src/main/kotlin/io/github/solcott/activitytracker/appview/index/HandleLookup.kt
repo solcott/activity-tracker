@@ -72,3 +72,6 @@ private val HANDLE_RETRY = 1.hours
 
 /** A domain name of at least two labels: anything else can't be a handle, and would only be sent to the lookups to fail. */
 private val HANDLE = Regex("""[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+""")
+
+/** Whether [value], already lower-cased, has a handle's syntax. */
+internal fun isHandleSyntax(value: String): Boolean = HANDLE.matches(value)

@@ -2,14 +2,13 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.ModerationAccess
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -35,13 +34,11 @@ class ModerationAccessLog(private val db: Database, private val clock: Clock = C
         ModerationAccess.deleteWhere { at less cutoff }
     }
 
-    /** Prunes now and every [interval] until [scope] ends. */
-    fun start(scope: CoroutineScope, interval: Duration = 24.hours) {
-        scope.launch {
-            while (true) {
-                runSuspendCatching { prune() }
-                delay(interval)
-            }
+    /** Prunes now and every [interval] until cancelled, reporting each round to [worker]. */
+    suspend fun run(worker: WorkerHandle = WorkerHandle.None, interval: Duration = 24.hours): Nothing {
+        while (true) {
+            runSuspendCatching { prune() }.onSuccess { worker.success() }.onFailure { worker.failure(it) }
+            delay(interval)
         }
     }
 

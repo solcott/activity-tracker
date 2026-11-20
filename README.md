@@ -125,6 +125,12 @@ Elsewhere, set `TERRAIN_TILES_DIR` (and `TERRAIN_TILES_ZOOM` for another zoom). 
 [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) must be shown wherever
 derived elevation is credited.
 
+To watch the AppView's background work, set `METRICS_PORT` in `docker/.env` (for example `9464`): it then serves
+Prometheus metrics at `http://127.0.0.1:9464/metrics` (`METRICS_HOST` to bind elsewhere), never on the public port:
+Jetstream lag, segment job queues and failed jobs per kind, space sync failures, labeler cursors, each background
+worker's state and restarts, and request timings by route. `/xrpc/_health` says the process answers; `/xrpc/_ready`
+answers 503 while the database doesn't.
+
 The first `up` builds PLC, the relay and Jetstream from source, which takes a few minutes. The PDS is
 Bluesky's atproto Spaces alpha, pinned by digest. It is amd64-only, so Apple Silicon runs it under Rosetta.
 Its schemas change without migrations, so bumping it means wiping the volumes
@@ -207,6 +213,10 @@ AppView. Device mode doesn't need it: every client addresses the AppView by its 
 `:server-appview:run` also sets `APPVIEW_ALLOW_PRIVATE_ADDRESSES=true` unless the environment sets it. Outside local
 dev the AppView refuses to fetch from private, loopback or link-local addresses it learns from DID documents and handles,
 and every PDS and `did:web` on the local stack is `localhost`. It logs a warning at startup while the flag is on.
+
+An operator can rebuild one account's indexed state from its repo and spaces when the AppView missed events (admin/repo-reindex;
+the admin site's account page offers it). `REINDEX_MAX_CAR_BYTES`, `REINDEX_MAX_BLOCKS`, `REINDEX_TIMEOUT`, `REINDEX_WATCH_GRACE`
+and `REINDEX_PARALLELISM` bound it; `docker/.env.example` lists their defaults.
 
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.

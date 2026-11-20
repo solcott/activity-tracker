@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -305,23 +306,29 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
      * doesn't match its CID or isn't stream data, which is remembered as a failure.
      */
     private suspend fun fetch(source: Source): ActivityStreamData? {
-        val bytes = runSuspendCatching {
+        val fetched = runSuspendCatching {
             this.source.fetch(Did(source.author), source.blobCid, source.origin)
         }
             .onFailure { log.debug("Couldn't fetch stream data {} from {}: {}", source.blobCid, source.author, it.message) }
-            .getOrNull()
+        val bytes = fetched.getOrNull()
         // Bytes that aren't the blob the CID names say nothing about it: only this source is wrong, so it's retried like a missing blob,
         // never cached under the CID or marked bad for every source that names it.
         val genuine = bytes?.takeIf { it.size <= ActivityStreamsRecord.MAX_DATA_BYTES }?.takeIf { blobMatchesCid(Cid(source.blobCid), it) }
         if (bytes != null && bytes.size <= ActivityStreamsRecord.MAX_DATA_BYTES && genuine == null) {
             log.debug("Stream data from {} doesn't match its CID {}", source.author, source.blobCid)
-            failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE)
+            failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE, REASON_CID_MISMATCH)
             return null
         }
         val data = genuine?.let { decoded(source, it) }?.let(::bounded)
         when {
-            bytes == null -> failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE)
-            data == null -> failed(source, ActivityStreamFetchFailures.KIND_CONTENT)
+            bytes == null ->
+                failed(
+                    source,
+                    ActivityStreamFetchFailures.KIND_UNAVAILABLE,
+                    fetched.exceptionOrNull()?.let(ErrorSummary::of) ?: REASON_MISSING,
+                )
+            bytes.size > ActivityStreamsRecord.MAX_DATA_BYTES -> failed(source, ActivityStreamFetchFailures.KIND_CONTENT, REASON_TOO_LARGE)
+            data == null -> failed(source, ActivityStreamFetchFailures.KIND_CONTENT, REASON_NOT_STREAM_DATA)
             else -> held(source, data)
         }
         return data
@@ -346,8 +353,11 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         }
     }
 
-    /** Remembers a failed fetch from [source]: [kind] content for good, unavailable until a pause that doubles with each failure. */
-    private suspend fun failed(source: Source, kind: String) {
+    /**
+     * Remembers a failed fetch from [source]: [kind] content for good, unavailable until a pause that doubles with each failure, with why
+     * ([reason]: a fetch error's summary or one of this class's own, never the fetched bytes).
+     */
+    private suspend fun failed(source: Source, kind: String, reason: String) {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
             val key =
@@ -363,6 +373,8 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                 it[this.kind] = kind
                 it[this.failures] = failures
                 it[retryAt] = if (kind == ActivityStreamFetchFailures.KIND_CONTENT) null else now + retryAfterMillis(failures)
+                it[lastError] = ErrorSummary.text(reason)
+                it[lastFailedAt] = now
             }
         }
     }
@@ -370,6 +382,12 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
     private fun notFound(): Nothing = throw notFound("No streams the viewer may see")
 
     companion object {
+        /** Why a fetch failed, as recorded, when there's no fetch error to summarize. */
+        const val REASON_MISSING = "missing"
+        const val REASON_CID_MISMATCH = "CID mismatch"
+        const val REASON_TOO_LARGE = "too large"
+        const val REASON_NOT_STREAM_DATA = "not stream data"
+
         /** The pause after a first failed fetch of data that was missing or unreachable, doubling with each failure after. */
         const val FIRST_RETRY_MS = 60_000L
 

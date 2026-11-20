@@ -3,12 +3,17 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Blocks
+import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
+import io.github.solcott.activitytracker.appview.sync.NotIndexedException
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -19,9 +24,12 @@ import io.ktor.http.headersOf
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
@@ -29,6 +37,8 @@ import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteAll
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** `Existing Bluesky blocks are backfilled` (`graph/blocks`): an athlete's earlier `app.bsky.graph.block` records, read from their PDS. */
@@ -128,5 +138,165 @@ class BskyBlockBackfillTest {
         backfill.runDue()
         assertEquals(3, blocked().size)
         assertNotNull(syncedAt())
+    }
+
+    private fun failure(): Pair<Int, String>? = runBlocking {
+        db.tx {
+            BskyBlockBackfillFailures.selectAll()
+                .where { BskyBlockBackfillFailures.did eq alice }
+                .singleOrNull()
+                ?.let { it[BskyBlockBackfillFailures.failures] to it[BskyBlockBackfillFailures.lastError] }
+        }
+    }
+
+    /** Fails alice's backfill [times] in a row, each once its pause is over. */
+    private fun failTimes(times: Int) = runBlocking {
+        pdsUp = false
+        repeat(times) {
+            requests.clear()
+            backfill.runDue()
+            assertEquals(1, requests.size, "tried once its pause was over")
+            now += 1.days
+        }
+    }
+
+    @Test
+    fun repeatedFailuresBackOffLongerAndRecordTheError(): Unit = runBlocking {
+        joins()
+        pdsUp = false
+        backfill.runDue()
+        now += 10.minutes
+        backfill.runDue()
+        now += 20.minutes
+        backfill.runDue()
+        assertEquals(3 to "IllegalStateException: listRecords answered 502 Bad Gateway", failure())
+
+        requests.clear()
+        now += 39.minutes
+        backfill.runDue()
+        assertEquals(emptyList(), requests, "the third failure's pause is forty minutes")
+        now += 1.minutes
+        backfill.runDue()
+        assertEquals(1, requests.size)
+    }
+
+    @Test
+    fun thePauseIsAtMostADay() {
+        joins()
+        failTimes(12)
+        assertEquals(12, failure()?.first)
+    }
+
+    @Test
+    fun aRestartKeepsThePause(): Unit = runBlocking {
+        joins()
+        pdsUp = false
+        backfill.runDue()
+        pdsUp = true
+        requests.clear()
+        now += 5.minutes
+        // Another process over the same database, after a restart.
+        BskyBlockBackfill(db, indexer, http, PdsLookup { "https://pds.test" }, clock).runDue()
+        assertEquals(emptyList(), requests, "still backing off")
+    }
+
+    @Test
+    fun actorsBackingOffDontCrowdOutDueOnes(): Unit = runBlocking {
+        joins()
+        db.tx {
+            for (n in 1..60) {
+                Actors.insert {
+                    it[did] = "did:plc:waiting$n"
+                    it[handle] = "waiting$n.test"
+                    it[indexedAt] = 0
+                }
+                BskyBlockBackfillFailures.insert {
+                    it[did] = "did:plc:waiting$n"
+                    it[failures] = 1
+                    it[lastError] = "IOException"
+                    it[nextAttemptAt] = (now + 1.hours).toEpochMilliseconds()
+                }
+            }
+        }
+        backfill.runDue()
+        assertNotNull(syncedAt(), "alice is backfilled though more actors are backing off than a round handles")
+    }
+
+    @Test
+    fun aSuccessClearsTheFailure(): Unit = runBlocking {
+        joins()
+        failTimes(1)
+        pdsUp = true
+        backfill.runDue()
+        assertNotNull(syncedAt())
+        assertNull(failure())
+    }
+
+    @Test
+    fun anAccountsDeletionClearsItsFailure(): Unit = runBlocking {
+        joins()
+        failTimes(1)
+        indexer.handle(
+            JetstreamEvent.Account(
+                did = alice,
+                time = "2026-10-22T12:00:00.000000Z",
+                account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
+            ),
+        )
+        assertNull(failure())
+    }
+
+    @Test fun eachRoundIsReportedToItsWorker() = runBlocking { assertEquals(listOf(RecordingWorker.OK), reportsOf { backfill.run(it) }) }
+
+    private fun nextAttempt(): Long? = runBlocking {
+        db.tx {
+            BskyBlockBackfillFailures.selectAll()
+                .where { BskyBlockBackfillFailures.did eq alice }
+                .singleOrNull()
+                ?.get(BskyBlockBackfillFailures.nextAttemptAt)
+        }
+    }
+
+    @Test
+    fun backfillNowIndexesAStampedActorsBlocksAgain(): Unit = runBlocking {
+        joins()
+        backfill.runDue()
+        db.tx { Blocks.deleteAll() }
+        requests.clear()
+        assertEquals(3, backfill.backfillNow(Did(alice)))
+        assertEquals(3, blocked().size)
+        assertEquals(2, requests.size, "both pages read though alice was stamped")
+    }
+
+    @Test
+    fun backfillNowRunsWhileBackingOffAndClearsTheFailure(): Unit = runBlocking {
+        joins()
+        failTimes(1)
+        now -= 1.days
+        pdsUp = true
+        assertEquals(3, backfill.backfillNow(Did(alice)))
+        assertNull(failure())
+        assertNotNull(syncedAt())
+    }
+
+    @Test
+    fun backfillNowCountsAFailureAsTheLoopDoes(): Unit = runBlocking {
+        joins()
+        pdsUp = false
+        backfill.runDue()
+        val loopNext = nextAttempt()!!
+        db.tx { BskyBlockBackfillFailures.deleteAll() }
+        assertFailsWith<IllegalStateException> { backfill.backfillNow(Did(alice)) }
+        assertEquals(1, failure()?.first)
+        assertEquals(loopNext, nextAttempt(), "the same pause as a scheduled failure")
+        assertFailsWith<IllegalStateException> { backfill.backfillNow(Did(alice)) }
+        assertEquals(2, failure()?.first)
+    }
+
+    @Test
+    fun backfillNowOfAnUnindexedDidRecordsNothing(): Unit = runBlocking {
+        assertFailsWith<NotIndexedException> { backfill.backfillNow(Did(alice)) }
+        assertEquals(emptyList(), requests)
+        assertNull(failure())
     }
 }

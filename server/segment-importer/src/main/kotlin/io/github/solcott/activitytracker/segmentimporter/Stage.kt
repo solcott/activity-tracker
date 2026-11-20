@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import java.io.File
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -53,6 +54,7 @@ internal fun readCandidates(lines: Sequence<String>): CandidatesFile {
                 entry.attribution,
                 entry.kind,
                 entry.oneWay,
+                SegmentClimbs.of(entry.climb),
             )
     }
     return CandidatesFile(header.region, candidates)

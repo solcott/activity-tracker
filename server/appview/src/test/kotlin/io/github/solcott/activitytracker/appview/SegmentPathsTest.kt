@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.GetPaths
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
+import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SearchPathNames
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.ktor.client.statement.bodyAsText
@@ -107,6 +108,51 @@ class SegmentPathsTest : SegmentTestBase() {
         assertEquals(emptyList(), client.pathsOf("3ka"))
         assertEquals(emptyList(), client.xrpcOk(GetPaths.method, mapOf("uris" to pathUri("anns", bob))).paths)
         assertEquals("NotFound", client.xrpcError(GetPath.method, mapOf("uri" to pathUri("river")), viewer = carol))
+    }
+
+    /** Publishes an importer segment along [path] under [rkey], one-way when [oneWay], with [climb] when given. */
+    private fun importerSegment(rkey: String, path: List<Pair<Double, Double>>, sport: String, oneWay: Boolean, climb: String? = null) {
+        val extra = (if (oneWay) ",\"oneWay\":true" else "") + climb?.let { ",\"climb\":\"$it\"" }.orEmpty()
+        commit(
+            importer,
+            Nsid.FEED_SEGMENT,
+            rkey,
+            segmentJson(path = path, sport = sport).replace("\"source\":\"athlete\"", "\"source\":\"osm\"$extra"),
+        )
+    }
+
+    @Test
+    fun aPathSaysWhichSportGroupsGoOneWayAndWhichWay() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        path("anns", anns)
+        path("hogback", hogback, name = "Hogback")
+        // Ann's: ride one way only, the longest piece served downhill and a shorter one with no climb; run partly two-way.
+        importerSegment("osm-a", listOf(0.0 to 0.0, 0.0 to 3000.0), "ride", oneWay = true, climb = "downhill")
+        importerSegment("osm-b", listOf(0.0 to 3000.0, 0.0 to 4500.0), "ride", oneWay = true)
+        importerSegment("osm-c", listOf(0.0 to 0.0, 0.0 to 2000.0), "run", oneWay = true)
+        importerSegment("osm-d", listOf(0.0 to 2500.0, 0.0 to 1000.0), "run", oneWay = false)
+        // Hogback: ride one way east, with no climb or elevation served.
+        importerSegment("osm-e", listOf(0.0 to 5000.0, 2500.0 to 5000.0), "ride", oneWay = true)
+
+        val annsView = client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("anns")), viewer = carol).path
+        assertEquals(listOf("ride", "run"), annsView.sports)
+        assertEquals(listOf(PathOneWay("ride", "downhill")), annsView.oneWays, "run has a two-way segment, so it says nothing")
+        val hogbackView = client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("hogback")), viewer = carol).path
+        assertEquals(listOf(PathOneWay("ride", "eastbound")), hogbackView.oneWays, "by compass with no climb")
+    }
+
+    @Test
+    fun anAthletesOneWayFlagDoesntMakeAPathOneWay() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        path("anns", anns)
+        commit(
+            alice,
+            Nsid.FEED_SEGMENT,
+            "3ka",
+            segmentJson(path = listOf(0.0 to 1000.0, 0.0 to 2200.0), sport = "ride").replace("}", ",\"oneWay\":true,\"climb\":\"uphill\"}"),
+        )
+        activate("3ka")
+        assertEquals(emptyList(), client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("anns")), viewer = carol).path.oneWays)
     }
 
     @Test

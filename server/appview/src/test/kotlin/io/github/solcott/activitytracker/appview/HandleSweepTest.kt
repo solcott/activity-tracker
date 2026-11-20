@@ -2,17 +2,22 @@ package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.index.HandleCheck
 import io.github.solcott.activitytracker.appview.index.HandleSweep
 import io.github.solcott.activitytracker.appview.index.HandleVerifier
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker
+import io.github.solcott.activitytracker.appview.ops.RecordingWorker.Companion.reportsOf
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
@@ -95,5 +100,25 @@ class HandleSweepTest {
         clock.now += 25.hours
         sweep.runDue()
         assertEquals("alice.example.com" to (clock.now + 1.hours).toEpochMilliseconds(), stored(alice))
+    }
+
+    @Test fun eachRoundIsReportedToItsWorker() = runBlocking { assertEquals(listOf(RecordingWorker.OK), reportsOf { sweep.run(it) }) }
+
+    @Test
+    fun aRecheckOfAnUnknownDidStoresNothing() = runTest {
+        assertEquals(null, indexer.recheckHandle(Did(alice)))
+        assertEquals(0, transaction(db) { Actors.selectAll().count() })
+    }
+
+    @Test
+    fun aRecheckReturnsWhatItStored() = runTest {
+        profile(alice)
+        identities.claims[alice] = "alice.new.example"
+        identities.handles["alice.new.example"] = alice
+        assertEquals(
+            HandleCheck.Verified("alice.new.example"),
+            indexer.recheckHandle(Did(alice)),
+        )
+        assertEquals("alice.new.example", stored(alice).first)
     }
 }

@@ -9,7 +9,8 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 object DatabaseFactory {
-    fun connect(url: String, user: String, password: String): Database {
+    /** Connects and migrates; with [meterRegistry], the pool reports its metrics there (dev/worker-telemetry). */
+    fun connect(url: String, user: String, password: String, meterRegistry: Any? = null): Database {
         val dataSource =
             HikariDataSource(
                 HikariConfig().apply {
@@ -17,6 +18,7 @@ object DatabaseFactory {
                     username = user
                     this.password = password
                     maximumPoolSize = 10
+                    meterRegistry?.let { metricRegistry = it }
                 },
             )
         migrate(dataSource)

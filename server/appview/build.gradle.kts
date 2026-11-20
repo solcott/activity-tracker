@@ -55,6 +55,10 @@ fun localStackEnvironment(
     // Terrain tiles scripts/terrain-fetch.sh writes into build/terrain, so segments get terrain elevation
     // (segments/segment-elevation).
     default("TERRAIN_TILES_DIR") { rootDir.resolve("build/terrain").takeIf { it.isDirectory }?.path }
+    // Who may use the admin site (docker/scripts/setup-admin.sh; admin/admin-site).
+    default("APPVIEW_ADMINS") { fromDockerEnv("APPVIEW_ADMINS") }
+    // The internal metrics port and its address (dev/worker-telemetry), when docker/.env sets them.
+    for (key in listOf("METRICS_PORT", "METRICS_HOST")) default(key) { fromDockerEnv(key) }
     // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
     for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) default(key) { fromDockerEnv(key) }
     // The local Ozone's labeler account (docker/scripts/setup-labeler.sh), at the port compose publishes.
@@ -108,6 +112,8 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari)
+    // The admin site's htmx, served from the classpath (admin/admin-site).
+    implementation(libs.htmx)
     implementation(libs.ipaddress)
     // Decodes labelers' subscribeLabels frames (DAG-CBOR); the server only, clients never see CBOR.
     implementation(libs.jackson.dataformat.cbor)
@@ -120,9 +126,12 @@ dependencies {
     implementation(libs.ktor.server.content.negotiation)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.html.builder)
+    implementation(libs.ktor.server.metrics.micrometer)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.status.pages)
     implementation(libs.logback)
+    implementation(libs.micrometer.registry.prometheus)
     implementation(libs.postgresql)
 
     testImplementation(kotlin("test"))

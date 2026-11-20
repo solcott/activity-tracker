@@ -60,6 +60,8 @@ struct InteractiveMapsTextTests {
         let lines = state.groups.map { AppStrings.string(PathTexts.shared.details(group: $0, units: .Imperial)) }
         #expect(lines == ["1.26 mi · Run, Hike both ways · Ride uphill only"])
         #expect(AppStrings.string(PathTexts.shared.name(group: state.groups[0])) == "Clarks")
+        let path = try #require(state.path)
+        #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Imperial)) == "Trail · 1.26 mi · Run, Hike · Ride uphill only")
     }
 
     @Test func siteBrowseListsTheSamplesSitesWithTheirDetails() throws {

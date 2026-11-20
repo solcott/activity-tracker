@@ -1,9 +1,15 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class AppViewConfigTest {
     @Test
@@ -21,6 +27,59 @@ class AppViewConfigTest {
     fun managingAppServiceFollowsExplicitDid() {
         val config = AppViewConfig.fromEnv(mapOf("APPVIEW_DID" to "did:web:appview.example.com"))
         assertEquals("did:web:appview.example.com#activitytracker_space", config.managingAppService)
+    }
+
+    @Test
+    fun metricsAreOffUnlessAPortIsSet() {
+        val config = AppViewConfig.fromEnv(emptyMap())
+        assertEquals(null, config.metricsPort)
+        assertEquals("127.0.0.1", config.metricsHost)
+    }
+
+    @Test
+    fun metricsPortAndHostComeFromTheEnvironment() {
+        val config = AppViewConfig.fromEnv(mapOf("METRICS_PORT" to " 9464 ", "METRICS_HOST" to "0.0.0.0"))
+        assertEquals(9464, config.metricsPort)
+        assertEquals("0.0.0.0", config.metricsHost)
+    }
+
+    @Test
+    fun metricsAreNeverOnThePublicPort() {
+        val error =
+            assertFailsWith<IllegalArgumentException> { AppViewConfig.fromEnv(mapOf("APPVIEW_PORT" to "8081", "METRICS_PORT" to "8081")) }
+        assertTrue("METRICS_PORT" in error.message.orEmpty())
+    }
+
+    @Test
+    fun reindexLimitsHaveDefaultsAndReadOverrides() {
+        assertEquals(AppViewConfig.ReindexLimits(), AppViewConfig.fromEnv(emptyMap()).reindex)
+        val config =
+            AppViewConfig.fromEnv(
+                mapOf(
+                    "REINDEX_MAX_CAR_BYTES" to "1000",
+                    "REINDEX_MAX_BLOCKS" to "50",
+                    "REINDEX_TIMEOUT" to "5m",
+                    "REINDEX_WATCH_GRACE" to "90s",
+                    "REINDEX_PARALLELISM" to "40",
+                ),
+            )
+        assertEquals(
+            AppViewConfig.ReindexLimits(maxCarBytes = 1000, maxBlocks = 50, timeout = 5.minutes, parallelism = 8, watchGrace = 90.seconds),
+            config.reindex,
+        )
+        // Nonsense falls back to the defaults.
+        assertEquals(
+            AppViewConfig.ReindexLimits(),
+            AppViewConfig.fromEnv(mapOf("REINDEX_TIMEOUT" to "soon", "REINDEX_PARALLELISM" to "0")).reindex,
+        )
+    }
+
+    @Test
+    fun jetstreamRewindMaxDefaultsToADayAndReadsAPositiveDuration() {
+        assertEquals(24.hours, AppViewConfig.fromEnv(emptyMap()).jetstreamRewindMax)
+        assertEquals(6.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "6h")).jetstreamRewindMax)
+        assertEquals(24.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "a while")).jetstreamRewindMax)
+        assertEquals(24.hours, AppViewConfig.fromEnv(mapOf("JETSTREAM_REWIND_MAX" to "-1h")).jetstreamRewindMax)
     }
 
     @Test
@@ -148,5 +207,25 @@ class AppViewConfigTest {
             AppViewConfig.TerrainTilesConfig("/tiles", 13),
             AppViewConfig.fromEnv(mapOf("TERRAIN_TILES_DIR" to "/tiles", "TERRAIN_TILES_ZOOM" to "13")).terrainTiles,
         )
+    }
+
+    @Test
+    fun adminsAreParsedWithRoles() {
+        val config = AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to " did:plc:alice=operator, did:plc:bob = viewer ,"))
+        assertEquals(mapOf(Did("did:plc:alice") to AdminRole.Operator, Did("did:plc:bob") to AdminRole.Viewer), config.admins)
+    }
+
+    @Test
+    fun noAdminsWhenUnsetOrBlank() {
+        assertEquals(emptyMap(), AppViewConfig.fromEnv(emptyMap()).admins)
+        assertEquals(emptyMap(), AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to "  ")).admins)
+    }
+
+    @Test
+    fun malformedAdminEntryFailsNamingIt() {
+        for (bad in listOf("did:plc:alice", "did:plc:alice=root", "alice=operator", "=viewer", "did:=viewer")) {
+            val e = assertFailsWith<IllegalArgumentException> { AppViewConfig.fromEnv(mapOf("APPVIEW_ADMINS" to "did:plc:ok=viewer,$bad")) }
+            assertTrue(bad in e.message.orEmpty(), "${e.message} names $bad")
+        }
     }
 }

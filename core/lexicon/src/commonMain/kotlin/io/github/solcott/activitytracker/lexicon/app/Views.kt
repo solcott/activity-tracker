@@ -276,6 +276,11 @@ data class SegmentView(
      */
     val oneWay: Boolean? = null,
     /**
+     * A [SegmentClimbs] value: as [SegmentRecord.climb], served only for the segment importer's segment (segments/segment-direction); null
+     * otherwise, when the apps judge from [elevationGain] and [elevationLoss].
+     */
+    val climb: String? = null,
+    /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].
      */
@@ -316,7 +321,17 @@ data class PathView(
     val sports: List<String> = emptyList(),
     /** How many segment groups those segments form. */
     val groupCount: Int = 0,
+    /**
+     * The sport groups among [sports] that go it one way only, other than alpine, each with its way, in app order (segments/segment-paths).
+     */
+    val oneWays: List<PathOneWay> = emptyList(),
 )
+
+/**
+ * `app.activitytracker.feed.defs#pathOneWay`: a [sport] group that goes a path one way only, in [direction], a segment direction's word
+ * (`uphill`, `downhill`, a compass word or a turn; segments/segment-direction).
+ */
+@Immutable @Serializable data class PathOneWay(val sport: String, val direction: String)
 
 /** `app.activitytracker.feed.defs#segmentNameAdoption`: a community name the segment adopted. */
 @Immutable

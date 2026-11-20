@@ -14,14 +14,15 @@ object PathTexts {
     /** What the path is: "Trail" or "Road". */
     fun kind(path: PathView): AppText = AppText.named(if (path.kind == PathKind.ROAD) "path_kind_road" else "path_kind_trail")
 
-    /** The line under the path's name: its kind, length and sport groups ("Trail · 5.40 mi · Ride, Run, Hike"). */
+    /**
+     * The line under the path's name: its kind, length and sport groups, with which go it one way only as a trail's row says
+     * (segments/path-page): "Trail · 5.40 mi · Ride, Run, Hike", "Trail · 4.70 mi · Ride · Downhill only".
+     */
     fun summary(path: PathView, units: UnitSystem): AppText =
-        listOfNotNull(
-                kind(path),
-                StatText.distance(path.lengthMeters.toDouble(), units),
-                AppText.joined(path.sports.map(SegmentTexts::sportGroup)),
-            )
-            .reduce { line, next -> AppText.named("segment_browse_details", line, next) }
+        (listOf(kind(path), StatText.distance(path.lengthMeters.toDouble(), units)) + pathSportParts(path, path.sports)).reduce { line, next
+            ->
+            AppText.named("segment_browse_details", line, next)
+        }
 
     /** A segment group's row: its name, as browse names it. */
     fun name(group: SegmentGroupRow): AppText = SegmentBrowseTexts.groupName(group)

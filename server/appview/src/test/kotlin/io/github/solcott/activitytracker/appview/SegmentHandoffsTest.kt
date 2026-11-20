@@ -125,6 +125,20 @@ class SegmentHandoffsTest : SegmentTestBase() {
     }
 
     @Test
+    fun aHandoffsSuccessorTakesNoPins() {
+        aliceActive()
+        runBlocking { indexer.segmentPins.pinName(aliceSeg, "Hogback Climb", null, Did("did:plc:operator")) }
+        remove(alice, Nsid.FEED_SEGMENT, "3ks")
+        val handoff = pending().single()
+        republish(handoff)
+
+        val successor = segmentUri(handoff.id, importer)
+        assertEquals(emptyList(), runBlocking { indexer.segmentPins.pinsOf(successor) })
+        assertEquals("Hill", lookUp(successor).name, "its name comes from the handoff, not the old URI's pin")
+        assertEquals(listOf(aliceSeg), runBlocking { indexer.segmentPins.orphanedPins(10) }.map { it.segmentUri })
+    }
+
+    @Test
     fun aProposedSegmentIsNotHandedOff() {
         segment("3ks")
         remove(alice, Nsid.FEED_SEGMENT, "3ks")

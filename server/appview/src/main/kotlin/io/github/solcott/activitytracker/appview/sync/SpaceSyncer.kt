@@ -4,8 +4,11 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.spaceRkeys
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
+import io.github.solcott.activitytracker.appview.ops.WorkerHandle
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
@@ -71,6 +74,8 @@ class SpaceSyncer(
     private val resyncAfter: Duration = 1.hours,
     private val notFoundGrace: Duration = 24.hours,
     parallelism: Int = 4,
+    /** Told how each sync ends, for the metrics (dev/worker-telemetry). */
+    private val outcomes: SyncOutcomes = SyncOutcomes.None,
 ) {
     private val log = LoggerFactory.getLogger(SpaceSyncer::class.java)
     private val wakeups = Channel<Unit>(Channel.CONFLATED)
@@ -83,6 +88,12 @@ class SpaceSyncer(
 
     /** Spaces with a sync launched by [launchDue] and not yet finished, so a slow one is never launched twice. */
     private val running = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * Spaces an operator forced a resync of ([resyncAccount]): their next sync backfills whatever its stored state, even if a sync running
+     * when they were forced stores a set hash again.
+     */
+    private val forced = ConcurrentHashMap.newKeySet<String>()
 
     /** Spaces notified while a sync of them ran, which may have read the log before the write: they're pulled again at once. */
     private val renotified = ConcurrentHashMap.newKeySet<String>()
@@ -117,21 +128,43 @@ class SpaceSyncer(
     }
 
     /**
-     * Runs until [scope] is cancelled: starts a sync of each due space, then waits for the next one to come due or a wakeup, without
-     * waiting for the syncs it started. A failure to read what's due is logged and retried on the next round.
+     * An operator's forced resync of [authority]'s spaces (spaces/appview-syncer, admin/repo-reindex): every space synced for it is made
+     * due now and backfilled in full (its set hash is cleared, so the next sync lists everything and drops what's gone), and each standard
+     * athlete space it has no row for is announced, so its PDS decides whether it exists. Returns how many spaces were queued; their
+     * outcomes are their own sync state.
      */
-    fun start(scope: CoroutineScope) {
-        scope.launch {
-            while (true) {
-                try {
-                    launchDue(scope)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                    log.warn("Reading the spaces due to sync failed; retrying: {}", e.message)
-                }
-                withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() }
+    suspend fun resyncAccount(authority: Did): Int {
+        val known = db.tx {
+            SpaceSync.update({ SpaceSync.authorityDid eq authority.value }) {
+                it[setHash] = null
+                it[nextAttemptAt] = clock.now().toEpochMilliseconds()
             }
+            SpaceSync.select(SpaceSync.space).where { SpaceSync.authorityDid eq authority.value }.map { it[SpaceSync.space] }.toSet()
+        }
+        val standard = (TIERS + AthleteSpace.INTERACTIONS).map { SpaceUri.of(authority, Nsid.SPACE_ATHLETE, it) }
+        forced += known
+        standard.filter { it.value !in known }.forEach { announce(it) }
+        wakeups.trySend(Unit)
+        return (known + standard.map { it.value }).size
+    }
+
+    /**
+     * Runs until cancelled: starts a sync of each due space in [scope], then waits for the next one to come due or a wakeup, without
+     * waiting for the syncs it started. A failure to read what's due is logged, reported to [worker] and retried on the next round; a
+     * failing space is that space's own (`space_sync`), not the worker's.
+     */
+    suspend fun run(scope: CoroutineScope, worker: WorkerHandle = WorkerHandle.None): Nothing {
+        while (true) {
+            try {
+                launchDue(scope)
+                worker.success()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                worker.failure(e)
+                log.warn("Reading the spaces due to sync failed; retrying: {}", e.message)
+            }
+            withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() }
         }
     }
 
@@ -181,11 +214,14 @@ class SpaceSyncer(
                                 it[notFoundSince] = null
                                 it[SpaceSync.registeredUntil] = renewed
                                 it[failures] = 0
+                                it[SpaceSync.lastError] = null
+                                it[SpaceSync.lastErrorAt] = null
                                 it[SpaceSync.syncedAt] = clock.now().toEpochMilliseconds()
                                 val next = if (renotified.contains(space.value)) clock.now() else clock.now() + reconcileInterval
                                 it[nextAttemptAt] = next.toEpochMilliseconds()
                             }
                         }
+                        outcomes.outcome(SyncOutcome.OK)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: XrpcException) {
@@ -213,9 +249,11 @@ class SpaceSyncer(
      */
     private suspend fun pullOrBackfill(space: SpaceUri, state: ResultRow, now: Instant): Synced {
         val rev = state[SpaceSync.repoRev]
-        val stored = state[SpaceSync.setHash]
+        // A forced space stays forced until a backfill of it succeeds, so a failed one is backfilled again rather than pulled.
+        val force = space.value in forced
+        val stored = state[SpaceSync.setHash].takeUnless { force }
         val pulled = if (rev != null && stored != null && state.syncedWithin(resyncAfter, now)) pull(space, rev, stored) else null
-        return pulled ?: backfill(space)
+        return pulled ?: backfill(space).also { if (force) forced.remove(space.value) }
     }
 
     /**
@@ -346,6 +384,7 @@ class SpaceSyncer(
         indexer.dropSpace(space)
         db.tx { SpaceSync.deleteWhere { SpaceSync.space eq space.value } }
         renotified.remove(space.value)
+        outcomes.outcome(SyncOutcome.DROPPED)
     }
 
     /** A failed sync: back off. [notFoundSince] is the `SpaceNotFound` run this failure continues, or null for any other failure. */
@@ -353,13 +392,17 @@ class SpaceSyncer(
         val failures = state[SpaceSync.failures] + 1
         val delay = minOf(BACKOFF_BASE * (1 shl minOf(failures - 1, BACKOFF_DOUBLINGS)), BACKOFF_MAX)
         log.warn("Syncing {} failed ({} in a row), retrying in {}: {}", space, failures, delay, e.message)
+        val now = clock.now()
         db.tx {
             SpaceSync.update({ SpaceSync.space eq space.value }) {
                 it[SpaceSync.failures] = failures
+                it[SpaceSync.lastError] = ErrorSummary.of(e)
+                it[SpaceSync.lastErrorAt] = now.toEpochMilliseconds()
                 it[SpaceSync.notFoundSince] = notFoundSince
-                it[nextAttemptAt] = (clock.now() + delay).toEpochMilliseconds()
+                it[nextAttemptAt] = (now + delay).toEpochMilliseconds()
             }
         }
+        outcomes.outcome(SyncOutcome.FAILED)
     }
 
     private suspend fun dueNow(space: SpaceUri) {
@@ -416,3 +459,20 @@ private suspend fun isSynced(db: Database, space: SpaceUri): Boolean = db.tx {
 /** Whether this `space_sync` row last synced within [window] of [now]. */
 private fun ResultRow.syncedWithin(window: Duration, now: Instant): Boolean =
     this[SpaceSync.syncedAt]?.let { now.toEpochMilliseconds() - it <= window.inWholeMilliseconds } ?: false
+
+/** How a space sync ended: synced, failed and backing off, or the space dropped. */
+enum class SyncOutcome(val tag: String) {
+    OK("ok"),
+    FAILED("failed"),
+    DROPPED("dropped"),
+}
+
+/** Told how each space sync ends; the metrics count them (dev/worker-telemetry). */
+fun interface SyncOutcomes {
+    fun outcome(outcome: SyncOutcome)
+
+    companion object {
+        /** Counts nothing. */
+        val None = SyncOutcomes {}
+    }
+}

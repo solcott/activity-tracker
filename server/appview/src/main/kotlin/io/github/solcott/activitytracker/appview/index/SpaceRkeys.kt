@@ -43,6 +43,9 @@ internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Se
     return rkeys(space).toSet()
 }
 
+/** How many [collection] records are indexed from [space]: [spaceRkeys]' size, for the admin site's account page. */
+internal fun JdbcTransaction.spaceRkeyCount(space: SpaceUri, collection: String): Int = spaceRkeys(space, collection).size
+
 /** The collections [spaceRkeys] can list. */
 internal val spaceRkeyCollections: Set<String>
     get() = SPACE_RKEYS.keys

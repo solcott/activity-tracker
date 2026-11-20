@@ -13,12 +13,13 @@ import io.github.solcott.activitytracker.location.SegmentHeading
 import io.github.solcott.activitytracker.location.TrackMath
 import java.security.MessageDigest
 import java.text.BreakIterator
+import java.util.IdentityHashMap
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 
 /** A candidate segment before it's written (segments/trail-candidates). */
 @Suppress("LongParameterList") // A plain holder of what the writer and dedup read.
-internal class Candidate(
+internal data class Candidate(
     val id: String,
     val group: String,
     val name: String,
@@ -39,6 +40,11 @@ internal class Candidate(
     val segmentKind: String = SegmentKind.RUN,
     /** Given in this direction only, by a one-way tag or because it is alpine (segments/segment-direction). */
     val oneWay: Boolean = false,
+    /**
+     * Whether it climbs or descends in its direction of travel (segments/trail-candidates): its own line's clear climb, else its trail's,
+     * else that of the one-way routes through it ([RouteClimbs]); null without terrain, when none clearly climbs, and for alpine.
+     */
+    val climb: SegmentClimb? = null,
 )
 
 /**
@@ -70,6 +76,9 @@ internal class CandidateCutter(
 
     /** Each agency way's feature key, for an agency candidate's id and features. */
     private val agencyKeys: Map<Long, String> = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
+
+    /** Each trail's whole line's climb in its own order, judged once per trail (segments/trail-candidates). */
+    private val trailClimbs = IdentityHashMap<Trail, SegmentClimb?>()
 
     /** Each way by id, for the sport groups a trail's own ways are open to. */
     private val waysById: Map<Long, OsmWay> = data.ways.associateBy { it.id }
@@ -193,8 +202,8 @@ internal class CandidateCutter(
         val ways = trail.edgeWays.slice(a until b).let { if (reversed) it.reversed() else it }.dedupeRuns()
         // Whether travel follows the first way's own node order: the two directions of a loop share their ways and end nodes.
         val alongFirstWay = if (reversed) trail.edgeReversed[b - 1] else !trail.edgeReversed[a]
-        val name =
-            nameOf(trail, piece, nodes, bothWays) { SegmentDirection.of(SegmentHeading.of(points), climbAlong(trail, piece, reversed)) }
+        val ownClimb by lazy { climbAlong(trail, piece, reversed) }
+        val name = nameOf(trail, piece, nodes, bothWays) { SegmentDirection.of(SegmentHeading.of(points), ownClimb) }
         val line = simplified(points)
         val length = SegmentGeometry.lengthMeters(line)
         if (length < SegmentSportGroup.minMeters(trail.group) || length > SegmentSportGroup.MAX_METERS) return null
@@ -225,6 +234,7 @@ internal class CandidateCutter(
             attribution = trail.rules.attribution,
             agencyFeatures = features,
             oneWay = !bothWays,
+            climb = climbOf(trail, reversed) { ownClimb },
         )
     }
 
@@ -257,6 +267,20 @@ internal class CandidateCutter(
     private fun climbAlong(trail: Trail, piece: Piece, reversed: Boolean): SegmentClimb? {
         val judge = climbOf ?: return null
         val climb = judge(trail.points.subList(piece.range.first, piece.range.last + 1))
+        return if (reversed) climb?.reversed() else climb
+    }
+
+    /** A candidate's climb (segments/trail-candidates): its [own], else its trail's; none for alpine. */
+    private fun climbOf(trail: Trail, reversed: Boolean, own: () -> SegmentClimb?): SegmentClimb? =
+        if (trail.group == SegmentSportGroup.ALPINE) null else own() ?: trailClimb(trail, reversed)
+
+    /**
+     * Whether [trail]'s whole line clearly climbs or descends travelled [reversed] or not, so a flat piece of a trail that climbs takes its
+     * trail's climb; null without terrain.
+     */
+    private fun trailClimb(trail: Trail, reversed: Boolean): SegmentClimb? {
+        val judge = climbOf ?: return null
+        val climb = trailClimbs.getOrPut(trail) { judge(trail.points) }
         return if (reversed) climb?.reversed() else climb
     }
 

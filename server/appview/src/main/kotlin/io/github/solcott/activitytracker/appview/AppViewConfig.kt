@@ -1,9 +1,13 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.terrain.TerrainTiles
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
@@ -80,7 +84,62 @@ data class AppViewConfig(
      * comma-separated). Empty: that file answers 404.
      */
     val appleAppIds: List<String> = emptyList(),
+    /**
+     * Who may use the admin site and with which role (`APPVIEW_ADMINS`, comma-separated `did=viewer|operator`; admin/admin-site). Empty:
+     * the site isn't mounted and every `/admin` path is `404`.
+     */
+    val admins: Map<Did, AdminRole> = emptyMap(),
+    /**
+     * The internal port Prometheus metrics are served on at `/metrics` (`METRICS_PORT`; dev/worker-telemetry). Null: no metrics are
+     * collected or served. Never the public [port].
+     */
+    val metricsPort: Int? = null,
+    /** The address the metrics port binds to (`METRICS_HOST`), loopback unless set. */
+    val metricsHost: String = DEFAULT_METRICS_HOST,
+    /** Limits on an operator's reindex of one account (`REINDEX_*`; admin/repo-reindex). */
+    val reindex: ReindexLimits = ReindexLimits(),
+    /** How far back an operator may rewind Jetstream (`JETSTREAM_REWIND_MAX`, a Kotlin duration; admin/ingest-health). */
+    val jetstreamRewindMax: Duration = DEFAULT_JETSTREAM_REWIND_MAX,
 ) {
+    /**
+     * How much a reindex reads and how many run: the largest repo it fetches ([maxCarBytes], `REINDEX_MAX_CAR_BYTES`) and its most blocks
+     * ([maxBlocks], `REINDEX_MAX_BLOCKS`), the longest one run takes ([timeout], `REINDEX_TIMEOUT`, a Kotlin duration such as `30m`), how
+     * many run at once ([parallelism], `REINDEX_PARALLELISM`), and how long after a run Jetstream commits its snapshot covers are still
+     * dropped ([watchGrace], `REINDEX_WATCH_GRACE`).
+     */
+    data class ReindexLimits(
+        val maxCarBytes: Long = DEFAULT_MAX_CAR_BYTES,
+        val maxBlocks: Int = DEFAULT_MAX_BLOCKS,
+        val timeout: Duration = 30.minutes,
+        val parallelism: Int = 2,
+        val watchGrace: Duration = 15.minutes,
+    ) {
+        companion object {
+            fun fromEnv(env: Map<String, String>): ReindexLimits {
+                val defaults = ReindexLimits()
+                fun positiveLong(key: String) = env[key]?.trim()?.toLongOrNull()?.takeIf { it > 0 }
+                fun duration(key: String) = env[key]?.trim()?.let(Duration::parseOrNull)?.takeIf { it.isPositive() }
+                return ReindexLimits(
+                    maxCarBytes = positiveLong("REINDEX_MAX_CAR_BYTES") ?: defaults.maxCarBytes,
+                    maxBlocks = positiveLong("REINDEX_MAX_BLOCKS")?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: defaults.maxBlocks,
+                    timeout = duration("REINDEX_TIMEOUT") ?: defaults.timeout,
+                    parallelism = positiveLong("REINDEX_PARALLELISM")?.coerceAtMost(MAX_PARALLELISM)?.toInt() ?: defaults.parallelism,
+                    watchGrace = duration("REINDEX_WATCH_GRACE") ?: defaults.watchGrace,
+                )
+            }
+
+            private const val DEFAULT_MAX_CAR_BYTES = 512L * 1024 * 1024
+            private const val DEFAULT_MAX_BLOCKS = 2_000_000
+
+            /** More at once would crowd out Jetstream's indexing. */
+            private const val MAX_PARALLELISM = 8L
+        }
+    }
+
+    init {
+        require(metricsPort != port) { "METRICS_PORT must not be APPVIEW_PORT ($port): metrics are never served on the public port" }
+    }
+
     /** Where terrain tiles live and at which zoom they were fetched. */
     data class TerrainTilesConfig(val dir: String, val zoom: Int)
 
@@ -106,10 +165,25 @@ data class AppViewConfig(
         /** Terrarium tiles' default zoom: about 28 m a pixel at 45 degrees. */
         const val DEFAULT_TERRAIN_ZOOM = TerrainTiles.DEFAULT_ZOOM
 
+        /** Where the metrics port binds unless `METRICS_HOST` says otherwise. */
+        const val DEFAULT_METRICS_HOST = "127.0.0.1"
+
         /** The Android app's application id. */
         const val DEFAULT_ANDROID_PACKAGE = "io.github.solcott.activitytracker"
 
+        /** `METRICS_PORT`; null when unset. */
+        private fun metricsPort(env: Map<String, String>): Int? = nonBlank(env, "METRICS_PORT")?.toInt()
+
+        /** `METRICS_HOST`, or [DEFAULT_METRICS_HOST]. */
+        private fun metricsHost(env: Map<String, String>): String = nonBlank(env, "METRICS_HOST") ?: DEFAULT_METRICS_HOST
+
+        /** [key]'s value, trimmed; null when unset or blank. */
+        private fun nonBlank(env: Map<String, String>, key: String): String? = env[key]?.trim()?.takeIf { it.isNotEmpty() }
+
         private fun list(value: String?): List<String> = value.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+        /** A day: past it, a Jetstream instance may no longer hold the events, and reindexing the account is the tool. */
+        val DEFAULT_JETSTREAM_REWIND_MAX = 24.hours
 
         /** Terrarium tiles' deepest zoom. */
         const val MAX_TERRAIN_ZOOM = TerrainTiles.MAX_ZOOM
@@ -148,8 +222,17 @@ data class AppViewConfig(
                 androidPackage = env["ANDROID_APP_PACKAGE"]?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_ANDROID_PACKAGE,
                 androidCertSha256 = list(env["ANDROID_CERT_SHA256"]),
                 appleAppIds = list(env["APPLE_APP_IDS"]),
+                admins = AdminRole.parseAdmins(env["APPVIEW_ADMINS"]),
+                metricsPort = metricsPort(env),
+                metricsHost = metricsHost(env),
+                reindex = ReindexLimits.fromEnv(env),
+                jetstreamRewindMax = jetstreamRewindMax(env),
             )
         }
+
+        /** `JETSTREAM_REWIND_MAX`, a positive Kotlin duration, else [DEFAULT_JETSTREAM_REWIND_MAX]. */
+        private fun jetstreamRewindMax(env: Map<String, String>): Duration =
+            env["JETSTREAM_REWIND_MAX"]?.trim()?.let(Duration::parseOrNull)?.takeIf { it.isPositive() } ?: DEFAULT_JETSTREAM_REWIND_MAX
 
         /**
          * `TERRAIN_TILES_DIR` and `TERRAIN_TILES_ZOOM` (1 to [MAX_TERRAIN_ZOOM], default [DEFAULT_TERRAIN_ZOOM]); null without a folder.

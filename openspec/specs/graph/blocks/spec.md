@@ -83,6 +83,25 @@ After the AppView first indexes a record from an athlete, and once for every ath
 - **WHEN** fetching alice's Bluesky blocks fails because her PDS is unreachable
 - **THEN** alice's profile is still indexed, and the backfill is tried again later
 
+### Requirement: Failed block backfills back off
+The pause before each retry of a failed Bluesky block backfill SHALL start at ten minutes and double with each consecutive failure, up to one day, and SHALL survive a restart of the AppView. Each failure's error text and time SHALL be recorded, and a successful backfill or the athlete's deletion SHALL clear them.
+
+#### Scenario: Repeated failures back off
+- **WHEN** alice's backfill has failed three times in a row
+- **THEN** it is not tried again for forty minutes, and the third failure's error is recorded
+
+#### Scenario: Restart during backoff
+- **WHEN** the AppView restarts while alice's backfill is waiting out its pause
+- **THEN** her backfill is not tried until that pause ends
+
+#### Scenario: Backoff does not crowd out others
+- **WHEN** more athletes are backing off than one round handles
+- **THEN** athletes who are due are still backfilled in that round
+
+#### Scenario: Success clears the failure
+- **WHEN** alice's backfill succeeds after failing
+- **THEN** no failure is recorded for her and she is not backfilled again
+
 ### Requirement: A block works both ways
 While either of two athletes blocks the other, through either kind of record, the AppView SHALL treat each of them as unable to see anything of the other's except what the athlete who blocks needs to manage the block. Every requirement in this capability SHALL apply whichever of the two made the block.
 

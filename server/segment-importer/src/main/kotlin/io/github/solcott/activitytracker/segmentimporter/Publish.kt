@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.SegmentClimbs
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
@@ -84,6 +85,7 @@ private fun segmentRecord(candidate: SegmentCandidate, clock: Clock): JsonElemen
             attribution = candidate.attribution,
             kind = candidate.kind,
             oneWay = candidate.oneWay?.takeIf { it },
+            climb = SegmentClimbs.of(candidate.climb),
         ),
     )
 

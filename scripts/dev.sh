@@ -136,7 +136,7 @@ ensure_mode() {
     fi
     stop_appview
     "${COMPOSE[@]}" down -v --remove-orphans
-    for key in PDS_LEXICON_AUTHORITY_DID OZONE_SERVER_DID APPVIEW_TRIAGE_DID APPVIEW_TRIAGE_PASSWORD SEGMENT_IMPORTER_DID; do
+    for key in PDS_LEXICON_AUTHORITY_DID OZONE_SERVER_DID APPVIEW_TRIAGE_DID APPVIEW_TRIAGE_PASSWORD SEGMENT_IMPORTER_DID APPVIEW_ADMINS; do
       set_env "$key" ""
     done
     RESTART_APPVIEW=1
@@ -248,6 +248,18 @@ ensure_importer() {
   did=$(docker/scripts/setup-importer.sh 2> >(sed 's/^/    /' >&2)) || die "importer setup failed"
   [[ $did != "$previous" ]] && RESTART_APPVIEW=1
   ok "importer.test ($did)"
+}
+
+# The admin site's local operator, siteadmin.test (docker/scripts/setup-admin.sh; admin/admin-site). A reset deletes it, so every run makes
+# sure it exists; a changed DID restarts the AppView, which reads APPVIEW_ADMINS when it starts.
+ensure_admin() {
+  step "Admin site"
+  local did admins previous
+  previous=$(env_value APPVIEW_ADMINS)
+  did=$(docker/scripts/setup-admin.sh 2> >(sed 's/^/    /' >&2)) || die "admin setup failed"
+  admins=$(env_value APPVIEW_ADMINS)
+  [[ $admins != "$previous" ]] && RESTART_APPVIEW=1
+  ok "siteadmin.test ($did) signs in at the AppView's /admin"
 }
 
 # ---------------------------------------------------------------- AppView signing key
@@ -763,6 +775,7 @@ cmd_up() {
   ensure_lexicons
   ensure_labeler
   ensure_importer
+  ensure_admin
   if [[ -n $host ]]; then
     check_named_tunnel "$host"
     ensure_device_properties

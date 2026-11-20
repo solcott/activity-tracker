@@ -3,8 +3,7 @@ package io.github.solcott.activitytracker.appview.labels
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory
-import java.io.ByteArrayOutputStream
-import java.math.BigInteger
+import io.github.solcott.activitytracker.appview.ipld.DagCbor
 import kotlin.time.Instant
 
 /**
@@ -118,87 +117,4 @@ sealed interface LabelFrame {
     }
 
     class StreamError(val error: String, message: String?) : Exception("Labeler stream error $error: $message")
-}
-
-/**
- * The canonical DAG-CBOR encoding of a label's fields (the bytes labelers sign): definite lengths, the shortest integer heads, and map keys
- * sorted by length, then bytewise. Covers the value types labels hold.
- */
-object DagCbor {
-    fun encode(value: Any?): ByteArray = ByteArrayOutputStream().also { it.write(value) }.toByteArray()
-
-    private fun ByteArrayOutputStream.write(value: Any?) {
-        when (value) {
-            null -> write(NULL)
-            true -> write(TRUE)
-            false -> write(FALSE)
-            is Int -> integer(value.toLong())
-            is Long -> integer(value)
-            is String ->
-                value.encodeToByteArray().let {
-                    head(MAJOR_TEXT, it.size.toLong())
-                    write(it)
-                }
-            is ByteArray -> {
-                head(MAJOR_BYTES, value.size.toLong())
-                write(value)
-            }
-            is List<*> -> {
-                head(MAJOR_ARRAY, value.size.toLong())
-                value.forEach { write(it) }
-            }
-            is Map<*, *> -> {
-                val entries = value.entries.map { (k, v) -> (k as String).encodeToByteArray() to v }.sortedWith(KEY_ORDER)
-                head(MAJOR_MAP, entries.size.toLong())
-                entries.forEach { (key, v) ->
-                    head(MAJOR_TEXT, key.size.toLong())
-                    write(key)
-                    write(v)
-                }
-            }
-            else -> throw IllegalArgumentException("Can't encode ${value::class.simpleName} as DAG-CBOR")
-        }
-    }
-
-    private fun ByteArrayOutputStream.integer(value: Long) = if (value >= 0) head(MAJOR_UINT, value) else head(MAJOR_NEGINT, -1 - value)
-
-    /** A major type with its argument in the fewest bytes. */
-    private fun ByteArrayOutputStream.head(major: Int, argument: Long) {
-        val bytes =
-            when {
-                argument < INLINE_LIMIT -> {
-                    write((major shl MAJOR_SHIFT) or argument.toInt())
-                    return
-                }
-                argument <= 0xFF -> 1
-                argument <= 0xFFFF -> 2
-                argument <= 0xFFFFFFFFL -> 4
-                else -> 8
-            }
-        write((major shl MAJOR_SHIFT) or (INLINE_LIMIT + bytes.countTrailingZeroBits()))
-        val big = BigInteger.valueOf(argument).toByteArray().takeLast(bytes)
-        repeat(bytes - big.size) { write(0) }
-        big.forEach { write(it.toInt()) }
-    }
-
-    private val KEY_ORDER =
-        Comparator<Pair<ByteArray, Any?>> { a, b ->
-            val (x, y) = a.first to b.first
-            if (x.size != y.size) x.size - y.size
-            else x.indices.firstOrNull { x[it] != y[it] }?.let { (x[it].toInt() and 0xFF) - (y[it].toInt() and 0xFF) } ?: 0
-        }
-
-    private const val MAJOR_UINT = 0
-    private const val MAJOR_NEGINT = 1
-    private const val MAJOR_BYTES = 2
-    private const val MAJOR_TEXT = 3
-    private const val MAJOR_ARRAY = 4
-    private const val MAJOR_MAP = 5
-    private const val MAJOR_SHIFT = 5
-
-    /** Arguments below 24 sit in the head byte; 24 to 27 mean 1, 2, 4 or 8 bytes follow. */
-    private const val INLINE_LIMIT = 24
-    private const val FALSE = 0xF4
-    private const val TRUE = 0xF5
-    private const val NULL = 0xF6
 }

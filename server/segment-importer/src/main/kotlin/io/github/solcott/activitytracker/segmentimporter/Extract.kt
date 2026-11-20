@@ -52,6 +52,10 @@ internal data class CandidateEntry(
     val kind: String? = null,
     /** Its sport group may travel it only this way (segments/segment-direction); null when it goes both ways. */
     val oneWay: Boolean? = null,
+    /**
+     * A `feed.segment#climb` value: whether it climbs or descends as its trail does, by terrain (segments/trail-candidates); null for none.
+     */
+    val climb: String? = null,
 )
 
 private val json = Json { explicitNulls = false }
@@ -108,7 +112,7 @@ internal fun candidatesOf(
     refBridgeM: Double = TrailBuilder.DEFAULT_REF_BRIDGE_M,
 ): List<Candidate> {
     val cutter = CandidateCutter(data, words, climbOf)
-    val trails = TrailBuilder.build(data, words, refBridgeM).flatMap(cutter::cut)
+    val trails = RouteClimbs.inherit(TrailBuilder.build(data, words, refBridgeM).flatMap(cutter::cut))
     return CandidateDedup.dedup((trails + LiftCandidates.of(data)).filter(closures::keep)).sortedBy { it.id }
 }
 
@@ -143,6 +147,7 @@ internal fun write(out: Writer, region: String, timestamp: Instant?, candidates:
                 c.agencyFeatures.ifEmpty { null },
                 c.segmentKind.takeIf { it != SegmentKind.RUN },
                 true.takeIf { c.oneWay },
+                c.climb?.word,
             )
         out.appendLine(json.encodeToString(CandidateEntry.serializer(), entry))
     }

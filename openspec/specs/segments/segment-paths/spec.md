@@ -29,7 +29,8 @@ A path SHALL be indexed whatever its length, as long as each line piece holds at
 - **THEN** the AppView doesn't index it
 
 ### Requirement: A segment lies on a path when much of it follows the path
-A live run segment SHALL lie on a path when the stretches of its line that follow the path, within the corridor duplicates use, add up to at least a quarter of its length or 1 km, whichever is shorter. A segment in the segment importer's repo SHALL instead lie on a path only when such stretches add up to at least 90% of its length, so an imported segment is listed on the trail it was cut from and on trails sharing its tread, not on trails it only crosses or runs along for part of its length.
+
+A live run segment SHALL lie on a path when the stretches of its line that follow the path, within the corridor duplicates use, add up to at least a quarter of its length or 1 km, whichever is shorter.
 
 A stretch SHALL count only for the paths nearest it, within 5 m of the nearest. Direction SHALL NOT matter. A segment MAY lie on several paths. Lifts SHALL lie on none.
 
@@ -57,13 +58,17 @@ A stretch SHALL count only for the paths nearest it, within 5 m of the nearest. 
 - **WHEN** a westbound segment follows a path drawn eastbound
 - **THEN** it lies on the path
 
-#### Scenario: Imported segment along part of another trail
-- **WHEN** the importer's 5 km Bonneville Shoreline segment follows Clarks for 2 km
-- **THEN** it lies on Bonneville Shoreline and not on Clarks
-
 #### Scenario: Athlete's segment along part of a trail
 - **WHEN** an athlete's 5 km segment follows Clarks for 2 km
 - **THEN** it lies on Clarks
+
+### Requirement: An imported segment lies only on the paths it nearly all follows
+
+A segment in the segment importer's repo SHALL lie on a path only when the stretches of its line that follow the path add up to at least 90% of its length, so an imported segment is listed on the trail it was cut from and on trails sharing its tread, not on trails it only crosses or runs along for part of its length.
+
+#### Scenario: Imported segment along part of another trail
+- **WHEN** the importer's 5 km Bonneville Shoreline segment follows Clarks for 2 km
+- **THEN** it lies on Bonneville Shoreline and not on Clarks
 
 ### Requirement: A segment lies only on paths open to its sport
 When a path names the sport groups it is open to, a segment of any other sport group SHALL NOT lie on it, nor count when choosing the nearest path.
@@ -98,7 +103,7 @@ Every segment view the AppView serves SHALL list the URIs of the paths the segme
 - **THEN** its view lists both paths
 
 ### Requirement: A path's view says what it covers for the viewer
-A path view SHALL carry the path's URI, name, kind, length, line pieces, source, licence and attribution, and, counting only the segments on it that the viewer could get from a segment search: their sport groups in the app's order and how many segment groups they form.
+A path view SHALL carry the path's URI, name, kind, length, line pieces, source, licence and attribution, and, counting only the segments on it that the viewer could get from a segment search: their sport groups in the app's order, how many segment groups they form, and, for each sport group whose segments on it are all served one-way and that isn't alpine, the way it goes.
 
 #### Scenario: Multi-use trail
 - **WHEN** a viewer gets the view of Ann's, which holds ride, run and hike segments in 3 segment groups
@@ -107,6 +112,14 @@ A path view SHALL carry the path's URI, name, kind, length, line pieces, source,
 #### Scenario: Proposed segment someone else made
 - **WHEN** a path's only segment is proposed by someone else and the viewer has no effort on it
 - **THEN** the view lists no sport groups and no segment groups
+
+#### Scenario: One-way downhill trail
+- **WHEN** a viewer gets the view of Rush, whose 21 ride segments are all one-way and served with `climb: "downhill"`
+- **THEN** it says ride goes one way only, downhill
+
+#### Scenario: One-way for one sport only
+- **WHEN** Clarks holds one-way ride segments and two-way run and hike segments
+- **THEN** its view says ride goes one way only and says nothing about run or hike
 
 ### Requirement: A path can be looked up with its segments
 `feed.getPath` SHALL return a path's view and every segment on it that the viewer could get from a segment search, as segment views. It SHALL answer `NotFound` for a path that isn't indexed. `feed.getPaths` SHALL return the views of up to 25 given paths, leaving out those not indexed.
@@ -170,3 +183,10 @@ A path view SHALL carry the path's URI, name, kind, length, line pieces, source,
 #### Scenario: Another caller
 - **WHEN** an athlete calls `importer.getSegmentLines`
 - **THEN** the AppView refuses the call
+
+### Requirement: A one-way sport group's way on a path is its longest segment's
+A path's way for a one-way sport group SHALL be its longest such segment's direction (`segments/segment-direction`): its served climb, else its served elevation's climb, else its compass heading or turn.
+
+#### Scenario: Trail with no climb data
+- **WHEN** a path's one-way ride segments have no served climb or elevation, and the longest heads mostly west
+- **THEN** its view says ride goes one way only, westbound

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.location.SegmentClimb
 import io.ktor.http.HttpStatusCode
 import java.io.File
 import kotlin.test.Test
@@ -107,6 +108,7 @@ class StageTest {
                     kind = TrailKind.NAMED,
                     whole = true,
                     oneWay = true,
+                    climb = SegmentClimb.Downhill,
                 ),
             )
         val out = java.io.StringWriter()
@@ -116,6 +118,21 @@ class StageTest {
         assertEquals(listOf("abc"), read.candidates.map { it.id })
         assertEquals("osm" to "ODbL-1.0", read.candidates.single().source to read.candidates.single().license)
         assertEquals(true, read.candidates.single().oneWay)
+        assertEquals("downhill", read.candidates.single().climb)
+    }
+
+    @Test
+    fun aCandidatesClimbIsUploadedAndAnUnknownOneDropped() = runTest {
+        accept()
+        val header = """{"region":"us-vermont","importerVersion":$IMPORTER_VERSION}"""
+        fun entry(id: String, climb: String) =
+            """{"id":"$id","region":"us-vermont","sport":"ride","name":"Rush","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
+                """"source":"osm","license":"ODbL-1.0","oneWay":true,"climb":"$climb"}"""
+        stage(clients, readCandidates(sequenceOf(header, entry("c1", "downhill"), entry("c2", "sideways"))), clock)
+        val uploaded =
+            fake.calls(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES).single().body!!.getValue("candidates").jsonArray.map { it.jsonObject }
+        assertEquals("downhill", uploaded[0].getValue("climb").jsonPrimitive.content)
+        assertEquals(null, uploaded[1]["climb"])
     }
 
     @Test

@@ -291,9 +291,11 @@ class SpaceSyncTest : SpaceSyncFixture() {
             syncer.sync(aliceFollowers)
             assertEquals(setOf("3kf1"), activities().keys, error)
             assertEquals(1, syncState(aliceFollowers)!![SpaceSync.failures], error)
+            assertTrue(error in syncState(aliceFollowers)!![SpaceSync.lastError].orEmpty(), "the recorded error names $error")
             pds.credentialErrors.remove(aliceFollowers)
             syncer.sync(aliceFollowers)
             assertEquals(0, syncState(aliceFollowers)!![SpaceSync.failures], error)
+            assertEquals(null, syncState(aliceFollowers)!![SpaceSync.lastError], error)
         }
     }
 
@@ -434,12 +436,15 @@ class SpaceSyncTest : SpaceSyncFixture() {
         val failed = syncState(aliceFollowers)!!
         assertEquals(1, failed[SpaceSync.failures])
         assertTrue(failed[SpaceSync.nextAttemptAt] > clock.now.toEpochMilliseconds(), "backed off")
+        assertTrue(!failed[SpaceSync.lastError].isNullOrBlank(), "the error is recorded")
+        assertEquals(clock.now.toEpochMilliseconds(), failed[SpaceSync.lastErrorAt])
 
         pds.unreachable.clear()
         clock.now += 1.hours
         runDue()
         assertEquals(setOf("3kc1", "3kf1"), activities().keys)
         assertEquals(0, syncState(aliceFollowers)!![SpaceSync.failures])
+        assertEquals(null, syncState(aliceFollowers)!![SpaceSync.lastErrorAt])
     }
 
     @Test

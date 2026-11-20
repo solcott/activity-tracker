@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Blocks
+import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DiveSiteCreations
@@ -26,11 +27,15 @@ import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
+import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.SegmentPins
+import io.github.solcott.activitytracker.appview.segments.UriLocks
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -56,6 +61,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -89,7 +95,7 @@ import org.slf4j.LoggerFactory
  * Likes come from the repo (on public activities) or the giver's interactions space, and are never moved, so they need no shadows: a like's
  * row just records its origin, and only that origin's delete removes it.
  */
-@Suppress("TooManyFunctions") // Each kind of change it applies, and the transactions they share.
+@Suppress("TooManyFunctions", "LongParameterList") // Each kind of change it applies, and the transactions they share; its config.
 class Indexer(
     private val db: Database,
     private val handles: HandleLookup,
@@ -100,6 +106,8 @@ class Indexer(
     private val segmentNames: SegmentNameRules = SegmentNameRules(),
     /** Whether terrain tiles are configured (segments/segment-elevation): new and re-lined segments are then queued to be sampled. */
     terrain: Boolean = false,
+    /** How many distinct athletes make a proposed segment active: what unpinning a status promotes by (segments/segment-pins). */
+    segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -120,6 +128,44 @@ class Indexer(
 
     private suspend fun <T> lockedOn(uri: AtUri, block: suspend () -> T): T =
         uriLocks[uri.value.hashCode().mod(URI_LOCK_STRIPES)].withLock { block() }
+
+    /** The same locks for several URIs, each stripe taken once and in order, so two holders never wait on each other. */
+    private val pinLocks =
+        object : UriLocks {
+            override suspend fun <T> on(uris: Collection<String>, block: suspend () -> T): T {
+                val stripes = uris.map { it.hashCode().mod(URI_LOCK_STRIPES) }.distinct().sorted()
+                suspend fun from(i: Int): T = if (i == stripes.size) block() else uriLocks[stripes[i]].withLock { from(i + 1) }
+                return from(0)
+            }
+        }
+
+    /**
+     * Operators' pins on segments (segments/segment-pins), for the admin site's operator actions: under these locks, so a pin never
+     * interleaves with indexing the segments it names.
+     */
+    val segmentPins = SegmentPins(db, segmentJobs, pinLocks, clock, segmentImporter, segmentActiveAthletes)
+
+    /** Accounts being reindexed (admin/repo-reindex), and for a grace period after, so Jetstream and the reindex see each other. */
+    private val watches = ConcurrentHashMap<String, ReindexWatch>()
+
+    /** Starts watching [did]'s Jetstream commits for a reindex, before its repo is fetched; replaces an earlier watch of it. */
+    fun watch(did: Did): ReindexWatch = ReindexWatch(did.value).also { watches[did.value] = it }
+
+    /** The reindex [watch] was for has ended: it keeps dropping commits its snapshot covers for [grace], then goes. */
+    fun unwatch(watch: ReindexWatch, grace: Duration) {
+        watch.expiresAt = (clock.now() + grace).toEpochMilliseconds()
+        val now = clock.now().toEpochMilliseconds()
+        watches.values.removeIf { it.expired(now) }
+    }
+
+    private fun watchOf(did: Did): ReindexWatch? {
+        val watch = watches[did.value]
+        if (watch != null && watch.expired(clock.now().toEpochMilliseconds())) {
+            watches.remove(did.value, watch)
+            return null
+        }
+        return watch
+    }
 
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
@@ -151,12 +197,79 @@ class Indexer(
         val uri = AtUri.of(author, commit.collection, commit.rkey)
         val record = commit.record
         val cid = commit.cid
+        // While the account is reindexed, a commit its snapshot already covers is dropped, and a newer one keeps the snapshot off its URI.
+        // The watch is looked up when the guard runs, under the URI lock, so one registered while this commit waited is still seen.
+        val guard = { watchOf(author)?.liveCommit(uri.value, commit.rev) ?: true }
         when {
-            commit.operation == "delete" -> lockedOn(uri) { db.tx { delete(commit.collection, uri, Placement.REPO) } }
-            record != null && cid != null && commit.collection == Nsid.BSKY_GRAPH_BLOCK -> bskyBlocks.put(author, uri, record)
-            record != null && cid != null -> index(author, commit.collection, uri, cid, record, Placement.REPO)
+            commit.operation == "delete" -> repoDelete(commit.collection, uri, guard)
+            record != null && cid != null -> repoWrite(author, commit.collection, uri, cid, record, guard)
         }
     }
+
+    /** A record from [author]'s repo, from Jetstream or a reindex, written only if [guard] (checked under the URI lock) allows it. */
+    @Suppress("LongParameterList") // The record, and the check that may hold it back.
+    private suspend fun repoWrite(
+        author: Did,
+        collection: String,
+        uri: AtUri,
+        cid: String,
+        record: JsonObject,
+        guard: (() -> Boolean)?,
+    ): RepoWriteResult =
+        if (collection == Nsid.BSKY_GRAPH_BLOCK) {
+            lockedOn(uri) {
+                when {
+                    guard?.invoke() == false -> RepoWriteResult.HELD
+                    bskyBlocks.put(author, uri, record) -> RepoWriteResult.WRITTEN
+                    else -> RepoWriteResult.INVALID
+                }
+            }
+        } else {
+            index(author, collection, uri, cid, record, Placement.REPO, guard = guard)
+        }
+
+    /** A delete from the repo, applied only if [guard] (checked under the URI lock) allows it. Returns whether it was. */
+    private suspend fun repoDelete(collection: String, uri: AtUri, guard: (() -> Boolean)?): Boolean =
+        lockedOn(uri) {
+            if (guard?.invoke() == false) return@lockedOn false
+            db.tx { delete(collection, uri, Placement.REPO) }
+            true
+        }
+
+    /**
+     * A record of [author]'s repo snapshot (admin/repo-reindex), indexed as Jetstream would index it unless a newer live commit for it
+     * arrived while [watch] was on.
+     */
+    @Suppress("LongParameterList") // The record, and the reindex's watch.
+    suspend fun reindexWrite(
+        author: Did,
+        collection: String,
+        rkey: String,
+        cid: String,
+        record: JsonObject,
+        watch: ReindexWatch,
+    ): RepoWriteResult {
+        if (collection !in Nsid.indexedCollections) return RepoWriteResult.INVALID
+        val uri = AtUri.of(author, collection, rkey)
+        return repoWrite(author, collection, uri, cid, record) { watch.snapshotWrite(uri.value) }
+    }
+
+    /** A record [author]'s repo snapshot no longer holds, deleted as from the repo unless a newer live commit wrote it. */
+    suspend fun reindexDelete(author: Did, collection: String, rkey: String, watch: ReindexWatch): Boolean {
+        val uri = AtUri.of(author, collection, rkey)
+        return repoDelete(collection, uri) { watch.snapshotWrite(uri.value) }
+    }
+
+    /**
+     * Everything indexed from [author]'s repo, by collection: rkey → the CID it was indexed at, or null where the index keeps none
+     * (admin/repo-reindex compares a snapshot with it).
+     */
+    suspend fun repoHoldings(author: Did): Map<String, Map<String, String?>> = db.tx {
+        Nsid.indexedCollections.associateWith { repoHoldings(author, it) }
+    }
+
+    /** Whether [author] has an `actors` row. */
+    suspend fun knows(author: Did): Boolean = actorExists(author)
 
     /**
      * A put of [collection]/[rkey] in [space]'s authority repo. Only [spaceCollections] for the space's key are indexed. [whileSynced] (the
@@ -202,7 +315,7 @@ class Indexer(
         }
     }
 
-    @Suppress("LongParameterList") // The record, and where it's from.
+    @Suppress("LongParameterList") // The record, where it's from, and what may hold it back.
     private suspend fun index(
         author: Did,
         collection: String,
@@ -211,12 +324,14 @@ class Indexer(
         record: JsonObject,
         placement: Placement,
         syncedSpace: SpaceUri? = null,
-    ) {
+        guard: (() -> Boolean)? = null,
+    ): RepoWriteResult {
         val check = firstSightCheck(author)
         try {
             // Checked before the transaction: the rkey is a SHA-256, which suspends.
             if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
-            lockedOn(uri) {
+            return lockedOn(uri) {
+                if (guard?.invoke() == false) return@lockedOn RepoWriteResult.HELD
                 db.tx {
                     // Locks the space's sync row until this commits, so deleteActor (which drops it first) waits for this write or skips
                     // it.
@@ -235,6 +350,7 @@ class Indexer(
                         if (activity != null) activityChanged(activity, before, segmentJobs, now)
                     }
                 }
+                RepoWriteResult.WRITTEN
             }
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
@@ -242,6 +358,7 @@ class Indexer(
         } catch (e: IllegalArgumentException) {
             log.debug("Skipping invalid {} record {}: {}", collection, uri, e.message)
         }
+        return RepoWriteResult.INVALID
     }
 
     @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // The record, and where it's from; a branch per collection.
@@ -465,10 +582,11 @@ class Indexer(
     /**
      * Checks a known account's handle both ways again and stores the result (identity/handle-verification): the verified handle or
      * `handle.invalid`, and the next check a day on; when the lookups can't be reached, the stored handle stays and the next check is
-     * sooner. An account with no `actors` row is left alone. Called for `#identity` events and by `HandleSweep`.
+     * sooner. An account with no `actors` row is left alone. Called for `#identity` events, by `HandleSweep` and by the admin site's
+     * account page (admin/account-tools). Returns the check it stored, or null when there's no `actors` row.
      */
-    suspend fun recheckHandle(did: Did) {
-        if (!actorExists(did)) return
+    suspend fun recheckHandle(did: Did): HandleCheck? {
+        if (!actorExists(did)) return null
         val check = handles.check(did)
         val now = clock.now()
         db.tx {
@@ -477,6 +595,7 @@ class Indexer(
                 it[handleCheckDueAt] = nextHandleCheck(check, now)
             }
         }
+        return check
     }
 
     /** The handle check for [author]'s first record, or null when their `actors` row already exists. */
@@ -531,6 +650,9 @@ class Indexer(
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
+        // Failed jobs about the account's records, and its block backfill's failures (dev/worker-telemetry).
+        SegmentJobFailures.deleteWhere { subjectUri like "at://${did.value}/%" }
+        BskyBlockBackfillFailures.deleteWhere { BskyBlockBackfillFailures.did eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
@@ -775,3 +897,15 @@ private class HeldRows(
     val collection: String? = null,
     val uri: Column<String>? = null,
 )
+
+/** What became of a record written from a repo (admin/repo-reindex counts these). */
+enum class RepoWriteResult {
+    /** Indexed (or, for a record the indexer keeps nothing of, considered). */
+    WRITTEN,
+
+    /** Held back: a newer live commit for it arrived during a reindex. */
+    HELD,
+
+    /** Dropped as undecodable or invalid, as the indexer drops any such record. */
+    INVALID,
+}

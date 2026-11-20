@@ -205,6 +205,37 @@ class CandidateCutterTest {
         assertEquals(null, climb(listOf(GeoPoint(44.40, 72.7), GeoPoint(44.41, 72.7))), "no tile covers the east")
     }
 
+    /** A one-way Oak cut into stretches at a crossing, its candidates cut by a judge that sees only the whole 9-node line [whole]. */
+    private fun oneWayOakClimbs(whole: SegmentClimb?, piece: SegmentClimb?): List<Candidate> {
+        val data = osm {
+            oak(nodes = 9, spacing = 500.0, "oneway" to "yes")
+            crossing(20, at = 4, tags = highway("unclassified", "Fire Road 3"))
+        }
+        val cutter = CandidateCutter(data, climbOf = { points -> if (points.size == 9) whole else piece })
+        return TrailBuilder.build(data).filter { it.group == RIDE }.flatMap(cutter::cut)
+    }
+
+    @Test
+    fun aFlatPieceOfAOneWayTrailTakesItsTrailsClimb() {
+        val found = oneWayOakClimbs(whole = SegmentClimb.Downhill, piece = null)
+        assertTrue(found.any { !it.whole }, "the trail is cut into stretches")
+        assertTrue(found.all { it.climb == SegmentClimb.Downhill }, "every piece descends as its trail does")
+    }
+
+    @Test
+    fun aPieceThatClearlyClimbsKeepsItsOwnClimb() {
+        val found = oneWayOakClimbs(whole = SegmentClimb.Downhill, piece = SegmentClimb.Uphill)
+        assertEquals(SegmentClimb.Downhill, found.single { it.whole }.climb)
+        assertTrue(found.filter { !it.whole }.all { it.climb == SegmentClimb.Uphill })
+    }
+
+    @Test
+    fun noTerrainGivesNoClimb() {
+        assertTrue(oneWayOakClimbs(whole = null, piece = null).all { it.climb == null })
+        val data = osm { oak(nodes = 5, spacing = 250.0, "oneway" to "yes") }
+        assertEquals(null, candidates(data).single().climb, "no judge at all")
+    }
+
     @Test
     fun aOneWayTrailFollowsItsWaysDirectionOnly() {
         val data = osm { oak(nodes = 5, spacing = 250.0, "oneway" to "yes") }

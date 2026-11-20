@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.appview.db
 
+import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.time.Duration.Companion.days
 import org.jetbrains.exposed.v1.core.Table
 
 object Actors : Table("actors") {
@@ -278,6 +280,31 @@ object Segments : BoxedLineTable("segments") {
 }
 
 /**
+ * Operators' pins on a segment (segments/segment-pins): one row per segment and [kind] (`SegmentPinKind`), beating the derived status or
+ * current name, kept when the segment's record is deleted. Operator data: never in a record, a space or an XRPC response.
+ */
+object SegmentPinRows : Table("segment_pins") {
+    val segmentUri = varchar("segment_uri", 512)
+    val kind = varchar("kind", 16)
+    /** For a status pin: active, archived or duplicate. */
+    val status = varchar("status", 16).nullable()
+    /** For a duplicate pin, the segment it duplicates. */
+    val duplicateOf = varchar("duplicate_of", 512).nullable()
+    /** For a name pin, the name, trimmed. */
+    val name = varchar("pinned_name", 1000).nullable()
+    /** For a name pin taken from a proposal, the proposal and its proposer, whose labels end the pin's effect. */
+    val proposalUri = varchar("proposal_uri", 512).nullable()
+    val proposerDid = varchar("proposer_did", 255).nullable()
+    /** For a status pin, the derived status at pin time, or as a change of line, sport or kind derived it since: unpinning starts here. */
+    val priorStatus = varchar("prior_status", 16).nullable()
+    /** The operator's DID. */
+    val pinnedBy = varchar("pinned_by", 255)
+    val pinnedAt = long("pinned_at")
+    val note = varchar("note", 500).nullable()
+    override val primaryKey = PrimaryKey(segmentUri, kind)
+}
+
+/**
  * An accepted `feed.segmentNameProposal` (segments/segment-names), from its proposer's repo. [state] is a `ProposalState` value. An adopted
  * proposal whose record was deleted keeps its row with [recordGone] set.
  */
@@ -510,6 +537,11 @@ object SegmentCandidateRows : BoxedLineTable("segment_candidates") {
     val attribution = varchar("attribution", 1000).nullable()
     /** Its sport group may travel its line only this way (segments/segment-direction), as the importer staged it. */
     val oneWay = bool("one_way").default(false)
+    /**
+     * A [io.github.solcott.activitytracker.lexicon.app.SegmentClimbs] value the importer staged (segments/segment-direction); null for
+     * none.
+     */
+    val climb = varchar("climb", 16).nullable()
     /** Enough distinct athletes passed it; never undone until its line or sport changes. The only thing revealed about its riders. */
     val ridden = bool("ridden").default(false)
     val stagedAt = long("staged_at")
@@ -567,13 +599,34 @@ object SegmentCandidateRiders : Table("segment_candidate_riders") {
 
 /** The matcher's queue (`SegmentMatcher`): one row per [kind] and subject, so enqueueing twice is one job. */
 object SegmentMatchJobs : Table("segment_match_jobs") {
-    /** A `SegmentJobs` kind: `track`, `segment`, `candidate` or `tiers`. */
+    /** A `SegmentJobs` kind: `track`, `segment`, `candidate`, `tiers`, `group`, `site` or `elevation`. */
     val kind = varchar("kind", 16)
     val subjectUri = varchar("subject_uri", 512)
     /** When it's due, epoch millis; pushed later on a failed attempt. */
     val enqueuedAt = long("enqueued_at")
     val attempts = integer("attempts").default(0)
+    /** The last failed attempt's error (`ErrorSummary`); null until one fails, and again once it's enqueued afresh. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    /** When its current run of failed attempts began, epoch millis. */
+    val firstFailedAt = long("first_failed_at").nullable()
     override val primaryKey = PrimaryKey(kind, subjectUri)
+}
+
+/**
+ * Segment jobs that gave up after their retries (dev/worker-telemetry), one per kind and subject, for operators to see and replay (enqueue
+ * the job again and delete the row). A later success of the same job, the subject's account's deletion and [RETENTION] remove a row.
+ */
+object SegmentJobFailures : Table("segment_job_failures") {
+    val kind = varchar("kind", 16)
+    val subjectUri = varchar("subject_uri", 512)
+    val attempts = integer("attempts")
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH)
+    val firstFailedAt = long("first_failed_at")
+    /** When it gave up, epoch millis. */
+    val failedAt = long("failed_at")
+    override val primaryKey = PrimaryKey(kind, subjectUri)
+
+    val RETENTION = 30.days
 }
 
 /** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
@@ -887,6 +940,9 @@ object ActivityStreamFetchFailures : Table("activity_stream_fetch_failures") {
     val kind = varchar("kind", 16)
     val failures = integer("failures")
     val retryAt = long("retry_at").nullable()
+    /** Why it last failed (`ErrorSummary`, or the AppView's own reason), never the fetched bytes. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    val lastFailedAt = long("last_failed_at").nullable()
     override val primaryKey = PrimaryKey(blobCid, authorDid, origin)
 
     /** Fetched, but not valid stream data or too large: the CID names those bytes, so they're as bad from anywhere. */
@@ -935,6 +991,9 @@ object SpaceSync : Table("space_sync") {
     val notifyToken = varchar("notify_token", 64).nullable()
     /** Consecutive failed syncs, for backoff. */
     val failures = integer("failures").default(0)
+    /** The last failed sync's error (`ErrorSummary`) and when; null once a sync succeeds. */
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH).nullable()
+    val lastErrorAt = long("last_error_at").nullable()
     /** When the last sync succeeded, epoch millis; null before the first one. */
     val syncedAt = long("synced_at").nullable()
     /** The authority repo's LtHash state as of [repoRev]; null until a backfill matches its head commit. */
@@ -944,4 +1003,66 @@ object SpaceSync : Table("space_sync") {
     val nextAttemptAt = long("next_attempt_at")
     val createdAt = long("created_at")
     override val primaryKey = PrimaryKey(space)
+}
+
+/** Admin site sessions (admin/admin-site): a SHA-256 of each session cookie's secret, never the secret, and its CSRF token. */
+object AdminSessions : Table("admin_sessions") {
+    val tokenHash = varchar("token_hash", 64)
+    val did = varchar("did", 255)
+    val csrfToken = varchar("csrf_token", 64)
+    val createdAt = long("created_at")
+    val expiresAt = long("expires_at")
+    override val primaryKey = PrimaryKey(tokenHash)
+}
+
+/** The audit log of admin site actions and refused attempts (admin/admin-site): identifiers and settings only, never record content. */
+object AdminActions : Table("admin_actions") {
+    val id = long("id").autoIncrement()
+    val adminDid = varchar("admin_did", 255)
+    val action = varchar("action_name", 128)
+    val target = varchar("target", 512).nullable()
+    /** The action's other form fields as a JSON object of strings. */
+    val params = text("params")
+    /** `ok`, `refused: <why>` or `failed: <error class>`. */
+    val outcome = varchar("outcome", 255)
+    val at = long("acted_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** Actors whose Bluesky block backfill failed (graph/blocks), backing off until [nextAttemptAt]; deleted on success. */
+object BskyBlockBackfillFailures : Table("bsky_block_backfill_failures") {
+    val did = varchar("did", 255)
+    /** Consecutive failures. */
+    val failures = integer("failures")
+    val lastError = varchar("last_error", ErrorSummary.MAX_LENGTH)
+    val nextAttemptAt = long("next_attempt_at")
+    override val primaryKey = PrimaryKey(did)
+}
+
+/**
+ * One reindex of an account (admin/repo-reindex), queued by an operator and run by `RepoReindexer`: its progress and outcome, as counts,
+ * identifiers and short error codes, never record content. [state] is a `ReindexState` name, [phase] a `ReindexPhase` one.
+ */
+object RepoReindexes : Table("repo_reindexes") {
+    val id = long("id").autoIncrement()
+    val did = varchar("did", 255)
+    val requestedBy = varchar("requested_by", 255)
+    val requestedAt = long("requested_at")
+    val resyncSpaces = bool("resync_spaces")
+    val startedAt = long("started_at").nullable()
+    val finishedAt = long("finished_at").nullable()
+    val state = varchar("run_state", 16)
+    val phase = varchar("phase", 16).nullable()
+    val rev = varchar("rev", 32).nullable()
+    val carBytes = long("car_bytes").nullable()
+    val recordsSeen = integer("records_seen")
+    val recordsUnchanged = integer("records_unchanged")
+    val recordsIndexed = integer("records_indexed")
+    val recordsInvalid = integer("records_invalid")
+    val recordsRemoved = integer("records_removed")
+    val recordsLive = integer("records_live")
+    val spacesResynced = integer("spaces_resynced").nullable()
+    val errorCode = varchar("error_code", 32).nullable()
+    val errorMessage = varchar("error_message", 512).nullable()
+    override val primaryKey = PrimaryKey(id)
 }

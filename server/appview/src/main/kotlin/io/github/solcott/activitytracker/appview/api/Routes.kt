@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
+import io.github.solcott.activitytracker.appview.ops.Readiness
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
@@ -393,6 +394,27 @@ fun Route.wellKnownRoutes(config: AppViewConfig, signingKey: AppViewSigningKey? 
             }
                 .toString(),
             ContentType.Application.Json,
+        )
+    }
+}
+
+/**
+ * The readiness check (dev/worker-telemetry): 200 while the database answers, else 503. `_health` stays the cheap liveness check that
+ * touches nothing.
+ */
+fun Route.readinessRoutes(readiness: Readiness) {
+    get("/xrpc/_ready") {
+        val up = readiness.databaseUp()
+        call.respondText(
+            buildJsonObject {
+                putJsonObject("status") {
+                    put("ok", up)
+                    put("database", up)
+                }
+            }
+                .toString(),
+            ContentType.Application.Json,
+            if (up) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable,
         )
     }
 }
