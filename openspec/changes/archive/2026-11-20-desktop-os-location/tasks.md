@@ -29,7 +29,7 @@
 
 ## 6. Integration
 
-- [ ] 6.1 On macOS, run `./gradlew :desktopApp:hotRun --auto`, open Search › Trails & roads, and verify with the compose-hot-reload MCP screenshots: the OS prompt names the helper, allowing it centres the map on the current location (moving from the latest activity if it opened there first), denying it leaves the map at the latest activity, and the feed still shows no Record. Run only with Location Services off for the helper: denying opened at the latest activity with no prompt of the app's own, and the feed showed no Record. The OS prompt and the allow path (centring, and moving from the latest activity) are unverified.
+- [x] 6.1 On macOS, run `./gradlew :desktopApp:hotRun --auto`, open Search › Trails & roads, and verify with the compose-hot-reload MCP screenshots: the OS prompt names the helper, allowing it centres the map on the current location (moving from the latest activity if it opened there first), denying it leaves the map at the latest activity, and the feed still shows no Record. Run on 2026-11-20: the prompt named Activity Tracker, browse opened at the latest activity's start and moved to the current location on Allow; with location then off it opened at the latest activity with no prompt of the app's own; the feed showed no Record. The helper quit within its `--give-up` limit and left no temp file. A pan before answering the prompt was not run by hand (MapBrowseLocateTest covers it).
 - [x] 6.2 Run `./gradlew check` and verify it passes (detekt, module boundaries, stability, presenter and desktop tests).
 
 ## Workflow follow-up
