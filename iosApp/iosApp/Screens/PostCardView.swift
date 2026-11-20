@@ -13,7 +13,7 @@ struct PostCardView: View {
     let content: PostCardContent
     let send: (any PostEvent) -> Void
     /// Given on the post page, where the counts list the post's quotes.
-    var openQuotes: (() -> Void)? = nil
+    var openQuotes: (() -> Void)?
     /// A labeler is configured (`Reporting.available`), so someone else's post offers Report. Off where the caller doesn't say.
     var canReport = false
 

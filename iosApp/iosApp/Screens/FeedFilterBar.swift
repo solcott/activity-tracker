@@ -9,7 +9,7 @@ import SwiftUI
 struct FeedFilterBar: View {
     let state: FeedFilterState
     /// A chip of the page's own before the bar's, on the same wrapping line: the feed's scope.
-    var leading: AnyView? = nil
+    var leading: AnyView?
 
     var body: some View {
         let filter = state.filter

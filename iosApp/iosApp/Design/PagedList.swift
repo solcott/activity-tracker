@@ -155,7 +155,7 @@ extension PagedList where After == EmptyView {
 /// Some of a paged list's items under an optional heading, in the order the screen gives them.
 struct PagedSection<Item> {
     let id: String
-    var header: String? = nil
+    var header: String?
     let items: [Item]
 }
 

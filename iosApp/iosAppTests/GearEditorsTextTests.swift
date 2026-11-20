@@ -12,7 +12,7 @@ struct GearEditorsTextTests {
     @Test func aNewItemIsAddGearAtOnlyMe() throws {
         let state = try #require(Samples.editGear["new"])
         #expect(read(state.title) == "Add gear")
-        #expect(state.name.value == "")
+        #expect(state.name.value.isEmpty)
         #expect(!state.showsManagement)
         #expect(read(LabelText.shared.visibility(visibility: try #require(Samples.editGear["loaded"]).visibility)) == "Public")
     }

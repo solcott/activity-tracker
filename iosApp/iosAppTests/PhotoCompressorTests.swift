@@ -45,12 +45,12 @@ struct PhotoCompressorTests {
     }
 
     /// The RIFF chunks' four-character names after the `WEBP` form type.
-    private func chunks(_ webp: Data) -> [String] {
+    private func chunks(_ webp: Data) throws -> [String] {
         let bytes = [UInt8](webp)
         var names: [String] = []
         var offset = 12
         while offset + 8 <= bytes.count {
-            names.append(String(decoding: bytes[offset..<offset + 4], as: UTF8.self))
+            names.append(try #require(String(bytes: bytes[offset..<offset + 4], encoding: .ascii)))
             let size = Int(bytes[offset + 4]) | Int(bytes[offset + 5]) << 8 | Int(bytes[offset + 6]) << 16 | Int(bytes[offset + 7]) << 24
             offset += 8 + size + size % 2
         }
@@ -135,7 +135,7 @@ struct PhotoCompressorTests {
         #expect(original[kCGImagePropertyGPSDictionary] != nil)
 
         let photo = try #require(PhotoCompressor.encode(tagged, step: .init(maxPixels: 2_048, quality: 80)))
-        #expect(chunks(photo.bytes) == ["VP8 "])
+        #expect(try chunks(photo.bytes) == ["VP8 "])
         let webp = try #require(CGImageSourceCreateWithData(photo.bytes as CFData, nil))
         let written = try #require(CGImageSourceCopyPropertiesAtIndex(webp, 0, nil) as? [CFString: Any])
         #expect(written[kCGImagePropertyGPSDictionary] == nil)

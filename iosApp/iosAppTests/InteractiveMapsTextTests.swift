@@ -49,7 +49,7 @@ struct InteractiveMapsTextTests {
         let state = try #require(Samples.path["selected"])
         #expect(state.groups.count == 2)
         #expect(state.isSelected(group: state.groups[1]))
-        #expect(state.tapRowEvent(group: state.groups[1]) as? PathEvent.TapRow != nil)
+        #expect(state.tapRowEvent(group: state.groups[1]) is PathEvent.TapRow)
         #expect(state.segmentsMap.drawn.elements(as: MapSegment.self).last?.role == .Selected)
         let path = try #require(state.path)
         #expect(AppStrings.string(PathTexts.shared.summary(path: path, units: .Metric)).hasPrefix("Trail · "))
@@ -75,7 +75,7 @@ struct InteractiveMapsTextTests {
                 == "4.16 mi · Ride · Downhill only · 3 segments")
         #expect(state.isExpanded(section: section))
         #expect(state.offersAllSections && state.allSectionsExpanded)
-        #expect(state.allSectionsEvent as? PathEvent.SetAllSections != nil)
+        #expect(state.allSectionsEvent is PathEvent.SetAllSections)
         let collapsed = try #require(Samples.path["sectionsCollapsed"])
         #expect(!collapsed.isExpanded(section: try #require(collapsed.sections.first)))
         #expect(AppStrings.string(PathTexts.shared.allSections(allExpanded: collapsed.allSectionsExpanded)) == "Expand all")
@@ -99,7 +99,7 @@ struct InteractiveMapsTextTests {
     @Test func aRowTapSelectsAndSaysWhatItDoes() throws {
         let state = try #require(Samples.segmentBrowse["selected"])
         let hogback = state.areaRows[1].row
-        #expect(state.tapRowEvent(row: hogback) as? SegmentBrowseEvent.TapRow != nil)
+        #expect(state.tapRowEvent(row: hogback) is SegmentBrowseEvent.TapRow)
         #expect(AppStrings.string(MapBrowseTexts.shared.rowAction(selected: false, touch: true)) == "Show on map")
         #expect(AppStrings.string(MapBrowseTexts.shared.rowAction(selected: true, touch: true)) == "Open")
     }

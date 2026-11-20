@@ -15,7 +15,7 @@ struct ArchiveShareTests {
     }
 
     private func writes(_ success: Bool) -> ArchiveShare.Write {
-        { archive, path in
+        { _, path in
             guard success else { return false }
             try? FileManager.default.createDirectory(
                 atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)

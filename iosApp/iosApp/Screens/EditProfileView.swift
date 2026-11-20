@@ -45,7 +45,9 @@ struct EditProfileView: View {
         }
         .pageTitle(Text(.editProfileTitle)) {
             if state.loaded {
-                // Read here so typing, which changes no Kotlin state SwiftUI sees, redraws whether Save can be used.
+                // Read here so typing, which changes no Kotlin state SwiftUI sees, redraws whether Save can be used. A view builder
+                // takes no `_ = typed`.
+                // swiftlint:disable:next redundant_discardable_let
                 let _ = typed
                 AppBarAction(LabelText.shared.save(saving: state.saving), enabled: state.canSave) {
                     send(EditProfileEvent.Save.shared)
@@ -72,7 +74,7 @@ struct EditProfileView: View {
     }
 
     private var form: some View {
-        let _ = typed
+        _ = typed
         return Form {
             // Why the save failed, or that the session must sign in again, where it is seen with Save in the bar.
             if let notice = state.signInAgainNotice {
@@ -188,6 +190,7 @@ struct EditProfileView: View {
         // The state's own text, not the field's model: the field shows only once Self-describe is chosen, and a model whose field
         // isn't on screen never follows its state, so it would miss the saved words the presenter seeds after loading. The model is
         // read too, so typing redraws the choice.
+        // swiftlint:disable:next redundant_discardable_let
         let _ = gender.text
         let words = state.gender.value
         AppPickerRow(

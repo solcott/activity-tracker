@@ -5,7 +5,7 @@ import Testing
 /// How SwiftUI's navigation path meets a stack Kotlin owns (ui/ios-native-shell, dev/presenter-host).
 struct StackPathTests {
     @Test func theFirstRecordIsTheRootAndTheRestAreThePath() {
-        #expect(StackPath.path(for: ["feed"]) == [])
+        #expect(StackPath.path(for: ["feed"]).isEmpty)
         #expect(StackPath.path(for: ["feed", "activity", "edit"]) == ["activity", "edit"])
     }
 

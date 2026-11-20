@@ -10,7 +10,7 @@ import UIKit
 struct PagedListTests {
     /// How many times the list asked for more.
     @Observable final class Asked {
-        var count = 0
+        var times = 0
     }
 
     private func dids(_ count: Int) -> [Did] { (0..<count).map { Did(value: "did:plc:\($0)") } }
@@ -21,7 +21,7 @@ struct PagedListTests {
     ) async throws -> Asked {
         let asked = Asked()
         let list = PagedList(
-            state, of: Did.self, errorKind: .LoadBlocks, id: \.value, sections: sections, retry: {}, loadMore: { asked.count += 1 }
+            state, of: Did.self, errorKind: .LoadBlocks, id: \.value, sections: sections, retry: {}, loadMore: { asked.times += 1 }
         ) {
             EmptyView()
         } row: { did in
@@ -44,32 +44,32 @@ struct PagedListTests {
     @Test func theEndOnScreenWithMoreToComeAsksForTheNextPage() async throws {
         let state = Samples.pagedStates.loaded(items: dids(2), next: Samples.pagedStates.NEXT)
         #expect(state.canLoadMore)
-        let asked = try await asked(state) { $0.count > 0 }
-        #expect(asked.count == 1)
+        let asked = try await asked(state) { $0.times > 0 }
+        #expect(asked.times == 1)
     }
 
     @Test func theLastPageAsksForNothing() async throws {
         let asked = try await asked(Samples.pagedStates.end(items: dids(2), meta: nil))
-        #expect(asked.count == 0)
+        #expect(asked.times == 0)
     }
 
     @Test func aLongListWaitsUntilItsEndIsOnScreen() async throws {
         let asked = try await asked(Samples.pagedStates.loaded(items: dids(100), next: Samples.pagedStates.NEXT))
-        #expect(asked.count == 0)
+        #expect(asked.times == 0)
     }
 
     /// Two sections of one item each, the second headed: the end of the last one asks for more, as one section's does.
     @Test func theEndOfTheLastSectionAsksForTheNextPage() async throws {
         let state = Samples.pagedStates.loaded(items: dids(2), next: Samples.pagedStates.NEXT)
-        let asked = try await asked(state, until: { $0.count > 0 }) { dids in
+        let asked = try await asked(state, until: { $0.times > 0 }) { dids in
             dids.enumerated().map { index, did in PagedSection(id: did.value, header: index == 0 ? nil : "Later", items: [did]) }
         }
-        #expect(asked.count == 1)
+        #expect(asked.times == 1)
     }
 
     @Test func aLongSectionedListWaitsUntilItsEndIsOnScreen() async throws {
         let state = Samples.pagedStates.loaded(items: dids(100), next: Samples.pagedStates.NEXT)
         let asked = try await asked(state, sections: { dids in [PagedSection(id: "a", header: "All", items: dids)] })
-        #expect(asked.count == 0)
+        #expect(asked.times == 0)
     }
 }

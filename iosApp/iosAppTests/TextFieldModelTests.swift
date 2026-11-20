@@ -54,7 +54,7 @@ struct TextFieldModelTests {
         continuation.finish()
         await following.value
 
-        #expect(model.text == "")
+        #expect(model.text.isEmpty)
     }
 
     @Test func typedTextComingBackIsNotWrittenAgain() async {
@@ -147,7 +147,7 @@ struct TextFieldModelTests {
 
         model.edit("")
         model.edit("1700")
-        #expect(model.text == "")
+        #expect(model.text.isEmpty)
     }
 
     @Test func anOverLengthEditLeavesTheTextAsItWas() {
@@ -173,7 +173,7 @@ struct TextFieldModelTests {
         let rules = TextFieldRules(digitsOnly: true)
         #expect(rules.accepts("2026"))
         #expect(rules.accepts(""))
-        #expect(rules.taken("٣") == "")
+        #expect(rules.taken("٣")?.isEmpty == true)
         #expect(rules.taken("1.5") == "15")
         #expect(!rules.accepts("1.5"))
     }

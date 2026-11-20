@@ -13,7 +13,7 @@ import SwiftUI
 struct FeedPage: View {
     let state: FeedState
     /// The filter bar's state where no host runs it (previews and snapshots); never given in the app.
-    var filterSample: FeedFilterState? = nil
+    var filterSample: FeedFilterState?
     @Environment(\.hostRecord) private var record
     @Environment(\.clock) private var clock
 
