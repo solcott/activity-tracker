@@ -60,7 +60,8 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                     USFS_USES.entries
                         .firstOrNull { group in it.value }
                         ?.key
-                        ?.let { use -> USFS_SEASONS.firstNotNullOfOrNull { usfsSeason(fields, "${use}_$it") }?.let(FactDates::slashRange) },
+                        // The first season field that reads as dates, so an unreadable managed season falls back to the accepted one.
+                        ?.let { use -> USFS_SEASONS.firstNotNullOfOrNull { usfsSeason(fields, "${use}_$it")?.let(FactDates::slashRange) } },
             )
         }
     },

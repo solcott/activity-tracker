@@ -82,6 +82,8 @@ class AgencyRulesFactsTest {
         assertEquals(null, facts(AgencyRules.USFS, "hike", *properties).open, "hiking's season is the whole year")
         assertEquals(null, facts(AgencyRules.USFS, null, *properties).open)
         assertEquals(null, facts(AgencyRules.USFS, "ride", "BICYCLE_MANAGED" to "N/A").open)
+        val unreadableManaged = arrayOf("BICYCLE_MANAGED" to "06/15-10/15, 12/01-03/31", "BICYCLE_ACCPT" to "07/01-09/30")
+        assertEquals(OpenDates("07-01", "09-30"), facts(AgencyRules.USFS, "ride", *unreadableManaged).open, "the next field that reads")
     }
 
     @Test
