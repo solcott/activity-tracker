@@ -510,9 +510,10 @@ class SegmentViews(
         if (rows.isEmpty()) return emptyList()
         val covered =
             Segments.join(PathSegments, JoinType.INNER, Segments.uri, PathSegments.segmentUri)
-                .selectAll()
+                .select(PathSegments.pathUri, Segments.uri, Segments.sport, groupKey, Segments.authorDid, Segments.distanceM)
                 .where { (PathSegments.pathUri inList rows.map { it[Paths.uri] }) and onPathListed(viewer) }
                 .groupBy { it[PathSegments.pathUri] }
+        val oneWays = oneWaysOf(covered)
         return rows.map { row ->
             val on = covered[row[Paths.uri]].orEmpty()
             PathView(
@@ -526,31 +527,45 @@ class SegmentViews(
                 license = row[Paths.license],
                 attribution = row[Paths.attribution],
                 sports = SegmentSportGroup.all.filter { sport -> on.any { it[Segments.sport] == sport } },
-                groupCount = on.map { it[Segments.groupUri] ?: it[Segments.uri] }.distinct().size,
-                oneWays = oneWaysOf(on),
+                groupCount = on.map { it[groupKey] }.distinct().size,
+                oneWays = oneWays[row[Paths.uri]].orEmpty(),
             )
         }
     }
 
     /**
-     * The sport groups, other than alpine, whose segments [on] a path are all served one-way, each with its way (segments/segment-paths):
-     * its longest such segment's direction, by its served climb, else its served elevation, else its heading or turn.
+     * For each path in [covered] (its segments, by path URI), the sport groups other than alpine whose segments on it are all served
+     * one-way, each with its way (segments/segment-paths): its longest such segment's direction, by its served climb, else its served
+     * elevation, else its heading or turn. Only the importer's segments may be one-way, so only theirs are read in full, in one query.
      */
-    private fun oneWaysOf(on: List<ResultRow>): List<PathOneWay> =
-        SegmentSportGroup.all
-            .filter { it != SegmentSportGroup.ALPINE }
-            .mapNotNull { sport ->
-                val rows = on.filter { it[Segments.sport] == sport }
-                if (rows.isEmpty()) return@mapNotNull null
-                val records = rows.map { it to AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record]) }
-                if (!records.all { (row, record) -> record.oneWay == true && byImporter(row[Segments.authorDid]) }) return@mapNotNull null
-                val (row, record) = records.sortedBy { it.first[Segments.uri] }.maxBy { it.first[Segments.distanceM] }
+    private fun JdbcTransaction.oneWaysOf(covered: Map<String, List<ResultRow>>): Map<String, List<PathOneWay>> {
+        val bySport = covered.mapValues { (_, on) ->
+            SegmentSportGroup.all
+                .filter { it != SegmentSportGroup.ALPINE }
+                .associateWith { sport -> on.filter { it[Segments.sport] == sport } }
+                .filterValues { rows -> rows.isNotEmpty() && rows.all { byImporter(it[Segments.authorDid]) } }
+        }
+        val uris = bySport.values.flatMap { sports -> sports.values.flatten().map { it[Segments.uri] } }.distinct()
+        if (uris.isEmpty()) return emptyMap()
+        val full =
+            uris
+                .chunked(PATH_LOOKUP_CHUNK)
+                .flatMap { chunk -> Segments.selectAll().where { Segments.uri inList chunk }.toList() }
+                .associateBy { it[Segments.uri] }
+        val records = full.mapValues { (_, row) -> AtJson.decodeFromString(SegmentRecord.serializer(), row[Segments.record]) }
+        return bySport.mapValues { (_, sports) ->
+            sports.mapNotNull { (sport, rows) ->
+                val held = rows.mapNotNull { full[it[Segments.uri]] }
+                if (held.size != rows.size || !held.all { records.getValue(it[Segments.uri]).oneWay == true }) return@mapNotNull null
+                val row = held.sortedBy { it[Segments.uri] }.maxBy { it[Segments.distanceM] }
                 val points = SegmentGeometry.decodePolyline(row[Segments.line])?.takeIf { it.size >= 2 } ?: return@mapNotNull null
                 val climb =
-                    SegmentClimb.ofWord(SegmentClimbs.of(record.climb))
+                    SegmentClimb.ofWord(SegmentClimbs.of(records.getValue(row[Segments.uri]).climb))
                         ?: servedElevation(row, activeAthletes)?.let { SegmentClimb.of(it.gain, it.loss, row[Segments.distanceM]) }
                 PathOneWay(sport, SegmentDirection.of(SegmentHeading.of(points), climb).word)
             }
+        }
+    }
 
     /**
      * The efforts on an activity the viewer may see, in the order they began; `NotFound` when they may not see the activity. The athlete's
