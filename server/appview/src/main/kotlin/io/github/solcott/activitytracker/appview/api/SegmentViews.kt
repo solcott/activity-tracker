@@ -345,12 +345,20 @@ class SegmentViews(
      */
     private fun JdbcTransaction.sectionsOf(path: AtUri, listed: List<AtUri>): List<GetPath.SectionView> {
         if (listed.isEmpty()) return emptyList()
+        // Only the listed segments' rows, so a family of thousands of section keys costs no more than the segments the viewer gets.
         val bySegment =
-            PathSectionSegments.selectAll()
-                .where { PathSectionSegments.pathUri eq path.value }
-                .associate {
-                    it[PathSectionSegments.segmentUri] to (it[PathSectionSegments.sectionOrder] to it[PathSectionSegments.sectionName])
+            listed
+                .map { it.value }
+                .chunked(SECTION_CHUNK)
+                .flatMap { chunk ->
+                    PathSectionSegments.selectAll()
+                        .where { (PathSectionSegments.pathUri eq path.value) and (PathSectionSegments.segmentUri inList chunk) }
+                        .map {
+                            it[PathSectionSegments.segmentUri] to
+                                (it[PathSectionSegments.sectionOrder] to it[PathSectionSegments.sectionName])
+                        }
                 }
+                .toMap()
         return listed
             .mapNotNull { uri -> bySegment[uri.value]?.let { it to uri } }
             .groupBy({ it.first }, { it.second })
@@ -1068,6 +1076,9 @@ internal data class DateWindow(val since: String?, val until: String?)
 
 /** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
 private const val LAST_DAYS = 90L
+
+/** How many segment URIs one `IN` list of `sectionsOf` carries. */
+private const val SECTION_CHUNK = 1_000
 
 /** A search box, 1e-7 degrees. */
 internal data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)
