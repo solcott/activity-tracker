@@ -9,13 +9,17 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.collections.immutable.toImmutableList
 
 /** The Trail page (segments/path-page): what it says, and a selection shared with the map as browse's is. */
 @OptIn(ExperimentalTestApi::class)
@@ -63,6 +67,44 @@ class PathUiTest {
     fun nothingToListSaysSo() = runComposeUiTest {
         setContent { AppPreview { PathUi(PathSamples.empty) } }
         onNodeWithText("No segments here yet").assertExists()
+    }
+
+    @Test
+    fun sectionsListTheirRowsAndCollapse() = runComposeUiTest {
+        val events = mutableListOf<PathEvent>()
+        setContent {
+            AppPreview(platform = UiPlatform.Desktop, units = UnitSystem.Imperial) {
+                PathUi(PathSamples.sections.copy(eventSink = { events += it }))
+            }
+        }
+        row("Through the Trees Trail").assert(hasClickLabel("Collapse Through the Trees Trail"))
+        onNodeWithText("4.16 mi · Ride · Downhill only · 3 segments").assertExists()
+        row("Rush › Through the Trees Trail → Canyon Hollow").assertExists()
+        row("Through the Trees Trail").performClick()
+        assertEquals(PathEvent.ToggleSection("Through the Trees Trail"), events.last())
+        onNodeWithTag(TestTags.PATH_ALL_SECTIONS).assert(hasText("Collapse all")).performClick()
+        assertEquals(PathEvent.SetAllSections(expanded = false), events.last())
+    }
+
+    @Test
+    fun aCollapsedSectionHidesItsRowsAndAllSectionsExpands() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.sectionsCollapsed) } }
+        row("Through the Trees Trail").assert(hasClickLabel("Expand Through the Trees Trail"))
+        row("Rush › Through the Trees Trail").assertDoesNotExist()
+        row("Rush › Exit Stage Left").assertExists()
+        onNodeWithTag(TestTags.PATH_ALL_SECTIONS).assert(hasText("Expand all"))
+    }
+
+    @Test
+    fun oneSectionOffersNoAllSectionsControl() = runComposeUiTest {
+        val one =
+            PathSamples.sections.let {
+                it.copy(
+                    content = it.content.copy(data = it.content.data.copy(sectioned = it.content.data.sectioned.drop(1).toImmutableList())),
+                )
+            }
+        setContent { AppPreview { PathUi(one) } }
+        onNodeWithTag(TestTags.PATH_ALL_SECTIONS).assertDoesNotExist()
     }
 
     /** The row named [name]: clickable, unlike the bar's title of the same name. */

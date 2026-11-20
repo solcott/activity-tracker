@@ -3,10 +3,12 @@ package io.github.solcott.activitytracker.app
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.segment.PathEvent
+import io.github.solcott.activitytracker.app.segment.PathListItem
 import io.github.solcott.activitytracker.app.segment.PathPresenter
 import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.PathState
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.contentOf
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -23,6 +25,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.uistate.ContentState
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -74,6 +77,26 @@ class PathPresenterTest {
             groupCount = 2,
         )
 
+    // Rush: two branches, each with its whole path, a span and its section trail; a span named after the family; a lone section row.
+    private val throughTheTrees = segment("ttt", "Rush › Through the Trees Trail", "ride", 4_000.0)
+    private val tttSpan = segment("tttspan", "Rush › Through the Trees Trail → Canyon Hollow", "ride", 3_000.0)
+    private val tttSection = segment("tttsec", "Rush - Through the Trees Trail", "ride", 1_000.0)
+    private val exitStageLeft = segment("esl", "Rush › Exit Stage Left", "ride", 3_500.0)
+    private val eslSection = segment("eslsec", "Rush - Exit Stage Left", "run", 900.0)
+    private val familySpan = segment("famspan", "Rush → Bonneville Shoreline", "ride", 2_000.0)
+    private val limelight = segment("lime", "Rush - Limelight", "ride", 800.0)
+    private val rushSections =
+        listOf(
+            GetPath.SectionView("Through the Trees Trail", listOf(tttSection.uri, throughTheTrees.uri, tttSpan.uri)),
+            GetPath.SectionView("Exit Stage Left", listOf(exitStageLeft.uri, eslSection.uri)),
+            GetPath.SectionView("Limelight", listOf(limelight.uri)),
+        )
+    private val rush =
+        GetPath.Output(anns, listOf(throughTheTrees, tttSpan, tttSection, exitStageLeft, eslSection, familySpan, limelight), rushSections)
+
+    /** What the AppView answers. */
+    private var output = GetPath.Output(anns, listOf(stretch, wholeRide, wholeRun))
+
     /** How many times the page asked for the path. */
     private val pathLoads = AtomicInteger()
 
@@ -86,7 +109,7 @@ class PathPresenterTest {
                     Nsid.FEED_GET_PATH -> {
                         pathLoads.incrementAndGet()
                         respond(
-                            AtJson.encodeToString(GetPath.Output.serializer(), GetPath.Output(anns, listOf(stretch, wholeRide, wholeRun))),
+                            AtJson.encodeToString(GetPath.Output.serializer(), output),
                             headers = json,
                         )
                     }
@@ -149,5 +172,83 @@ class PathPresenterTest {
             assertEquals(1, pathLoads.get(), "showing every sport regroups what loaded")
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    private fun names(items: List<PathListItem>): List<String> = items.map { item ->
+        when (item) {
+            is PathListItem.Group -> item.group.shown.currentName
+            is PathListItem.Section -> "[${item.name}: ${item.rows.joinToString { it.shown.currentName }}]"
+        }
+    }
+
+    @Test
+    fun aSectionsRowsFoldUnderItLongestFirstAndALoneOneStaysARow() {
+        val content = contentOf(rush, sport = null)
+        assertEquals(
+            listOf(
+                "[Through the Trees Trail: Rush › Through the Trees Trail, Rush › Through the Trees Trail → Canyon Hollow, " +
+                    "Rush - Through the Trees Trail]",
+                "[Exit Stage Left: Rush › Exit Stage Left, Rush - Exit Stage Left]",
+                "Rush → Bonneville Shoreline",
+                "Rush - Limelight",
+            ),
+            names(content.items),
+            "by each section's longest row; a section of one row is that row",
+        )
+        val ttt = content.items.first() as PathListItem.Section
+        assertEquals(throughTheTrees.uri, ttt.summary.shown.uri, "it reads as its longest row")
+        assertEquals(listOf("ride", "run"), (content.items[1] as PathListItem.Section).summary.sports)
+        assertEquals(7, content.groups.size, "the map still holds every row")
+        assertEquals(
+            names(contentOf(output, null).items),
+            contentOf(output, null).groups.map { it.shown.currentName },
+            "no sections, plain rows",
+        )
+    }
+
+    @Test
+    fun theSportFilterLeavesASectionOfOneAsARow() {
+        assertEquals(
+            listOf(
+                "[Through the Trees Trail: Rush › Through the Trees Trail, Rush › Through the Trees Trail → Canyon Hollow, " +
+                    "Rush - Through the Trees Trail]",
+                "Rush › Exit Stage Left",
+                "Rush → Bonneville Shoreline",
+                "Rush - Limelight",
+            ),
+            names(contentOf(rush, sport = "ride").items),
+        )
+    }
+
+    @Test
+    fun sectionsOpenExpandedCollapseAndASelectedLineExpandsItsSection() = runTest {
+        output = rush
+        val screen = PathScreen(anns.uri.value)
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null }
+            assertTrue(loaded.sections.all(loaded::isExpanded), "expanded when loaded")
+            assertTrue(loaded.offersAllSections && loaded.allSectionsExpanded)
+            loaded.eventSink(loaded.allSectionsEvent)
+            val folded = awaitUntil { it.sections.none(it::isExpanded) }
+            assertTrue(!folded.allSectionsExpanded, "the control now expands them")
+            folded.eventSink(folded.toggleEvent(folded.sections.first()))
+            val one = awaitUntil { it.isExpanded(it.sections.first()) }
+            assertTrue(!one.isExpanded(one.sections.last()) && !one.allSectionsExpanded)
+            one.eventSink(one.selectEvent(eslSection.uri.value))
+            val revealed = awaitUntil { it.selected == eslSection.uri }
+            assertTrue(revealed.isExpanded(revealed.sections.last()), "selecting a line in a collapsed section expands it")
+            assertTrue(revealed.allSectionsExpanded)
+            revealed.eventSink(PathEvent.SetAllSections(expanded = false))
+            awaitUntil { it.sections.none(it::isExpanded) }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun oneSectionOffersNoAllSectionsControl() {
+        val single = rush.copy(sections = rushSections.take(1))
+        val state = PathState(ContentState(contentOf(single, null)))
+        assertEquals(1, state.sections.size)
+        assertTrue(!state.offersAllSections)
     }
 }
