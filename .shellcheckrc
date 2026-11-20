@@ -1,0 +1,4 @@
+# ShellCheck for the scripts and hooks (LintConventionPlugin.kt: `./gradlew lintShell`), and for the workflows' run: steps through actionlint.
+# Follow `source`d files, resolved from the sourcing script's directory.
+external-sources=true
+source-path=SCRIPTDIR

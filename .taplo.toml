@@ -1,0 +1,9 @@
+# Taplo, the TOML formatter (LintConventionPlugin.kt: `./gradlew formatToml`, checked by `lintToml`). Keys keep their order: the version
+# catalog is grouped by hand, with comments on its pins.
+[formatting]
+column_width = 140
+indent_string = "  "
+reorder_keys = false
+reorder_arrays = false
+align_comments = false
+array_auto_collapse = false

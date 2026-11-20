@@ -1,0 +1,4 @@
+# actionlint (LintConventionPlugin.kt: `./gradlew lintWorkflows`). It doesn't know GitHub's newest hosted runner labels yet.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

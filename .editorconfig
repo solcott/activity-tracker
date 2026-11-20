@@ -13,3 +13,10 @@ max_line_length = 140
 
 [*.{json,yaml,yml,toml,md}]
 indent_size = 2
+
+[*.sh]
+# shfmt reads these (LintConventionPlugin.kt: `./gradlew formatShell`, checked by `lintShfmt`).
+indent_size = 2
+binary_next_line = false
+switch_case_indent = true
+space_redirects = false
