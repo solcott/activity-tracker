@@ -258,7 +258,8 @@ struct CustomRangeSheet: View {
     let eventSink: (any FeedFilterEvent) -> Void
     @Environment(\.calendar) private var calendar
     @Environment(\.clock) private var clock
-    @State private var picked = Date()
+    /// Set when the sheet opens: the range's first day, or today on the shown clock.
+    @State private var picked = Date.distantPast
 
     var body: some View {
         let start = range.start.map { CalendarDay($0).date(in: calendar) }
@@ -281,8 +282,8 @@ struct CustomRangeSheet: View {
                 }
             }
         }
-        // The second pick starts from the first day, so the picker opens where the range does.
-        .onChange(of: range.start == nil, initial: true) { if let start { picked = start } }
+        // The first pick starts from today and the second from the first day, so the picker opens where the range does.
+        .onChange(of: range.start == nil, initial: true) { picked = start ?? clock.date }
         .presentationDetents([.medium, .large])
     }
 }
