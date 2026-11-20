@@ -250,7 +250,8 @@ internal class CandidateCutter(
     /**
      * A candidate's name: a whole trail's, with its direction when it goes both ways; a junction span's, `<trail> → <junction>` or `<trail>
      * from <junction>` in its direction of travel, after its own parent trail when it follows a way no other one does and else its family;
-     * or a stretch's, named after the places at its ends or else numbered. Every name in it is without its generic [words].
+     * or a stretch's, named after the places at its ends (with no trail name between two of its family's own sections) or else numbered.
+     * Every name in it is without its generic [words].
      */
     private fun nameOf(
         trail: Trail,
@@ -264,9 +265,20 @@ internal class CandidateCutter(
         return when {
             piece.junction != null -> spanName(trail, piece, piece.junction, nodes)
             piece.part == null -> if (bothWays) "${trail.label} (${direction().word})" else trail.label
+            from != null && to != null && betweenOwnSections(trail, from, to) -> "${words.shorten(from)} → ${words.shorten(to)}"
             from != null && to != null -> "${trail.label}: ${words.shorten(from)} → ${words.shorten(to)}"
             else -> "${trail.label} (part ${piece.part})"
         }
+    }
+
+    /**
+     * Whether a stretch of [trail] runs between two sections of its own family, [from] and [to] (segments/trail-candidates): [trail] is
+     * named after its family alone (a plain "Rush Trail", not a section or a route relation's), so each end already names it.
+     */
+    private fun betweenOwnSections(trail: Trail, from: String, to: String): Boolean {
+        val family = words.shorten(trail.name)
+        if (trail.kind != TrailKind.NAMED || trail.section != null || trail.label != family) return false
+        return listOf(from, to).all { end -> " - " in end && TrailBuilder.familyOf(words.shorten(end)) == family }
     }
 
     /**
