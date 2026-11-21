@@ -130,11 +130,15 @@ When a row is selected from the list and no part of its line lies in the visible
 - **THEN** the map stays where it is and the run's line is highlighted
 
 ### Requirement: Lifts appear only on the map
-The browse map SHALL draw ski lifts in the visible area in a muted style, distinct from runs, so a resort's layout is recognisable. Lifts SHALL never be listed, selected or found by name.
+The browse map SHALL draw ski lifts in the visible area in a muted style, distinct from runs and from every rating level's colour (`segments/trail-ratings`), so a resort's layout is recognisable. Lifts SHALL never be listed, selected or found by name.
 
 #### Scenario: Resort area
 - **WHEN** an athlete browses a ski resort with five pistes and two chairlifts
 - **THEN** the map draws all seven lines, the lifts muted, and the list holds only the five pistes
+
+#### Scenario: Pistes in their colours
+- **WHEN** the same resort's pistes are novice, easy, intermediate, advanced and expert
+- **THEN** the pistes are drawn white, green, blue, black and double black, and the lifts thin, dashed and grey
 
 ### Requirement: Trails and roads can be found by name
 The browse screen SHALL have a search box. A non-blank query SHALL list, a page at a time, the paths and the segment groups on no path that `feed.searchPathNames` finds, in its order, one row each. The map SHALL draw those in the visible area, one line each. Clearing the query SHALL return to browsing the area.

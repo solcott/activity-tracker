@@ -48,11 +48,15 @@ When opened from browse with one sport group chosen, the Trail page SHALL list o
 - **THEN** the page lists Ann's ride segments only, with a way to show all
 
 ### Requirement: The Trail page draws its path and segments
-Where the segment page draws a map, the Trail page SHALL draw the path's line framed whole, muted, with its listed segments' lines over it.
+Where the segment page draws a map, the Trail page SHALL draw the path's line framed whole, muted, with its listed segments' lines over it, each in its rating level's colour for the page's sport group (`segments/trail-ratings`), and the legend of the levels it draws.
 
 #### Scenario: Opening Ann's
 - **WHEN** an athlete opens Ann's with three segment groups
 - **THEN** the map shows all of Ann's line with the three groups' lines drawn over it
+
+#### Scenario: Rated stretches
+- **WHEN** an athlete opens Ann's from browse with Ride chosen, and its two stretches are IMBA Easy and Intermediate
+- **THEN** the stretches are drawn green and blue over the muted path, and the legend lists Easy and Intermediate
 
 ### Requirement: The Trail page's map and list share a selection
 As in browse: tapping a segment's line SHALL select its row, drawn highlighted and its row scrolled to and marked. On a touch screen, tapping an unselected row SHALL select it, and tapping the selected row SHALL open it as `segments/segment-groups` says. With a pointer, clicking a row SHALL open it. Tapping away from every line SHALL clear the selection. Back SHALL return to the page as it was.
