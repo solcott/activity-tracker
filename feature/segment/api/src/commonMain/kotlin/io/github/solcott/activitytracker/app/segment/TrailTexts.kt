@@ -195,9 +195,11 @@ object TrailTexts {
 
     /** Which difficulty scales a segment of one sport group shows; every scale on the Trail page, where [sport] is null. */
     private class ScaleFilter(sport: String?) {
-        val hiking = sport == null || sport == SegmentSportGroup.RUN || sport == SegmentSportGroup.HIKE
-        val ride = sport == null || sport == SegmentSportGroup.RIDE
-        val piste = sport == null || sport == SegmentSportGroup.ALPINE
+        // The scales a rating reads (segments/trail-ratings) come from the same rule, so the rows and the map can't disagree.
+        private val scales = TrailScales(sport)
+        val hiking = scales.hiking
+        val ride = scales.ride
+        val piste = scales.piste
         val grooming = sport == null || sport == SegmentSportGroup.SKI || sport == SegmentSportGroup.ALPINE
         /** Whether the width shows, as a kind of trail: not on ski and alpine segments, where singletrack means nothing. */
         val widthKind = sport != SegmentSportGroup.SKI && sport != SegmentSportGroup.ALPINE

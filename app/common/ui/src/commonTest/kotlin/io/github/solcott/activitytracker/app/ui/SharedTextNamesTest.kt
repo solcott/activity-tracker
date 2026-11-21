@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.record.GearFieldTexts
 import io.github.solcott.activitytracker.app.record.GearOption
 import io.github.solcott.activitytracker.app.segment.EffortTexts
 import io.github.solcott.activitytracker.app.segment.SegmentTexts
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.sport.SportTypeGroups
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.CardStatsText
@@ -294,7 +295,10 @@ class SharedTextNamesTest {
                     )
                     .map(SegmentTexts::sportGroup) +
                 RankBoardTexts.scope(LeaderboardScope.EVERYONE).options.map { it.label } +
-                RankBoardTexts.reached(DateText.isoDate("2026-10-26"))
+                RankBoardTexts.reached(DateText.isoDate("2026-10-26")) +
+                TrailRating.entries.map { it.label } +
+                TrailRating.unratedLabel +
+                AppText.named("trail_rating_legend")
         assertAllExist(texts)
     }
 

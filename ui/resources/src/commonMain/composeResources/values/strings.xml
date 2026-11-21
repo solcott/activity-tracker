@@ -1107,6 +1107,13 @@
     <string name="trail_imba_2">Blue</string>
     <string name="trail_imba_3">Black</string>
     <string name="trail_imba_4">Double black</string>
+    <string name="trail_rating_easiest">Easiest</string>
+    <string name="trail_rating_easy">Easy</string>
+    <string name="trail_rating_intermediate">Intermediate</string>
+    <string name="trail_rating_difficult">Difficult</string>
+    <string name="trail_rating_extreme">Extreme</string>
+    <string name="trail_rating_unrated">Unrated</string>
+    <string name="trail_rating_legend">Trail ratings</string>
     <string name="trail_piste_novice">Novice</string>
     <string name="trail_piste_easy">Easy</string>
     <string name="trail_piste_intermediate">Intermediate</string>
