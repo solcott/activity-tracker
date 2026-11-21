@@ -33,6 +33,9 @@ annotation class PreviewScreenSizes
 /** A phone-sized window, where a screen's other samples render. */
 @Preview(name = "phone", widthDp = 400, heightDp = 500) annotation class PreviewPhoneSize
 
+/** A phone window tall enough for a long page's whole layout, such as the Segment page down to its efforts. */
+@Preview(name = "tall-phone", widthDp = 400, heightDp = 1600) annotation class PreviewTallPhoneSize
+
 /** A screen's primary sample at phone size in dark theme and at 1.5x font scale. */
 @Preview(name = "dark", widthDp = 400, heightDp = 500, uiMode = UI_MODE_NIGHT_YES)
 @Preview(name = "large-text", widthDp = 400, heightDp = 500, fontScale = 1.5f)

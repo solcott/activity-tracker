@@ -37,6 +37,8 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
     var retry by rememberRetained { mutableIntStateOf(0) }
     val selection = rememberRetained { MapSelection() }
     var collapsed by rememberRetained { mutableStateOf(persistentSetOf<String>()) }
+    // Retained, not saved: a new visit opens with the Trail details folded (segments/trail-attributes).
+    var detailsExpanded by rememberRetained { mutableStateOf(false) }
     // Retained, so coming back from a segment shows the page at once; a retry reloads under it. A new sport filter only regroups what
     // loaded, so it never asks again.
     val loaded = produceRetainedContentState<GetPath.Output?>(null, screen.uri, retry) { segments.pathOutcome(AtUri(screen.uri)) }
@@ -75,6 +77,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
         selected = selection.selected,
         camera = selection.camera,
         collapsed = collapsed,
+        detailsExpanded = detailsExpanded,
     ) { event ->
         when (event) {
             PathEvent.Back -> navigator.pop()
@@ -89,6 +92,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
                 collapsed = if (event.name in collapsed) collapsed.removing(event.name) else collapsed.adding(event.name)
             is PathEvent.SetAllSections ->
                 collapsed = if (event.expanded) persistentSetOf() else content.data.sections.map { it.name }.toPersistentSet()
+            PathEvent.ToggleDetails -> detailsExpanded = !detailsExpanded
             is PathEvent.Open -> open(event.uri)
             is PathEvent.TapRow ->
                 if (event.uri == selection.selected) {

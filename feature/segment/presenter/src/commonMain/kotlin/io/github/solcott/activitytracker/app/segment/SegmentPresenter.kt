@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
@@ -85,17 +86,9 @@ fun SegmentPresenter(
     LaunchedEffect(shown, loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
     // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
     val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.isRanked(it.record.kind) } == true
-    // The Mayor is extra too: only an active run has one, and a failed read leaves the last one shown, or none.
-    var mayor by rememberRetained { mutableStateOf<MayorSummary?>(null) }
-    LaunchedEffect(active, shown, loadKey) {
-        if (!active) {
-            mayor = null
-            return@LaunchedEffect
-        }
-        segments.mayorsPage(uri, MayorPeriod.LAST_90_DAYS, LeaderboardScope.EVERYONE, screen.board, limit = 1).dataOrNull()?.let {
-            mayor = MayorSummary(it.items.firstOrNull(), it.meta.viewer)
-        }
-    }
+    val boards = rememberBoards(segments, uri, screen.board, active, loadKey)
+    val pathUris = remember(segment?.paths) { segment?.paths.orEmpty().toImmutableList() }
+    val trails = rememberTrails(segments, pathUris)
 
     val placeNames =
         rememberPlaceNames(
@@ -115,7 +108,9 @@ fun SegmentPresenter(
         efforts = ownEfforts.data,
         starred = starred,
         credit = segment?.record?.let(::creditOf),
-        mayor = mayor,
+        mayor = boards.mayor,
+        leaderboard = boards.leaderboard,
+        trails = trails,
         names = placeNames,
         profile = profile,
         group = group,
@@ -139,6 +134,7 @@ fun SegmentPresenter(
             is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
             SegmentEvent.OpenOriginal -> segment?.duplicateOf?.let { navigator.goTo(SegmentScreen(it.value)) }
             SegmentEvent.OpenMap -> navigator.goTo(SegmentMapScreen(shown))
+            is SegmentEvent.OpenTrail -> navigator.goTo(PathScreen(event.uri.value, segment?.record?.sport))
             SegmentEvent.OpenLeaderboard ->
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
@@ -154,3 +150,51 @@ fun SegmentPresenter(
 /** The segment to show after [switch]: the one it names when it is in [group], else still [shown]. */
 private fun shownAfter(group: GroupSwitcher?, switch: SegmentEvent.SwitchGroup, shown: String): String =
     group?.offering(switch.uri)?.value ?: shown
+
+/** What the page shows of an active segment's two boards: each in brief, or null before it's read, when it failed, or when inactive. */
+private class BoardReads {
+    var mayor by mutableStateOf<MayorSummary?>(null)
+    var leaderboard by mutableStateOf<LeaderboardSummary?>(null)
+}
+
+/**
+ * The Mayor (segments/segment-mayors) and the leaderboard's leader (segments/segment-leaderboards) of [uri] on [board], read at one entry
+ * each while [active]. Both are extra: a failed read leaves the last one shown, or none, and the card shows without it.
+ */
+@Composable
+private fun rememberBoards(segments: SegmentRepository, uri: AtUri, board: String?, active: Boolean, loadKey: Int): BoardReads {
+    val reads = rememberRetained { BoardReads() }
+    LaunchedEffect(active, uri, loadKey) {
+        if (!active) {
+            reads.mayor = null
+            reads.leaderboard = null
+            return@LaunchedEffect
+        }
+        segments.mayorsPage(uri, MayorPeriod.LAST_90_DAYS, LeaderboardScope.EVERYONE, board, limit = 1).dataOrNull()?.let {
+            reads.mayor = MayorSummary(it.items.firstOrNull(), it.meta.viewer)
+        }
+    }
+    LaunchedEffect(active, uri, loadKey) {
+        if (!active) return@LaunchedEffect
+        segments.leaderboardPage(uri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, board, limit = 1).dataOrNull()?.let {
+            reads.leaderboard = LeaderboardSummary(it.items.firstOrNull(), it.meta.viewer)
+        }
+    }
+    return reads
+}
+
+/** The trails and roads at [pathUris], by name, for the heading (segments/segment-page); extra, and left out when they fail to load. */
+@Composable
+private fun rememberTrails(segments: SegmentRepository, pathUris: ImmutableList<AtUri>): ImmutableList<SegmentTrail> {
+    var trails by rememberRetained { mutableStateOf<ImmutableList<SegmentTrail>>(persistentListOf()) }
+    LaunchedEffect(pathUris) {
+        trails =
+            if (pathUris.isEmpty()) {
+                persistentListOf()
+            } else {
+                runSuspendCatching { segments.pathViews(pathUris) }.getOrNull()?.map { SegmentTrail(it.uri, it.name) }?.toImmutableList()
+                    ?: trails
+            }
+    }
+    return trails
+}

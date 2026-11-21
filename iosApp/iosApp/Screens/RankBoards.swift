@@ -151,8 +151,11 @@ struct LeaderCardView: View {
     let title: any AppText
     let leader: ProfileViewBasic?
     let value: (any AppText)?
-    let none: any AppText
+    /// What it says while the board has no leader; nil for none at all, a board that hasn't loaded.
+    let none: (any AppText)?
     let own: (any AppText)?
+    /// Puts the value under the name, for a card that shares its row with another.
+    var stacked = false
     let open: () -> Void
 
     var body: some View {
@@ -164,12 +167,22 @@ struct LeaderCardView: View {
                         let name = AppPackage.getShownName(leader)
                         HStack(spacing: 12) {
                             Avatar(url: leader.avatar, name: name, size: 36)
-                            Text(verbatim: name).frame(maxWidth: .infinity, alignment: .leading)
-                            if let value {
-                                Text(value).fontWeight(.medium)
+                            if stacked {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    if let value {
+                                        Text(value).font(.headline)
+                                    }
+                                    Text(verbatim: name).font(.subheadline).lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            } else {
+                                Text(verbatim: name).frame(maxWidth: .infinity, alignment: .leading)
+                                if let value {
+                                    Text(value).fontWeight(.medium)
+                                }
                             }
                         }
-                    } else {
+                    } else if let none {
                         Text(none).foregroundStyle(.secondary)
                     }
                     if let own {

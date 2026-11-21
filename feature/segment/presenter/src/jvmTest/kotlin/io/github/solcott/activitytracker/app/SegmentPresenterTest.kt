@@ -11,6 +11,7 @@ import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.names.PlaceNameEvent
+import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
@@ -86,6 +87,22 @@ class SegmentPresenterTest {
     /** Completed once the Mayors board has been asked for. */
     private val mayorsAsked = CompletableDeferred<Unit>()
 
+    /** The leaderboard's entries, as JSON, and the viewer's own entry; null fails the read. */
+    private var leaders: String? = """{"rank":1,"athlete":{"did":"did:plc:kate","handle":"kate.test"},"effort":${effort("3kb1", 252)}}"""
+    private var ownLeader: String? = """{"rank":18,"athlete":{"did":"$alice","handle":"alice.test"},"effort":${effort("3kb2", 303)}}"""
+    private val leadersRequested = mutableListOf<Map<String, String>>()
+    /** Completed once the leaderboard has been asked for. */
+    private val leadersAsked = CompletableDeferred<Unit>()
+    /** The served segment view's `paths`, as a JSON array; empty for none. */
+    private var paths = ""
+    /** The trails `getPaths` was asked for; [failPaths] fails it. */
+    private val pathsRequested = mutableListOf<List<String>>()
+    private var failPaths = false
+
+    private fun pathView(uri: String, name: String) =
+        """{"uri":"$uri","cid":"bafypath","kind":"trail","name":"$name","lines":["$line"],"lengthMeters":7800,""" +
+            """"source":"osm","license":"ODbL-1.0"}"""
+
     private fun effort(rkey: String, elapsed: Int, best: Boolean = false) =
         """{"segment":{"uri":"$uri","name":"Hill","sport":"run","distanceMeters":1000},""" +
             """"activity":"at://$alice/${Nsid.FEED_ACTIVITY}/$rkey",""" +
@@ -113,7 +130,8 @@ class SegmentPresenterTest {
                                     """"record":{"name":"Hill","sport":"run","line":"$line","source":"$source","license":"$license",""" +
                                     attribution?.let { """"attribution":"$it",""" }.orEmpty() +
                                     """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,""" +
-                                    """"status":"$status"$duplicateOf$naming}$profileField$routeField}""",
+                                    """"status":"$status"${paths.takeIf { it.isNotEmpty() }?.let { ",\"paths\":$it" }.orEmpty()}""" +
+                                    """$duplicateOf$naming}$profileField$routeField}""",
                                 headers = json,
                             )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
@@ -121,6 +139,18 @@ class SegmentPresenterTest {
                         mayorsAsked.complete(Unit)
                         val entries = mayors ?: return@MockEngine respond("", HttpStatusCode.InternalServerError)
                         respond("""{"entries":[$entries]${ownMayor?.let { ",\"viewer\":$it" }.orEmpty()}}""", headers = json)
+                    }
+                    "/xrpc/${Nsid.FEED_GET_SEGMENT_LEADERBOARD}" -> {
+                        leadersRequested += request.url.parameters.entries().associate { it.key to it.value.single() }
+                        leadersAsked.complete(Unit)
+                        val entries = leaders ?: return@MockEngine respond("", HttpStatusCode.InternalServerError)
+                        respond("""{"entries":[$entries]${ownLeader?.let { ",\"viewer\":$it" }.orEmpty()}}""", headers = json)
+                    }
+                    "/xrpc/${Nsid.FEED_GET_PATHS}" -> {
+                        val asked = request.url.parameters.getAll("uris").orEmpty()
+                        pathsRequested += asked
+                        if (failPaths) return@MockEngine respond("", HttpStatusCode.InternalServerError)
+                        respond("""{"paths":[${asked.joinToString(",") { pathView(it, "Hogback Ridge Trail") }}]}""", headers = json)
                     }
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_EFFORTS}" -> {
                         effortsRequested += request.url.parameters["actor"]
@@ -552,6 +582,118 @@ class SegmentPresenterTest {
             assertEquals(emptyList(), mayorsRequested)
             state.eventSink(SegmentEvent.OpenMayors)
             navigator.expectNoGoToEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anActiveSegmentShowsItsLeaderAndTheViewersPlace() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.leaderboard != null }
+            assertEquals("kate.test", state.leaderboard?.leader?.athlete?.handle?.value)
+            assertEquals(252L, state.leaderboard?.leader?.effort?.elapsed)
+            assertEquals(18, state.leaderboard?.viewer?.rank)
+            assertEquals(
+                mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "limit" to "1"),
+                leadersRequested.single(),
+            )
+            assertTrue(state.offersLeaderboard)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anEmptyLeaderboardHasNoLeader() = runTest {
+        status = "active"
+        leaders = ""
+        ownLeader = null
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.leaderboard != null }
+            assertNull(state.leaderboard?.leader)
+            assertNull(state.leaderboard?.viewer)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aLeaderboardThatFailsToLoadStillOffersTheCard() = runTest {
+        status = "active"
+        leaders = null
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names) }) {
+            val state = awaitUntil { it.segment != null && !it.content.isLoading }
+            leadersAsked.await()
+            assertNull(state.leaderboard)
+            assertTrue(state.offersLeaderboard, "the card still shows")
+            state.eventSink(SegmentEvent.OpenLeaderboard)
+            assertEquals(SegmentLeaderboardScreen(uri, "Hill"), navigator.awaitNextScreen())
+            val rest = cancelAndConsumeRemainingEvents().filterIsInstance<Event.Item<SegmentState>>().map { it.value }
+            assertEquals(emptyList(), rest.mapNotNull { it.leaderboard })
+        }
+    }
+
+    @Test
+    fun aCarriedTypeReachesTheLeaderboardCard() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(SegmentScreen(uri, board = "eBike"), FakeNavigator(screen), segments, stars, names) }) {
+            awaitUntil { it.leaderboard != null }
+            assertEquals("eBike", leadersRequested.single()["board"])
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aProposedSegmentReadsNoLeaderboard() = runTest {
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
+            assertNull(state.leaderboard)
+            assertEquals(emptyList(), leadersRequested)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theHeadingNamesTheTrailsItLiesOnAndOpensThem() = runTest {
+        val trail = "at://did:plc:importer/${Nsid.FEED_PATH}/hogback"
+        paths = """["$trail"]"""
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names) }) {
+            val state = awaitUntil { it.trails.isNotEmpty() }
+            assertEquals(listOf("Hogback Ridge Trail"), state.trails.map { it.name })
+            assertEquals(listOf(listOf(trail)), pathsRequested)
+            state.eventSink(SegmentEvent.OpenTrail(AtUri(trail)))
+            assertEquals(PathScreen(trail, sport = "run"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSegmentOnNoTrailReadsNoTrails() = runTest {
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
+            assertTrue(state.trails.isEmpty())
+            assertEquals(emptyList(), pathsRequested)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun trailsThatFailToLoadAreLeftOut() = runTest {
+        paths = """["at://did:plc:importer/${Nsid.FEED_PATH}/hogback"]"""
+        failPaths = true
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names) }) {
+            val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
+            assertTrue(state.trails.isEmpty())
+            assertNull(state.content.errorOrNull)
             cancelAndIgnoreRemainingEvents()
         }
     }

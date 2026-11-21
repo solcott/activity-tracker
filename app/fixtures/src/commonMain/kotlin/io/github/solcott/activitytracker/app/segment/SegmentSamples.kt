@@ -263,8 +263,9 @@ object SegmentSamples {
         }
 
     /**
-     * An active OpenStreetMap segment the viewer starred, with a profile, its Mayor and the viewer's place on that board, and the viewer's
-     * efforts: their PR in 3rd, one from an activity excluded from leaderboards, and an e-bike ride's.
+     * An active OpenStreetMap segment the viewer starred, as the Segment page's whole layout shows it (segments/segment-page): a profile,
+     * its leaderboard's leader and the viewer's place, its Mayor and the viewer's place on that board, the trail it lies on, Trail details
+     * in all three cards, and the viewer's efforts: their PR in 3rd, one from an activity excluded from leaderboards, and an e-bike ride's.
      */
     val openStreetMap: SegmentState
         get() {
@@ -275,7 +276,13 @@ object SegmentSamples {
                         distanceMeters = 1_600,
                         status = SegmentStatus.ACTIVE,
                     )
-                    .copy(elevationGain = 84, elevationLoss = 12, elevationSource = SegmentElevationSource.TERRAIN)
+                    .copy(
+                        elevationGain = 84,
+                        elevationLoss = 12,
+                        elevationSource = SegmentElevationSource.TERRAIN,
+                        paths = listOf(NOTCH_TRAIL.uri),
+                        trail = fakeTrailAttributes().copy(trailClass = 2, gradePercent = 6),
+                    )
             val basic = fakeSegmentBasic(osm)
             return SegmentState(
                 content = ContentStates.loaded(osm),
@@ -283,8 +290,9 @@ object SegmentSamples {
                 efforts =
                     persistentListOf(
                         fakeEffort(basic, elapsed = 312, startedOn = "2026-05-31", rank = 3, best = true),
-                        fakeEffort(basic, elapsed = 330, startedOn = "2026-05-12").copy(notRanked = NotRanked.EXCLUDED),
-                        fakeEffort(basic, elapsed = 3_725, startedOn = "2026-04-02").copy(eBike = true),
+                        fakeEffort(basic, elapsed = 330, startedOn = "2026-05-12", startOffset = 1_200)
+                            .copy(notRanked = NotRanked.EXCLUDED),
+                        fakeEffort(basic, elapsed = 3_725, startedOn = "2026-04-02", startOffset = 1_800).copy(eBike = true),
                     ),
                 starred = true,
                 credit = SegmentCredit.OpenStreetMap("ODbL-1.0"),
@@ -293,9 +301,21 @@ object SegmentSamples {
                         leader = fakeMayorEntry(athlete = fakeProfileBasic(Fixed.BOB), efforts = 14),
                         viewer = fakeMayorEntry(rank = 4, efforts = 3),
                     ),
+                leaderboard =
+                    LeaderboardSummary(
+                        leader = fakeLeaderboardEntry(athlete = fakeProfileBasic(Fixed.CAROL), elapsed = 252),
+                        viewer = fakeLeaderboardEntry(rank = 3, elapsed = 312),
+                    ),
+                trails = persistentListOf(NOTCH_TRAIL),
                 profile = fakeProfile(1_600, maxGradePercent = 12.4) { at -> CLIMB_START_M + climbProfile(at) },
             )
         }
+
+    /** [openStreetMap] with both boards' reads failed (segments/segment-leaderboards): the Leaderboard card alone, with no leader. */
+    val boardsFailed: SegmentState
+        get() = openStreetMap.copy(leaderboard = null, mayor = null)
+
+    private val NOTCH_TRAIL = SegmentTrail(Fixed.uri(Did("did:plc:importer"), Nsid.FEED_PATH, "notch-road"), "Notch Road")
 
     /** A duplicate of an earlier segment, from an agency's trail data: its status and Open the original, and no efforts. */
     val duplicate: SegmentState
@@ -371,6 +391,7 @@ object SegmentSamples {
         get() =
             mapOf(
                 OPEN_STREET_MAP to openStreetMap,
+                BOARDS_FAILED to boardsFailed,
                 DUPLICATE to duplicate,
                 GROUP to group,
                 ONE_WAY to oneWay,
@@ -380,6 +401,7 @@ object SegmentSamples {
     const val RENAMED = "renamed"
     const val VOTING_UNAVAILABLE = "votingUnavailable"
     const val OPEN_STREET_MAP = "openStreetMap"
+    const val BOARDS_FAILED = "boardsFailed"
     const val DUPLICATE = "duplicate"
     const val GROUP = "group"
     const val ONE_WAY = "oneWay"

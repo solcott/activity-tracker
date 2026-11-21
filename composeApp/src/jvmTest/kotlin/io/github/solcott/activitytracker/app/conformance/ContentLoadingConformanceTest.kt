@@ -133,7 +133,7 @@ class ContentLoadingConformanceTest {
         listOf(
             entry({ FeedSamples.all }, "Morning Ride") { FeedUi(it) },
             entry({ ImportBatchSamples.all }, "Evening Ride") { ImportBatchUi(it) },
-            entry({ SegmentSamples.all }, "Ridge Trail") { SegmentUi(it) },
+            entry({ SegmentSamples.all }, "Ride · Active") { SegmentUi(it) },
             entry({ SegmentMapSamples.all }, null) { SegmentMapUi(it) },
             entry({ PathSamples.all }, null) { PathUi(it) },
             entry({ SegmentLeaderboardSamples.all }, "Carol") { SegmentLeaderboardUi(it) },

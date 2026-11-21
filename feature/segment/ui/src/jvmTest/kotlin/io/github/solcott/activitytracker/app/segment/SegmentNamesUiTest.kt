@@ -4,6 +4,8 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -29,7 +31,7 @@ class SegmentNamesUiTest {
     @Test
     fun aRenamedSegmentShowsItsOriginalNameProposalsAndHistory() =
         show(SegmentSamples.renamed) {
-            onNodeWithText("Wiggly Woods").assertExists()
+            onAllNodesWithText("Wiggly Woods").onFirst().assertExists()
             onNodeWithText("originally Trail 214 Connector").assertExists()
             onNodeWithText("Rooty Run").performScrollTo().assertExists()
             onNodeWithText("Propose a name").assertDoesNotExist()

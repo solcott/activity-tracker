@@ -1,32 +1,47 @@
 import SwiftUI
 
-/// The Trail details section (segments/trail-attributes) on the Segment and Trail pages: one row per attribute the served `trail` holds,
-/// its label leading and what the data says trailing, in the words Kotlin chooses (`TrailTexts`, through the state's `trailDetails`),
-/// as the shared pages show them. A Website row is a link the system browser opens, only once `TrailLink` finds an http(s) URL. Nothing
-/// when there are no rows.
+/// The Trail details section (segments/trail-attributes) on the Segment and Trail pages: one section per card Kotlin groups the rows into
+/// (`TrailTexts.groups`, through the state's `trailGroups`), titled Difficulty, Surface & width or Access & season, each row's label
+/// leading and what the data says trailing, as the shared pages show them. A Website row is a link the system browser opens, only once
+/// `TrailLink` finds an http(s) URL. Nothing when there are no groups.
 struct TrailDetailsSection: View {
-    let rows: [TrailDetail]
+    let groups: [TrailDetailGroup]
 
     var body: some View {
-        if !rows.isEmpty {
+        ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
             Section {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    if let url = TrailLink.url(row.link) {
-                        LabeledContent {
-                            Link(destination: url) { Text(row.value) }
-                        } label: {
-                            Text(row.label)
-                        }
-                    } else {
-                        LabeledContent {
-                            Text(row.value).multilineTextAlignment(.trailing)
-                        } label: {
-                            Text(row.label)
-                        }
-                    }
+                ForEach(Array(group.shownRows.enumerated()), id: \.offset) { _, row in
+                    TrailDetailRow(row: row)
                 }
             } header: {
-                Text(TrailTexts.shared.title)
+                // The section's heading over the first card, as the shared page titles the cards.
+                VStack(alignment: .leading, spacing: 4) {
+                    if index == 0 {
+                        Text(TrailTexts.shared.title).font(.headline).foregroundStyle(.primary).textCase(nil)
+                    }
+                    Text(group.title)
+                }
+            }
+        }
+    }
+}
+
+/// One Trail details row: its label leading and what the data says trailing, a Website row opening its link.
+private struct TrailDetailRow: View {
+    let row: TrailDetail
+
+    var body: some View {
+        if let url = TrailLink.url(row.link) {
+            LabeledContent {
+                Link(destination: url) { Text(row.value) }
+            } label: {
+                Text(row.label)
+            }
+        } else {
+            LabeledContent {
+                Text(row.value).multilineTextAlignment(.trailing)
+            } label: {
+                Text(row.label)
             }
         }
     }

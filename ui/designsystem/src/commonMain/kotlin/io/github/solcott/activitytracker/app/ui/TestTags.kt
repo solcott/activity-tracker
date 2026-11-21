@@ -56,4 +56,7 @@ object TestTags {
 
     /** The Trail page's control that expands or collapses every section. */
     const val PATH_ALL_SECTIONS = "pathAllSections"
+
+    /** The Trail page's Trail details control, which unfolds and folds its cards (segments/trail-attributes). */
+    const val PATH_DETAILS_TOGGLE = "pathDetailsToggle"
 }

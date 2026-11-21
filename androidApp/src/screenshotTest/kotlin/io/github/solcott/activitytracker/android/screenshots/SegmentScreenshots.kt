@@ -38,3 +38,19 @@ class SegmentGroupStates :
     OtherSamples<SegmentState>(
         SegmentSamples.variants.filterKeys { it in setOf(SegmentSamples.GROUP, SegmentSamples.GROUP_BY_CLIMB, SegmentSamples.ONE_WAY) },
     )
+
+/**
+ * The Segment page's whole layout (segments/segment-page): the heading with its trail, the figures, the profile, the Leaderboard and Mayor
+ * cards and Trail details in cards; and the Leaderboard card alone when both boards' reads failed.
+ */
+@PreviewTest
+@PreviewTallPhoneSize
+@Composable
+private fun SegmentLayout(@PreviewParameter(SegmentLayoutStates::class) state: SegmentState) {
+    ScreenPreview { SegmentUi(state) }
+}
+
+class SegmentLayoutStates :
+    OtherSamples<SegmentState>(
+        SegmentSamples.variants.filterKeys { it in setOf(SegmentSamples.OPEN_STREET_MAP, SegmentSamples.BOARDS_FAILED) },
+    )

@@ -3,7 +3,8 @@ import Testing
 
 @testable import ActivityTracker
 
-/// The segment page in each of its sample states against their references (segments/segment-efforts, segments/segment-elevation,
+/// The segment page in each of its sample states against their references (segments/segment-page, segments/segment-efforts,
+/// segments/segment-elevation,
 /// segments/segment-names, dev/ios-snapshot-tests), on the samples' clock. Snapshots run outside a session, so the map draws the line
 /// preview and loads no tiles (`\.liveMaps`). Their words are `SegmentTextTests`'.
 @MainActor
@@ -13,7 +14,9 @@ struct SegmentSnapshotTests {
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "renamed", "votingUnavailable", "lift", "elevation",
         "elevationFromEfforts", "trail",
     ]
-    nonisolated private static let variants = ["openStreetMap", "duplicate", "group", "oneWay", "groupByClimb"]
+    nonisolated private static let variants = [
+        "openStreetMap", "boardsFailed", "duplicate", "group", "oneWay", "groupByClimb",
+    ]
     /// Tall enough for the whole page down to its efforts.
     private static let tall = CGSize(width: 393, height: 1_700)
 

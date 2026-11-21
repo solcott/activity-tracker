@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The Trail page (segments/path-page), drawn from the states `PathPresenter` publishes: the path's name in the bar, what it is and its
-/// data credit, its Trail details (`TrailDetailsSection`), its line muted on the native map (`SegmentsMapView`) with each segment group's
+/// data credit, its Trail details folded to one line that unfolds their cards (`TrailDetailsSection`), its line muted on the native map (`SegmentsMapView`) with each segment group's
 /// line over it, and the segment groups longest first. On a phone the map is over the list; on a wider window the list is in a column
 /// beside it, as the shared page lays them out. The map and the list share a selection as browse's do: a tap on a line selects its row and
 /// scrolls to it, a tap on a row selects it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the
@@ -37,7 +37,12 @@ struct PathPage: View {
             List {
                 header
                 RefreshStatusView(state: state.content, errorKind: .LoadPath, retry: retry).listStatusRow()
-                TrailDetailsSection(rows: state.trailDetails())
+                if state.offersDetails {
+                    detailsFold
+                    if state.detailsExpanded {
+                        TrailDetailsSection(groups: state.trailGroups())
+                    }
+                }
                 ForEach(state.items.map(Entry.init)) { entry in
                     if let section = entry.item as? PathListItem.Section {
                         sectionRow(section)
@@ -77,6 +82,29 @@ struct PathPage: View {
             }
         }
         .listStatusRow()
+    }
+
+    /// The Trail details folded to one line (segments/trail-attributes): up to three values and the control that unfolds the cards under
+    /// it, and folds them again.
+    private var detailsFold: some View {
+        let expanded = state.detailsExpanded
+        return Button {
+            send(PathEvent.ToggleDetails.shared)
+        } label: {
+            HStack(spacing: 8) {
+                if let summary = state.detailsSummary() {
+                    Text(summary).frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Spacer()
+                }
+                Text(TrailTexts.shared.title).foregroundStyle(.tint)
+                Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.footnote.weight(.semibold)).foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text(TrailTexts.shared.toggleLabel(expanded: expanded)))
     }
 
     /// A segment group's row, as browse draws one: its name without the importer's direction, then its details line, marked while

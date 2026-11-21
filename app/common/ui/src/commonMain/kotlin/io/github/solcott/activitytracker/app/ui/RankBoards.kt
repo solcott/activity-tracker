@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.BoardChoice
@@ -146,8 +147,9 @@ fun <E : Any> LazyListScope.rankBoardRows(
 }
 
 /**
- * A board in brief on its place's page: [title], the [leader] and their [leaderValue], or [noneText] while it has none, and [viewerText],
- * the viewer's own count, when they're on it. Tapping it opens the board.
+ * A board in brief on its place's page: [title], the [leader] and their [leaderValue], or [noneText] while it has none (nothing when
+ * [noneText] is null too, a board that hasn't loaded), and [viewerText], the viewer's own place, when they're on it. Tapping it opens the
+ * board. [stacked] puts the value under the name, for a card that shares its row with another.
  */
 @Composable
 @Suppress("LongParameterList") // A summary card's parts.
@@ -155,22 +157,30 @@ fun LeaderCard(
     title: String,
     leader: ProfileViewBasic?,
     leaderValue: String,
-    noneText: String,
+    noneText: String?,
     viewerText: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    stacked: Boolean = false,
 ) {
     AppCard(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
             if (leader == null) {
-                Text(noneText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                noneText?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 val name = leader.shownName
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(leader.avatar, name, 36.dp)
-                    Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    Text(leaderValue, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    if (stacked) {
+                        Column(Modifier.weight(1f)) {
+                            Text(leaderValue, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                            Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    } else {
+                        Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Text(leaderValue, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
             viewerText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }

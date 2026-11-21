@@ -131,7 +131,7 @@ private fun PathList(
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 state.path?.let { Text(PathTexts.summary(it, units).string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
-                TrailDetails(state.trailDetails().toImmutableList(), Modifier.padding(vertical = 8.dp))
+                if (state.offersDetails) DetailsFold(state)
                 Row {
                     if (state.offersAllSports) {
                         AppTextButton(onClick = { state.eventSink(PathEvent.ShowAllSports) }) { Text(PathTexts.showAllSports.string()) }
@@ -160,6 +160,33 @@ private fun PathList(
             }
         }
         if (state.empty) item(key = "none") { EmptyListText(PathTexts.noneHere.string()) }
+    }
+}
+
+/**
+ * The Trail details folded to one line (segments/trail-attributes): up to three values and a control that unfolds the cards under it, and
+ * folds them again.
+ */
+@Composable
+private fun DetailsFold(state: PathState) {
+    val expanded = state.detailsExpanded
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable(onClickLabel = TrailTexts.toggleLabel(expanded).string()) { state.eventSink(PathEvent.ToggleDetails) }
+                .testTag(TestTags.PATH_DETAILS_TOGGLE)
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                state.detailsSummary()?.string().orEmpty(),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(TrailTexts.title.string(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            PlatformIcon(if (expanded) AppIcon.ChevronUp else AppIcon.ChevronDown, null)
+        }
+        if (expanded) TrailDetailGroups(state.trailGroups().toImmutableList(), Modifier.padding(bottom = 8.dp), titled = false)
     }
 }
 

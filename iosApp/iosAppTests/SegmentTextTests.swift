@@ -13,14 +13,26 @@ struct SegmentTextTests {
         let state = try #require(Samples.segment["elevation"])
         let segment = try #require(state.segment)
         let texts = SegmentPageTexts.shared
-        #expect(read(texts.elevation(segment: segment, units: .Metric)) == "84 m gain · 12 m loss · 4.5% avg grade")
-        #expect(read(texts.elevation(segment: segment, units: .Imperial)) == "276 ft gain · 39 ft loss · 4.5% avg grade")
+        let figures = state.figures(units: .Metric).map { "\(read($0.value) ?? "") \(read($0.label) ?? "")" }
+        #expect(figures == ["1.60 km Distance", "84 m Gain", "4.5% Avg grade", "12% Max grade"])
+        #expect(read(state.figures(units: .Metric)[1].detail) == "12 m loss")
+        #expect(read(state.figures(units: .Imperial)[1].value) == "276 ft")
         let profile = try #require(state.profile)
-        #expect(read(texts.extremes(profile: profile, units: .Metric)) == "1,504 m high · 1,420 m low · 12% max grade")
-        #expect(read(texts.summary(segment: segment, units: .Metric)) == "1.60 km · Ride")
+        #expect(read(texts.extremes(profile: profile, units: .Metric)) == "1,504 m high · 1,420 m low")
+        #expect(read(texts.heading(segment: segment)) == "Ride · Active")
         #expect(state.chart(units: .Metric) != nil)
         #expect(state.routeMap != nil)
         #expect(state.offersLeaderboard)
+    }
+
+    @Test func theOsmSegmentReadsItsBoardsTrailAndGroups() throws {
+        let state = try #require(Samples.segmentVariants["openStreetMap"])
+        let texts = SegmentPageTexts.shared
+        let board = try #require(state.leaderboard)
+        #expect(read(texts.leaderboardYours(entry: try #require(board.viewer))) == "You: 5:12 · #3")
+        #expect(state.showsBoards)
+        #expect(state.shownTrails.map(\.name) == ["Notch Road"])
+        #expect(state.trailGroups().map { read($0.title) } == ["Difficulty", "Surface & width", "Access & season"])
     }
 
     @Test func aRideSegmentReadsItsTrailDetails() throws {

@@ -64,7 +64,7 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
  * viewer's own count. Tapping it opens the Mayors board.
  */
 @Composable
-internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modifier = Modifier, stacked: Boolean = false) {
     LeaderCard(
         title = SegmentPageTexts.mayorTitle.string(),
         leader = mayor.leader?.athlete,
@@ -73,6 +73,7 @@ internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modif
         viewerText = mayor.viewer?.let { SegmentPageTexts.mayorYours(it).string() },
         onClick = onClick,
         modifier = modifier,
+        stacked = stacked,
     )
 }
 

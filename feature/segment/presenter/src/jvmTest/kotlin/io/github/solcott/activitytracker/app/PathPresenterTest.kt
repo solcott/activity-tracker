@@ -36,6 +36,7 @@ import io.ktor.http.headersOf
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -161,7 +162,26 @@ class PathPresenterTest {
     fun aPathWithoutTrailAttributesHasNoTrailDetails() = runTest {
         val screen = PathScreen(anns.uri.value)
         test(screen, FakeNavigator(screen)) {
-            assertTrue(awaitUntil { it.path != null }.trailDetails().isEmpty())
+            val loaded = awaitUntil { it.path != null }
+            assertTrue(loaded.trailDetails().isEmpty())
+            assertFalse(loaded.offersDetails, "no Trail details line or control")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-attributes: the Trail details open folded, and the control unfolds and folds them. */
+    @Test
+    fun trailDetailsOpenFoldedAndToggle() = runTest {
+        output = GetPath.Output(anns.copy(trail = TrailAttributes(dog = "leashed", mtbScale = 1)), listOf(stretch))
+        val screen = PathScreen(anns.uri.value)
+        test(screen, FakeNavigator(screen)) {
+            val folded = awaitUntil { it.path != null }
+            assertFalse(folded.detailsExpanded)
+            assertTrue(folded.offersDetails)
+            assertEquals(AppText.named("trail_dog_leashed"), folded.detailsSummary())
+            folded.eventSink(PathEvent.ToggleDetails)
+            awaitUntil { it.detailsExpanded }.eventSink(PathEvent.ToggleDetails)
+            awaitUntil { !it.detailsExpanded }
             cancelAndIgnoreRemainingEvents()
         }
     }

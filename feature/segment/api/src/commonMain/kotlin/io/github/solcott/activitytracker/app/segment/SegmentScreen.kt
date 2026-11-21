@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -47,6 +48,13 @@ data class SegmentState(
      * active, or the board hasn't loaded or failed to.
      */
     val mayor: MayorSummary? = null,
+    /**
+     * The segment's all-time leaderboard in brief (segments/segment-leaderboards): its fastest entry and the viewer's own; null when not
+     * read yet, when it failed, or when [offersLeaderboard] is false. The card shows whenever [offersLeaderboard], with or without it.
+     */
+    val leaderboard: LeaderboardSummary? = null,
+    /** The trails and roads the segment lies on, by name, for the heading's "on" line (segments/segment-page); empty when none loaded. */
+    val trails: ImmutableList<SegmentTrail> = persistentListOf(),
     /** The segment's names (segments/segment-names): the sheet, a deletion being confirmed, the last failure, and their events. */
     val names: PlaceNameFields = PlaceNameFields(),
     /** The segment's terrain profile (segments/segment-elevation); null when the AppView sent none, or until loaded. */
@@ -98,6 +106,20 @@ data class SegmentState(
      */
     fun trailDetails(): List<TrailDetail> = TrailTexts.rows(segment?.trail, segment?.record?.sport)
 
+    /** [trailDetails] in their cards (segments/trail-attributes); empty when the AppView sent no `trail`. */
+    fun trailGroups(): List<TrailDetailGroup> = TrailTexts.groups(segment?.trail, segment?.record?.sport)
+
+    /** The figure row in [units] (segments/segment-page); empty before the segment loads. */
+    fun figures(units: UnitSystem): List<SegmentFigure> = segment?.let { SegmentPageTexts.figures(it, profile, units) }.orEmpty()
+
+    /** [trails] as a plain list, a copy, for Swift. */
+    val shownTrails: List<SegmentTrail>
+        get() = trails.toList()
+
+    /** Whether the boards row shows: an active segment that isn't a lift, which always has its Leaderboard card. */
+    val showsBoards: Boolean
+        get() = offersLeaderboard
+
     /** A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names. */
     val isLift: Boolean
         get() = segment?.let { !SegmentKind.isRanked(it.record.kind) } == true
@@ -148,6 +170,12 @@ object GradeBand {
     fun of(gradePercent: Double): Int = THRESHOLDS.count { abs(gradePercent) >= it }
 }
 
+/** An active segment's leaderboard in brief: its fastest entry, null when no one is on it, and the [viewer]'s own entry when on it. */
+@Immutable data class LeaderboardSummary(val leader: LeaderboardEntry?, val viewer: LeaderboardEntry?)
+
+/** A trail or road a segment lies on: its [uri], which opens its Trail page, and its [name]. */
+@Immutable data class SegmentTrail(val uri: AtUri, val name: String)
+
 /** An active segment's Mayors board in brief: its [leader], null when it has no Mayor yet, and the [viewer]'s own entry when on it. */
 @Immutable data class MayorSummary(val leader: MayorEntry?, val viewer: MayorEntry?)
 
@@ -190,6 +218,9 @@ sealed interface SegmentEvent {
 
     /** Opens the segment's Mayors board (segments/segment-mayors); offered only for an active segment. */
     data object OpenMayors : SegmentEvent
+
+    /** Opens the Trail page of [uri], a trail or road the segment lies on. */
+    data class OpenTrail(val uri: AtUri) : SegmentEvent
 
     /** Shows [uri], another segment of its segment group (segments/segment-groups), on the same page; back still leaves the page. */
     data class SwitchGroup(val uri: AtUri) : SegmentEvent

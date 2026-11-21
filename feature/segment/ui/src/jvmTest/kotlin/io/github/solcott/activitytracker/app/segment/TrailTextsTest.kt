@@ -55,7 +55,11 @@ class TrailTextsTest {
                 TrailAttributes(seasons = TrailSeason.all) +
                 TrailAttributes(seasonal = true) +
                 fakeTrailAttributes().copy(widthCm = 53, gradePercent = 12)
-        val texts = every.flatMap { trail -> TrailTexts.rows(trail, null) }.flatMap { listOf(it.label, it.value) } + TrailTexts.title
+        val texts =
+            every.flatMap { trail -> TrailTexts.rows(trail, null) }.flatMap { listOf(it.label, it.value) } +
+                TrailTexts.title +
+                TrailTexts.groups(fakeTrailAttributes().copy(trailClass = 2, gradePercent = 6), null).map { it.title } +
+                listOf(TrailTexts.toggleLabel(true), TrailTexts.toggleLabel(false))
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources || it in Res.allPluralStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
         assertTrue(every.all { trail -> TrailTexts.rows(trail, null).isNotEmpty() }, "a value gave no row")
@@ -138,6 +142,62 @@ class TrailTextsTest {
     }
 
     @Test
+    fun rowsAreGroupedIntoCards() {
+        val trail =
+            TrailAttributes(
+                mtbScale = 2,
+                surfaces = listOf(TrailSurface(TrailSurfaces.DIRT, 100)),
+                widthCm = 100,
+                dog = TrailDog.LEASHED,
+            )
+        val groups = TrailTexts.groups(trail, SegmentSportGroup.RIDE)
+        assertEquals(
+            listOf("trail_group_difficulty", "trail_group_surface", "trail_group_access"),
+            groups.map { (it.title as AppText.Named).name },
+        )
+        assertEquals(listOf("trail_detail_mtb"), groups[0].rows.map { (it.label as AppText.Named).name })
+        assertEquals(listOf("trail_detail_surface", "trail_detail_width"), groups[1].rows.map { (it.label as AppText.Named).name })
+        assertEquals(listOf("trail_detail_dog"), groups[2].rows.map { (it.label as AppText.Named).name })
+        assertEquals(
+            TrailTexts.rows(trail, SegmentSportGroup.RIDE).toSet(),
+            groups.flatMap { it.rows }.toSet(),
+            "the cards hold the rows, no more and no fewer",
+        )
+    }
+
+    @Test
+    fun aCardWithNoRowsIsLeftOut() {
+        val groups = TrailTexts.groups(TrailAttributes(dog = TrailDog.NO), SegmentSportGroup.RIDE)
+        assertEquals(listOf("trail_group_access"), groups.map { (it.title as AppText.Named).name })
+        assertTrue(TrailTexts.groups(null, null).isEmpty())
+        assertTrue(TrailTexts.groups(TrailAttributes(mtbScale = 3), SegmentSportGroup.HIKE).isEmpty(), "a scale its sport hides")
+    }
+
+    @Test
+    fun theFoldedLineTakesUpToThreeValues() {
+        val trail =
+            TrailAttributes(
+                surfaces = listOf(TrailSurface(TrailSurfaces.DIRT, 100)),
+                widthCm = 100,
+                dog = TrailDog.LEASHED,
+                openFrom = "06-15",
+                openUntil = "10-15",
+            )
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                AppText.named("segment_browse_details", AppText.named("trail_surface_only_dirt"), AppText.named("trail_width_singletrack")),
+                AppText.named("trail_dog_leashed"),
+            ),
+            TrailTexts.summary(trail),
+            "surface, width and dogs; the season doesn't fit",
+        )
+        assertEquals(AppText.named("trail_dog_no"), TrailTexts.summary(TrailAttributes(dog = TrailDog.NO, mtbScale = 2)))
+        assertNull(TrailTexts.summary(TrailAttributes(mtbScale = 3)), "nothing for the line")
+        assertNull(TrailTexts.summary(null))
+    }
+
+    @Test
     fun onlyWebLinksAreOpened() {
         assertNull(TrailTexts.website("javascript:alert(1)"))
         assertNull(TrailTexts.website("ftp://example.com"))
@@ -150,9 +210,12 @@ class TrailTextsTest {
 
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun theSectionShowsItsRows() = runComposeUiTest {
-        setContent { AppPreview { TrailDetails(TrailTexts.rows(fakeTrailAttributes(), SegmentSportGroup.RIDE).toImmutableList()) } }
+    fun theSectionShowsItsRowsInCards() = runComposeUiTest {
+        setContent { AppPreview { TrailDetailGroups(TrailTexts.groups(fakeTrailAttributes(), SegmentSportGroup.RIDE).toImmutableList()) } }
         onNodeWithText("Trail details").assertExists()
+        onNodeWithText("Difficulty").assertExists()
+        onNodeWithText("Surface & width").assertExists()
+        onNodeWithText("Access & season").assertExists()
         onNodeWithText("70% paved · 30% gravel · Rough").assertExists()
         onNodeWithText("Dogs on leash").assertExists()
         onNodeWithText("Intermediate: roots, rocks and small steps").assertExists()

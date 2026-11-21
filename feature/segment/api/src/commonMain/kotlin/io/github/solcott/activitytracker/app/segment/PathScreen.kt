@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.SegmentsMap
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PathView
@@ -84,6 +85,8 @@ data class PathState(
     val camera: MapCameraRequest? = null,
     /** The names of the sections collapsed; every section starts expanded. */
     val collapsed: ImmutableSet<String> = persistentSetOf(),
+    /** Whether the Trail details cards show under their folded line (segments/trail-attributes); every visit starts folded. */
+    val detailsExpanded: Boolean = false,
     val eventSink: (PathEvent) -> Unit = {},
 ) : CircuitUiState {
     /** The path, once loaded. */
@@ -103,6 +106,16 @@ data class PathState(
      * none, so the section is left out.
      */
     fun trailDetails(): List<TrailDetail> = TrailTexts.rows(path?.trail, sport = null)
+
+    /** [trailDetails] in their cards, every scale shown; empty when the AppView sent no `trail`. */
+    fun trailGroups(): List<TrailDetailGroup> = TrailTexts.groups(path?.trail, sport = null)
+
+    /** The folded Trail details line; null when there's nothing in it (the control still shows while [offersDetails]). */
+    fun detailsSummary(): AppText? = TrailTexts.summary(path?.trail)
+
+    /** Whether the Trail details line and its control show: the AppView sent a `trail` with anything in it. */
+    val offersDetails: Boolean
+        get() = trailGroups().isNotEmpty()
 
     /** Whether "Show all sports" is offered: while the list is narrowed to one sport group. */
     val offersAllSports: Boolean
@@ -186,4 +199,7 @@ sealed interface PathEvent {
 
     /** Expands every section, or collapses every one. */
     data class SetAllSections(val expanded: Boolean) : PathEvent
+
+    /** A tap on the Trail details control: unfolds the cards, or folds them. */
+    data object ToggleDetails : PathEvent
 }

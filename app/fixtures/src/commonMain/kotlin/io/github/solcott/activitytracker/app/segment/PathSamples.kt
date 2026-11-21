@@ -152,6 +152,10 @@ object PathSamples {
     val trail: PathState
         get() = page(ContentStates.loaded(content.copy(path = SegmentBrowseSamples.annsTrail.copy(trail = fakeTrailAttributes()))))
 
+    /** [trail] with its Trail details unfolded into their cards. */
+    val trailExpanded: PathState
+        get() = trail.copy(detailsExpanded = true)
+
     /** [sections] with Through the Trees Trail collapsed: its rows hidden, and the control offering Expand all. */
     val sectionsCollapsed: PathState
         get() = sections.copy(collapsed = persistentSetOf("Through the Trees Trail"))
@@ -168,6 +172,7 @@ object PathSamples {
                     SECTIONS to sections,
                     "sectionsCollapsed" to sectionsCollapsed,
                     TRAIL to trail,
+                    TRAIL_EXPANDED to trailExpanded,
                 )
 
     const val ONE_WAY = "oneWay"
@@ -175,6 +180,7 @@ object PathSamples {
     const val SECTIONS = "sections"
 
     const val TRAIL = "trail"
+    const val TRAIL_EXPANDED = "trailExpanded"
 }
 
 private const val BURLINGTON_LAT = 44.4759

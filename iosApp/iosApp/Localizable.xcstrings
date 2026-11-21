@@ -17491,28 +17491,6 @@
         }
       }
     },
-    "segment_elevation" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ gain · %2$@ loss · %3$@ avg grade"
-          }
-        }
-      }
-    },
-    "segment_elevation_extremes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ high · %2$@ low · %3$@ max grade"
-          }
-        }
-      }
-    },
     "segment_elevation_range" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -17520,6 +17498,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ high · %2$@ low"
+          }
+        }
+      }
+    },
+    "segment_figure_avg_grade" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avg grade"
+          }
+        }
+      }
+    },
+    "segment_figure_distance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distance"
+          }
+        }
+      }
+    },
+    "segment_figure_gain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gain"
+          }
+        }
+      }
+    },
+    "segment_figure_loss" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ loss"
+          }
+        }
+      }
+    },
+    "segment_figure_max_grade" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max grade"
           }
         }
       }
@@ -17641,6 +17674,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Leaderboard"
+          }
+        }
+      }
+    },
+    "segment_leaderboard_yours" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You: %1$@ · #%2$@"
           }
         }
       }
@@ -18004,6 +18048,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not on leaderboards: faster than plausible for this sport"
+          }
+        }
+      }
+    },
+    "segment_on_trails" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on"
           }
         }
       }
@@ -18433,6 +18488,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Star segment"
+          }
+        }
+      }
+    },
+    "segment_status_active" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
           }
         }
       }
@@ -22936,6 +23002,28 @@
         }
       }
     },
+    "trail_details_collapse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide trail details"
+          }
+        }
+      }
+    },
+    "trail_details_expand" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show trail details"
+          }
+        }
+      }
+    },
     "trail_details_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23042,6 +23130,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Skating"
+          }
+        }
+      }
+    },
+    "trail_group_access" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access & season"
+          }
+        }
+      }
+    },
+    "trail_group_difficulty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Difficulty"
+          }
+        }
+      }
+    },
+    "trail_group_surface" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surface & width"
           }
         }
       }

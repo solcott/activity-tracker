@@ -18,12 +18,25 @@ import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
 import io.github.solcott.activitytracker.lexicon.app.TrailWheelchair
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * One row of a Trail details section (segments/trail-attributes): what it is ([label]) and what the data says ([value]). [link] is the
  * http(s) URL a Website row opens in the system browser; null for every other row.
  */
 @Immutable data class TrailDetail(val label: AppText, val value: AppText, val link: String? = null)
+
+/**
+ * One card of a Trail details section (segments/trail-attributes): its [title] and its [rows], in the section's order. Swift reads
+ * [shownRows], a copy, as an array.
+ */
+@Immutable
+data class TrailDetailGroup(val title: AppText, val rows: ImmutableList<TrailDetail>) {
+    /** [rows] as a plain list, a copy, since the immutable library's shared empty list stops the iOS app when read through a `List`. */
+    val shownRows: List<TrailDetail>
+        get() = rows.toList()
+}
 
 /**
  * What a Trail details section says on the Segment and Trail pages (segments/trail-attributes, dev/shared-display-text), for the shared and
@@ -40,11 +53,47 @@ object TrailTexts {
      */
     fun rows(trail: TrailAttributes?, sport: String?): List<TrailDetail> {
         if (trail == null) return emptyList()
-        return listOfNotNull(surface(trail)?.let { row("trail_detail_surface", it) }) +
-            difficulties(trail, ScaleFilter(sport)) +
-            measures(trail, ScaleFilter(sport)) +
-            access(trail)
+        return surfaceRows(trail) + difficulties(trail, ScaleFilter(sport)) + measures(trail, ScaleFilter(sport)) + access(trail)
     }
+
+    /**
+     * [trail]'s rows in their cards: Difficulty (the scales, trail class and visibility), Surface & width (surface, width and typical
+     * grade) and Access & season (the rest), each left out when it has no rows. [sport] filters the scales as in [rows]. Empty without a
+     * [trail].
+     */
+    fun groups(trail: TrailAttributes?, sport: String?): List<TrailDetailGroup> {
+        if (trail == null) return emptyList()
+        val fits = ScaleFilter(sport)
+        return listOf(
+                "trail_group_difficulty" to difficulties(trail, fits),
+                "trail_group_surface" to surfaceRows(trail) + measures(trail, fits),
+                "trail_group_access" to access(trail),
+            )
+            .filter { (_, rows) -> rows.isNotEmpty() }
+            .map { (title, rows) -> TrailDetailGroup(named(title), rows.toImmutableList()) }
+    }
+
+    /**
+     * The Trail page's folded line (segments/trail-attributes): up to [SUMMARY_VALUES] of the surface, the kind of trail its width makes,
+     * whether dogs may come and the season, joined with " · "; null when [trail] holds none of them.
+     */
+    fun summary(trail: TrailAttributes?): AppText? {
+        if (trail == null) return null
+        val values =
+            listOfNotNull(
+                surface(trail),
+                trail.widthCm?.takeIf { it > 0 }?.let(::width),
+                trail.dog?.takeIf { it in TrailDog.all }?.let { named("trail_dog_$it") },
+                season(trail),
+            )
+        return values.take(SUMMARY_VALUES).reduceOrNull(::joined)
+    }
+
+    /** The Trail details control on the Trail page: its label, and what it does for a screen reader. */
+    fun toggleLabel(expanded: Boolean): AppText = named(if (expanded) "trail_details_collapse" else "trail_details_expand")
+
+    private fun surfaceRows(trail: TrailAttributes): List<TrailDetail> =
+        listOfNotNull(surface(trail)?.let { row("trail_detail_surface", it) })
 
     /** The difficulty scales that fit [fits], then the trail class and visibility, which fit every sport group. */
     private fun difficulties(trail: TrailAttributes, fits: ScaleFilter): List<TrailDetail> =
@@ -171,6 +220,7 @@ object TrailTexts {
     private fun whole(value: Int): AppText = AppText.written(formatWhole(value.toLong()))
 
     private const val PERCENT = 100
+    private const val SUMMARY_VALUES = 3
     /** The narrowest width that is doubletrack, in centimetres. */
     const val DOUBLETRACK_CM = 150
     /** The narrowest width that is road width, in centimetres. */

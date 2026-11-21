@@ -107,6 +107,32 @@ class PathUiTest {
         onNodeWithTag(TestTags.PATH_ALL_SECTIONS).assertDoesNotExist()
     }
 
+    /** segments/trail-attributes: the Trail details start folded to one line, and the control unfolds the cards. */
+    @Test
+    fun trailDetailsStartFoldedAndUnfold() = runComposeUiTest {
+        val events = mutableListOf<PathEvent>()
+        setContent { AppPreview { PathUi(PathSamples.trail.copy(eventSink = { events += it })) } }
+        onNodeWithText("70% paved · 30% gravel · Rough · Singletrack · Dogs on leash").assertExists()
+        onNodeWithText("Difficulty").assertDoesNotExist()
+        onNodeWithTag(TestTags.PATH_DETAILS_TOGGLE).assert(hasClickLabel("Show trail details")).performClick()
+        assertEquals(PathEvent.ToggleDetails, events.last())
+    }
+
+    @Test
+    fun unfoldedTrailDetailsShowTheirCards() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.trailExpanded) } }
+        onNodeWithTag(TestTags.PATH_DETAILS_TOGGLE).assert(hasClickLabel("Hide trail details"))
+        onNodeWithText("Difficulty").assertExists()
+        onNodeWithText("Surface & width").assertExists()
+        onNodeWithText("Access & season").assertExists()
+    }
+
+    @Test
+    fun aTrailWithoutDetailsHasNoFold() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.loaded) } }
+        onNodeWithTag(TestTags.PATH_DETAILS_TOGGLE).assertDoesNotExist()
+    }
+
     /** The row named [name]: clickable, unlike the bar's title of the same name. */
     private fun androidx.compose.ui.test.SemanticsNodeInteractionsProvider.row(name: String) = onNode(hasText(name) and hasClickAction())
 

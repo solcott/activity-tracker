@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -29,19 +31,22 @@ import io.github.solcott.activitytracker.app.names.PlaceNameDialogs
 import io.github.solcott.activitytracker.app.names.PlaceNames
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -90,7 +95,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupChoices(group: GroupSwitcher, eventSink: (SegmentEvent) -> Unit) {
-    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (group.showsSports) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 group.sports.forEach { sport ->
@@ -131,70 +136,163 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
     // A lift is matched but never ranked or renamed (segments/segment-lifts): no leaderboard, Mayor or names.
     val lift = state.isLift
     val units = LocalUnitSystem.current
+    // The parts in the order segments/segment-page gives them; a part with nothing to show is left out.
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = listPadding + PaddingValues(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry, showProgress = state.showsRefreshProgress) }
             state.polyline?.let { line ->
                 item { ActivityMap(line, Modifier.fillMaxWidth(), onExpand = { state.eventSink(SegmentEvent.OpenMap) }) }
             }
+            item { Heading(state, segment) }
             state.group?.takeIf { it.offered }?.let { group -> item { GroupChoices(group, state.eventSink) } }
-            item {
-                Column(Modifier.padding(vertical = 12.dp)) {
-                    state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }
-                    // Says whether it's a ski run or a ski lift, with the icon the activity page shows beside it.
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SegmentKindIcon(segment.record.sport, segment.record.kind)
-                        Text(SegmentPageTexts.summary(segment, units).string(), style = MaterialTheme.typography.titleMedium)
-                    }
-                    SegmentPageTexts.elevation(segment, units)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
-                    state.profile?.let {
-                        Text(SegmentPageTexts.extremes(it, units).string(), style = MaterialTheme.typography.bodyMedium)
-                        SegmentProfileChart(it, Modifier.padding(top = 8.dp))
-                    }
-                    CreatedBy(segment.creator.handle.value)
-                    state.credit?.let { Credit(it) }
-                    PlaceStatus(
-                        label = PlaceTexts.status(segment.status),
-                        help = SegmentPageTexts.statusHelp(segment),
-                        offersOriginal = SegmentPageTexts.offersOriginal(segment),
-                        onOpenOriginal = { state.eventSink(SegmentEvent.OpenOriginal) },
-                    )
-                    if (state.offersLeaderboard) {
-                        AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, Modifier.padding(top = 8.dp)) {
-                            Text(SegmentPageTexts.leaderboard.string())
-                        }
-                    }
-                    state.mayor?.let { mayor ->
-                        MayorCard(mayor, onClick = { state.eventSink(SegmentEvent.OpenMayors) }, Modifier.padding(top = 12.dp))
-                    }
-                }
-            }
-            state
-                .trailDetails()
-                .takeIf { it.isNotEmpty() }
-                ?.let { rows -> item { TrailDetails(rows.toImmutableList(), Modifier.padding(bottom = 12.dp)) } }
+            item { Figures(state.figures(units).toImmutableList()) }
+            state.profile?.let { profile -> item { ProfileCard(profile) } }
+            if (state.showsBoards) item { Boards(state) }
+            state.trailGroups().takeIf { it.isNotEmpty() }?.let { groups -> item { TrailDetailGroups(groups.toImmutableList()) } }
             if (!lift) item { SegmentNames(state, segment) }
             item { Text(SegmentPageTexts.efforts(lift).string(), style = MaterialTheme.typography.titleMedium) }
             if (state.efforts.isEmpty()) {
-                item {
-                    Text(
-                        SegmentPageTexts.noEfforts.string(),
-                        Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                item { Text(SegmentPageTexts.noEfforts.string(), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             items(state.efforts, key = { "${it.activity.value} ${it.startOffset}" }) { effort ->
-                EffortRow(
-                    effort,
-                    EffortTexts.date(effort).string(),
-                    onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column {
+                    EffortRow(
+                        effort,
+                        EffortTexts.date(effort).string(),
+                        onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+            item { Footer(state, segment) }
+        }
+    }
+}
+
+/**
+ * The heading (segments/segment-page): what it is and its status, with the ski icon the activity page shows, its current name, its original
+ * name when renamed, and the trails it lies on, each opening its Trail page.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Heading(state: SegmentState, segment: SegmentView) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentKindIcon(segment.record.sport, segment.record.kind)
+            Text(
+                SegmentPageTexts.heading(segment).string(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(segment.currentName, style = MaterialTheme.typography.headlineSmall)
+        state.originalName?.let { OriginalName(it) }
+        if (state.trails.isNotEmpty()) {
+            FlowRow(verticalArrangement = Arrangement.Center, itemVerticalAlignment = Alignment.CenterVertically) {
+                Text(SegmentPageTexts.onTrails.string(), style = MaterialTheme.typography.bodyMedium)
+                state.trails.forEach { trail ->
+                    AppTextButton(onClick = { state.eventSink(SegmentEvent.OpenTrail(trail.uri)) }) { Text(trail.name) }
+                }
             }
         }
     }
 }
+
+/** The figure row (segments/segment-page): each figure's value over its label, side by side in one card. */
+@Composable
+private fun Figures(figures: ImmutableList<SegmentFigure>) {
+    AppCard(Modifier.testTag(SEGMENT_FIGURES_TAG)) {
+        Row(Modifier.padding(vertical = 12.dp, horizontal = 4.dp)) {
+            figures.forEach { figure ->
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(figure.value.string(), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        figure.label.string(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    figure.detail?.let {
+                        Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The elevation profile in a card, headed by its high and low points (segments/segment-elevation). */
+@Composable
+private fun ProfileCard(profile: SegmentProfile) {
+    val units = LocalUnitSystem.current
+    AppCard {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                SegmentPageTexts.extremes(profile, units).string(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SegmentProfileChart(profile, Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+/**
+ * The boards row (segments/segment-page): the Leaderboard card and the Mayor card side by side, one under the other when the page is too
+ * narrow for both, and the Leaderboard card across the row when the Mayor isn't shown.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Boards(state: SegmentState) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 2) {
+        val card = Modifier.weight(1f).widthIn(min = BOARD_CARD_MIN_WIDTH)
+        LeaderboardCard(state.leaderboard, onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, card)
+        state.mayor?.let { mayor -> MayorCard(mayor, onClick = { state.eventSink(SegmentEvent.OpenMayors) }, card, stacked = true) }
+    }
+}
+
+/**
+ * The Leaderboard card (segments/segment-leaderboards): its leader's time, or that no one is on it, and the viewer's own time and place;
+ * the title alone while [leaderboard] hasn't loaded or failed to. Tapping it opens the leaderboard.
+ */
+@Composable
+private fun LeaderboardCard(leaderboard: LeaderboardSummary?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    LeaderCard(
+        title = SegmentPageTexts.leaderboard.string(),
+        leader = leaderboard?.leader?.athlete,
+        leaderValue = leaderboard?.leader?.let { SegmentPageTexts.leaderboardValue(it).string() }.orEmpty(),
+        noneText = leaderboard?.let { SegmentPageTexts.leaderboardNone.string() },
+        viewerText = leaderboard?.viewer?.let { SegmentPageTexts.leaderboardYours(it).string() },
+        onClick = onClick,
+        modifier = modifier,
+        stacked = true,
+    )
+}
+
+/** The footer (segments/segment-page): who created it, its data credit, and what its status means, with Open the original. */
+@Composable
+private fun Footer(state: SegmentState, segment: SegmentView) {
+    Column(Modifier.padding(top = 8.dp)) {
+        CreatedBy(segment.creator.handle.value)
+        state.credit?.let { Credit(it) }
+        PlaceStatus(
+            label = PlaceTexts.status(segment.status),
+            help = SegmentPageTexts.statusHelp(segment),
+            offersOriginal = SegmentPageTexts.offersOriginal(segment),
+            onOpenOriginal = { state.eventSink(SegmentEvent.OpenOriginal) },
+        )
+    }
+}
+
+/** Where a test finds the figure row. */
+internal const val SEGMENT_FIGURES_TAG = "segment-figures"
+
+/** The narrowest a board card gets before the row wraps it under the other. */
+private val BOARD_CARD_MIN_WIDTH = 160.dp
 
 /** The segment's community names (segments/segment-names), through the shared names list: Propose, the open proposals and the history. */
 @Composable
