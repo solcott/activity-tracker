@@ -184,6 +184,7 @@ class SegmentRepositoryTest {
             LeaderboardScope.EVERYONE,
             board = null,
             brackets = LeaderboardBrackets(ageGroup = "45-54", gender = "female"),
+            limit = 1,
         )
 
         assertEquals(
@@ -203,6 +204,7 @@ class SegmentRepositoryTest {
                         "scope" to listOf("everyone"),
                         "ageGroup" to listOf("45-54"),
                         "gender" to listOf("female"),
+                        "limit" to listOf("1"),
                     ),
             ),
             requests,

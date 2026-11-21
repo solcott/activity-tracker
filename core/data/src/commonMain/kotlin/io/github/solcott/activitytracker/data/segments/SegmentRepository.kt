@@ -102,7 +102,7 @@ class SegmentRepository(private val clients: SessionClients) {
     /**
      * One page of [segment]'s leaderboard (segments/segment-leaderboards), fastest first, with the signed-in athlete's own entry and the
      * board types as its [BoardMeta]. [board] is a `SegmentBoard` value, null for the AppView's default (the busiest type), and [brackets]
-     * limits it to athletes in each bracket given (segments/leaderboard-brackets).
+     * limits it to athletes in each bracket given (segments/leaderboard-brackets). [limit] null is the AppView's default page.
      */
     @Suppress("LongParameterList") // The board's filters.
     suspend fun leaderboardPage(
@@ -112,6 +112,7 @@ class SegmentRepository(private val clients: SessionClients) {
         board: String?,
         cursor: String? = null,
         brackets: LeaderboardBrackets = LeaderboardBrackets(),
+        limit: Int? = null,
     ): Outcome<Page<LeaderboardEntry, BoardMeta<LeaderboardEntry>>> = outcomeOf {
         val output =
             clients.appView.query(
@@ -124,6 +125,7 @@ class SegmentRepository(private val clients: SessionClients) {
                     ageGroup = brackets.ageGroup,
                     weightClass = brackets.weightClass,
                     gender = brackets.gender,
+                    limit = limit,
                     cursor = cursor,
                 ),
             )
