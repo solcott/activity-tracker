@@ -105,7 +105,9 @@ fun GearPresenter(
 
     fun today(): Instant = clock.todayIn(zone).atStartOfDayIn(zone)
 
-    fun ownItem(at: AtUri): GearItem = ownItems.firstOrNull { it.rkey == at.rkey } ?: throw GearNotFoundException()
+    // The item from the athlete's loaded list, or read now when the list hasn't loaded yet (an unmount right after the page opens).
+    suspend fun ownItem(at: AtUri): GearItem =
+        ownItems.firstOrNull { it.rkey == at.rkey } ?: at.rkey?.let { gear.item(it) } ?: throw GearNotFoundException()
 
     fun saveMount(save: suspend () -> Unit) {
         error = null
