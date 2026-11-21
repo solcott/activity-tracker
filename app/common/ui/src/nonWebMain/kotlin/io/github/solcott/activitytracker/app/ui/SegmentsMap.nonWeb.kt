@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,7 +19,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -35,7 +39,10 @@ import androidx.compose.ui.unit.toSize
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
+import io.github.solcott.activitytracker.app.SegmentsMap
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.map.TrailRatingColors
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.map_zoom_in
 import io.github.solcott.activitytracker.composeApp.resources.map_zoom_out
@@ -50,7 +57,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.dsl.asString
+import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.eq
+import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.interaction.ClickResult
@@ -60,6 +74,7 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -85,12 +100,34 @@ actual fun SegmentsMap(
         SegmentsPreview(segments, selected, modifier, hovered, hoveredLines)
         return
     }
+    // The legend of the levels the runs are drawn in (segments/trail-ratings), in the top-start corner, clear of the zoom buttons.
+    val legend = remember(segments) { SegmentsMap.of(segments, selected = null).legend }
+    Box(modifier) {
+        SegmentsMapLibre(segments, selected, camera, onViewport, onSelect, hovered, onHover, hoveredLines, Modifier.matchParentSize())
+        RatingLegend(legend, Modifier.align(Alignment.TopStart).padding(MapOverlay.Spacing))
+    }
+}
+
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // SegmentsMap's own parameters, and the layers in drawing order.
+@Composable
+private fun SegmentsMapLibre(
+    segments: ImmutableList<MapSegmentLine>,
+    selected: String?,
+    camera: MapCameraRequest?,
+    onViewport: (MapViewport) -> Unit,
+    onSelect: (String?) -> Unit,
+    hovered: String?,
+    onHover: (String?) -> Unit,
+    hoveredLines: ImmutableSet<String>,
+    modifier: Modifier = Modifier,
+) {
     val runsJson = remember(segments) { featuresJson(segments.filterNot { it.lift }) }
     val liftsJson = remember(segments) { featuresJson(segments.filter { it.lift }) }
     // The selected and hovered runs: one small source, so a hover rebuilds a layer of a line or two.
     val highlighted = remember(selected, hovered, hoveredLines) { hoveredLines + listOfNotNull(selected, hovered) }
     val selectedJson = remember(segments, highlighted) { featuresJson(segments.filter { !it.lift && it.uri in highlighted }) }
-    val runColor = MaterialTheme.colorScheme.primary
+    val ratings = TrailRatingColors.current()
+    val plain = MaterialTheme.colorScheme.primary
     val liftColor = MaterialTheme.colorScheme.outline
     val selectedColor = MaterialTheme.colorScheme.tertiary
     val currentOnSelect by rememberUpdatedState(onSelect)
@@ -113,19 +150,30 @@ actual fun SegmentsMap(
             }
             key(runsJson) {
                 val runs = rememberGeoJsonSource(GeoJsonData.JsonString(runsJson))
+                // Each run in its rating level's colour on that level's casing (segments/trail-ratings), by its feature's `level`.
                 LineLayer(
                     id = "segments-runs-casing",
                     source = runs,
-                    color = const(androidx.compose.ui.graphics.Color.White),
-                    width = const(6.dp),
+                    color = byLevel(plainColor = Color.White) { ratings.casing(it) },
+                    width = const(LINE_WIDTH + CASING_EXTRA),
                     cap = const(LineCap.Round),
                     join = const(LineJoin.Round),
                 )
                 LineLayer(
                     id = RUNS_LAYER,
                     source = runs,
-                    color = const(runColor),
-                    width = const(4.dp),
+                    color = byLevel(plainColor = plain) { ratings.line(it) },
+                    width = const(LINE_WIDTH),
+                    cap = const(LineCap.Round),
+                    join = const(LineJoin.Round),
+                )
+                // An Extreme run's thin centre line, which makes its black a double line.
+                LineLayer(
+                    id = "segments-runs-extreme",
+                    source = runs,
+                    filter = feature["level"].asString() eq const(TrailRating.EXTREME.name),
+                    color = const(TrailRatingColors.EXTREME_CENTRE),
+                    width = const(LINE_WIDTH / EXTREME_CENTRE_SHARE),
                     cap = const(LineCap.Round),
                     join = const(LineJoin.Round),
                 )
@@ -265,7 +313,9 @@ private fun featuresJson(lines: List<MapSegmentLine>): String =
         val points = TrackMath.decodePolylineOrNull(line.polyline).orEmpty()
         val coordinates = points.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
         // A URI is an at:// string of DID and record-key characters, so it needs no escaping in a JSON string.
-        """{"type":"Feature","properties":{"uri":"${line.uri}"},"geometry":{"type":"LineString","coordinates":$coordinates}}"""
+        // The level is an enum name, "UNRATED" or "PLAIN" (not a trail), which need no escaping either.
+        val level = if (!line.trail) PLAIN else line.rating?.name ?: UNRATED
+        """{"type":"Feature","properties":{"uri":"${line.uri}","level":"$level"},"geometry":{"type":"LineString","coordinates":$coordinates}}"""
     }
 
 /** Saves a camera position as its centre and zoom, all the browse map changes. */
@@ -285,3 +335,23 @@ private val TAP_SLOP = 12.dp
 
 /** A mouse pointer is precise: a few dp either side of a line hovers it. */
 private val HOVER_SLOP = 4.dp
+
+/** A run feature's `level` when nothing rates it. */
+private const val UNRATED = "UNRATED"
+
+/** A feature's `level` when it isn't a trail (a dive site's outline): drawn in the accent colour as before ratings. */
+private const val PLAIN = "PLAIN"
+
+/** An Extreme run's centre line is this share of its line's width, as [RatingSwatch] draws it. */
+private const val EXTREME_CENTRE_SHARE = 3f
+
+/**
+ * A colour per run by its feature's `level`: [color] of each level's index (0 Easiest to 4 Extreme), of null for an unrated run, and
+ * [plainColor] for a line that isn't a trail.
+ */
+private fun byLevel(plainColor: Color, color: (Int?) -> Color): Expression<ColorValue> =
+    switch(
+        feature["level"],
+        TrailRating.entries.map { case(it.name, const(color(it.ordinal))) } + case(PLAIN, const(plainColor)),
+        fallback = const(color(null)),
+    )

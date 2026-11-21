@@ -132,5 +132,6 @@ private fun BrowseRowItem(state: SegmentBrowseState, hover: MapBrowseHover, row:
         hover = hover,
         onTap = { state.eventSink(state.tapRowEvent(row)) },
         onOpen = { state.eventSink(state.openEvent(row)) },
+        rating = row.rating,
     )
 }

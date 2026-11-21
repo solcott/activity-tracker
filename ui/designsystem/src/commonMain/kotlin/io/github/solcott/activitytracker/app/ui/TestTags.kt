@@ -59,4 +59,10 @@ object TestTags {
 
     /** The Trail page's Trail details control, which unfolds and folds its cards (segments/trail-attributes). */
     const val PATH_DETAILS_TOGGLE = "pathDetailsToggle"
+
+    /** A map's rating legend (segments/trail-ratings). */
+    const val TRAIL_RATING_LEGEND = "trailRatingLegend"
+
+    /** A rated row's or legend line's rating swatch (segments/trail-ratings). */
+    const val TRAIL_RATING_SWATCH = "trailRatingSwatch"
 }

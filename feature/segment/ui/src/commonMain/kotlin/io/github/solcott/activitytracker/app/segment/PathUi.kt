@@ -226,6 +226,7 @@ private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseH
             hover = hover,
             onTap = { state.eventSink(state.tapRowEvent(group)) },
             onOpen = { state.eventSink(state.openEvent(group)) },
+            rating = group.rating,
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
