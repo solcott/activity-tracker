@@ -298,6 +298,22 @@
             .background(Color(.systemGroupedBackground))
         }
 
+        /// Trail ratings (segments/trail-ratings): each level's swatch, an unrated one, and the legend of browse's sample map, every level.
+        static var ratings: some View {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 16) {
+                    ForEach([TrailRating.EASIEST, .EASY, .INTERMEDIATE, .DIFFICULT, .EXTREME], id: \.self) { RatingSwatch(rating: $0) }
+                    RatingSwatch(rating: nil, showsUnrated: true)
+                }
+                if let browse = Samples.segmentBrowse["selected"] {
+                    RatingLegendView(map: browse.browse.segmentsMap)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(.quaternarySystemFill))
+        }
+
         /// Line charts: one in the accent colour with a gap, a profile tinted by grade, and that profile with its readout shown.
         static var charts: some View {
             List {
@@ -458,6 +474,7 @@
         .tabViewStyle(.page)
     }
     #Preview("Cards") { DesignGallery.cards }
+    #Preview("Trail ratings") { DesignGallery.ratings }
     #Preview("Charts") { DesignGallery.charts }
     #Preview("Activity charts") { DesignGallery.activityCharts }
     #Preview("Step charts") { DesignGallery.stepCharts }

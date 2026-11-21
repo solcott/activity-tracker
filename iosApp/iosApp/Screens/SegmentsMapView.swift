@@ -1,8 +1,8 @@
 import MapKit
 import SwiftUI
 
-/// Many segments on the system's map, panned and zoomed north-up (segments/segment-browse, ui/ios-design-system): runs in the accent colour
-/// on a white casing, lifts thin, dashed and muted, and the selected run highlighted over them, in Kotlin's drawing order (`SegmentsMap`,
+/// Many segments on the system's map, panned and zoomed north-up (segments/segment-browse, ui/ios-design-system): runs in their rating
+/// level's colour on its casing with the levels' legend in the top-leading corner (segments/trail-ratings, `TrailRatingStyle`), lifts thin, dashed and muted, and the selected run highlighted over them, in Kotlin's drawing order (`SegmentsMap`,
 /// which the shared map's stand-in asks too). A tap selects the run Kotlin finds nearest within a finger's width (`SegmentsMap.nearest`),
 /// or clears the choice; each time the map stops it reports what it shows; each new camera request moves it once.
 ///
@@ -19,11 +19,14 @@ struct SegmentsMapView: View {
     @Environment(\.liveMaps) private var liveMaps
 
     var body: some View {
-        if liveMaps {
-            LiveSegmentsMap(map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect)
-        } else {
-            SegmentsSketch(map: map)
+        Group {
+            if liveMaps {
+                LiveSegmentsMap(map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect)
+            } else {
+                SegmentsSketch(map: map)
+            }
         }
+        .overlay(alignment: .topLeading) { RatingLegendView(map: map).padding(8) }
     }
 }
 
@@ -60,9 +63,13 @@ private struct LiveSegmentsMap: View {
                         MapPolyline(coordinates: coordinates).stroke(.white, style: SegmentsMapStyle.selectedCasing)
                         MapPolyline(coordinates: coordinates).stroke(Color("LikeColor"), style: SegmentsMapStyle.selected)
                     default:
-                        MapPolyline(coordinates: coordinates).stroke(.white, style: SegmentsMapStyle.casing)
-                        // The catalog colour by name: inside a map's content `Color.accentColor` is the system's blue, not the app's tint.
-                        MapPolyline(coordinates: coordinates).stroke(Color("AccentColor"), style: SegmentsMapStyle.run)
+                        let rating = line.rating
+                        MapPolyline(coordinates: coordinates).stroke(TrailRatingStyle.casing(rating), style: TrailRatingStyle.casingStroke)
+                        MapPolyline(coordinates: coordinates).stroke(
+                            TrailRatingStyle.line(rating, trail: line.trail), style: TrailRatingStyle.lineStroke)
+                        if TrailRatingStyle.isDouble(rating) {
+                            MapPolyline(coordinates: coordinates).stroke(.white, style: TrailRatingStyle.centre)
+                        }
                     }
                 }
             }
@@ -112,8 +119,8 @@ private struct LiveSegmentsMap: View {
 }
 
 extension MapSegment {
-    /// A line's identity on the map: its URI and how it's drawn, so a change of role replaces its overlay.
-    fileprivate var mapIdentity: String { "\(uri)|\(role)" }
+    /// A line's identity on the map: its URI and how it's drawn, so a change of role or level replaces its overlay.
+    fileprivate var mapIdentity: String { "\(uri)|\(role)|\(String(describing: rating))|\(trail)" }
 }
 
 /// The conversions between MapKit's geometry and Kotlin's (a coordinate, a region's box, a tap's reach), kept apart for their tests.
@@ -140,8 +147,6 @@ enum SegmentsMapGeometry {
 
 /// How a segments map draws its lines, as the shared map draws them.
 enum SegmentsMapStyle {
-    static let run = StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-    static let casing = StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
     static let selected = StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
     static let selectedCasing = StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round)
     static let lift = StrokeStyle(lineWidth: 2, lineCap: .butt, dash: [6, 4])
@@ -164,7 +169,16 @@ private struct SegmentsSketch: View {
                 switch line.role {
                 case .Lift: context.stroke(path, with: .color(Color(.systemGray)), style: SegmentsMapStyle.lift)
                 case .Selected: context.stroke(path, with: .color(Color("LikeColor")), style: SegmentsMapStyle.selected)
-                default: context.stroke(path, with: .color(.accentColor), style: SegmentsMapStyle.run)
+                default:
+                    // A dive site's outline stays as it was: the accent colour, with no casing on the plain tile.
+                    if line.trail {
+                        context.stroke(path, with: .color(TrailRatingStyle.casing(line.rating)), style: TrailRatingStyle.casingStroke)
+                    }
+                    context.stroke(
+                        path, with: .color(TrailRatingStyle.line(line.rating, trail: line.trail)), style: TrailRatingStyle.lineStroke)
+                    if TrailRatingStyle.isDouble(line.rating) {
+                        context.stroke(path, with: .color(.white), style: TrailRatingStyle.centre)
+                    }
                 }
             }
         }

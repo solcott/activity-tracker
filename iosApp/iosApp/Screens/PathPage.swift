@@ -115,7 +115,7 @@ struct PathPage: View {
             Text(PathTexts.shared.name(group: group)), lines: [Text(PathTexts.shared.details(group: group, units: stats.units))],
             opens: { send(state.tapRowEvent(group: group)) }
         ) {
-            EmptyView()
+            RatingSwatch(rating: group.rating)
         }
         .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
         .accessibilityAddTraits(selected ? .isSelected : [])

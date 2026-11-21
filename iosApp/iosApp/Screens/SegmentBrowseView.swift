@@ -82,7 +82,7 @@ struct SegmentBrowseView: View {
             Text(SegmentBrowseTexts.shared.name(row: row)), lines: [Text(details)],
             opens: { send(state.tapRowEvent(row: row)) }
         ) {
-            EmptyView()
+            RatingSwatch(rating: row.rating)
         }
         .mapBrowseRow(selected: selected)
     }
