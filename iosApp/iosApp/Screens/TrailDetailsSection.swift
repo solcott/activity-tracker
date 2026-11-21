@@ -19,7 +19,8 @@ struct TrailDetailsSection: View {
                     if index == 0 {
                         Text(TrailTexts.shared.title).font(.headline).foregroundStyle(.primary).textCase(nil)
                     }
-                    Text(group.title)
+                    // The card's heading, darker and heavier than its rows' labels, as the shared cards draw it.
+                    Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).textCase(nil)
                 }
             }
         }
@@ -31,17 +32,18 @@ private struct TrailDetailRow: View {
     let row: TrailDetail
 
     var body: some View {
+        // Labels medium weight in the secondary colour, values regular in the primary one, as the shared rows read.
         if let url = TrailLink.url(row.link) {
             LabeledContent {
                 Link(destination: url) { Text(row.value) }
             } label: {
-                Text(row.label)
+                Text(row.label).fontWeight(.medium).foregroundStyle(.secondary)
             }
         } else {
             LabeledContent {
-                Text(row.value).multilineTextAlignment(.trailing)
+                Text(row.value).foregroundStyle(.primary).multilineTextAlignment(.trailing)
             } label: {
-                Text(row.label)
+                Text(row.label).fontWeight(.medium).foregroundStyle(.secondary)
             }
         }
     }
