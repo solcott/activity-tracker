@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,7 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -170,13 +174,17 @@ private fun PathList(
 @Composable
 private fun DetailsFold(state: PathState) {
     val expanded = state.detailsExpanded
-    Column(Modifier.padding(vertical = 4.dp)) {
+    Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
-            Modifier.fillMaxWidth()
+            // Its hover and press fill reach past the column by the row's inner padding, so its text still lines up with the header's.
+            Modifier.outdent(FOLD_PADDING)
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.small)
                 .clickable(onClickLabel = TrailTexts.toggleLabel(expanded).string()) { state.eventSink(PathEvent.ToggleDetails) }
                 .testTag(TestTags.PATH_DETAILS_TOGGLE)
-                .padding(vertical = 8.dp),
+                .padding(horizontal = FOLD_PADDING, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 state.detailsSummary()?.string().orEmpty(),
@@ -186,9 +194,26 @@ private fun DetailsFold(state: PathState) {
             Text(TrailTexts.title.string(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             PlatformIcon(if (expanded) AppIcon.ChevronUp else AppIcon.ChevronDown, null)
         }
-        if (expanded) TrailDetailGroups(state.trailGroups().toImmutableList(), Modifier.padding(bottom = 8.dp), titled = false)
+        if (expanded) TrailDetailGroups(state.trailGroups().toImmutableList(), Modifier.padding(bottom = 4.dp), titled = false)
     }
 }
+
+/** Widens a full-width element by [by] on each side of the space its parent gives it, drawing it that far past the parent's padding. */
+private fun Modifier.outdent(by: Dp): Modifier = layout { measurable, constraints ->
+    val extra = by.roundToPx()
+    val wide =
+        if (constraints.hasBoundedWidth) {
+            constraints.copy(minWidth = constraints.maxWidth + 2 * extra, maxWidth = constraints.maxWidth + 2 * extra)
+        } else {
+            constraints
+        }
+    val placeable = measurable.measure(wide)
+    val width = if (constraints.hasBoundedWidth) constraints.maxWidth else placeable.width
+    layout(width, placeable.height) { placeable.place(-extra, 0) }
+}
+
+/** The Trail details row's inner padding, which its hover fill reaches past the header column by. */
+private val FOLD_PADDING = 12.dp
 
 @Composable
 private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, modifier: Modifier = Modifier) {
