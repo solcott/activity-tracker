@@ -18,6 +18,8 @@ import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
@@ -30,11 +32,14 @@ import kotlinx.collections.immutable.toImmutableList
  * states before either.
  */
 object SegmentBrowseSamples {
-    private val ridge = fakeSegment("3kridge", record = fakeSegmentRecord("Ridge Trail"))
+    // Rated as segments/trail-ratings reads them: Ridge Intermediate (IMBA blue), Hogback Easy (SAC hiking), Summit Extreme (expert piste).
+    private val ridge = fakeSegment("3kridge", record = fakeSegmentRecord("Ridge Trail")).copy(trail = TrailAttributes(mtbScaleImba = 2))
     private val hogback =
         fakeSegment("3khog", record = fakeSegmentRecord("Hogback Climb", sport = SegmentSportGroup.RUN), distanceMeters = 2_400)
+            .copy(trail = TrailAttributes(sacScale = TrailSacScale.HIKING))
     private val summit =
         fakeSegment("3ksummit", record = fakeSegmentRecord("Summit Run", sport = SegmentSportGroup.ALPINE), distanceMeters = 1_800)
+            .copy(trail = TrailAttributes(pisteDifficulty = "expert"))
 
     /** [Fixed.POLYLINE] the other way. */
     private val back = SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(Fixed.POLYLINE).orEmpty().reversed())
@@ -110,13 +115,18 @@ object SegmentBrowseSamples {
     /** Pine St, a road with an athlete's segment on it. */
     private val pineSt =
         fakePath("pine", name = "Pine St", kind = PathKind.ROAD, lengthMeters = 3_200, sports = listOf(SegmentSportGroup.RIDE))
+            .copy(trail = TrailAttributes(mtbScale = 0))
 
     private val sprint = fakeSegment("3ksprint", record = fakeSegmentRecord("Pine St sprint"), distanceMeters = 600)
 
     private fun alone(segment: SegmentView) = SegmentGroupRow.groupOf(listOf(segment))
 
+    /** Ann's in browse is rated black (IMBA 3), Difficult (segments/trail-ratings). */
     private val annsRow =
-        BrowseRow.Path(annsTrail, persistentListOf(SegmentGroupRow.groupOf(annsWhole), SegmentGroupRow.groupOf(annsStretch)))
+        BrowseRow.Path(
+            annsTrail.copy(trail = TrailAttributes(mtbScaleImba = 3)),
+            persistentListOf(SegmentGroupRow.groupOf(annsWhole), SegmentGroupRow.groupOf(annsStretch)),
+        )
 
     /** A short line beside [Fixed.POLYLINE], for the lift. */
     private const val LIFT_LINE = "_p~iF~ps|U_ulLnnqC"
@@ -133,7 +143,7 @@ object SegmentBrowseSamples {
 
     private val area = AreaRuns(runs, lifts = persistentListOf(MapSegmentLine("at://did:plc:importer/lift", LIFT_LINE, lift = true)))
 
-    private fun lines(rows: List<BrowseRow>) = rows.map { MapSegmentLine(it.key.value, Fixed.POLYLINE) }
+    private fun lines(rows: List<BrowseRow>) = rows.map { MapSegmentLine(it.key.value, Fixed.POLYLINE, rating = it.rating) }
 
     /** Browsing an area that loaded [content]; nothing typed. */
     private fun browsing(content: ContentState<AreaRuns>) =

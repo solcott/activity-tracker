@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.segment.PathPresenter
 import io.github.solcott.activitytracker.app.segment.PathScreen
 import io.github.solcott.activitytracker.app.segment.PathState
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.segment.contentOf
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.signedInTestSession
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.uistate.ContentState
@@ -138,6 +140,25 @@ class PathPresenterTest {
             assertEquals("OpenStreetMap", loaded.credit?.let { it::class.simpleName })
             assertEquals(3, loaded.mapLines.size, "the trail's line and each group's")
             assertTrue(loaded.mapLines.first().lift, "the trail's line drawn muted under them")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-ratings: each segment's line takes its own sport group's level; the muted path line is never rated. */
+    @Test
+    fun segmentLinesTakeTheirLevelOverAnUnratedPath() = runTest {
+        val easyRide = wholeRide.copy(trail = TrailAttributes(mtbScaleImba = 1))
+        val hardRun = stretch.copy(trail = TrailAttributes(sacScale = TrailSacScale.DEMANDING_MOUNTAIN_HIKING, mtbScaleImba = 1))
+        output = GetPath.Output(anns.copy(trail = TrailAttributes(mtbScaleImba = 4)), listOf(hardRun, easyRide, wholeRun))
+        val screen = PathScreen(anns.uri.value)
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null }
+            assertEquals(
+                listOf(null, TrailRating.EASY, TrailRating.DIFFICULT),
+                loaded.mapLines.map { it.rating },
+                "the path, the ride by IMBA, the run by SAC",
+            )
+            assertEquals(listOf(TrailRating.EASY, TrailRating.DIFFICULT), loaded.groups.map { it.rating }, "rows agree with their lines")
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -222,7 +222,7 @@ private val BrowseRow.sortName: String
 /** [this] row's lines as the browse map draws them, each keyed by the row: a path's pieces, or a group's shown segment's line. */
 internal fun BrowseRow.mapSegmentLines(): List<MapSegmentLine> =
     when (this) {
-        is BrowseRow.Path -> path.lines.mapNotNull { piece -> mapLine(piece)?.let { MapSegmentLine(key.value, it) } }
+        is BrowseRow.Path -> path.lines.mapNotNull { piece -> mapLine(piece)?.let { MapSegmentLine(key.value, it, rating = rating) } }
         is BrowseRow.Group -> listOfNotNull(group.shown.mapSegmentLine())
     }
 
@@ -235,4 +235,6 @@ private fun BrowseRow.points(): List<GeoPoint>? =
 
 /** [this] segment as the browse map draws it; null when its line doesn't decode. */
 internal fun SegmentView.mapSegmentLine(): MapSegmentLine? =
-    mapLine(record.line)?.let { MapSegmentLine(uri.value, it, lift = SegmentKind.of(record.kind) == SegmentKind.LIFT) }
+    mapLine(record.line)?.let {
+        MapSegmentLine(uri.value, it, lift = SegmentKind.of(record.kind) == SegmentKind.LIFT, rating = TrailRating.of(this))
+    }

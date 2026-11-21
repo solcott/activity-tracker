@@ -11,17 +11,24 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 
 /** The Trail page (segments/path-page): Ann's, its whole line and a stretch, and the states before and around them. */
 object PathSamples {
+    /** Ann's two segment groups, its ride segments rated (segments/trail-ratings): the whole line Easy, the stretch Intermediate. */
     private val groups =
         persistentListOf(
-            SegmentGroupRow.groupOf(SegmentBrowseSamples.annsWhole),
-            SegmentGroupRow.groupOf(SegmentBrowseSamples.annsStretch),
+            SegmentGroupRow.groupOf(SegmentBrowseSamples.annsWhole.rated(imba = 1)),
+            SegmentGroupRow.groupOf(SegmentBrowseSamples.annsStretch.rated(imba = 2)),
         )
+
+    private fun List<SegmentView>.rated(imba: Int) = map {
+        if (it.record.sport == SegmentSportGroup.RIDE) it.copy(trail = TrailAttributes(mtbScaleImba = imba)) else it
+    }
 
     private val content = PathContent(SegmentBrowseSamples.annsTrail, groups, SegmentCredit.OpenStreetMap("ODbL-1.0"))
 
@@ -30,7 +37,7 @@ object PathSamples {
             content = content,
             mapLines =
                 (listOfNotNull(content.data.path?.let { MapSegmentLine(it.uri.value, Fixed.POLYLINE, lift = true) }) +
-                        content.data.groups.map { MapSegmentLine(it.shown.uri.value, Fixed.POLYLINE) })
+                        content.data.groups.map { MapSegmentLine(it.shown.uri.value, Fixed.POLYLINE, rating = it.rating) })
                     .toImmutableList(),
             camera = MapCameraRequest(1, BURLINGTON_LAT, BURLINGTON_LNG),
         )

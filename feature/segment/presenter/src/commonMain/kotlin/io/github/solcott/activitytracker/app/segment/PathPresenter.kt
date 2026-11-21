@@ -143,4 +143,4 @@ private fun itemsOf(groups: List<SegmentGroupRow>, sections: List<GetPath.Sectio
 }
 
 /** Path lines are drawn muted under the segments, as lifts are on browse, so they're never selected or highlighted. */
-private fun MapSegmentLine.muted(): MapSegmentLine = copy(lift = true)
+private fun MapSegmentLine.muted(): MapSegmentLine = copy(lift = true, rating = null)

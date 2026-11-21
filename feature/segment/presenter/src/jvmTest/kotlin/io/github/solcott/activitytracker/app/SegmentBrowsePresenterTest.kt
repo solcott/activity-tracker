@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.segment.SegmentBrowseScreen
 import io.github.solcott.activitytracker.app.segment.SegmentBrowseState
 import io.github.solcott.activitytracker.app.segment.SegmentGroupRow
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -37,6 +38,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
@@ -547,6 +550,30 @@ class SegmentBrowsePresenterTest {
             assertEquals(loop.uri, row.key)
             found.eventSink(found.openEvent(row))
             assertEquals(PathScreen(loop.uri.value, "run"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun linesTakeTheirRatingAndANewSportRatesThemAgain() = runTest {
+        // Easy on the MTB scale, Difficult on the SAC scale (segments/trail-ratings).
+        val rated = loop.copy(trail = TrailAttributes(mtbScale = 1, sacScale = TrailSacScale.DEMANDING_MOUNTAIN_HIKING))
+        trails = listOf(rated)
+        area = listOf(far, near.copy(paths = listOf(loop.uri)), lift)
+        test {
+            awaitUntil { it.browse.start == BrowseStart.Placed }.browse.eventSink(MapBrowseEvent.ViewportChanged(viewport()))
+            val all = awaitUntil { it.areaLoaded }
+            fun ratings(state: SegmentBrowseState) = state.browse.mapLines.associate { it.uri to it.rating }
+            assertEquals(
+                mapOf(loop.uri.value to TrailRating.EASY, far.uri.value to null, lift.uri.value to null),
+                ratings(all),
+                "no sport: the trail's first scale; the athlete's segment and the lift unrated",
+            )
+            assertEquals(TrailRating.EASY, all.area.data.rows.first().row.rating, "the row agrees with its line")
+            all.eventSink(SegmentBrowseEvent.SportChanged("run"))
+            val runs = awaitUntil { it.sport == "run" && it.areaLoaded }
+            assertEquals(TrailRating.DIFFICULT, ratings(runs)[loop.uri.value], "run reads the SAC scale")
+            assertEquals(TrailRating.DIFFICULT, runs.area.data.rows.first().row.rating)
             cancelAndIgnoreRemainingEvents()
         }
     }

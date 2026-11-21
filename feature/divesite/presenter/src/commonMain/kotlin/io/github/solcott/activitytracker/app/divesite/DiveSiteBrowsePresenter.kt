@@ -144,4 +144,5 @@ internal fun siteAreaOf(found: List<DiveSiteView>, viewport: MapViewport, capped
 }
 
 /** [this] site as the browse map draws it: its radius as a closed outline. */
-internal fun DiveSiteView.mapOutline(): MapSegmentLine = MapSegmentLine(uri.value, siteOutline(record.lat, record.lng, record.radius))
+internal fun DiveSiteView.mapOutline(): MapSegmentLine =
+    MapSegmentLine(uri.value, siteOutline(record.lat, record.lng, record.radius), trail = false)

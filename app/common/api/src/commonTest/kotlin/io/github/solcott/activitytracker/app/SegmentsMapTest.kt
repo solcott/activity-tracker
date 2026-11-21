@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import kotlin.test.Test
@@ -94,5 +95,45 @@ class SegmentsMapTest {
         assertTrue(request.frame(1600.0, 1200.0).zoom > request.frame(400.0, 300.0).zoom)
         assertEquals(44.475, request.lat, 1e-9)
         assertEquals(-73.21, request.lng, 1e-9)
+    }
+
+    @Test
+    fun theLegendListsTheDrawnLevelsInOrderThenUnrated() {
+        val rated =
+            listOf(
+                MapSegmentLine("at://a/south", south, rating = TrailRating.DIFFICULT),
+                MapSegmentLine("at://a/north", north, rating = TrailRating.EASY),
+                MapSegmentLine("at://a/plain", north),
+                MapSegmentLine("at://a/lift", lift, lift = true, rating = TrailRating.EXTREME),
+            )
+        val legend = SegmentsMap.of(rated, selected = "at://a/south").legend
+        assertEquals(listOf(TrailRating.EASY, TrailRating.DIFFICULT, null), legend.map { it.rating })
+        assertEquals(TrailRating.unratedLabel, legend.last().label)
+        assertNull(SegmentsMap.of(rated, null).drawn.single { it.uri == "at://a/lift" }.rating, "a lift is never rated")
+    }
+
+    @Test
+    fun noRatedRunNoLegend() {
+        assertTrue(SegmentsMap.of(lines, null).legend.isEmpty())
+        val allRated = listOf(MapSegmentLine("at://a/south", south, rating = TrailRating.EASIEST))
+        assertEquals(listOf(TrailRating.EASIEST), SegmentsMap.of(allRated, null).legend.map { it.rating })
+    }
+
+    @Test
+    fun aNewRatingRedraws() {
+        val easy = SegmentsMap.of(listOf(MapSegmentLine("at://a/south", south, rating = TrailRating.EASY)), null)
+        val hard = SegmentsMap.of(listOf(MapSegmentLine("at://a/south", south, rating = TrailRating.DIFFICULT)), null)
+        assertTrue(easy != hard)
+        assertEquals(TrailRating.DIFFICULT, hard.sketch(200.0, 100.0, 10.0).single().rating)
+    }
+
+    @Test
+    fun aLineThatIsNotATrailIsNeverRatedNorInTheLegend() {
+        val outline = MapSegmentLine("at://a/site", south, rating = TrailRating.EASY, trail = false)
+        val map = SegmentsMap.of(listOf(outline), null)
+        assertNull(map.drawn.single().rating)
+        assertTrue(map.legend.isEmpty())
+        val mixed = SegmentsMap.of(listOf(outline, MapSegmentLine("at://a/north", north, rating = TrailRating.EASY)), null)
+        assertEquals(listOf(TrailRating.EASY), mixed.legend.map { it.rating }, "the outline adds no Unrated line")
     }
 }

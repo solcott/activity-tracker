@@ -18,6 +18,9 @@ sealed interface BrowseRow {
     /** What the row is selected, hovered and opened by: the path's URI, or the group's shown segment's. */
     val key: AtUri
 
+    /** The level the row's line is drawn in and its swatch shows (segments/trail-ratings); null unrated. */
+    val rating: TrailRating?
+
     /**
      * A trail or road (segments/segment-paths), with the segment groups on it that this list knows of ([groups]: the area's, after the
      * sport filter; none for a name result), and the sport group the list is narrowed to ([sport]), if any.
@@ -27,6 +30,10 @@ sealed interface BrowseRow {
         BrowseRow {
         override val key: AtUri
             get() = path.uri
+
+        /** The path's level for the sport group the list is narrowed to, or its first known scale's with none. */
+        override val rating: TrailRating?
+            get() = TrailRating.of(path.trail, sport)
 
         /** Whether it's a road rather than a trail. */
         val road: Boolean
@@ -38,6 +45,9 @@ sealed interface BrowseRow {
     data class Group(val group: SegmentGroupRow) : BrowseRow {
         override val key: AtUri
             get() = group.shown.uri
+
+        override val rating: TrailRating?
+            get() = group.rating
     }
 
     companion object {

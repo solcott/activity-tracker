@@ -1,14 +1,23 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.location.toE7
 
 /**
- * One segment's line on a map of many (segments/segment-browse): [uri] names it in selections, [polyline] is its line at precision 5, and a
- * [lift] is drawn muted and can't be selected.
+ * One segment's line on a map of many (segments/segment-browse): [uri] names it in selections, [polyline] is its line at precision 5, a
+ * [lift] is drawn muted and can't be selected, and a run is drawn in its [rating]'s colour (segments/trail-ratings; null unrated). A line
+ * that isn't a [trail] (a dive site's outline) is never rated and keeps the accent colour.
  */
-@Immutable data class MapSegmentLine(val uri: String, val polyline: String, val lift: Boolean = false)
+@Immutable
+data class MapSegmentLine(
+    val uri: String,
+    val polyline: String,
+    val lift: Boolean = false,
+    val rating: TrailRating? = null,
+    val trail: Boolean = true,
+)
 
 /**
  * What a map shows, in 1e-7 degrees: the box it covers and its centre. [tooWide] when the box is wider than one degree on either side,

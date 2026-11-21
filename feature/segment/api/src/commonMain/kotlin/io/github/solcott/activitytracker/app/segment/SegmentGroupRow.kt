@@ -30,6 +30,10 @@ data class SegmentGroupRow(
     /** Which ways each of [sports] goes (segments/segment-groups), in the same order. */
     val ways: ImmutableList<SportWay> = persistentListOf(),
 ) {
+    /** The level its [shown] member is drawn and marked in (segments/trail-ratings); null unrated. */
+    val rating: TrailRating?
+        get() = TrailRating.of(shown)
+
     /** The segment group's key: the segment naming it. */
     val key: AtUri
         get() = shown.groupKey

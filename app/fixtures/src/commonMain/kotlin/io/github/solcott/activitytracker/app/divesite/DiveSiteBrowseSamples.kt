@@ -38,7 +38,7 @@ object DiveSiteBrowseSamples {
     private val area = SiteArea(sites)
 
     private fun outlines(found: List<DiveSiteView>) = found.map {
-        MapSegmentLine(it.uri.value, siteOutline(it.record.lat, it.record.lng, it.record.radius))
+        MapSegmentLine(it.uri.value, siteOutline(it.record.lat, it.record.lng, it.record.radius), trail = false)
     }
 
     /** Browsing an area that loaded [content]; nothing typed. */
