@@ -112,11 +112,11 @@ A board SHALL be paged in its order, at most 100 entries per page, with a cursor
 - **THEN** the response holds the first page and the viewer's own entry ranked 58th
 
 ### Requirement: The segment screen shows its Mayor
-The screen of an `active` segment SHALL show the Mayor for the last 90 days of the board type it carries, or of the AppView's default type when it carries none, with their count, or that it has none yet, and the viewer's own count when they're on that board. It SHALL open the Mayors screen on that type. The screen of a segment of any other status SHALL show no Mayor.
+The screen of an `active` segment SHALL show, in a card in the boards row beside the Leaderboard card (`segments/segment-page`), the Mayor for the last 90 days of the board type it carries, or of the AppView's default type when it carries none, with their count, or that it has none yet, and the viewer's own count when they're on that board. The card SHALL open the Mayors screen on that type. The screen of a segment of any other status SHALL show no Mayor.
 
 #### Scenario: Active segment
 - **WHEN** a viewer opens an active segment whose last-90-days board is led by A with 14 efforts, and the viewer has 6
-- **THEN** the screen shows A as Mayor with 14 efforts and the viewer's 6
+- **THEN** the Mayor card beside the Leaderboard card shows A as Mayor with 14 efforts and the viewer's 6
 
 #### Scenario: From a canoe trip
 - **WHEN** a viewer opens a paddle segment from a canoe activity
