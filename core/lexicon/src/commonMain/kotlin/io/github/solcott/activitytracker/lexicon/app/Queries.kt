@@ -511,8 +511,39 @@ object SearchSegmentNames {
 object GetPath {
     @Serializable data class Params(val uri: AtUri)
 
-    /** [sections]: the path's sections holding any of [segments], in its record's order, each with only those segments. */
-    @Serializable data class Output(val path: PathView, val segments: List<SegmentView>, val sections: List<SectionView> = emptyList())
+    /**
+     * [sections]: the path's sections holding any of [segments], in its record's order, each with only those segments. [profile]: its
+     * terrain profile (segments/path-profile), null when none of its pieces has one.
+     */
+    @Serializable
+    data class Output(
+        val path: PathView,
+        val segments: List<SegmentView>,
+        val sections: List<SectionView> = emptyList(),
+        val profile: PathProfile? = null,
+    )
+
+    /**
+     * `app.activitytracker.feed.getPath#pathProfile`: each covered line piece's profile in the lines' order, the meters they climb ([gain])
+     * and descend ([loss]) together, and where each returned segment lies along one ([spans]).
+     */
+    @Immutable
+    @Serializable
+    data class PathProfile(val pieces: List<PieceProfile>, val gain: Int, val loss: Int, val spans: List<SegmentSpan>)
+
+    /**
+     * `app.activitytracker.feed.getPath#pieceProfile`: the line piece at [piece] in [PathView.lines], its smoothed terrain [heights] in
+     * decimeters evenly spaced from its start to its end, its [lengthMeters], and its steepest grade in tenths of a percent.
+     */
+    @Immutable
+    @Serializable
+    data class PieceProfile(val piece: Int, val heights: List<Int>, val lengthMeters: Long, val maxGrade: Int? = null)
+
+    /**
+     * `app.activitytracker.feed.getPath#segmentSpan`: the returned [segment] lies along the piece at [piece] from [startMeters] to
+     * [endMeters] along it, nearer end first.
+     */
+    @Immutable @Serializable data class SegmentSpan(val segment: AtUri, val piece: Int, val startMeters: Long, val endMeters: Long)
 
     /** `app.activitytracker.feed.getPath#sectionView`: a section of the path and the URIs of the returned segments in it. */
     @Immutable @Serializable data class SectionView(val name: String, val segments: List<AtUri>)

@@ -22,11 +22,59 @@
               "type": "array",
               "items": { "type": "ref", "ref": "#sectionView" },
               "description": "The path's sections, in its record's order, each with only the returned segments in it; a section holding none is left out. Absent means none."
+            },
+            "profile": {
+              "type": "ref",
+              "ref": "#pathProfile",
+              "description": "The path's terrain profile (segments/path-profile). Absent when none of its line pieces has one."
             }
           }
         }
       },
       "errors": [{ "name": "NotFound", "description": "The path isn't indexed." }]
+    },
+    "pathProfile": {
+      "type": "object",
+      "description": "A path's terrain profile, derived by the AppView from terrain tiles as a segment's is (segments/path-profile).",
+      "required": ["pieces", "gain", "loss", "spans"],
+      "properties": {
+        "pieces": {
+          "type": "array",
+          "minLength": 1,
+          "maxLength": 64,
+          "items": { "type": "ref", "ref": "#pieceProfile" },
+          "description": "Each line piece the terrain covers, in the path's lines' order; a piece it doesn't cover is left out."
+        },
+        "gain": { "type": "integer", "minimum": 0, "description": "Meters the covered pieces climb together." },
+        "loss": { "type": "integer", "minimum": 0, "description": "Meters the covered pieces descend together." },
+        "spans": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#segmentSpan" },
+          "description": "Where each returned segment lies along a covered piece; a segment along none has no span."
+        }
+      }
+    },
+    "pieceProfile": {
+      "type": "object",
+      "description": "One line piece's smoothed terrain heights, evenly spaced from its start to its end, about 50 m apart.",
+      "required": ["piece", "heights", "lengthMeters"],
+      "properties": {
+        "piece": { "type": "integer", "minimum": 0, "maximum": 63, "description": "The piece's index in the path view's lines." },
+        "heights": { "type": "array", "minLength": 2, "maxLength": 512, "items": { "type": "integer" }, "description": "Heights above sea level in decimeters." },
+        "lengthMeters": { "type": "integer", "minimum": 0, "description": "The piece's length." },
+        "maxGrade": { "type": "integer", "minimum": 0, "description": "The steepest absolute grade along the piece in tenths of a percent, as elevationProfile#maxGrade." }
+      }
+    },
+    "segmentSpan": {
+      "type": "object",
+      "description": "Where a returned segment lies along a covered piece: the first piece, in the lines' order, that both its ends are within 30 m of.",
+      "required": ["segment", "piece", "startMeters", "endMeters"],
+      "properties": {
+        "segment": { "type": "string", "format": "at-uri" },
+        "piece": { "type": "integer", "minimum": 0, "maximum": 63, "description": "The piece's index in the path view's lines." },
+        "startMeters": { "type": "integer", "minimum": 0, "description": "How far along the piece the segment's nearer end is." },
+        "endMeters": { "type": "integer", "minimum": 0, "description": "How far along the piece its farther end is, at least startMeters." }
+      }
     },
     "sectionView": {
       "type": "object",
