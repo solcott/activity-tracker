@@ -341,8 +341,31 @@ class SegmentViews(
         val views = views(segments)
         val profile =
             pathProfile(params.uri.value, row[Paths.lines], segments.map { ListedLine(AtUri(it[Segments.uri]), it[Segments.line]) })
-        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }), profile)
+        val leaders =
+            leadersOf(viewer, segments.filter { SegmentKind.isRanked(it[Segments.kind]) && it[Segments.status] == SegmentStatus.ACTIVE })
+        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }), profile, leaders)
     }
+
+    /**
+     * Each of [segments]' default leaderboard, all time and everyone, as [leaderboard] serves it with no filters: its type, first entry and
+     * [viewer]'s own (segments/segment-leaderboards); a segment with no entries is left out. [segments] are active runs already served.
+     */
+    private fun JdbcTransaction.leadersOf(viewer: Did?, segments: List<ResultRow>): List<GetPath.SegmentLeader> =
+        segments.mapNotNull { row ->
+            val uri = row[Segments.uri]
+            val served = boardsOf(viewer, uri, null).first ?: return@mapNotNull null
+            val board = boardOf(viewer, uri, served, since = null, following = false)
+            val first =
+                bests(board, Op.TRUE)
+                    .orderBy(BEST to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC)
+                    .limit(1)
+                    .firstNotNullOfOrNull { r -> r[BEST]?.let { r[SegmentEfforts.authorDid] to it } } ?: return@mapNotNull null
+            val leader = entries(viewer, board, listOf(first)).singleOrNull() ?: return@mapNotNull null
+            val own = viewer?.let { me ->
+                bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
+            }
+            GetPath.SegmentLeader(AtUri(uri), served, leader, own?.let { entries(viewer, board, listOf(it)).singleOrNull() })
+        }
 
     /**
      * [path]'s sections holding any of [listed], in its record's order, each with only those, in [listed]'s order (segments/segment-paths):

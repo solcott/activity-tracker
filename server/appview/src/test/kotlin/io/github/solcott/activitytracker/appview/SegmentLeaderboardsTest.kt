@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
@@ -74,6 +75,79 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
 
     private val List<LeaderboardEntry>.places
         get() = map { it.athlete.did.value to it.rank }
+
+    /** A trail along [straight], so the segments on it are listed on its Trail page. */
+    private fun trail() =
+        commit(
+            importer,
+            Nsid.FEED_PATH,
+            "anns",
+            """{"name":"Ann's","kind":"trail","lines":["${lineOf(straight)}"],"source":"osm","license":"ODbL-1.0",""" +
+                """"createdAt":"2026-10-01T00:00:00Z"}""",
+        )
+
+    /** The leaders `getPath` gives [viewer] on the trail, by segment URI. */
+    private suspend fun HttpClient.leaders(viewer: String? = null) =
+        xrpcOk(GetPath.method, mapOf("uri" to "at://$importer/${Nsid.FEED_PATH}/anns"), viewer).leaders.associateBy { it.segment.value }
+
+    @Test
+    fun aTrailsLeadersAreItsBoardsFirstAndTheViewersOwn() = testApplication {
+        start()
+        trail()
+        segment("3ks", did = carol)
+        effort(carol, "3kc", speed = 8.0)
+        effort(alice, "3ka", speed = 5.0)
+        effort(bob, "3kb", speed = 4.0)
+        block(bob, carol)
+        matchActive()
+
+        for (viewer in listOf(null, alice, bob, carol)) {
+            val board = client.board(viewer)
+            val leader = client.leaders(viewer).getValue(segmentUri("3ks", carol))
+            assertEquals(board.board, leader.board, "to $viewer")
+            assertEquals(board.entries.first(), leader.leader, "to $viewer")
+            assertEquals(board.viewer, leader.viewer, "to $viewer")
+        }
+        assertEquals(
+            alice,
+            client.leaders(bob).getValue(segmentUri("3ks", carol)).leader.athlete.did.value,
+            "Carol blocked, so Alice leads",
+        )
+        assertEquals(alice to 2, client.leaders(alice).getValue(segmentUri("3ks", carol)).viewer?.let { it.athlete.did.value to it.rank })
+        assertNull(client.leaders().getValue(segmentUri("3ks", carol)).viewer, "signed out")
+    }
+
+    @Test
+    fun aTrailsLeaderSkipsWhoHidesAndExcludedEfforts() = testApplication {
+        start()
+        trail()
+        segment("3ks", did = carol)
+        effort(alice, "3ka", speed = 8.0)
+        effort(bob, "3kb", speed = 7.0, excluded = true)
+        effort(dave, "3kd", speed = 5.0)
+        spaceWrite(
+            self(alice),
+            Nsid.ACTOR_SEGMENT_PREFS,
+            "self",
+            """{"matching":true,"hideFromLeaderboards":true,"updatedAt":"2026-10-15T12:00:00Z"}""",
+        )
+        matchActive()
+
+        val leader = client.leaders(alice).getValue(segmentUri("3ks", carol))
+        assertEquals(dave to 1, leader.leader.athlete.did.value to leader.leader.rank)
+        assertNull(leader.viewer, "hidden from her own board too")
+    }
+
+    @Test
+    fun aProposedSegmentOnATrailHasNoLeader() = testApplication {
+        start()
+        trail()
+        segment("3ks", did = carol)
+        effort(alice, "3ka")
+        match()
+
+        assertEquals(emptyMap(), client.leaders(alice))
+    }
 
     @Test
     fun oneBestPerAthleteFastestFirstWithSharedRanks() = testApplication {

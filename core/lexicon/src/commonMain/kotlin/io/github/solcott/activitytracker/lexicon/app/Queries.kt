@@ -521,7 +521,17 @@ object GetPath {
         val segments: List<SegmentView>,
         val sections: List<SectionView> = emptyList(),
         val profile: PathProfile? = null,
+        /** Each of [segments]' leaderboard leaders (segments/segment-leaderboards); a segment with none is left out. */
+        val leaders: List<SegmentLeader> = emptyList(),
     )
+
+    /**
+     * `app.activitytracker.feed.getPath#segmentLeader`: [segment]'s default leaderboard of type [board], all time and everyone, its first
+     * entry and the viewer's own, as [GetSegmentLeaderboard] serves them.
+     */
+    @Immutable
+    @Serializable
+    data class SegmentLeader(val segment: AtUri, val board: String, val leader: LeaderboardEntry, val viewer: LeaderboardEntry? = null)
 
     /**
      * `app.activitytracker.feed.getPath#pathProfile`: each covered line piece's profile in the lines' order, the meters they climb ([gain])

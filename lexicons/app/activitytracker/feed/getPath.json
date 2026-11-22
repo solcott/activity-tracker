@@ -23,6 +23,11 @@
               "items": { "type": "ref", "ref": "#sectionView" },
               "description": "The path's sections, in its record's order, each with only the returned segments in it; a section holding none is left out. Absent means none."
             },
+            "leaders": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#segmentLeader" },
+              "description": "Each returned segment's leaderboard leader and the viewer's own place on it (segments/segment-leaderboards); a segment with no leaderboard or no entries is left out. Absent means none."
+            },
             "profile": {
               "type": "ref",
               "ref": "#pathProfile",
@@ -74,6 +79,21 @@
         "piece": { "type": "integer", "minimum": 0, "maximum": 63, "description": "The piece's index in the path view's lines." },
         "startMeters": { "type": "integer", "minimum": 0, "description": "How far along the piece the segment's nearer end is." },
         "endMeters": { "type": "integer", "minimum": 0, "description": "How far along the piece its farther end is, at least startMeters." }
+      }
+    },
+    "segmentLeader": {
+      "type": "object",
+      "description": "A returned segment's default leaderboard, all time and everyone, as getSegmentLeaderboard serves it: its type, its first entry and the viewer's own.",
+      "required": ["segment", "board", "leader"],
+      "properties": {
+        "segment": { "type": "string", "format": "at-uri" },
+        "board": { "type": "string", "description": "The board type served, as getSegmentLeaderboard's output board." },
+        "leader": { "type": "ref", "ref": "app.activitytracker.feed.defs#leaderboardEntry" },
+        "viewer": {
+          "type": "ref",
+          "ref": "app.activitytracker.feed.defs#leaderboardEntry",
+          "description": "The signed-in viewer's own entry; absent when they aren't on the board."
+        }
       }
     },
     "sectionView": {
