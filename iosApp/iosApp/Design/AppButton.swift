@@ -3,7 +3,7 @@ import SwiftUI
 /// A screen's main action: the filled button in the app's colour (ui/ios-design-system).
 ///
 /// Its label is drawn in the colour that reads on the fill (`OnAccentColor`, the theme's on-primary), since the system's white label
-/// doesn't on the dark theme's light teal.
+/// doesn't on the dark theme's light violet.
 struct AppButton: View {
     private let title: Text
     private let small: Bool

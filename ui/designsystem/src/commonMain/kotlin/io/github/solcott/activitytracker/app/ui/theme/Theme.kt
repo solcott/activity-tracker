@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * The brand (teal, amber accents) in each platform's idiom. Android: Material 3. Desktop and web: Inter, a denser scale, tighter corners
+ * The brand (violet, amber accents) in each platform's idiom. Android: Material 3. Desktop and web: Inter, a denser scale, tighter corners
  * and smaller touch targets. [darkTheme] follows the system unless a preview or test sets it.
  */
 @Composable

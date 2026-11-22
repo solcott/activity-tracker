@@ -40,7 +40,7 @@ struct AppMenuChip<Value: Hashable>: View {
                 Image(systemName: "chevron.down").font(.caption.weight(.semibold)).accessibilityHidden(true)
             }
             .font(.subheadline.weight(.medium))
-            // On the fill, the colour that reads on it, as `AppButton`'s label (the system's white doesn't on the dark theme's teal).
+            // On the fill, the colour that reads on it, as `AppButton`'s label (the system's white doesn't on the dark theme's violet).
             .foregroundStyle(filled ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
         }
         .chipStyle(filled: filled)
