@@ -31,6 +31,7 @@ enum AppIcon: CaseIterable {
     case addPhoto
     case dropDown
     case expandAll
+    case sort
     case collapseAll
     case expand
     case recenter
@@ -74,6 +75,7 @@ enum AppIcon: CaseIterable {
         case .addPhoto: "photo.badge.plus"
         case .dropDown: "chevron.up.chevron.down"
         case .expandAll: "rectangle.expand.vertical"
+        case .sort: "arrow.up.arrow.down"
         case .collapseAll: "rectangle.compress.vertical"
         case .expand: "arrow.up.left.and.arrow.down.right"
         case .recenter: "scope"

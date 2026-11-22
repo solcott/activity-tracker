@@ -71,6 +71,7 @@ enum class AppIcon(
     AddPhoto(Icons.Filled.Add, "photo.badge.plus"),
     DropDown(Icons.Filled.ArrowDropDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, "rectangle.expand.vertical"),
+    Sort(MaterialIcons.SwapVert, "arrow.up.arrow.down"),
     CollapseAll(MaterialIcons.UnfoldLess, "rectangle.compress.vertical"),
     Expand(MaterialIcons.Fullscreen, "arrow.up.left.and.arrow.down.right"),
     Recenter(MaterialIcons.CenterFocusStrong, "scope"),

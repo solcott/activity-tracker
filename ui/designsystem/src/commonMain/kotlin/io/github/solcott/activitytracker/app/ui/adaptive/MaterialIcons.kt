@@ -48,6 +48,14 @@ internal object MaterialIcons {
             )
         }
 
+    val SwapVert: ImageVector =
+        materialIcon("Filled.SwapVert") {
+            addPath(
+                PathParser().parsePathString("M16,17.01V10h-2v7.01h-3L15,21l4,-3.99h-3zM9,3L5,6.99h3V14h2V6.99h3L9,3z").toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
     val Remove: ImageVector =
         materialIcon("Filled.Remove") {
             addPath(PathParser().parsePathString("M19,13H5v-2h14v2z").toNodes(), fill = SolidColor(Color.Black))
