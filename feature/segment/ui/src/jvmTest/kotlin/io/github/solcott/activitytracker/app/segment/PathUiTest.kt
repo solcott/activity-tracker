@@ -35,6 +35,22 @@ class PathUiTest {
         onNodeWithText("Show all sports").assertDoesNotExist()
     }
 
+    /** segments/path-profile: a trail with a profile shows its chart and says how much it climbs; one without shows neither. */
+    @Test
+    fun aProfileShowsItsChartAndTheClimb() = runComposeUiTest {
+        setContent { AppPreview(units = UnitSystem.Imperial) { PathUi(PathSamples.profile) } }
+        onNodeWithTag(TestTags.PATH_PROFILE).assertExists()
+        onNodeWithText("Elevation").assertExists()
+        onNodeWithText("Trail · 5.40 mi · 2,969 ft up · 2,959 ft down · Ride, Run, Hike").assertExists()
+    }
+
+    @Test
+    fun withoutAProfileThereIsNoChart() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.loaded) } }
+        onNodeWithTag(TestTags.PATH_PROFILE).assertDoesNotExist()
+        onNodeWithText(" ft up ", substring = true).assertDoesNotExist()
+    }
+
     @Test
     fun onAPhoneATapSelectsAndTheSelectedRowOpens() = runComposeUiTest {
         val events = mutableListOf<PathEvent>()

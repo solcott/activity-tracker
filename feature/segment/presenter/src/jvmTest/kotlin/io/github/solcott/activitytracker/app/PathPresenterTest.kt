@@ -8,8 +8,10 @@ import io.github.solcott.activitytracker.app.segment.PathEvent
 import io.github.solcott.activitytracker.app.segment.PathListItem
 import io.github.solcott.activitytracker.app.segment.PathPresenter
 import io.github.solcott.activitytracker.app.segment.PathScreen
+import io.github.solcott.activitytracker.app.segment.PathSort
 import io.github.solcott.activitytracker.app.segment.PathState
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.SortOption
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.segment.contentOf
 import io.github.solcott.activitytracker.app.text.AppText
@@ -285,6 +287,61 @@ class PathPresenterTest {
             assertTrue(blue.filtersActive)
             blue.eventSink(PathEvent.ClearFilters)
             awaitUntil { it.groups.size == 4 && !it.filtersActive }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** Ann's profile (segments/path-profile): its one piece, with each rated ride's stretch along it, end to end. */
+    private val annsProfile =
+        GetPath.PathProfile(
+            pieces = listOf(GetPath.PieceProfile(0, List(101) { 15_000 + it * 20 }, lengthMeters = 5_000, maxGrade = 40)),
+            gain = 200,
+            loss = 0,
+            spans =
+                listOf(
+                    GetPath.SegmentSpan(ratedRides[0].uri, 0, 0, 1_200),
+                    GetPath.SegmentSpan(ratedRides[1].uri, 0, 1_200, 3_600),
+                    GetPath.SegmentSpan(ratedRides[2].uri, 0, 1_400, 5_000),
+                ),
+        )
+
+    @Test
+    fun theProfilesStretchesFollowTheFiltersAndTheSelection() = runTest {
+        output = GetPath.Output(anns, ratedRides, profile = annsProfile)
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.profileChart != null }
+            assertEquals(3, loaded.profileChart?.spanCount, "the unrated loop has no span")
+            assertEquals(null, loaded.profileChart?.selectedSpan)
+            assertTrue(loaded.summary(UnitSystem.Metric).toString().contains("path_climb_up"), "the summary says how much it climbs")
+
+            loaded.eventSink(loaded.selectEvent(ratedRides[1].uri.value))
+            val selected = awaitUntil { it.selected == ratedRides[1].uri && it.profileChart?.selectedSpan != null }
+            assertEquals(TrailRating.INTERMEDIATE, selected.profileChart?.selectedSpan?.rating)
+            val base = selected.profileBase
+
+            selected.eventSink(selected.sortEvent(SortOption(PathSort.Name)))
+            val sorted = awaitUntil { it.filter.sort == PathSort.Name }
+            assertEquals(selected.profileChart?.spans, sorted.profileChart?.spans, "sorting changes no stretch")
+            assertTrue(base === sorted.profileBase, "nor the chart under them")
+
+            sorted.eventSink(sorted.levelEvent(LevelOption(TrailRating.DIFFICULT)))
+            val black = awaitUntil { it.groups.size == 1 }
+            assertEquals(1, black.profileChart?.spanCount, "only the Difficult row's stretch")
+            assertEquals(null, black.profileChart?.selectedSpan, "the hidden selection is no longer shaded")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun noProfileNoChart() = runTest {
+        output = GetPath.Output(anns, ratedRides)
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.groups.size == 4 }
+            assertEquals(null, loaded.profileChart)
+            assertEquals(null, loaded.profile)
+            assertTrue(!loaded.summary(UnitSystem.Metric).toString().contains("path_climb_up"))
             cancelAndIgnoreRemainingEvents()
         }
     }

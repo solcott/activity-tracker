@@ -18,14 +18,18 @@ object PathTexts {
     fun kind(path: PathView): AppText = AppText.named(if (path.kind == PathKind.ROAD) "path_kind_road" else "path_kind_trail")
 
     /**
-     * The line under the path's name: its kind, length and sport groups, with which go it one way only as a trail's row says
-     * (segments/path-page): "Trail · 5.40 mi · Ride, Run, Hike", "Trail · 4.70 mi · Ride · Downhill only".
+     * The line under the path's name: its kind, length, how much it climbs and descends when it has a [profile] (segments/path-profile),
+     * and its sport groups, with which go it one way only as a trail's row says (segments/path-page): "Trail · 5.40 mi · Ride, Run, Hike",
+     * "Trail · 4.70 mi · 520 m up · 310 m down · Ride · Downhill only".
      */
-    fun summary(path: PathView, units: UnitSystem): AppText =
-        (listOf(kind(path), StatText.distance(path.lengthMeters.toDouble(), units)) + pathSportParts(path, path.sports)).reduce { line, next
-            ->
-            AppText.named("segment_browse_details", line, next)
-        }
+    fun summary(path: PathView, units: UnitSystem): AppText = summary(path, units, profile = null)
+
+    /** [summary] with the trail's climb and descent from its [profile] after its length (segments/path-profile). */
+    fun summary(path: PathView, units: UnitSystem, profile: PathProfile?): AppText =
+        (listOf(kind(path), StatText.distance(path.lengthMeters.toDouble(), units)) +
+                profile?.let { PathProfileTexts.climb(it, units) }.orEmpty() +
+                pathSportParts(path, path.sports))
+            .reduce { line, next -> AppText.named("segment_browse_details", line, next) }
 
     /** A segment group's row: its name, as browse names it. */
     fun name(group: SegmentGroupRow): AppText = SegmentBrowseTexts.groupName(group)

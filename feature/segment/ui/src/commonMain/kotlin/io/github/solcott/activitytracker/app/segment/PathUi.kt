@@ -19,6 +19,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,12 +47,14 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
+import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.mapBrowseHover
 import io.github.solcott.activitytracker.app.ui.rememberMapBrowseHover
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -64,6 +70,8 @@ import kotlinx.collections.immutable.toImmutableSet
 fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     val hover = rememberMapBrowseHover()
+    // Where the profile's readout is along the chart, which the map marks (segments/path-profile); null while it isn't showing.
+    var scrubbed by remember { mutableStateOf<Double?>(null) }
     // Keyed on the selection alone: collapsing or expanding another section leaves the list where it is. A selection that expands its
     // section changes both at once, so the row's index here is already the expanded one.
     LaunchedEffect(state.selected) {
@@ -80,18 +88,28 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
         ContentStateLayout(state.content, UiError.Kind.LoadPath, onRetry = retry, contentPadding = padding) {
             WithWindowWidth(Modifier.fillMaxSize().padding(padding)) { width ->
                 val list = @Composable { m: Modifier -> PathList(state, listState, hover, m) }
-                val map = @Composable { m: Modifier -> PathMap(state, hover, m) }
+                val map = @Composable { m: Modifier -> PathMap(state, hover, state.profilePoint(scrubbed), m) }
+                // The profile under the map (segments/path-profile), and under nothing on the web, which draws no map.
+                val profile = @Composable { PathProfileChart(state, hover, onScrub = { scrubbed = it }) }
                 when {
-                    !interactiveMapSupported -> list(Modifier.fillMaxSize())
+                    !interactiveMapSupported ->
+                        Column(Modifier.fillMaxSize()) {
+                            profile()
+                            list(Modifier.fillMaxWidth().weight(1f))
+                        }
                     width == WindowWidth.Compact ->
                         Column(Modifier.fillMaxSize()) {
                             map(Modifier.fillMaxWidth().weight(MAP_WEIGHT))
+                            profile()
                             list(Modifier.fillMaxWidth().weight(1f))
                         }
                     else ->
                         Row(Modifier.fillMaxSize()) {
                             list(Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
-                            map(Modifier.weight(1f).fillMaxHeight())
+                            Column(Modifier.weight(1f).fillMaxHeight()) {
+                                map(Modifier.fillMaxWidth().weight(1f))
+                                profile()
+                            }
                         }
                 }
             }
@@ -99,8 +117,22 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The trail's elevation profile (segments/path-profile), its listed rows' stretches marked under it and the selected or hovered one shaded;
+ * nothing without a profile. [onScrub] hears where its readout is, for the map's marker.
+ */
 @Composable
-private fun PathMap(state: PathState, hover: MapBrowseHover, modifier: Modifier = Modifier) {
+private fun PathProfileChart(state: PathState, hover: MapBrowseHover, onScrub: (Double?) -> Unit) {
+    val hovered = hover.uri
+    val chart = remember(state.profileChart, state.profileBase, hovered) { state.profileChart(hovered) } ?: return
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(TestTags.PATH_PROFILE)) {
+        Text(state.profileTitle.string(), style = MaterialTheme.typography.titleSmall)
+        LineChartUi(chart, Modifier.fillMaxWidth(), height = PROFILE_HEIGHT, onScrub = onScrub)
+    }
+}
+
+@Composable
+private fun PathMap(state: PathState, hover: MapBrowseHover, marker: GeoPoint?, modifier: Modifier = Modifier) {
     SegmentsMap(
         state.mapLines,
         selected = state.selected?.value,
@@ -111,6 +143,7 @@ private fun PathMap(state: PathState, hover: MapBrowseHover, modifier: Modifier 
         hovered = hover.uri,
         onHover = { hover.uri = it },
         hoveredLines = state.sections.find { it.key == hover.uri }?.lineUris?.toImmutableSet() ?: persistentSetOf(),
+        marker = marker,
     )
 }
 
@@ -134,7 +167,7 @@ private fun PathList(
     LazyColumn(modifier, state = listState) {
         item(key = "header") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                state.path?.let { Text(PathTexts.summary(it, units).string(), style = MaterialTheme.typography.bodyMedium) }
+                state.summary(units)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
                 if (state.offersDetails) DetailsFold(state)
                 PathFilterBar(state, Modifier.padding(vertical = 8.dp))
@@ -285,3 +318,6 @@ private const val HEADER_ROWS = 2
 private const val MAP_WEIGHT = 1.2f
 
 private val LIST_PANE_WIDTH = 380.dp
+
+/** The profile chart's height, short enough to leave a phone room for the map and the list. */
+private val PROFILE_HEIGHT = 110.dp

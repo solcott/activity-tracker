@@ -8,11 +8,13 @@ import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.SegmentsMap
+import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PathView
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
@@ -30,7 +32,7 @@ import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The Trail page's content: the path, its segment groups, longest first, its data's [credit], and [sectioned], the groups as the list shows
- * them when the path has sections (sections holding two or more of them, and the rest); empty when it has none.
+ * them when the path has sections (sections holding two or more of them, and the rest); empty when it has none; and its terrain [profile].
  */
 @Immutable
 data class PathContent(
@@ -38,6 +40,8 @@ data class PathContent(
     val groups: ImmutableList<SegmentGroupRow> = persistentListOf(),
     val credit: SegmentCredit? = null,
     val sectioned: ImmutableList<PathListItem> = persistentListOf(),
+    /** The path's terrain profile (segments/path-profile), null when the AppView sent none. */
+    val profile: PathProfile? = null,
 ) {
     /** What the list shows, in order: [sectioned], or each of [groups] as a row when there are no sections. Worked out once. */
     val items: ImmutableList<PathListItem> = sectioned.ifEmpty { groups.map { PathListItem.Group(it) }.toImmutableList() }
@@ -101,6 +105,10 @@ data class PathState(
     val collapsed: ImmutableSet<String> = persistentSetOf(),
     /** Whether the Trail details cards show under their folded line (segments/trail-attributes); every visit starts folded. */
     val detailsExpanded: Boolean = false,
+    /** The terrain profile's chart in [units] with no stretches marked (segments/path-profile); null without a profile. */
+    val profileBase: LineChart? = null,
+    /** [profileBase] with the listed rows' stretches marked and the selected one's shaded. */
+    val profileChart: LineChart? = null,
     val eventSink: (PathEvent) -> Unit = {},
 ) : CircuitUiState {
     /** What the list and map show: [filtered], or all of [content] while nothing narrows it. */
@@ -110,6 +118,27 @@ data class PathState(
     /** The path, once loaded. */
     val path: PathView?
         get() = content.data.path
+
+    /** The path's terrain profile, once loaded; null when it has none (segments/path-profile). */
+    val profile: PathProfile?
+        get() = content.data.profile
+
+    /** The line under the path's name in [units], with the trail's climb and descent when it has a profile. */
+    fun summary(units: UnitSystem): AppText? = path?.let { PathTexts.summary(it, units, profile) }
+
+    /** The profile's heading over its chart. */
+    val profileTitle: AppText
+        get() = AppText.named("path_profile_title")
+
+    /** [profileChart] with [hovered]'s stretch shaded instead (a row's shown segment under the pointer), or as it is when none is. */
+    fun profileChart(hovered: String?): LineChart? {
+        val base = profileBase ?: return profileChart
+        val listed = hovered?.takeIf { uri -> groups.any { it.shown.uri.value == uri } }
+        return listed?.let { profile?.marked(base, groups, it, units) } ?: profileChart
+    }
+
+    /** Where on the trail the map marks for a profile readout at [x] along the chart; null without one or outside every piece. */
+    fun profilePoint(x: Double?): GeoPoint? = x?.let { profile?.pointAt(it, units) }
 
     /** Who to credit for the path's line, as a segment page credits its line. */
     val credit: SegmentCredit?

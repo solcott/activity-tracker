@@ -78,6 +78,14 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
                 .toImmutableList()
         }
 
+    // The profile's chart is built once per unit system; its stretches follow what the list shows and the selection.
+    val profile = content.data.profile
+    val profileBase = remember(profile, unitSystem) { profile?.chart(unitSystem) }
+    val profileChart =
+        remember(profileBase, shown, selection.selected, unitSystem) {
+            profileBase?.let { base -> profile?.marked(base, shown.groups, selection.selected?.value, unitSystem) }
+        }
+
     // A row the search or a filter hides is no longer selected; and a choice no row has any more, after the sport changed, drops.
     SideEffect {
         val selected = selection.selected
@@ -107,6 +115,8 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
         camera = selection.camera,
         collapsed = collapsed,
         detailsExpanded = detailsExpanded,
+        profileBase = profileBase,
+        profileChart = profileChart,
     ) { event ->
         if (choices.on(event)) return@PathState
         when (event) {
@@ -179,6 +189,7 @@ internal fun contentOf(output: GetPath.Output, sport: String?): PathContent {
         groups.toImmutableList(),
         creditOf(path.source, path.license, path.attribution),
         itemsOf(groups, output.sections, sport),
+        PathProfile.of(output.profile, path.lines),
     )
 }
 

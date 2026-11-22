@@ -66,6 +66,9 @@ object TestTags {
     /** The Trail page's clear-filters control, when nothing matches. */
     const val PATH_CLEAR_FILTERS = "pathClearFilters"
 
+    /** The Trail page's elevation profile (segments/path-profile). */
+    const val PATH_PROFILE = "pathProfile"
+
     /** A map's rating legend (segments/trail-ratings). */
     const val TRAIL_RATING_LEGEND = "trailRatingLegend"
 

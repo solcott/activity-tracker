@@ -10,11 +10,15 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
+import kotlin.math.PI
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -39,8 +43,11 @@ object PathSamples {
         sport: String? = null,
         filter: PathFilter = PathFilter(),
         query: String = "",
+        selected: SegmentGroupRow? = null,
     ): PathState {
         val shown = filter.apply(content.data, query, sport, UnitSystem.Imperial)
+        val profile = content.data.profile
+        val base = profile?.chart(UnitSystem.Imperial)
         return PathState(
             content = content,
             sport = sport,
@@ -53,7 +60,10 @@ object PathSamples {
                 (listOfNotNull(content.data.path?.let { MapSegmentLine(it.uri.value, Fixed.POLYLINE, lift = true) }) +
                         shown.groups.map { MapSegmentLine(it.shown.uri.value, Fixed.POLYLINE, rating = it.rating) })
                     .toImmutableList(),
+            selected = selected?.shown?.uri,
             camera = MapCameraRequest(1, BURLINGTON_LAT, BURLINGTON_LNG),
+            profileBase = base,
+            profileChart = base?.let { profile.marked(it, shown.groups, selected?.shown?.uri?.value, UnitSystem.Imperial) },
         )
     }
 
@@ -84,6 +94,39 @@ object PathSamples {
                 ),
                 sport = SegmentSportGroup.RIDE,
             )
+
+    /**
+     * Ann's terrain profile (segments/path-profile): its one piece, 8.69 km climbing to Potato Hill and down again, about 50 m between
+     * heights, with the whole line's stretch along all of it and the Lupine Hiking → Potato Hill stretch along its middle.
+     */
+    private val annsProfile: PathProfile
+        get() {
+            val count = 175
+            val heights = (0 until count).map { i -> (1_500 + 900 * sin(i.toDouble() / (count - 1) * PI)).roundToInt() * 10 }
+            return checkNotNull(
+                PathProfile.of(
+                    GetPath.PathProfile(
+                        pieces = listOf(GetPath.PieceProfile(piece = 0, heights = heights, lengthMeters = 8_690, maxGrade = 118)),
+                        gain = 905,
+                        loss = 902,
+                        spans =
+                            listOf(
+                                GetPath.SegmentSpan(groups[0].shown.uri, 0, 0, 8_690),
+                                GetPath.SegmentSpan(groups[1].shown.uri, 0, 3_100, 5_200),
+                            ),
+                    ),
+                    SegmentBrowseSamples.annsTrail.lines,
+                ),
+            )
+        }
+
+    /** Ann's with its profile under the map, each row's stretch marked under it, and the climb and descent in the summary. */
+    val profile: PathState
+        get() = page(ContentStates.loaded(content.copy(profile = annsProfile)))
+
+    /** [profile] with the stretch selected: its span shaded on the chart. */
+    val profileSelected: PathState
+        get() = page(ContentStates.loaded(content.copy(profile = annsProfile)), selected = groups[1])
 
     /** A road whose only segment someone else proposed: nothing listed. */
     val empty: PathState
@@ -253,6 +296,8 @@ object PathSamples {
                     FILTERS to filters,
                     FILTERED to filtered,
                     NO_MATCHES to noMatches,
+                    PROFILE to profile,
+                    PROFILE_SELECTED to profileSelected,
                 )
 
     const val ONE_WAY = "oneWay"
@@ -264,6 +309,8 @@ object PathSamples {
     const val FILTERS = "filters"
     const val FILTERED = "filtered"
     const val NO_MATCHES = "noMatches"
+    const val PROFILE = "profile"
+    const val PROFILE_SELECTED = "profileSelected"
 }
 
 private const val BURLINGTON_LAT = 44.4759
