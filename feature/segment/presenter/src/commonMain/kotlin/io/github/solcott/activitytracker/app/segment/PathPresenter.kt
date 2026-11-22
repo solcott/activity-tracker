@@ -190,6 +190,7 @@ internal fun contentOf(output: GetPath.Output, sport: String?): PathContent {
         creditOf(path.source, path.license, path.attribution),
         itemsOf(groups, output.sections, sport),
         PathProfile.of(output.profile, path.lines),
+        output.leaders.toImmutableList(),
     )
 }
 

@@ -1,9 +1,11 @@
 package io.github.solcott.activitytracker.app.segment
 
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import kotlinx.collections.immutable.persistentListOf
@@ -36,6 +38,17 @@ object PathTexts {
 
     /** A segment group's line under its name, as browse shows it ("1.20 mi · Ride, Run · Both ways"). */
     fun details(group: SegmentGroupRow, units: UnitSystem): AppText = SegmentBrowseTexts.details(group, units)
+
+    /** A row's leader's time, at its trailing edge (segments/path-page): "12:48". */
+    fun leaderTime(leader: GetPath.SegmentLeader): AppText = SegmentBoardTexts.time(leader.leader)
+
+    /** Who holds a row's fastest time, under it: their display name, or their handle. */
+    fun leaderName(leader: GetPath.SegmentLeader): AppText = AppText.written(leader.leader.athlete.shownName)
+
+    /**
+     * The viewer's own time and place on a row's board, as the Leaderboard card says it ("You: 14:02 · #12"); null when they're not on it.
+     */
+    fun yours(leader: GetPath.SegmentLeader): AppText? = leader.viewer?.let(SegmentPageTexts::leaderboardYours)
 
     /** A section's row: the section's name, as the importer names it ("Through the Trees Trail"). */
     fun name(section: PathListItem.Section): AppText = AppText.written(section.name)

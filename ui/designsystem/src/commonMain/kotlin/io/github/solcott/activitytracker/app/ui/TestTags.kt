@@ -54,6 +54,9 @@ object TestTags {
     /** A section's row on the Trail page, which collapses or expands it (segments/path-page). */
     const val PATH_SECTION = "pathSection"
 
+    /** A Trail row's leader column (segments/path-page). */
+    const val PATH_LEADER = "pathLeader"
+
     /** The Trail page's control that expands or collapses every section. */
     const val PATH_ALL_SECTIONS = "pathAllSections"
 

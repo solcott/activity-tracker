@@ -5,7 +5,9 @@ import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
+import io.github.solcott.activitytracker.app.fixtures.fakeLeaderboardEntry
 import io.github.solcott.activitytracker.app.fixtures.fakePath
+import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
@@ -36,7 +38,27 @@ object PathSamples {
         if (it.record.sport == SegmentSportGroup.RIDE) it.copy(trail = TrailAttributes(mtbScaleImba = imba)) else it
     }
 
-    private val content = PathContent(SegmentBrowseSamples.annsTrail, groups, SegmentCredit.OpenStreetMap("ODbL-1.0"))
+    /**
+     * The boards' leaders (segments/path-page): Kate leads the whole line with the viewer 12th, and the viewer leads the stretch, so one
+     * row shows both lines and the other the viewer at the top.
+     */
+    private val leaders =
+        persistentListOf(
+            GetPath.SegmentLeader(
+                groups[0].shown.uri,
+                SegmentSportGroup.RIDE,
+                fakeLeaderboardEntry(1, fakeProfileBasic(Fixed.CAROL, displayName = "Kate"), 768),
+                viewer = fakeLeaderboardEntry(12, elapsed = 842),
+            ),
+            GetPath.SegmentLeader(
+                groups[1].shown.uri,
+                SegmentSportGroup.RIDE,
+                fakeLeaderboardEntry(1, elapsed = 271),
+                viewer = fakeLeaderboardEntry(1, elapsed = 271),
+            ),
+        )
+
+    private val content = PathContent(SegmentBrowseSamples.annsTrail, groups, SegmentCredit.OpenStreetMap("ODbL-1.0"), leaders = leaders)
 
     private fun page(
         content: io.github.solcott.uistate.ContentState<PathContent>,
@@ -222,7 +244,20 @@ object PathSamples {
                     sports = listOf(SegmentSportGroup.RIDE),
                     oneWays = listOf(PathOneWay(SegmentSportGroup.RIDE, "downhill")),
                 )
-            return page(ContentStates.loaded(PathContent(rush, rows.toImmutableList(), content.credit, items)))
+            // Rush's long rows are raced, the short section trails not yet.
+            val raced =
+                listOf(throughTheTrees.rows[0] to 742L, throughTheTrees.rows[1] to 515L, exitStageLeft.rows[0] to 628L, familySpan to 301L)
+                    .mapIndexed { i, (row, elapsed) ->
+                        GetPath.SegmentLeader(
+                            row.shown.uri,
+                            SegmentSportGroup.RIDE,
+                            fakeLeaderboardEntry(1, fakeProfileBasic(Fixed.BOB, displayName = "Bea Swift"), elapsed),
+                            viewer = fakeLeaderboardEntry(4, elapsed = elapsed + 64).takeIf { i == 0 },
+                        )
+                    }
+            return page(
+                ContentStates.loaded(PathContent(rush, rows.toImmutableList(), content.credit, items, leaders = raced.toImmutableList())),
+            )
         }
 
     /** Ann's with Trail details (segments/trail-attributes): every scale its data holds, the hiking grade too, under its credit. */

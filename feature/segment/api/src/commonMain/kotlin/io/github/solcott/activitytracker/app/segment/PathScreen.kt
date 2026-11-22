@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.textfield.TextFieldState
@@ -42,7 +43,12 @@ data class PathContent(
     val sectioned: ImmutableList<PathListItem> = persistentListOf(),
     /** The path's terrain profile (segments/path-profile), null when the AppView sent none. */
     val profile: PathProfile? = null,
+    /** Each listed segment's leaderboard leader and the viewer's place (segments/path-page); a segment with none isn't in it. */
+    val leaders: ImmutableList<GetPath.SegmentLeader> = persistentListOf(),
 ) {
+    /** [group]'s shown segment's leader, or null when its board has none (a lift, a proposed segment, no one on it). */
+    fun leaderOf(group: SegmentGroupRow): GetPath.SegmentLeader? = leaders.firstOrNull { it.segment == group.shown.uri }
+
     /** What the list shows, in order: [sectioned], or each of [groups] as a row when there are no sections. Worked out once. */
     val items: ImmutableList<PathListItem> = sectioned.ifEmpty { groups.map { PathListItem.Group(it) }.toImmutableList() }
 
@@ -279,6 +285,9 @@ data class PathState(
 
     /** Whether [group]'s row is the one selected. */
     fun isSelected(group: SegmentGroupRow): Boolean = group.shown.uri == selected
+
+    /** [group]'s leader at its row's end (segments/path-page), for both UIs; null when its board has none. */
+    fun leaderOf(group: SegmentGroupRow): GetPath.SegmentLeader? = content.data.leaderOf(group)
 
     /** The event for a tap on the map that found [uri] (a line's URI as the map holds it), or none. */
     fun selectEvent(uri: String?): PathEvent = PathEvent.Select(uri?.let(::AtUri))

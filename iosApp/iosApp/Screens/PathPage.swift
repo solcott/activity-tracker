@@ -253,12 +253,21 @@ struct PathPage: View {
     /// selected.
     private func row(_ group: SegmentGroupRow) -> some View {
         let selected = state.isSelected(group: group)
+        let leader = state.leaderOf(group: group)
+        // The viewer's own place reads in the row's text colour, apart from the grey details (segments/path-page).
+        let yours = leader.flatMap { PathTexts.shared.yours(leader: $0) }.map { Text($0).foregroundStyle(.primary) }
         return AppItemRow(
-            Text(PathTexts.shared.name(group: group)), lines: [Text(PathTexts.shared.details(group: group, units: stats.units))],
+            Text(PathTexts.shared.name(group: group)),
+            lines: [Text(PathTexts.shared.details(group: group, units: stats.units))] + (yours.map { [$0] } ?? []),
             opens: { send(state.tapRowEvent(group: group)) }
         ) {
             RatingSwatch(rating: group.rating)
         }
+        .figure(
+            leader.map {
+                AppItemFigure(value: Text(PathTexts.shared.leaderTime(leader: $0)), caption: Text(PathTexts.shared.leaderName(leader: $0)))
+            }
+        )
         // Clear unless marked, so the list's ground shows: the page's beside the map, the sheet's over it.
         .listRowBackground(selected ? Color(.secondarySystemFill) : Color.clear)
         // The marked row's shading stands alone, with no separator lines over or under it.

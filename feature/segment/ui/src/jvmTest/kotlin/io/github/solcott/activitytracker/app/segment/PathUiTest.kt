@@ -5,22 +5,26 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /** The Trail page (segments/path-page): what it says, and a selection shared with the map as browse's is. */
@@ -34,6 +38,27 @@ class PathUiTest {
         row("Ann's").assertExists()
         row("Ann's: Lupine Hiking → Potato Hill").assertExists()
         onNodeWithText("Show all sports").assertDoesNotExist()
+    }
+
+    /** segments/path-page: each raced row ends with its leader, and the viewer's place shows under the details only when they're ranked. */
+    @Test
+    fun rowsShowTheirLeaderAndTheViewersPlace() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.loaded) } }
+        onNodeWithText("12:48").assertExists()
+        onNodeWithText("Kate").assertExists()
+        onNodeWithText("You: 14:02 · #12").assertExists()
+        onNodeWithText("You: 4:31 · #1").assertExists()
+        assertEquals(2, onAllNodesWithTag(TestTags.PATH_LEADER, useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun aRowWithNoLeaderHasNoColumn() = runComposeUiTest {
+        val content = PathSamples.loaded.content.data
+        val unraced = PathSamples.loaded.copy(content = ContentStates.loaded(content.copy(leaders = persistentListOf())))
+        setContent { AppPreview { PathUi(unraced) } }
+        row("Ann's").assertExists()
+        onAllNodesWithTag(TestTags.PATH_LEADER, useUnmergedTree = true).assertCountEquals(0)
+        onNodeWithText("You:", substring = true).assertDoesNotExist()
     }
 
     /** segments/path-profile: a trail with a profile shows its chart and says how much it climbs; one without shows neither. */

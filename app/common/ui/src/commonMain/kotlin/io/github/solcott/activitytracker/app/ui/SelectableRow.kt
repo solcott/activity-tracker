@@ -3,9 +3,11 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -26,10 +29,11 @@ import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 
 /**
  * A row of a list that shares a selection with a map of lines (segments/segment-browse, segments/path-page, dive-sites/site-browse): its
- * [name], after its [rating]'s swatch when it is rated, then its [details] line. It's marked while [selected] or under the mouse pointer
- * (here or on its line: [hover] holds its [key]), and a mouse over it puts its [key] in [hover], so the map highlights its line. A tap on a
- * touch screen calls [onTap], which selects it or opens it once selected; a click with a pointer calls [onOpen]. [indent] moves its text in
- * under a heading, while its mark still fills the list's width.
+ * [rating]'s swatch when it is rated, beside its [name]'s first line, then under the name its [details] line and an [extra] line when
+ * given, and [trailing] at its end (a Trail row's leader). It's marked while [selected] or under the mouse pointer (here or on its line:
+ * [hover] holds its [key]), and a mouse over it puts its [key] in [hover], so the map highlights its line. A tap on a touch screen calls
+ * [onTap], which selects it or opens it once selected; a click with a pointer calls [onOpen]. [indent] moves its content in under a
+ * heading, while its mark still fills the list's width.
  */
 @Composable
 fun SelectableRow(
@@ -43,9 +47,12 @@ fun SelectableRow(
     modifier: Modifier = Modifier,
     rating: TrailRating? = null,
     indent: Dp = 0.dp,
+    extra: AppText? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val touch = LocalUiPlatform.current.isMobile
-    Column(
+    val nameStyle = MaterialTheme.typography.titleMedium
+    Row(
         modifier
             .fillMaxWidth()
             .then(
@@ -59,13 +66,21 @@ fun SelectableRow(
             .semantics { this.selected = selected }
             .clickable(onClickLabel = MapBrowseTexts.rowAction(selected, touch).string()) { if (touch) onTap() else onOpen() }
             .padding(start = 16.dp + indent, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // A rated trail's swatch before its name (segments/trail-ratings), read as its level's name.
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            RatingSwatch(rating)
-            Text(name.string(), style = MaterialTheme.typography.titleMedium)
+        if (rating != null) {
+            // A rated trail's swatch (segments/trail-ratings), centred on the name's first line so a wrapped name and the lines under it
+            // start under the name, not under the swatch.
+            Box(Modifier.height(with(LocalDensity.current) { nameStyle.lineHeight.toDp() }), contentAlignment = Alignment.Center) {
+                RatingSwatch(rating)
+            }
         }
-        Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f)) {
+            Text(name.string(), style = nameStyle)
+            Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (extra != null) Text(extra.string(), style = MaterialTheme.typography.bodyMedium)
+        }
+        trailing?.invoke()
     }
 }
 

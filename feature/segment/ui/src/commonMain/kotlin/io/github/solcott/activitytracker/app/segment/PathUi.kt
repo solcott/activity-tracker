@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -28,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -57,6 +60,7 @@ import io.github.solcott.activitytracker.app.ui.rememberMapSheetState
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -269,6 +273,7 @@ private val FOLD_PADDING = 12.dp
 
 @Composable
 private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, indent: Dp = 0.dp) {
+    val leader = state.leaderOf(group)
     Column {
         SelectableRow(
             key = group.shown.uri.value,
@@ -280,10 +285,36 @@ private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseH
             onOpen = { state.eventSink(state.openEvent(group)) },
             rating = group.rating,
             indent = indent,
+            extra = leader?.let(PathTexts::yours),
+            trailing = leader?.let { { LeaderColumn(it) } },
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
+
+/**
+ * A row's leader at its end (segments/path-page): the fastest time, heavier than the row's text and in even-width digits so times line up
+ * down the list, and who holds it under it, cut short when long.
+ */
+@Composable
+private fun LeaderColumn(leader: GetPath.SegmentLeader) {
+    Column(Modifier.widthIn(max = LEADER_WIDTH).testTag(TestTags.PATH_LEADER), horizontalAlignment = Alignment.End) {
+        Text(
+            PathTexts.leaderTime(leader).string(),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
+        )
+        Text(
+            PathTexts.leaderName(leader).string(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The widest a row's leader column grows, so a long name is cut short rather than squeezing the row's own name. */
+private val LEADER_WIDTH = 112.dp
 
 /**
  * A section's row (segments/path-page): a chevron, its name and what it covers. A tap collapses or expands it, and a mouse pointer over it

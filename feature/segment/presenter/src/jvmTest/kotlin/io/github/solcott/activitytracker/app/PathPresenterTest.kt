@@ -27,12 +27,15 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -390,6 +393,21 @@ class PathPresenterTest {
             is PathListItem.Group -> item.group.shown.currentName
             is PathListItem.Section -> "[${item.name}: ${item.rows.joinToString { it.shown.currentName }}]"
         }
+    }
+
+    @Test
+    fun aServedLeaderReachesItsSegmentsRow() {
+        fun entry(rank: Int, elapsed: Long) =
+            LeaderboardEntry(
+                rank,
+                ProfileViewBasic(carol, Handle("carol.test")),
+                EffortView(SegmentViewBasic(stretch.uri, "Stretch", "ride", 2_100), stretch.uri, 0, elapsed, "2026-10-06"),
+            )
+        val leader = GetPath.SegmentLeader(stretch.uri, "ride", entry(1, 768), viewer = entry(12, 842))
+        val content = contentOf(output.copy(leaders = listOf(leader)), sport = null)
+        val row = content.groups.single { it.shown.uri == stretch.uri }
+        assertEquals(leader, content.leaderOf(row))
+        assertEquals(listOf(null), content.groups.filter { it !== row }.map(content::leaderOf).distinct(), "the others have none")
     }
 
     @Test
