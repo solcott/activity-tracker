@@ -128,7 +128,12 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
 private fun PathProfileChart(state: PathState, hover: MapBrowseHover, onScrub: (Double?) -> Unit) {
     val hovered = hover.uri
     val chart = remember(state.profileChart, state.profileBase, hovered) { state.profileChart(hovered) } ?: return
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(TestTags.PATH_PROFILE)) {
+    // More room below than above, so the distance labels don't sit on the pane's edge, and a gap under the title, so the top height
+    // label doesn't touch it.
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp).testTag(TestTags.PATH_PROFILE),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(state.profileTitle.string(), style = MaterialTheme.typography.titleSmall)
         LineChartUi(chart, Modifier.fillMaxWidth(), height = PROFILE_HEIGHT, onScrub = onScrub)
     }

@@ -29,6 +29,7 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCarte
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.multiplatform.common.DashedShape
 import com.patrykandpatrick.vico.multiplatform.common.Fill
+import com.patrykandpatrick.vico.multiplatform.common.Insets
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
 import io.github.solcott.activitytracker.data.chart.ChartAxis
@@ -132,7 +133,10 @@ fun TimeSeriesChart(
     val shade = MaterialTheme.colorScheme.onSurface.copy(alpha = SPAN_SHADE_ALPHA)
     val spanMarks = remember(spans, shade) { SpanMarks(spans, shade).takeIf { spans.isNotEmpty() } }
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // A little room between each axis's labels and the plot, so a label doesn't touch the line, its fill or the spans along the bottom.
     val label = rememberTextComponent(labelStyle)
+    val yLabel = rememberTextComponent(labelStyle, margins = Y_LABEL_MARGINS)
+    val xLabel = rememberTextComponent(labelStyle, margins = X_LABEL_MARGINS)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
     // Dashed, so the average reads as a reference rather than another series.
     val averageLine =
@@ -165,7 +169,7 @@ fun TimeSeriesChart(
             startAxis =
                 VerticalAxis.rememberStart(
                     line = null,
-                    label = label.takeIf { yLabels.isNotEmpty() },
+                    label = yLabel.takeIf { yLabels.isNotEmpty() },
                     valueFormatter = yFormatter,
                     tick = null,
                     guideline = grid,
@@ -175,7 +179,7 @@ fun TimeSeriesChart(
             bottomAxis =
                 HorizontalAxis.rememberBottom(
                     line = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp),
-                    label = label.takeIf { xLabels.isNotEmpty() },
+                    label = xLabel.takeIf { xLabels.isNotEmpty() },
                     valueFormatter = xFormatter,
                     tick = null,
                     guideline = null,
@@ -209,6 +213,12 @@ private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(
 
 private const val FILL_ALPHA = 0.18f
 private const val SPAN_SHADE_ALPHA = 0.10f
+
+/** Between a y label and the plot. */
+private val Y_LABEL_MARGINS = Insets(end = 6.dp)
+
+/** Between an x label and the plot's bottom. */
+private val X_LABEL_MARGINS = Insets(top = 4.dp)
 private const val BACKDROP_ALPHA = 0.12f
 
 private fun linesModel(lines: List<List<SeriesPoint>>) = LineCartesianLayerModel.build {
@@ -304,7 +314,7 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
     ): Float {
         val start = context.ranges.minX
         val first = values.filter { it > start + EDGE }.minOrNull() ?: return 0f
-        return room(first - start, context, layerDimensions, maxLabelWidth)
+        return room(first - start, context, maxLabelWidth)
     }
 
     override fun getEndLayerMargin(
@@ -315,15 +325,19 @@ private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.It
     ): Float {
         val end = context.ranges.maxX
         val last = values.filter { it < end - EDGE }.maxOrNull() ?: return 0f
-        return room(end - last, context, layerDimensions, maxLabelWidth)
+        return room(end - last, context, maxLabelWidth)
     }
 
     /**
      * Room past the plot for half of a label [distance] from its edge, so it isn't cut off. A label exactly at an edge gets none: Vico
-     * gives it no width to draw in, so it isn't drawn (as Compose's charts never drew the start and end of an activity's time).
+     * gives it no width to draw in, so it isn't drawn (as Compose's charts never drew the start and end of an activity's time). The
+     * distance is measured across the chart's whole width, since the chart fits its width (no zoom or scroll) and Vico asks for margins
+     * before it scales its spacing to fit: measured on that spacing, a label far from the edge got room it doesn't need.
      */
-    private fun room(distance: Double, context: CartesianMeasuringContext, layerDimensions: CartesianLayerDimensions, width: Float): Float {
-        val pixels = (distance / context.ranges.xStep * layerDimensions.xSpacing).toFloat()
+    private fun room(distance: Double, context: CartesianMeasuringContext, width: Float): Float {
+        val span = context.ranges.maxX - context.ranges.minX
+        if (span <= 0) return 0f
+        val pixels = (distance / span * context.canvasSize.width).toFloat()
         return (width / 2 - pixels).coerceAtLeast(0f)
     }
 }
