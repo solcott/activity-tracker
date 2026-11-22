@@ -17,6 +17,7 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.segment.TrailRating
@@ -27,7 +28,8 @@ import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
  * A row of a list that shares a selection with a map of lines (segments/segment-browse, segments/path-page, dive-sites/site-browse): its
  * [name], after its [rating]'s swatch when it is rated, then its [details] line. It's marked while [selected] or under the mouse pointer
  * (here or on its line: [hover] holds its [key]), and a mouse over it puts its [key] in [hover], so the map highlights its line. A tap on a
- * touch screen calls [onTap], which selects it or opens it once selected; a click with a pointer calls [onOpen].
+ * touch screen calls [onTap], which selects it or opens it once selected; a click with a pointer calls [onOpen]. [indent] moves its text in
+ * under a heading, while its mark still fills the list's width.
  */
 @Composable
 fun SelectableRow(
@@ -40,16 +42,23 @@ fun SelectableRow(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
     rating: TrailRating? = null,
+    indent: Dp = 0.dp,
 ) {
     val touch = LocalUiPlatform.current.isMobile
     Column(
         modifier
             .fillMaxWidth()
-            .then(if (selected || hover.uri == key) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier)
+            .then(
+                when {
+                    selected -> Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = SELECTED_ALPHA))
+                    hover.uri == key -> Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    else -> Modifier
+                },
+            )
             .mapBrowseHover(hover, key)
             .semantics { this.selected = selected }
             .clickable(onClickLabel = MapBrowseTexts.rowAction(selected, touch).string()) { if (touch) onTap() else onOpen() }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(start = 16.dp + indent, end = 16.dp, top = 10.dp, bottom = 10.dp),
     ) {
         // A rated trail's swatch before its name (segments/trail-ratings), read as its level's name.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -59,6 +68,9 @@ fun SelectableRow(
         Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+/** The selected row's tint: the brand colour, faint enough that its text reads as on the plain list. */
+private const val SELECTED_ALPHA = 0.12f
 
 /**
  * Puts [key] in [hover] while a mouse pointer is over this element, so the map highlights what [key] names, and takes it out when the
