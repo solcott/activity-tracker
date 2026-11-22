@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -20,8 +21,9 @@ expect val interactiveMapSupported: Boolean
  * dashed, and the [selected] and [hovered] runs highlighted alike. A tap on a run calls [onSelect] with its URI, and a tap away from every
  * run with null. A mouse pointer over a run calls [onHover] with its URI, and with null once it leaves every run or the map. Each time the
  * camera stops, [onViewport] gets what the map shows. Each new [camera] request moves the map once, framing its box at the map's size when
- * it has one. [hoveredLines], a section of rows under the pointer, are highlighted as [hovered] is. Previews and screenshot tests draw the
- * lines on a plain canvas instead.
+ * it has one. [hoveredLines], a section of rows under the pointer, are highlighted as [hovered] is. [marker] puts a dot on the map at a
+ * place, such as the spot a profile's readout marks along a trail (segments/path-profile), without moving the map. Previews and screenshot
+ * tests draw the lines on a plain canvas instead.
  */
 @Composable
 expect fun SegmentsMap(
@@ -34,4 +36,5 @@ expect fun SegmentsMap(
     hovered: String? = null,
     onHover: (String?) -> Unit = {},
     hoveredLines: ImmutableSet<String> = persistentSetOf(),
+    marker: GeoPoint? = null,
 )

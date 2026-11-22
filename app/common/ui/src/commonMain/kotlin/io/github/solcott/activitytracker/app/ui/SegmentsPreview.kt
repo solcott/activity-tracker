@@ -9,11 +9,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,7 @@ import io.github.solcott.activitytracker.app.MapSegmentRole
 import io.github.solcott.activitytracker.app.SegmentsMap
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.ui.map.TrailRatingColors
+import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -38,6 +41,7 @@ internal fun SegmentsPreview(
     modifier: Modifier = Modifier,
     hovered: String? = null,
     hoveredLines: ImmutableSet<String> = persistentSetOf(),
+    marker: GeoPoint? = null,
 ) {
     val map =
         remember(segments, selected, hovered, hoveredLines) {
@@ -47,6 +51,7 @@ internal fun SegmentsPreview(
     val plain = MaterialTheme.colorScheme.primary
     val lift = MaterialTheme.colorScheme.outline
     val highlight = MaterialTheme.colorScheme.tertiary
+    val ringColor = MaterialTheme.colorScheme.surface
     Box(modifier) {
         Canvas(Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
             val at = canvasFit(map.allPoints, size, pad = 16.dp.toPx()) ?: return@Canvas
@@ -72,7 +77,18 @@ internal fun SegmentsPreview(
                     }
                 }
             }
+            marker?.let { drawMarker(at(it), highlight, ringColor) }
         }
         RatingLegend(map.legend, Modifier.align(Alignment.TopStart).padding(8.dp))
     }
 }
+
+/** The marker a [SegmentsMap] puts at a place: a dot in [fill] ringed in [ring], as the map draws it. */
+private fun DrawScope.drawMarker(center: Offset, fill: Color, ring: Color) {
+    drawCircle(ring, MARKER_RADIUS.toPx(), center)
+    drawCircle(fill, (MARKER_RADIUS - MARKER_RING).toPx(), center)
+}
+
+/** The marker's radius and its ring's width, on every map of segments. */
+internal val MARKER_RADIUS = 7.dp
+internal val MARKER_RING = 2.dp

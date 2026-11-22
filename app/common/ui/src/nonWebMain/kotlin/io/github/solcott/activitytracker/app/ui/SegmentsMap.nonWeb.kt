@@ -46,9 +46,11 @@ import io.github.solcott.activitytracker.app.ui.map.TrailRatingColors
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.map_zoom_in
 import io.github.solcott.activitytracker.composeApp.resources.map_zoom_out
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -94,16 +96,28 @@ actual fun SegmentsMap(
     hovered: String?,
     onHover: (String?) -> Unit,
     hoveredLines: ImmutableSet<String>,
+    marker: GeoPoint?,
 ) {
     // Previews, tests and screenshot tools draw the lines without MapLibre, its native view or a remote style.
     if (LocalInspectionMode.current) {
-        SegmentsPreview(segments, selected, modifier, hovered, hoveredLines)
+        SegmentsPreview(segments, selected, modifier, hovered, hoveredLines, marker)
         return
     }
     // The legend of the levels the runs are drawn in (segments/trail-ratings), in the top-start corner, clear of the zoom buttons.
     val legend = remember(segments) { SegmentsMap.of(segments, selected = null).legend }
     Box(modifier) {
-        SegmentsMapLibre(segments, selected, camera, onViewport, onSelect, hovered, onHover, hoveredLines, Modifier.matchParentSize())
+        SegmentsMapLibre(
+            segments,
+            selected,
+            camera,
+            onViewport,
+            onSelect,
+            hovered,
+            onHover,
+            hoveredLines,
+            marker,
+            Modifier.matchParentSize(),
+        )
         RatingLegend(legend, Modifier.align(Alignment.TopStart).padding(MapOverlay.Spacing))
     }
 }
@@ -119,6 +133,7 @@ private fun SegmentsMapLibre(
     hovered: String?,
     onHover: (String?) -> Unit,
     hoveredLines: ImmutableSet<String>,
+    marker: GeoPoint?,
     modifier: Modifier = Modifier,
 ) {
     val runsJson = remember(segments) { featuresJson(segments.filterNot { it.lift }) }
@@ -130,6 +145,7 @@ private fun SegmentsMapLibre(
     val plain = MaterialTheme.colorScheme.primary
     val liftColor = MaterialTheme.colorScheme.outline
     val selectedColor = MaterialTheme.colorScheme.tertiary
+    val markerRing = MaterialTheme.colorScheme.surface
     val currentOnSelect by rememberUpdatedState(onSelect)
     val currentOnHover by rememberUpdatedState(onHover)
     val currentOnViewport by rememberUpdatedState(onViewport)
@@ -187,6 +203,12 @@ private fun SegmentsMapLibre(
                     cap = const(LineCap.Round),
                     join = const(LineJoin.Round),
                 )
+            }
+            // The spot a profile's readout marks (segments/path-profile), on top of every line.
+            if (marker != null) {
+                key(marker) {
+                    MarkerLayer("segments-marker", persistentListOf(marker), MARKER_RADIUS, selectedColor, markerRing, MARKER_RING)
+                }
             }
         }
     // Where the map last stopped and the last request it took, kept while its screen is, so a map made again on coming back opens

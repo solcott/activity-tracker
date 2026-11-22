@@ -91,7 +91,7 @@ private fun RouteMarkerLayers(markers: RouteMarkers<GeoPoint>) {
 
 /** A dot at each of [at] of [radius], ringed [ringWidth] wide (MapLibre strokes outside a circle's radius, so the ring is taken off it). */
 @Composable
-private fun MarkerLayer(
+internal fun MarkerLayer(
     id: String,
     at: ImmutableList<GeoPoint>,
     radius: Dp,
