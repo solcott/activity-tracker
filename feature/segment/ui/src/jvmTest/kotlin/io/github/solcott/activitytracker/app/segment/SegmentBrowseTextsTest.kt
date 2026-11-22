@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.segment
 import io.github.solcott.activitytracker.app.browse.BrowseList
 import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.browse.NameScope
+import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.text.AppText
@@ -102,6 +103,39 @@ class SegmentBrowseTextsTest {
                 AppText.named("segment_browse_both_ways"),
             ),
             SegmentBrowseTexts.details(ann, units),
+        )
+    }
+
+    /** [name]'s segments of [sports], each both ways along one line, as one segment group. */
+    private fun bothWays(name: String, vararg sports: String): SegmentGroupRow {
+        val back = SegmentGeometry.encodePolyline(SegmentGeometry.decodePolyline(Fixed.POLYLINE).orEmpty().reversed())
+        val members = sports.flatMap { sport ->
+            listOf(Fixed.POLYLINE, back).mapIndexed { i, line ->
+                fakeSegment("3k$sport$i", record = fakeSegmentRecord(name, sport = sport, line = line), distanceMeters = 2_100)
+            }
+        }
+        return SegmentGroupRow.groupOf(members.map { it.copy(group = members.first().uri) })
+    }
+
+    @Test
+    fun aRowNamedBothWaysDoesntSayItAgain() {
+        val units = UnitSystem.Metric
+        val stretch = bothWays("Lupine Hiking → Potato Hill", "ride", "run")
+        assertEquals(AppText.written("Lupine Hiking ↔ Potato Hill"), SegmentBrowseTexts.groupName(stretch))
+        assertEquals(
+            AppText.named(
+                "segment_browse_details",
+                StatText.distance(2_100.0, units),
+                AppText.joined(listOf("ride", "run").map(SegmentTexts::sportGroup))!!,
+            ),
+            SegmentBrowseTexts.details(stretch, units),
+            "the arrow says both ways",
+        )
+        val trail = bothWays("Ann's", "ride", "run")
+        assertEquals(
+            AppText.named("segment_browse_both_ways"),
+            (SegmentBrowseTexts.details(trail, units) as AppText.Named).args.last(),
+            "a name without the arrow still says it",
         )
     }
 

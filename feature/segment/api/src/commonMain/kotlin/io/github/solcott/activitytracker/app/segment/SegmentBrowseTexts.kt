@@ -172,14 +172,18 @@ private fun joined(group: SegmentGroupRow, metersAway: Int?, units: UnitSystem):
         if (group.sports.size == 1) SegmentTexts.type(shown.record.sport, shown.record.kind)
         else AppText.joined(group.sports.map(SegmentTexts::sportGroup))
     }
+    // A name showing ↔ already says both ways, so a lone Both ways isn't said again (segments/segment-groups).
+    fun said(way: AppText?) = way.takeUnless { it == BOTH_WAYS && '↔' in SegmentGroupRow.displayName(shown.currentName, group.bothWays) }
     // Rows built before ways were known: the sports, then Both ways when they go both ways.
     if (group.ways.isEmpty()) {
-        return joined(length, types(), AppText.named("segment_browse_both_ways").takeIf { group.bothWays }, metersAway, units)
+        return joined(length, types(), said(BOTH_WAYS.takeIf { group.bothWays }), metersAway, units)
     }
     // The sports then one wording, or, mixed, each wording after its sport groups, the groups that say nothing last.
     val parts = sportsAndWays(group.ways, plainFirst = false, types)
-    return joined(length, parts.getOrNull(0), parts.getOrNull(1), metersAway, units)
+    return joined(length, parts.getOrNull(0), said(parts.getOrNull(1)), metersAway, units)
 }
+
+private val BOTH_WAYS = AppText.named("segment_browse_both_ways")
 
 private fun joined(length: AppText, types: AppText?, bothWays: AppText?, metersAway: Int?, units: UnitSystem): AppText {
     val parts =
