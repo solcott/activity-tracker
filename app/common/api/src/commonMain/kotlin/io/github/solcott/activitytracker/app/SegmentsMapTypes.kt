@@ -65,9 +65,12 @@ data class MapCameraRequest(
     val zoom: Double = DEFAULT_ZOOM,
     val bounds: MapBounds? = null,
 ) {
-    /** The camera this request asks for on a map [width] by [height], in the map's units (dp, points), as each map applies it. */
-    fun frame(width: Double, height: Double): MapFrame =
-        bounds?.let { MapFrame.fit(it, width, height) } ?: MapFrame(latitude = lat, longitude = lng, zoom = zoom)
+    /**
+     * The camera this request asks for on a map [width] by [height], in the map's units (dp, points), as each map applies it, a box framed
+     * in what [bottom] (a sheet over the map's lower part) leaves open.
+     */
+    fun frame(width: Double, height: Double, bottom: Double = 0.0): MapFrame =
+        bounds?.let { MapFrame.fit(it, width, height, bottom = bottom) } ?: MapFrame(latitude = lat, longitude = lng, zoom = zoom)
 
     companion object {
         /** About 10 km across on a phone: a town and its trails. */

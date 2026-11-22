@@ -97,6 +97,7 @@ actual fun SegmentsMap(
     onHover: (String?) -> Unit,
     hoveredLines: ImmutableSet<String>,
     marker: GeoPoint?,
+    coveredBottom: Dp,
 ) {
     // Previews, tests and screenshot tools draw the lines without MapLibre, its native view or a remote style.
     if (LocalInspectionMode.current) {
@@ -116,6 +117,7 @@ actual fun SegmentsMap(
             onHover,
             hoveredLines,
             marker,
+            coveredBottom,
             Modifier.matchParentSize(),
         )
         RatingLegend(legend, Modifier.align(Alignment.TopStart).padding(MapOverlay.Spacing))
@@ -134,6 +136,7 @@ private fun SegmentsMapLibre(
     onHover: (String?) -> Unit,
     hoveredLines: ImmutableSet<String>,
     marker: GeoPoint?,
+    coveredBottom: Dp,
     modifier: Modifier = Modifier,
 ) {
     val runsJson = remember(segments) { featuresJson(segments.filterNot { it.lift }) }
@@ -225,7 +228,10 @@ private fun SegmentsMapLibre(
         when {
             camera != null && camera.id != applied && (camera.bounds == null || measured != null) -> {
                 applied = camera.id
-                val frame = camera.frame(measured?.width?.value?.toDouble() ?: 0.0, measured?.height?.value?.toDouble() ?: 0.0)
+                val height = measured?.height?.value?.toDouble() ?: 0.0
+                // What's drawn over the map hides at most three quarters of it, so a box is never framed in a sliver.
+                val covered = coveredBottom.value.toDouble().coerceIn(0.0, height * MAX_COVERED)
+                val frame = camera.frame(measured?.width?.value?.toDouble() ?: 0.0, height, bottom = covered)
                 mapState.setCameraPosition(frame.toCameraPosition())
             }
             left != null -> mapState.setCameraPosition(left)
@@ -270,7 +276,7 @@ private fun SegmentsMapLibre(
         state = mapState,
         interactions = interactions,
         overlay = {
-            RouteMapOverlay(mapState) { buttonModifier ->
+            RouteMapOverlay(mapState, bottom = coveredBottom) { buttonModifier ->
                 // Zoom without gestures: for a mouse without a wheel, a simulator, or anyone who can't pinch.
                 Column(buttonModifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MapButton(AppIcon.ZoomIn, Res.string.map_zoom_in, onClick = { scope.launch { mapState.zoomBy(1.0) } })
@@ -348,6 +354,9 @@ private val CameraSaver =
     )
 
 private const val NO_REQUEST = -1
+
+/** The most of the map's height a box is framed around something drawn over it. */
+private const val MAX_COVERED = 0.75
 private const val MIN_ZOOM = 0.0
 private const val MAX_ZOOM = 20.0
 private const val LIFT_DASH = 3

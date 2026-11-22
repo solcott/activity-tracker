@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -43,11 +44,12 @@ private var attributionShown = false
 
 /**
  * [MapOverlay.AttributionOnly], except that the attribution collapses on its own: the library's button stays expanded until a gesture moves
- * the camera, and the static [ActivityMap] allows none. [action], given its placement, goes in the top-end corner, clear of both.
+ * the camera, and the static [ActivityMap] allows none. [action], given its placement, goes in the top-end corner, clear of both. Both sit
+ * [bottom] above the map's bottom edge, over anything drawn across its lower part.
  */
 @Composable
-internal fun MapOverlayScope.RouteMapOverlay(mapState: MapState, action: @Composable (Modifier) -> Unit = {}) {
-    Box(Modifier.fillMaxSize().padding(MapOverlay.Spacing)) {
+internal fun MapOverlayScope.RouteMapOverlay(mapState: MapState, bottom: Dp = 0.dp, action: @Composable (Modifier) -> Unit = {}) {
+    Box(Modifier.fillMaxSize().padding(bottom = bottom).padding(MapOverlay.Spacing)) {
         MaplibreLogo(Modifier.align(Alignment.BottomStart))
         CollapsingAttribution(mapState, Modifier.align(Alignment.BottomEnd))
         action(Modifier.align(Alignment.TopEnd))

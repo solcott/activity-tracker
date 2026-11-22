@@ -65,23 +65,31 @@ data class MapFrame(val latitude: Double, val longitude: Double, val zoom: Doubl
         const val MAX_ZOOM = 16.0
 
         /**
-         * The camera that frames [bounds] in a map [width] by [height] with [margin] on every side and [top] more along the top (anything a
-         * caller draws over the map's top edge): the zoom fits the tighter of the two directions in Web Mercator, clamped to [0, MAX_ZOOM],
-         * and the centre is the middle of what's left.
+         * The camera that frames [bounds] in a map [width] by [height] with [margin] on every side, [top] more along the top and [bottom]
+         * more along the bottom (anything a caller draws over the map's edges, such as a sheet over a trail's map): the zoom fits the
+         * tighter of the two directions in Web Mercator, clamped to [0, MAX_ZOOM], and the centre is the middle of what's left.
          */
-        fun fit(bounds: MapBounds, width: Double, height: Double, margin: Double = MARGIN, top: Double = 0.0): MapFrame {
+        @Suppress("LongParameterList") // The box, the map's size and the insets around it, each defaulted but the first three.
+        fun fit(
+            bounds: MapBounds,
+            width: Double,
+            height: Double,
+            margin: Double = MARGIN,
+            top: Double = 0.0,
+            bottom: Double = 0.0,
+        ): MapFrame {
             val west = mercatorX(bounds.west)
             val east = mercatorX(bounds.east)
             val north = mercatorY(bounds.north)
             val south = mercatorY(bounds.south)
             val room = (width - margin * 2).coerceAtLeast(1.0)
-            val tall = (height - margin * 2 - top).coerceAtLeast(1.0)
+            val tall = (height - margin * 2 - top - bottom).coerceAtLeast(1.0)
             // A span of 0 (a single point, or a due north-south or east-west line) fits at any zoom in that direction.
             val zoomX = if (east > west) log2(room / ((east - west) * WORLD)) else Double.POSITIVE_INFINITY
             val zoomY = if (south > north) log2(tall / ((south - north) * WORLD)) else Double.POSITIVE_INFINITY
             val zoom = min(zoomX, zoomY).coerceIn(0.0, MAX_ZOOM)
-            // The route sits in the middle of the room below [top], so the map's centre is half of [top] above the route's.
-            val shift = top / 2 / (WORLD * pow2(zoom))
+            // The route sits in the middle of the room between [top] and [bottom], so the map's centre is half their difference above it.
+            val shift = (top - bottom) / 2 / (WORLD * pow2(zoom))
             val centreY = (north + south) / 2 - shift
             // A box across the antimeridian centres past 180; brought back into -180 until 180.
             val longitude = ((west + east) / 2 * FULL_TURN).mod(FULL_TURN) - HALF_TURN

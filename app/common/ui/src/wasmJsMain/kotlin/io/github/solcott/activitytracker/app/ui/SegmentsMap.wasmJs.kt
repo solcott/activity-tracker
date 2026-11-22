@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
@@ -25,4 +26,5 @@ actual fun SegmentsMap(
     onHover: (String?) -> Unit,
     hoveredLines: ImmutableSet<String>,
     marker: GeoPoint?,
+    coveredBottom: Dp,
 ) = SegmentsPreview(segments, selected, modifier, hovered, hoveredLines, marker)

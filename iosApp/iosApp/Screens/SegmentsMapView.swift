@@ -122,7 +122,7 @@ private struct LiveSegmentsMap: View {
         if let camera, camera.id != memory.applied {
             memory.applied = camera.id
             // A selected row's line is framed at the map's size; a place to open at keeps its zoom.
-            let frame = camera.frame(width: Double(size.width), height: Double(size.height))
+            let frame = camera.frame(width: Double(size.width), height: Double(size.height), bottom: 0)
             position = .rect(MapCamera.rect(frame, size: size))
         } else if let left = memory.position, position == .automatic {
             position = left

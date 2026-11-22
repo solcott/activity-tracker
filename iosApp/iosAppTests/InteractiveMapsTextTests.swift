@@ -107,8 +107,8 @@ struct InteractiveMapsTextTests {
     @Test func aBoxRequestIsFramedAtTheMapsSize() {
         let box = MapBounds(west: -73.22, south: 44.47, east: -73.20, north: 44.48)
         let request = MapCameraRequest.Companion.shared.fit(id: 1, bounds: box)
-        let small = request.frame(width: 390, height: 300)
-        let large = request.frame(width: 1180, height: 820)
+        let small = request.frame(width: 390, height: 300, bottom: 0)
+        let large = request.frame(width: 1180, height: 820, bottom: 0)
         #expect(abs(small.latitude - 44.475) < 0.001)
         #expect(large.zoom > small.zoom)
     }

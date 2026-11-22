@@ -146,6 +146,18 @@ class MapFrameTest {
     }
 
     @Test
+    fun aBottomInsetMovesTheRouteAboveIt() {
+        val bounds = MapBounds(west = 0.0, south = -0.01, east = 0.01, north = 0.0)
+        val plain = MapFrame.fit(bounds, 400.0, 300.0)
+        val inset = MapFrame.fit(bounds, 400.0, 300.0, bottom = 120.0)
+        assertTrue(inset.zoom < plain.zoom, "${inset.zoom} vs ${plain.zoom}")
+        // The centre moves south, so the route sits higher in the map, above the sheet.
+        assertTrue(inset.latitude < plain.latitude, "${inset.latitude} vs ${plain.latitude}")
+        // Equal insets leave the route centred.
+        assertEquals(plain.latitude, MapFrame.fit(bounds, 400.0, 300.0, top = 60.0, bottom = 60.0).latitude, 1e-9)
+    }
+
+    @Test
     fun aBoxAcrossTheAntimeridianIsFramedCloseAndCentredOnIt() {
         val frame = MapFrame.fit(MapBounds(179.98, -16.8, 180.03, -16.7), 400.0, 300.0)
         assertTrue(frame.zoom > 10, "${frame.zoom}")

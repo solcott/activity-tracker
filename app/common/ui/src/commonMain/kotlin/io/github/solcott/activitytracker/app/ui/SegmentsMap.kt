@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.MapCameraRequest
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
@@ -22,8 +24,9 @@ expect val interactiveMapSupported: Boolean
  * run with null. A mouse pointer over a run calls [onHover] with its URI, and with null once it leaves every run or the map. Each time the
  * camera stops, [onViewport] gets what the map shows. Each new [camera] request moves the map once, framing its box at the map's size when
  * it has one. [hoveredLines], a section of rows under the pointer, are highlighted as [hovered] is. [marker] puts a dot on the map at a
- * place, such as the spot a profile's readout marks along a trail (segments/path-profile), without moving the map. Previews and screenshot
- * tests draw the lines on a plain canvas instead.
+ * place, such as the spot a profile's readout marks along a trail (segments/path-profile), without moving the map. [coveredBottom] is how
+ * much of the map's lower part something drawn over it hides (the Trail page's sheet): a box is framed in what's left, and the attribution
+ * stays above it. Previews and screenshot tests draw the lines on a plain canvas instead.
  */
 @Composable
 expect fun SegmentsMap(
@@ -37,4 +40,5 @@ expect fun SegmentsMap(
     onHover: (String?) -> Unit = {},
     hoveredLines: ImmutableSet<String> = persistentSetOf(),
     marker: GeoPoint? = null,
+    coveredBottom: Dp = 0.dp,
 )
