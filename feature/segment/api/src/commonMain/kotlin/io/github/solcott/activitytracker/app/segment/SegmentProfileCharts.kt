@@ -18,22 +18,41 @@ import kotlin.math.roundToLong
  * along the bottom at a round step ([distanceLabels]), tinted by grade ([GradeBand], in the runs [BandStop.runs] keeps), each point reading
  * out its distance, elevation and grade.
  */
-fun SegmentProfile.chart(units: UnitSystem): LineChart {
-    val length = UnitConversions.toDistanceUnit(distanceMeters.toDouble(), units)
-    val step = if (heightsM.size > 1) length / (heightsM.size - 1) else 0.0
-    val points = heightsM.mapIndexed { i, h -> LinePoint(i * step, UnitConversions.toElevationUnit(h, units)) }
+fun SegmentProfile.chart(units: UnitSystem): LineChart = profileChart(listOf(this), units)
+
+/**
+ * [pieces] one after another as one chart, as [chart] draws one (a trail's line pieces, segments/path-profile): each starts where the one
+ * before it ended, the line breaking between them ([LinePoint.gapBefore]), over their whole length in [units].
+ */
+internal fun profileChart(pieces: List<SegmentProfile>, units: UnitSystem): LineChart {
+    require(pieces.isNotEmpty()) { "a chart needs a piece" }
+    val lengths = pieces.map { UnitConversions.toDistanceUnit(it.distanceMeters.toDouble(), units) }
+    val length = lengths.sum()
+    val starts = lengths.runningFold(0.0, Double::plus)
     val decimals = distanceDecimals(length)
     fun distance(value: Double) = unit(units, "unit_distance_km", "unit_distance_mi", formatDecimal(value, decimals))
     fun elevation(value: Double) = unit(units, "unit_elevation_m", "unit_elevation_ft", formatDecimal(value, 0))
-    val readouts = points.mapIndexed { i, point ->
-        val grade = gradesPercent.getOrElse(gradeIndex(i, points.size)) { 0.0 }
-        AppText.named(
-            "segment_profile_readout",
-            distance(point.x),
-            elevation(point.y),
-            AppText.named("unit_percent", AppText.written(formatDecimal(grade, 1))),
-        )
+    val points = mutableListOf<LinePoint>()
+    val readouts = mutableListOf<AppText>()
+    val grades = mutableListOf<Int>()
+    pieces.forEachIndexed { p, piece ->
+        val step = if (piece.heightsM.size > 1) lengths[p] / (piece.heightsM.size - 1) else 0.0
+        val bands = piece.gradeBands
+        piece.heightsM.forEachIndexed { i, h ->
+            val point = LinePoint(starts[p] + i * step, UnitConversions.toElevationUnit(h, units), gapBefore = p > 0 && i == 0)
+            val grade = piece.gradesPercent.getOrElse(piece.gradeIndex(i, piece.heightsM.size)) { 0.0 }
+            points += point
+            readouts +=
+                AppText.named(
+                    "segment_profile_readout",
+                    distance(point.x),
+                    elevation(point.y),
+                    AppText.named("unit_percent", AppText.written(formatDecimal(grade, 1))),
+                )
+            grades += bands.getOrElse(piece.gradeIndex(i, piece.heightsM.size)) { 0 }
+        }
     }
+    val meters = pieces.sumOf { it.distanceMeters }.toDouble()
     return LineChart.of(
         points = points,
         xMin = 0.0,
@@ -44,16 +63,16 @@ fun SegmentProfile.chart(units: UnitSystem): LineChart {
         description =
             AppText.named(
                 "segment_profile_description",
-                StatText.distance(distanceMeters.toDouble(), units),
-                StatText.elevation(heightsM.first(), units),
-                StatText.elevation(heightsM.last(), units),
+                StatText.distance(meters, units),
+                StatText.elevation(pieces.first().heightsM.first(), units),
+                StatText.elevation(pieces.last().heightsM.last(), units),
             ),
-        bands = BandStop.runs(points.map { (if (length > 0) it.x / length else 0.0).toFloat() }, gradeBands),
+        bands = BandStop.runs(points.map { (if (length > 0) it.x / length else 0.0).toFloat() }, grades),
     )
 }
 
 /** Which grade the [i]th of [count] chart points reads out: the profile's grades are as many as its heights. */
-private fun SegmentProfile.gradeIndex(i: Int, count: Int): Int =
+internal fun SegmentProfile.gradeIndex(i: Int, count: Int): Int =
     if (count > 1) (i.toDouble() / (count - 1) * (gradesPercent.size - 1)).roundToInt().coerceIn(0, gradesPercent.lastIndex) else 0
 
 /** Distance labels from 0 at a round step that gives at most [MAX_LABELS] of them along [length], in the viewer's distance unit. */
