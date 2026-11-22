@@ -4,9 +4,11 @@ import io.github.solcott.activitytracker.appview.api.TrailAttributesSanitizer
 import io.github.solcott.activitytracker.appview.db.PathCellIndex
 import io.github.solcott.activitytracker.appview.db.PathSectionSegments
 import io.github.solcott.activitytracker.appview.db.PathSegments
+import io.github.solcott.activitytracker.appview.db.PathTerrain
 import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -28,6 +30,7 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 // Indexing of `feed.path` records (segments/segment-paths), from the segment importer's repo only, and which segments lie on each.
@@ -43,8 +46,16 @@ private const val CELL_CHUNK = 1_000
  * [PathRecord.MAX_PIECES] valid line pieces; anything else is dropped like an undecodable record. Indexing it stores its cells and works
  * out again which run segments lie on it.
  */
-@Suppress("LongParameterList") // The record, and where it's from.
-internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUri, cid: String, now: Long, importer: Did?) {
+@Suppress("LongParameterList") // The record, where it's from, and the queue its terrain is sampled through.
+internal fun JdbcTransaction.upsertPath(
+    json: JsonObject,
+    author: Did,
+    uri: AtUri,
+    cid: String,
+    jobs: SegmentJobs,
+    now: Long,
+    importer: Did?,
+) {
     if (importer == null || author != importer) return
     val record = AtJson.decodeFromJsonElement(PathRecord.serializer(), json)
     val name = validName(record.name)
@@ -56,6 +67,7 @@ internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUr
     val old = Paths.select(Paths.lines, Paths.sports).where { Paths.uri eq uri.value }.firstOrNull()
     // Membership depends only on the line and the sports: a rename or a rewrite of the same line leaves it as it is.
     val moved = old == null || old[Paths.lines] != record.lines.joinToString("\n") || old[Paths.sports] != sports
+    val relined = old == null || old[Paths.lines] != record.lines.joinToString("\n")
     Paths.upsert {
         it[Paths.uri] = uri.value
         it[Paths.cid] = cid
@@ -73,6 +85,12 @@ internal fun JdbcTransaction.upsertPath(json: JsonObject, author: Did, uri: AtUr
         it[indexedAt] = now
     }
     replaceSections(uri, author, record.sections.orEmpty())
+    if (relined) {
+        // Its old profiles describe another line: they go now, and the job samples the new one (segments/path-profile).
+        PathTerrain.deleteWhere { pathUri eq uri.value }
+        Paths.update({ Paths.uri eq uri.value }) { it[terrainComplete] = false }
+        jobs.enqueuePathElevation(uri.value, now)
+    }
     if (!moved) return
     val cells = pieces.flatMapTo(mutableSetOf()) { SegmentCells.cellsOf(it) }
     // The segments it held too, since a path that moved may no longer be nearest to them.
@@ -119,6 +137,7 @@ private fun JdbcTransaction.deletePaths(uris: List<String>) {
     PathSegments.deleteWhere { pathUri inList uris }
     PathSectionSegments.deleteWhere { pathUri inList uris }
     PathCellIndex.deleteWhere { pathUri inList uris }
+    PathTerrain.deleteWhere { pathUri inList uris }
     Paths.deleteWhere { Paths.uri inList uris }
     repathSegments(held)
 }

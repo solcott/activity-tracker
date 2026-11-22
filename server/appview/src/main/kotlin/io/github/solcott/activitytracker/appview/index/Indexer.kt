@@ -452,7 +452,7 @@ class Indexer(
 
             // Public, and only the segment importer's: from its repo only (segments/segment-paths).
             Nsid.FEED_PATH -> {
-                if (placement.origin == Origins.REPO) upsertPath(json, author, uri, cid, now, segmentImporter)
+                if (placement.origin == Origins.REPO) upsertPath(json, author, uri, cid, segmentJobs, now, segmentImporter)
             }
 
             // Public, so from the repo only; a copy in a space is ignored.

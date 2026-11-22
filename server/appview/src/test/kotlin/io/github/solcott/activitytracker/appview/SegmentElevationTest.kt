@@ -417,7 +417,7 @@ class SegmentElevationTest : SegmentTestBase(terrainTiles()) {
         private const val TERRAIN_BASE_M = 500.0
 
         /** Terrarium tiles at [TERRAIN_ZOOM] in the 3 by 3 tiles round the test origin, sloping up northwards by [TERRAIN_GRADE]. */
-        private fun terrainTiles(): File {
+        internal fun terrainTiles(): File {
             val dir = createTempDirectory("terrain").toFile().apply { deleteOnExit() }
             val n = 1 shl TERRAIN_ZOOM
             val lat0 = 47.0

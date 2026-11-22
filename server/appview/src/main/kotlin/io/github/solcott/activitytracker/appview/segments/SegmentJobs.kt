@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
@@ -49,6 +50,26 @@ class SegmentJobs(
     /** Sample terrain elevation along a new or re-lined segment's line; nothing without terrain tiles. */
     fun enqueueElevation(segmentUri: String, now: Long) {
         if (terrain) enqueue(ELEVATION, segmentUri, now)
+    }
+
+    /** Sample terrain along a new or re-lined path's pieces (segments/path-profile); nothing without terrain tiles. */
+    fun enqueuePathElevation(pathUri: String, now: Long) {
+        if (terrain) enqueue(PATH_ELEVATION, pathUri, now)
+    }
+
+    /**
+     * Sample terrain along every path matching [where], in one statement; nothing without terrain tiles. Paths already queued keep their
+     * place. Returns how many were queued.
+     */
+    fun enqueuePathElevations(where: Op<Boolean>, now: Long): Int {
+        if (!terrain) return 0
+        val queued =
+            SegmentMatchJobs.select(SegmentMatchJobs.kind).where {
+                (SegmentMatchJobs.kind eq PATH_ELEVATION) and (SegmentMatchJobs.subjectUri eq Paths.uri)
+            }
+        return insertJobs(
+            Paths.select(stringLiteral(PATH_ELEVATION), Paths.uri, longLiteral(now), intLiteral(0)).where(where and notExists(queued)),
+        )
     }
 
     /**
@@ -203,9 +224,13 @@ class SegmentJobs(
         const val GROUP = "group"
         const val SITE = "site"
         const val ELEVATION = "elevation"
+        const val PATH_ELEVATION = "path-elevation"
 
         /** Every kind, for the metrics' per-kind gauges. */
-        val KINDS = listOf(TRACK, SEGMENT, CANDIDATE, TIERS, GROUP, SITE, ELEVATION)
+        val KINDS = listOf(TRACK, SEGMENT, CANDIDATE, TIERS, GROUP, SITE, ELEVATION, PATH_ELEVATION)
+
+        /** The kinds that sample terrain, which run only with terrain tiles. */
+        val TERRAIN_KINDS = setOf(ELEVATION, PATH_ELEVATION)
 
         /** The most failed jobs [requeueFailed] requeues at once, so one request's transaction stays small. */
         const val REQUEUE_LIMIT = 500

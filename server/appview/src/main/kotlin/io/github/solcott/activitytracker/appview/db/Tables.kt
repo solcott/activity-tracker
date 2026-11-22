@@ -396,7 +396,27 @@ object Paths : BoxedLineTable("paths") {
     val sports = varchar("sports", 255).nullable()
     /** Its record's `trail` (segments/trail-attributes), AtJson-encoded and cleaned; null when nothing is known. */
     val trail = text("trail").nullable()
+    /**
+     * Whether terrain covered every piece of [lines] when last sampled (segments/path-profile); false until then, and when a piece wasn't
+     * covered, so tiles added later are tried again.
+     */
+    val terrainComplete = bool("terrain_complete").default(false)
     override val primaryKey = PrimaryKey(uri)
+}
+
+/** Each covered [Paths] line piece's terrain profile (segments/path-profile), replaced whole each time the path is sampled. */
+object PathTerrain : Table("path_terrain") {
+    val pathUri = varchar("path_uri", 512)
+    /** The piece's index in [Paths.lines]. */
+    val piece = integer("piece")
+    /** Smoothed heights in decimeters, comma-separated, evenly spaced from the piece's start to its end. */
+    val profileDm = text("profile_dm")
+    val lengthM = long("length_m")
+    val gainM = long("gain_m")
+    val lossM = long("loss_m")
+    /** The steepest absolute grade in tenths of a percent. */
+    val maxGrade = integer("max_grade")
+    override val primaryKey = PrimaryKey(pathUri, piece)
 }
 
 /** The 0.01° cells each [Paths] line piece passes through, as [SegmentCellIndex] for segments. */

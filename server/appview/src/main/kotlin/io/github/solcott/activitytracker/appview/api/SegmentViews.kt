@@ -326,7 +326,10 @@ class SegmentViews(
         }
     }
 
-    /** A trail or road and every run segment on it search would list to [viewer] (segments/segment-paths); `NotFound` when not indexed. */
+    /**
+     * A trail or road and every run segment on it search would list to [viewer] (segments/segment-paths), with its terrain profile and the
+     * stretch of each of those along it (segments/path-profile); `NotFound` when not indexed.
+     */
     suspend fun path(viewer: Did?, params: GetPath.Params): GetPath.Output = db.tx {
         val row = Paths.selectAll().where { Paths.uri eq params.uri.value }.firstOrNull() ?: throw notFound("Path not found")
         val segments =
@@ -336,7 +339,9 @@ class SegmentViews(
                 .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
                 .toList()
         val views = views(segments)
-        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }))
+        val profile =
+            pathProfile(params.uri.value, row[Paths.lines], segments.map { ListedLine(AtUri(it[Segments.uri]), it[Segments.line]) })
+        GetPath.Output(pathViews(viewer, listOf(row)).single(), views, sectionsOf(params.uri, views.map { it.uri }), profile)
     }
 
     /**

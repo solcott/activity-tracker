@@ -137,6 +137,7 @@ class SegmentMatcher(
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
     private val passes = SegmentPasses(db, jobs, clock, activeAthletes, names, segmentImporter)
     private val pairing = GroupPairing(db, blobs, clock)
+    private val pathTerrain = terrain?.let { PathTerrainSampler(db, it) }
 
     /**
      * Runs until cancelled: the one-off backfills, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the status pass,
@@ -244,7 +245,8 @@ class SegmentMatcher(
     /**
      * Queues an `elevation` job for every segment with no terrain elevation, or no maximum grade, whose box touches the tiles'
      * [TerrainTiles.coverage], when terrain tiles are configured: those indexed before them, and those they didn't cover, in case tiles
-     * were added since. Segments the tiles don't reach aren't queued, so a large table outside them costs one statement. Exposed for tests.
+     * were added since. Segments the tiles don't reach aren't queued, so a large table outside them costs one statement. Queues a
+     * `path-elevation` job for each path not wholly sampled that they touch the same way (segments/path-profile). Exposed for tests.
      */
     suspend fun backfillTerrain() {
         val tiles = terrain ?: return
@@ -264,6 +266,9 @@ class SegmentMatcher(
         val unsampled = Segments.terrainGainM.isNull() or Segments.terrainMaxGrade.isNull()
         val queued = db.tx { jobs.enqueueElevations(unsampled and touchesTiles, now) }
         log.info("Queued {} segments for terrain elevation across {} tiled areas", queued, areas.size)
+        // Paths too (segments/path-profile): those not sampled yet, or with a piece the tiles didn't cover last time.
+        val paths = pathTerrain?.unsampled()?.let { where -> db.tx { jobs.enqueuePathElevations(where, now) } } ?: 0
+        log.info("Queued {} paths for terrain elevation", paths)
     }
 
     /**
@@ -333,6 +338,7 @@ class SegmentMatcher(
                 SegmentJobs.GROUP -> pairing.match(job.subject)
                 SegmentJobs.SITE -> matchSite(job.subject)
                 SegmentJobs.ELEVATION -> sampleTerrain(job.subject)
+                SegmentJobs.PATH_ELEVATION -> pathTerrain?.sample(job.subject)
             }
             done(job)
         } catch (e: CancellationException) {

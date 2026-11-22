@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.api.NameHit
 import io.github.solcott.activitytracker.appview.api.bestHits
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -113,6 +114,15 @@ class SegmentPathsTest : SegmentTestBase() {
         assertEquals(emptyList(), client.pathsOf("3ka"))
         assertEquals(emptyList(), client.xrpcOk(GetPaths.method, mapOf("uris" to pathUri("anns", bob))).paths)
         assertEquals("NotFound", client.xrpcError(GetPath.method, mapOf("uri" to pathUri("river")), viewer = carol))
+    }
+
+    @Test
+    fun withoutTerrainTilesAPathHasNoProfile() = testApplication {
+        application { appView(withImporter, db, verifier) }
+        path("anns", anns)
+        match()
+        assertNull(client.xrpcOk(GetPath.method, mapOf("uri" to pathUri("anns")), carol).profile)
+        assertTrue(jobs().none { it.first == SegmentJobs.PATH_ELEVATION }, "nothing queued without tiles")
     }
 
     /** Publishes an importer segment along [path] under [rkey], one-way when [oneWay], with [climb] when given. */

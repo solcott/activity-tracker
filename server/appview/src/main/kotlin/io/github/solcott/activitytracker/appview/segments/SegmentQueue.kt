@@ -210,18 +210,18 @@ class SegmentQueue(private val db: Database, private val jobs: SegmentJobs, priv
     /** Makes the retrying job due now; false when it's no longer retrying. */
     suspend fun retryNow(kind: String, subject: String): Boolean = db.tx { jobs.retryNow(kind, subject, now()) }
 
-    /** Queues the failed job afresh and removes it as failed; an `elevation` one only with terrain tiles. */
+    /** Queues the failed job afresh and removes it as failed; a terrain one (`elevation`, `path-elevation`) only with terrain tiles. */
     suspend fun requeue(kind: String, subject: String): Requeued = db.tx {
         when {
-            kind == SegmentJobs.ELEVATION && !terrain -> Requeued.NO_TERRAIN
+            kind in SegmentJobs.TERRAIN_KINDS && !terrain -> Requeued.NO_TERRAIN
             jobs.requeue(kind, subject, now()) -> Requeued.REQUEUED
             else -> Requeued.NOT_FOUND
         }
     }
 
-    /** Requeues the oldest [SegmentJobs.REQUEUE_LIMIT] failed jobs of [kind]; null for `elevation` without terrain tiles. */
+    /** Requeues the oldest [SegmentJobs.REQUEUE_LIMIT] failed jobs of [kind]; null for a terrain kind without terrain tiles. */
     suspend fun requeueFailed(kind: String): RequeuedKind? = db.tx {
-        if (kind == SegmentJobs.ELEVATION && !terrain) return@tx null
+        if (kind in SegmentJobs.TERRAIN_KINDS && !terrain) return@tx null
         val requeued = jobs.requeueFailed(kind, now())
         RequeuedKind(requeued, SegmentJobFailures.selectAll().where { SegmentJobFailures.kind eq kind }.count())
     }
