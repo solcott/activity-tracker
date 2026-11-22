@@ -1,21 +1,27 @@
 import SwiftUI
 
 /// The Trail page (segments/path-page), drawn from the states `PathPresenter` publishes: the path's name in the bar, what it is and its
-/// data credit, its Trail details folded to one line that unfolds their cards (`TrailDetailsSection`), its line muted on the native map (`SegmentsMapView`) with each segment group's
-/// line over it, and the segment groups longest first. On a phone the map is over the list; on a wider window the list is in a column
-/// beside it, as the shared page lays them out. The map and the list share a selection as browse's do: a tap on a line selects its row and
-/// scrolls to it, a tap on a row selects it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the
-/// path's sections fold under a `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two
-/// sections; Kotlin keeps which are collapsed and expands one when its line is selected. The search (segments/path-filters) is the
-/// navigation bar's, and the sport chips, filters and sort are one toolbar menu, its icon filled while a filter is on; which rows they
-/// leave, and what each offers, is Kotlin's (`PathFilter`). A trail with a terrain profile (segments/path-profile) draws it under the
-/// map with its rows' stretches marked and the selected one shaded (`PathProfile`), and scrubbing it marks the spot on the map. What it
-/// says is Kotlin's (`PathTexts`). Named so because `PathView` is the lexicon's.
+/// data credit, its Trail details folded to one line that unfolds their cards (`TrailDetailsSection`), its line muted on the native map
+/// (`SegmentsMapView`) with each segment group's line over it, and the segment groups longest first. On a phone the map fills the page
+/// under the list's sheet (`MapSheetLayout`), as Apple Maps'; on a wider window the list is in a column beside it, as the shared page lays
+/// them out. The map and the list share a selection as browse's do: a tap on a line selects its row and scrolls to it, a tap on a row
+/// selects it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the path's sections fold under a
+/// `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two sections; Kotlin keeps which
+/// are collapsed and expands one when its line is selected. The search (segments/path-filters) is the navigation bar's, and the sport
+/// chips, filters and sort are one toolbar menu, its icon filled while a filter is on; which rows they leave, and what each offers, is
+/// Kotlin's (`PathFilter`). A trail with a terrain profile (segments/path-profile) draws it at the top of the list (under the map beside
+/// the list when wide) with its rows' stretches marked and the selected one shaded (`PathProfile`), and scrubbing it marks the spot on the
+/// map. What it says is Kotlin's (`PathTexts`). Named so because `PathView` is the lexicon's.
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
     /// Where the profile's readout is along its chart, which the map marks (segments/path-profile); nil while it isn't showing.
     @State private var scrubbed: Double?
+    /// Whether the list is beside the map (`MapBrowseLayout`'s rule), where the profile docks under the map; on a phone it is the list's
+    /// first row, so everything under the map scrolls together.
+    @State private var wide = false
+    /// Where the list's sheet rests over the map on a phone.
+    @State private var detent = MapSheetDetent.middle
     /// The query as typed, held here so the field follows each keystroke; it edits the state's field and follows it back.
     @State private var query: TextFieldModel
     @Environment(\.stats) private var stats
@@ -27,13 +33,26 @@ struct PathPage: View {
 
     var body: some View {
         ContentStateView(state.content, as: PathContent.self, errorKind: .LoadPath, retry: retry) { _ in
-            MapBrowseLayout {
-                map
-            } list: {
-                list
+            if wide {
+                MapBrowseLayout {
+                    map()
+                } list: {
+                    list
+                }
+            } else {
+                MapSheetLayout(detent: $detent) { top, bottom in
+                    map(coveredTop: top, coveredBottom: bottom)
+                } sheet: {
+                    list
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onGeometryChange(for: Bool.self) {
+            $0.size.width >= SegmentBrowseLayout.sideBySide
+        } action: {
+            wide = $0
+        }
         .pageTitle(state.path.map { Text(verbatim: $0.name) } ?? Text(PathTexts.shared.title))
         .modifier(PathSearch(searchable: state.searchable, query: query, field: state.query, prompt: Text(PathTexts.shared.search)))
         .toolbar {
@@ -118,23 +137,31 @@ struct PathPage: View {
         }
     }
 
-    /// The map, with the trail's elevation profile under it when it has one (segments/path-profile): between the map and the list on a
-    /// phone, under the map beside the list when wide, as the shared page lays it out.
-    private var map: some View {
+    /// The map, with the trail's elevation profile under it when wide (segments/path-profile); on a phone the profile is the list's first row,
+    /// so everything under the map scrolls together, as the shared page lays it out.
+    private func map(coveredTop: CGFloat = 0, coveredBottom: CGFloat = 0) -> some View {
         VStack(spacing: 0) {
             SegmentsMapView(
                 map: state.segmentsMap, camera: state.camera, memory: memory,
                 onViewport: { send(PathEvent.ViewportChanged(viewport: $0)) },
                 onSelect: { send(state.selectEvent(uri: $0)) },
-                marker: state.profilePoint(x: scrubbed))
-            if let chart = state.profileChart {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(state.profileTitle).font(.subheadline.weight(.semibold))
-                    LineChartView(chart: chart, height: 110, onScrub: { scrubbed = $0 })
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(.systemBackground))
+                marker: state.profilePoint(x: scrubbed), coveredTop: coveredTop,
+                coveredBottom: coveredBottom)
+            if wide {
+                profile
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemBackground))
+            }
+        }
+    }
+
+    /// The trail's elevation profile under its title, nothing without one.
+    @ViewBuilder private var profile: some View {
+        if let chart = state.profileChart {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(state.profileTitle).font(.subheadline.weight(.semibold))
+                LineChartView(chart: chart, height: 110, onScrub: { scrubbed = $0 })
             }
         }
     }
@@ -142,12 +169,15 @@ struct PathPage: View {
     private var list: some View {
         ScrollViewReader { proxy in
             List {
+                if !wide {
+                    profile.listRowSeparator(.hidden)
+                }
                 header
                 RefreshStatusView(state: state.content, errorKind: .LoadPath, retry: retry).listStatusRow()
                 if state.offersDetails {
                     detailsFold
                     if state.detailsExpanded {
-                        TrailDetailsSection(groups: state.trailGroups())
+                        TrailDetailsSection(groups: state.trailGroups(), headingsAsRows: true)
                     }
                 }
                 ForEach(state.items.map(Entry.init)) { entry in
@@ -172,7 +202,11 @@ struct PathPage: View {
             .listStyle(.plain)
             .onChange(of: state.selected?.value) { _, selected in
                 guard let selected else { return }
-                withAnimation { proxy.scrollTo(selected, anchor: .center) }
+                withAnimation {
+                    // A line tapped on the map raises the sheet from its lowest, so its row shows.
+                    if detent == .peek { detent = .middle }
+                    proxy.scrollTo(selected, anchor: .center)
+                }
             }
         }
     }
@@ -226,6 +260,8 @@ struct PathPage: View {
             RatingSwatch(rating: group.rating)
         }
         .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
+        // The marked row's shading stands alone, with no separator lines over or under it.
+        .listRowSeparator(selected ? .hidden : .automatic)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityHint(Text(MapBrowseTexts.shared.rowAction(selected: selected, touch: true)))
     }

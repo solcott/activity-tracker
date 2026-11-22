@@ -17,6 +17,10 @@ struct SegmentsMapView: View {
     let onSelect: (String?) -> Void
     /// A place the map marks without moving, such as the spot a trail profile's readout marks (segments/path-profile).
     var marker: GeoPoint?
+    /// How much of the map's top and bottom something lies over (the bars, the Trail page's sheet), so a camera request frames its
+    /// place in the rest.
+    var coveredTop: CGFloat = 0
+    var coveredBottom: CGFloat = 0
 
     @Environment(\.liveMaps) private var liveMaps
 
@@ -24,12 +28,13 @@ struct SegmentsMapView: View {
         Group {
             if liveMaps {
                 LiveSegmentsMap(
-                    map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect, marker: marker)
+                    map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect, marker: marker,
+                    coveredTop: coveredTop, coveredBottom: coveredBottom)
             } else {
                 SegmentsSketch(map: map)
             }
         }
-        .overlay(alignment: .topLeading) { RatingLegendView(map: map).padding(8) }
+        .overlay(alignment: .topLeading) { RatingLegendView(map: map).padding(8).padding(.top, coveredTop) }
     }
 }
 
@@ -47,6 +52,8 @@ private struct LiveSegmentsMap: View {
     let onViewport: (MapViewport) -> Void
     let onSelect: (String?) -> Void
     let marker: GeoPoint?
+    let coveredTop: CGFloat
+    let coveredBottom: CGFloat
 
     @State private var position: MapCameraPosition = .automatic
     @State private var size: CGSize = .zero
@@ -105,7 +112,7 @@ private struct LiveSegmentsMap: View {
                 })
         }
         .overlay(alignment: .topTrailing) {
-            VStack(spacing: 0) { MapZoomButtons(shown: shown, position: $position) }
+            VStack(spacing: 0) { MapZoomButtons(shown: shown, position: $position) }.padding(.top, coveredTop)
         }
         .onGeometryChange(for: CGSize.self) {
             $0.size
@@ -121,9 +128,16 @@ private struct LiveSegmentsMap: View {
         guard size.width > 0, size.height > 0 else { return }
         if let camera, camera.id != memory.applied {
             memory.applied = camera.id
-            // A selected row's line is framed at the map's size; a place to open at keeps its zoom.
-            let frame = camera.frame(width: Double(size.width), height: Double(size.height), bottom: 0)
-            position = .rect(MapCamera.rect(frame, size: size))
+            // A selected row's line is framed at the map's size, less what lies over its top and bottom; a place to open at keeps its
+            // zoom.
+            let open = CGSize(width: size.width, height: max(size.height - coveredTop - coveredBottom, size.height / 4))
+            let frame = camera.frame(width: Double(open.width), height: Double(open.height), bottom: 0)
+            var rect = MapCamera.rect(frame, size: open)
+            // The same scale on over the covered parts, so the framed place sits in the open part between them.
+            let perPoint = rect.size.height / open.height
+            rect.origin.y -= coveredTop * perPoint
+            rect.size.height = size.height * perPoint
+            position = .rect(rect)
         } else if let left = memory.position, position == .automatic {
             position = left
         }

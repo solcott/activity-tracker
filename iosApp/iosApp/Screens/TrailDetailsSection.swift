@@ -6,24 +6,43 @@ import SwiftUI
 /// `TrailLink` finds an http(s) URL. Nothing when there are no groups.
 struct TrailDetailsSection: View {
     let groups: [TrailDetailGroup]
+    /// Whether the headings are rows that scroll with the list rather than section headers: a plain list (the Trail page's) pins its
+    /// section headers over the rows below them, so its headings are rows.
+    var headingsAsRows = false
 
     var body: some View {
         ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
-            Section {
-                ForEach(Array(group.shownRows.enumerated()), id: \.offset) { _, row in
-                    TrailDetailRow(row: row)
-                }
-            } header: {
-                // The section's heading over the first card, as the shared page titles the cards.
-                VStack(alignment: .leading, spacing: 4) {
-                    if index == 0 {
-                        Text(TrailTexts.shared.title).font(.headline).foregroundStyle(.primary).textCase(nil)
-                    }
-                    // The card's heading, darker and heavier than its rows' labels, as the shared cards draw it.
-                    Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).textCase(nil)
+            if headingsAsRows {
+                heading(group, first: index == 0)
+                    .padding(.top, 8)
+                    .listRowSeparator(.hidden)
+                rows(group)
+            } else {
+                Section {
+                    rows(group)
+                } header: {
+                    heading(group, first: index == 0)
                 }
             }
         }
+    }
+
+    private func rows(_ group: TrailDetailGroup) -> some View {
+        ForEach(Array(group.shownRows.enumerated()), id: \.offset) { _, row in
+            TrailDetailRow(row: row)
+        }
+    }
+
+    /// The section's heading over the first card, as the shared page titles the cards, then the card's.
+    private func heading(_ group: TrailDetailGroup, first: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if first {
+                Text(TrailTexts.shared.title).font(.headline).foregroundStyle(.primary).textCase(nil)
+            }
+            // The card's heading, darker and heavier than its rows' labels, as the shared cards draw it.
+            Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).textCase(nil)
+        }
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

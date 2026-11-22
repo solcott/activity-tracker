@@ -13806,6 +13806,17 @@
         }
       }
     },
+    "map_sheet_handle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize list"
+          }
+        }
+      }
+    },
     "map_zoom_in" : {
       "extractionState" : "manual",
       "localizations" : {

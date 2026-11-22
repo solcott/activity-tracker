@@ -1037,6 +1037,7 @@
     <string name="path_climb_up">%1$s up</string>
     <string name="path_climb_down">%1$s down</string>
     <string name="path_profile_title">Elevation</string>
+    <string name="map_sheet_handle">Resize list</string>
     <string name="path_sort_easiest_first">Easiest first</string>
     <string name="path_sort_hardest_first">Hardest first</string>
     <string name="path_length_short_imperial">Under 1 mi</string>

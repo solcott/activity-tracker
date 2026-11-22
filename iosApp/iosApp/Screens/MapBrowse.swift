@@ -61,6 +61,135 @@ extension MapBrowseLayout where Header == EmptyView {
     }
 }
 
+/// Where a phone map page's sheet rests (`MapSheetLayout`): low with only its top showing above the tab bar, over half the screen
+/// (where it opens), or up to the bars over the whole map.
+enum MapSheetDetent: CaseIterable {
+    case peek, middle, full
+
+    /// How tall the sheet stands at this detent, from the screen's bottom, on a screen [height] points tall whose bars take [top] and
+    /// [bottom] of it.
+    func height(in height: CGFloat, top: CGFloat, bottom: CGFloat) -> CGFloat {
+        switch self {
+        case .peek: MapSheetStyle.peek + bottom
+        case .middle: height * MapSheetStyle.middleShare
+        case .full: height - top
+        }
+    }
+}
+
+enum MapSheetStyle {
+    static let peek: CGFloat = 96
+    /// How much of the screen's height the sheet takes where it opens.
+    static let middleShare: CGFloat = 0.5
+    static let cornerRadius: CGFloat = 24
+    /// How far past the list's top a pull goes before the sheet follows it down.
+    static let pullSlack: CGFloat = 4
+    static let shape = UnevenRoundedRectangle(topLeadingRadius: cornerRadius, topTrailingRadius: cornerRadius)
+}
+
+/// A phone map page laid out as Apple Maps' is: the map filling the page and the list in a sheet over it, which drags between its
+/// detents (`MapSheetDetent`) by its grabber or its content. Below the top detent a drag on the list moves the sheet and the list stays
+/// put; at the top the list scrolls, and a pull down from the list's top brings the sheet down. The map and the sheet run on under the
+/// bars, the list's last rows scrolling up from under the tab bar. [map] is told how much of its top the bars cover and of its bottom the
+/// sheet where it opens, to frame what it shows between them.
+struct MapSheetLayout<Map: View, Sheet: View>: View {
+    @Binding var detent: MapSheetDetent
+    @ViewBuilder let map: (_ coveredTop: CGFloat, _ coveredBottom: CGFloat) -> Map
+    @ViewBuilder let sheet: Sheet
+
+    /// How far the current drag has moved the sheet up (negative) or down.
+    @State private var dragged: CGFloat = 0
+    /// Whether this drag moves the sheet, decided when it starts.
+    @State private var moving: Bool?
+    /// Whether the list is scrolled to its top.
+    @State private var listAtTop = true
+
+    var body: some View {
+        // The bars' heights from the safe area's frame within the whole screen's, which the search field under the bar is part of.
+        GeometryReader { safe in
+            GeometryReader { geometry in
+                let safeFrame = safe.frame(in: .global)
+                let screen = geometry.frame(in: .global)
+                let height = geometry.size.height
+                let top = max(safeFrame.minY - screen.minY, 0)
+                let bottom = max(screen.maxY - safeFrame.maxY, 0)
+                let detentHeight = { (detent: MapSheetDetent) in detent.height(in: height, top: top, bottom: bottom) }
+                let shown = min(max(detentHeight(detent) - dragged, detentHeight(.peek)), detentHeight(.full))
+                ZStack(alignment: .bottom) {
+                    map(top, detentHeight(.middle))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 0) {
+                        Capsule()
+                            .fill(Color(.tertiaryLabel))
+                            .frame(width: 36, height: 5)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                            .accessibilityElement()
+                            .accessibilityLabel(Text(.mapSheetHandle))
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { cycle() }
+                        sheet
+                            .scrollDisabled(detent != .full || moving == true)
+                            .onScrollGeometryChange(for: Bool.self) { scroll in
+                                scroll.contentOffset.y <= -scroll.contentInsets.top + MapSheetStyle.pullSlack
+                            } action: { _, atTop in
+                                listAtTop = atTop
+                            }
+                    }
+                    .frame(height: shown, alignment: .top)
+                    .frame(maxWidth: .infinity)
+                    // The content clipped to the rounded top, the background left whole to run on under the tab bar.
+                    .clipShape(MapSheetStyle.shape)
+                    .background {
+                        MapSheetStyle.shape
+                            .fill(Color(.systemBackground))
+                            .shadow(color: .black.opacity(0.2), radius: 8, y: -1)
+                            .ignoresSafeArea(edges: .bottom)
+                    }
+                    .simultaneousGesture(drag(detentHeight))
+                }
+            }
+            // The whole screen, so the map shows under the bars and the list scrolls on under the tab bar, which still insets its end.
+            .ignoresSafeArea(.container)
+        }
+    }
+
+    private func drag(_ detentHeight: @escaping (MapSheetDetent) -> CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                if moving == nil {
+                    let vertical = abs(value.translation.height) > abs(value.translation.width)
+                    // At the top detent the list scrolls; only a pull down from its top moves the sheet.
+                    moving = vertical && (detent != .full || (listAtTop && value.translation.height > 0))
+                }
+                if moving == true { dragged = value.translation.height }
+            }
+            .onEnded { value in
+                defer { moving = nil }
+                guard moving == true else { return }
+                let landing = detentHeight(detent) - value.predictedEndTranslation.height
+                let next = MapSheetDetent.allCases.min { abs(detentHeight($0) - landing) < abs(detentHeight($1) - landing) }
+                withAnimation(.snappy) {
+                    detent = next ?? detent
+                    dragged = 0
+                }
+            }
+    }
+
+    /// The grabber's action for VoiceOver: up a detent, and from the top back to the bottom.
+    private func cycle() {
+        withAnimation(.snappy) {
+            detent =
+                switch detent {
+                case .peek: .middle
+                case .middle: .full
+                case .full: .peek
+                }
+        }
+    }
+}
+
 /// A browse page's header: the name search, This area and Everywhere while a name is searched over the map's area, then the page's own
 /// choices (`extra`, segment browse's sport).
 struct MapBrowseHeader<Extra: View>: View {
