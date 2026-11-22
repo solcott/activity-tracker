@@ -519,6 +519,7 @@ typealias LineChart = AppPackage.chart.LineChart
 typealias LinePoint = AppPackage.chart.LinePoint
 typealias ChartTick = AppPackage.chart.ChartTick
 typealias ChartDot = AppPackage.chart.ChartDot
+typealias ChartSpan = AppPackage.chart.ChartSpan
 typealias ChartAxis = ExportedKotlinPackages.io.github.solcott.activitytracker.data.chart.ChartAxis
 typealias BandStop = ExportedKotlinPackages.io.github.solcott.activitytracker.data.chart.BandStop
 typealias SegmentScreen = SegmentPackage.SegmentScreen

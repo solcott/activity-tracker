@@ -137,6 +137,7 @@
         /// Line charts for the design gallery: one untinted with a gap, and a segment's profile tinted by grade.
         static var plainChart: LineChart { AppPackage.chart.LineChartSamples.shared.plain }
         static var profileChart: LineChart { AppPackage.chart.LineChartSamples.shared.profile }
+        static var spannedChart: LineChart { AppPackage.chart.LineChartSamples.shared.spanned }
         /// An activity card's lines (ios-native-activity-page): a run's pace, inverted, and a ride's heart rate, each its average dashed.
         static var paceChart: LineChart { AppPackage.chart.LineChartSamples.shared.pace }
         static var heartRateChart: LineChart { AppPackage.chart.LineChartSamples.shared.heartRate }

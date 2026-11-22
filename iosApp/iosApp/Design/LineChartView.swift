@@ -9,7 +9,8 @@ import UIKit
 /// their labels over them; a backdrop (the elevation behind an effort line, which Kotlin scaled onto this chart's axis) faintly behind
 /// everything, more lines on the same scale in their own colours (a pair's right leg, another tank, a dive's ceiling), marked moments
 /// with their labels (a gas switch, or a warning in red along the bottom), and a fill above the line instead of below (a dive's depth,
-/// filled up to the surface). Tapping or dragging
+/// filled up to the surface), and stretches marked along the bottom in their rating colours, a selected one shaded over the chart (a
+/// trail's segments along its profile). Tapping or dragging
 /// sideways across it marks the nearest point and shows Kotlin's readout for it over the chart, staying where the finger left it; a
 /// mostly vertical drag scrolls the page instead and hides it (`ChartScrub`, through a UIKit pan that begins only sideways, since a
 /// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
@@ -19,15 +20,21 @@ struct LineChartView: View {
     let chart: LineChart
     let height: CGFloat
     let interactive: Bool
+    let onScrub: ((Double?) -> Void)?
 
     @State private var selected: Int32?
 
     /// `selected` marks a point from the start, for a gallery or snapshot showing the readout. A chart that isn't `interactive` (a
-    /// sparkline in a tile) shows no readout and leaves every touch to what holds it.
-    init(chart: LineChart, height: CGFloat = 140, selected: Int32? = nil, interactive: Bool = true) {
+    /// sparkline in a tile) shows no readout and leaves every touch to what holds it. `onScrub` hears the x of the point the readout
+    /// marks as it moves, and nil when it goes (a trail's profile marking the map, segments/path-profile).
+    init(
+        chart: LineChart, height: CGFloat = 140, selected: Int32? = nil, interactive: Bool = true,
+        onScrub: ((Double?) -> Void)? = nil
+    ) {
         self.chart = chart
         self.height = height
         self.interactive = interactive
+        self.onScrub = onScrub
         _selected = State(initialValue: selected)
     }
 
@@ -38,11 +45,13 @@ struct LineChartView: View {
         // Each layer is its own typed builder: one builder holding them all took the type checker seconds, past CI's limit.
         Chart {
             backdropMarks()
+            shadeMarks()
             lineMarks(points)
             otherLineMarks()
             momentMarks()
             guideMarks()
             dotMarks(points)
+            spanMarks()
             selectionMarks(points)
         }
         // Half a label of room at each end, as the shared chart keeps, so a label at either end isn't cut off.
@@ -74,6 +83,9 @@ struct LineChartView: View {
                 }
             }
         }
+        .onChange(of: selected) { _, index in
+            onScrub?(index.flatMap { Int($0) < points.count ? points[Int($0)].x : nil })
+        }
         .frame(height: height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(chart.description))
@@ -92,6 +104,41 @@ struct LineChartView: View {
                 AreaMark(x: .value("x", point.x), yStart: .value("y", bottom), yEnd: .value("y", point.y), series: .value("piece", series))
                     .foregroundStyle(Color(.label).opacity(0.12))
             }
+        }
+    }
+
+    /// The selected stretch shaded over the chart's whole height, under the line, as the shared chart shades it.
+    @ChartContentBuilder
+    private func shadeMarks() -> some ChartContent {
+        if let span = chart.selectedSpan {
+            RectangleMark(
+                xStart: .value("x", span.from), xEnd: .value("x", span.to),
+                yStart: .value("y", chart.axis.min), yEnd: .value("y", chart.axis.max)
+            )
+            .foregroundStyle(Color(.label).opacity(0.10))
+        }
+    }
+
+    /// Each stretch marked along the bottom in its rating's colour on its casing (segments/path-profile), as the map draws its line.
+    @ChartContentBuilder
+    private func spanMarks() -> some ChartContent {
+        let spans: [ChartSpan] = (0..<chart.spanCount).map { chart.spanAt(index: $0) }
+        let bottom = chart.axis.min
+        let height = (chart.axis.max - chart.axis.min) * 0.06
+        // A casing under each bar, a little larger, so a white or black bar reads on either background.
+        let inX = (chart.xMax - chart.xMin) * 0.002
+        let inY = height * 0.18
+        ForEach(Array(spans.enumerated()), id: \.offset) { _, span in
+            RectangleMark(
+                xStart: .value("x", span.from), xEnd: .value("x", span.to),
+                yStart: .value("y", bottom), yEnd: .value("y", bottom + height)
+            )
+            .foregroundStyle(TrailRatingStyle.casing(span.rating))
+            RectangleMark(
+                xStart: .value("x", span.from + inX), xEnd: .value("x", max(span.from + inX, span.to - inX)),
+                yStart: .value("y", bottom + inY), yEnd: .value("y", bottom + height - inY)
+            )
+            .foregroundStyle(TrailRatingStyle.line(span.rating))
         }
     }
 

@@ -8,11 +8,14 @@ import SwiftUI
 /// path's sections fold under a `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two
 /// sections; Kotlin keeps which are collapsed and expands one when its line is selected. The search (segments/path-filters) is the
 /// navigation bar's, and the sport chips, filters and sort are one toolbar menu, its icon filled while a filter is on; which rows they
-/// leave, and what each offers, is Kotlin's (`PathFilter`). What it says is Kotlin's (`PathTexts`). Named so because `PathView` is the
-/// lexicon's.
+/// leave, and what each offers, is Kotlin's (`PathFilter`). A trail with a terrain profile (segments/path-profile) draws it under the
+/// map with its rows' stretches marked and the selected one shaded (`PathProfile`), and scrubbing it marks the spot on the map. What it
+/// says is Kotlin's (`PathTexts`). Named so because `PathView` is the lexicon's.
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
+    /// Where the profile's readout is along its chart, which the map marks (segments/path-profile); nil while it isn't showing.
+    @State private var scrubbed: Double?
     /// The query as typed, held here so the field follows each keystroke; it edits the state's field and follows it back.
     @State private var query: TextFieldModel
     @Environment(\.stats) private var stats
@@ -115,11 +118,25 @@ struct PathPage: View {
         }
     }
 
+    /// The map, with the trail's elevation profile under it when it has one (segments/path-profile): between the map and the list on a
+    /// phone, under the map beside the list when wide, as the shared page lays it out.
     private var map: some View {
-        SegmentsMapView(
-            map: state.segmentsMap, camera: state.camera, memory: memory,
-            onViewport: { send(PathEvent.ViewportChanged(viewport: $0)) },
-            onSelect: { send(state.selectEvent(uri: $0)) })
+        VStack(spacing: 0) {
+            SegmentsMapView(
+                map: state.segmentsMap, camera: state.camera, memory: memory,
+                onViewport: { send(PathEvent.ViewportChanged(viewport: $0)) },
+                onSelect: { send(state.selectEvent(uri: $0)) },
+                marker: state.profilePoint(x: scrubbed))
+            if let chart = state.profileChart {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(state.profileTitle).font(.subheadline.weight(.semibold))
+                    LineChartView(chart: chart, height: 110, onScrub: { scrubbed = $0 })
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color(.systemBackground))
+            }
+        }
     }
 
     private var list: some View {
@@ -162,8 +179,8 @@ struct PathPage: View {
 
     @ViewBuilder private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let path = state.path {
-                Text(PathTexts.shared.summary(path: path, units: stats.units)).foregroundStyle(.secondary)
+            if let summary = state.summary(units: stats.units) {
+                Text(summary).foregroundStyle(.secondary)
             }
             if let credit = state.credit {
                 CreditBox(credit: credit)

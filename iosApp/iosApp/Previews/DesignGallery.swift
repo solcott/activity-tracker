@@ -314,12 +314,14 @@
             .background(Color(.quaternarySystemFill))
         }
 
-        /// Line charts: one in the accent colour with a gap, a profile tinted by grade, and that profile with its readout shown.
+        /// Line charts: one in the accent colour with a gap, a profile tinted by grade, that profile with its readout shown, and with two
+        /// stretches marked under it in their rating colours, the second shaded.
         static var charts: some View {
             List {
                 LineChartView(chart: Samples.plainChart)
                 LineChartView(chart: Samples.profileChart)
                 LineChartView(chart: Samples.profileChart, selected: 80)
+                LineChartView(chart: Samples.spannedChart)
             }
         }
 

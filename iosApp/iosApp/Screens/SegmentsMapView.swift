@@ -15,13 +15,16 @@ struct SegmentsMapView: View {
     let memory: SegmentsMapMemory
     let onViewport: (MapViewport) -> Void
     let onSelect: (String?) -> Void
+    /// A place the map marks without moving, such as the spot a trail profile's readout marks (segments/path-profile).
+    var marker: GeoPoint?
 
     @Environment(\.liveMaps) private var liveMaps
 
     var body: some View {
         Group {
             if liveMaps {
-                LiveSegmentsMap(map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect)
+                LiveSegmentsMap(
+                    map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect, marker: marker)
             } else {
                 SegmentsSketch(map: map)
             }
@@ -43,6 +46,7 @@ private struct LiveSegmentsMap: View {
     let memory: SegmentsMapMemory
     let onViewport: (MapViewport) -> Void
     let onSelect: (String?) -> Void
+    let marker: GeoPoint?
 
     @State private var position: MapCameraPosition = .automatic
     @State private var size: CGSize = .zero
@@ -71,6 +75,14 @@ private struct LiveSegmentsMap: View {
                             MapPolyline(coordinates: coordinates).stroke(.white, style: TrailRatingStyle.centre)
                         }
                     }
+                }
+                if let marker {
+                    Annotation("", coordinate: SegmentsMapGeometry.coordinate(marker), anchor: .center) {
+                        Circle().fill(Color("LikeColor"))
+                            .overlay(Circle().strokeBorder(Color(.systemBackground), lineWidth: 2))
+                            .frame(width: 14, height: 14)
+                    }
+                    .annotationTitles(.hidden)
                 }
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
