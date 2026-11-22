@@ -60,7 +60,6 @@ import io.github.solcott.activitytracker.app.ui.compressAvatar
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.string
-import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.app.ui.visibilityScopeLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -86,6 +85,7 @@ import io.github.solcott.activitytracker.composeApp.resources.edit_profile_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.CalendarDate
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.text.stripDiacritics
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
