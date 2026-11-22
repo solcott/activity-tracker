@@ -105,9 +105,10 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
      * [line]'s terrain (segments/segment-elevation): heights sampled every [SAMPLE_SPACING_M] meters, both ends included, smoothed over 50
      * m ([ElevationProfile.smooth]), then counted into gain and loss, resampled into an evenly spaced profile, and measured for its
      * steepest grade ([ElevationProfile.maxGrade]) at full sample resolution. Null when any sample isn't covered, so a segment is given
-     * terrain elevation only when the tiles cover all of it.
+     * terrain elevation only when the tiles cover all of it. The profile has [points] heights: a segment's 128, or a path piece's one about
+     * every 50 m (segments/path-profile).
      */
-    fun terrainOf(line: List<GeoPoint>): TerrainElevation? {
+    fun terrainOf(line: List<GeoPoint>, points: Int = ElevationProfile.PROFILE_POINTS): TerrainElevation? {
         val samples = SegmentGeometry.resample(line, SAMPLE_SPACING_M)
         val raw = samples.map { heightAt(it) ?: return null }
         val heights = ElevationProfile.smooth(raw, SAMPLE_SPACING_M)
@@ -117,7 +118,7 @@ class TerrainTiles(private val dir: File, private val zoom: Int) {
         return if (gainLoss == null || maxGrade == null) {
             null
         } else {
-            TerrainElevation(gainLoss.gain, gainLoss.loss, ElevationProfile.even(heights, atM), (maxGrade * TENTHS).roundToInt())
+            TerrainElevation(gainLoss.gain, gainLoss.loss, ElevationProfile.even(heights, atM, points), (maxGrade * TENTHS).roundToInt())
         }
     }
 

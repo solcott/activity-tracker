@@ -172,6 +172,37 @@ object SegmentGeometry {
         else line.zipWithNext().minOf { (a, b) -> toSegmentMeters(p, a, b) }
 
     /**
+     * Where [p] lies along [line] (segments/path-profile): how far it is from the line's nearest stretch, and how far along the line, from
+     * its start, its projection onto that stretch is, in meters. Null when [line] has fewer than two points.
+     */
+    fun nearestAlong(p: GeoPoint, line: List<GeoPoint>): Along? {
+        if (line.size < 2) return null
+        var best: Along? = null
+        var before = 0.0
+        for ((a, b) in line.zipWithNext()) {
+            val stretch = distanceMeters(a, b)
+            val off = toSegmentMeters(p, a, b)
+            if (best == null || off < best.offMeters) best = Along(off, before + stretch * projection(p, a, b))
+            before += stretch
+        }
+        return best
+    }
+
+    /** How far a point is from a line ([offMeters]) and how far along it its projection lies ([alongMeters]), as [nearestAlong] gives. */
+    data class Along(val offMeters: Double, val alongMeters: Double)
+
+    /** The point [meters] along [line] from its start, clamped to its ends; null when [line] is empty. */
+    fun pointAlong(line: List<GeoPoint>, meters: Double): GeoPoint? {
+        var left = meters
+        for ((a, b) in line.zipWithNext()) {
+            val stretch = distanceMeters(a, b)
+            if (left <= stretch) return if (stretch == 0.0) a else lerp(a, b, (left / stretch).coerceIn(0.0, 1.0))
+            left -= stretch
+        }
+        return line.lastOrNull()
+    }
+
+    /**
      * The furthest either of [a] and [b] gets from the other (their Hausdorff distance), in meters, measured from points every [every]
      * meters along each to the other line. Infinite when either is empty.
      */
