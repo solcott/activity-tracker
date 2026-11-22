@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-22T03:43:10.413211+00:00",
+  "title": "Design System: Activity Tracker",
+  "extensions": {
+    "colorMeta": {
+      "ridgeline-violet": {
+        "role": "primary",
+        "displayName": "Ridgeline Violet",
+        "tonalRamp": [
+          "#1D0061",
+          "#320099",
+          "#4929B2",
+          "#5B3FC4",
+          "#CABEFF",
+          "#E6DEFF",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "ridgeline-violet-dark": {
+        "role": "primary",
+        "displayName": "Ridgeline Violet, dark",
+        "tonalRamp": [
+          "#1D0061",
+          "#320099",
+          "#4929B2",
+          "#5B3FC4",
+          "#CABEFF",
+          "#E6DEFF",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "ridgeline-violet-container": {
+        "role": "primary",
+        "displayName": "Ridgeline Violet Container",
+        "tonalRamp": [
+          "#1D0061",
+          "#320099",
+          "#4929B2",
+          "#5B3FC4",
+          "#CABEFF",
+          "#E6DEFF",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "ridgeline-violet-container-dark": {
+        "role": "primary",
+        "displayName": "Ridgeline Violet Container, dark",
+        "tonalRamp": [
+          "#1D0061",
+          "#320099",
+          "#4929B2",
+          "#5B3FC4",
+          "#CABEFF",
+          "#E6DEFF",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "dusk-slate": {
+        "role": "secondary",
+        "displayName": "Dusk Slate",
+        "tonalRamp": [
+          "#1C192B",
+          "#312E41",
+          "#484458",
+          "#605B71",
+          "#CAC3DC",
+          "#E6DFF9",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "dusk-slate-container": {
+        "role": "secondary",
+        "displayName": "Dusk Slate Container",
+        "tonalRamp": [
+          "#1C192B",
+          "#312E41",
+          "#484458",
+          "#605B71",
+          "#CAC3DC",
+          "#E6DFF9",
+          "#F4EEFF",
+          "#FDF7FF"
+        ]
+      },
+      "blaze-amber": {
+        "role": "tertiary",
+        "displayName": "Blaze Amber",
+        "tonalRamp": [
+          "#271900",
+          "#422D00",
+          "#5E4200",
+          "#7C5800",
+          "#F5B83D",
+          "#FFDEA8",
+          "#FFEFD6",
+          "#FFF8F2"
+        ]
+      },
+      "blaze-amber-dark": {
+        "role": "tertiary",
+        "displayName": "Blaze Amber, dark",
+        "tonalRamp": [
+          "#271900",
+          "#422D00",
+          "#5E4200",
+          "#7C5800",
+          "#F5B83D",
+          "#FFDEA8",
+          "#FFEFD6",
+          "#FFF8F2"
+        ]
+      },
+      "blaze-amber-container": {
+        "role": "tertiary",
+        "displayName": "Blaze Amber Container",
+        "tonalRamp": [
+          "#271900",
+          "#422D00",
+          "#5E4200",
+          "#7C5800",
+          "#F5B83D",
+          "#FFDEA8",
+          "#FFEFD6",
+          "#FFF8F2"
+        ]
+      },
+      "paper-grey": {
+        "role": "neutral",
+        "displayName": "Paper Grey",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "surface-container": {
+        "role": "neutral",
+        "displayName": "Surface Container",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "outline": {
+        "role": "neutral",
+        "displayName": "Outline",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "outline-variant": {
+        "role": "neutral",
+        "displayName": "Outline Variant",
+        "tonalRamp": [
+          "#1C1C1C",
+          "#303030",
+          "#474747",
+          "#757575",
+          "#C6C6C6",
+          "#E2E2E2",
+          "#EEEEEE",
+          "#FAFAFA"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "tonalRamp": [
+          "#0F0E11",
+          "#141316",
+          "#1C1B1E",
+          "#201F23",
+          "#2B292D",
+          "#363438",
+          "#48454E",
+          "#E6E1E6"
+        ]
+      },
+      "night-container": {
+        "role": "neutral",
+        "displayName": "Night Container",
+        "tonalRamp": [
+          "#0F0E11",
+          "#141316",
+          "#1C1B1E",
+          "#201F23",
+          "#2B292D",
+          "#363438",
+          "#48454E",
+          "#E6E1E6"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "tonalRamp": [
+          "#0F0E11",
+          "#141316",
+          "#1C1B1E",
+          "#201F23",
+          "#2B292D",
+          "#363438",
+          "#48454E",
+          "#E6E1E6"
+        ]
+      },
+      "night-outline-variant": {
+        "role": "neutral",
+        "displayName": "Night Outline Variant",
+        "tonalRamp": [
+          "#0F0E11",
+          "#141316",
+          "#1C1B1E",
+          "#201F23",
+          "#2B292D",
+          "#363438",
+          "#48454E",
+          "#E6E1E6"
+        ]
+      },
+      "error": {
+        "role": "error",
+        "displayName": "Error",
+        "tonalRamp": [
+          "#410002",
+          "#690005",
+          "#93000A",
+          "#BA1A1A",
+          "#FFB4AB",
+          "#FFDAD6",
+          "#FFEDEA",
+          "#FFF8F7"
+        ]
+      },
+      "error-dark": {
+        "role": "error",
+        "displayName": "Error, dark",
+        "tonalRamp": [
+          "#410002",
+          "#690005",
+          "#93000A",
+          "#BA1A1A",
+          "#FFB4AB",
+          "#FFDAD6",
+          "#FFEDEA",
+          "#FFF8F7"
+        ]
+      },
+      "trail-easiest": {
+        "role": "semantic",
+        "displayName": "Trail Easiest (white line)"
+      },
+      "trail-easiest-casing": {
+        "role": "semantic",
+        "displayName": "Trail Easiest Casing"
+      },
+      "trail-easy": {
+        "role": "semantic",
+        "displayName": "Trail Easy (green)"
+      },
+      "trail-intermediate": {
+        "role": "semantic",
+        "displayName": "Trail Intermediate (blue)"
+      },
+      "trail-difficult": {
+        "role": "semantic",
+        "displayName": "Trail Difficult (black)"
+      },
+      "trail-unrated": {
+        "role": "semantic",
+        "displayName": "Trail Unrated"
+      },
+      "route-start": {
+        "role": "semantic",
+        "displayName": "Route Start"
+      },
+      "route-end": {
+        "role": "semantic",
+        "displayName": "Route End"
+      },
+      "route-break": {
+        "role": "semantic",
+        "displayName": "Route Break"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Rare: hero numbers and page-level totals (desktop/web Inter scale; Android Material 3 Roboto; iOS SF text styles)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and section titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, list row titles, weighted stat labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions, comments, settings summaries; 720px readable column."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, chips, axis labels, units."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "0px"
+      },
+      {
+        "name": "medium",
+        "value": "600px"
+      },
+      {
+        "name": "expanded",
+        "value": "840px"
+      },
+      {
+        "name": "sidebar",
+        "value": "840px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action in a region: filled violet pill (iOS: .borderedProminent).",
+      "html": "<button class=\"ds-btn-primary\">Save activity</button>",
+      "css": ".ds-btn-primary { font-family: Inter, system-ui, sans-serif; background: #5B3FC4; color: #FFFFFF; height: 40px; padding: 0 24px; border: none; border-radius: 9999px; font-size: 14px; font-weight: 500; line-height: 20px; cursor: pointer; transition: background 0.15s, box-shadow 0.15s; } .ds-btn-primary:hover { background: #4F35B0; } .ds-btn-primary:focus-visible { outline: 2px solid #5B3FC4; outline-offset: 2px; } .ds-btn-primary:active { background: #4929B2; } .ds-btn-primary:disabled { background: rgba(28,28,28,0.12); color: rgba(28,28,28,0.38); cursor: default; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined pill for secondary actions (iOS: .bordered).",
+      "html": "<button class=\"ds-btn-secondary\">Import file</button>",
+      "css": ".ds-btn-secondary { font-family: Inter, system-ui, sans-serif; background: transparent; color: #5B3FC4; height: 40px; padding: 0 24px; border: 1px solid #757575; border-radius: 9999px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; } .ds-btn-secondary:hover { background: rgba(91,63,196,0.08); } .ds-btn-secondary:focus-visible { outline: 2px solid #5B3FC4; outline-offset: 2px; } .ds-btn-secondary:active { background: rgba(91,63,196,0.12); }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Label-only action for tertiary and dialog actions (iOS: .borderless).",
+      "html": "<button class=\"ds-btn-text\">Cancel</button>",
+      "css": ".ds-btn-text { font-family: Inter, system-ui, sans-serif; background: transparent; color: #5B3FC4; height: 40px; padding: 0 12px; border: none; border-radius: 9999px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; } .ds-btn-text:hover { background: rgba(91,63,196,0.08); } .ds-btn-text:focus-visible { outline: 2px solid #5B3FC4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Material outlined field: label in the stroke, supporting text below; violet on focus, red on error.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Distance</span><input class=\"ds-field-input\" value=\"12.4\"><span class=\"ds-field-help\">Kilometres</span></label>",
+      "css": ".ds-field { font-family: Inter, system-ui, sans-serif; display: inline-flex; flex-direction: column; gap: 4px; position: relative; width: 240px; } .ds-field-label { position: absolute; top: -8px; left: 12px; padding: 0 4px; background: #FAFAFA; color: #474747; font-size: 12px; line-height: 16px; } .ds-field-input { font: inherit; font-size: 15px; color: #1C1C1C; background: transparent; padding: 16px; border: 1px solid #757575; border-radius: 4px; outline: none; } .ds-field-input:hover { border-color: #1C1C1C; } .ds-field-input:focus-visible { border: 2px solid #5B3FC4; padding: 15px; } .ds-field:focus-within .ds-field-label { color: #5B3FC4; } .ds-field-help { color: #474747; font-size: 12px; line-height: 16px; padding: 0 16px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Feed, segment and trail filters; selected fills with Dusk Slate Container and shows a check.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip ds-chip-on\" aria-pressed=\"true\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z\"/></svg>Ride</button><button class=\"ds-chip\" aria-pressed=\"false\">Run</button></div>",
+      "css": ".ds-chips { display: flex; gap: 8px; } .ds-chip { font-family: Inter, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 16px; background: transparent; color: #474747; border: 1px solid #C6C6C6; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; } .ds-chip:hover { background: rgba(28,28,28,0.08); } .ds-chip:focus-visible { outline: 2px solid #5B3FC4; outline-offset: 2px; } .ds-chip-on { background: #E6DFF9; color: #1C192B; border-color: transparent; padding-left: 8px; } .ds-chip-on:hover { background: #D8D0EE; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Outlined surface for a group of content: 16px corners, 1px Outline Variant hairline, no shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Morning ride</div><div class=\"ds-stats\"><div><div class=\"ds-stat-v\">42.3<span> km</span></div><div class=\"ds-stat-l\">Distance</div></div><div><div class=\"ds-stat-v\">1:38<span> h</span></div><div class=\"ds-stat-l\">Time</div></div><div><div class=\"ds-stat-v\">612<span> m</span></div><div class=\"ds-stat-l\">Elevation</div></div></div></div>",
+      "css": ".ds-card { font-family: Inter, system-ui, sans-serif; width: 320px; padding: 16px; background: #FAFAFA; border: 1px solid #C6C6C6; border-radius: 16px; color: #1C1C1C; } .ds-card-title { font-size: 15px; font-weight: 600; line-height: 22px; margin-bottom: 12px; } .ds-stats { display: flex; gap: 24px; } .ds-stat-v { font-size: 20px; font-weight: 600; line-height: 28px; letter-spacing: -0.1px; } .ds-stat-v span { font-size: 12px; font-weight: 500; color: #474747; } .ds-stat-l { font-size: 12px; font-weight: 500; line-height: 16px; color: #474747; }"
+    },
+    {
+      "name": "Navigation Sidebar",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Wide desktop and web shell (from 840dp); the active destination takes the brand colour.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-on\" href=\"#\">Feed</a><a class=\"ds-nav-item\" href=\"#\">Explore</a><a class=\"ds-nav-item\" href=\"#\">You</a></nav>",
+      "css": ".ds-nav { font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 4px; width: 220px; padding: 12px; background: #F4F4F4; } .ds-nav-item { display: flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 9999px; color: #474747; font-size: 14px; font-weight: 500; text-decoration: none; transition: background 0.15s; } .ds-nav-item:hover { background: rgba(28,28,28,0.08); } .ds-nav-item:focus-visible { outline: 2px solid #5B3FC4; outline-offset: 2px; } .ds-nav-on { background: #E6DEFF; color: #1D0061; }"
+    },
+    {
+      "name": "Trail Rating Swatch",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "Signature: the map's trail-sign line on its casing, used as a legend beside a rating name.",
+      "html": "<ul class=\"ds-ratings\"><li><svg width=\"28\" height=\"10\"><path d=\"M3 5H25\" stroke=\"#424242\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>Easiest</li><li><svg width=\"28\" height=\"10\"><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#2E7D32\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>Easy</li><li><svg width=\"28\" height=\"10\"><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#1565C0\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>Intermediate</li><li><svg width=\"28\" height=\"10\"><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#111111\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>Difficult</li><li><svg width=\"28\" height=\"10\"><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#111111\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M3 5H25\" stroke=\"#FFFFFF\" stroke-width=\"1.33\" stroke-linecap=\"round\"/></svg>Extreme</li></ul>",
+      "css": ".ds-ratings { font-family: Inter, system-ui, sans-serif; list-style: none; margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #E2E2E2; border-radius: 8px; width: 180px; } .ds-ratings li { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #1C1C1C; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Trailhead Board",
+    "overview": "At a trailhead you need the map board to be clear, signed and trustworthy: what's here, how hard it is, where you are. Nothing on it is decorative, and its one loud vocabulary, the green, blue and black of trail signs, is loud because it carries meaning. This system works the same way. The athlete's data (routes, splits, heart rate, segments, ratings) is the content. The chrome around it is calm, neutral and each platform's own, and colour shows up where it says something: the brand violet on actions and selection, amber on kudos, trail-sign colours on difficulty, and a fixed palette for zones and grades.\n\nThe system is adaptive, not uniform. Android draws Material 3 with Roboto at Material's sizes. Desktop and web draw the same Compose UI with bundled Inter, a denser type scale, tighter corners and 40px touch targets for pointers. iOS draws every screen natively in SwiftUI with SF and system controls, tinted with the same brand colour. Consistency lives in colour, content, terminology and behaviour, never in identical pixels.\n\nThe components are native but should grow sturdy, like well-made outdoor gear: confident fills on the one main action, clear weights, generous hit areas, and surfaces that read as solid rather than airy. Today they're stock platform controls. That's the floor to build up from, not a ceiling.\n\nThe brand palette is \"High country\": Ridgeline Violet with Blaze Amber, dusk over a ridgeline. It replaced the placeholder teal because it stays clear of every semantic palette (trail-sign green and blue, zones, grades, route markers) and of orange. The roles stay as they were: one primary, one warm accent for kudos, plain neutrals.",
+    "keyCharacteristics": [
+      "Data first; chrome recedes into each platform's native idiom.",
+      "One brand colour for actions and selection, one warm accent for kudos.",
+      "Trail-sign colours are the system's only loud colour vocabulary, and they always mean difficulty.",
+      "Flat, outlined surfaces with tonal layering instead of drop shadows.",
+      "Same roles in light and dark; dark is a first-class scheme, not an inversion.",
+      "Layout follows window width (Compact, Medium, Expanded), never the platform."
+    ],
+    "rules": [
+      {
+        "name": "The Sign Colours Mean Difficulty Rule",
+        "body": "Green, blue and black lines with their casings are reserved for trail ratings. Never use them as decoration, category colour or brand.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Is Kudos Rule",
+        "body": "The warm accent marks likes and highlights. It never becomes a second call to action.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Orange Primary Rule",
+        "body": "The brand primary is never orange, in this palette or any future one. Orange may appear only inside semantic palettes (zones, grades, route breaks), where it carries data.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numbers Lead Rule",
+        "body": "In a stat, the value is set larger and heavier than its label and unit. Labels are small and muted, so the number is what scans first.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline Not Shadow Rule",
+        "body": "A container separates from its background with a 1px Outline Variant stroke or one tonal step. Don't add a custom shadow; platform overlays keep their own.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do build every Compose screen from the `ui/adaptive` wrappers and every iOS screen from `iosApp/iosApp/Design`.",
+      "Do keep the brand colour on actions, selection and focus, and amber on likes and highlights.",
+      "Do separate containers with a 1px Outline Variant hairline or one tonal step.",
+      "Do lay out by window width (Compact, Medium, Expanded), never by platform.",
+      "Do check every new colour in both light and dark schemes; the bright amber is for dark only.",
+      "Do let numbers lead: values larger and heavier than their labels and units.",
+      "Do give icon-only buttons a content description."
+    ],
+    "donts": [
+      "Don't use orange as the brand primary, now or in any replacement palette.",
+      "Don't use trail-sign green, blue or black for anything but difficulty ratings.",
+      "Don't add custom drop shadows to cards or rows.",
+      "Don't make iOS look like Material, or Android look like iOS. Each platform keeps its own controls.",
+      "Don't let the violet drift toward blue, or use a purple for a chart's other lines: either would read as the brand or as a trail rating.",
+      "Don't tint the light neutrals violet; they're plain grey by design."
+    ]
+  }
+}
