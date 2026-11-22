@@ -10,8 +10,11 @@ import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.SegmentsMap
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PathView
+import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -72,11 +75,22 @@ sealed interface PathListItem {
 }
 
 @Immutable
+@Suppress("TooManyFunctions") // The rules both UIs ask of the page: its selection, sections and filters, each once.
 data class PathState(
-    /** The path and its segment groups (ui/content-loading). */
+    /** The path and its segment groups (ui/content-loading), before the search and filters. */
     val content: ContentState<PathContent>,
     /** Only segments of this `SegmentSportGroup`, or every group when null. */
     val sport: String? = null,
+    /** [content] as the search and filters leave it (segments/path-filters); null while they leave it whole. */
+    val filtered: PathContent? = null,
+    /** The search field, which the presenter owns. */
+    val query: TextFieldState = textFieldStateOf(""),
+    /** The filter and sort choices. */
+    val filter: PathFilter = PathFilter(),
+    /** What the chips offer. */
+    val options: PathFilterOptions = PathFilterOptions(),
+    /** The athlete's units, which the length bands are named in. */
+    val units: UnitSystem = UnitSystem.Metric,
     /** The lines the map draws: the path's, muted under them, and each segment group's shown segment. */
     val mapLines: ImmutableList<MapSegmentLine> = persistentListOf(),
     /** The segment group tapped on the map or in the list, by its shown segment, marked in the list. */
@@ -89,6 +103,10 @@ data class PathState(
     val detailsExpanded: Boolean = false,
     val eventSink: (PathEvent) -> Unit = {},
 ) : CircuitUiState {
+    /** What the list and map show: [filtered], or all of [content] while nothing narrows it. */
+    val shown: PathContent
+        get() = filtered ?: content.data
+
     /** The path, once loaded. */
     val path: PathView?
         get() = content.data.path
@@ -97,9 +115,9 @@ data class PathState(
     val credit: SegmentCredit?
         get() = content.data.credit
 
-    /** The segment groups listed: of [sport] when one is chosen. Swift reads it as an array, empty or not. */
+    /** The segment groups listed: of [sport] when one is chosen, as the search and filters leave them. Swift reads it as an array. */
     val groups: List<SegmentGroupRow>
-        get() = content.data.groups.toList()
+        get() = shown.groups.toList()
 
     /**
      * The Trail details rows (segments/trail-attributes): every difficulty scale the served `trail` holds; empty when the AppView sent
@@ -117,20 +135,89 @@ data class PathState(
     val offersDetails: Boolean
         get() = trailGroups().isNotEmpty()
 
-    /** Whether "Show all sports" is offered: while the list is narrowed to one sport group. */
-    val offersAllSports: Boolean
-        get() = sport != null
+    /** Whether the search field shows. */
+    val searchable: Boolean
+        get() = options.searchable
+
+    /** The sport chips' groups after All; empty when the chips don't show. A copy, for Swift. */
+    val sports: List<String>
+        get() = options.sports.toList()
+
+    /** The difficulty choices; empty when the filter doesn't show. */
+    val levels: List<LevelOption>
+        get() = options.levels.toList()
+
+    /** The direction choices; empty when the filter doesn't show. */
+    val ways: List<WayChoice>
+        get() = options.ways.toList()
+
+    /** The length choices; empty when the filter doesn't show. */
+    val lengths: List<LengthOption>
+        get() = options.lengths.toList()
+
+    /** The sort choices, Longest first. */
+    val sorts: List<SortOption>
+        get() = PathFilter.sorts.toList()
+
+    /** Whether any filter is chosen (the iOS menu's filled icon). */
+    val filtersActive: Boolean
+        get() = filter.active
+
+    fun isChosen(level: LevelOption): Boolean = level.rating in filter.levels
+
+    fun isChosen(way: WayChoice): Boolean = way in filter.ways
+
+    fun isChosen(length: LengthOption): Boolean = length.band in filter.lengths
+
+    fun isChosen(sort: SortOption): Boolean = sort.sort == filter.sort
+
+    /** The chosen sort. */
+    val sortChoice: SortOption
+        get() = SortOption(filter.sort)
+
+    /** The difficulty chip: "Difficulty", the level chosen ("Intermediate"), or the first and how many more ("Intermediate +1"). */
+    val difficultyLabel: AppText
+        get() = PathTexts.filterChip(PathTexts.difficulty, levels.filter { isChosen(it) }.map(PathTexts::level))
+
+    /** The direction chip, as [difficultyLabel] ("Downhill only"). */
+    val directionLabel: AppText
+        get() = PathTexts.filterChip(PathTexts.direction, ways.filter { isChosen(it) }.map(PathTexts::way))
+
+    /** The length chip, as [difficultyLabel] ("1–3 mi"). */
+    val lengthLabel: AppText
+        get() = PathTexts.filterChip(PathTexts.length, lengths.filter { isChosen(it) }.map(::lengthText))
+
+    /** What the sort chip, its icon and the chosen sort, reads as to assistive technology: "Sort: Longest". */
+    val sortLabel: AppText
+        get() = PathTexts.sortChip(sortChoice)
+
+    /** [option]'s name, in the athlete's units. */
+    fun lengthText(option: LengthOption): AppText = PathTexts.length(option, units)
+
+    fun sportEvent(sport: String?): PathEvent = PathEvent.SportChanged(sport)
+
+    fun levelEvent(level: LevelOption): PathEvent = PathEvent.ToggleLevel(level)
+
+    fun wayEvent(way: WayChoice): PathEvent = PathEvent.ToggleWay(way)
+
+    fun lengthEvent(length: LengthOption): PathEvent = PathEvent.ToggleLength(length)
+
+    fun sortEvent(sort: SortOption): PathEvent = PathEvent.SortChanged(sort)
+
+    /** Whether the search and filters leave nothing of a path that has segments to list. */
+    val noMatches: Boolean
+        get() = !empty && content.data.path != null && shown.groups.isEmpty()
 
     /**
      * What the list holds, in order: sections and the rows in none. Swift reads it as an array, empty or not: a copy, since the immutable
      * library's shared empty list stops the iOS app when read through a `List`.
      */
     val items: List<PathListItem>
-        get() = content.data.items.toList()
+        get() = shown.items.toList()
 
     /** The sections listed, a copy as [items] is. */
     val sections: List<PathListItem.Section>
-        get() = content.data.sections.toList()
+        get() = shown.sections.toList()
 
     /** Whether [section]'s rows are shown. */
     fun isExpanded(section: PathListItem.Section): Boolean = section.name !in collapsed
@@ -191,8 +278,22 @@ sealed interface PathEvent {
     /** Opens a segment group's page: a click on its row, or a tap on the selected one. */
     data class Open(val uri: AtUri) : PathEvent
 
-    /** Lists every sport group's segments. */
-    data object ShowAllSports : PathEvent
+    /** A sport chip: lists [sport]'s segments, or every group's for null. */
+    data class SportChanged(val sport: String?) : PathEvent
+
+    /** Chooses a difficulty level, or unchooses it. */
+    data class ToggleLevel(val level: LevelOption) : PathEvent
+
+    /** Chooses a direction, or unchooses it. */
+    data class ToggleWay(val way: WayChoice) : PathEvent
+
+    /** Chooses a length band, or unchooses it. */
+    data class ToggleLength(val length: LengthOption) : PathEvent
+
+    data class SortChanged(val sort: SortOption) : PathEvent
+
+    /** Clears the search and every filter; the sport and sort stay. */
+    data object ClearFilters : PathEvent
 
     /** A tap on a section's row: collapses it when expanded, else expands it. */
     data class ToggleSection(val name: String) : PathEvent

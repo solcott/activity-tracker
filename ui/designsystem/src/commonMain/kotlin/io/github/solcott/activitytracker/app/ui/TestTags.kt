@@ -60,6 +60,12 @@ object TestTags {
     /** The Trail page's Trail details control, which unfolds and folds its cards (segments/trail-attributes). */
     const val PATH_DETAILS_TOGGLE = "pathDetailsToggle"
 
+    /** The Trail page's search field (segments/path-filters). */
+    const val PATH_SEARCH = "pathSearch"
+
+    /** The Trail page's clear-filters control, when nothing matches. */
+    const val PATH_CLEAR_FILTERS = "pathClearFilters"
+
     /** A map's rating legend (segments/trail-ratings). */
     const val TRAIL_RATING_LEGEND = "trailRatingLegend"
 

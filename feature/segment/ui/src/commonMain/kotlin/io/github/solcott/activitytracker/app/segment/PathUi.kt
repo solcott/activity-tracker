@@ -56,7 +56,8 @@ import kotlinx.collections.immutable.toImmutableSet
 /**
  * The Trail page (segments/path-page): the path's name, what it is and its credit, its line with its segments over it, and its segment
  * groups, longest first. On a phone the map is above the list, on a wider window beside it, and on web, which has no map, the list alone.
- * The map and the list share a selection as browse's do, and the row or line under a mouse pointer is this UI's own.
+ * The map and the list share a selection as browse's do, and the row or line under a mouse pointer is this UI's own. The search and filters
+ * (segments/path-filters) sit in the header, over the list on every width.
  */
 @CircuitInject(PathScreen::class, SessionScope::class)
 @Composable
@@ -136,20 +137,16 @@ private fun PathList(
                 state.path?.let { Text(PathTexts.summary(it, units).string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
                 if (state.offersDetails) DetailsFold(state)
-                Row {
-                    if (state.offersAllSports) {
-                        AppTextButton(onClick = { state.eventSink(PathEvent.ShowAllSports) }) { Text(PathTexts.showAllSports.string()) }
-                    }
-                    if (state.offersAllSections) {
-                        AppTextButton(onClick = { state.eventSink(state.allSectionsEvent) }, Modifier.testTag(TestTags.PATH_ALL_SECTIONS)) {
-                            Text(PathTexts.allSections(state.allSectionsExpanded).string())
-                        }
+                PathFilterBar(state, Modifier.padding(vertical = 8.dp))
+                if (state.offersAllSections) {
+                    AppTextButton(onClick = { state.eventSink(state.allSectionsEvent) }, Modifier.testTag(TestTags.PATH_ALL_SECTIONS)) {
+                        Text(PathTexts.allSections(state.allSectionsExpanded).string())
                     }
                 }
             }
         }
         item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadPath, { state.eventSink(PathEvent.Retry) }) }
-        for (entry in state.content.data.items) {
+        for (entry in state.shown.items) {
             when (entry) {
                 is PathListItem.Group -> item(key = entry.key) { GroupRow(state, entry.group, hover, units) }
                 is PathListItem.Section -> {
@@ -164,6 +161,16 @@ private fun PathList(
             }
         }
         if (state.empty) item(key = "none") { EmptyListText(PathTexts.noneHere.string()) }
+        if (state.noMatches) {
+            item(key = "noMatches") {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    EmptyListText(PathTexts.noMatches.string())
+                    AppTextButton(onClick = { state.eventSink(PathEvent.ClearFilters) }, Modifier.testTag(TestTags.PATH_CLEAR_FILTERS)) {
+                        Text(PathTexts.clearFilters.string())
+                    }
+                }
+            }
+        }
     }
 }
 

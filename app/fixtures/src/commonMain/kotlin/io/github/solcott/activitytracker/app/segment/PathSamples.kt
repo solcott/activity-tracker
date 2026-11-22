@@ -9,10 +9,12 @@ import io.github.solcott.activitytracker.app.fixtures.fakePath
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeTrailAttributes
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -32,15 +34,28 @@ object PathSamples {
 
     private val content = PathContent(SegmentBrowseSamples.annsTrail, groups, SegmentCredit.OpenStreetMap("ODbL-1.0"))
 
-    private fun page(content: io.github.solcott.uistate.ContentState<PathContent>) =
-        PathState(
+    private fun page(
+        content: io.github.solcott.uistate.ContentState<PathContent>,
+        sport: String? = null,
+        filter: PathFilter = PathFilter(),
+        query: String = "",
+    ): PathState {
+        val shown = filter.apply(content.data, query, sport, UnitSystem.Imperial)
+        return PathState(
             content = content,
+            sport = sport,
+            filtered = shown.takeUnless { it === content.data },
+            query = textFieldStateOf(query),
+            filter = filter,
+            options = PathFilter.options(content.data, sport, UnitSystem.Imperial),
+            units = UnitSystem.Imperial,
             mapLines =
                 (listOfNotNull(content.data.path?.let { MapSegmentLine(it.uri.value, Fixed.POLYLINE, lift = true) }) +
-                        content.data.groups.map { MapSegmentLine(it.shown.uri.value, Fixed.POLYLINE, rating = it.rating) })
+                        shown.groups.map { MapSegmentLine(it.shown.uri.value, Fixed.POLYLINE, rating = it.rating) })
                     .toImmutableList(),
             camera = MapCameraRequest(1, BURLINGTON_LAT, BURLINGTON_LNG),
         )
+    }
 
     /** The page's states for each loading kind (ui/content-loading). */
     val all: Map<String, PathState>
@@ -53,22 +68,22 @@ object PathSamples {
     val selected: PathState
         get() = loaded.copy(selected = groups[1].shown.uri)
 
-    /** Opened from browse with Ride chosen: only ride segments, and Show all sports. */
+    /** Opened from browse with Ride chosen: only ride segments, with Ride chosen in the sport chips. */
     val ride: PathState
         get() =
             page(
-                    ContentStates.loaded(
-                        content.copy(
-                            groups =
-                                groups
-                                    .map { group ->
-                                        SegmentGroupRow.groupOf(group.members.filter { it.record.sport == SegmentSportGroup.RIDE })
-                                    }
-                                    .toImmutableList(),
-                        ),
+                ContentStates.loaded(
+                    content.copy(
+                        groups =
+                            groups
+                                .map { group ->
+                                    SegmentGroupRow.groupOf(group.members.filter { it.record.sport == SegmentSportGroup.RIDE })
+                                }
+                                .toImmutableList(),
                     ),
-                )
-                .copy(sport = SegmentSportGroup.RIDE)
+                ),
+                sport = SegmentSportGroup.RIDE,
+            )
 
     /** A road whose only segment someone else proposed: nothing listed. */
     val empty: PathState
@@ -104,7 +119,15 @@ object PathSamples {
             )
 
     /** A downhill-only ride row of Rush named [name], [meters] long. */
-    private fun rushRow(rkey: String, name: String, meters: Long, sport: String = SegmentSportGroup.RIDE): SegmentGroupRow =
+    @Suppress("LongParameterList") // A row's every field a sample sets.
+    private fun rushRow(
+        rkey: String,
+        name: String,
+        meters: Long,
+        sport: String = SegmentSportGroup.RIDE,
+        imba: Int? = null,
+        downhill: Boolean = true,
+    ): SegmentGroupRow =
         SegmentGroupRow.groupOf(
             listOf(
                 fakeSegment(
@@ -112,7 +135,11 @@ object PathSamples {
                         record = fakeSegmentRecord(name, sport = sport, source = "osm", license = "ODbL-1.0"),
                         distanceMeters = meters,
                     )
-                    .copy(oneWay = true, climb = "downhill"),
+                    .copy(
+                        oneWay = downhill.takeIf { it },
+                        climb = "downhill".takeIf { downhill },
+                        trail = imba?.let { TrailAttributes(mtbScaleImba = it) },
+                    ),
             ),
         )
 
@@ -167,6 +194,49 @@ object PathSamples {
     val sectionsCollapsed: PathState
         get() = sections.copy(collapsed = persistentSetOf("Through the Trees Trail"))
 
+    /**
+     * Corner Canyon (segments/path-filters): six ride rows of every rating but Extreme, one unrated, going both ways or downhill only,
+     * short to long, so the search, sport chips, difficulty, direction, length and sort all show.
+     */
+    private val corner: PathContent
+        get() {
+            val rows =
+                listOf(
+                    rushRow("3kccrush", "Rush", 7_564, imba = 3),
+                    rushRow("3kccclarks", "Clarks", 4_200, imba = 2, downhill = false),
+                    rushRow("3kccldt", "Lower Bobsled", 3_100, imba = 3),
+                    rushRow("3kccyb", "Ghost Falls", 2_400, imba = 1, downhill = false),
+                    rushRow("3kccmk", "Maple Hollow", 1_300, imba = 0, downhill = false),
+                    rushRow("3kccown", "Carol's Connector", 900, downhill = false),
+                )
+            val path =
+                fakePath(
+                    "corner",
+                    name = "Corner Canyon",
+                    lengthMeters = 12_000,
+                    sports = listOf(SegmentSportGroup.RIDE, SegmentSportGroup.RUN, SegmentSportGroup.HIKE),
+                    groupCount = rows.size,
+                )
+            return PathContent(path, rows.toImmutableList(), content.credit)
+        }
+
+    /** [corner] with nothing chosen: every chip offered. */
+    val filters: PathState
+        get() = page(ContentStates.loaded(corner), sport = SegmentSportGroup.RIDE)
+
+    /** [corner] narrowed to Difficult, sorted shortest first. */
+    val filtered: PathState
+        get() =
+            page(
+                ContentStates.loaded(corner),
+                sport = SegmentSportGroup.RIDE,
+                filter = PathFilter(levels = persistentSetOf(TrailRating.DIFFICULT), sort = PathSort.Shortest),
+            )
+
+    /** [corner] searched for a name none has: no segments match. */
+    val noMatches: PathState
+        get() = page(ContentStates.loaded(corner), sport = SegmentSportGroup.RIDE, query = "zzz")
+
     /** Every shared sample and the page's states beyond content loading, for the native page's previews and snapshots. */
     val variants: Map<String, PathState>
         get() =
@@ -180,6 +250,9 @@ object PathSamples {
                     "sectionsCollapsed" to sectionsCollapsed,
                     TRAIL to trail,
                     TRAIL_EXPANDED to trailExpanded,
+                    FILTERS to filters,
+                    FILTERED to filtered,
+                    NO_MATCHES to noMatches,
                 )
 
     const val ONE_WAY = "oneWay"
@@ -188,6 +261,9 @@ object PathSamples {
 
     const val TRAIL = "trail"
     const val TRAIL_EXPANDED = "trailExpanded"
+    const val FILTERS = "filters"
+    const val FILTERED = "filtered"
+    const val NO_MATCHES = "noMatches"
 }
 
 private const val BURLINGTON_LAT = 44.4759

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.app.PathView
 import kotlinx.collections.immutable.persistentListOf
 
 /** What the Trail page says (segments/path-page, dev/shared-display-text), chosen here for the shared and the native UI. */
+@Suppress("TooManyFunctions") // One per line and choice of the page, so both UIs read the same words.
 object PathTexts {
     /** The page's title before the path loads. */
     val title: AppText = AppText.named("path_title")
@@ -57,6 +58,72 @@ object PathTexts {
     /** No segment on the path that the athlete may see. */
     val noneHere: AppText = AppText.named("path_none_here")
 
-    /** Lists every sport group's segments, while narrowed to one. */
-    val showAllSports: AppText = AppText.named("path_show_all_sports")
+    /** The search field's label (segments/path-filters). */
+    val search: AppText = AppText.named("path_search")
+
+    /** The iOS filter menu's label. */
+    val filters: AppText = AppText.named("path_filters")
+
+    /** A sport chip: All for null, else the sport group, as browse's chips read. */
+    fun sportChoice(sport: String?): AppText = SegmentBrowseTexts.sportChoice(sport)
+
+    /** The difficulty filter's name. */
+    val difficulty: AppText = AppText.named("path_filter_difficulty")
+
+    /** The direction filter's name. */
+    val direction: AppText = AppText.named("path_filter_direction")
+
+    /** The length filter's name. */
+    val length: AppText = AppText.named("path_filter_length")
+
+    /**
+     * A filter chip: its [name] while nothing is [chosen], the choice itself when one is ("1–3 mi"), else the first and how many more
+     * ("Intermediate +1").
+     */
+    fun filterChip(name: AppText, chosen: List<AppText>): AppText =
+        when (chosen.size) {
+            0 -> name
+            1 -> chosen.single()
+            else -> AppText.named("path_filter_more", chosen.first(), AppText.written(formatWhole(chosen.size - 1)))
+        }
+
+    /** What a filter chip reads as to assistive technology: its [name], then what it [shows] ("Length: 1–3 mi"). */
+    fun filterDescription(name: AppText, shows: AppText): AppText =
+        if (shows == name) name else AppText.named("path_filter_described", name, shows)
+
+    /** A difficulty choice: the level's name, or Unrated. */
+    fun level(option: LevelOption): AppText = option.rating?.label ?: TrailRating.unratedLabel
+
+    /** A direction choice: "Both ways", or "Uphill only" and the like. */
+    fun way(choice: WayChoice): AppText =
+        choice.direction?.let { AppText.named("segment_one_way_${it.word}") } ?: AppText.named("segment_browse_both_ways")
+
+    /** A length band in [units]: "Under 1 mi", "1–3 mi", "Over 3 mi", or the metric bands. */
+    fun length(option: LengthOption, units: UnitSystem): AppText =
+        AppText.named("path_length_${option.band.name.lowercase()}_${if (units == UnitSystem.Imperial) "imperial" else "metric"}")
+
+    /** The sort chip read aloud, beside its icon: "Sort: Longest". */
+    fun sortChip(option: SortOption): AppText = AppText.named("path_sort_chip", sort(option))
+
+    /** The sort control's name. */
+    val sort: AppText = AppText.named("path_sort")
+
+    /** A sort choice: "Longest", "Most climbing"… */
+    fun sort(option: SortOption): AppText =
+        AppText.named(
+            when (option.sort) {
+                PathSort.Longest -> "path_sort_longest"
+                PathSort.Shortest -> "path_sort_shortest"
+                PathSort.Name -> "path_sort_name"
+                PathSort.MostClimbing -> "path_sort_most_climbing"
+                PathSort.EasiestFirst -> "path_sort_easiest_first"
+                PathSort.HardestFirst -> "path_sort_hardest_first"
+            },
+        )
+
+    /** When the search and filters leave no row. */
+    val noMatches: AppText = AppText.named("path_no_matches")
+
+    /** Clears the search and every filter but the sport. */
+    val clearFilters: AppText = AppText.named("path_clear_filters")
 }

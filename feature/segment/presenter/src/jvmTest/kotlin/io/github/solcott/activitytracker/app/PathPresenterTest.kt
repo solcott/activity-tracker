@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.app
 
+import co.touchlab.kermit.Logger
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.segment.LevelOption
 import io.github.solcott.activitytracker.app.segment.PathEvent
 import io.github.solcott.activitytracker.app.segment.PathListItem
 import io.github.solcott.activitytracker.app.segment.PathPresenter
@@ -12,7 +14,11 @@ import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.segment.contentOf
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.profile.TrainingNarrowing
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -40,6 +46,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
@@ -127,7 +134,9 @@ class PathPresenterTest {
 
     private suspend fun test(screen: PathScreen, navigator: FakeNavigator, block: suspend CircuitReceiveTurbine<PathState>.() -> Unit) {
         val (_, _, clients) = signedInTestSession(http, did = Did("did:plc:alice"))
-        presenterTestOf({ PathPresenter(screen, navigator, SegmentRepository(clients)) }, block = block)
+        val units =
+            UnitsRepository(ProfileRepository(clients, Clock.System, Logger, TrainingNarrowing {}), Clock.System, Logger, UnitSystem.Metric)
+        presenterTestOf({ PathPresenter(screen, navigator, SegmentRepository(clients), units) }, block = block)
     }
 
     @Test
@@ -228,16 +237,93 @@ class PathPresenterTest {
     }
 
     @Test
-    fun opensNarrowedToTheBrowseSportUntilShowAll() = runTest {
+    fun opensOnTheBrowseSportAndAnySportCanBeChosen() = runTest {
         val screen = PathScreen(anns.uri.value, sport = "ride")
         test(screen, FakeNavigator(screen)) {
             val ride = awaitUntil { it.path != null }
-            assertTrue(ride.offersAllSports)
+            assertEquals(listOf("ride", "run"), ride.sports, "the path's sport groups, after All")
             assertEquals(listOf(wholeRide.uri), ride.groups.map { it.shown.uri }, "only the ride group")
-            ride.eventSink(PathEvent.ShowAllSports)
+            ride.eventSink(ride.sportEvent("run"))
+            val run = awaitUntil { it.sport == "run" }
+            assertEquals(listOf(wholeRun.uri, stretch.uri), run.groups.map { it.shown.uri })
+            run.eventSink(run.sportEvent(null))
             val all = awaitUntil { it.sport == null && it.groups.size == 2 }
             assertEquals(listOf(wholeRide.uri, stretch.uri), all.groups.map { it.shown.uri })
-            assertEquals(1, pathLoads.get(), "showing every sport regroups what loaded")
+            assertEquals(1, pathLoads.get(), "choosing a sport regroups what loaded")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun rated(segment: SegmentView, imba: Int) = segment.copy(trail = TrailAttributes(mtbScaleImba = imba))
+
+    /** Four ride rows on Ann's, so the search and filters show: Easy, Intermediate, Difficult and an unrated one. */
+    private val ratedRides =
+        listOf(
+            rated(segment("r1", "Ann's: Lot → Ridge", "ride", 1_200.0), 1),
+            rated(segment("r2", "Ann's: Ridge → Summit", "ride", 2_400.0), 2),
+            rated(segment("r3", "Ann's: Summit Drop", "ride", 3_600.0), 3),
+            segment("r4", "Carol's Loop", "ride", 800.0),
+        )
+
+    @Test
+    fun aFilterNarrowsTheRowsAndLinesAndDropsAHiddenSelection() = runTest {
+        output = GetPath.Output(anns, ratedRides)
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.groups.size == 4 }
+            assertTrue(loaded.searchable)
+            assertEquals(
+                listOf(TrailRating.EASY, TrailRating.INTERMEDIATE, TrailRating.DIFFICULT, null),
+                loaded.levels.map { it.rating },
+            )
+            loaded.eventSink(loaded.selectEvent(ratedRides[0].uri.value))
+            val selected = awaitUntil { it.selected == ratedRides[0].uri }
+            selected.eventSink(selected.levelEvent(LevelOption(TrailRating.INTERMEDIATE)))
+            val blue = awaitUntil { it.groups.size == 1 && it.selected == null }
+            assertEquals(listOf(ratedRides[1].uri), blue.groups.map { it.shown.uri })
+            assertEquals(2, blue.mapLines.size, "the path's line and the one row's")
+            assertTrue(blue.filtersActive)
+            blue.eventSink(PathEvent.ClearFilters)
+            awaitUntil { it.groups.size == 4 && !it.filtersActive }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theSearchNarrowsAndNothingMatchingIsNotEmpty() = runTest {
+        output = GetPath.Output(anns, ratedRides)
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.groups.size == 4 }
+            loaded.query.edit { replace(0, length, "SUMMIT") }
+            val found = awaitUntil { it.groups.size == 2 }
+            assertEquals(listOf(ratedRides[2].uri, ratedRides[1].uri), found.groups.map { it.shown.uri })
+            found.query.edit { replace(0, length, "nowhere") }
+            val none = awaitUntil { it.groups.isEmpty() }
+            assertTrue(none.noMatches)
+            assertFalse(none.empty)
+            none.eventSink(PathEvent.ClearFilters)
+            val cleared = awaitUntil { it.groups.size == 4 }
+            assertEquals("", cleared.query.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun switchingSportDropsALevelNoRowHas() = runTest {
+        output =
+            GetPath.Output(
+                anns,
+                ratedRides + segment("h1", "Ann's Hike", "hike", 1_000.0).copy(trail = TrailAttributes(sacScale = TrailSacScale.HIKING)),
+            )
+        val screen = PathScreen(anns.uri.value, sport = "ride")
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.groups.size == 4 }
+            loaded.eventSink(loaded.levelEvent(LevelOption(TrailRating.DIFFICULT)))
+            val black = awaitUntil { it.groups.size == 1 }
+            black.eventSink(black.sportEvent("hike"))
+            val hike = awaitUntil { it.sport == "hike" && it.groups.size == 1 && !it.filtersActive }
+            assertEquals("Ann's Hike", hike.groups.single().shown.currentName)
             cancelAndIgnoreRemainingEvents()
         }
     }

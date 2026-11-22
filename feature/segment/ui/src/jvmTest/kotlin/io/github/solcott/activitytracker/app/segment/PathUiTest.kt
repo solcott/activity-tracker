@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -56,11 +57,46 @@ class PathUiTest {
     }
 
     @Test
-    fun narrowedToOneSportItOffersAll() = runComposeUiTest {
+    fun narrowedToOneSportItsChipsOfferAll() = runComposeUiTest {
         val events = mutableListOf<PathEvent>()
         setContent { AppPreview { PathUi(PathSamples.ride.copy(eventSink = { events += it })) } }
-        onNodeWithText("Show all sports").performClick()
-        assertEquals(PathEvent.ShowAllSports, events.last())
+        onNode(hasText("All") and hasClickAction()).performClick()
+        assertEquals(PathEvent.SportChanged(null), events.last())
+    }
+
+    @Test
+    fun fewRowsOfferNoSearch() = runComposeUiTest {
+        setContent { AppPreview { PathUi(PathSamples.loaded) } }
+        onNodeWithTag(TestTags.PATH_SEARCH).assertDoesNotExist()
+    }
+
+    @Test
+    fun choosingALevelFromItsChip() = runComposeUiTest {
+        val events = mutableListOf<PathEvent>()
+        setContent { AppPreview(units = UnitSystem.Imperial) { PathUi(PathSamples.filters.copy(eventSink = { events += it })) } }
+        onNodeWithTag(TestTags.PATH_SEARCH).assertExists()
+        onNode(hasContentDescription("Difficulty") and hasClickAction()).performClick()
+        onNode(hasText("Difficult") and hasClickAction()).performClick()
+        assertEquals(PathEvent.ToggleLevel(LevelOption(TrailRating.DIFFICULT)), events.last())
+    }
+
+    @Test
+    fun aChosenFilterNamesItsCountAndNarrowsTheRows() = runComposeUiTest {
+        setContent { AppPreview(units = UnitSystem.Imperial) { PathUi(PathSamples.filtered) } }
+        onNode(hasContentDescription("Difficulty: Difficult") and hasClickAction()).assertExists()
+        onNode(hasContentDescription("Sort: Shortest") and hasClickAction()).assertExists()
+        onNodeWithText("Lower Bobsled").assertExists()
+        onNodeWithText("Clarks").assertDoesNotExist()
+    }
+
+    @Test
+    fun nothingMatchingOffersToClear() = runComposeUiTest {
+        val events = mutableListOf<PathEvent>()
+        setContent { AppPreview(units = UnitSystem.Imperial) { PathUi(PathSamples.noMatches.copy(eventSink = { events += it })) } }
+        onNodeWithText("No segments match").assertExists()
+        onNodeWithText("No segments here yet").assertDoesNotExist()
+        onNodeWithTag(TestTags.PATH_CLEAR_FILTERS).performClick()
+        assertEquals(PathEvent.ClearFilters, events.last())
     }
 
     @Test
@@ -74,7 +110,7 @@ class PathUiTest {
         val events = mutableListOf<PathEvent>()
         setContent {
             AppPreview(platform = UiPlatform.Desktop, units = UnitSystem.Imperial) {
-                PathUi(PathSamples.sections.copy(eventSink = { events += it }))
+                PathUi(PathSamples.sections.copy(options = PathFilterOptions(), eventSink = { events += it }))
             }
         }
         row("Through the Trees Trail").assert(hasClickLabel("Collapse Through the Trees Trail"))
@@ -88,7 +124,7 @@ class PathUiTest {
 
     @Test
     fun aCollapsedSectionHidesItsRowsAndAllSectionsExpands() = runComposeUiTest {
-        setContent { AppPreview { PathUi(PathSamples.sectionsCollapsed) } }
+        setContent { AppPreview { PathUi(PathSamples.sectionsCollapsed.copy(options = PathFilterOptions())) } }
         row("Through the Trees Trail").assert(hasClickLabel("Expand Through the Trees Trail"))
         row("Rush › Through the Trees Trail").assertDoesNotExist()
         row("Rush › Exit Stage Left").assertExists()
