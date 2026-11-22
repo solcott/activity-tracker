@@ -121,6 +121,17 @@ On iOS the Trail page SHALL be drawn natively with the system's navigation bar, 
 - **WHEN** alice taps a stretch's line on the native Trail page's map
 - **THEN** the stretch is highlighted and marked in the list, scrolled into view
 
+### Requirement: The Trail page's list is a sheet over the map on a phone
+On a phone, and in any narrow window that draws a map, the Trail page SHALL draw its map filling the page and its list in a sheet over it, as Apple Maps does, which rests low with only its top showing, halfway (where it opens), or over the whole map. Dragging its grabber, or its list while it is below its top, SHALL move it to the nearest of those; at its top the list SHALL scroll, and a pull down from the list's top SHALL move the sheet down. The grabber SHALL offer a screen reader an action that moves the sheet to its next height. The map SHALL frame the path in the part the resting sheet leaves open, and keep its attribution above the sheet. Selecting a line on the map while the sheet rests low SHALL raise it halfway. With the map beside the list it SHALL lay out as before. The native iPhone page SHALL also run the map and the sheet on under the bars, the list's last rows scrolling up from under the tab bar, and shade the selected row without separators around it.
+
+#### Scenario: Pulling the list up over the map
+- **WHEN** alice drags Ann's list up on her phone while its sheet is halfway
+- **THEN** the sheet rises over the map and the list scrolls only once it is at the top
+
+#### Scenario: A line tapped under a low sheet
+- **WHEN** alice's sheet rests low and she taps a stretch's line on the map
+- **THEN** the sheet rises halfway with the stretch's row marked and scrolled into view
+
 ### Requirement: The Trail page folds a section's rows together
 When at least two of the page's segment-group rows are in one of the path's sections (`segments/segment-paths`), the Trail page SHALL list them under one collapsible section row, named after the section, with the length of its longest row and the sport groups and direction wording of its rows, as a segment group's row words them. A section with only one listed row SHALL be listed as that plain row. A row is in the section that its shown segment is in.
 

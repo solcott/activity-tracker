@@ -78,11 +78,11 @@ When the path has a profile, the Trail page SHALL draw it as an elevation chart,
 - **THEN** the page has no elevation chart
 
 ### Requirement: The profile sits under the map with the trail's climb
-On a phone the chart SHALL sit between the map and the list, and with the map beside the list, under the map. When the path has a profile, the page's summary SHALL add the trail's climb and descent; without one it SHALL say neither.
+On a phone the chart SHALL be the list's first row, scrolling with the rest of the list, and with the map beside the list, under the map. When the path has a profile, the page's summary SHALL add the trail's climb and descent; without one it SHALL say neither.
 
 #### Scenario: Ann's on a phone
 - **WHEN** an athlete opens Ann's on a phone
-- **THEN** the elevation chart shows between the map and the list, and the summary says how much Ann's climbs and descends
+- **THEN** the elevation chart shows at the top of the list under the map, scrolls away with the list, and the summary says how much Ann's climbs and descends
 
 ### Requirement: The profile marks each listed row's stretch
 Under the chart, the Trail page SHALL mark each listed row's stretch along the trail, from the stretch of the row's shown segment, in the row's rating colour (`segments/trail-ratings`), or the unrated colour for a row with no level. Only rows the search and filters show SHALL be marked. A row whose segment has no stretch SHALL have no mark.

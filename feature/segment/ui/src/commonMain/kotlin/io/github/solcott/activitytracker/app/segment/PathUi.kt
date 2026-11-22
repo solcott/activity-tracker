@@ -36,6 +36,8 @@ import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.MapBrowseHover
+import io.github.solcott.activitytracker.app.ui.MapSheetDetent
+import io.github.solcott.activitytracker.app.ui.MapSheetLayout
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.SegmentsMap
 import io.github.solcott.activitytracker.app.ui.SelectableRow
@@ -51,6 +53,7 @@ import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.mapBrowseHover
 import io.github.solcott.activitytracker.app.ui.rememberMapBrowseHover
+import io.github.solcott.activitytracker.app.ui.rememberMapSheetState
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -61,9 +64,10 @@ import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * The Trail page (segments/path-page): the path's name, what it is and its credit, its line with its segments over it, and its segment
- * groups, longest first. On a phone the map is above the list, on a wider window beside it, and on web, which has no map, the list alone.
- * The map and the list share a selection as browse's do, and the row or line under a mouse pointer is this UI's own. The search and filters
- * (segments/path-filters) sit in the header, over the list on every width.
+ * groups, longest first. On a phone the list is a sheet over the map that drags between three heights ([MapSheetLayout]), on a wider window
+ * it is beside the map, and on web, which has no map, the list alone. The map and the list share a selection as browse's do, and the row or
+ * line under a mouse pointer is this UI's own. The search and filters (segments/path-filters) sit in the header, over the list on every
+ * width.
  */
 @CircuitInject(PathScreen::class, SessionScope::class)
 @Composable
@@ -72,11 +76,14 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
     val hover = rememberMapBrowseHover()
     // Where the profile's readout is along the chart, which the map marks (segments/path-profile); null while it isn't showing.
     var scrubbed by remember { mutableStateOf<Double?>(null) }
+    val sheet = rememberMapSheetState()
     // Keyed on the selection alone: collapsing or expanding another section leaves the list where it is. A selection that expands its
     // section changes both at once, so the row's index here is already the expanded one.
     LaunchedEffect(state.selected) {
         val selected = state.selected?.value ?: return@LaunchedEffect
         val index = visibleKeys(state).indexOf(selected)
+        // A selection made on the map raises a phone's lowered sheet so its row shows.
+        if (sheet.detent == MapSheetDetent.Peek) sheet.moveTo(MapSheetDetent.Middle)
         // The header and refresh rows come first.
         if (index >= 0) listState.animateScrollToItem(index + HEADER_ROWS)
     }
@@ -87,27 +94,23 @@ fun PathUi(state: PathState, modifier: Modifier = Modifier) {
         val retry = { state.eventSink(PathEvent.Retry) }
         ContentStateLayout(state.content, UiError.Kind.LoadPath, onRetry = retry, contentPadding = padding) {
             WithWindowWidth(Modifier.fillMaxSize().padding(padding)) { width ->
-                val list = @Composable { m: Modifier -> PathList(state, listState, hover, m) }
-                val map = @Composable { m: Modifier -> PathMap(state, hover, state.profilePoint(scrubbed), m) }
-                // The profile under the map (segments/path-profile), and under nothing on the web, which draws no map.
+                val map = @Composable { m: Modifier, covered: Dp -> PathMap(state, hover, state.profilePoint(scrubbed), covered, m) }
+                // The profile (segments/path-profile): docked under the map beside the list when wide, else the list's first row, so
+                // everything under a phone's map scrolls together (and on the web, which draws no map).
                 val profile = @Composable { PathProfileChart(state, hover, onScrub = { scrubbed = it }) }
                 when {
-                    !interactiveMapSupported ->
-                        Column(Modifier.fillMaxSize()) {
-                            profile()
-                            list(Modifier.fillMaxWidth().weight(1f))
-                        }
+                    !interactiveMapSupported -> PathList(state, listState, hover, Modifier.fillMaxSize(), profile)
                     width == WindowWidth.Compact ->
-                        Column(Modifier.fillMaxSize()) {
-                            map(Modifier.fillMaxWidth().weight(MAP_WEIGHT))
-                            profile()
-                            list(Modifier.fillMaxWidth().weight(1f))
-                        }
+                        MapSheetLayout(
+                            map = { covered -> map(Modifier.fillMaxSize(), covered) },
+                            sheet = { PathList(state, listState, hover, Modifier.fillMaxSize(), profile) },
+                            state = sheet,
+                        )
                     else ->
                         Row(Modifier.fillMaxSize()) {
-                            list(Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
+                            PathList(state, listState, hover, Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
                             Column(Modifier.weight(1f).fillMaxHeight()) {
-                                map(Modifier.fillMaxWidth().weight(1f))
+                                map(Modifier.fillMaxWidth().weight(1f), 0.dp)
                                 profile()
                             }
                         }
@@ -132,7 +135,7 @@ private fun PathProfileChart(state: PathState, hover: MapBrowseHover, onScrub: (
 }
 
 @Composable
-private fun PathMap(state: PathState, hover: MapBrowseHover, marker: GeoPoint?, modifier: Modifier = Modifier) {
+private fun PathMap(state: PathState, hover: MapBrowseHover, marker: GeoPoint?, coveredBottom: Dp, modifier: Modifier = Modifier) {
     SegmentsMap(
         state.mapLines,
         selected = state.selected?.value,
@@ -144,6 +147,7 @@ private fun PathMap(state: PathState, hover: MapBrowseHover, marker: GeoPoint?, 
         onHover = { hover.uri = it },
         hoveredLines = state.sections.find { it.key == hover.uri }?.lineUris?.toImmutableSet() ?: persistentSetOf(),
         marker = marker,
+        coveredBottom = coveredBottom,
     )
 }
 
@@ -162,9 +166,12 @@ private fun PathList(
     listState: LazyListState,
     hover: MapBrowseHover,
     modifier: Modifier = Modifier,
+    profile: @Composable () -> Unit = {},
 ) {
     val units = LocalUnitSystem.current
     LazyColumn(modifier, state = listState) {
+        // Always a row, empty while the profile is docked under the map, so the rows after it keep their indexes (HEADER_ROWS).
+        item(key = "profile") { profile() }
         item(key = "header") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 state.summary(units)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
@@ -187,7 +194,7 @@ private fun PathList(
                     item(key = entry.key) { SectionRow(state, entry, expanded, hover, units) }
                     if (expanded) {
                         items(entry.rows, key = { it.shown.uri.value }) { group ->
-                            GroupRow(state, group, hover, units, Modifier.padding(start = SECTION_INDENT))
+                            GroupRow(state, group, hover, units, indent = SECTION_INDENT)
                         }
                     }
                 }
@@ -256,8 +263,8 @@ private fun Modifier.outdent(by: Dp): Modifier = layout { measurable, constraint
 private val FOLD_PADDING = 12.dp
 
 @Composable
-private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, modifier: Modifier = Modifier) {
-    Column(modifier) {
+private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, indent: Dp = 0.dp) {
+    Column {
         SelectableRow(
             key = group.shown.uri.value,
             name = PathTexts.name(group),
@@ -267,6 +274,7 @@ private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseH
             onTap = { state.eventSink(state.tapRowEvent(group)) },
             onOpen = { state.eventSink(state.openEvent(group)) },
             rating = group.rating,
+            indent = indent,
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -311,11 +319,8 @@ private fun SectionRow(
 /** How far a section's rows sit in from its own. */
 private val SECTION_INDENT = 24.dp
 
-/** The rows above the first segment group: the header and the refresh status. */
-private const val HEADER_ROWS = 2
-
-/** The map's share of a phone's height, the list taking the rest. */
-private const val MAP_WEIGHT = 1.2f
+/** The rows above the first segment group: the profile, the header and the refresh status. */
+private const val HEADER_ROWS = 3
 
 private val LIST_PANE_WIDTH = 380.dp
 
