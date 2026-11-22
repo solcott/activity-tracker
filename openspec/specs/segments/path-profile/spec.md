@@ -67,11 +67,19 @@ The profile SHALL hold a stretch for each returned segment that lies along a cov
 - **THEN** the profile has no stretch for it
 
 ### Requirement: The Trail page shows the profile
-When the path has a profile, the Trail page SHALL draw it as an elevation chart, tinted by grade as a segment's profile is (`segments/segment-elevation`): covered pieces left to right in the lines' order, across the distance in the athlete's units, with a break between pieces where the line lifts, leaving out a piece without a profile. It SHALL read out a point's distance, height and grade as a segment's chart does. Without a profile the page SHALL show no chart.
+When the path has a profile, the Trail page SHALL draw it as an elevation chart, tinted by grade as a segment's profile is (`segments/segment-elevation`): covered pieces left to right in the order the trail runs, across the distance in the athlete's units, leaving out a piece without a profile. The pieces SHALL be chained end to end: the longest piece first in its own direction, then each piece whose end lies within 30 m of the chain's last or first point running on from it, turned round (its heights, its stretches and the map's marker with it) when its other end is the one that meets. Pieces that meet SHALL run on with no break. A piece meeting a chained piece anywhere but at the chain's ends is a branch and SHALL be left out of the chart. Pieces meeting none SHALL follow, chained the same way, after a break where the line lifts. It SHALL read out a point's distance, height and grade as a segment's chart does. Without a profile the page SHALL show no chart.
 
-#### Scenario: Two pieces
-- **WHEN** a trail's two pieces both have profiles
-- **THEN** the chart draws the first, a break, then the second
+#### Scenario: Two arms meeting at the bottom
+- **WHEN** a trail is stored as two arms, each drawn from the top down, that meet at the bottom
+- **THEN** the chart runs down the longer arm and on up the shorter one, as one line with no break
+
+#### Scenario: A stub off the trail
+- **WHEN** a trail has a short piece branching off the middle of another
+- **THEN** the chart leaves it out, and the map still draws it
+
+#### Scenario: Two separate parts
+- **WHEN** a trail's two pieces don't meet
+- **THEN** the chart draws the longer, a break, then the other
 
 #### Scenario: Road without terrain
 - **WHEN** an athlete opens a road with no profile

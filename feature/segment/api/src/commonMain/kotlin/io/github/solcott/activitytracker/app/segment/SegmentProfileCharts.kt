@@ -22,9 +22,10 @@ fun SegmentProfile.chart(units: UnitSystem): LineChart = profileChart(listOf(thi
 
 /**
  * [pieces] one after another as one chart, as [chart] draws one (a trail's line pieces, segments/path-profile): each starts where the one
- * before it ended, the line breaking between them ([LinePoint.gapBefore]), over their whole length in [units].
+ * before it ended, the line breaking between them ([LinePoint.gapBefore]) except before a piece [joined] marks as running on from the one
+ * before it, over their whole length in [units].
  */
-internal fun profileChart(pieces: List<SegmentProfile>, units: UnitSystem): LineChart {
+internal fun profileChart(pieces: List<SegmentProfile>, units: UnitSystem, joined: List<Boolean> = emptyList()): LineChart {
     require(pieces.isNotEmpty()) { "a chart needs a piece" }
     val lengths = pieces.map { UnitConversions.toDistanceUnit(it.distanceMeters.toDouble(), units) }
     val length = lengths.sum()
@@ -39,7 +40,12 @@ internal fun profileChart(pieces: List<SegmentProfile>, units: UnitSystem): Line
         val step = if (piece.heightsM.size > 1) lengths[p] / (piece.heightsM.size - 1) else 0.0
         val bands = piece.gradeBands
         piece.heightsM.forEachIndexed { i, h ->
-            val point = LinePoint(starts[p] + i * step, UnitConversions.toElevationUnit(h, units), gapBefore = p > 0 && i == 0)
+            val point =
+                LinePoint(
+                    starts[p] + i * step,
+                    UnitConversions.toElevationUnit(h, units),
+                    gapBefore = p > 0 && i == 0 && !joined.getOrElse(p) { false },
+                )
             val grade = piece.gradesPercent.getOrElse(piece.gradeIndex(i, piece.heightsM.size)) { 0.0 }
             points += point
             readouts +=

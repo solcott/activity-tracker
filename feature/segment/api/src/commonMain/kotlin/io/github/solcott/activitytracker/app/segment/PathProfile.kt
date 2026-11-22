@@ -13,8 +13,13 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-/** One covered line piece of a trail: its [index] in the path's lines, its terrain [profile], and its [line] for the map's marker. */
-@Immutable data class PathProfilePiece(val index: Int, val profile: SegmentProfile, val line: ImmutableList<GeoPoint>)
+/**
+ * One covered line piece of a trail as the profile runs along it: its [index] in the path's lines, its terrain [profile] and its [line] for
+ * the map's marker, both turned round when the trail runs against the line as stored, and whether it runs on from the piece before it
+ * ([joined]) rather than after a break.
+ */
+@Immutable
+data class PathProfilePiece(val index: Int, val profile: SegmentProfile, val line: ImmutableList<GeoPoint>, val joined: Boolean = false)
 
 /** Where the segment [uri] lies along the piece at [piece], from [startMeters] to [endMeters] along it, nearer end first. */
 @Immutable data class PathSpan(val uri: String, val piece: Int, val startMeters: Long, val endMeters: Long)
@@ -39,8 +44,8 @@ class PathProfile(
     val lengthMeters: Double
         get() = startsMeters.last()
 
-    /** The profile as a chart in [units], the line breaking between pieces, with no stretches marked yet ([marked]). */
-    fun chart(units: UnitSystem): LineChart = profileChart(pieces.map { it.profile }, units)
+    /** The profile as a chart in [units], the line breaking between pieces that don't join, with no stretches marked yet ([marked]). */
+    fun chart(units: UnitSystem): LineChart = profileChart(pieces.map { it.profile }, units, joined = pieces.map { it.joined })
 
     /**
      * [chart] (this profile's, in [units]) with each of [rows]' stretches marked in its rating level's colour, from its shown segment's
@@ -87,21 +92,50 @@ class PathProfile(
     companion object {
         /**
          * [profile] as the AppView served it for a path of [lines] (its view's line pieces, encoded): each covered piece whose heights draw
-         * and whose line decodes. Null when none does.
+         * and whose line decodes, chained end to end in the order the trail runs ([PathChains]), branches left out, and each segment's
+         * stretch measured along its piece as the trail runs. Null when none draws.
          */
         fun of(profile: GetPath.PathProfile?, lines: List<String>): PathProfile? {
-            val pieces =
-                profile?.pieces.orEmpty().mapNotNull { piece ->
-                    val heights = terrainProfileOf(piece.heights, piece.lengthMeters, piece.maxGrade) ?: return@mapNotNull null
-                    val line = lines.getOrNull(piece.piece)?.let(SegmentGeometry::decodePolyline)?.takeIf { it.size >= 2 }
-                    line?.let { PathProfilePiece(piece.piece, heights, it.toImmutableList()) }
+            val covered =
+                profile
+                    ?.pieces
+                    .orEmpty()
+                    .filter { terrainProfileOf(it.heights, it.lengthMeters, it.maxGrade) != null }
+                    .mapNotNull { piece ->
+                        lines.getOrNull(piece.piece)?.let(SegmentGeometry::decodePolyline)?.takeIf { it.size >= 2 }?.let { piece to it }
+                    }
+            val order = PathChains.order(covered.map { it.second })
+            val pieces = order.mapNotNull { placed ->
+                val (piece, line) = covered[placed.index]
+                val heights = if (placed.reversed) piece.heights.asReversed() else piece.heights
+                terrainProfileOf(heights, piece.lengthMeters, piece.maxGrade)?.let {
+                    PathProfilePiece(
+                        piece.piece,
+                        it,
+                        (if (placed.reversed) line.asReversed() else line).toImmutableList(),
+                        joined = placed.joined,
+                    )
                 }
+            }
             if (profile == null || pieces.isEmpty()) return null
+            val reversed = order.filter { it.reversed }.associate { covered[it.index].first.piece to covered[it.index].first.lengthMeters }
             return PathProfile(
                 pieces.toImmutableList(),
                 profile.gain,
                 profile.loss,
-                profile.spans.map { PathSpan(it.segment.value, it.piece, it.startMeters, it.endMeters) }.toImmutableList(),
+                profile.spans
+                    .map { span ->
+                        val length = reversed[span.piece]
+                        if (length == null) PathSpan(span.segment.value, span.piece, span.startMeters, span.endMeters)
+                        else
+                            PathSpan(
+                                span.segment.value,
+                                span.piece,
+                                (length - span.endMeters).coerceAtLeast(0),
+                                (length - span.startMeters).coerceAtLeast(0),
+                            )
+                    }
+                    .toImmutableList(),
             )
         }
 
