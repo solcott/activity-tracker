@@ -58,7 +58,7 @@ fun SelectableRow(
             .mapBrowseHover(hover, key)
             .semantics { this.selected = selected }
             .clickable(onClickLabel = MapBrowseTexts.rowAction(selected, touch).string()) { if (touch) onTap() else onOpen() }
-            .padding(start = 16.dp + indent, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 16.dp + indent, end = 16.dp, top = 12.dp, bottom = 12.dp),
     ) {
         // A rated trail's swatch before its name (segments/trail-ratings), read as its level's name.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

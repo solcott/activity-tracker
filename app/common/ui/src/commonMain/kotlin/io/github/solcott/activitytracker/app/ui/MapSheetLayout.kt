@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -28,8 +30,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -84,8 +84,10 @@ fun rememberMapSheetState(initial: MapSheetDetent = MapSheetDetent.Middle): MapS
  * A phone's map with a sheet over it (segments/path-page), as Apple Maps draws one: the [map] fills the space and the [sheet] rests at one
  * of three heights ([MapSheetDetent]): its top alone showing, halfway up, or over the whole map. The sheet is dragged by its grabber or by
  * its content: a list in it first moves the sheet up to full height and then scrolls, and pulling down from the list's top moves the sheet
- * down again. [map] is given how much of its lower part the resting sheet hides, so it can frame what it shows above the sheet.
+ * down again. [map] is given how much of its lower part the resting sheet hides, so it can frame what it shows above the sheet. The sheet
+ * looks as Material's standard bottom sheet does: the theme's extra-large top corners, its container colour and elevation, and its handle.
  */
+@OptIn(ExperimentalMaterial3Api::class) // BottomSheetDefaults: the standard sheet's shape, colour and elevation.
 @Composable
 fun MapSheetLayout(
     map: @Composable (coveredBottom: Dp) -> Unit,
@@ -113,7 +115,7 @@ fun MapSheetLayout(
         map(with(density) { (height - restingTop).toDp() })
         val fling = AnchoredDraggableDefaults.flingBehavior(draggable)
         val connection = remember(draggable, fling) { SheetScrollConnection(draggable, fling) }
-        Column(
+        Surface(
             Modifier.fillMaxSize()
                 .offset {
                     IntOffset(
@@ -121,34 +123,35 @@ fun MapSheetLayout(
                         draggable.offset.takeUnless { it.isNaN() }?.roundToInt() ?: anchors.positionOf(draggable.targetValue).roundToInt(),
                     )
                 }
-                .shadow(SHADOW, SHAPE)
-                .clip(SHAPE)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .nestedScroll(connection)
                 .anchoredDraggable(draggable, Orientation.Vertical, flingBehavior = fling),
+            shape = BottomSheetDefaults.ExpandedShape,
+            color = BottomSheetDefaults.ContainerColor,
+            shadowElevation = BottomSheetDefaults.Elevation,
         ) {
-            val handle = stringResource(Res.string.map_sheet_handle)
-            Box(
-                Modifier.fillMaxWidth().padding(vertical = GRABBER_PADDING).semantics {
-                    contentDescription = handle
-                    // A tap target for a screen reader: each use moves the sheet to its next height, from low up to full and back.
-                    customActions =
-                        listOf(
-                            CustomAccessibilityAction(handle) {
-                                scope.launch { state.moveTo(next(draggable.settledValue)) }
-                                true
-                            },
-                        )
-                },
-                contentAlignment = Alignment.Center,
-            ) {
+            Column(Modifier.fillMaxSize()) {
+                val handle = stringResource(Res.string.map_sheet_handle)
                 Box(
-                    Modifier.size(GRABBER_WIDTH, GRABBER_HEIGHT)
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = GRABBER_ALPHA)),
-                )
+                    Modifier.fillMaxWidth().padding(vertical = GRABBER_PADDING).semantics {
+                        contentDescription = handle
+                        // A tap target for a screen reader: each use moves the sheet to its next height, from low up to full and back.
+                        customActions =
+                            listOf(
+                                CustomAccessibilityAction(handle) {
+                                    scope.launch { state.moveTo(next(draggable.settledValue)) }
+                                    true
+                                },
+                            )
+                    },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(GRABBER_WIDTH, GRABBER_HEIGHT)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.shapes.extraLarge),
+                    )
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) { sheet() }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) { sheet() }
         }
     }
 }
@@ -209,14 +212,13 @@ private class SheetScrollConnection(private val sheet: AnchoredDraggableState<Ma
 }
 
 /** The lowest sheet's height showing: the grabber and a row's worth of what's under it. */
-private val PEEK = 96.dp
+private val PEEK = 112.dp
 
 /** How far down the map the sheet's middle height comes, as a share of the space: half, the map above and the list below. */
 private const val MIDDLE_SHARE = 0.5f
 
-private val SHAPE = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-private val SHADOW = 8.dp
-private val GRABBER_WIDTH = 36.dp
-private val GRABBER_HEIGHT = 5.dp
-private val GRABBER_PADDING = 8.dp
-private const val GRABBER_ALPHA = 0.4f
+// Material's bottom sheet drag handle (BottomSheetDefaults.DragHandle), drawn here so the handle keeps this sheet's own description and
+// action rather than Material's.
+private val GRABBER_WIDTH = 32.dp
+private val GRABBER_HEIGHT = 4.dp
+private val GRABBER_PADDING = 22.dp

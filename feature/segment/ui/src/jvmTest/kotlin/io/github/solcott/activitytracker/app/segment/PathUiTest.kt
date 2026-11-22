@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
@@ -111,7 +112,8 @@ class PathUiTest {
         setContent { AppPreview(units = UnitSystem.Imperial) { PathUi(PathSamples.noMatches.copy(eventSink = { events += it })) } }
         onNodeWithText("No segments match").assertExists()
         onNodeWithText("No segments here yet").assertDoesNotExist()
-        onNodeWithTag(TestTags.PATH_CLEAR_FILTERS).performClick()
+        // On a phone it lies below the window's edge under the half-raised sheet, so the test runs its click action rather than tapping it.
+        onNodeWithTag(TestTags.PATH_CLEAR_FILTERS).performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(PathEvent.ClearFilters, events.last())
     }
 
