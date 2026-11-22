@@ -41,11 +41,15 @@ The Trail page SHALL list the segments on the path that the viewer may see, one 
 - **THEN** those rows run from the longest to the shortest inside the section, and the section takes its place in the list by its longest row
 
 ### Requirement: The Trail page keeps the browse sport filter
-When opened from browse with one sport group chosen, the Trail page SHALL list only that group's segments and SHALL offer to show all sport groups.
+When opened from browse with one sport group chosen, the Trail page SHALL open listing only that group's segments, with that group chosen in its sport chips (`segments/path-filters`), from which any other sport group or All MAY be chosen.
 
 #### Scenario: Opened with Ride
 - **WHEN** an athlete with Ride chosen opens Ann's
-- **THEN** the page lists Ann's ride segments only, with a way to show all
+- **THEN** the page lists Ann's ride segments only, with Ride chosen in the sport chips
+
+#### Scenario: Showing all sports
+- **WHEN** that athlete chooses All
+- **THEN** the page lists Ann's segment groups for every sport
 
 ### Requirement: The Trail page draws its path and segments
 Where the segment page draws a map, the Trail page SHALL draw the path's line framed whole, muted, with its listed segments' lines over it, each in its rating level's colour for the page's sport group (`segments/trail-ratings`), and the legend of the levels it draws.
