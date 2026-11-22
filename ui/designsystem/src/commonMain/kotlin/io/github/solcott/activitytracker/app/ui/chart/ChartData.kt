@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui.chart
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
 /**
@@ -32,3 +33,9 @@ internal fun labelAt(labels: List<AxisLabel>, value: Double): String =
 
 private const val LABEL_MATCH = 1e-6
 internal const val BLANK_LABEL = " "
+
+/**
+ * A stretch of a [TimeSeriesChart]'s x, from [from] to [to], marked in a strip along the chart's bottom in [color] on a [casing] that
+ * stands out from it (a trail segment along its trail's profile), and also shaded over the chart while [selected].
+ */
+@Immutable data class SeriesSpan(val from: Double, val to: Double, val color: Color, val casing: Color, val selected: Boolean = false)

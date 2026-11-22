@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.chart
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.chart.BandStop
 import io.github.solcott.activitytracker.data.chart.ChartAxis
@@ -28,6 +29,12 @@ import kotlinx.collections.immutable.toImmutableList
 /** A moment on a [LineChart]: a vertical line at [x] with its [label] (a gas switch), in the error colour when it's a [warning]. */
 @Immutable data class ChartMark(val x: Double, val label: AppText, val warning: Boolean = false)
 
+/**
+ * A stretch of a [LineChart]'s x, from [from] to [to], marked along its bottom in the colour of its [rating] (null unrated;
+ * segments/trail-ratings), as a trail segment along its trail's profile, and shaded over the chart while [selected].
+ */
+@Immutable data class ChartSpan(val from: Double, val to: Double, val rating: TrailRating?, val selected: Boolean = false)
+
 /** A labelled place on a [LineChart]'s axis: [value] on the axis and its [label]. */
 @Immutable data class ChartTick(val value: Double, val label: AppText)
 
@@ -38,9 +45,9 @@ import kotlinx.collections.immutable.toImmutableList
  * it isn't), its [average], marked by a dashed line, where it has one, whether it is drawn in [steps] (each value held until the next
  * point, as a threshold holds until it changes), and the [dots] marking some of its points; the [backdrop] drawn faintly behind the line
  * (the elevation behind an effort line, already scaled onto this chart's axis by [backdropOf]), [others] lines on its scale, its [marks],
- * and whether it is filled from the line up to the top ([fillAbove], a dive's depth) rather than down to the bottom. A chart drawn with its
- * larger values lower (a pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose inverted, its labels reading the
- * values unnegated. A UI only lays it out.
+ * and whether it is filled from the line up to the top ([fillAbove], a dive's depth) rather than down to the bottom, and the [spans] marked
+ * along it. A chart drawn with its larger values lower (a pace, the faster at the top) is plotted negated, on an axis [ChartAxis.of] chose
+ * inverted, its labels reading the values unnegated. A UI only lays it out.
  */
 @Immutable
 @Suppress("LongParameterList") // A chart's data, its axes' ticks and its texts.
@@ -61,6 +68,7 @@ class LineChart(
     val others: ImmutableList<ChartLine> = persistentListOf(),
     val marks: ImmutableList<ChartMark> = persistentListOf(),
     val fillAbove: Boolean = false,
+    val spans: ImmutableList<ChartSpan> = persistentListOf(),
 ) {
     init {
         require(points.size >= 2) { "a line needs two points" }
@@ -104,6 +112,39 @@ class LineChart(
 
     /** The [index]th mark. */
     fun markAt(index: Int): ChartMark = marks[index]
+
+    /** How many stretches the chart marks. */
+    val spanCount: Int
+        get() = spans.size
+
+    /** The [index]th stretch. */
+    fun spanAt(index: Int): ChartSpan = spans[index]
+
+    /** The selected stretch, if one is. */
+    val selectedSpan: ChartSpan?
+        get() = spans.firstOrNull { it.selected }
+
+    /** This chart with [spans] marked instead. */
+    fun withSpans(spans: List<ChartSpan>): LineChart =
+        LineChart(
+            points,
+            xMin,
+            xMax,
+            axis,
+            yTicks,
+            xTicks,
+            readouts,
+            description,
+            bands,
+            average,
+            steps,
+            dots,
+            backdrop,
+            others,
+            marks,
+            fillAbove,
+            spans.toImmutableList(),
+        )
 
     /** The label of the tick in [ticks] at [value], or null when none is there. */
     fun labelAt(value: Double, ticks: List<ChartTick>): AppText? = ticks.firstOrNull { abs(it.value - value) < TICK_MATCH }?.label

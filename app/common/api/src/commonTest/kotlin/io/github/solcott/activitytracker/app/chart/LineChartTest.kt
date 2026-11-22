@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.chart
 
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.text.AppText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,6 +36,18 @@ class LineChartTest {
         assertEquals(listOf(1_400.0, 1_450.0, 1_500.0), line.yTicks.map { it.value })
         assertEquals(AppText.written("1450 m"), line.labelAt(1_450.0, line.yTicks))
         assertNull(line.labelAt(1_425.0, line.yTicks))
+    }
+
+    @Test
+    fun spansAreMarkedAndOneMayBeSelected() {
+        val line = chart(listOf(LinePoint(0.0, 1.0), LinePoint(10.0, 2.0)))
+        assertEquals(0, line.spanCount)
+        assertNull(line.selectedSpan)
+        val marked = line.withSpans(listOf(ChartSpan(1.0, 3.0, TrailRating.EASY), ChartSpan(4.0, 9.0, rating = null, selected = true)))
+        assertEquals(2, marked.spanCount)
+        assertEquals(ChartSpan(4.0, 9.0, null, true), marked.selectedSpan)
+        assertEquals(TrailRating.EASY, marked.spanAt(0).rating)
+        assertEquals(line.points, marked.points, "only the spans change")
     }
 
     @Test

@@ -51,7 +51,8 @@ import kotlinx.collections.immutable.toImmutableList
  * backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The backdrop, and the fill of
  * a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself. [lineBrush] and
  * [areaBrush] paint the line and its fill across the chart instead of the theme's colour, as an elevation profile is tinted by grade
- * ([GradeBands]); a line with gaps keeps its plain fill.
+ * ([GradeBands]); a line with gaps keeps its plain fill. [spans] mark stretches of x along the bottom, a selected one shaded over the chart
+ * ([SeriesSpan]), and [onScrub] is told the x of the point the readout marks, and null when it goes.
  */
 @Composable
 @Suppress("LongParameterList") // A chart's data, its labels and what it draws with them.
@@ -76,6 +77,8 @@ fun TimeSeriesChart(
     areaBrush: Brush? = null,
     height: Dp = 140.dp,
     interactive: Boolean = true,
+    spans: ImmutableList<SeriesSpan> = persistentListOf(),
+    onScrub: ((Double?) -> Unit)? = null,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
@@ -112,10 +115,22 @@ fun TimeSeriesChart(
     val otherLines = rememberOtherLines(remember(extra) { extra.map(::gapsIn).toImmutableList() })
     val frame = remember { ChartFrame() }
     val currentLabel by rememberUpdatedState(markerLabel)
+    val currentScrub by rememberUpdatedState(onScrub)
+    val scrubs = onScrub != null
     val readout =
-        remember(points, extra, minY, maxY, frame) {
-            ChartReadout(frame, points, minY..maxY, extra.map { it.toImmutableList() }.toImmutableList()) { x, y -> currentLabel(x, y) }
+        remember(points, extra, minY, maxY, frame, scrubs) {
+            ChartReadout(
+                frame,
+                points,
+                minY..maxY,
+                extra.map { it.toImmutableList() }.toImmutableList(),
+                onScrub = if (scrubs) { x -> currentScrub?.invoke(x) } else null,
+            ) { x, y ->
+                currentLabel(x, y)
+            }
         }
+    val shade = MaterialTheme.colorScheme.onSurface.copy(alpha = SPAN_SHADE_ALPHA)
+    val spanMarks = remember(spans, shade) { SpanMarks(spans, shade).takeIf { spans.isNotEmpty() } }
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
@@ -167,11 +182,12 @@ fun TimeSeriesChart(
                     itemPlacer = remember(xLabels) { FixedXLabels(xLabels.map { it.value }) },
                 ),
             decorations =
-                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, frame) {
+                remember(backdropUnder, fillUnder, spanMarks, average, averageLine, labelsAbove, eventMarks, warningMarks, frame) {
                     listOfNotNull(
-                        // Under the layers in this order: the backdrop, then the line's fill.
+                        // Under the layers in this order: the backdrop, then the line's fill, then a selected span's shading.
                         backdropUnder,
                         fillUnder,
+                        spanMarks,
                         average?.let { avg ->
                             HorizontalLine(y = { avg }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
@@ -192,6 +208,7 @@ fun TimeSeriesChart(
 private fun fillOf(brush: Brush?, color: Color): Fill = if (brush != null) Fill(brush) else Fill(color)
 
 private const val FILL_ALPHA = 0.18f
+private const val SPAN_SHADE_ALPHA = 0.10f
 private const val BACKDROP_ALPHA = 0.12f
 
 private fun linesModel(lines: List<List<SeriesPoint>>) = LineCartesianLayerModel.build {

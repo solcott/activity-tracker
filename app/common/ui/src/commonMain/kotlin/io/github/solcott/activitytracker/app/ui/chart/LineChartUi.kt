@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.chart.LinePoint
 import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.load
+import io.github.solcott.activitytracker.app.ui.map.TrailRatingColors
 import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -22,11 +23,20 @@ import kotlinx.collections.immutable.toImmutableList
  * [chart] as the shared UI draws it, on Vico's [TimeSeriesChart], as the native iOS `LineChartView` draws it on Swift Charts
  * (dev/shared-display-text): every label, readout and the description are the chart's, and its axis, average, steps, dots, backdrop, other
  * lines, marks and fill are drawn as given, [height] tall. One that isn't [interactive] (a sparkline in a tile) shows no readout. A chart
- * with bands is tinted by grade ([GradeBands]). It chooses no text and no tick of its own.
+ * with bands is tinted by grade ([GradeBands]). Its spans are marked in their rating levels' colours ([TrailRatingColors]), as the map
+ * draws their lines, and [onScrub] is told the x of the point the readout marks, null when it goes. It chooses no text and no tick of its
+ * own.
  */
 @Composable
-fun LineChartUi(chart: LineChart, modifier: Modifier = Modifier, height: Dp = 140.dp, interactive: Boolean = true) {
-    val points = remember(chart) { chart.points.toSeries() }
+fun LineChartUi(
+    chart: LineChart,
+    modifier: Modifier = Modifier,
+    height: Dp = 140.dp,
+    interactive: Boolean = true,
+    onScrub: ((Double?) -> Unit)? = null,
+) {
+    // Keyed on the chart's parts rather than the chart, so a chart re-marked with other spans (withSpans) keeps its points and readouts.
+    val points = remember(chart.points) { chart.points.toSeries() }
     val yLabels = axisLabels(chart.yTicks)
     val xLabels = axisLabels(chart.xTicks)
     // A readout for every point is too many texts to read in a composition: they are read once, off it, and shown when ready. A preview
@@ -35,7 +45,7 @@ fun LineChartUi(chart: LineChart, modifier: Modifier = Modifier, height: Dp = 14
     val format = timeFormat()
     val preview = LocalInspectionMode.current
     val readouts by
-        produceState<List<String>?>(null, chart, zone, format, preview, interactive) {
+        produceState<List<String>?>(null, chart.readouts, zone, format, preview, interactive) {
             if (!preview && interactive) value = chart.readouts.map { it.load(zone, format) }
         }
     val dots = dots(chart)
@@ -47,6 +57,13 @@ fun LineChartUi(chart: LineChart, modifier: Modifier = Modifier, height: Dp = 14
     val colors = GradeBands.colors()
     val line = remember(chart, colors) { if (tinted) GradeBands.brush(chart.bands, colors) else null }
     val area = remember(chart, colors) { if (tinted) GradeBands.brush(chart.bands, colors, alpha = TINTED_AREA_ALPHA) else null }
+    val ratings = TrailRatingColors.current()
+    val spans =
+        remember(chart, ratings) {
+            chart.spans
+                .map { SeriesSpan(it.from, it.to, ratings.line(it.rating?.ordinal), ratings.casing(it.rating?.ordinal), it.selected) }
+                .toImmutableList()
+        }
     TimeSeriesChart(
         points = points,
         xRange = chart.xMin..chart.xMax,
@@ -68,6 +85,8 @@ fun LineChartUi(chart: LineChart, modifier: Modifier = Modifier, height: Dp = 14
         areaBrush = area,
         height = height,
         interactive = interactive,
+        spans = spans,
+        onScrub = onScrub,
     )
 }
 

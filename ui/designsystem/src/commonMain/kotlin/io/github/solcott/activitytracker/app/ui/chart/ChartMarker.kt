@@ -52,6 +52,8 @@ class ChartReadout(
     val points: ImmutableList<SeriesPoint>,
     val yRange: ClosedFloatingPointRange<Double>,
     val others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
+    /** Told the x of the point the readout marks as it moves, and null when it goes, so a page can follow it (a map's marker). */
+    val onScrub: ((Double?) -> Unit)? = null,
     val text: (x: Double, y: Double) -> String,
 )
 
@@ -80,7 +82,9 @@ internal fun ReadoutOverlay(readout: ChartReadout, modifier: Modifier = Modifier
                         val event = scrubEvent(pointerEvent.type, change.position, pointerEvent.changes.size, size) ?: continue
                         val shows = gesture.shows(event)
                         val frame = current.frame.frame
+                        val before = pointerX.doubleValue
                         pointerX.doubleValue = if (shows && frame != null) frame.valueAt(change.position.x) else Double.NaN
+                        current.onScrub?.let { report -> reportScrub(before, pointerX.doubleValue, current.points, report) }
                     }
                 }
             }
@@ -119,6 +123,18 @@ internal fun ReadoutOverlay(readout: ChartReadout, modifier: Modifier = Modifier
                 drawText(text, topLeft = topLeft + Offset(padX, padY))
             },
     )
+}
+
+/**
+ * Tells [report] the x of the point of [points] nearest [now] when it differs from the one nearest [before], or null when the readout went
+ * ([now] NaN) after showing.
+ */
+internal fun reportScrub(before: Double, now: Double, points: List<SeriesPoint>, report: (Double?) -> Unit) {
+    if (points.isEmpty()) return
+    fun nearest(x: Double) = if (x.isNaN()) null else points[points.nearestIndexBy(x) { it.x }].x
+    val was = nearest(before)
+    val shown = nearest(now)
+    if (shown != was) report(shown)
 }
 
 /** [type] as [ScrubGesture] reads it, or null for events it ignores. A second finger ends the gesture, as it does for Vico's marker. */

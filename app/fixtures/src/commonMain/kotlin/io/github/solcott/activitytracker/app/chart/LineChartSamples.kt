@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.chart
 import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
 import io.github.solcott.activitytracker.app.detail.CardLines
 import io.github.solcott.activitytracker.app.segment.SegmentSamples
+import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.segment.chart
 import io.github.solcott.activitytracker.app.settings.ThresholdHistorySamples
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryTexts
@@ -41,6 +42,16 @@ object LineChartSamples {
     /** The climbing segment's profile in metric units, tinted by grade. */
     val profile: LineChart
         get() = checkNotNull(SegmentSamples.elevation.profile).chart(UnitSystem.Metric)
+
+    /** The climbing segment's profile with two stretches marked along it in their levels' colours, the second selected. */
+    val spanned: LineChart
+        get() =
+            profile.withSpans(
+                listOf(
+                    ChartSpan(profile.xMin, profile.xMin + (profile.xMax - profile.xMin) * 0.4, TrailRating.EASY),
+                    ChartSpan(profile.xMin + (profile.xMax - profile.xMin) * 0.55, profile.xMax, TrailRating.DIFFICULT, selected = true),
+                ),
+            )
 
     /** The sample run's pace line, as its card charts it: inverted, the faster pace at the top, its average dashed. */
     val pace: LineChart

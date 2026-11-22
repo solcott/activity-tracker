@@ -13,9 +13,11 @@ import kotlinx.collections.immutable.persistentListOf
 @Composable
 private fun Charts() {
     ComponentPreview {
-        // The shared chart: a heart rate line with the elevation behind it and its average, a pace line drawn inverted.
+        // The shared chart: a heart rate line with the elevation behind it and its average, a pace line drawn inverted, and a profile
+        // with two stretches marked in their rating colours, the second selected.
         LineChartUi(LineChartSamples.heartRate)
         LineChartUi(LineChartSamples.pace)
+        LineChartUi(LineChartSamples.spanned)
         ZoneBars(
             persistentListOf(
                 ZoneBar("Z1 Recovery", "< 120 bpm", "5:00", "8%", "Z1 Recovery, < 120 bpm: 5:00, 8%", 0.08f),
