@@ -259,7 +259,8 @@ struct PathPage: View {
         ) {
             RatingSwatch(rating: group.rating)
         }
-        .listRowBackground(selected ? Color(.secondarySystemFill) : nil)
+        // Clear unless marked, so the list's ground shows: the page's beside the map, the sheet's over it.
+        .listRowBackground(selected ? Color(.secondarySystemFill) : Color.clear)
         // The marked row's shading stands alone, with no separator lines over or under it.
         .listRowSeparator(selected ? .hidden : .automatic)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -282,6 +283,7 @@ struct PathPage: View {
             }
         }
         .id(section.key)
+        .listRowBackground(Color.clear)
         .accessibilityHint(Text(PathTexts.shared.toggleLabel(section: section, expanded: expanded)))
     }
 

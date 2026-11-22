@@ -77,14 +77,32 @@ enum MapSheetDetent: CaseIterable {
     }
 }
 
+/// The sheet drawn as the system's own sheet is, measured from a `UISheetPresentationController` sheet at an undimmed detent: the top
+/// corners' continuous radius, the edge shadow (iOS 18 draws a thin one, iOS 26 none), and the background a presented sheet resolves
+/// `systemBackground` to, the elevated level's (white in light, a lifted grey in dark rather than black).
 enum MapSheetStyle {
     static let peek: CGFloat = 96
     /// How much of the screen's height the sheet takes where it opens.
     static let middleShare: CGFloat = 0.5
-    static let cornerRadius: CGFloat = 24
     /// How far past the list's top a pull goes before the sheet follows it down.
     static let pullSlack: CGFloat = 4
-    static let shape = UnevenRoundedRectangle(topLeadingRadius: cornerRadius, topTrailingRadius: cornerRadius)
+    static var cornerRadius: CGFloat {
+        if #available(iOS 26, *) { 38 } else { 10 }
+    }
+    static var shape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: cornerRadius, topTrailingRadius: cornerRadius, style: .continuous)
+    }
+    static let background = Color(
+        uiColor: UIColor { traits in
+            UIColor.systemBackground.resolvedColor(with: traits.modifyingTraits { $0.userInterfaceLevel = .elevated })
+        })
+    /// The system sheet's shadow: none on iOS 26; on iOS 18 a 2-point one in black at 10% in light and 24% in dark.
+    static let shadow = Color(
+        uiColor: UIColor { traits in
+            if #available(iOS 26, *) { return .clear }
+            return UIColor.black.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.24 : 0.1)
+        })
+    static let shadowRadius: CGFloat = 2
 }
 
 /// A phone map page laid out as Apple Maps' is: the map filling the page and the list in a sheet over it, which drags between its
@@ -129,7 +147,9 @@ struct MapSheetLayout<Map: View, Sheet: View>: View {
                             .accessibilityLabel(Text(.mapSheetHandle))
                             .accessibilityAddTraits(.isButton)
                             .accessibilityAction { cycle() }
+                        // The sheet's own background shows through a list in it, as in a system sheet.
                         sheet
+                            .scrollContentBackground(.hidden)
                             .scrollDisabled(detent != .full || moving == true)
                             .onScrollGeometryChange(for: Bool.self) { scroll in
                                 scroll.contentOffset.y <= -scroll.contentInsets.top + MapSheetStyle.pullSlack
@@ -143,8 +163,8 @@ struct MapSheetLayout<Map: View, Sheet: View>: View {
                     .clipShape(MapSheetStyle.shape)
                     .background {
                         MapSheetStyle.shape
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.2), radius: 8, y: -1)
+                            .fill(MapSheetStyle.background)
+                            .shadow(color: MapSheetStyle.shadow, radius: MapSheetStyle.shadowRadius)
                             .ignoresSafeArea(edges: .bottom)
                     }
                     .simultaneousGesture(drag(detentHeight))
