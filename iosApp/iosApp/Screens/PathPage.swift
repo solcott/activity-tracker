@@ -6,12 +6,21 @@ import SwiftUI
 /// beside it, as the shared page lays them out. The map and the list share a selection as browse's do: a tap on a line selects its row and
 /// scrolls to it, a tap on a row selects it, and a tap on the selected one opens its segment (Kotlin decides which). Rows in one of the
 /// path's sections fold under a `DisclosureGroup`, expanded until collapsed, with an Expand all or Collapse all button once there are two
-/// sections; Kotlin keeps which are collapsed and expands one when its line is selected. What it says is Kotlin's (`PathTexts`). Named so
-/// because `PathView` is the lexicon's.
+/// sections; Kotlin keeps which are collapsed and expands one when its line is selected. The search (segments/path-filters) is the
+/// navigation bar's, and the sport chips, filters and sort are one toolbar menu, its icon filled while a filter is on; which rows they
+/// leave, and what each offers, is Kotlin's (`PathFilter`). What it says is Kotlin's (`PathTexts`). Named so because `PathView` is the
+/// lexicon's.
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
+    /// The query as typed, held here so the field follows each keystroke; it edits the state's field and follows it back.
+    @State private var query: TextFieldModel
     @Environment(\.stats) private var stats
+
+    init(state: PathState) {
+        self.state = state
+        _query = State(initialValue: TextFieldModel(state.query))
+    }
 
     var body: some View {
         ContentStateView(state.content, as: PathContent.self, errorKind: .LoadPath, retry: retry) { _ in
@@ -23,6 +32,87 @@ struct PathPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .pageTitle(state.path.map { Text(verbatim: $0.name) } ?? Text(PathTexts.shared.title))
+        .modifier(PathSearch(searchable: state.searchable, query: query, field: state.query, prompt: Text(PathTexts.shared.search)))
+        .toolbar {
+            if state.searchable || !state.sports.isEmpty {
+                ToolbarItem(placement: .primaryAction) { filterMenu }
+            }
+        }
+    }
+
+    /// The sport, difficulty, direction, length and sort choices in one menu, each part shown only while Kotlin offers it.
+    private var filterMenu: some View {
+        Menu {
+            let sports = state.sports
+            if !sports.isEmpty {
+                Picker(selection: Binding(get: { state.sport ?? "" }, set: { send(state.sportEvent(sport: $0.isEmpty ? nil : $0)) })) {
+                    Text(PathTexts.shared.sportChoice(sport: nil)).tag("")
+                    ForEach(sports, id: \.self) { sport in
+                        Text(PathTexts.shared.sportChoice(sport: sport)).tag(sport)
+                    }
+                } label: {
+                    EmptyView()
+                }
+                .pickerStyle(.inline)
+            }
+            let levels = state.levels
+            if !levels.isEmpty {
+                Section(header: Text(PathTexts.shared.difficulty)) {
+                    ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+                        Toggle(isOn: Binding(get: { state.isChosen(level: level) }, set: { _ in send(state.levelEvent(level: level)) })) {
+                            Text(PathTexts.shared.level(option: level))
+                        }
+                    }
+                }
+            }
+            let ways = state.ways
+            if !ways.isEmpty {
+                Section(header: Text(PathTexts.shared.direction)) {
+                    ForEach(Array(ways.enumerated()), id: \.offset) { _, way in
+                        Toggle(isOn: Binding(get: { state.isChosen(way: way) }, set: { _ in send(state.wayEvent(way: way)) })) {
+                            Text(PathTexts.shared.way(choice: way))
+                        }
+                    }
+                }
+            }
+            let lengths = state.lengths
+            if !lengths.isEmpty {
+                Section(header: Text(PathTexts.shared.length)) {
+                    ForEach(Array(lengths.enumerated()), id: \.offset) { _, length in
+                        Toggle(
+                            isOn: Binding(get: { state.isChosen(length: length) }, set: { _ in send(state.lengthEvent(length: length)) })
+                        ) {
+                            Text(state.lengthText(option: length))
+                        }
+                    }
+                }
+            }
+            if state.searchable {
+                let sorts = state.sorts
+                Picker(
+                    selection: Binding(
+                        get: { sorts.firstIndex { state.isChosen(sort: $0) } ?? 0 },
+                        set: { send(state.sortEvent(sort: sorts[$0])) })
+                ) {
+                    ForEach(Array(sorts.enumerated()), id: \.offset) { index, sort in
+                        Text(PathTexts.shared.sort(option: sort)).tag(index)
+                    }
+                } label: {
+                    Label {
+                        Text(PathTexts.shared.sort)
+                    } icon: {
+                        Image(AppIcon.sort)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+        } label: {
+            Label {
+                Text(PathTexts.shared.filters)
+            } icon: {
+                Image(systemName: state.filtersActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+            }
+        }
     }
 
     private var map: some View {
@@ -53,6 +143,14 @@ struct PathPage: View {
                 if state.empty {
                     EmptyMessage(PathTexts.shared.noneHere).listStatusRow()
                 }
+                if state.noMatches {
+                    VStack(spacing: 8) {
+                        EmptyMessage(PathTexts.shared.noMatches)
+                        AppTextButton(PathTexts.shared.clearFilters) { send(PathEvent.ClearFilters.shared) }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .listStatusRow()
+                }
             }
             .listStyle(.plain)
             .onChange(of: state.selected?.value) { _, selected in
@@ -70,15 +168,8 @@ struct PathPage: View {
             if let credit = state.credit {
                 CreditBox(credit: credit)
             }
-            if state.offersAllSports || state.offersAllSections {
-                HStack {
-                    if state.offersAllSports {
-                        AppTextButton(.pathShowAllSports) { send(PathEvent.ShowAllSports.shared) }
-                    }
-                    if state.offersAllSections {
-                        AppTextButton(PathTexts.shared.allSections(allExpanded: state.allSectionsExpanded)) { send(state.allSectionsEvent) }
-                    }
-                }
+            if state.offersAllSections {
+                AppTextButton(PathTexts.shared.allSections(allExpanded: state.allSectionsExpanded)) { send(state.allSectionsEvent) }
             }
         }
         .listStatusRow()
@@ -153,6 +244,29 @@ struct PathPage: View {
 
     private func send(_ event: any PathEvent) {
         state.eventSink(event)
+    }
+}
+
+/// The navigation bar's search field over the state's query, only while Kotlin offers it.
+private struct PathSearch: ViewModifier {
+    let searchable: Bool
+    let query: TextFieldModel
+    let field: KotlinTextFieldState
+    let prompt: Text
+
+    func body(content: Content) -> some View {
+        if searchable {
+            content
+                .searchable(text: Binding(get: { query.text }, set: { query.edit($0) }), prompt: prompt)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .task(id: ObjectIdentifier(field)) {
+                    query.bind(to: field)
+                    await query.follow(field.values.asAsyncSequence())
+                }
+        } else {
+            content
+        }
     }
 }
 
