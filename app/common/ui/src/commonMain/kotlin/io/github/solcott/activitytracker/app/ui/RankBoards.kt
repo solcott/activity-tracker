@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
@@ -139,6 +140,8 @@ fun RankRow(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (accented) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+                // Centred, so every rank and the Mayor's crown share one centre line.
+                textAlign = TextAlign.Center,
             )
         }
         Avatar(athlete.avatar, name, 36.dp)
@@ -160,11 +163,11 @@ fun RankRow(
 
 /**
  * The Mayor's mark in a [RankRow]'s rank cell (segments/segment-mayors): a crown in the accent's container colour, said as "Mayor", at the
- * cell's start like a rank number.
+ * cell's centre like a rank number.
  */
 @Composable
 private fun CrownMedallion(modifier: Modifier = Modifier) {
-    Box(modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
         Box(
             Modifier.size(28.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape).testTag(RankRowCrownTag),
             contentAlignment = Alignment.Center,

@@ -154,15 +154,19 @@ struct RankRow: View {
             summary: Text(verbatim: value).font(.headline.monospacedDigit()).foregroundStyle(.primary), opens: opens
         ) {
             HStack(spacing: 10) {
+                // The list insets a separator to a row's first text, which a centred rank moves and the crown lacks, so every
+                // row's separator starts at the rank column instead.
                 if crowned {
                     crown
                 } else {
                     Text(rank)
                         .font(.headline.monospacedDigit())
                         .foregroundStyle(accented ? Color(.like) : Color.primary)
-                        .frame(minWidth: rankWidth, alignment: .leading)
+                        // Centred, so every rank and the Mayor's crown share one centre line.
+                        .frame(minWidth: rankWidth, alignment: .center)
                         // A long rank ("140") widens its column rather than wrapping.
                         .fixedSize()
+                        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                 }
                 // The shared row's size, leaving the day line room beside a count.
                 Avatar(url: athlete.avatar, name: name, size: 36)
@@ -179,7 +183,8 @@ struct RankRow: View {
             .foregroundStyle(Color(.like))
             .frame(width: crownSize, height: crownSize)
             .background(Color(.like).opacity(0.16), in: Circle())
-            .frame(minWidth: rankWidth, alignment: .leading)
+            .frame(minWidth: rankWidth, alignment: .center)
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
             .accessibilityLabel(Text(.mayorsMayor))
     }
 
