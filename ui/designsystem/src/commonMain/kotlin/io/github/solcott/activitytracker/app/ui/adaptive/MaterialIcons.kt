@@ -22,6 +22,15 @@ internal object MaterialIcons {
             )
         }
 
+    /** A filled crown on Material's 24-unit grid (the Mayor's mark), drawn here since the legacy Material set has none. */
+    val Crown: ImageVector =
+        materialIcon("Filled.Crown") {
+            addPath(
+                PathParser().parsePathString("M5,16L3,6l5.5,4.5L12,4l3.5,6.5L21,6l-2,10H5zM5,18h14v2H5z").toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
     val Repeat: ImageVector =
         materialIcon("Filled.Repeat") {
             addPath(

@@ -83,6 +83,7 @@ enum class AppIcon(
         Icons.Filled.ThumbUp,
         "hand.thumbsup.fill",
     ),
+    Crown(MaterialIcons.Crown, "crown.fill"),
     Repost(MaterialIcons.Repeat, "arrow.2.squarepath"),
     Quote(MaterialIcons.FormatQuote, "quote.bubble"),
     Star(MaterialIcons.StarBorder, "star", Icons.Filled.Star, "star.fill"),

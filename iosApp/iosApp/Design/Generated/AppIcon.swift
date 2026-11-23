@@ -38,6 +38,7 @@ enum AppIcon: CaseIterable {
     case zoomIn
     case zoomOut
     case like
+    case crown
     case repost
     case quote
     case star
@@ -82,6 +83,7 @@ enum AppIcon: CaseIterable {
         case .zoomIn: "plus"
         case .zoomOut: "minus"
         case .like: "hand.thumbsup"
+        case .crown: "crown.fill"
         case .repost: "arrow.2.squarepath"
         case .quote: "quote.bubble"
         case .star: "star"
