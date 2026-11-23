@@ -95,7 +95,9 @@ struct SegmentListsTextTests {
         #expect(entries.map { state.accents(entry: $0) } == [true, false])
         #expect(read(SegmentBoardTexts.shared.efforts(entry: entries[0])) == "1,204 efforts")
         #expect(read(SegmentBoardTexts.shared.efforts(entry: entries[1])) == "9 efforts")
-        #expect(read(SegmentBoardTexts.shared.reached(entry: entries[0])) == "Reached May 20, 2026")
+        #expect(entries.map { state.crowned(entry: $0) } == [true, false])
+        #expect(read(SegmentBoardTexts.shared.reached(entry: entries[0])) == "Mayor · Reached May 20, 2026")
+        #expect(read(SegmentBoardTexts.shared.reached(entry: entries[1])).hasPrefix("Reached "))
         let own = try #require(state.viewerEntry)
         #expect(read(SegmentBoardTexts.shared.efforts(entry: own)) == "1 effort")
     }

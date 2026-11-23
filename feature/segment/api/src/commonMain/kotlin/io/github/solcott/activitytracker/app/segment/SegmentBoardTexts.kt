@@ -66,8 +66,11 @@ object SegmentBoardTexts {
     /** A leaderboard entry's time, in the clock form of a stat ("3:50"). */
     fun time(entry: LeaderboardEntry): AppText = AppText.written(StatText.duration(entry.effort.elapsed))
 
-    /** "Reached" the day a Mayors entry reached its count. */
-    fun reached(entry: MayorEntry): AppText = RankBoardTexts.reached(DateText.isoDate(entry.reachedOn))
+    /** "Reached" the day a Mayors entry reached its count, led by "Mayor" for the board's first ("Mayor · Reached Nov 3"). */
+    fun reached(entry: MayorEntry): AppText =
+        DateText.isoDate(entry.reachedOn).let { day ->
+            if (entry.rank == 1) AppText.named("mayors_reached_mayor", day) else RankBoardTexts.reached(day)
+        }
 
     /** A Mayors entry's count: "14 efforts". */
     fun efforts(entry: MayorEntry): AppText = efforts(entry.efforts)

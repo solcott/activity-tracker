@@ -128,7 +128,7 @@ struct BoardMenu: View {
     }
 }
 
-/// One athlete's place on a board: the rank (accented on the podium or for the leader), their picture and name, a line under it (the
+/// One athlete's place on a board: the rank (accented on the podium or for the leader, and a crown for a `crowned` Mayor), their picture and name, a line under it (the
 /// day of the effort, or the day the count was reached), a `note` under that when there is one (the viewer's gap to first), and the
 /// value (a time or a count) in figures of equal width, kept whole while the name wraps, opening what the entry opens. The viewer's
 /// `own` row has a tinted background in a list and a heavier name, and says "You" to VoiceOver.
@@ -140,9 +140,11 @@ struct RankRow: View {
     let value: String
     var own = false
     var note: (any AppText)?
+    var crowned = false
     let opens: () -> Void
 
     @ScaledMetric(relativeTo: .headline) private var rankWidth: CGFloat = 26
+    @ScaledMetric(relativeTo: .headline) private var crownSize: CGFloat = 26
 
     var body: some View {
         let name = AppPackage.getShownName(athlete)
@@ -152,18 +154,33 @@ struct RankRow: View {
             summary: Text(verbatim: value).font(.headline.monospacedDigit()).foregroundStyle(.primary), opens: opens
         ) {
             HStack(spacing: 10) {
-                Text(rank)
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(accented ? Color(.like) : Color.primary)
-                    .frame(minWidth: rankWidth, alignment: .leading)
-                    // A long rank ("140") widens its column rather than wrapping.
-                    .fixedSize()
+                if crowned {
+                    crown
+                } else {
+                    Text(rank)
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(accented ? Color(.like) : Color.primary)
+                        .frame(minWidth: rankWidth, alignment: .leading)
+                        // A long rank ("140") widens its column rather than wrapping.
+                        .fixedSize()
+                }
                 // The shared row's size, leaving the day line room beside a count.
                 Avatar(url: athlete.avatar, name: name, size: 36)
             }
         }
         .accessibilityValue(own ? Text(.rankBoardYou) : Text(verbatim: ""))
         .listRowBackground(own ? Color.accentColor.opacity(0.12) : nil)
+    }
+
+    /// The Mayor's mark in the rank's place (segments/segment-mayors): a crown in the accent on its tint, said as "Mayor".
+    private var crown: some View {
+        Image(AppIcon.crown)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Color(.like))
+            .frame(width: crownSize, height: crownSize)
+            .background(Color(.like).opacity(0.16), in: Circle())
+            .frame(minWidth: rankWidth, alignment: .leading)
+            .accessibilityLabel(Text(.mayorsMayor))
     }
 
     private var noteLine: [Text] {

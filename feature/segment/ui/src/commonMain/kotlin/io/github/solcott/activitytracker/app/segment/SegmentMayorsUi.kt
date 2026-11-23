@@ -96,5 +96,6 @@ private fun MayorRow(state: SegmentMayorsState, entry: MayorEntry, onClick: () -
         onClick = onClick,
         own = state.isOwn(entry),
         note = note,
+        crowned = state.crowned(entry),
     )
 }

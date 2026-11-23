@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -22,10 +23,13 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import io.github.solcott.activitytracker.app.fixtures.PagedStates
 import io.github.solcott.activitytracker.app.ui.BoardChipRowTag
 import io.github.solcott.activitytracker.app.ui.OwnPlaceBarTag
+import io.github.solcott.activitytracker.app.ui.RankRowCrownTag
 import io.github.solcott.activitytracker.app.ui.RankRowValueTag
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
+import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -144,6 +148,34 @@ class SegmentBoardsUiTest {
         setContent { AppPreview { SegmentMayorsUi(SegmentMayorsSamples.variants.getValue("ownRow")) } }
         onNodeWithTag(OwnPlaceBarTag).assertDoesNotExist()
         onAllNodes(you).assertCountEquals(1)
+    }
+
+    @Test
+    fun theMayorIsCrownedAndNoOneElse() = runComposeUiTest {
+        setContent { AppPreview { SegmentMayorsUi(SegmentMayorsSamples.variants.getValue("ownRow")) } }
+        onAllNodesWithTag(RankRowCrownTag, useUnmergedTree = true).assertCountEquals(1)
+        onNodeWithContentDescription("Mayor", useUnmergedTree = true).assertExists()
+        onNode(hasText("Bob", substring = true) and hasText("Mayor · Reached", substring = true)).assertExists()
+        onNodeWithText("1").assertDoesNotExist()
+        onNodeWithText("2").assertExists()
+    }
+
+    @Test
+    fun aMayorViewerIsCrownedAndMarkedAsTheirs() = runComposeUiTest {
+        val entries = SegmentMayorsSamples.entries
+        setContent {
+            AppPreview { SegmentMayorsUi(SegmentMayorsState("Ridge", entries = PagedStates.end(entries, BoardMeta(entries[0])))) }
+        }
+        onNode(you).assert(hasText("Bob", substring = true))
+        onAllNodesWithTag(RankRowCrownTag, useUnmergedTree = true).assertCountEquals(1)
+        onNodeWithTag(OwnPlaceBarTag).assertDoesNotExist()
+    }
+
+    @Test
+    fun theLeaderboardsFirstIsNotCrowned() = runComposeUiTest {
+        setContent { AppPreview { SegmentLeaderboardUi(SegmentLeaderboardSamples.variants.getValue("ownRow")) } }
+        onAllNodesWithTag(RankRowCrownTag, useUnmergedTree = true).assertCountEquals(0)
+        onNodeWithText("1").assertExists()
     }
 
     private fun SemanticsNodeInteraction.lineCount(): Int {

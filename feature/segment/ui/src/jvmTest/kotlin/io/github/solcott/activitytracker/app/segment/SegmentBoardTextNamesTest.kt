@@ -31,7 +31,8 @@ class SegmentBoardTextNamesTest {
                 LeaderboardBracketTexts.gender(null)
         val texts =
             choices.flatMap { choice -> choice.options.map { it.label } } +
-                SegmentBoardTexts.reached(fakeMayorEntry()) +
+                SegmentBoardTexts.reached(fakeMayorEntry(rank = 1)) +
+                SegmentBoardTexts.reached(fakeMayorEntry(rank = 2)) +
                 SegmentBoardTexts.efforts(fakeMayorEntry()) +
                 SegmentBoardTexts.effortDay(fakeLeaderboardEntry()) +
                 UnitSystem.entries.map { StarredSegmentsTexts.summary(SegmentSamples.segment, it) } +
@@ -51,6 +52,16 @@ class SegmentBoardTextNamesTest {
         val mayors = SegmentMayorsState("Ridge")
         assertTrue(mayors.accents(fakeMayorEntry(rank = 1)))
         assertFalse(mayors.accents(fakeMayorEntry(rank = 2)))
+        assertTrue(mayors.crowned(fakeMayorEntry(rank = 1)))
+        assertFalse(mayors.crowned(fakeMayorEntry(rank = 2)))
+    }
+
+    @Test
+    fun theMayorsLineSaysMayorAndTheRestSayReached() {
+        val mayor = fakeMayorEntry(rank = 1).copy(reachedOn = "2026-11-03")
+        assertEquals(AppText.named("mayors_reached_mayor", DateText.isoDate("2026-11-03")), SegmentBoardTexts.reached(mayor))
+        val second = fakeMayorEntry(rank = 2).copy(reachedOn = "2026-11-09")
+        assertEquals(AppText.named("mayors_reached", DateText.isoDate("2026-11-09")), SegmentBoardTexts.reached(second))
     }
 
     @Test

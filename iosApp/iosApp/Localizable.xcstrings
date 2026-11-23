@@ -13971,6 +13971,17 @@
         }
       }
     },
+    "mayors_mayor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mayor"
+          }
+        }
+      }
+    },
     "mayors_more_to_be_mayor" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14011,6 +14022,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reached %1$@"
+          }
+        }
+      }
+    },
+    "mayors_reached_mayor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mayor · Reached %1$@"
           }
         }
       }

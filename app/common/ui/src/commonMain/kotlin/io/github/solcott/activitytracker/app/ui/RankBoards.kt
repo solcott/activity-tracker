@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,6 +52,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableMaxWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
+import io.github.solcott.activitytracker.composeApp.resources.mayors_mayor
 import io.github.solcott.activitytracker.composeApp.resources.rank_board_you
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.PagedState
@@ -95,9 +98,9 @@ fun BoardChoiceChip(choice: BoardChoice, onSelect: (String?) -> Unit, modifier: 
 }
 
 /**
- * One athlete's place on a board: [rank], as `RankBoardTexts.rank` writes it (in the accent colour when [accented]), avatar and name,
- * [detail] under it and [note] under that, and [value] at the end in figures of equal width, kept whole while the name wraps. The viewer's
- * [own] row is tinted, its name heavier, and it says "You" to accessibility services.
+ * One athlete's place on a board: [rank], as `RankBoardTexts.rank` writes it (in the accent colour when [accented]; a crown for a [crowned]
+ * Mayor), avatar and name, [detail] under it and [note] under that, and [value] at the end in figures of equal width, kept whole while the
+ * name wraps. The viewer's [own] row is tinted, its name heavier, and it says "You" to accessibility services.
  */
 @Composable
 @Suppress("LongParameterList") // A board row's parts.
@@ -111,6 +114,7 @@ fun RankRow(
     modifier: Modifier = Modifier,
     own: Boolean = false,
     note: String? = null,
+    crowned: Boolean = false,
 ) {
     val name = athlete.shownName
     val you = stringResource(Res.string.rank_board_you)
@@ -126,13 +130,17 @@ fun RankRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            rank,
-            Modifier.width(36.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (accented) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
-        )
+        if (crowned) {
+            CrownMedallion(Modifier.width(RANK_WIDTH))
+        } else {
+            Text(
+                rank,
+                Modifier.width(RANK_WIDTH),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (accented) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Avatar(athlete.avatar, name, 36.dp)
         Column(Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (own) FontWeight.SemiBold else null)
@@ -149,6 +157,33 @@ fun RankRow(
         )
     }
 }
+
+/**
+ * The Mayor's mark in a [RankRow]'s rank cell (segments/segment-mayors): a crown in the accent's container colour, said as "Mayor", at the
+ * cell's start like a rank number.
+ */
+@Composable
+private fun CrownMedallion(modifier: Modifier = Modifier) {
+    Box(modifier) {
+        Box(
+            Modifier.size(28.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape).testTag(RankRowCrownTag),
+            contentAlignment = Alignment.Center,
+        ) {
+            PlatformIcon(
+                AppIcon.Crown,
+                stringResource(Res.string.mayors_mayor),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                size = 18.dp,
+            )
+        }
+    }
+}
+
+/** The width of a [RankRow]'s rank cell, so names line up whatever the rank. */
+private val RANK_WIDTH = 36.dp
+
+/** The test tag of a crowned [RankRow]'s medallion. */
+const val RankRowCrownTag = "rank-row-crown"
 
 /**
  * How strongly the viewer's own row is washed in the brand colour: lighter than `primaryContainer`, the avatar placeholder's circle, so the

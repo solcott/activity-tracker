@@ -2136,6 +2136,8 @@
     <string name="detail_dive_site_created">Dive site published. It appears here once it's processed.</string>
     <string name="mayors_title">Mayors of %1$s</string>
     <string name="mayors_reached">Reached %1$s</string>
+    <string name="mayors_mayor">Mayor</string>
+    <string name="mayors_reached_mayor">Mayor · Reached %1$s</string>
     <string name="mayors_empty">No one has an effort here in this period</string>
     <string name="mayor_period_last_90_days">Last 90 days</string>
     <string name="mayor_period_last_year">Last year</string>

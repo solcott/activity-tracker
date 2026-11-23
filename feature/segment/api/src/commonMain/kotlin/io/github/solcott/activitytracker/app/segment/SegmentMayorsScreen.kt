@@ -38,6 +38,9 @@ data class SegmentMayorsState(
     /** Whether [entry]'s rank is drawn in the accent colour: the Mayor alone. */
     fun accents(entry: MayorEntry): Boolean = entry.rank == 1
 
+    /** Whether [entry] is the board's one Mayor, whose rank is drawn as a crown (segments/segment-mayors). */
+    fun crowned(entry: MayorEntry): Boolean = entry.rank == 1
+
     /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
     fun isOwn(entry: MayorEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
 

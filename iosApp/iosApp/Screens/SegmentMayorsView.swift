@@ -34,6 +34,7 @@ struct SegmentMayorsView: View {
             rank: RankBoardTexts.shared.rank(rank: entry.rank), accented: state.accents(entry: entry), athlete: entry.athlete,
             detail: SegmentBoardTexts.shared.reached(entry: entry),
             value: AppStrings.string(SegmentBoardTexts.shared.efforts(entry: entry)), own: state.isOwn(entry: entry), note: note,
+            crowned: state.crowned(entry: entry),
             opens: { send(SegmentMayorsEvent.OpenAthlete(did: entry.athlete.did)) })
     }
 
