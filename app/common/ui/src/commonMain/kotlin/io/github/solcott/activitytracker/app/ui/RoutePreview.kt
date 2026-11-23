@@ -55,7 +55,7 @@ fun RoutePreview(
                     for (p in piece.drop(1)) lineTo(at(p).x, at(p).y)
                 }
             }
-        drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(path, color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawHighlight(stretchCurve.map { at(it) }, highlightColor)
         markers.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
@@ -86,7 +86,7 @@ private fun DrawScope.drawHighlight(points: List<Offset>, color: Color) {
             moveTo(points.first().x, points.first().y)
             for (p in points.drop(1)) lineTo(p.x, p.y)
         }
-    drawPath(path, color, style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, color, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 /** A dot of [radius] filled with [fill] and ringed with [ring], [ringWidth] wide, as `ActivityMap` draws its markers. */

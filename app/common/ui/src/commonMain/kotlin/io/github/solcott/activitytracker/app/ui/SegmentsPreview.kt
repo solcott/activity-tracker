@@ -67,7 +67,7 @@ internal fun SegmentsPreview(
                     drawPath(path, color, style = Stroke(width.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect))
                 when (line.role) {
                     MapSegmentRole.Lift -> stroke(lift, 2.dp, dashes)
-                    MapSegmentRole.Selected -> stroke(highlight, 6.dp)
+                    MapSegmentRole.Selected -> stroke(highlight, 5.dp)
                     MapSegmentRole.Run if !line.trail -> stroke(plain, LINE_WIDTH)
                     MapSegmentRole.Run -> {
                         val level = line.rating?.ordinal

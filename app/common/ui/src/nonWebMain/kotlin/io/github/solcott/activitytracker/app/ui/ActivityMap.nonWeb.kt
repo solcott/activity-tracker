@@ -95,7 +95,7 @@ actual fun ActivityMap(
                         id = "route-highlight",
                         source = stretch,
                         color = const(highlightColor),
-                        width = const(6.dp),
+                        width = const(5.dp),
                         cap = const(LineCap.Round),
                         join = const(LineJoin.Round),
                     )

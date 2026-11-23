@@ -17,8 +17,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 
 /**
- * An activity's route as the map draws it, shared by the live map and the feed's map images: [routeJson] (a [lineJson]) in [color] on a
- * white casing, then [above] (the live map's highlighted stretch), then [markers] on top.
+ * An activity's route as the map draws it, shared by the live map and the feed's map images: [routeJson] (a [lineJson]) as a thin line in
+ * [color] with no casing, then [above] (the live map's highlighted stretch), then [markers] on top.
  */
 @Composable
 internal fun RouteLayers(
@@ -29,18 +29,10 @@ internal fun RouteLayers(
 ) {
     val route = rememberGeoJsonSource(GeoJsonData.JsonString(routeJson))
     LineLayer(
-        id = "route-casing",
-        source = route,
-        color = const(Color.White),
-        width = const(7.dp),
-        cap = const(LineCap.Round),
-        join = const(LineJoin.Round),
-    )
-    LineLayer(
         id = "route",
         source = route,
         color = const(color),
-        width = const(4.dp),
+        width = const(3.dp),
         cap = const(LineCap.Round),
         join = const(LineJoin.Round),
     )

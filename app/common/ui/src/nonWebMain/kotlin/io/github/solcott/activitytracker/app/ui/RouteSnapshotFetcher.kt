@@ -15,7 +15,7 @@ import okio.Buffer
 import okio.IOException
 
 /** Bumped whenever the drawing changes ([RouteLayers], the framing), so images drawn before it are drawn again. */
-internal const val ROUTE_IMAGE_VERSION = 1
+internal const val ROUTE_IMAGE_VERSION = 2
 
 /**
  * A feed card's map image of [polyline], broken at [gaps], in the [dark] or light map style with the route in [routeColor] (ARGB), for a

@@ -78,10 +78,10 @@ fun RatingLegend(entries: ImmutableList<RatingLegendEntry>, modifier: Modifier =
 
 private val SWATCH_LENGTH = 18.dp
 private val SWATCH_HEIGHT = 8.dp
-internal val LINE_WIDTH = 4.dp
+internal val LINE_WIDTH = 3.dp
 
 /** How much wider than its line a run's casing is, both sides together. */
-internal val CASING_EXTRA = 2.dp
+internal val CASING_EXTRA = 1.dp
 
 /** An Extreme run's centre line is this share of its line's width. */
 private const val EXTREME_CENTRE_SHARE = 3f

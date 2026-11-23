@@ -202,7 +202,7 @@ private fun SegmentsMapLibre(
                     id = "segments-selected",
                     source = rememberGeoJsonSource(GeoJsonData.JsonString(selectedJson)),
                     color = const(selectedColor),
-                    width = const(6.dp),
+                    width = const(5.dp),
                     cap = const(LineCap.Round),
                     join = const(LineJoin.Round),
                 )
