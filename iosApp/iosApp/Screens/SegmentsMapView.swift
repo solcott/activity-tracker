@@ -71,7 +71,6 @@ private struct LiveSegmentsMap: View {
                     case .Lift:
                         MapPolyline(coordinates: coordinates).stroke(Color(.systemGray), style: SegmentsMapStyle.lift)
                     case .Selected:
-                        MapPolyline(coordinates: coordinates).stroke(.white, style: SegmentsMapStyle.selectedCasing)
                         MapPolyline(coordinates: coordinates).stroke(Color("LikeColor"), style: SegmentsMapStyle.selected)
                     default:
                         let rating = line.rating
@@ -173,8 +172,7 @@ enum SegmentsMapGeometry {
 
 /// How a segments map draws its lines, as the shared map draws them.
 enum SegmentsMapStyle {
-    static let selected = StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
-    static let selectedCasing = StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round)
+    static let selected = StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
     static let lift = StrokeStyle(lineWidth: 2, lineCap: .butt, dash: [6, 4])
     /// A finger's width from a tap, as the shared map's tap box reaches.
     static let tapSlop: CGFloat = 12

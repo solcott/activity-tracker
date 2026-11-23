@@ -26,9 +26,9 @@ enum TrailRatingStyle {
     /// Whether the run's black line is drawn double, with a thin white line down its middle.
     static func isDouble(_ rating: TrailRating?) -> Bool { rating == .EXTREME }
 
-    static let lineStroke = StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-    static let casingStroke = StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
-    static let centre = StrokeStyle(lineWidth: 4.0 / 3, lineCap: .round, lineJoin: .round)
+    static let lineStroke = StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+    static let casingStroke = StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+    static let centre = StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round)
 }
 
 /// A short sample of how a map draws a level's line, read as the level's name; nothing for an unrated row unless `showsUnrated`.

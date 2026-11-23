@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A feed card's route as a still map (feed/feed-route-map): the system map's snapshot of the frame Kotlin gives the route for the
 /// tile's size (`RouteMap.frame`, as the live map and the other platforms' images frame it), in the current appearance, with the route
-/// drawn over it as `RouteMapView` draws it: the line on a white casing, a highlighted stretch, dashed connectors across breaks, and the
+/// drawn over it as `RouteMapView` draws it: the line with no casing, a highlighted stretch, dashed connectors across breaks, and the
 /// break, start and end markers. Only the map's tiles are fetched; the route is drawn here and sent nowhere.
 ///
 /// The line preview stands in while the image draws and whenever it can't be (no network, no tiles), with no error. Images are kept in
@@ -118,13 +118,9 @@ enum RouteMapImages {
             let highlightColor = (UIColor(named: "LikeColor") ?? .systemPink).resolvedColor(with: traits)
             let breakColor = UIColor(RouteMarkerStyle.breakColor)
             for line in pieces {
-                stroke(line, in: context, at: point, color: .white, width: RouteMarkerStyle.casing.lineWidth)
-            }
-            for line in pieces {
                 stroke(line, in: context, at: point, color: accent, width: RouteMarkerStyle.line.lineWidth)
             }
             if let highlight {
-                stroke(highlight, in: context, at: point, color: .white, width: RouteMarkerStyle.highlightCasing.lineWidth)
                 stroke(highlight, in: context, at: point, color: highlightColor, width: RouteMarkerStyle.highlight.lineWidth)
             }
             for gap in breaks {

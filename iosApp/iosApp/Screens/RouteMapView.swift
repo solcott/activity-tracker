@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A route on the system's map (ui/ios-design-system), for any native page that shows one: the activity page, a segment's or dive
 /// site's page, segment browse, an invite's route preview. What it draws is Kotlin's (`RouteMap`, which the shared map asks too): each
-/// piece of the line smoothed, in the accent colour on a white casing, a dashed connector across each break with its stop and resume
+/// piece of the line smoothed, as a thin line in the accent colour with no casing, a dashed connector across each break with its stop and resume
 /// markers, the start and end markers where the viewer's map shows them, and a highlighted stretch over the route when the map has one
 /// (`RouteMap.highlight`: a new segment's), wider, in the colour the segments map's selected run takes. It frames the whole route north-up as Kotlin frames it
 /// (`RouteMap.frame`: the shared margin, never closer than zoom 16), converted to MapKit's camera by `MapCamera`. The route is drawn on
@@ -66,15 +66,11 @@ private struct LiveRouteMap: View {
         let breaks = map.breaks.elements(as: MapBreak.self)
         Map(position: $position, interactionModes: interactive ? [.pan, .zoom] : []) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                MapPolyline(coordinates: line).stroke(.white, style: RouteMarkerStyle.casing)
-            }
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 // The catalog colour by name: inside a map's content `Color.accentColor` is the system's blue, not the app's tint.
                 MapPolyline(coordinates: line).stroke(Color("AccentColor"), style: RouteMarkerStyle.line)
             }
             if let highlight = map.highlight {
                 let stretch = Self.coordinates(highlight)
-                MapPolyline(coordinates: stretch).stroke(.white, style: RouteMarkerStyle.highlightCasing)
                 MapPolyline(coordinates: stretch).stroke(RouteMarkerStyle.highlightColor, style: RouteMarkerStyle.highlight)
             }
             ForEach(Array(breaks.enumerated()), id: \.offset) { _, gap in
@@ -225,10 +221,8 @@ enum RouteMarkerStyle {
     /// The margin the line preview keeps clear around a route, as the shared preview does.
     static let sketchPad: CGFloat = 12
 
-    static let line = StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-    static let casing = StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round)
+    static let line = StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
     /// A highlighted stretch, wider than the line, as the shared map draws one.
-    static let highlight = StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
-    static let highlightCasing = StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round)
+    static let highlight = StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
     static let connector = StrokeStyle(lineWidth: connectorWidth, dash: [dash, space])
 }
