@@ -220,7 +220,7 @@ Shapes are rounded and soft, with tighter corners where there's a pointer.
 - **iOS:** grouped cards use 12px continuous corners.
 - **Buttons:** fully rounded on Android, desktop and web, and the system's bordered shape on iOS.
 - **Fields:** Material's outlined field, with a 4px corner.
-- **Map lines:** round caps and joins (a 4px line on a 6px casing).
+- **Map lines:** round caps and joins; a 3px line. Activity routes and a selected run have no casing; trail runs sit on a 4px casing so every rating colour, Easiest's white included, reads on any basemap.
 
 ## Components
 

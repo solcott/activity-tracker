@@ -294,7 +294,7 @@ A native page that refreshes SHALL use the system's pull to refresh, whose spinn
 - **THEN** the system's spinner shows for those two seconds and then closes
 
 ### Requirement: A native route map draws the shared route
-On iOS a native page SHALL show a route on the system's map, drawn from the polyline and breaks the viewer was served: each piece smoothed as the shared map smooths it, in the accent colour on a white casing, a dashed connector across each break with its stop and resume markers, and the start and end markers where the viewer's map shows them.
+On iOS a native page SHALL show a route on the system's map, drawn from the polyline and breaks the viewer was served: each piece smoothed as the shared map smooths it, as a thin line in the accent colour with no casing, a dashed connector across each break with its stop and resume markers, and the start and end markers where the viewer's map shows them.
 
 #### Scenario: Ride with a break
 - **WHEN** a native page shows a ride whose line breaks once
