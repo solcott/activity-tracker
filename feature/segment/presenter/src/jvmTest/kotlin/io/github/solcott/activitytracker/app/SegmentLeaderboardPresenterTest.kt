@@ -81,7 +81,7 @@ class SegmentLeaderboardPresenterTest {
                         val meta = """"board":"$board","boards":[$listed]"""
                         when {
                             failing -> respond("""{"error":"InternalError"}""", HttpStatusCode.InternalServerError, json)
-                            params["period"] == LeaderboardPeriod.YEAR -> {
+                            params["period"] == LeaderboardPeriod.THIS_YEAR -> {
                                 yearGate?.await()
                                 respond("""{"entries":[${entry(1, "erin", 190)}],$meta}""", headers = json)
                             }
@@ -159,8 +159,8 @@ class SegmentLeaderboardPresenterTest {
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
             // Each change waits for its own request, so the next one can't cancel it before it's sent.
-            first.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.MONTH))
-            awaitUntil { requests.size == 2 && it.filters.period == LeaderboardPeriod.MONTH && it.answered }
+            first.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.THIS_MONTH))
+            awaitUntil { requests.size == 2 && it.filters.period == LeaderboardPeriod.THIS_MONTH && it.answered }
                 .filters
                 .eventSink(BoardFilterEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
             awaitUntil { requests.size == 3 && it.filters.scope == LeaderboardScope.FOLLOWING && it.answered }
@@ -171,9 +171,9 @@ class SegmentLeaderboardPresenterTest {
             assertEquals(
                 listOf(
                     mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone"),
-                    mapOf("segment" to uri, "period" to "month", "scope" to "everyone"),
-                    mapOf("segment" to uri, "period" to "month", "scope" to "following"),
-                    mapOf("segment" to uri, "period" to "month", "scope" to "following", "board" to "eBike"),
+                    mapOf("segment" to uri, "period" to "thisMonth", "scope" to "everyone"),
+                    mapOf("segment" to uri, "period" to "thisMonth", "scope" to "following"),
+                    mapOf("segment" to uri, "period" to "thisMonth", "scope" to "following", "board" to "eBike"),
                 ),
                 requests,
             )
@@ -219,9 +219,9 @@ class SegmentLeaderboardPresenterTest {
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
             val allTime = awaitUntil { it.answered }
             assertNotNull(allTime.viewerEntry)
-            allTime.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.YEAR))
+            allTime.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.THIS_YEAR))
             // The first state under this year already has none of the all-time board.
-            val loading = awaitUntil { it.filters.period == LeaderboardPeriod.YEAR }
+            val loading = awaitUntil { it.filters.period == LeaderboardPeriod.THIS_YEAR }
             assertEquals(emptyList(), loading.entries.items, "no all-time entries under this year")
             assertNull(loading.viewerEntry, "nor the all-time place")
             assertEquals(LoadStatus.Loading, loading.entries.refresh)
@@ -348,8 +348,8 @@ class SegmentLeaderboardPresenterTest {
                 }
             },
         ) {
-            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.MONTH))
-            awaitUntil { it.filters.period == LeaderboardPeriod.MONTH && it.answered }.eventSink(SegmentLeaderboardEvent.LoadMore)
+            awaitUntil { it.answered }.filters.eventSink(BoardFilterEvent.PeriodChanged(LeaderboardPeriod.THIS_MONTH))
+            awaitUntil { it.filters.period == LeaderboardPeriod.THIS_MONTH && it.answered }.eventSink(SegmentLeaderboardEvent.LoadMore)
             awaitUntil { it.entries.items.size == 3 && it.answered }
             val sent = requests.size
             // What the back stack does to a record it leaves.
@@ -360,7 +360,7 @@ class SegmentLeaderboardPresenterTest {
             saveable = SaveableStateRegistry(saved) { true }
             shown = true
             val back = awaitUntil { it.name == "Hill" }
-            assertEquals(LeaderboardPeriod.MONTH, back.filters.period)
+            assertEquals(LeaderboardPeriod.THIS_MONTH, back.filters.period)
             assertEquals(listOf(1, 2, 3), back.entries.items.map { it.rank }, "no loading state in between")
             testScheduler.runCurrent()
             expectNoEvents()

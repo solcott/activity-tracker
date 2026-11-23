@@ -12,7 +12,7 @@
           "segment": { "type": "string", "format": "at-uri" },
           "period": {
             "type": "string",
-            "knownValues": ["last90Days", "allTime", "thisYear", "lastYear", "thisMonth", "lastMonth", "thisWeek", "lastWeek"],
+            "knownValues": ["today", "thisWeek", "lastWeek", "thisMonth", "lastMonth", "last90Days", "thisYear", "lastYear", "allTime"],
             "default": "last90Days",
             "description": "By the effort's local date, against the AppView's current date in UTC. last90Days is today and the 89 days before it; weeks start on Monday."
           },

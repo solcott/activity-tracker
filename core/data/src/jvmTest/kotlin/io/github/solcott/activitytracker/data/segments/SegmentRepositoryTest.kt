@@ -175,7 +175,7 @@ class SegmentRepositoryTest {
         val segments = SegmentRepository(clients)
 
         val board =
-            segments.leaderboardPage(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, board = "eBike", cursor = "c1")
+            segments.leaderboardPage(segmentUri, LeaderboardPeriod.THIS_MONTH, LeaderboardScope.FOLLOWING, board = "eBike", cursor = "c1")
         val meta = BoardMeta(entry, "eBike", listOf("ride", "eBike"))
         assertEquals(Outcome.Data(Page(listOf(entry), meta, "200::${did.value}"), Origin.Network), board)
         segments.leaderboardPage(
@@ -192,7 +192,7 @@ class SegmentRepositoryTest {
                 Nsid.FEED_GET_SEGMENT_LEADERBOARD to
                     mapOf(
                         "segment" to listOf(segmentUri.value),
-                        "period" to listOf("month"),
+                        "period" to listOf("thisMonth"),
                         "scope" to listOf("following"),
                         "board" to listOf("eBike"),
                         "cursor" to listOf("c1"),

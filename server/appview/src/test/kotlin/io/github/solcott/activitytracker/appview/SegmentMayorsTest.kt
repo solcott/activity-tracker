@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.api.DateWindow
-import io.github.solcott.activitytracker.appview.api.mayorWindow
+import io.github.solcott.activitytracker.appview.api.boardWindow
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -247,11 +247,12 @@ class SegmentMayorsTest : SegmentTestBase() {
 
     @Test
     fun windowsAreCountedFromTheUtcDate() {
-        fun window(period: String, on: String) = mayorWindow(period, LocalDate.parse(on))
+        fun window(period: String, on: String) = boardWindow(period, LocalDate.parse(on))
 
         // Thursday 22 October 2026.
         assertEquals(DateWindow("2026-07-25", null), window(MayorPeriod.LAST_90_DAYS, "2026-10-22"))
         assertEquals(DateWindow(null, null), window(MayorPeriod.ALL_TIME, "2026-10-22"))
+        assertEquals(DateWindow("2026-10-22", null), window(MayorPeriod.TODAY, "2026-10-22"))
         assertEquals(DateWindow("2026-01-01", null), window(MayorPeriod.THIS_YEAR, "2026-10-22"))
         assertEquals(DateWindow("2025-01-01", "2026-01-01"), window(MayorPeriod.LAST_YEAR, "2026-10-22"))
         assertEquals(DateWindow("2026-10-01", null), window(MayorPeriod.THIS_MONTH, "2026-10-22"))

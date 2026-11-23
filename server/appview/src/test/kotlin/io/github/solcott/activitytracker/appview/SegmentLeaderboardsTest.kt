@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -444,6 +445,22 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
         assertEquals(250, client.board(null, "period" to "month").entries[0].effort.elapsed, "this month's effort")
         val year = client.board(null, "period" to "year").entries.places
         if (lastMonth.year == today.year) assertEquals(listOf(bob to 1, alice to 2), year) else assertEquals(listOf(alice to 1), year)
+        assertEquals(year, client.board(null, "period" to LeaderboardPeriod.THIS_YEAR).entries.places, "an older client's year")
+        assertEquals(listOf(alice to 1), client.board(null, "period" to LeaderboardPeriod.TODAY).entries.places)
+        assertEquals(listOf(bob to 1), client.board(null, "period" to LeaderboardPeriod.LAST_MONTH).entries.places, "last month ends")
+    }
+
+    @Test
+    fun lastWeekHasAnEnd() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        val monday = LocalDate.now(ZoneOffset.UTC).with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        effort(alice, "3ka", speed = 8.0, startedAt = "${monday}T09:30:00Z")
+        effort(bob, "3kb", speed = 5.0, startedAt = "${monday.minusDays(3)}T09:30:00Z")
+        matchActive()
+
+        assertEquals(listOf(bob to 1), client.board(null, "period" to LeaderboardPeriod.LAST_WEEK).entries.places)
+        assertEquals(listOf(alice to 1), client.board(null, "period" to LeaderboardPeriod.THIS_WEEK).entries.places)
     }
 
     @Test

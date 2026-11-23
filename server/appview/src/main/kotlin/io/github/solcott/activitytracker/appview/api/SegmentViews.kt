@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
@@ -683,7 +684,7 @@ class SegmentViews(
      * [Views.likes] does; ranks come from counting the athletes ahead, so no window function is needed.
      */
     suspend fun leaderboard(viewer: Did?, params: GetSegmentLeaderboard.Params): GetSegmentLeaderboard.Output {
-        val (since, following) = filtersOf(viewer, params)
+        val (window, following) = filtersOf(viewer, params)
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
@@ -691,7 +692,7 @@ class SegmentViews(
                 return@tx GetSegmentLeaderboard.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
             val (served, boards) = boardsOf(viewer, params.segment.value, requested)
             if (served == null) return@tx GetSegmentLeaderboard.Output(emptyList())
-            val board = boardOf(viewer, params.segment.value, served, since, following) and brackets
+            val board = boardOf(viewer, params.segment.value, served, window.since, following, window.until) and brackets
             val limit = Paging.clamp(params.limit)
             val page =
                 bests(board, havingAfter(BEST, SegmentEfforts.authorDid, params.cursor))
@@ -715,7 +716,7 @@ class SegmentViews(
     suspend fun mayors(viewer: Did?, params: GetSegmentMayors.Params): GetSegmentMayors.Output {
         val period = params.period ?: MayorPeriod.LAST_90_DAYS
         if (period !in MayorPeriod.all) invalidRequest("Unknown period $period")
-        val (since, until) = mayorWindow(period, today())
+        val (since, until) = boardWindow(period, today())
         val following = followingScope(viewer, params.scope)
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
@@ -960,13 +961,13 @@ class SegmentViews(
     }
 
     /**
-     * [params]' period start ([periodStart]) and whether it asks for the following scope; `InvalidRequest` for an unknown period or scope,
+     * [params]' period window ([boardWindow]) and whether it asks for the following scope; `InvalidRequest` for an unknown period or scope,
      * or the following scope without a [viewer].
      */
-    private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<String?, Boolean> {
-        val period = params.period ?: LeaderboardPeriod.ALL_TIME
+    private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<DateWindow, Boolean> {
+        val period = LeaderboardPeriod.current(params.period ?: LeaderboardPeriod.ALL_TIME)
         if (period !in LeaderboardPeriod.all) invalidRequest("Unknown period $period")
-        return periodStart(period) to followingScope(viewer, params.scope)
+        return boardWindow(period, today()) to followingScope(viewer, params.scope)
     }
 
     /**
@@ -992,16 +993,6 @@ class SegmentViews(
                 filters.fold(LeaderboardBrackets.did eq SegmentEfforts.authorDid) { all, filter -> all and filter }
             },
         )
-    }
-
-    /** The first local date of [period] by the AppView's UTC date, as `YYYY-MM-DD`; null for all time. */
-    private fun periodStart(period: String): String? {
-        val today = today()
-        return when (period) {
-            LeaderboardPeriod.YEAR -> today.withDayOfYear(1).toString()
-            LeaderboardPeriod.MONTH -> today.withDayOfMonth(1).toString()
-            else -> null
-        }
     }
 
     /** The AppView's current date in UTC, which board periods and windows are counted from. */
@@ -1083,21 +1074,22 @@ class SegmentViews(
 }
 
 /**
- * The window of a Mayors board for [period] (a known [MayorPeriod] value) on [today]: its first local date and the first one after it, as
- * `YYYY-MM-DD`, each null when unbounded. "This" windows have no end, so an effort dated ahead of the UTC date still counts, and weeks
- * start on Monday.
+ * The window of a leaderboard, Mayors board or Regulars board for [period] (a known [BoardPeriod] value) on [today]: its first local date
+ * and the first one after it, as `YYYY-MM-DD`, each null when unbounded. "This" windows have no end, so an effort dated ahead of the UTC
+ * date still counts, and weeks start on Monday.
  */
-internal fun mayorWindow(period: String, today: LocalDate): DateWindow {
+internal fun boardWindow(period: String, today: LocalDate): DateWindow {
     val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val window: Pair<LocalDate?, LocalDate?> =
         when (period) {
-            MayorPeriod.ALL_TIME -> null to null
-            MayorPeriod.THIS_YEAR -> today.withDayOfYear(1) to null
-            MayorPeriod.LAST_YEAR -> today.withDayOfYear(1).minusYears(1) to today.withDayOfYear(1)
-            MayorPeriod.THIS_MONTH -> today.withDayOfMonth(1) to null
-            MayorPeriod.LAST_MONTH -> today.withDayOfMonth(1).minusMonths(1) to today.withDayOfMonth(1)
-            MayorPeriod.THIS_WEEK -> monday to null
-            MayorPeriod.LAST_WEEK -> monday.minusWeeks(1) to monday
+            BoardPeriod.ALL_TIME -> null to null
+            BoardPeriod.TODAY -> today to null
+            BoardPeriod.THIS_YEAR -> today.withDayOfYear(1) to null
+            BoardPeriod.LAST_YEAR -> today.withDayOfYear(1).minusYears(1) to today.withDayOfYear(1)
+            BoardPeriod.THIS_MONTH -> today.withDayOfMonth(1) to null
+            BoardPeriod.LAST_MONTH -> today.withDayOfMonth(1).minusMonths(1) to today.withDayOfMonth(1)
+            BoardPeriod.THIS_WEEK -> monday to null
+            BoardPeriod.LAST_WEEK -> monday.minusWeeks(1) to monday
             else -> today.minusDays(LAST_DAYS - 1) to null
         }
     return DateWindow(window.first?.toString(), window.second?.toString())
@@ -1106,7 +1098,7 @@ internal fun mayorWindow(period: String, today: LocalDate): DateWindow {
 /** A board's window: its first local date [since] and the first one after it, [until], as `YYYY-MM-DD`, each null when unbounded. */
 internal data class DateWindow(val since: String?, val until: String?)
 
-/** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
+/** The days [BoardPeriod.LAST_90_DAYS] covers, today included. */
 private const val LAST_DAYS = 90L
 
 /** How many segment URIs one `IN` list of `sectionsOf` carries. */

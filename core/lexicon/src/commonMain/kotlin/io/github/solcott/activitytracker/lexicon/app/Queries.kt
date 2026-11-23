@@ -704,29 +704,67 @@ object GetSegmentMayors {
 }
 
 /**
- * Known values of [GetSegmentMayors.Params.period]: by the effort's local date, against the AppView's UTC date. [LAST_90_DAYS] is today and
- * the 89 days before it, and weeks start on Monday.
+ * The windows a segment's leaderboard and Mayors board both offer (segments/segment-leaderboards, segments/segment-mayors), in the order
+ * clients offer them, shortest first: by the effort's local date, against the AppView's UTC date. [LAST_90_DAYS] is today and the 89 days
+ * before it, and weeks start on Monday.
  */
-object MayorPeriod {
-    const val LAST_90_DAYS = "last90Days"
-    const val ALL_TIME = "allTime"
-    const val THIS_YEAR = "thisYear"
-    const val LAST_YEAR = "lastYear"
-    const val THIS_MONTH = "thisMonth"
-    const val LAST_MONTH = "lastMonth"
+object BoardPeriod {
+    const val TODAY = "today"
     const val THIS_WEEK = "thisWeek"
     const val LAST_WEEK = "lastWeek"
+    const val THIS_MONTH = "thisMonth"
+    const val LAST_MONTH = "lastMonth"
+    const val LAST_90_DAYS = "last90Days"
+    const val THIS_YEAR = "thisYear"
+    const val LAST_YEAR = "lastYear"
+    const val ALL_TIME = "allTime"
 
-    val all = listOf(LAST_90_DAYS, ALL_TIME, THIS_YEAR, LAST_YEAR, THIS_MONTH, LAST_MONTH, THIS_WEEK, LAST_WEEK)
+    val all = listOf(TODAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_MONTH, LAST_90_DAYS, THIS_YEAR, LAST_YEAR, ALL_TIME)
 }
 
-/** Known values of [GetSegmentLeaderboard.Params.period]: by the effort's local date, against the AppView's UTC date. */
+/** Known values of [GetSegmentMayors.Params.period]: the [BoardPeriod]s, [LAST_90_DAYS] by default. */
+object MayorPeriod {
+    const val TODAY = BoardPeriod.TODAY
+    const val THIS_WEEK = BoardPeriod.THIS_WEEK
+    const val LAST_WEEK = BoardPeriod.LAST_WEEK
+    const val THIS_MONTH = BoardPeriod.THIS_MONTH
+    const val LAST_MONTH = BoardPeriod.LAST_MONTH
+    const val LAST_90_DAYS = BoardPeriod.LAST_90_DAYS
+    const val THIS_YEAR = BoardPeriod.THIS_YEAR
+    const val LAST_YEAR = BoardPeriod.LAST_YEAR
+    const val ALL_TIME = BoardPeriod.ALL_TIME
+
+    val all = BoardPeriod.all
+}
+
+/** Known values of [GetSegmentLeaderboard.Params.period]: the [BoardPeriod]s, [ALL_TIME] by default. */
 object LeaderboardPeriod {
-    const val ALL_TIME = "allTime"
+    const val TODAY = BoardPeriod.TODAY
+    const val THIS_WEEK = BoardPeriod.THIS_WEEK
+    const val LAST_WEEK = BoardPeriod.LAST_WEEK
+    const val THIS_MONTH = BoardPeriod.THIS_MONTH
+    const val LAST_MONTH = BoardPeriod.LAST_MONTH
+    const val LAST_90_DAYS = BoardPeriod.LAST_90_DAYS
+    const val THIS_YEAR = BoardPeriod.THIS_YEAR
+    const val LAST_YEAR = BoardPeriod.LAST_YEAR
+    const val ALL_TIME = BoardPeriod.ALL_TIME
+
+    /** Deprecated: what older clients send for [THIS_YEAR]. */
     const val YEAR = "year"
+
+    /** Deprecated: what older clients send for [THIS_MONTH]. */
     const val MONTH = "month"
 
-    val all = listOf(ALL_TIME, YEAR, MONTH)
+    /** What clients offer. */
+    val all = BoardPeriod.all
+
+    /** [period] as a [BoardPeriod], reading an older client's [YEAR] or [MONTH]; unchanged otherwise. */
+    fun current(period: String): String =
+        when (period) {
+            YEAR -> THIS_YEAR
+            MONTH -> THIS_MONTH
+            else -> period
+        }
 }
 
 /** Known values of [GetSegmentLeaderboard.Params.scope] and [GetSegmentMayors.Params.scope]. */
