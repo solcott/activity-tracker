@@ -14,12 +14,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -33,19 +33,41 @@ import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.hasAnswer
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.stringResource
 
-/** Asks for the next page ([onLoadMore]) once [listState]'s last row is on screen, while [canLoadMore]. */
+/**
+ * Asks for the next page ([onLoadMore]) once [listState]'s last row is on screen, while [canLoadMore]. Only a new layout asks: the rows a
+ * page just brought are judged once the list has laid them out, never against the layout from before they came (a loading row alone, which
+ * was the last row), so a first page that fills the screen doesn't fetch the second at once.
+ */
 @Composable
 fun LoadMoreAtEnd(listState: LazyListState, canLoadMore: Boolean, onLoadMore: () -> Unit) {
-    val atEnd by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
-        }
+    // Read when a layout arrives, not observed: a change here alone, with no new layout, must not ask.
+    val latest = remember { LoadMoreLatest() }
+    SideEffect {
+        latest.canLoadMore = canLoadMore
+        latest.onLoadMore = onLoadMore
     }
-    SideEffect(atEnd, canLoadMore) { if (atEnd && canLoadMore) onLoadMore() }
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val atEnd = info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
+            // The row count at the end, so each list length asks once however often it scrolls there.
+            if (atEnd) info.totalItemsCount else NOT_AT_END
+        }
+            .distinctUntilChanged()
+            .collect { endCount -> if (endCount != NOT_AT_END && latest.canLoadMore) latest.onLoadMore() }
+    }
 }
+
+/** What [LoadMoreAtEnd] last composed with, read when a layout arrives. */
+private class LoadMoreLatest {
+    var canLoadMore: Boolean = false
+    var onLoadMore: () -> Unit = {}
+}
+
+private const val NOT_AT_END = -1
 
 /**
  * Opens a new search's results at their best match. While a new query loads, the last results stay under a refresh row; the list anchors on
