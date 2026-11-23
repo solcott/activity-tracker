@@ -61,6 +61,9 @@ internal data class SortCursor(val sort: Long, val key: String)
 /** A keyset cursor of [parts], each written as a string and joined by `::`, as [cursorParts] reads it back. */
 internal fun cursorOf(vararg parts: Any?): String = parts.joinToString(CURSOR_SEPARATOR)
 
+/** A cursor of [parts] joined with `::`, for a cursor whose number of parts varies. */
+internal fun cursorOf(parts: List<Any?>): String = parts.joinToString(CURSOR_SEPARATOR)
+
 /** The [count] `::`-separated parts of [cursor], the last taking the rest; null when it has fewer. */
 internal fun cursorParts(cursor: String, count: Int): List<String>? =
     cursor.split(CURSOR_SEPARATOR, limit = count).takeIf { it.size == count }

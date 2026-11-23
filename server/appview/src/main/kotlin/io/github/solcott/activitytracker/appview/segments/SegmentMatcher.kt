@@ -547,11 +547,13 @@ class SegmentMatcher(
                     }
                 }
                 .distinctBy { it.segment to it.offset }
-        rewriteEfforts({ activityUri eq track.activity }) { insertEfforts(efforts, trackUri, track, grouped, visibility, startedOn) }
+        rewriteEfforts({ activityUri eq track.activity }) {
+            insertEfforts(efforts, trackUri, track, grouped, visibility, startedOn, activity[Activities.startedAt])
+        }
         promoteSegments(efforts.map { it.segment }.toSet(), activeAthletes)
     }
 
-    /** Writes [efforts] of [track]'s activity, returning the segments they're on. */
+    /** Writes [efforts] of [track]'s activity, which started at [activityStart] (epoch ms), returning the segments they're on. */
     @Suppress("LongParameterList") // The efforts and what each row repeats.
     private fun insertEfforts(
         efforts: List<Pass>,
@@ -560,6 +562,7 @@ class SegmentMatcher(
         grouped: SegmentSport.Grouped,
         visibility: String,
         startedOn: String,
+        activityStart: Long,
     ): List<String> {
         SegmentEfforts.batchInsert(efforts) { effort ->
             val (uri, offset, pass) = effort
@@ -574,6 +577,7 @@ class SegmentMatcher(
             this[SegmentEfforts.elapsedS] = (pass.end - pass.start).roundToLong()
             this[SegmentEfforts.visibility] = visibility
             this[SegmentEfforts.startedOn] = startedOn
+            this[SegmentEfforts.startedAt] = activityStart + offset * MILLIS_PER_SECOND
             this[SegmentEfforts.elevationGainM] = effort.elevation?.gain
             this[SegmentEfforts.elevationLossM] = effort.elevation?.loss
         }
@@ -815,6 +819,7 @@ class SegmentMatcher(
         private val STATUS_INTERVAL = 1.hours
         private const val BATCH = 20
         private const val SECONDS_PER_MINUTE = 60
+        private const val MILLIS_PER_SECOND = 1000L
         private val POLL_INTERVAL = 2.seconds
         private val BACKOFF_BASE = 30.seconds
         private val BACKOFF_MAX = 1.hours

@@ -711,7 +711,7 @@ class SegmentViews(
     /**
      * A segment's Mayors board (segments/segment-mayors): athletes by how many of their efforts a leaderboard of the same filters could
      * rank in [GetSegmentMayors.Params.period]'s window, most first, then by the date each count was reached ([REACHED], their latest
-     * counted effort), earliest first. Pages and ranks as every [CountBoard] does.
+     * counted effort), earliest first, then by when it was reached that day, so the board has one Mayor and no shared ranks.
      */
     suspend fun mayors(viewer: Did?, params: GetSegmentMayors.Params): GetSegmentMayors.Output {
         val period = params.period ?: MayorPeriod.LAST_90_DAYS
@@ -951,8 +951,12 @@ class SegmentViews(
             .associate { it[SegmentEfforts.id] to it[reason] }
     }
 
-    /** The Mayors board over [rankedEfforts]: each athlete's [EFFORTS], reached on their [REACHED] date. */
-    private val mayorBoard = CountBoard(::rankedEfforts, SegmentEfforts.authorDid, EFFORTS, REACHED)
+    /**
+     * The Mayors board over [rankedEfforts]: each athlete's [EFFORTS], reached on their [REACHED] date, equal ones ordered by when the
+     * count was reached ([REACHED_AT]) and then by their first counted effort ([FIRST_AT]), so no two share a rank
+     * (segments/segment-mayors).
+     */
+    private val mayorBoard = CountBoard(::rankedEfforts, SegmentEfforts.authorDid, EFFORTS, REACHED, listOf(REACHED_AT, FIRST_AT))
 
     /** [MayorEntry]s for [entries], with their athletes' profiles. */
     private fun JdbcTransaction.mayorEntries(entries: List<CountEntry>): List<MayorEntry> {
@@ -1067,6 +1071,12 @@ class SegmentViews(
 
         /** The local date an athlete's Mayors count was reached: their latest counted effort's. */
         private val REACHED = SegmentEfforts.startedOn.max()
+
+        /** When an athlete's Mayors count was reached: the start of their latest counted effort. Orders the board; never served. */
+        private val REACHED_AT = SegmentEfforts.startedAt.max()
+
+        /** When an athlete's first counted effort started: the Mayors board's last tie-break before the athlete. Never served. */
+        private val FIRST_AT = SegmentEfforts.startedAt.min()
 
         /** An effort's ID, rebuilt from its view as the matcher writes it, for the keyset cursor. */
         private fun effortId(effort: EffortView) = "${effort.activity.value} ${effort.segment.uri.value} ${effort.startOffset}"

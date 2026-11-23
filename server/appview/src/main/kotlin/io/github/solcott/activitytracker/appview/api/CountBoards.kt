@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.select
@@ -22,29 +23,28 @@ internal data class CountPage(val entries: List<CountEntry>, val next: String?)
 
 /**
  * A board of athletes by a count of their rows (segment Mayors, dive-site Regulars): most first, then by the date each count was [reached],
- * earliest first, then by athlete. It pages by a `HAVING` keyset on (count, date, athlete) behind a `"<count>::<date>::<did>"` cursor and
- * ranks over the whole board, so equal counts reached on one date share a rank and the next skips. Each board passes the Op that picks its
- * rows ([page]'s `board`); that Op carries all its visibility and consent rules, which this never adds to or drops.
+ * earliest first, then by each of [tieBreaks], smallest first, then by athlete. It pages by a `HAVING` keyset on all of those behind a
+ * `"<count>::<date>::<tie-breaks…>::<did>"` cursor (a cursor with the wrong number of parts reads from the start). Without [tieBreaks] it
+ * gives competition ranks over the whole board, so equal counts reached on one date share a rank and the next skips; with them every
+ * entry's rank is its place on the board, never shared (segments/segment-mayors). Each board passes the Op that picks its rows ([page]'s
+ * `board`); that Op carries all its visibility and consent rules, which this never adds to or drops.
  */
 internal class CountBoard(
     private val rows: () -> ColumnSet,
     private val athlete: Column<String>,
     private val count: ExpressionWithColumnType<Long>,
     private val reached: ExpressionWithColumnType<String?>,
+    private val tieBreaks: List<ExpressionWithColumnType<Long?>> = emptyList(),
 ) {
     /** At most [limit] entries of [board] after [cursor] (from the start when there is none or it is malformed). */
     fun page(board: Op<Boolean>, cursor: String?, limit: Int): CountPage {
-        val after =
-            cursor?.let(::parseCursor)?.let { (count, reached, did) ->
-                (this.count less count) or
-                    ((this.count eq count) and (this.reached greater reached)) or
-                    ((this.count eq count) and (this.reached eq reached) and (athlete greater did))
-            } ?: Op.TRUE
-        val read =
-            counts(board, after).orderBy(count to SortOrder.DESC, reached to SortOrder.ASC, athlete to SortOrder.ASC).limit(limit).toList()
+        val after = cursor?.let(::parseCursor)?.let { after(it, orEqual = false) } ?: Op.TRUE
+        val order =
+            listOf(count to SortOrder.DESC, reached to SortOrder.ASC) + tieBreaks.map { it to SortOrder.ASC } + (athlete to SortOrder.ASC)
+        val read = order.fold(counts(board, after)) { query, (key, direction) -> query.orderBy(key, direction) }.limit(limit).toList()
         val rows = read.mapNotNull(::row)
         // Judged on the rows read, not those kept: a dropped empty group mustn't end the board early.
-        val next = rows.takeIf { read.size == limit }?.lastOrNull()?.let { (did, count, reached) -> cursorOf(count, reached, did) }
+        val next = rows.takeIf { read.size == limit }?.lastOrNull()?.let(::cursorAfter)
         return CountPage(ranked(board, rows), next)
     }
 
@@ -52,43 +52,67 @@ internal class CountBoard(
     fun entryOf(board: Op<Boolean>, did: String): CountEntry? =
         counts(board and (athlete eq did), Op.TRUE).firstOrNull()?.let(::row)?.let { ranked(board, listOf(it)).single() }
 
-    /** Each athlete's count and date on [board], filtered by [having]. */
+    /** Each athlete's count, date and tie-breaks on [board], filtered by [having]. */
     private fun counts(board: Op<Boolean>, having: Op<Boolean>): Query =
-        rows().select(athlete, count, reached).where { board }.groupBy(athlete).having { having }
+        rows().select(listOf(athlete, count, reached) + tieBreaks).where { board }.groupBy(athlete).having { having }
 
-    /** A [counts] row as athlete, count and the date it was reached; null for an empty group. */
-    private fun row(row: ResultRow): Triple<String, Long, String>? = row[reached]?.let { Triple(row[athlete], row[count], it) }
+    /** A [counts] row as its place on the board; null for an empty group. */
+    private fun row(row: ResultRow): Place? =
+        row[reached]?.let { reached -> Place(row[athlete], row[count], reached, tieBreaks.map { row[it] ?: 0L }) }
+
+    /**
+     * The athletes after [place] on the board, and [place]'s equals too when [orEqual]: a keyset over count, date and tie-breaks, then the
+     * athlete when [withAthlete] (without it, athletes equal on every other key count as equal).
+     */
+    private fun after(place: Place, orEqual: Boolean, withAthlete: Boolean = true): Op<Boolean> {
+        // Each term: every earlier key equal, this one past the place's.
+        var equal: Op<Boolean> = this.count eq place.count
+        var past: Op<Boolean> = (this.count less place.count) or (equal and (reached greater place.reached))
+        equal = equal and (reached eq place.reached)
+        tieBreaks.zip(place.tieBreaks).forEach { (key, value) ->
+            past = past or (equal and (key greater value))
+            equal = equal and (key eq value)
+        }
+        if (withAthlete) {
+            past = past or (equal and (athlete greater place.athlete))
+            equal = equal and (athlete eq place.athlete)
+        }
+        return if (orEqual) past or equal else past
+    }
+
+    /** The athletes strictly before [place] on the board: those [after] it never are, nor it. */
+    private fun before(place: Place, withAthlete: Boolean): Op<Boolean> = not(after(place, orEqual = true, withAthlete))
 
     /** [page] (in board order) with ranks counted over the whole [board]. */
-    private fun ranked(board: Op<Boolean>, page: List<Triple<String, Long, String>>): List<CountEntry> {
+    private fun ranked(board: Op<Boolean>, page: List<Place>): List<CountEntry> {
+        val shared = tieBreaks.isEmpty()
         val ranks =
             ranksOf(
                 page,
-                ahead = { (_, count, reached) ->
-                    counts(board, (this.count greater count) or ((this.count eq count) and (this.reached less reached))).count()
-                },
-                before = { (did, count, reached) ->
-                    counts(
-                            board,
-                            (this.count greater count) or
-                                ((this.count eq count) and (this.reached less reached)) or
-                                ((this.count eq count) and (this.reached eq reached) and (athlete less did)),
-                        )
-                        .count()
-                },
-                tied = { a, b -> a.second == b.second && a.third == b.third },
+                ahead = { counts(board, before(it, withAthlete = !shared)).count() },
+                before = { counts(board, before(it, withAthlete = true)).count() },
+                tied = { a, b -> shared && a.count == b.count && a.reached == b.reached },
             )
-        return page.mapIndexed { i, (did, count, reached) -> CountEntry(ranks[i], did, count, reached) }
+        return page.mapIndexed { i, place -> CountEntry(ranks[i], place.athlete, place.count, place.reached) }
     }
 
-    private companion object {
-        const val CURSOR_PARTS = 3
-
-        /** Splits a `"<count>::<date>::<did>"` cursor; null when it is malformed. */
-        fun parseCursor(cursor: String): Triple<Long, String, String>? {
-            val (count, reached, did) = cursorParts(cursor, CURSOR_PARTS) ?: return null
-            return count.toLongOrNull()?.let { Triple(it, reached, did) }
+    /** Splits a cursor into a place; null when it is malformed. */
+    private fun parseCursor(cursor: String): Place? =
+        cursorParts(cursor, FIXED_PARTS + tieBreaks.size)?.let { parts ->
+            val count = parts.first().toLongOrNull()
+            val keys = parts.subList(2, 2 + tieBreaks.size).mapNotNull(String::toLongOrNull)
+            if (count == null || keys.size != tieBreaks.size) null else Place(parts.last(), count, parts[1], keys)
         }
+
+    /** The cursor after [place]. */
+    private fun cursorAfter(place: Place): String = cursorOf(listOf(place.count, place.reached) + place.tieBreaks + place.athlete)
+
+    /** One athlete's place: their [count], the date it was [reached], and the values of the board's [tieBreaks]. */
+    private data class Place(val athlete: String, val count: Long, val reached: String, val tieBreaks: List<Long>)
+
+    private companion object {
+        /** A cursor's parts besides its tie-breaks: count, date and athlete. */
+        const val FIXED_PARTS = 3
     }
 }
 

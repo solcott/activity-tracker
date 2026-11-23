@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
+import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
@@ -45,6 +46,12 @@ class SegmentMatcherTest : SegmentTestBase() {
         assertEquals(
             listOf(Effort(segmentUri("3ks"), activityUri("3ka"), 20, 200, Visibility.PUBLIC, eBike = false, startedOn = "2026-10-06")),
             efforts(),
+        )
+        val activityStart = runBlocking { db.tx { Activities.selectAll().single()[Activities.startedAt] } }
+        assertEquals(
+            listOf(activityStart + 20_000),
+            runBlocking { db.tx { SegmentEfforts.selectAll().map { it[SegmentEfforts.startedAt] } } },
+            "it started 20 s into the activity",
         )
         assertEquals(emptyList(), jobs())
     }

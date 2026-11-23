@@ -543,6 +543,8 @@ object SegmentEfforts : Table("segment_efforts"), ActivityTierRow {
     override val visibility = varchar("visibility", 16)
     /** The activity's local date, `YYYY-MM-DD`; served only with the effort. */
     val startedOn = varchar("started_on", 10)
+    /** When the pass started, epoch milliseconds: its activity's start plus [startOffsetS]. Orders equal Mayors counts; never served. */
+    val startedAt = long("started_at").default(0L)
     /** Meters climbed and descended over the pass by its track's altitude; null without altitude. Only ever aggregated, never served. */
     val elevationGainM = long("elevation_gain_m").nullable()
     val elevationLossM = long("elevation_loss_m").nullable()

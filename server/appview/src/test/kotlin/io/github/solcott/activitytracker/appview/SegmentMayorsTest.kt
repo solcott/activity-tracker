@@ -43,10 +43,11 @@ class SegmentMayorsTest : SegmentTestBase() {
         sport: String = "run",
         subSport: String? = null,
         excluded: Boolean = false,
+        time: String = "10:00",
     ) {
         matching(true, did)
         // Noon UTC, two hours ahead: the same local date.
-        activity(rkey, tier = tier, sport = sport, subSport = subSport, did = did, startedAt = "${date}T10:00:00Z")
+        activity(rkey, tier = tier, sport = sport, subSport = subSport, did = did, startedAt = "${date}T$time:00Z")
         track(rkey, pieces = List(laps) { alongStraight }, did = did, excluded = excluded)
     }
 
@@ -84,22 +85,23 @@ class SegmentMayorsTest : SegmentTestBase() {
     }
 
     @Test
-    fun theFirstToReachACountLeadsAndTheSameDaySharesARank() = testApplication {
+    fun theFirstToReachACountLeadsToTheMinute() = testApplication {
         start()
         segment("3ks", did = carol)
         effort(alice, "3ka", date = today.minusDays(9))
         effort(alice, "3kb", date = today.minusDays(5))
         effort(bob, "3kc", date = today.minusDays(4))
-        effort(bob, "3kd", date = today.minusDays(2))
+        effort(bob, "3kd", date = today.minusDays(2), time = "17:20")
         effort(dave, "3ke", date = today.minusDays(3))
-        effort(dave, "3kf", date = today.minusDays(2))
+        effort(dave, "3kf", date = today.minusDays(2), time = "06:45")
         effort(carol, "3kg", date = today.minusDays(20))
         matchActive()
 
-        val places = client.mayors().entries.map { it.athlete.did.value to it.rank }
-        assertEquals(alice to 1, places[0], "two efforts, reached first")
-        assertEquals(setOf(bob to 2, dave to 2), places.subList(1, 3).toSet(), "two efforts each, reached the same day")
-        assertEquals(carol to 4, places[3])
+        val board = client.mayors().entries
+        val places = board.map { it.athlete.did.value to it.rank }
+        assertEquals(listOf(alice to 1, dave to 2, bob to 3, carol to 4), places, "the same day, Dave's ride earlier: no shared rank")
+        assertEquals(today.minusDays(2).toString(), board[1].reachedOn, "a date, never a time")
+        assertEquals(bob to 3, client.mayors(bob).viewer?.let { it.athlete.did.value to it.rank })
 
         // Riding again takes Bob to three, past Alice.
         effort(bob, "3kh")
@@ -120,7 +122,7 @@ class SegmentMayorsTest : SegmentTestBase() {
         val first = client.mayors(null, "limit" to "2")
         assertEquals(listOf(1, 2), first.entries.map { it.rank })
         val second = client.mayors(null, "limit" to "2", "cursor" to first.cursor!!)
-        assertEquals(listOf(2, 4), second.entries.map { it.rank }, "a tie split across pages keeps its rank")
+        assertEquals(listOf(3, 4), second.entries.map { it.rank }, "every place is one athlete's, across pages too")
         assertEquals(
             setOf(alice, bob, dave, carol),
             (first.entries + second.entries).map { it.athlete.did.value }.toSet(),
@@ -129,6 +131,21 @@ class SegmentMayorsTest : SegmentTestBase() {
         val carols = client.mayors(carol, "limit" to "1")
         assertEquals(listOf(alice), carols.entries.map { it.athlete.did.value })
         assertEquals(carol to 4, carols.viewer?.let { it.athlete.did.value to it.rank }, "her place, off the page")
+        val old = client.mayors(null, "limit" to "2", "cursor" to "2::${today.minusDays(9)}::$alice")
+        assertEquals(first.entries.map { it.athlete.did.value }, old.entries.map { it.athlete.did.value }, "an old cursor reads page one")
+    }
+
+    @Test
+    fun equalReachesGoToTheEarlierFirstEffort() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        effort(dave, "3ka", date = today.minusDays(6))
+        effort(bob, "3kb", date = today.minusDays(4))
+        effort(bob, "3kc", date = today.minusDays(1))
+        effort(dave, "3kd", date = today.minusDays(1))
+        matchActive()
+
+        assertEquals(listOf(dave to 1, bob to 2), client.mayors().entries.map { it.athlete.did.value to it.rank }, "Dave started first")
     }
 
     @Test
@@ -174,7 +191,11 @@ class SegmentMayorsTest : SegmentTestBase() {
         matchActive()
 
         assertEquals(listOf(Triple(alice, 1, 5), Triple(dave, 2, 2)), client.mayors(bob).entries.places, "Bob follows Alice")
-        assertEquals(listOf(Triple(alice, 1, 2), Triple(dave, 1, 2)), client.mayors().entries.places.sortedBy { it.first })
+        assertEquals(
+            listOf(Triple(alice, 1, 2), Triple(dave, 2, 2)),
+            client.mayors().entries.places,
+            "a dead heat goes by athlete, unshared",
+        )
         assertNull(client.mayors(carol).viewer, "Carol hides")
     }
 
