@@ -195,18 +195,29 @@ object DiveSiteRegularsSamples {
     val all: Map<String, DiveSiteRegularsState>
         get() = pagedSamples(entries, meta) { DiveSiteRegularsState(DiveSiteSamples.site.currentName, entries = it) }
 
-    /** Last year's board with the viewer's own place at 12 (`lastYear`). Kept apart from [all], whose keys are the content-loading set. */
+    /**
+     * Last year's board with the viewer's own place at 12, pinned (`lastYear`), and the viewer second, among the loaded rows (`ownRow`).
+     * Kept apart from [all], whose keys are the content-loading set.
+     */
     val variants: Map<String, DiveSiteRegularsState>
-        get() =
-            mapOf(
+        get() {
+            val viewer = fakeRegularEntry(rank = 12, athlete = fakeProfileBasic(Fixed.ALICE), visits = 4)
+            val own = fakeRegularEntry(rank = 2, athlete = fakeProfileBasic(Fixed.ALICE), visits = 17)
+            return mapOf(
                 "lastYear" to
                     DiveSiteRegularsState(
                         DiveSiteSamples.site.currentName,
                         period = RegularsPeriod.LAST_YEAR,
-                        entries = PagedStates.end(entries, meta),
-                        viewerEntry = fakeRegularEntry(rank = 12, athlete = fakeProfileBasic(Fixed.ALICE), visits = 4),
+                        entries = PagedStates.end(entries, RegularsMeta(viewer)),
+                        viewerEntry = viewer,
+                    ),
+                "ownRow" to
+                    DiveSiteRegularsState(
+                        DiveSiteSamples.site.currentName,
+                        entries = PagedStates.end(listOf(entries[0], own), RegularsMeta(own)),
                     ),
             )
+        }
 }
 
 object CreateDiveSiteSamples {

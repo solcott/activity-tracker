@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.boards.BoardChoice
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
@@ -28,7 +29,7 @@ enum class BoardKind {
 @Immutable
 data class BoardFilterFields(
     val kind: BoardKind = BoardKind.Leaderboard,
-    /** A [LeaderboardPeriod] value on the leaderboard, a [MayorPeriod] value (the window the board counts) on the Mayors board. */
+    /** A [BoardPeriod] value: the window the board counts, all time by default on the leaderboard and the last 90 days on Mayors. */
     val period: String = if (kind == BoardKind.Mayors) MayorPeriod.LAST_90_DAYS else LeaderboardPeriod.ALL_TIME,
     /** A [LeaderboardScope] value. */
     val scope: String = LeaderboardScope.EVERYONE,
@@ -45,9 +46,13 @@ data class BoardFilterFields(
     val eventSink: (BoardFilterEvent) -> Unit = {},
 ) {
     val periodChoice: BoardChoice
-        get() = if (kind == BoardKind.Mayors) SegmentBoardTexts.mayorPeriod(period) else SegmentBoardTexts.leaderboardPeriod(period)
+        get() =
+            SegmentBoardTexts.period(
+                period,
+                default = if (kind == BoardKind.Mayors) MayorPeriod.LAST_90_DAYS else LeaderboardPeriod.ALL_TIME,
+            )
 
-    /** The choice of board type, or null while there is none to show; a label when the segment lists one type. */
+    /** The choice of board type, or null unless the segment lists two or more. */
     val typeChoice: BoardChoice?
         get() = SegmentBoardTexts.type(board, boards)
 

@@ -44,6 +44,9 @@ data class DiveSiteRegularsState(
 
     /** Whether [entry]'s rank is drawn in the accent colour: the top regular alone. */
     fun accents(entry: DiveSiteRegularEntry): Boolean = entry.rank == 1
+
+    /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
+    fun isOwn(entry: DiveSiteRegularEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
 }
 
 sealed interface DiveSiteRegularsEvent {

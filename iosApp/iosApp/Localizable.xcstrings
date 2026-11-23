@@ -1090,6 +1090,17 @@
         }
       }
     },
+    "board_period_today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
     "card_with_one" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12541,6 +12552,28 @@
         }
       }
     },
+    "leaderboard_behind_first" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ behind 1st"
+          }
+        }
+      }
+    },
+    "leaderboard_behind_first_seconds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ s behind 1st"
+          }
+        }
+      }
+    },
     "leaderboard_board_ebike" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13934,6 +13967,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No one has an effort here in this period"
+          }
+        }
+      }
+    },
+    "mayors_more_to_be_mayor" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ more effort to be Mayor"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ more efforts to be Mayor"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -16783,6 +16849,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Post unavailable"
+          }
+        }
+      }
+    },
+    "rank_board_you" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
           }
         }
       }

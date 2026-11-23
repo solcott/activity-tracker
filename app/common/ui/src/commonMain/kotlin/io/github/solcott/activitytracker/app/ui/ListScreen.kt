@@ -1,8 +1,12 @@
 package io.github.solcott.activitytracker.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +30,9 @@ import io.github.solcott.uistate.ContentState
 /**
  * A screen that is one list: an [AppTopBar] with [title], [subtitle], a back button ([onBack]) and [actions], which follows [listState]'s
  * list as it scrolls under it, over [items] in a [ReadableList] column padded [verticalPadding] above and below. [edgeToEdge] rows (people,
- * gear) reach the window's sides on a phone; others keep a 16dp margin. Pass [listState] to page the list with [LoadMoreAtEnd].
+ * gear) reach the window's sides on a phone; others keep a 16dp margin. Pass [listState] to page the list with [LoadMoreAtEnd]. A
+ * [bottomBar] stays fixed under the list, which leaves room for it, and a [header] (a board's choices) stays fixed under the bar, taking
+ * the bar's colour while the list is scrolled under them.
  */
 @Composable
 fun ListScreen(
@@ -38,9 +44,13 @@ fun ListScreen(
     edgeToEdge: Boolean = false,
     verticalPadding: Dp = 8.dp,
     actions: @Composable RowScope.() -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    header: (@Composable () -> Unit)? = null,
     items: LazyListScope.() -> Unit,
 ) {
-    ListScaffold(title, onBack, subtitle, actions, modifier) { padding -> ListBody(listState, padding, edgeToEdge, verticalPadding, items) }
+    ListScaffold(title, onBack, subtitle, actions, bottomBar, header, modifier) { padding ->
+        ListBody(listState, padding, edgeToEdge, verticalPadding, items)
+    }
 }
 
 /**
@@ -62,9 +72,11 @@ fun <T> ListScreen(
     verticalPadding: Dp = 8.dp,
     actions: @Composable RowScope.() -> Unit = {},
     notFound: String? = null,
+    bottomBar: @Composable () -> Unit = {},
+    header: (@Composable () -> Unit)? = null,
     items: LazyListScope.(T & Any) -> Unit,
 ) {
-    ListScaffold(title, onBack, subtitle, actions, modifier) { padding ->
+    ListScaffold(title, onBack, subtitle, actions, bottomBar, header, modifier) { padding ->
         if (notFound != null) {
             Text(
                 notFound,
@@ -85,16 +97,32 @@ private fun ListScaffold(
     onBack: () -> Unit,
     subtitle: String?,
     actions: @Composable RowScope.() -> Unit,
+    bottomBar: @Composable () -> Unit,
+    header: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { AppTopBar(title = title, onBack = onBack, subtitle = subtitle, scrollBehavior = scrollBehavior, actions = actions) },
+        topBar = {
+            Column {
+                AppTopBar(title = title, onBack = onBack, subtitle = subtitle, scrollBehavior = scrollBehavior, actions = actions)
+                if (header != null) {
+                    // The bar's own colours, so the two read as one while the list is scrolled under them.
+                    val scrolledUnder = scrollBehavior.state.overlappedFraction > SCROLLED_UNDER
+                    val colors = MaterialTheme.colorScheme
+                    Box(Modifier.fillMaxWidth().background(if (scrolledUnder) colors.surfaceContainer else colors.surface)) { header() }
+                }
+            }
+        },
+        bottomBar = bottomBar,
         content = content,
     )
 }
+
+/** How far the list must be under the bar before the header takes the bar's scrolled colour, as Material's bar does. */
+private const val SCROLLED_UNDER = 0.01f
 
 @Composable
 private fun ListBody(

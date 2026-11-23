@@ -6,8 +6,7 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.uistate.pagedStateOf
 import kotlin.test.Test
@@ -23,33 +22,32 @@ import kotlinx.collections.immutable.persistentSetOf
  */
 class SegmentBoardTextsTest {
     @Test
-    fun theLeaderboardsPeriodsAreAllTimeThisYearAndThisMonth() {
-        val choice = SegmentBoardTexts.leaderboardPeriod(LeaderboardPeriod.MONTH)
-        assertEquals(LeaderboardPeriod.all, choice.options.map { it.value })
-        assertEquals(
-            listOf("leaderboard_period_all_time", "leaderboard_period_year", "leaderboard_period_month").map(AppText::named),
-            choice.options.map { it.label },
-        )
-        assertEquals(AppText.named("leaderboard_period_month"), choice.label)
-    }
-
-    @Test
-    fun theMayorsWindowsAreEveryWindowInOrder() {
-        val choice = SegmentBoardTexts.mayorPeriod(MayorPeriod.LAST_90_DAYS)
-        assertEquals(MayorPeriod.all, choice.options.map { it.value })
-        assertEquals(AppText.named("mayor_period_last_90_days"), choice.label)
-        assertEquals(AppText.named("mayor_period_this_week"), SegmentBoardTexts.mayorPeriod(MayorPeriod.THIS_WEEK).label)
+    fun bothBoardsOfferTheSameRangesTodayFirst() {
+        val choice = SegmentBoardTexts.period(BoardPeriod.TODAY, default = BoardPeriod.ALL_TIME)
+        assertEquals(BoardPeriod.all, choice.options.map { it.value })
+        assertEquals(AppText.named("board_period_today"), choice.options.first().label)
+        assertEquals(AppText.named("leaderboard_period_all_time"), choice.options.last().label)
+        assertEquals(AppText.named("board_period_today"), choice.label)
+        assertTrue(choice.narrows)
         assertTrue(choice.offersMenu)
     }
 
     @Test
-    fun oneTypeIsALabelAndSeveralAMenu() {
+    fun aBoardsOwnDefaultRangeIsNotMarked() {
+        assertFalse(SegmentLeaderboardState("Ridge").filters.periodChoice.narrows)
+        assertFalse(SegmentMayorsState("Ridge").filters.periodChoice.narrows)
+        assertEquals(
+            AppText.named("mayor_period_this_week"),
+            SegmentBoardTexts.period(BoardPeriod.THIS_WEEK, BoardPeriod.LAST_90_DAYS).label,
+        )
+        assertTrue(SegmentBoardTexts.period(BoardPeriod.ALL_TIME, BoardPeriod.LAST_90_DAYS).narrows)
+    }
+
+    @Test
+    fun onlySeveralTypesShow() {
         assertNull(SegmentBoardTexts.type(null, listOf("run")))
-        val one = SegmentBoardTexts.type("run", listOf("run"))!!
-        assertFalse(one.offersMenu)
-        assertEquals(LabelText.sport("run"), one.label)
-        val none = SegmentBoardTexts.type("run", emptyList())!!
-        assertFalse(none.offersMenu)
+        assertNull(SegmentBoardTexts.type("run", listOf("run")))
+        assertNull(SegmentBoardTexts.type("run", emptyList()))
         val two = SegmentBoardTexts.type("ride", listOf("ride", SegmentBoard.E_BIKE))!!
         assertTrue(two.offersMenu)
         assertEquals(listOf(LabelText.sport("ride"), AppText.named("leaderboard_board_ebike")), two.options.map { it.label })
@@ -91,6 +89,24 @@ class SegmentBoardTextsTest {
         assertEquals(
             AppText.Plural("mayor_efforts", 1204, persistentListOf(AppText.written(formatWhole(1204)))),
             SegmentBoardTexts.efforts(1204),
+        )
+    }
+
+    @Test
+    fun theGapToFirstReadsInSecondsUnderAMinuteElseAsAClock() {
+        assertEquals(AppText.named("leaderboard_behind_first_seconds", AppText.written("51")), BoardGapTexts.behindFirst(51))
+        assertEquals(AppText.named("leaderboard_behind_first", AppText.written("1:05")), BoardGapTexts.behindFirst(65))
+    }
+
+    @Test
+    fun whatItTakesToBeMayorIsAPluralCount() {
+        assertEquals(
+            AppText.Plural("mayors_more_to_be_mayor", 1, persistentListOf(AppText.written("1"))),
+            BoardGapTexts.moreToBeMayor(1),
+        )
+        assertEquals(
+            AppText.Plural("mayors_more_to_be_mayor", 8, persistentListOf(AppText.written("8"))),
+            BoardGapTexts.moreToBeMayor(8),
         )
     }
 

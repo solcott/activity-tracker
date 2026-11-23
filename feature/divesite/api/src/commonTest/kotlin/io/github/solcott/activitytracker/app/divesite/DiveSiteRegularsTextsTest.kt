@@ -47,4 +47,12 @@ class DiveSiteRegularsTextsTest {
         assertEquals(AppText.named("leaderboard_period_all_time"), state.periodChoice.label)
         assertFalse(state.scopeChoice.narrows)
     }
+
+    @Test
+    fun thePinnedViewersRowIsTheirs() {
+        val alice = DiveSiteRegularEntry(9, ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")), 2, "2026-10-20")
+        val state = DiveSiteRegularsState("Blue Hole", viewerEntry = alice)
+        assertTrue(state.isOwn(alice))
+        assertFalse(state.isOwn(entry(1)))
+    }
 }

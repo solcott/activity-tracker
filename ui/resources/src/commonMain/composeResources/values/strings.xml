@@ -2052,6 +2052,7 @@
     <string name="segment_leaderboard">Leaderboard</string>
     <string name="segment_leaderboard_yours">You: %1$s · #%2$s</string>
     <string name="leaderboard_period_all_time">All time</string>
+    <string name="board_period_today">Today</string>
     <string name="leaderboard_period_year">This year</string>
     <string name="leaderboard_period_month">This month</string>
     <string name="leaderboard_scope_everyone">Everyone</string>
@@ -2075,6 +2076,9 @@
     <string name="leaderboard_gender_non_binary">Non-binary</string>
     <string name="leaderboard_empty">No one is on this leaderboard yet</string>
     <string name="leaderboard_your_place">Your place</string>
+    <string name="leaderboard_behind_first_seconds">%1$d s behind 1st</string>
+    <string name="leaderboard_behind_first">%1$s behind 1st</string>
+    <string name="rank_board_you">You</string>
     <string name="segment_mayor_title">Mayor · last 90 days</string>
     <string name="segment_mayor_none">No Mayor yet. Whoever has the most efforts here in 90 days becomes the Mayor.</string>
     <plurals name="segment_mayor_yours">
@@ -2084,6 +2088,10 @@
     <plurals name="mayor_efforts">
         <item quantity="one">%1$d effort</item>
         <item quantity="other">%1$d efforts</item>
+    </plurals>
+    <plurals name="mayors_more_to_be_mayor">
+        <item quantity="one">%1$d more effort to be Mayor</item>
+        <item quantity="other">%1$d more efforts to be Mayor</item>
     </plurals>
     <string name="dive_site_radius">Within %1$s of its centre</string>
     <string name="dive_site_status_proposed_help">Proposed sites become active once enough divers have dived them.</string>

@@ -36,9 +36,25 @@ struct SegmentListsTextTests {
         #expect(!read(ErrorTexts.shared.of(error: failed)).isEmpty)
     }
 
+    @Test func aPinnedViewerReadsTheirGapToFirstAndTheirOwnRowIsMarked() throws {
+        let board = try #require(Samples.segmentLeaderboardVariants["filtered"])
+        #expect(read(try #require(board.gap)) == "2:52 behind 1st")
+        let mayors = try #require(Samples.segmentMayorsVariants["filtered"])
+        #expect(read(try #require(mayors.gap)) == "1,204 more efforts to be Mayor")
+        let own = try #require(Samples.segmentLeaderboardVariants["ownRow"])
+        let entries = own.entries.items.compactMap { $0 as? LeaderboardEntry }
+        #expect(own.isOwn(entry: entries[1]))
+        #expect(!own.isOwn(entry: entries[0]))
+        #expect(own.gap == nil)
+    }
+
     @Test func theLeaderboardOffersItsChoices() throws {
         let state = try #require(Samples.segmentLeaderboard["loaded"])
-        #expect(labels(state.filters.periodChoice) == ["All time", "This year", "This month"])
+        #expect(
+            labels(state.filters.periodChoice) == [
+                "Today", "This week", "Last week", "This month", "Last month", "Last 90 days", "This year", "Last year", "All time",
+            ])
+        #expect(!state.filters.periodChoice.narrows)
         #expect(labels(state.filters.scopeChoice) == ["Everyone", "Following"])
         #expect(state.filters.typeChoice == nil)
         #expect(read(state.filters.ageGroupChoice.label) == "All ages")
@@ -73,7 +89,7 @@ struct SegmentListsTextTests {
     @Test func aMayorsBoardReadsItsWindowTypeAndCounts() throws {
         let state = try #require(Samples.segmentMayorsVariants["filtered"])
         #expect(read(state.filters.periodChoice.label) == "This week")
-        #expect(labels(state.filters.periodChoice).count == 8)
+        #expect(labels(state.filters.periodChoice).count == 9)
         #expect(labels(try #require(state.filters.typeChoice)) == ["Hike", "Walk"])
         let entries = state.entries.items.compactMap { $0 as? MayorEntry }
         #expect(entries.map { state.accents(entry: $0) } == [true, false])

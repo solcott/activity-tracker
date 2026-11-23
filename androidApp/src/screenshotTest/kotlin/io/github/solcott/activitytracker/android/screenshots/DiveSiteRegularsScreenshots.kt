@@ -23,3 +23,12 @@ private fun DiveSiteRegularsStates(@PreviewParameter(DiveSiteRegularsStates::cla
 }
 
 class DiveSiteRegularsStates : OtherSamples<DiveSiteRegularsState>(DiveSiteRegularsSamples.all)
+
+@PreviewTest
+@PreviewPhoneSize
+@Composable
+private fun DiveSiteRegularsVariants(@PreviewParameter(DiveSiteRegularsVariants::class) state: DiveSiteRegularsState) {
+    ScreenPreview { DiveSiteRegularsUi(state) }
+}
+
+class DiveSiteRegularsVariants : OtherSamples<DiveSiteRegularsState>(DiveSiteRegularsSamples.variants)

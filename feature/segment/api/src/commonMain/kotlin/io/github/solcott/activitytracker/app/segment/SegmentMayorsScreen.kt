@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.Did
@@ -36,6 +37,20 @@ data class SegmentMayorsState(
 ) : CircuitUiState {
     /** Whether [entry]'s rank is drawn in the accent colour: the Mayor alone. */
     fun accents(entry: MayorEntry): Boolean = entry.rank == 1
+
+    /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
+    fun isOwn(entry: MayorEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
+
+    /**
+     * What the pinned [viewerEntry] needs to be Mayor ("8 more efforts to be Mayor"): the first entry's count less theirs, plus one, since
+     * a level count reached later ranks below. Null while there is no pinned entry, the first entry hasn't loaded, or the viewer is first.
+     */
+    val gap: AppText?
+        get() {
+            val own = viewerEntry?.takeIf { it.rank != 1 } ?: return null
+            val first = entries.items.firstOrNull()?.takeIf { it.rank == 1 } ?: return null
+            return BoardGapTexts.moreToBeMayor(first.efforts - own.efforts + 1)
+        }
 }
 
 sealed interface SegmentMayorsEvent {

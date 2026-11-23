@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A dive site's Regulars board (dive-sites/site-regulars), drawn from the states `DiveSiteRegularsPresenter` publishes, a page at a
 /// time: the scope as a segmented choice and the window as a filter menu, each diver with their rank, picture, name, the day they reached
-/// their count and their dives, opening their profile, and the viewer's own place when it isn't among those loaded. What each choice
+/// their count and their dives, opening their profile, the viewer's own marked, and the viewer's own place pinned at the bottom when it
+/// isn't among those loaded. What each choice
 /// offers and says, which rank is accented and how an entry reads are Kotlin's (`DiveSiteRegularsTexts`, `DiveSiteRegularsState`), shared
 /// with the Compose page. It is pushed over the dive site page.
 struct DiveSiteRegularsView: View {
@@ -20,12 +21,11 @@ struct DiveSiteRegularsView: View {
             }
         } row: { entry in
             row(entry)
-        } after: {
-            if let own = state.viewerEntry {
-                YourPlace { row(own) }
-            }
         } empty: {
             EmptyMessage(.diveSiteRegularsEmpty)
+        }
+        .pinnedPlace(state.viewerEntry != nil) {
+            if let own = state.viewerEntry { row(own) }
         }
         .pageTitle(Text(.diveSiteRegularsTitle(state.name)))
     }
@@ -34,7 +34,7 @@ struct DiveSiteRegularsView: View {
         RankRow(
             rank: RankBoardTexts.shared.rank(rank: entry.rank), accented: state.accents(entry: entry), athlete: entry.athlete,
             detail: DiveSiteRegularsTexts.shared.reached(entry: entry),
-            value: AppStrings.string(DiveSiteRegularsTexts.shared.visits(entry: entry)),
+            value: AppStrings.string(DiveSiteRegularsTexts.shared.visits(entry: entry)), own: state.isOwn(entry: entry),
             opens: { send(DiveSiteRegularsEvent.OpenAthlete(did: entry.athlete.did)) })
     }
 

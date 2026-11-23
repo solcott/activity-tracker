@@ -4,8 +4,8 @@ import SwiftUI
 // `RankBoards.kt` is. What each choice offers and says, and which ranks are accented, is Kotlin's (`BoardChoice`, `RankBoardTexts`,
 // `SegmentBoardTexts`, `DiveSiteRegularsTexts`, the states' getters).
 
-/// A board's choices over its entries: the segmented ones in a row of their own, then the menus in a row that wraps. Each is a list's
-/// status row, so it reads as part of the page.
+/// A board's choices over its entries: the segmented one, when there is one, then the menus in a row that wraps, together in one of
+/// the list's status rows, so they read as part of the page and take one row's padding.
 struct BoardFilters<Segments: View, Menus: View>: View {
     private let segments: Segments
     private let menus: Menus
@@ -16,15 +16,19 @@ struct BoardFilters<Segments: View, Menus: View>: View {
     }
 
     var body: some View {
-        Group {
-            VStack(spacing: 8) { segments }.listStatusRow()
+        VStack(alignment: .leading, spacing: 10) {
+            if Segments.self != EmptyView.self {
+                segments
+            }
             // Wrapping onto a second line when they don't fit, as the shared filters' FlowRow does.
-            FlowRow { menus }.listStatusRow()
+            FlowRow { menus }
         }
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listStatusRow()
     }
 }
 
-/// A board's choice as a segmented control of its options (Everyone, Following), sending the option chosen.
+/// A board's choice as a segmented control of its options (All time, This year, This month), sending the option chosen.
 struct BoardSegments: View {
     private let choice: BoardChoice
     private let send: (String?) -> Void
@@ -52,20 +56,49 @@ struct BoardSegments: View {
     }
 }
 
-/// A segment board's type and its age, weight and gender brackets as filter menus in the caller's flowing row, the weight in [units],
-/// each choice sent to the fields' own sink (`BoardFilterFields`, shared by the leaderboard and the Mayors board); the type only while
-/// there is one to show.
+/// A segment board's choices as menus in the caller's row (`BoardFilterFields`, shared by the leaderboard and the Mayors board): the date
+/// range, the scope, the type while there are several to choose, then the age group, weight class (in `units`) and gender, each its own
+/// chip naming its choice, each choice sent to the fields' own sink.
 struct SegmentBoardMenus: View {
     let fields: BoardFilterFields
     let units: UnitSystem
 
     var body: some View {
+        BoardMenu(fields.periodChoice) { if let period = $0 { fields.eventSink(BoardFilterEvent.PeriodChanged(period: period)) } }
+        BoardMenu(fields.scopeChoice) { if let scope = $0 { fields.eventSink(BoardFilterEvent.ScopeChanged(scope: scope)) } }
         if let type = fields.typeChoice {
             BoardMenu(type) { if let board = $0 { fields.eventSink(BoardFilterEvent.BoardChanged(board: board)) } }
         }
         BoardMenu(fields.ageGroupChoice) { fields.eventSink(BoardFilterEvent.AgeGroupChanged(ageGroup: $0)) }
         BoardMenu(fields.weightClassChoice(units: units)) { fields.eventSink(BoardFilterEvent.WeightClassChanged(weightClass: $0)) }
         BoardMenu(fields.genderChoice) { fields.eventSink(BoardFilterEvent.GenderChanged(gender: $0)) }
+    }
+}
+
+extension View {
+    /// Pins a board's `chips` in one row under the navigation bar (segments/segment-leaderboards), scrolling sideways when they don't fit
+    /// and never wrapping, with the list starting right under them. The list scrolls under the row as it does under the system's bar:
+    /// with the scroll edge effect on iOS 26, and over the bar material with a hairline before it.
+    func boardChips(@ViewBuilder _ chips: () -> some View) -> some View {
+        let row = ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) { chips() }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        return contentMargins(.top, 4, for: .scrollContent).chipBar(row)
+    }
+
+    @ViewBuilder fileprivate func chipBar(_ row: some View) -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaBar(edge: .top, spacing: 0) { row }
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) {
+                row
+                    .background { Rectangle().fill(.bar).ignoresSafeArea(edges: .top) }
+                    .overlay(alignment: .bottom) { Divider() }
+            }
+        }
     }
 }
 
@@ -96,13 +129,17 @@ struct BoardMenu: View {
 }
 
 /// One athlete's place on a board: the rank (accented on the podium or for the leader), their picture and name, a line under it (the
-/// day of the effort, or the day the count was reached) and the value (a time or a count), opening what the entry opens.
+/// day of the effort, or the day the count was reached), a `note` under that when there is one (the viewer's gap to first), and the
+/// value (a time or a count) in figures of equal width, kept whole while the name wraps, opening what the entry opens. The viewer's
+/// `own` row has a tinted background in a list and a heavier name, and says "You" to VoiceOver.
 struct RankRow: View {
     let rank: any AppText
     let accented: Bool
     let athlete: ProfileViewBasic
     let detail: any AppText
     let value: String
+    var own = false
+    var note: (any AppText)?
     let opens: () -> Void
 
     @ScaledMetric(relativeTo: .headline) private var rankWidth: CGFloat = 26
@@ -111,8 +148,8 @@ struct RankRow: View {
         let name = AppPackage.getShownName(athlete)
         AppItemRow(
             // The day in the footnote's size, as the shared row's small line; it wraps beside a long count rather than shrinking.
-            Text(verbatim: name), lines: [Text(detail).font(.footnote)],
-            summary: Text(verbatim: value).foregroundStyle(.primary).fontWeight(.medium).monospacedDigit(), opens: opens
+            Text(verbatim: name).fontWeight(own ? .semibold : nil), lines: [Text(detail).font(.footnote)] + noteLine,
+            summary: Text(verbatim: value).font(.headline.monospacedDigit()).foregroundStyle(.primary), opens: opens
         ) {
             HStack(spacing: 10) {
                 Text(rank)
@@ -125,10 +162,17 @@ struct RankRow: View {
                 Avatar(url: athlete.avatar, name: name, size: 36)
             }
         }
+        .accessibilityValue(own ? Text(.rankBoardYou) : Text(verbatim: ""))
+        .listRowBackground(own ? Color.accentColor.opacity(0.12) : nil)
+    }
+
+    private var noteLine: [Text] {
+        note.map { [Text($0).font(.footnote)] } ?? []
     }
 }
 
-/// The viewer's own place under "Your place", below a board's entries, when they aren't among those loaded.
+/// The viewer's own place under "Your place", in a bar fixed to the bottom of a board while they aren't among the entries loaded: the
+/// system's bar material with a hairline above it, which the list scrolls under and insets to.
 struct YourPlace<Row: View>: View {
     private let row: Row
 
@@ -137,10 +181,26 @@ struct YourPlace<Row: View>: View {
     }
 
     var body: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(.leaderboardYourPlace).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
             row
-        } header: {
-            Text(.leaderboardYourPlace)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+}
+
+extension View {
+    /// This board with the viewer's own place, when `own` is set, pinned under it in a `YourPlace` bar.
+    func pinnedPlace<Row: View>(_ own: Bool, @ViewBuilder row: @escaping () -> Row) -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            if own {
+                YourPlace(row: row)
+            }
         }
     }
 }

@@ -9,13 +9,12 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.data.units.formatWhole
+import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
-import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlin.math.roundToInt
@@ -26,40 +25,35 @@ import kotlinx.collections.immutable.persistentListOf
  * segments/leaderboard-brackets, dev/shared-display-text): each choice's options and labels, and an entry's day and count.
  */
 object SegmentBoardTexts {
-    /** All time, This year or This month, a [LeaderboardPeriod] value [chosen]. */
-    fun leaderboardPeriod(chosen: String): BoardChoice =
-        BoardChoice.of(LeaderboardPeriod.all, chosen) {
-            when (it) {
-                LeaderboardPeriod.YEAR -> AppText.named("leaderboard_period_year")
-                LeaderboardPeriod.MONTH -> AppText.named("leaderboard_period_month")
-                else -> AppText.named("leaderboard_period_all_time")
-            }
-        }
+    /**
+     * The date range of either board, a [BoardPeriod] value [chosen], among every range (today first, all time last), marked while it isn't
+     * the board's own [default].
+     */
+    fun period(chosen: String, default: String): BoardChoice =
+        BoardChoice.of(BoardPeriod.all, chosen, narrows = chosen != default, label = ::periodLabel)
 
-    /** The Mayors board's window, a [MayorPeriod] value [chosen], among every window. */
-    fun mayorPeriod(chosen: String): BoardChoice = BoardChoice.of(MayorPeriod.all, chosen, narrows = true, label = ::mayorPeriodLabel)
-
-    private fun mayorPeriodLabel(period: String): AppText =
+    private fun periodLabel(period: String): AppText =
         AppText.named(
             when (period) {
-                MayorPeriod.ALL_TIME -> "leaderboard_period_all_time"
-                MayorPeriod.THIS_YEAR -> "leaderboard_period_year"
-                MayorPeriod.LAST_YEAR -> "mayor_period_last_year"
-                MayorPeriod.THIS_MONTH -> "leaderboard_period_month"
-                MayorPeriod.LAST_MONTH -> "mayor_period_last_month"
-                MayorPeriod.THIS_WEEK -> "mayor_period_this_week"
-                MayorPeriod.LAST_WEEK -> "mayor_period_last_week"
+                BoardPeriod.TODAY -> "board_period_today"
+                BoardPeriod.ALL_TIME -> "leaderboard_period_all_time"
+                BoardPeriod.THIS_YEAR -> "leaderboard_period_year"
+                BoardPeriod.LAST_YEAR -> "mayor_period_last_year"
+                BoardPeriod.THIS_MONTH -> "leaderboard_period_month"
+                BoardPeriod.LAST_MONTH -> "mayor_period_last_month"
+                BoardPeriod.THIS_WEEK -> "mayor_period_this_week"
+                BoardPeriod.LAST_WEEK -> "mayor_period_last_week"
                 else -> "mayor_period_last_90_days"
             },
         )
 
     /**
-     * The board's type [board] among [boards], the types the viewer may choose: a menu when there are two or more, else [board] alone,
-     * shown as its label; null while there is no type to show.
+     * The board's type [board] among [boards], the types the viewer may choose, as a menu; null while there is no type or only one, since
+     * the page already says what the segment is.
      */
     fun type(board: String?, boards: List<String>): BoardChoice? {
-        board ?: return null
-        return BoardChoice.of(if (boards.size < 2) listOf(board) else boards, board, narrows = true, label = ::boardLabel)
+        if (board == null || boards.size < 2) return null
+        return BoardChoice.of(boards, board, narrows = true, label = ::boardLabel)
     }
 
     /** A board type's label: its sport's name, or "E-bike" for [SegmentBoard.E_BIKE]. */
@@ -81,6 +75,26 @@ object SegmentBoardTexts {
     /** A count of efforts: "14 efforts", grouped from a thousand (ui/number-format). */
     fun efforts(count: Int): AppText = AppText.Plural("mayor_efforts", count, persistentListOf(AppText.written(formatWhole(count))))
 }
+
+/**
+ * What the pinned "Your place" bar says of the viewer's gap to the top of a segment's board (segments/segment-leaderboards,
+ * segments/segment-mayors).
+ */
+object BoardGapTexts {
+    /**
+     * How far a leaderboard time is behind the board's first, [seconds] apart: "51 s behind 1st" under a minute, else in a time's clock
+     * form, "1:05 behind 1st".
+     */
+    fun behindFirst(seconds: Long): AppText =
+        if (seconds < SECONDS_PER_MINUTE) AppText.named("leaderboard_behind_first_seconds", AppText.written(seconds.toString()))
+        else AppText.named("leaderboard_behind_first", AppText.written(StatText.duration(seconds)))
+
+    /** What it takes to be Mayor, [count] more efforts: "8 more efforts to be Mayor". */
+    fun moreToBeMayor(count: Int): AppText =
+        AppText.Plural("mayors_more_to_be_mayor", count, persistentListOf(AppText.written(formatWhole(count))))
+}
+
+private const val SECONDS_PER_MINUTE = 60L
 
 /**
  * The age, weight and gender brackets a segment's leaderboard and Mayors board offer (segments/leaderboard-brackets,

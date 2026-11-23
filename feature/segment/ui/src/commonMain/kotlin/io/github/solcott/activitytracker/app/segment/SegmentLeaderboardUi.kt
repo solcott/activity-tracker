@@ -1,10 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -12,9 +7,9 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
-import io.github.solcott.activitytracker.app.ui.BoardSegments
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.OwnPlaceBar
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.app.ui.string
@@ -24,9 +19,10 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 
 /**
- * A segment's leaderboard: the period and scope, the e-bike board for a ride segment, and the age, weight and gender brackets above the
- * entries, each with its rank, athlete, time and date; the viewer's own place below them when it isn't among those loaded. Tapping an entry
- * opens its activity. What it offers and says is `SegmentBoardTexts`' and the state's.
+ * A segment's leaderboard: the period, then the scope, the e-bike board for a ride segment, and the age, weight and gender brackets as
+ * chips above the entries, each with its rank, athlete, time and date, the viewer's own marked; the viewer's own place pinned under the
+ * list, with their gap to first, when it isn't among those loaded. Tapping an entry opens its activity. What it offers and says is
+ * `SegmentBoardTexts`' and the state's.
  */
 @CircuitInject(SegmentLeaderboardScreen::class, SessionScope::class)
 @Composable
@@ -39,12 +35,25 @@ fun SegmentLeaderboardUi(state: SegmentLeaderboardState, modifier: Modifier = Mo
         onBack = { state.eventSink(SegmentLeaderboardEvent.Back) },
         modifier = modifier,
         listState = listState,
-        verticalPadding = 12.dp,
+        verticalPadding = 4.dp,
+        header = { SegmentBoardChipRow(state.filters) },
+        bottomBar = {
+            OwnPlaceBar(
+                state.viewerEntry?.let { own ->
+                    {
+                        EntryRow(
+                            state,
+                            own,
+                            note = state.gap?.string(),
+                            onClick = { state.eventSink(SegmentLeaderboardEvent.OpenActivity(own.effort.activity)) },
+                        )
+                    }
+                },
+            )
+        },
     ) {
-        item(key = "filters") { Filters(state.filters) }
         rankBoardRows(
             state.entries,
-            state.viewerEntry,
             UiError.Kind.LoadLeaderboard,
             onRetry = { state.eventSink(SegmentLeaderboardEvent.Retry) },
             emptyText = Res.string.leaderboard_empty,
@@ -55,20 +64,9 @@ fun SegmentLeaderboardUi(state: SegmentLeaderboardState, modifier: Modifier = Mo
     }
 }
 
+/** One athlete's place: rank, avatar and name, their time and the day they rode it, and [note] under that. */
 @Composable
-private fun Filters(fields: BoardFilterFields) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        BoardSegments(fields.periodChoice, onSelect = { it?.let { period -> fields.eventSink(BoardFilterEvent.PeriodChanged(period)) } })
-        BoardSegments(fields.scopeChoice, onSelect = { it?.let { scope -> fields.eventSink(BoardFilterEvent.ScopeChanged(scope)) } })
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SegmentBoardChips(fields)
-        }
-    }
-}
-
-/** One athlete's place: rank, avatar and name, their time and the day they rode it. */
-@Composable
-private fun EntryRow(state: SegmentLeaderboardState, entry: LeaderboardEntry, onClick: () -> Unit) {
+private fun EntryRow(state: SegmentLeaderboardState, entry: LeaderboardEntry, onClick: () -> Unit, note: String? = null) {
     RankRow(
         RankBoardTexts.rank(entry.rank).string(),
         accented = state.accents(entry),
@@ -76,5 +74,7 @@ private fun EntryRow(state: SegmentLeaderboardState, entry: LeaderboardEntry, on
         detail = SegmentBoardTexts.effortDay(entry).string(),
         value = SegmentBoardTexts.time(entry).string(),
         onClick = onClick,
+        own = state.isOwn(entry),
+        note = note,
     )
 }

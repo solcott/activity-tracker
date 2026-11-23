@@ -23,3 +23,12 @@ private fun SegmentLeaderboardStates(@PreviewParameter(SegmentLeaderboardStates:
 }
 
 class SegmentLeaderboardStates : OtherSamples<SegmentLeaderboardState>(SegmentLeaderboardSamples.all)
+
+@PreviewTest
+@PreviewPhoneSize
+@Composable
+private fun SegmentLeaderboardVariants(@PreviewParameter(SegmentLeaderboardVariants::class) state: SegmentLeaderboardState) {
+    ScreenPreview { SegmentLeaderboardUi(state) }
+}
+
+class SegmentLeaderboardVariants : OtherSamples<SegmentLeaderboardState>(SegmentLeaderboardSamples.variants)

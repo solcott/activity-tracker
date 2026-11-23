@@ -23,3 +23,12 @@ private fun SegmentMayorsStates(@PreviewParameter(SegmentMayorsStates::class) st
 }
 
 class SegmentMayorsStates : OtherSamples<SegmentMayorsState>(SegmentMayorsSamples.all)
+
+@PreviewTest
+@PreviewPhoneSize
+@Composable
+private fun SegmentMayorsVariants(@PreviewParameter(SegmentMayorsVariants::class) state: SegmentMayorsState) {
+    ScreenPreview { SegmentMayorsUi(state) }
+}
+
+class SegmentMayorsVariants : OtherSamples<SegmentMayorsState>(SegmentMayorsSamples.variants)

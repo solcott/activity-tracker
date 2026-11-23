@@ -442,11 +442,12 @@ object SegmentLeaderboardSamples {
 
     /**
      * States beyond content loading: a ride board with its e-bike type, an age group and a weight class chosen, four entries and the
-     * viewer's own place at 140 (`filtered`), and the same choices while their first page loads (`firstPage`). Kept apart from [all], whose
-     * keys are the content-loading conformance set.
+     * viewer's own place at 140, pinned with their gap to first (`filtered`), the same choices while their first page loads (`firstPage`),
+     * and the viewer second, among the loaded rows (`ownRow`). Kept apart from [all], whose keys are the content-loading conformance set.
      */
     val variants: Map<String, SegmentLeaderboardState>
         get() {
+            val viewer = fakeLeaderboardEntry(140, fakeProfileBasic(Fixed.ALICE), elapsed = 402)
             val filtered =
                 SegmentLeaderboardState(
                     name,
@@ -466,11 +467,16 @@ object SegmentLeaderboardSamples {
                                 fakeLeaderboardEntry(3, fakeProfileBasic(DAVE, displayName = "Dave"), elapsed = 271),
                                 fakeLeaderboardEntry(4, fakeProfileBasic(ERIN, displayName = "Erin"), elapsed = 3_725),
                             ),
-                            meta,
+                            BoardMeta(viewer),
                         ),
-                    viewerEntry = fakeLeaderboardEntry(140, fakeProfileBasic(Fixed.ALICE), elapsed = 402),
+                    viewerEntry = viewer,
                 )
-            return mapOf("filtered" to filtered, "firstPage" to filtered.copy(entries = PagedStates.loading(), viewerEntry = null))
+            val ownRow = SegmentLeaderboardState(name, entries = PagedStates.loaded(entries, BoardMeta(entries[1]), PagedStates.NEXT))
+            return mapOf(
+                "filtered" to filtered,
+                "firstPage" to filtered.copy(entries = PagedStates.loading(), viewerEntry = null),
+                "ownRow" to ownRow,
+            )
         }
 }
 
@@ -484,12 +490,14 @@ object SegmentMayorsSamples {
         get() = pagedSamples(entries, meta) { SegmentMayorsState(name, entries = it) }
 
     /**
-     * A hike segment's board for this week, with a walk type to choose and the viewer's own place at 58 (`filtered`). Kept apart from
-     * [all], whose keys are the content-loading conformance set.
+     * A hike segment's board for this week, with a walk type to choose and the viewer's own place at 58, pinned with what it takes to be
+     * Mayor (`filtered`), and the viewer second, among the loaded rows (`ownRow`). Kept apart from [all], whose keys are the
+     * content-loading conformance set.
      */
     val variants: Map<String, SegmentMayorsState>
         get() =
             mapOf(
+                "ownRow" to SegmentMayorsState(name, entries = PagedStates.end(entries, BoardMeta(entries[1]))),
                 "filtered" to
                     SegmentMayorsState(
                         name,
@@ -506,12 +514,15 @@ object SegmentMayorsSamples {
                                     fakeMayorEntry(1, fakeProfileBasic(Fixed.BOB), 1_204),
                                     fakeMayorEntry(2, fakeProfileBasic(Fixed.CAROL), 9),
                                 ),
-                                meta,
+                                BoardMeta(MAYORS_VIEWER),
                             ),
-                        viewerEntry = fakeMayorEntry(58, fakeProfileBasic(Fixed.ALICE), 1),
+                        viewerEntry = MAYORS_VIEWER,
                     ),
             )
 }
+
+/** The viewer on the filtered Mayors board, 58th with one effort. */
+private val MAYORS_VIEWER = fakeMayorEntry(58, fakeProfileBasic(Fixed.ALICE), 1)
 
 object StarredSegmentsSamples {
     val segments: ImmutableList<StarredSegment> =

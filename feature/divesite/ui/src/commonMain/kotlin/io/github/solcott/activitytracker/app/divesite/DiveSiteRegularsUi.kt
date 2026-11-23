@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.ui.BoardChoiceChip
 import io.github.solcott.activitytracker.app.ui.BoardSegments
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.OwnPlaceBar
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.app.ui.string
@@ -27,8 +28,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * A dive site's Regulars board (dive-sites/site-regulars): the scope and period above the entries, each with its rank, diver, visits and
- * the date they reached that count; the viewer's own place below them when it isn't among those loaded. Tapping an entry opens the profile.
- * What it offers and says is `DiveSiteRegularsTexts`' and the state's.
+ * the date they reached that count, the viewer's own marked; the viewer's own place pinned under the list when it isn't among those loaded.
+ * Tapping an entry opens the profile. What it offers and says is `DiveSiteRegularsTexts`' and the state's.
  */
 @CircuitInject(DiveSiteRegularsScreen::class, SessionScope::class)
 @Composable
@@ -41,11 +42,17 @@ fun DiveSiteRegularsUi(state: DiveSiteRegularsState, modifier: Modifier = Modifi
         modifier = modifier,
         listState = listState,
         verticalPadding = 12.dp,
+        bottomBar = {
+            OwnPlaceBar(
+                state.viewerEntry?.let { own ->
+                    { RegularRow(state, own, onClick = { state.eventSink(DiveSiteRegularsEvent.OpenAthlete(own.athlete.did)) }) }
+                },
+            )
+        },
     ) {
         item(key = "filters") { Filters(state) }
         rankBoardRows(
             state.entries,
-            state.viewerEntry,
             UiError.Kind.LoadRegulars,
             onRetry = { state.eventSink(DiveSiteRegularsEvent.Retry) },
             emptyText = Res.string.dive_site_regulars_empty,
@@ -77,5 +84,6 @@ private fun RegularRow(state: DiveSiteRegularsState, entry: DiveSiteRegularEntry
         detail = DiveSiteRegularsTexts.reached(entry).string(),
         value = DiveSiteRegularsTexts.visits(entry).string(),
         onClick = onClick,
+        own = state.isOwn(entry),
     )
 }

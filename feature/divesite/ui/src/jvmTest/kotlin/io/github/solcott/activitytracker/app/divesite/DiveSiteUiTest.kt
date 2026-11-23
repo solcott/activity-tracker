@@ -1,13 +1,17 @@
 package io.github.solcott.activitytracker.app.divesite
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.ui.OwnPlaceBarTag
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
@@ -59,6 +63,23 @@ class DiveSiteUiTest {
         onNodeWithText("31 dives").assertExists()
         onNodeWithText("Following").performClick()
         assertEquals(DiveSiteRegularsEvent.ScopeChanged("following"), events.single())
+    }
+
+    @Test
+    fun theRegularsBoardPinsTheViewersPlaceWithNoGap() = runComposeUiTest {
+        setContent { AppPreview { DiveSiteRegularsUi(DiveSiteRegularsSamples.variants.getValue("lastYear")) } }
+        onNodeWithTag(OwnPlaceBarTag).assertExists()
+        onNodeWithText("Your place").assertExists()
+        onNodeWithText("4 dives").assertExists()
+        onNodeWithText("behind", substring = true).assertDoesNotExist()
+        onNodeWithText("Mayor", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aRegularAmongTheRowsIsMarkedAndNotPinned() = runComposeUiTest {
+        setContent { AppPreview { DiveSiteRegularsUi(DiveSiteRegularsSamples.variants.getValue("ownRow")) } }
+        onNodeWithTag(OwnPlaceBarTag).assertDoesNotExist()
+        onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "You")).assertExists()
     }
 
     @Test

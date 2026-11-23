@@ -1,14 +1,25 @@
 package io.github.solcott.activitytracker.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,9 +46,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableMaxWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
+import io.github.solcott.activitytracker.composeApp.resources.rank_board_you
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableList
@@ -79,7 +96,8 @@ fun BoardChoiceChip(choice: BoardChoice, onSelect: (String?) -> Unit, modifier: 
 
 /**
  * One athlete's place on a board: [rank], as `RankBoardTexts.rank` writes it (in the accent colour when [accented]), avatar and name,
- * [detail] under it, and [value].
+ * [detail] under it and [note] under that, and [value] at the end in figures of equal width, kept whole while the name wraps. The viewer's
+ * [own] row is tinted, its name heavier, and it says "You" to accessibility services.
  */
 @Composable
 @Suppress("LongParameterList") // A board row's parts.
@@ -91,10 +109,20 @@ fun RankRow(
     value: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    own: Boolean = false,
+    note: String? = null,
 ) {
     val name = athlete.shownName
+    val you = stringResource(Res.string.rank_board_you)
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(vertical = 10.dp),
+        modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .then(if (own) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = OWN_ROW_TINT)) else Modifier)
+            .clickable(onClick = onClick)
+            .handCursor()
+            .semantics(mergeDescendants = true) { if (own) stateDescription = you }
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -107,12 +135,50 @@ fun RankRow(
         )
         Avatar(athlete.avatar, name, 36.dp)
         Column(Modifier.weight(1f)) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
+            Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = if (own) FontWeight.SemiBold else null)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(
+            value,
+            Modifier.testTag(RankRowValueTag),
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
+
+/**
+ * How strongly the viewer's own row is washed in the brand colour: lighter than `primaryContainer`, the avatar placeholder's circle, so the
+ * circle still shows on it, as iOS tints its row.
+ */
+private const val OWN_ROW_TINT = 0.08f
+
+/** The test tag of a [RankRow]'s value. */
+const val RankRowValueTag = "rank-row-value"
+
+/**
+ * A board's choices as one row of chips under the screen's bar (segments/segment-leaderboards), scrolling sideways when they don't fit and
+ * never wrapping, so the board's first row always starts at the same place. Give it to [ListScreen]'s `header`.
+ */
+@Composable
+fun BoardChipRow(modifier: Modifier = Modifier, chips: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag(BoardChipRowTag),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = chips,
+    )
+}
+
+/** The test tag of a [BoardChipRow]. */
+const val BoardChipRowTag = "board-chip-row"
 
 /** A board's [choice] as a segmented control of its options, such as Everyone / Following. */
 @Composable
@@ -126,13 +192,12 @@ fun BoardSegments(choice: BoardChoice, onSelect: (String?) -> Unit, modifier: Mo
 }
 
 /**
- * A board's rows (ui/content-loading): [entries]' refresh status, each entry's [row] with a divider under it, the viewer's [own] place when
- * it isn't among them ([ownPlace]), then the next page's spinner or failure, or [emptyText] when the board lists no one.
+ * A board's rows (ui/content-loading): [entries]' refresh status, each entry's [row] with a divider under it, then the next page's spinner
+ * or failure, or [emptyText] when the board lists no one. The viewer's own place, when it isn't among them, goes in an [OwnPlaceBar].
  */
-@Suppress("LongParameterList") // A paged board's state, its error and retry, the viewer's place and the pieces a board fills in.
+@Suppress("LongParameterList") // A paged board's state, its error and retry and the pieces a board fills in.
 fun <E : Any> LazyListScope.rankBoardRows(
     entries: PagedState<E, *>,
-    own: E?,
     errorKind: UiError.Kind,
     onRetry: () -> Unit,
     emptyText: StringResource,
@@ -140,7 +205,6 @@ fun <E : Any> LazyListScope.rankBoardRows(
     row: @Composable (E) -> Unit,
 ) {
     pagedRows(entries, errorKind, onRetry, key, empty = null, row)
-    ownPlace(own, row)
     pagedFooter(entries, errorKind, onRetry) {
         EmptyListText(stringResource(emptyText), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -188,13 +252,32 @@ fun LeaderCard(
     }
 }
 
-/** The viewer's own place ([own]'s [row]) under a heading, below a board's entries; nothing when they're among them or not on it. */
-fun <E : Any> LazyListScope.ownPlace(own: E?, row: @Composable (E) -> Unit) {
-    own ?: return
-    item(key = "own-place") {
-        Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            Text(stringResource(Res.string.leaderboard_your_place), style = MaterialTheme.typography.titleSmall)
-            row(own)
+/**
+ * The viewer's own place, fixed under a board's list while it isn't among the rows loaded: "Your place" over [row], their row, on the next
+ * surface step with a hairline above it and no shadow. Nothing when there is no [row].
+ */
+@Composable
+fun OwnPlaceBar(row: (@Composable () -> Unit)?, modifier: Modifier = Modifier) {
+    row ?: return
+    Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).testTag(OwnPlaceBarTag)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(
+            Modifier.align(Alignment.CenterHorizontally)
+                .widthIn(max = ReadableMaxWidth)
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 4.dp),
+        ) {
+            Text(
+                stringResource(Res.string.leaderboard_your_place),
+                Modifier.padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            row()
         }
     }
 }
+
+/** The test tag of an [OwnPlaceBar]. */
+const val OwnPlaceBarTag = "own-place-bar"

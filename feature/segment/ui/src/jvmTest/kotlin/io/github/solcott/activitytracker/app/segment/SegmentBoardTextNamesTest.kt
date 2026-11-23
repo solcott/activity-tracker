@@ -9,8 +9,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allPluralStringResources
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
-import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,8 +24,7 @@ class SegmentBoardTextNamesTest {
     @Test
     fun everyNameTheSegmentBoardsChooseHasItsString() {
         val choices =
-            LeaderboardPeriod.all.map(SegmentBoardTexts::leaderboardPeriod) +
-                MayorPeriod.all.map(SegmentBoardTexts::mayorPeriod) +
+            BoardPeriod.all.map { SegmentBoardTexts.period(it, BoardPeriod.ALL_TIME) } +
                 listOfNotNull(SegmentBoardTexts.type("ride", listOf("ride", SegmentBoard.E_BIKE))) +
                 LeaderboardBracketTexts.ageGroup(null) +
                 UnitSystem.entries.map { LeaderboardBracketTexts.weightClass(null, it) } +

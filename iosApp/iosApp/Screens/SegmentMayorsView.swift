@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// A segment's Mayors board (segments/segment-mayors), drawn from the states `SegmentMayorsPresenter` publishes, a page at a time: the
-/// scope as a segmented choice, the window, the type and the brackets as filter menus, each entry with its rank, athlete, the day it
-/// reached its count and the count, opening the athlete's profile, and the viewer's own place when it isn't among those loaded. What each
+/// window, the scope, the type and the age, weight and gender as one row of menus pinned under the bar, each entry with its rank, athlete, the day it reached its count and the
+/// count, opening the athlete's profile, the viewer's own marked, and the viewer's own place pinned at the bottom with what it takes to be
+/// Mayor when it isn't among those loaded. What each
 /// choice offers and says, which rank is accented and how an entry reads are Kotlin's (`SegmentBoardTexts`, `SegmentMayorsState`), shared
 /// with the Compose page. It is pushed over the segment page.
 struct SegmentMayorsView: View {
@@ -12,34 +13,27 @@ struct SegmentMayorsView: View {
     var body: some View {
         let filters = state.filters
         PagedList(
-            state.entries, of: MayorEntry.self, errorKind: .LoadMayors, id: { $0.athlete.did.value }, keepsTop: true,
+            state.entries, of: MayorEntry.self, errorKind: .LoadMayors, id: { $0.athlete.did.value },
             retry: { send(SegmentMayorsEvent.Retry.shared) }, loadMore: { send(SegmentMayorsEvent.LoadMore.shared) }
         ) {
-            BoardFilters {
-                BoardSegments(filters.scopeChoice) { if let scope = $0 { filters.eventSink(BoardFilterEvent.ScopeChanged(scope: scope)) } }
-            } menus: {
-                BoardMenu(filters.periodChoice) {
-                    if let period = $0 { filters.eventSink(BoardFilterEvent.PeriodChanged(period: period)) }
-                }
-                SegmentBoardMenus(fields: filters, units: stats.units)
-            }
+            EmptyView()
         } row: { entry in
             row(entry)
-        } after: {
-            if let own = state.viewerEntry {
-                YourPlace { row(own) }
-            }
         } empty: {
             EmptyMessage(.mayorsEmpty)
+        }
+        .boardChips { SegmentBoardMenus(fields: filters, units: stats.units) }
+        .pinnedPlace(state.viewerEntry != nil) {
+            if let own = state.viewerEntry { row(own, note: state.gap) }
         }
         .pageTitle(Text(.mayorsTitle(state.name)))
     }
 
-    private func row(_ entry: MayorEntry) -> some View {
+    private func row(_ entry: MayorEntry, note: (any AppText)? = nil) -> some View {
         RankRow(
             rank: RankBoardTexts.shared.rank(rank: entry.rank), accented: state.accents(entry: entry), athlete: entry.athlete,
             detail: SegmentBoardTexts.shared.reached(entry: entry),
-            value: AppStrings.string(SegmentBoardTexts.shared.efforts(entry: entry)),
+            value: AppStrings.string(SegmentBoardTexts.shared.efforts(entry: entry)), own: state.isOwn(entry: entry), note: note,
             opens: { send(SegmentMayorsEvent.OpenAthlete(did: entry.athlete.did)) })
     }
 

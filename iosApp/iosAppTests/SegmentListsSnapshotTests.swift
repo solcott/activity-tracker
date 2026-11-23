@@ -13,9 +13,9 @@ struct SegmentListsSnapshotTests {
         "loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "loadingMore", "pageFailed", "end",
     ]
     nonisolated private static let starredVariants = ["unavailable", "unstarFailed", "needsSignIn"]
-    nonisolated private static let leaderboardVariants = ["filtered", "firstPage"]
-    nonisolated private static let mayorsVariants = ["filtered"]
-    nonisolated private static let regularsVariants = ["lastYear"]
+    nonisolated private static let leaderboardVariants = ["filtered", "firstPage", "ownRow"]
+    nonisolated private static let mayorsVariants = ["filtered", "ownRow"]
+    nonisolated private static let regularsVariants = ["lastYear", "ownRow"]
 
     @Test(arguments: paged + starredVariants)
     func starredSegments(sample: String) throws {

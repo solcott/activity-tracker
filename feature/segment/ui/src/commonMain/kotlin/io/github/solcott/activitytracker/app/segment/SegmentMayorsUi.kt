@@ -1,10 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -12,11 +7,10 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
-import io.github.solcott.activitytracker.app.ui.BoardChoiceChip
-import io.github.solcott.activitytracker.app.ui.BoardSegments
 import io.github.solcott.activitytracker.app.ui.LeaderCard
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.OwnPlaceBar
 import io.github.solcott.activitytracker.app.ui.RankRow
 import io.github.solcott.activitytracker.app.ui.rankBoardRows
 import io.github.solcott.activitytracker.app.ui.string
@@ -43,12 +37,25 @@ fun SegmentMayorsUi(state: SegmentMayorsState, modifier: Modifier = Modifier) {
         onBack = { state.eventSink(SegmentMayorsEvent.Back) },
         modifier = modifier,
         listState = listState,
-        verticalPadding = 12.dp,
+        verticalPadding = 4.dp,
+        header = { SegmentBoardChipRow(state.filters) },
+        bottomBar = {
+            OwnPlaceBar(
+                state.viewerEntry?.let { own ->
+                    {
+                        MayorRow(
+                            state,
+                            own,
+                            note = state.gap?.string(),
+                            onClick = { state.eventSink(SegmentMayorsEvent.OpenAthlete(own.athlete.did)) },
+                        )
+                    }
+                },
+            )
+        },
     ) {
-        item(key = "filters") { Filters(state.filters) }
         rankBoardRows(
             state.entries,
-            state.viewerEntry,
             UiError.Kind.LoadMayors,
             onRetry = { state.eventSink(SegmentMayorsEvent.Retry) },
             emptyText = Res.string.mayors_empty,
@@ -77,23 +84,9 @@ internal fun MayorCard(mayor: MayorSummary, onClick: () -> Unit, modifier: Modif
     )
 }
 
+/** One athlete's place: rank, avatar and name, the day they reached their count, [note] under that, and the count. */
 @Composable
-private fun Filters(fields: BoardFilterFields) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        BoardSegments(fields.scopeChoice, onSelect = { it?.let { scope -> fields.eventSink(BoardFilterEvent.ScopeChanged(scope)) } })
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BoardChoiceChip(
-                fields.periodChoice,
-                onSelect = { it?.let { period -> fields.eventSink(BoardFilterEvent.PeriodChanged(period)) } },
-            )
-            SegmentBoardChips(fields)
-        }
-    }
-}
-
-/** One athlete's place: rank, avatar and name, the day they reached their count, and the count. */
-@Composable
-private fun MayorRow(state: SegmentMayorsState, entry: MayorEntry, onClick: () -> Unit) {
+private fun MayorRow(state: SegmentMayorsState, entry: MayorEntry, onClick: () -> Unit, note: String? = null) {
     RankRow(
         RankBoardTexts.rank(entry.rank).string(),
         accented = state.accents(entry),
@@ -101,5 +94,7 @@ private fun MayorRow(state: SegmentMayorsState, entry: MayorEntry, onClick: () -
         detail = SegmentBoardTexts.reached(entry).string(),
         value = SegmentBoardTexts.efforts(entry).string(),
         onClick = onClick,
+        own = state.isOwn(entry),
+        note = note,
     )
 }
