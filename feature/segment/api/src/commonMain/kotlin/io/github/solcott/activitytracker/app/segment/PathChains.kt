@@ -26,41 +26,46 @@ internal object PathChains {
         while (left.isNotEmpty()) {
             val seed = left.maxBy { SegmentGeometry.lengthMeters(lines[it]) }
             left -= seed
-            val chain = ArrayDeque(listOf(seed to false))
-            fun oriented(placed: Pair<Int, Boolean>) = lines[placed.first].let { if (placed.second) it.asReversed() else it }
+            val chain = ArrayDeque(listOf(Turned(seed, reversed = false)))
+            fun oriented(piece: Turned) = lines[piece.index].let { if (piece.reversed) it.asReversed() else it }
             // The tail first: a piece whose start meets it runs on as drawn, one whose end does is turned round.
             while (true) {
                 val tail = oriented(chain.last()).last()
-                val (index, atEnd) = nearestEnd(tail, left, lines) ?: break
-                left -= index
-                chain.addLast(index to atEnd)
+                val end = nearestEnd(tail, left, lines) ?: break
+                left -= end.index
+                chain.addLast(Turned(end.index, reversed = end.atEnd))
             }
             // Then the head: a piece whose end meets it comes before as drawn, one whose start does is turned round.
             while (true) {
                 val head = oriented(chain.first()).first()
-                val (index, atEnd) = nearestEnd(head, left, lines) ?: break
-                left -= index
-                chain.addFirst(index to !atEnd)
+                val end = nearestEnd(head, left, lines) ?: break
+                left -= end.index
+                chain.addFirst(Turned(end.index, reversed = !end.atEnd))
             }
-            chain.forEachIndexed { i, (index, reversed) -> order += Placed(index, reversed, joined = i > 0) }
-            chained += chain.map { lines[it.first] }
+            chain.forEachIndexed { i, piece -> order += Placed(piece.index, piece.reversed, joined = i > 0) }
+            chained += chain.map { lines[it.index] }
             left.removeAll { index -> lines[index].let { listOf(it.first(), it.last()) }.any { end -> touches(end, chained) } }
         }
         return order
     }
 
     /** The piece among [candidates] with an end nearest [point], within [JOIN_M], and whether that end is its last point. */
-    private fun nearestEnd(point: GeoPoint, candidates: Set<Int>, lines: List<List<GeoPoint>>): Pair<Int, Boolean>? =
+    private fun nearestEnd(point: GeoPoint, candidates: Set<Int>, lines: List<List<GeoPoint>>): PieceEnd? =
         candidates
             .flatMap { index ->
                 listOf(
-                    Triple(index, false, SegmentGeometry.distanceMeters(point, lines[index].first())),
-                    Triple(index, true, SegmentGeometry.distanceMeters(point, lines[index].last())),
+                    PieceEnd(index, atEnd = false, SegmentGeometry.distanceMeters(point, lines[index].first())),
+                    PieceEnd(index, atEnd = true, SegmentGeometry.distanceMeters(point, lines[index].last())),
                 )
             }
-            .filter { it.third <= JOIN_M }
-            .minByOrNull { it.third }
-            ?.let { (index, atEnd) -> index to atEnd }
+            .filter { it.meters <= JOIN_M }
+            .minByOrNull { it.meters }
+
+    /** The piece at [index] in a chain, turned round when [reversed]. */
+    private data class Turned(val index: Int, val reversed: Boolean)
+
+    /** One end of the piece at [index]: its last point when [atEnd], else its first, [meters] from the point asked about. */
+    private data class PieceEnd(val index: Int, val atEnd: Boolean, val meters: Double)
 
     private fun touches(point: GeoPoint, lines: List<List<GeoPoint>>): Boolean = lines.any {
         SegmentGeometry.distanceToLineMeters(point, it) <= JOIN_M
