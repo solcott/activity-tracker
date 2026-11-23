@@ -142,7 +142,10 @@ data class ActivityDetailPage(
      * empty when there are none, or the owner just left the group here.
      */
     val partners: ImmutableList<GroupPartner> = persistentListOf(),
-    /** On the owner's own activity, leaving or rejoining its group; null on anyone else's, or when it can't be offered now. */
+    /**
+     * On the owner's own activity, leaving its group while it lists a partner, or rejoining once it left; null on anyone else's, on one done
+     * alone, or when it can't be offered now.
+     */
     val ownGroup: OwnGroupState? = null,
     /** The owner may add people who follow them to this activity (feed/activity-invites). */
     val canAddPeople: Boolean = false,
@@ -160,7 +163,7 @@ data class ActivityDetailPage(
 
 /**
  * Leaving or rejoining the group on the owner's own activity (feed/group-activities): offered while their grouping is on and its segment
- * track is stored.
+ * track is stored, Leave group only while the activity lists a partner and Rejoin group whenever it left.
  *
  * @property left the activity left its group, as the owner last chose it here or as stored.
  * @property busy queueing the change.

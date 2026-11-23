@@ -34,6 +34,12 @@ internal class OwnGroup(val state: OwnGroupState?, private val set: (Boolean) ->
     /** [partners] as the page lists them: none once the owner left here, before the AppView catches up. */
     fun shown(partners: List<GroupPartner>?): ImmutableList<GroupPartner> =
         if (state?.left == true) persistentListOf() else partners.orEmpty().toImmutableList()
+
+    /**
+     * [state] as the page offers it: Leave group only while the view lists a partner, since an activity done alone has no group to leave,
+     * and Rejoin group whenever it left, since leaving empties the list.
+     */
+    fun offered(partners: List<GroupPartner>?): OwnGroupState? = state?.takeIf { it.left || !partners.isNullOrEmpty() }
 }
 
 @Composable

@@ -289,7 +289,7 @@ fun ActivityDetailPresenter(
             canCreateDiveSite = canCreateDiveSite(isOwn, ownRoute, it.record, it.diveSite),
             diveSiteCreated = uri in sitesCreated,
             partners = ownGroup.shown(it.group),
-            ownGroup = ownGroup.state,
+            ownGroup = ownGroup.offered(it.group),
             canAddPeople = isOwn,
             isOwnCopy = ownCopy.isOwnCopy,
             leavingCopyGroup = ownCopy.leaving,

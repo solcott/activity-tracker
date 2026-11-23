@@ -98,6 +98,32 @@ class ActivityDetailGroupTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun leaveIsntOfferedOnAnActivityWithNoPartners() = runTest {
+        author = staleAlice
+        groupPrefs = """{"mode":"anyone","updatedAt":"2026-10-01T00:00:00Z"}"""
+        segmentTrack = storedTrack
+        presenterTestOf(presenter()) {
+            val page = awaitUntil { it.loaded() != null }.page()!!
+            assertNull(page.ownGroup, "no group to leave on an activity done alone")
+            assertTrue(page.showsGroup, "Add people still shows")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun rejoinIsOfferedOnceLeftThoughNoPartnerIsListed() = runTest {
+        author = staleAlice
+        groupPrefs = """{"mode":"anyone","updatedAt":"2026-10-01T00:00:00Z"}"""
+        segmentTrack = storedTrack.dropLast(1) + ""","groupExcluded":true}"""
+        presenterTestOf(presenter()) {
+            val page = awaitUntil { it.loaded()?.ownGroup != null }.page()!!
+            assertEquals(true, page.ownGroup?.left)
+            assertTrue(page.partners.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun itIsntOfferedWhileGroupingIsOffOrWithoutAStoredTrack() = runTest {
         author = staleAlice
         groupPrefs = """{"mode":"off","updatedAt":"2026-10-01T00:00:00Z"}"""
