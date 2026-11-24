@@ -123,10 +123,11 @@ private struct TrailDetailRow: View {
                 .multilineTextAlignment(.trailing)
             if let source = row.source {
                 if row.community {
-                    Label {
+                    // A plain stack, not a Label: a Label in LabeledContent's value takes the list row's label style and leaves the
+                    // rows after it blank.
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill").accessibilityHidden(true)
                         Text(source)
-                    } icon: {
-                        Image(systemName: "person.2.fill")
                     }
                     .font(.footnote).foregroundStyle(.tint)
                 } else {
