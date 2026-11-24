@@ -9,12 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,18 +26,22 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportTexts
 import io.github.solcott.activitytracker.app.report.ReportingHost
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.EmptyListText
 import io.github.solcott.activitytracker.app.ui.ListScreen
-import io.github.solcott.activitytracker.app.ui.RefreshStatus
+import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.errorItem
+import io.github.solcott.activitytracker.app.ui.pagedFooter
+import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
+import io.github.solcott.activitytracker.composeApp.resources.trail_conditions_none
 import io.github.solcott.activitytracker.composeApp.resources.trail_report_delete
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.ImmutableList
@@ -52,33 +56,27 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun TrailReportsUi(state: TrailReportsState, modifier: Modifier = Modifier) {
     val retry = { state.eventSink(TrailReportsEvent.Retry) }
+    val listState = rememberLazyListState()
+    LoadMoreAtEnd(listState, state.reports.canLoadMore) { state.eventSink(TrailReportsEvent.LoadMore) }
     ListScreen(
         title = state.name,
         onBack = { state.eventSink(TrailReportsEvent.Back) },
-        content = state.content,
-        errorKind = UiError.Kind.LoadTrailReports,
-        onRetry = retry,
         modifier = modifier,
-    ) { rows ->
-        item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadTrailReports, retry) }
+        listState = listState,
+    ) {
+        pagedRefreshStatus(state.reports, UiError.Kind.LoadTrailReports, retry)
         errorItem(state.error)
-        items(rows, key = { it.uri }) { row -> ReportRow(row, state) }
-        if (state.hasMore || state.loadingMore) {
-            item(key = "more") {
-                // Asks for the next page once the end of the list shows.
-                SideEffect(rows.size, state.loadingMore) { if (!state.loadingMore) state.eventSink(TrailReportsEvent.LoadMore) }
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator(small = true) }
-            }
-        }
+        itemsIndexed(state.reports.items, key = { _, row -> row.uri }) { index, row -> ReportRow(row, state.heading(index), state) }
+        pagedFooter(state.reports, UiError.Kind.LoadTrailReports, retry) { EmptyListText(stringResource(Res.string.trail_conditions_none)) }
     }
     ReportingHost(state.reporting)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReportRow(row: TrailReportRow, state: TrailReportsState) {
+private fun ReportRow(row: TrailReportRow, heading: AppText?, state: TrailReportsState) {
     Column {
-        row.heading?.let { heading ->
+        heading?.let { heading ->
             Text(
                 heading.string(),
                 Modifier.padding(top = 16.dp, bottom = 4.dp),

@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.PagedState
+import io.github.solcott.uistate.pagedStateOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -21,21 +23,23 @@ import kotlinx.collections.immutable.persistentListOf
 @Immutable
 data class TrailReportsState(
     val name: String,
-    /** The reports as rows, newest first; null until the first page loads. */
-    val content: ContentState<ImmutableList<TrailReportRow>?> = ContentState(null),
-    /** Whether another page is loading. */
-    val loadingMore: Boolean = false,
-    /** Whether a later page may be loaded. */
-    val hasMore: Boolean = false,
+    /** The reports as rows, newest first, a page at a time (ui/content-loading). */
+    val reports: PagedState<TrailReportRow, Unit> = pagedStateOf(),
     /** Report on others' reports (moderation/reports). */
     val reporting: Reporting = Reporting(),
     /** Why the last delete or block failed. */
     val error: UiError? = null,
     val eventSink: (TrailReportsEvent) -> Unit = {},
 ) : CircuitUiState {
-    /** [content]'s rows as a plain list, a copy, for Swift; empty before the first page. */
-    val rows: List<TrailReportRow>
-        get() = content.data.orEmpty().toList()
+    /**
+     * "Last 14 days" or "Older" over the row at [index] of [reports]' items when it starts its section (the first row, or the first older
+     * one), else null.
+     */
+    fun heading(index: Int): AppText? {
+        val row = reports.items.getOrNull(index) ?: return null
+        val previous = reports.items.getOrNull(index - 1)
+        return if (previous == null || previous.current != row.current) TrailReportTexts.heading(row.current) else null
+    }
 }
 
 /**
@@ -45,6 +49,7 @@ data class TrailReportsState(
 @Immutable
 data class TrailReportRow(
     val uri: String,
+    val cid: String,
     val author: String,
     val authorDid: String,
     val avatar: String?,
@@ -54,13 +59,7 @@ data class TrailReportRow(
     val photos: ImmutableList<PhotoThumb> = persistentListOf(),
     val current: Boolean = true,
     val own: Boolean = false,
-    /** Whether this row starts its heading's section: the first row, or the first older one. */
-    val startsSection: Boolean = false,
 ) {
-    /** "Last 14 days" or "Older", for a row that [startsSection]. */
-    val heading: AppText?
-        get() = if (startsSection) AppText.named(if (current) "trail_reports_recent" else "trail_reports_older") else null
-
     val shownTags: List<AppText>
         get() = tags.toList()
 

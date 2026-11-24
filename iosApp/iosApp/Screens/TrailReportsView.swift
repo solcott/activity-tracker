@@ -10,32 +10,17 @@ struct TrailReportsView: View {
     @State private var blocking: TrailReportRow?
 
     var body: some View {
-        ContentStateView(state.content, errorKind: .LoadTrailReports, retry: retry) {
-            List {
-                RefreshStatusView(state: state.content, errorKind: .LoadTrailReports, retry: retry).listStatusRow()
-                if let error = state.error {
-                    ErrorMessage(error, layout: .row).listStatusRow()
-                }
-                let sections = Self.sections(state.rows)
-                if sections.isEmpty {
-                    EmptyMessage(.trailConditionsNone).listStatusRow()
-                }
-                ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
-                    Section {
-                        ForEach(section.rows, id: \.uri) { row in
-                            TrailReportRowView(row: row, send: send) { blocking = row }
-                        }
-                    } header: {
-                        if let heading = section.heading { Text(heading) }
-                    }
-                }
-                if state.hasMore || state.loadingMore {
-                    AppProgress()
-                        .frame(maxWidth: .infinity)
-                        .listStatusRow()
-                        .onAppear { if !state.loadingMore { send(TrailReportsEvent.LoadMore.shared) } }
-                }
+        PagedList(
+            state.reports, of: TrailReportRow.self, errorKind: .LoadTrailReports, id: { $0.uri },
+            sections: sections, retry: retry, loadMore: { send(TrailReportsEvent.LoadMore.shared) }
+        ) {
+            if let error = state.error {
+                ErrorMessage(error, layout: .row).listStatusRow()
             }
+        } row: { row in
+            TrailReportRowView(row: row, send: send) { blocking = row }
+        } empty: {
+            EmptyMessage(.trailConditionsNone)
         }
         .pageTitle(Text(verbatim: state.name), subtitle: Text(.trailConditionsTitle))
         .alert(
@@ -54,14 +39,16 @@ struct TrailReportsView: View {
         .reporting(state.reporting)
     }
 
-    /// The rows under their headings: each section starts at a row that starts one.
-    static func sections(_ rows: [TrailReportRow]) -> [(heading: (any AppText)?, rows: [TrailReportRow])] {
-        var sections: [(heading: (any AppText)?, rows: [TrailReportRow])] = []
-        for row in rows {
-            if row.startsSection || sections.isEmpty {
-                sections.append((row.heading, [row]))
+    /// The rows under their headings: a section starts at each row Kotlin heads (`TrailReportsState.heading`).
+    private func sections(_ rows: [TrailReportRow]) -> [PagedSection<TrailReportRow>] {
+        var sections: [PagedSection<TrailReportRow>] = []
+        for (index, row) in rows.enumerated() {
+            if let heading = state.heading(index: Int32(index)) {
+                sections.append(PagedSection(id: row.uri, header: AppStrings.string(heading), items: [row]))
+            } else if let last = sections.popLast() {
+                sections.append(PagedSection(id: last.id, header: last.header, items: last.items + [row]))
             } else {
-                sections[sections.count - 1].rows.append(row)
+                sections.append(PagedSection(id: row.uri, header: nil, items: [row]))
             }
         }
         return sections

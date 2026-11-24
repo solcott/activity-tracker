@@ -2,7 +2,10 @@ package io.github.solcott.activitytracker.app.segment
 
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.fixtures.PagedStates
+import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -232,9 +235,10 @@ object TrailReportSamples {
     const val ADD_PHOTOS = "reportAddPhotos"
     const val CONFIRM_SHARE = "reportConfirmShare"
 
-    private fun row(report: TrailReportView, startsSection: Boolean, own: Boolean = false) =
+    private fun row(report: TrailReportView, own: Boolean = false) =
         TrailReportRow(
             uri = report.uri.value,
+            cid = report.cid.value,
             author = TrailReportTexts.nameOf(report.author),
             authorDid = report.author.did.value,
             avatar = null,
@@ -244,32 +248,18 @@ object TrailReportSamples {
             photos = report.images.map { PhotoThumb(it.fullsize, it.alt) }.toImmutableList(),
             current = report.current,
             own = own,
-            startsSection = startsSection,
         )
+
+    private val rows: List<TrailReportRow>
+        get() = listOf(row(mayas), row(sams), row(older, own = true))
 
     /** Every report on Wiggly Woods: two in the last 14 days, the viewer's own older one. */
     val reports: TrailReportsState
-        get() =
-            TrailReportsState(
-                name = "Wiggly Woods",
-                content =
-                    ContentStates.loaded(
-                        persistentListOf(
-                            row(mayas, startsSection = true),
-                            row(sams, startsSection = false),
-                            row(older, startsSection = true, own = true),
-                        ),
-                    ),
-            )
+        get() = TrailReportsState(name = "Wiggly Woods", reports = PagedStates.end(rows, Unit))
 
-    /** The reports list's states for each loading kind (ui/content-loading). */
+    /** The reports list's states for each paged-list kind (ui/content-loading). */
     val reportsAll: Map<String, TrailReportsState>
-        get() =
-            mapOf(
-                "loading" to TrailReportsState("Wiggly Woods", ContentStates.loading(null)),
-                "failed" to TrailReportsState("Wiggly Woods", ContentStates.failed(null)),
-                "loaded" to reports,
-            )
+        get() = pagedSamples(rows, Unit) { TrailReportsState(name = "Wiggly Woods", reports = it) } + (SampleKind.LOADED to reports)
 
     /** Maya's first photo full screen, one of 16. */
     val photos: TrailPhotosState

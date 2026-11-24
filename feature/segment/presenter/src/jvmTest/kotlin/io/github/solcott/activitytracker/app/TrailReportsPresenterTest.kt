@@ -39,6 +39,7 @@ import java.util.Collections
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -125,17 +126,17 @@ class TrailReportsPresenterTest {
     @Test
     fun listsNewestFirstUnderLast14DaysThenOlderAndMarksTheViewersOwn() = runTest {
         test { _ ->
-            val loaded = awaitUntil { it.content.data != null }
-            val rows = loaded.rows
+            val loaded = awaitUntil { it.reports.items.isNotEmpty() }
+            val rows = loaded.reports.items
             assertEquals(listOf(alices, bobs, carols).map { it.uri.value }, rows.map { it.uri })
             assertEquals(listOf(true, true, false), rows.map { it.current })
-            assertEquals(listOf(true, false, true), rows.map { it.startsSection })
-            assertEquals(AppText.named("trail_reports_recent"), rows[0].heading)
-            assertNull(rows[1].heading)
-            assertEquals(AppText.named("trail_reports_older"), rows[2].heading)
+            assertEquals(listOf(true, false, true), rows.indices.map { loaded.heading(it) != null })
+            assertEquals(AppText.named("trail_reports_recent"), loaded.heading(0))
+            assertNull(loaded.heading(1))
+            assertEquals(AppText.named("trail_reports_older"), loaded.heading(2))
             assertEquals(listOf(true, false, false), rows.map { it.own })
             assertEquals("Ann's", loaded.name)
-            assertTrue(loaded.hasMore)
+            assertTrue(loaded.reports.canLoadMore)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -143,11 +144,11 @@ class TrailReportsPresenterTest {
     @Test
     fun loadMoreAppendsTheNextPageByCursor() = runTest {
         test { _ ->
-            awaitUntil { it.content.data != null }.eventSink(TrailReportsEvent.LoadMore)
-            val all = awaitUntil { it.rows.size == 4 && !it.loadingMore }
-            assertEquals(listOf(alices, bobs, carols, older).map { it.uri.value }, all.rows.map { it.uri })
-            assertFalse(all.rows[3].startsSection, "the next page's older report continues the Older section")
-            assertFalse(all.hasMore)
+            awaitUntil { it.reports.items.isNotEmpty() }.eventSink(TrailReportsEvent.LoadMore)
+            val all = awaitUntil { it.reports.items.size == 4 && it.reports.endReached }
+            assertEquals(listOf(alices, bobs, carols, older).map { it.uri.value }, all.reports.items.map { it.uri })
+            assertNull(all.heading(3), "the next page's older report continues the Older section")
+            assertFalse(all.reports.canLoadMore)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -155,10 +156,10 @@ class TrailReportsPresenterTest {
     @Test
     fun deletingTheViewersOwnReportRemovesItAtOnce() = runTest {
         test { reports ->
-            awaitUntil { it.content.data != null }.eventSink(TrailReportsEvent.Delete(alices.uri.value))
-            val after = awaitUntil { it.rows.size == 2 }
-            assertEquals(listOf(bobs, carols).map { it.uri.value }, after.rows.map { it.uri })
-            assertTrue(after.rows[0].startsSection, "the next report leads the Last 14 days section")
+            awaitUntil { it.reports.items.isNotEmpty() }.eventSink(TrailReportsEvent.Delete(alices.uri.value))
+            val after = awaitUntil { it.reports.items.size == 2 }
+            assertEquals(listOf(bobs, carols).map { it.uri.value }, after.reports.items.map { it.uri })
+            assertNotNull(after.heading(0), "the next report leads the Last 14 days section")
             assertEquals(setOf(alices.uri.value), reports.changes.value[segment.value]?.deleted)
             assertNull(after.error)
             cancelAndIgnoreRemainingEvents()
@@ -168,13 +169,13 @@ class TrailReportsPresenterTest {
     @Test
     fun deleteIsRefusedForSomeoneElsesReportAndReportIsRefusedForTheViewersOwn() = runTest {
         test { reports ->
-            val loaded = awaitUntil { it.content.data != null }
+            val loaded = awaitUntil { it.reports.items.isNotEmpty() }
             loaded.eventSink(TrailReportsEvent.Delete(bobs.uri.value))
             loaded.eventSink(TrailReportsEvent.Report(alices.uri.value))
             // A later event that does change the state, so the refused ones had their turn.
             loaded.eventSink(TrailReportsEvent.Report(bobs.uri.value))
             val open = awaitUntil { it.reporting.sheet != null }
-            assertEquals(3, open.rows.size)
+            assertEquals(3, open.reports.items.size)
             assertTrue(reports.changes.value.isEmpty())
             assertEquals(bob, open.reporting.sheet?.target?.author)
             assertTrue(writes.isEmpty())
@@ -185,7 +186,7 @@ class TrailReportsPresenterTest {
     @Test
     fun reportOnAnothersReportOpensTheSheetForThatReport() = runTest {
         test { _ ->
-            awaitUntil { it.content.data != null }.eventSink(TrailReportsEvent.Report(bobs.uri.value))
+            awaitUntil { it.reports.items.isNotEmpty() }.eventSink(TrailReportsEvent.Report(bobs.uri.value))
             val sheet = awaitUntil { it.reporting.sheet != null }.reporting.sheet!!
             assertEquals(ReportTarget.TrailReport(bobs.uri, bobs.cid, bob), sheet.target)
             assertEquals("bob.test", sheet.authorName)
@@ -197,7 +198,7 @@ class TrailReportsPresenterTest {
     fun openPhotoOpensTheViewerAtThatPhotoAcrossTheList() = runTest {
         val navigator = FakeNavigator(screen)
         test(navigator) { _ ->
-            val loaded = awaitUntil { it.content.data != null }
+            val loaded = awaitUntil { it.reports.items.isNotEmpty() }
             // Alice's two and Bob's one come before Carol's second.
             loaded.eventSink(TrailReportsEvent.OpenPhoto(carols.uri.value, 2))
             assertEquals(TrailPhotosScreen(segment = segment.value, start = 4), navigator.awaitNextScreen())

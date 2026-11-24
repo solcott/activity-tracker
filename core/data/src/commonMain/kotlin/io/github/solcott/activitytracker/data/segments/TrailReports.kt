@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.activity.upload
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -36,6 +37,9 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -109,7 +113,8 @@ class TrailReports(
     /** Deletes the athlete's own [report]. */
     suspend fun delete(report: TrailReportView) = delete(report.uri, report.segment)
 
-    private suspend fun delete(report: AtUri, segment: AtUri) {
+    /** Deletes the athlete's own report [report] on [segment]. */
+    suspend fun delete(report: AtUri, segment: AtUri) {
         val rkey = requireNotNull(report.rkey)
         write(segment, { it.copy(deleted = it.deleted + report.value, posted = it.posted.filterNot { p -> p.uri == report }) }) {
             writer.delete(Nsid.FEED_TRAIL_REPORT, rkey)
@@ -163,6 +168,16 @@ class TrailReports(
                 reports = applyTo(segment, it.reports).let { r -> if (cursor == null) r else r.filter { v -> v.cid.value != PENDING_CID } },
             )
         }
+
+    /** [reportsPage] as an [Outcome], for a paged list. */
+    suspend fun reportsPaged(segment: AtUri, cursor: String?): Outcome<Page<TrailReportView, Unit>> = outcomeOf {
+        reportsPage(segment, cursor).let { pageOf(it.reports, it.cursor) }
+    }
+
+    /** [photosPage] as an [Outcome], for a paged viewer. */
+    suspend fun photosPaged(segment: AtUri?, path: AtUri?, cursor: String?): Outcome<Page<TrailPhotoView, Unit>> = outcomeOf {
+        photosPage(segment, path, cursor).let { pageOf(it.photos, it.cursor) }
+    }
 
     /**
      * A page of photos of [segment]'s reports, or of [path]'s, with this session's deletes and removals left out. A segment's first page

@@ -324,6 +324,9 @@ object TrailReportTexts {
     /** Whether [note] fits the lexicon's [TrailReportRecord.MAX_NOTE_GRAPHEMES]; nothing refuses typing, so Post is held back instead. */
     fun noteFits(note: String): Boolean = noteLength(note) <= TrailReportRecord.MAX_NOTE_GRAPHEMES
 
+    /** "Last 14 days" over the [current] reports, "Older" over the rest. */
+    fun heading(current: Boolean): AppText = AppText.named(if (current) "trail_reports_recent" else "trail_reports_older")
+
     /** "82 / 300" under the note. */
     fun noteCount(length: Int): AppText =
         AppText.named("trail_report_note_count", AppText.whole(length), AppText.whole(TrailReportRecord.MAX_NOTE_GRAPHEMES))

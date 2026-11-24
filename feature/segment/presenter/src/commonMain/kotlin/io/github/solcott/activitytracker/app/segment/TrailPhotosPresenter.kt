@@ -17,20 +17,19 @@ import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.rememberReporting
-import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
-import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.GetTrailPhotos
 import io.github.solcott.activitytracker.lexicon.app.TrailPhotoView
-import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.LoadStatus
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.time.Clock
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.flow
 
 /**
  * Trail photos full screen (segments/trail-reports): one segment's, or a trail's, paged as the viewer swipes. The viewer removes their own
@@ -51,35 +50,24 @@ fun TrailPhotosPresenter(
     val path = screen.path?.let(::AtUri)
     val zone = remember { TimeZones.device() }
     val flights = rememberSingleFlight()
-    var more by rememberRetained { mutableStateOf<List<TrailPhotoView>>(emptyList()) }
-    var moreCursor by rememberRetained { mutableStateOf<String?>(null) }
     var index by rememberRetained { mutableIntStateOf(screen.start.coerceAtLeast(0)) }
-    var loadKey by rememberRetained { mutableIntStateOf(0) }
     var error by rememberRetained { mutableStateOf<UiError?>(null) }
-    val first =
-        produceRetainedContentState<GetTrailPhotos.Output?>(null, loadKey) {
-            more = emptyList()
-            moreCursor = null
-            outcomeFlow { reports.photosPage(segment, path) }
+    // The failed page load the viewer dismissed, which then stops showing until another fails.
+    var dismissedPageFailure by rememberRetained { mutableStateOf<LoadStatus?>(null) }
+    val page =
+        rememberRetainedPaging(screen, idOf = { photo: TrailPhotoView -> "${photo.report.value}#${photo.position}" }) { cursor ->
+            flow { emit(reports.photosPaged(segment, path, cursor)) }
         }
+    val pageFailure = (page.state.append as? LoadStatus.Failed)?.takeIf { it != dismissedPageFailure }
     val changes by reports.changes.collectAsState()
-    val cursor = if (more.isEmpty()) first.data?.cursor else moreCursor
-    val photos = remember(first.data, more, changes) { first.data?.let { reports.applyTo(it.photos + more) } }
+    val photos = remember(page.state, changes) { page.state.origin?.let { reports.applyTo(page.state.items) } }
+    val first = ContentState(photos, page.state.origin, page.state.refresh)
     val self = reports.self.value
 
     fun shownPhoto(): TrailPhotoView? = photos?.getOrNull(index)
 
-    fun loadMore() {
-        val next = cursor ?: return
-        flights.launch("more") {
-            runSuspendCatching { reports.photosPage(segment, path, next) }
-                .onSuccess {
-                    more = more + it.photos
-                    moreCursor = it.cursor
-                }
-                .onFailure { error = uiErrorOf(UiError.Kind.LoadTrailReports, it) }
-        }
-    }
+    /** The next page, or the one that failed again. */
+    fun loadMore() = if (page.state.append is LoadStatus.Failed) page.retry() else page.loadMore()
 
     val reporting =
         rememberReporting(moderation) { author, _ ->
@@ -108,13 +96,14 @@ fun TrailPhotosPresenter(
                     ?.toImmutableList()
             },
         index = index.coerceIn(0, ((photos?.size ?: 1) - 1).coerceAtLeast(0)),
-        total = photos?.size?.takeIf { cursor == null },
+        total = photos?.size?.takeIf { page.state.endReached },
         reporting = reporting,
-        error = error,
+        // A page that failed to load shows like a failed action, over the photos already read; the next swipe tries it again.
+        error = error ?: pageFailure?.let { UiError(UiError.Kind.LoadTrailReports, it.error) },
     ) { event ->
         when (event) {
             TrailPhotosEvent.Back -> navigator.pop()
-            TrailPhotosEvent.Retry -> loadKey++
+            TrailPhotosEvent.Retry -> page.retry()
             is TrailPhotosEvent.Show -> {
                 index = event.index.coerceAtLeast(0)
                 if (event.index >= (photos?.size ?: 0) - PREFETCH) loadMore()
@@ -139,7 +128,10 @@ fun TrailPhotosPresenter(
                 val photo = shownPhoto()?.takeIf { it.author.did.value == self } ?: return@TrailPhotosState
                 flights.launchAction("remove", UiError.Kind.DeleteTrailReport, { error = it }) { reports.removePhoto(photo) }
             }
-            TrailPhotosEvent.DismissError -> error = null
+            TrailPhotosEvent.DismissError -> {
+                if (error == null) dismissedPageFailure = pageFailure
+                error = null
+            }
         }
     }
 }
