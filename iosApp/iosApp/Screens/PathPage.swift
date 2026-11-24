@@ -160,7 +160,7 @@ struct PathPage: View {
 
     /// The lines the map marks Closed (segments/trail-reports).
     private var closedLines: Set<String> {
-        Set(state.mapLines.elements(as: MapSegmentLine.self).filter(\.closed).map(\.uri))
+        Set(state.closedUris)
     }
 
     /// The trail's elevation profile under its title, nothing without one.

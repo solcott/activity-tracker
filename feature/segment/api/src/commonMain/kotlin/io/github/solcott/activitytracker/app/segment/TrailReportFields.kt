@@ -79,7 +79,12 @@ data class ConditionsCard(
 }
 
 /** The newest note: its [author]'s name, its [age] ("2d") and [text]. */
-@Immutable data class ReportNote(val author: String, val age: AppText, val text: String)
+@Immutable
+data class ReportNote(val author: String, val age: AppText, val text: String) {
+    /** Who wrote it and when, under the note: "Alice · 2d". */
+    val byline: AppText
+        get() = AppText.named("path_segment_condition", AppText.written(author), age)
+}
 
 /** One photo in a strip: its [url], [alt] text, and, when a label asks it, the [blur] reason it's shown behind until tapped. */
 @Immutable data class PhotoThumb(val url: String, val alt: String?, val blur: AppText? = null)

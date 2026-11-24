@@ -290,6 +290,10 @@ data class PathState(
     val segmentsMap: SegmentsMap
         get() = SegmentsMap.of(mapLines, selected?.value)
 
+    /** The URIs of the map's lines its riders say are closed (segments/trail-reports), which the map labels Closed. A copy, for Swift. */
+    val closedUris: List<String>
+        get() = mapLines.filter { it.closed }.map { it.uri }
+
     /** [segmentsMap] with [hovered], a row or line under the pointer (a UI's own state), highlighted too. */
     fun segmentsMap(hovered: String?): SegmentsMap = SegmentsMap.of(mapLines, selected?.value, hovered)
 

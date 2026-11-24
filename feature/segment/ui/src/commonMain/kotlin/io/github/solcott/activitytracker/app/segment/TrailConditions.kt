@@ -94,7 +94,7 @@ internal fun ConditionsCard(card: ConditionsCard, send: (ReportEvent) -> Unit, m
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(note.text, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        AppText.named("path_segment_condition", AppText.written(note.author), note.age).string(),
+                        note.byline.string(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
