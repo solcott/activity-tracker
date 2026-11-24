@@ -42,6 +42,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
+import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
@@ -71,6 +72,16 @@ open class SegmentTestBase(terrainDir: File? = null) {
             DatabaseFactory.migrate(this)
         }
     protected val db: Database = Database.connect(dataSource)
+
+    /**
+     * Drops the test's database, as [TestH2.close] does: `DB_CLOSE_DELAY=-1` would otherwise keep every segment test's database in the test
+     * JVM's heap until the run ends.
+     */
+    @AfterTest
+    fun dropDatabase() {
+        dataSource.connection.use { it.createStatement().execute("SHUTDOWN") }
+    }
+
     protected val indexer =
         Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" }, segmentImporter = Did(importer), terrain = terrainDir != null)
     protected val config = AppViewConfig.fromEnv(emptyMap())
