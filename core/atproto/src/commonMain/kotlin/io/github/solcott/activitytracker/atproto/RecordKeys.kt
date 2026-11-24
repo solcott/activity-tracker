@@ -17,7 +17,22 @@ suspend fun commentHideRkey(comment: AtUri): String = uriRkey(comment)
  */
 suspend fun segmentStarRkey(segment: AtUri): String = uriRkey(segment)
 
+/**
+ * The rkey of the athlete's `feed.trailDetailVote` on [suggestion], derived the same way as [commentHideRkey]: one vote per suggestion,
+ * whatever its version, so changing it is a put of the same record even when the AppView no longer reports the old one.
+ */
+suspend fun trailVoteRkey(suggestion: AtUri): String = uriRkey(suggestion)
+
+/**
+ * The rkey of the athlete's `feed.trailDetailVote` confirming [segment]'s [detail], derived like [trailVoteRkey] from both: one
+ * confirmation per detail, whatever value it names.
+ */
+suspend fun trailConfirmationRkey(segment: AtUri, detail: String): String = textRkey("${segment.value}#$detail")
+
 /** The first 20 bytes of SHA-256 over [uri], as lowercase unpadded base32. */
-private suspend fun uriRkey(uri: AtUri): String = sha256(uri.value.encodeToByteArray()).copyOf(URI_RKEY_BYTES).base32()
+private suspend fun uriRkey(uri: AtUri): String = textRkey(uri.value)
+
+/** The first 20 bytes of SHA-256 over [text], as lowercase unpadded base32. */
+private suspend fun textRkey(text: String): String = sha256(text.encodeToByteArray()).copyOf(URI_RKEY_BYTES).base32()
 
 private const val URI_RKEY_BYTES = 20

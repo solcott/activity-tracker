@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.data.segments
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.trailConfirmationRkey
+import io.github.solcott.activitytracker.atproto.trailVoteRkey
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.requireInteractionsFor
@@ -26,6 +28,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,7 +102,7 @@ class TrailContributions(
      */
     suspend fun vote(segment: AtUri, suggestion: TrailDetailSuggestionView, direction: String?, current: TrailDetailViewerVote?) {
         clients.requireInteractionsFor(Nsid.FEED_TRAIL_DETAIL_VOTE, "Sign in again to vote on trail details")
-        val uri = current?.uri ?: newVoteUri()
+        val uri = current?.uri ?: voteUri(trailVoteRkey(suggestion.uri))
         write(segment, { it.copy(votes = it.votes + (suggestion.uri.value to DirectionChange(uri, direction))) }) {
             queueVote(uri, direction) { dir ->
                 TrailDetailVoteRecord(dir, clock.now(), subject = StrongRef(suggestion.uri, suggestion.cid))
@@ -114,8 +117,8 @@ class TrailContributions(
     suspend fun confirm(segment: AtUri, detail: String, value: TrailAttributes, direction: String?, current: TrailDetailViewerVote?) {
         clients.requireInteractionsFor(Nsid.FEED_TRAIL_DETAIL_VOTE, "Sign in again to confirm trail details")
         val shown = requireNotNull(TrailDetail.valueOf(value, detail)) { "No $detail to confirm" }
-        val uri = current?.uri ?: newVoteUri()
-        write(segment, { it.copy(confirmations = it.confirmations + (detail to DirectionChange(uri, direction))) }) {
+        val uri = current?.uri ?: voteUri(trailConfirmationRkey(segment, detail))
+        write(segment, { it.copy(confirmations = it.confirmations + (detail to DirectionChange(uri, direction, shown))) }) {
             queueVote(uri, direction) { dir -> TrailDetailVoteRecord(dir, clock.now(), segment = segment, detail = detail, value = shown) }
         }
     }
@@ -134,9 +137,13 @@ class TrailContributions(
     private fun quickCheckKey(segment: AtUri) = "trail.quickCheck.${clients.did.value}.${segment.value}"
 
     /** [view] with this session's [changes] to its trail details laid over it. */
-    fun applyTo(view: SegmentView): SegmentView = changes.value[view.uri.value]?.let { applyTrailChanges(view, it) } ?: view
+    fun applyTo(view: SegmentView): SegmentView = changes.value[view.uri.value]?.let { applyTrailChanges(view, it, clock.now()) } ?: view
 
-    private fun newVoteUri() = AtUri.of(clients.did, Nsid.FEED_TRAIL_DETAIL_VOTE, Tid.next(clock))
+    /**
+     * A vote's or confirmation's record at [rkey], derived from its subject: when the AppView reports none (it reports only a counted one),
+     * a new one still rewrites whatever record the athlete left on that subject.
+     */
+    private fun voteUri(rkey: String) = AtUri.of(clients.did, Nsid.FEED_TRAIL_DETAIL_VOTE, rkey)
 
     private suspend fun queueVote(uri: AtUri, direction: String?, record: (String) -> TrailDetailVoteRecord) {
         val rkey = requireNotNull(uri.rkey)
@@ -183,21 +190,26 @@ data class TrailDetailChanges(
     val confirmations: Map<String, DirectionChange> = emptyMap(),
 )
 
-/** The athlete's vote or confirmation record [uri] and its [direction], null once taken back. */
-data class DirectionChange(val uri: AtUri, val direction: String?)
+/**
+ * The athlete's vote or confirmation record [uri] and its [direction], null once taken back; for a confirmation, the [value] it names
+ * ([TrailDetail.valueOf]), which it shows over only while that's the value in effect.
+ */
+data class DirectionChange(val uri: AtUri, val direction: String?, val value: TrailAttributes? = null)
 
 /**
- * [view] with [changes] laid over it: a sent suggestion shows until the AppView lists it and closes its detail to more of the athlete's; a
- * vote moves its suggestion's totals by its difference from the vote the AppView reports, so it never counts twice; a confirmation moves
- * its detail's count the same way.
+ * [view] with [changes] laid over it at [now]: a sent suggestion shows until the AppView lists it, or for [SENT_GRACE] at most (the AppView
+ * drops for good one that breaks a rule, so it would never be listed), and closes its detail to more of the athlete's meanwhile; a vote
+ * moves its suggestion's totals by its difference from the vote the AppView reports, so it never counts twice; a confirmation moves its
+ * detail's count the same way, while the value it names is still the one in effect.
  */
-internal fun applyTrailChanges(view: SegmentView, changes: TrailDetailChanges): SegmentView {
+internal fun applyTrailChanges(view: SegmentView, changes: TrailDetailChanges, now: Instant): SegmentView {
     val listed =
         view.trailSuggestions.map { suggestion -> changes.votes[suggestion.uri.value]?.let { suggestion.withVote(it) } ?: suggestion }
-    val sent = changes.sent.filter { s -> listed.none { it.uri == s.uri } }
+    val sent = changes.sent.filter { s -> listed.none { it.uri == s.uri } && now - s.openedAt < SENT_GRACE }
     val details =
         view.trailDetails.map { info ->
             val change = changes.confirmations[info.detail] ?: return@map info
+            if (change.value != null && view.trail?.let { TrailDetail.valueOf(it, info.detail) } != change.value) return@map info
             val before = info.viewerConfirmation?.direction
             if (before == change.direction) return@map info
             val stills = (info.confirmations ?: 0) - still(before) + still(change.direction)
@@ -210,6 +222,9 @@ internal fun applyTrailChanges(view: SegmentView, changes: TrailDetailChanges): 
         viewer = view.viewer?.copy(closedTrailDetails = closed),
     )
 }
+
+/** How long a sent suggestion shows before the AppView lists it: Jetstream takes seconds, so one still unlisted was dropped. */
+internal val SENT_GRACE = 5.minutes
 
 private fun still(direction: String?) = if (direction == TrailDetailVoteDirection.STILL) 1 else 0
 
