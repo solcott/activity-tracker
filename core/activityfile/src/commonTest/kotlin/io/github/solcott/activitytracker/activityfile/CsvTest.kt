@@ -36,4 +36,18 @@ class CsvTest {
         assertNull(csv.value(csv.rows.single(), "Note"))
         assertNull(csv.value(csv.rows.single(), "Gear"))
     }
+
+    @Test
+    fun rowsOfOtherLengthsReadAgainstTheHeader() {
+        val csv = Csv.parse("Name,Note,Gear\nShort,x\nLong,y,bike,extra\n\n")
+        assertEquals(listOf("Short", "Long"), csv.rows.map { csv.value(it, "Name") })
+        assertNull(csv.value(csv.rows[0], "Gear"))
+        assertEquals("bike", csv.value(csv.rows[1], "Gear"))
+    }
+
+    @Test
+    fun malformedFileHasNoRows() {
+        assertTrue(Csv.parse("Name,Note\nA,\"never closed\n").rows.isEmpty())
+        assertTrue(Csv.parse("Name,Note\n\"A\"b,c\n").rows.isEmpty())
+    }
 }

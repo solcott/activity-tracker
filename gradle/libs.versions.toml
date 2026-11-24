@@ -66,6 +66,8 @@ garminFit = "21.221.0"
 xmlutil = "1.0.2.1"
 # Google encoded polylines (core/location). The spatialk line maplibre-compose already pulls in.
 spatialk = "0.8.0"
+# CSV parsing (Strava export activities.csv, core/activityfile).
+kotlinCsv = "2.1.0"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
 # Outcome / ContentState for loading screens (github.com/solcott/kmp-dataresult, Maven Central; -SNAPSHOTs from the Central
@@ -192,6 +194,7 @@ kmp-zip-kotlinx = { module = "no.synth:kmp-zip-kotlinx", version.ref = "kmpZip" 
 kmp-zlib = { module = "no.synth:kmp-zlib", version.ref = "kmpZlib" }
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 spatialk-polyline-encoding = { module = "org.maplibre.spatialk:polyline-encoding", version.ref = "spatialk" }
+kotlin-csv = { module = "com.jsoizo:kotlin-csv", version.ref = "kotlinCsv" }
 
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }

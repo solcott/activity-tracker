@@ -1,8 +1,13 @@
 package io.github.solcott.activitytracker.activityfile
 
+import com.jsoizo.kotlincsv.csvReader
+import com.jsoizo.kotlincsv.exceptions.MalformedCsvException
+import com.jsoizo.kotlincsv.reader.ExcessFieldsRowBehaviour
+import com.jsoizo.kotlincsv.reader.InsufficientFieldsRowBehaviour
+
 /**
- * A CSV file (RFC 4180): fields split on commas, quoted fields holding commas, newlines and doubled quotes. Its first row names the
- * columns; where a name repeats (Strava's export has two "Distance" columns), the first wins.
+ * A CSV file (RFC 4180, read with kotlin-csv): fields split on commas, quoted fields holding commas, newlines and doubled quotes. Its first
+ * row names the columns; where a name repeats (Strava's export has two "Distance" columns), the first wins.
  */
 internal class Csv private constructor(private val columns: Map<String, Int>, val rows: List<List<String>>) {
     /**
@@ -15,8 +20,14 @@ internal class Csv private constructor(private val columns: Map<String, Int>, va
     fun has(name: String): Boolean = name.normalized() in columns
 
     companion object {
+        /** [text]'s rows, or none when it isn't well-formed CSV (a quote left open, or text after a closing one). */
         fun parse(text: String): Csv {
-            val records = records(text.removePrefix("﻿"))
+            val records =
+                try {
+                    READER.readAll(text.removePrefix("\uFEFF"))
+                } catch (_: MalformedCsvException) {
+                    emptyList()
+                }
             val header = records.firstOrNull().orEmpty()
             val columns = mutableMapOf<String, Int>()
             header.forEachIndexed { index, name ->
@@ -28,39 +39,11 @@ internal class Csv private constructor(private val columns: Map<String, Int>, va
 
         private fun String.normalized() = trim().lowercase()
 
-        private fun records(text: String): List<List<String>> {
-            val records = mutableListOf<List<String>>()
-            val record = mutableListOf<String>()
-            val field = StringBuilder()
-            var quoted = false
-            var i = 0
-            fun endField() {
-                record += field.toString()
-                field.clear()
-            }
-            fun endRecord() {
-                endField()
-                records += record.toList()
-                record.clear()
-            }
-            while (i < text.length) {
-                val c = text[i]
-                when {
-                    quoted && c == '"' && text.getOrNull(i + 1) == '"' -> {
-                        field.append('"')
-                        i++
-                    }
-                    c == '"' && (quoted || field.isEmpty()) -> quoted = !quoted
-                    quoted -> field.append(c)
-                    c == ',' -> endField()
-                    c == '\r' && text.getOrNull(i + 1) == '\n' -> Unit
-                    c == '\n' || c == '\r' -> endRecord()
-                    else -> field.append(c)
-                }
-                i++
-            }
-            if (field.isNotEmpty() || record.isNotEmpty()) endRecord()
-            return records
+        /** RFC 4180, with a row shorter than the header padded and a longer one cut to it. */
+        private val READER = csvReader {
+            skipEmptyLine = true
+            insufficientFieldsRowBehaviour = InsufficientFieldsRowBehaviour.EMPTY_STRING
+            excessFieldsRowBehaviour = ExcessFieldsRowBehaviour.TRIM
         }
     }
 }

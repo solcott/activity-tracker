@@ -17,6 +17,8 @@ kotlin {
             implementation(libs.compose.runtime.annotation)
             // Zip members' raw deflate, inflated a piece at a time in common code (InflaterInput), and gzip off the web.
             implementation(libs.kmp.zlib)
+            // Strava exports' activities.csv (Csv).
+            implementation(libs.kotlin.csv)
             // Garmin Connect exports' activity summaries.
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.xmlutil.core)
