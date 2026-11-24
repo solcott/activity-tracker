@@ -96,12 +96,16 @@ dependencies {
 }
 
 // Layoutlib renders a test JVM's screenshots in that JVM, which outgrows Test's default 512m heap. Forks split the suite's classes.
+// Each fork holds its own 2g, so two by default keep several worktrees' checks from swapping; -PscreenshotTest.forks=4 on a quiet
+// machine or CI.
+val screenshotTestForks = providers.gradleProperty("screenshotTest.forks").map(String::toInt).orElse(2)
+
 tasks
     .withType<Test>()
     .matching { "ScreenshotTest" in it.name }
     .configureEach {
         maxHeapSize = "2g"
-        maxParallelForks = 4
+        maxParallelForks = screenshotTestForks.get()
     }
 
 // The release variant has unit tests only so AGP can configure its Compose Preview tasks (beforeVariants above). They are the
