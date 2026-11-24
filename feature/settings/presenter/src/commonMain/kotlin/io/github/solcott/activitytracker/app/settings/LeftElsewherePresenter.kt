@@ -33,6 +33,8 @@ fun LeftElsewherePresenter(clients: SessionClients, job: LeaveJob, check: SignOu
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
 
+    // Not launchAction: this screen stands in for the app and offers no sign-in again, so its two answers show their own kind with the
+    // reason rather than uiErrorOf's sign-in-again or spaces notices.
     fun discard() {
         error = null
         flights.launch(Answer) {
@@ -65,6 +67,7 @@ fun LeftElsewherePresenter(clients: SessionClients, job: LeaveJob, check: SignOu
             LeftElsewhereEvent.Discard -> discard()
             LeftElsewhereEvent.Rejoin -> {
                 error = null
+                // Not launchAction either, as in discard().
                 flights.launch(Answer) { runSuspendCatching { clients.rejoin() }.onFailure { error = UiError.of(UiError.Kind.Rejoin, it) } }
             }
         }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.auth.AuthRepository
@@ -89,9 +90,7 @@ fun LeavePresenter(
 
     fun exportAction(block: suspend () -> Unit) {
         error = null
-        flights.launch(LeaveExportAction) {
-            runSuspendCatching { block() }.onFailure { error = UiError.of(UiError.Kind.StartDataExport, it) }
-        }
+        flights.launchAction(LeaveExportAction, UiError.Kind.StartDataExport, onError = { error = it }) { block() }
     }
 
     val state =

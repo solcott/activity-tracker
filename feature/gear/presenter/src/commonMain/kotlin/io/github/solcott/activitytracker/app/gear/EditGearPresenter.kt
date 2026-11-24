@@ -15,6 +15,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
@@ -278,10 +279,9 @@ fun EditGearPresenter(
                 confirmingDelete = false
                 val item = existing ?: return@EditGearState
                 error = null
-                flights.launch(DELETE) {
-                    runSuspendCatching { gear.delete(item) }
-                        .onSuccess { navigator.pop() }
-                        .onFailure { error = gearErrorOf(UiError.Kind.DeleteGear, it) }
+                flights.launchAction(DELETE, { gearErrorOf(UiError.Kind.DeleteGear, it) }, onError = { error = it }) {
+                    gear.delete(item)
+                    navigator.pop()
                 }
             }
         }

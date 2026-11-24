@@ -7,8 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.TrailContributions
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection
@@ -51,9 +51,8 @@ fun rememberTrailFields(segment: SegmentView?, contributions: TrailContributions
         val wanted = if (still) TrailDetailVoteDirection.STILL else TrailDetailVoteDirection.CHANGED
         val direction = wanted.takeIf { current?.direction != it }
         error = null
-        flights.launch("confirm:$key") {
-            runSuspendCatching { contributions.confirm(view.uri, key, trail, direction, current) }
-                .onFailure { error = UiError.of(UiError.Kind.VoteTrailDetail, it) }
+        flights.launchAction("confirm:$key", UiError.Kind.VoteTrailDetail, onError = { error = it }) {
+            contributions.confirm(view.uri, key, trail, direction, current)
         }
     }
 
@@ -63,9 +62,8 @@ fun rememberTrailFields(segment: SegmentView?, contributions: TrailContributions
         val wanted = if (up) TrailDetailVoteDirection.UP else TrailDetailVoteDirection.DOWN
         val direction = wanted.takeIf { suggestion.viewerVote?.direction != it }
         error = null
-        flights.launch(uri) {
-            runSuspendCatching { contributions.vote(view.uri, suggestion, direction, suggestion.viewerVote) }
-                .onFailure { error = UiError.of(UiError.Kind.VoteTrailDetail, it) }
+        flights.launchAction(uri, UiError.Kind.VoteTrailDetail, onError = { error = it }) {
+            contributions.vote(view.uri, suggestion, direction, suggestion.viewerVote)
         }
     }
 
@@ -119,9 +117,8 @@ fun rememberTrailFields(segment: SegmentView?, contributions: TrailContributions
                         ?.let { vote(view, it.uri.value, up = true) }
                 } else {
                     error = null
-                    flights.launch("suggest:$key") {
-                        runSuspendCatching { contributions.suggest(view.uri, key, value) }
-                            .onFailure { error = UiError.of(UiError.Kind.SuggestTrailDetail, it) }
+                    flights.launchAction("suggest:$key", UiError.Kind.SuggestTrailDetail, onError = { error = it }) {
+                        contributions.suggest(view.uri, key, value)
                     }
                 }
             }

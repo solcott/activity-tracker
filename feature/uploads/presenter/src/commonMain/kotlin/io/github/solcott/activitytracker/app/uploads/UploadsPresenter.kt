@@ -12,6 +12,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.UploadQueue
@@ -51,7 +52,7 @@ fun UploadsPresenter(navigator: Navigator, uploads: UploadQueue, locationTracker
 
     fun act(key: Any, kind: UiError.Kind, block: suspend () -> Unit) {
         error = null
-        flights.launch(key) { runSuspendCatching { block() }.onFailure { error = UiError.of(kind, it) } }
+        flights.launchAction(key, kind, onError = { error = it }) { block() }
     }
 
     return UploadsState(

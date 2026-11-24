@@ -199,15 +199,9 @@ fun ProfilePresenter(
             ProfileEvent.ToggleFollow -> {
                 val current = profile
                 if (current != null) {
-                    flights.launch(ProfileEvent.ToggleFollow) {
-                        runSuspendCatching {
-                            if (current.viewer?.following == null) profiles.follow(current) else profiles.unfollow(current)
-                        }
-                            .onSuccess {
-                                acted = it
-                                error = null
-                            }
-                            .onFailure { error = UiError.of(UiError.Kind.UpdateFollow, it) }
+                    flights.launchAction(ProfileEvent.ToggleFollow, UiError.Kind.UpdateFollow, onError = { error = it }) {
+                        acted = if (current.viewer?.following == null) profiles.follow(current) else profiles.unfollow(current)
+                        error = null
                     }
                 }
             }

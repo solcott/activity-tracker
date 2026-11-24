@@ -8,8 +8,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -67,10 +67,9 @@ fun FollowListPresenter(
 
             is FollowListEvent.Remove -> {
                 actionError = null
-                flights.launch(event.did) {
-                    runSuspendCatching { followRequests.removeFollower(event.did) }
-                        .onSuccess { accounts.update { list -> list.filterNot { account -> account.did == event.did } } }
-                        .onFailure { actionError = UiError.of(UiError.Kind.RemoveFollower, it) }
+                flights.launchAction(event.did, UiError.Kind.RemoveFollower, onError = { actionError = it }) {
+                    followRequests.removeFollower(event.did)
+                    accounts.update { list -> list.filterNot { account -> account.did == event.did } }
                 }
             }
         }

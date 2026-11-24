@@ -53,7 +53,15 @@ class SingleFlight internal constructor(private val scope: CoroutineScope) {
  * goes at the end of [block], which returns early with `return@launchAction`.
  */
 fun SingleFlight.launchAction(key: Any, kind: UiError.Kind, onError: (UiError) -> Unit, block: suspend CoroutineScope.() -> Unit): Job? =
-    launch(key) { runSuspendCatching { block() }.onFailure { onError(uiErrorOf(kind, it)) } }
+    launchAction(key, { uiErrorOf(kind, it) }, onError, block)
+
+/** [launchAction] whose failure is mapped by [errorOf], for a write with errors of its own (a gear write's sign-in-again for gear). */
+fun SingleFlight.launchAction(
+    key: Any,
+    errorOf: (Throwable) -> UiError,
+    onError: (UiError) -> Unit,
+    block: suspend CoroutineScope.() -> Unit,
+): Job? = launch(key) { runSuspendCatching { block() }.onFailure { onError(errorOf(it)) } }
 
 /** A [SingleFlight] whose work is cancelled when the presenter leaves the composition. */
 @Composable

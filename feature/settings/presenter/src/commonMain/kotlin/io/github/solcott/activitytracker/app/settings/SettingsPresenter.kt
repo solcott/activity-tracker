@@ -12,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.popUntil
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.moderation.ModerationScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -78,9 +79,8 @@ fun SettingsPresenter(
             is SettingsEvent.UnitsChanged -> {
                 if (event.units != units && !saving) {
                     error = null
-                    flights.launch(SettingsEvent.UnitsChanged::class) {
-                        runSuspendCatching { unitsRepository.set(event.units) }
-                            .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                    flights.launchAction(SettingsEvent.UnitsChanged::class, UiError.Kind.SaveSettings, onError = { error = it }) {
+                        unitsRepository.set(event.units)
                     }
                 }
             }

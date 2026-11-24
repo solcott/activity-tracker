@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SharedPlace
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -66,9 +66,8 @@ fun rememberPlaceNames(
                 confirmDelete = null
                 if (event.confirmed && proposal != null) {
                     error = null
-                    flights.launch(proposal) {
-                        runSuspendCatching { names.delete(place, proposal) }
-                            .onFailure { error = UiError.of(UiError.Kind.DeleteSegmentName, it) }
+                    flights.launchAction(proposal, UiError.Kind.DeleteSegmentName, onError = { error = it }) {
+                        names.delete(place, proposal)
                     }
                 }
             }
@@ -76,9 +75,8 @@ fun rememberPlaceNames(
                 val proposal = proposals.firstOrNull { it.uri == event.proposal }
                 if (proposal != null && canVote && proposal.proposer.did != names.self) {
                     error = null
-                    flights.launch(proposal.uri) {
-                        runSuspendCatching { names.vote(place, proposal, event.direction, proposal.viewerVote) }
-                            .onFailure { error = UiError.of(UiError.Kind.VoteSegmentName, it) }
+                    flights.launchAction(proposal.uri, UiError.Kind.VoteSegmentName, onError = { error = it }) {
+                        names.vote(place, proposal, event.direction, proposal.viewerVote)
                     }
                 }
             }

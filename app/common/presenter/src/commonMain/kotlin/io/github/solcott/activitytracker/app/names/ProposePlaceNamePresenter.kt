@@ -10,6 +10,7 @@ import com.slack.circuit.subcircuit.SubCircuitInject
 import com.slack.circuit.subcircuit.SubPresenter
 import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -92,10 +93,9 @@ class ProposePlaceNamePresenter(private val screen: ProposePlaceNameScreen, priv
                         error = null
                         val text = name.text.trim().toString()
                         val share = PostShare(audience, shareText.text.trim().toString().ifEmpty { null }).takeIf { sharing }
-                        flights.launch(ProposePlaceNameEvent.Send) {
-                            runSuspendCatching { send(state, text, share, initial) }
-                                .onSuccess { outerEventSink(ProposePlaceNameOuterEvent.Closed) }
-                                .onFailure { error = UiError.of(UiError.Kind.ProposeSegmentName, it) }
+                        flights.launchAction(ProposePlaceNameEvent.Send, UiError.Kind.ProposeSegmentName, onError = { error = it }) {
+                            send(state, text, share, initial)
+                            outerEventSink(ProposePlaceNameOuterEvent.Closed)
                         }
                     }
                 }

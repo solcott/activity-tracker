@@ -11,11 +11,11 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
@@ -70,24 +70,19 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
     fun save(change: (PrivacySettings) -> PrivacySettings) {
         val current = settings ?: return
         error = null
-        flights.launch(SAVE) {
-            runSuspendCatching { privacy.save(change(current)) }.onSuccess { settings = it }.onFailure { error = privacyErrorOf(it) }
-        }
+        flights.launchAction(SAVE, ::privacyErrorOf, onError = { error = it }) { settings = privacy.save(change(current)) }
     }
 
     fun addHere() {
         error = null
-        flights.launch(PrivacyZonesEvent.AddAtCurrentLocation) {
-            runSuspendCatching {
-                val here = withTimeoutOrNull(LOCATION_TIMEOUT) { tracker.updates().first() }
-                if (here == null) {
-                    error = UiError(UiError.Kind.NoLocation)
-                    return@runSuspendCatching
-                }
-                settings = privacy.add(here.latitude, here.longitude, NEW_ZONE_RADIUS_METERS, label.text.toString())
-                label.clearText()
+        flights.launchAction(PrivacyZonesEvent.AddAtCurrentLocation, ::privacyErrorOf, onError = { error = it }) {
+            val here = withTimeoutOrNull(LOCATION_TIMEOUT) { tracker.updates().first() }
+            if (here == null) {
+                error = UiError(UiError.Kind.NoLocation)
+                return@launchAction
             }
-                .onFailure { error = privacyErrorOf(it) }
+            settings = privacy.add(here.latitude, here.longitude, NEW_ZONE_RADIUS_METERS, label.text.toString())
+            label.clearText()
         }
     }
 

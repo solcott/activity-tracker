@@ -10,8 +10,8 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearCollectionItems
 import io.github.solcott.activitytracker.data.gear.GearCollections
@@ -60,10 +60,13 @@ fun GearCollectionPresenter(
             GearCollectionEvent.ConfirmDelete -> {
                 confirmingDelete = false
                 error = null
-                flights.launch(GearCollectionEvent.ConfirmDelete) {
-                    runSuspendCatching { collections.delete(screen.rkey) }
-                        .onSuccess { navigator.pop() }
-                        .onFailure { error = gearErrorOf(UiError.Kind.DeleteGearCollection, it) }
+                flights.launchAction(
+                    GearCollectionEvent.ConfirmDelete,
+                    { gearErrorOf(UiError.Kind.DeleteGearCollection, it) },
+                    onError = { error = it },
+                ) {
+                    collections.delete(screen.rkey)
+                    navigator.pop()
                 }
             }
         }

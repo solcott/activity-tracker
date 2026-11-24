@@ -9,8 +9,8 @@ import com.slack.circuit.subcircuit.SubCircuitInject
 import com.slack.circuit.subcircuit.SubPresenter
 import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportReason
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -47,10 +47,9 @@ class ReportPresenter(private val screen: ReportScreen, private val reports: Rep
                     val complete = picked != null && (!picked.requiresNote || note.text.isNotBlank())
                     if (complete && !sent) {
                         error = null
-                        flights.launch(ReportEvent.Send) {
-                            runSuspendCatching { reports.report(screen.target, checkNotNull(picked), note.text.toString()) }
-                                .onSuccess { sent = true }
-                                .onFailure { error = UiError.of(UiError.Kind.SendReport, it) }
+                        flights.launchAction(ReportEvent.Send, UiError.Kind.SendReport, onError = { error = it }) {
+                            reports.report(screen.target, checkNotNull(picked), note.text.toString())
+                            sent = true
                         }
                     }
                 }
