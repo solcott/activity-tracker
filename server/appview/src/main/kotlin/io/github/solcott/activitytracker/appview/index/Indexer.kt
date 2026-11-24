@@ -4,8 +4,12 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityGear
+import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
+import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
+import io.github.solcott.activitytracker.appview.db.ActivityInvites
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
+import io.github.solcott.activitytracker.appview.db.ActivityStreamFetchFailures
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
@@ -14,6 +18,8 @@ import io.github.solcott.activitytracker.appview.db.BskyBlockBackfillFailures
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DiveSiteCreations
+import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
+import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
@@ -23,13 +29,22 @@ import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
+import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.Posts
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.Reposts
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
+import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentJobFailures
+import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
+import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
+import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SpaceSync
+import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
+import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -647,23 +662,12 @@ class Indexer(
         // First, so a space sync still running finds its space gone ([spaceWrite]), or this waits for its write and then deletes it too.
         SpaceSync.deleteWhere { authorityDid eq did.value }
         knownActors -= did.value
-        Activities.deleteWhere { authorDid eq did.value }
-        ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
-        ActivityMembers.deleteWhere { authorDid eq did.value }
         val streamBlobs = streamBlobs { ActivityStreams.authorDid eq did.value }
-        ActivityStreams.deleteWhere { authorDid eq did.value }
-        ActivityDetails.deleteWhere { authorDid eq did.value }
-        ActivityZones.deleteWhere { authorDid eq did.value }
-        GearItems.deleteWhere { authorDid eq did.value }
-        GearMountRows.deleteWhere { authorDid eq did.value }
+        for (rows in ACCOUNT_ROWS) rows.table.deleteWhere { rows.account eq did.value }
         dropOrphanedStreamData(streamBlobs)
         for (held in HELD_ROWS) held.table.deleteWhere { held.author eq did.value }
+        // Each of these drops more than the account's own rows (ACCOUNT_ROWS_DELETED_BY).
         dropQuoteChainsBy(did)
-        SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
-        GroupPrefs.deleteWhere { GroupPrefs.did eq did.value }
-        LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
-        SegmentCreations.deleteWhere { authorDid eq did.value }
-        DiveSiteCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
@@ -672,9 +676,8 @@ class Indexer(
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
-        // Failed jobs about the account's records, and its block backfill's failures (dev/worker-telemetry).
+        // Failed jobs about the account's records (dev/worker-telemetry).
         SegmentJobFailures.deleteWhere { subjectUri like "at://${did.value}/%" }
-        BskyBlockBackfillFailures.deleteWhere { BskyBlockBackfillFailures.did eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
@@ -693,7 +696,7 @@ class Indexer(
          * came from ([dropSpace]). Those naming a [HeldRows.collection] are also deleted by URI (and origin) when their record is
          * ([deleteRecord]). A new table of this shape joins this list, so no delete path misses it.
          */
-        private val HELD_ROWS =
+        internal val HELD_ROWS =
             listOf(
                 HeldRows(Likes, Likes.authorDid, Likes.origin, Nsid.FEED_LIKE, Likes.uri),
                 HeldRows(Comments, Comments.authorDid, Comments.origin, Nsid.FEED_COMMENT, Comments.uri),
@@ -707,6 +710,55 @@ class Indexer(
                 HeldRows(ActivityGear, ActivityGear.authorDid, ActivityGear.origin),
                 // Placed by origin like activities, so deleted by record through deleteRecord's placed branch.
                 HeldRows(Posts, Posts.authorDid, Posts.origin),
+            )
+
+        /**
+         * Tables whose rows go with their account ([deleteActor]) by one account column alone, besides [HELD_ROWS]: deleted in this order,
+         * before [HELD_ROWS]. [SpaceSync] goes first and [Actors] last, on their own. A new table of an account's rows joins this list,
+         * [HELD_ROWS], or [ACCOUNT_ROWS_DELETED_BY]; `AccountDeletionTest` fails on one in none of them.
+         */
+        internal val ACCOUNT_ROWS =
+            listOf(
+                AccountRows(Activities, Activities.authorDid),
+                AccountRows(ActivityMediaBlobs, ActivityMediaBlobs.authorDid),
+                AccountRows(ActivityMembers, ActivityMembers.authorDid),
+                AccountRows(ActivityStreams, ActivityStreams.authorDid),
+                AccountRows(ActivityDetails, ActivityDetails.authorDid),
+                AccountRows(ActivityZones, ActivityZones.authorDid),
+                AccountRows(GearItems, GearItems.authorDid),
+                AccountRows(GearMountRows, GearMountRows.authorDid),
+                AccountRows(SegmentPrefs, SegmentPrefs.did),
+                AccountRows(GroupPrefs, GroupPrefs.did),
+                AccountRows(LeaderboardBrackets, LeaderboardBrackets.did),
+                AccountRows(SegmentCreations, SegmentCreations.authorDid),
+                AccountRows(DiveSiteCreations, DiveSiteCreations.authorDid),
+                // Its block backfill's failures (dev/worker-telemetry).
+                AccountRows(BskyBlockBackfillFailures, BskyBlockBackfillFailures.did),
+            )
+
+        /**
+         * Tables of an account's rows that [deleteActor] deletes through a function, since more goes with them (what was derived from them,
+         * jobs, statuses, handoffs), with that function's name.
+         */
+        internal val ACCOUNT_ROWS_DELETED_BY: Map<Table, String> =
+            mapOf(
+                SpaceSync to "deleteActor (first)",
+                Actors to "deleteActor (last)",
+                SegmentTracks to "dropSegmentTracks",
+                SegmentEfforts to "dropSegmentTracks (dropSegmentUseOf)",
+                DiveSiteVisits to "dropSegmentTracks (dropSegmentUseOf)",
+                SegmentCandidateRiders to "dropSegmentTracks (dropSegmentUseOf)",
+                ActivityGroupPairs to "dropSegmentTracks (dropPairsOf)",
+                ActivityInvites to "dropInvitesOfAccount",
+                ActivityInvitePairs to "dropInvitesOfAccount",
+                SegmentNameProposals to "deleteSegmentNamesBy",
+                SegmentNameVotes to "deleteSegmentNamesBy",
+                TrailDetailSuggestions to "deleteTrailDetailsBy",
+                TrailDetailVotes to "deleteTrailDetailsBy",
+                Segments to "deleteSegmentsBy",
+                DiveSites to "deleteDiveSitesBy",
+                Paths to "deletePathsBy",
+                ActivityStreamFetchFailures to "dropOrphanedStreamData",
             )
 
         /** Blocks (the app's and Bluesky's) and mutes, which all go through [upsertBlockOrMute] and [deleteBlockOrMute]. */
@@ -913,13 +965,16 @@ private const val MAX_UNITS_LENGTH = 16
  * A table of [Indexer.HELD_ROWS]: its [author] column, its [origin] column when its rows are held by origin, and the [collection] and [uri]
  * column of the records it holds one row each of, when deleting a record is just deleting its row.
  */
-private class HeldRows(
+internal class HeldRows(
     val table: Table,
     val author: Column<String>,
     val origin: Column<String>?,
     val collection: String? = null,
     val uri: Column<String>? = null,
 )
+
+/** A table of [Indexer.ACCOUNT_ROWS]: its rows whose [account] column is the account's DID go with it. */
+internal class AccountRows(val table: Table, val account: Column<String>)
 
 /** What became of a record written from a repo (admin/repo-reindex counts these). */
 enum class RepoWriteResult {
