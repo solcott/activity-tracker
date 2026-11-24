@@ -6,6 +6,8 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.CommentViewerState
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.PostViewerState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +36,14 @@ class LocalLikes {
     fun applyTo(view: ActivityView): ActivityView = view.withLikeOverrides(overrides.value)
 
     fun applyTo(post: PostView): PostView = post.withLikeOverrides(overrides.value)
+}
+
+/** [ActivityView.withLikeOverrides] for a comment (feed/comment-likes). */
+fun CommentView.withLikeOverrides(overrides: Map<String, AtUri?>): CommentView {
+    if (uri.value !in overrides) return this
+    val mine = overrides[uri.value]
+    val delta = toggleDelta(mine, reported = viewer?.like != null)
+    return copy(likeCount = ((likeCount ?: 0) + delta).coerceAtLeast(0), viewer = (viewer ?: CommentViewerState()).copy(like = mine))
 }
 
 /** [ActivityView.withLikeOverrides] for a post (feed/posts). */

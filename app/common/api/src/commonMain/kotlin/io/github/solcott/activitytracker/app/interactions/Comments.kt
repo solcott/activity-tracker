@@ -57,6 +57,9 @@ sealed interface CommentEvent {
     /** Loads more of [thread]'s replies, or again the page that failed. */
     data class LoadMoreReplies(val thread: AtUri) : CommentEvent
 
+    /** Likes someone else's listed comment or reply [uri], or takes the viewer's like back (feed/comment-likes). */
+    data class Like(val uri: AtUri) : CommentEvent
+
     /** Deletes the viewer's own comment [uri]. */
     data class Delete(val uri: AtUri) : CommentEvent
 

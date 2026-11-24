@@ -250,7 +250,10 @@ class ActivityRepository(
      */
     suspend fun toggleLike(activity: ActivityView) = toggleLike(activity.asSubject())
 
-    /** [toggleLike] on any [subject], an activity's or a post's (feed/posts), placed and shown the same way. */
+    /**
+     * [toggleLike] on any [subject], an activity's or a post's (feed/posts), or a comment's ([CommentView.asSubject], feed/comment-likes),
+     * placed and shown the same way.
+     */
     suspend fun toggleLike(subject: InteractionSubject) {
         if (subject.author == clients.did) return
         val place = clients.interactionPlaceOf(subject.visibility)

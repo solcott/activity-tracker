@@ -535,9 +535,11 @@ class FeedRepository(
 
     /**
      * Optimistically moves every cached copy of [subject]'s like count by [likes] and comment count by [comments], and sets the viewer's
-     * [like] when given: an activity's ([updateCached]) or a post's ([updateCachedPost]), by [subject]'s collection.
+     * [like] when given: an activity's ([updateCached]) or a post's ([updateCachedPost]), by [subject]'s collection. A comment's
+     * (feed/comment-likes) is in no cached feed item: its screen lays [likeOverrides] over its comments instead.
      */
     suspend fun updateCachedCounts(subject: AtUri, likes: Long = 0, comments: Long = 0, like: CachedLike = CachedLike.Keep) {
+        if (subject.collection == Nsid.FEED_COMMENT) return
         if (subject.collection == Nsid.FEED_POST) {
             updateCachedPost(subject) {
                 it.copy(

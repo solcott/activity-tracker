@@ -1,9 +1,12 @@
 package io.github.solcott.activitytracker.app.comments
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -41,5 +44,32 @@ class CommentsUiTest {
         setContent { AppPreview { CommentsUi(sink) } }
         onAllNodesWithText("Reply")[0].performClick()
         assertEquals(CommentEvent.ReplyTo(page.comments.paging.items.first().uri), events.single())
+    }
+
+    @Test
+    fun likeShowsEachCommentsCountAndSendsItsEvent() = runComposeUiTest {
+        val events = mutableListOf<CommentEvent>()
+        val state = CommentsSamples.all.getValue("loaded")
+        val page = state.page!!
+        val sink = state.copy(content = state.content.copy(data = page.copy(comments = page.comments.copy(eventSink = { events += it }))))
+        setContent { AppPreview { CommentsUi(sink) } }
+        // Carol's comment, which Alice liked; Bob's reply and the question, which she hasn't.
+        onNodeWithContentDescription("Unlike comment").assertExists()
+        onNodeWithContentDescription("3 likes").assertExists()
+        onNodeWithContentDescription("1 like").assertExists()
+        onAllNodesWithContentDescription("Like comment").assertCountEquals(2)
+        onNodeWithContentDescription("Unlike comment").performClick()
+        assertEquals(CommentEvent.Like(page.comments.paging.items.first().uri), events.single())
+    }
+
+    @Test
+    fun theViewersOwnCommentShowsItsCountButNoButton() = runComposeUiTest {
+        val state = CommentsSamples.all.getValue("loaded")
+        val page = state.page!!
+        val list = page.comments
+        val alices = list.copy(viewerDid = list.paging.items.first().root!!.author.did)
+        setContent { AppPreview { CommentsUi(state.copy(content = state.content.copy(data = page.copy(comments = alices)))) } }
+        onNodeWithContentDescription("3 likes").assertExists()
+        onAllNodesWithContentDescription("Unlike comment").assertCountEquals(0)
     }
 }

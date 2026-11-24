@@ -140,19 +140,48 @@ struct CommentRowView: View {
                 if let note = row.hiddenNote {
                     Text(note).font(.caption).foregroundStyle(.secondary)
                 }
-                if row.offersReply {
-                    Button {
-                        send(CommentEvent.ReplyTo(uri: row.uri))
-                    } label: {
-                        Text(CommentsTexts.shared.label(action: .Reply)).font(.footnote)
+                if row.offersReply || row.offersLike || row.likeCount > 0 {
+                    HStack(spacing: 16) {
+                        if row.offersReply {
+                            Button {
+                                send(CommentEvent.ReplyTo(uri: row.uri))
+                            } label: {
+                                Text(CommentsTexts.shared.label(action: .Reply)).font(.footnote)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        likes
                     }
-                    .buttonStyle(.borderless)
                 }
             }
             .opacity(row.hidden ? 0.55 : 1)
             .frame(maxWidth: .infinity, alignment: .leading)
             menu(author)
         }
+    }
+
+    /// The like button (filled in the like colour once liked) and the count after it (feed/comment-likes); on the viewer's own comment,
+    /// which can't be liked, the icon and count alone.
+    @ViewBuilder private var likes: some View {
+        let tint = row.liked ? Color("LikeColor") : Color.secondary
+        HStack(spacing: 4) {
+            if row.offersLike {
+                Button {
+                    send(CommentEvent.Like(uri: row.uri))
+                } label: {
+                    Image(.like, filled: row.liked).foregroundStyle(tint)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(Text(row.likeLabel))
+                .accessibilityAddTraits(row.liked ? .isSelected : [])
+            } else if row.likeCount > 0 {
+                Image(.like).foregroundStyle(tint).accessibilityHidden(true)
+            }
+            if let number = row.likeNumber {
+                Text(verbatim: number).foregroundStyle(.secondary).accessibilityLabel(Text(row.likeCountText))
+            }
+        }
+        .font(.footnote)
     }
 
     @ViewBuilder private var notices: some View {

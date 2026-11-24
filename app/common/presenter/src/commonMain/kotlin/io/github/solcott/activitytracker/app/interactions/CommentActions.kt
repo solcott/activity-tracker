@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.InteractionSubject
+import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -46,6 +47,7 @@ class CommentActions(
             is CommentEvent.ReplyTo -> comments.listed(event.uri)?.takeIf { it.hidden != true }?.let { replyingTo.value = it }
             CommentEvent.CancelReply -> replyingTo.value = null
             is CommentEvent.LoadMoreReplies -> comments.loadMoreReplies(event.thread)
+            is CommentEvent.Like -> like(subject, event.uri)
             is CommentEvent.Delete -> delete(subject, event.uri)
             is CommentEvent.Hide -> setHidden(subject, event.uri, hidden = true)
             is CommentEvent.Unhide -> setHidden(subject, event.uri, hidden = false)
@@ -104,6 +106,20 @@ class CommentActions(
      * Hides or unhides comment [uri] on the viewer's own [subject]. It's marked so at once, so the count moves with it; a repeat while the
      * first is running is dropped. A failure puts the mark back and is reported, a session that can't hide there asked to sign in again.
      */
+    /**
+     * Likes the listed comment [uri] on [subject], or takes the viewer's like back (feed/comment-likes): placed by the comment's tier
+     * ([asSubject]) and shown at once through the like overrides the list lays over its comments. Only someone else's comment that isn't
+     * hidden offers it ([CommentsTexts.offersLike]); a like this session can't give is reported.
+     */
+    private fun like(subject: InteractionSubject, uri: AtUri) {
+        val comment = comments.listed(uri)?.takeIf { CommentsTexts.offersLike(it, comments.viewer) } ?: return
+        onError(null)
+        flights.launch(CommentLike(uri)) {
+            runSuspendCatching { activities.toggleLike(comment.asSubject(on = subject)) }
+                .onFailure { e -> onError(interactionErrorOf(e) ?: UiError.of(UiError.Kind.LikeComment, e)) }
+        }
+    }
+
     private fun setHidden(subject: InteractionSubject, uri: AtUri, hidden: Boolean) {
         val comment = comments.listed(uri)?.takeIf { (it.hidden == true) != hidden && !flights.isRunning(uri) } ?: return
         onError(null)
@@ -156,3 +172,6 @@ class CommentActions(
         if (replyingTo.value?.uri == uri) replyingTo.value = null
     }
 }
+
+/** The single-flight key of liking or unliking comment [uri]. */
+private data class CommentLike(val uri: AtUri)

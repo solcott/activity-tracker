@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.CommentViewerState
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.LoadStatus
@@ -23,8 +24,11 @@ import kotlinx.collections.immutable.persistentListOf
 
 /** The Comments screen (feed/comments): Bob's ride as Alice sees it, with Carol's comment with Bob's reply, and her question. */
 object CommentsSamples {
-    private val carols = fakeComment("3kc1", fakeProfileBasic(Fixed.CAROL), "Brutal climb up the ridge, and you still held that pace.")
-    private val bobs = fakeComment("3kc2", fakeProfileBasic(Fixed.BOB), "Legs were cooked by the top.")
+    // Liked by Alice and two others (feed/comment-likes); Bob's reply by one other; the question by no one.
+    private val carols =
+        fakeComment("3kc1", fakeProfileBasic(Fixed.CAROL), "Brutal climb up the ridge, and you still held that pace.")
+            .copy(likeCount = 3, viewer = CommentViewerState(like = Fixed.uri(Fixed.ALICE, Nsid.FEED_LIKE, "3klike1")))
+    private val bobs = fakeComment("3kc2", fakeProfileBasic(Fixed.BOB), "Legs were cooked by the top.").copy(likeCount = 1)
     // Written earlier today, so it reads how long ago ("25 minutes ago"), where the others read their day.
     private val question =
         fakeComment("3kc3", fakeProfileBasic(Fixed.CAROL), "Which way down did you take?", createdAt = Fixed.NOW - 25.minutes)

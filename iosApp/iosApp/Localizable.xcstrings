@@ -2058,6 +2058,17 @@
         }
       }
     },
+    "comment_like" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Like comment"
+          }
+        }
+      }
+    },
     "comment_more" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2098,6 +2109,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comment unavailable"
+          }
+        }
+      }
+    },
+    "comment_unlike" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlike comment"
           }
         }
       }
@@ -5563,6 +5585,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Leaving stopped"
+          }
+        }
+      }
+    },
+    "error_like_comment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't like comment"
           }
         }
       }

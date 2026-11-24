@@ -144,6 +144,7 @@
     <string name="error_delete_comment">Couldn't delete comment</string>
     <string name="error_hide_comment">Couldn't hide comment</string>
     <string name="error_unhide_comment">Couldn't unhide comment</string>
+    <string name="error_like_comment">Couldn't like comment</string>
     <string name="error_ungroup_activity">Couldn't ungroup activity</string>
 
     <!-- Stats and units -->
@@ -509,6 +510,8 @@
     <string name="comments_view_all">View all</string>
     <string name="comments_loading">Loading comments…</string>
     <string name="posted_just_now">Just now</string>
+    <string name="comment_like">Like comment</string>
+    <string name="comment_unlike">Unlike comment</string>
     <plurals name="posted_minutes_ago">
         <item quantity="one">%1$d minute ago</item>
         <item quantity="other">%1$d minutes ago</item>

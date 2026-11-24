@@ -10,7 +10,9 @@ import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
 import kotlin.time.Duration.Companion.hours
@@ -83,6 +85,12 @@ data class CommentRow(
     val hidden: Boolean = false,
     val hiddenNote: AppText? = null,
     val offersReply: Boolean = false,
+    /** Like is offered: someone else's listed comment that isn't hidden ([CommentsTexts.offersLike]). */
+    val offersLike: Boolean = false,
+    /** The viewer has liked it, as they left it. */
+    val liked: Boolean = false,
+    /** Athletes who liked it, as the viewer left it. */
+    val likeCount: Long = 0,
     /** The "…" menu's items, in order; empty for no menu. */
     val menu: ImmutableList<CommentMenuItem> = persistentListOf(),
     /** What its labels and its author's call for, above the text. */
@@ -94,6 +102,18 @@ data class CommentRow(
 ) {
     /** When it was written, beside its author ([CommentsTexts.posted]): "5 minutes ago", "Yesterday at 6:12 PM". */
     fun posted(now: Instant, zone: TimeZone): AppText? = createdAt?.let { CommentsTexts.posted(it, now, zone) }
+
+    /** The like count beside the like icon, "3"; null at none. */
+    val likeNumber: String?
+        get() = likeCount.takeIf { it > 0 }?.let(::formatWhole)
+
+    /** "3 likes": the count's spoken name. */
+    val likeCountText: AppText
+        get() = CommentsTexts.likeCount(likeCount)
+
+    /** Like comment, or Unlike comment once [liked]: the like button's name. */
+    val likeLabel: AppText
+        get() = CommentsTexts.likeLabel(liked)
 }
 
 /**
@@ -188,6 +208,18 @@ object CommentsTexts {
         state.sent.forEach { add(sentRow(sentKey(it.uri), it, isReply = false)) }
     }
         .toImmutableList()
+
+    /**
+     * Whether [viewer] may like [comment] (feed/comment-likes): someone else's, since a like on one's own is ignored, and not hidden, which
+     * only its commenter and the subject's author still see.
+     */
+    fun offersLike(comment: CommentView, viewer: Did): Boolean = comment.author.did != viewer && comment.hidden != true
+
+    /** "3 likes": a comment's like count, spoken. */
+    fun likeCount(count: Long): AppText = AppText.Plural("like_count", count.toInt(), persistentListOf(AppText.whole(count)))
+
+    /** The like button's name: Like comment, or Unlike comment once [liked]. */
+    fun likeLabel(liked: Boolean): AppText = AppText.named(if (liked) "comment_unlike" else "comment_like")
 
     /**
      * When a comment written [at] was, beside its author. Earlier on [now]'s day in [zone], how long ago: "Just now" under a minute, then
@@ -310,6 +342,9 @@ object CommentsTexts {
             hidden = hidden,
             hiddenNote = if (hidden) hiddenNote(state) else null,
             offersReply = CommentAction.Reply in actions,
+            offersLike = offersLike(comment, state.viewerDid),
+            liked = comment.viewer?.like != null,
+            likeCount = comment.likeCount ?: 0,
             menu = menu(actions, comment.uri),
             notices = ModerationTexts.notices(decision, isOwn = false).toImmutableList(),
         )

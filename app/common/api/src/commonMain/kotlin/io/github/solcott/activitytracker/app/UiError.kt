@@ -108,6 +108,7 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         DeleteComment,
         HideComment,
         UnhideComment,
+        LikeComment,
         UngroupActivity,
         CombineActivity,
         SplitActivity,

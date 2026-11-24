@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.interactions
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,12 +11,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -24,8 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -43,6 +51,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.app.ui.string
@@ -54,6 +63,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_comment_pla
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
@@ -137,6 +147,8 @@ private fun CommentRow(
         modifier = modifier,
         onReport = { reporting.eventSink(reporting.reportComment(comment, name)) },
         decision = ModerationDecision.of(comment.labels, comment.author.labels, isOwn = comment.author.did == state.viewerDid),
+        likes =
+            CommentLikes(comment.likeCount ?: 0, liked = comment.viewer?.like != null, CommentsTexts.offersLike(comment, state.viewerDid)),
     )
 }
 
@@ -169,6 +181,8 @@ private fun CommentRow(
     onReport: () -> Unit = {},
     /** What its labels and its author's call for: a warning shows above the text. */
     decision: ModerationDecision = ModerationDecision.None,
+    /** Its likes (feed/comment-likes); none for a just-sent one, which can't be liked until it's listed. */
+    likes: CommentLikes = CommentLikes.None,
 ) {
     Row(modifier, verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f).alpha(if (hidden) HIDDEN_ALPHA else 1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -182,10 +196,16 @@ private fun CommentRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (CommentAction.Reply in actions) {
-                // Pulled back by the button's own inset, so "Reply" starts in line with the comment's text.
-                AppTextButton(onClick = { state.eventSink(CommentEvent.ReplyTo(uri)) }, Modifier.offset(x = -TEXT_BUTTON_INSET)) {
-                    Text(stringResource(Res.string.comment_reply), style = MaterialTheme.typography.labelMedium)
+            val offersReply = CommentAction.Reply in actions
+            if (offersReply || likes.shown) {
+                // Pulled back by the buttons' own inset, so "Reply" (or the like icon) starts in line with the comment's text.
+                Row(Modifier.offset(x = -TEXT_BUTTON_INSET), verticalAlignment = Alignment.CenterVertically) {
+                    if (offersReply) {
+                        AppTextButton(onClick = { state.eventSink(CommentEvent.ReplyTo(uri)) }) {
+                            Text(stringResource(Res.string.comment_reply), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    if (likes.shown) CommentLikeControl(likes) { state.eventSink(CommentEvent.Like(uri)) }
                 }
             }
         }
@@ -286,3 +306,51 @@ internal fun CommentAuthorLine(author: String, createdAt: Instant, modifier: Mod
 
 /** A text button's own start padding (Material's 12dp), which a button lined up with text above it is pulled back by. */
 private val TEXT_BUTTON_INSET = 12.dp
+
+/** A comment's likes as the viewer left them: [count], whether they [liked] it, and whether they may ([offered]). */
+@Immutable
+internal data class CommentLikes(val count: Long, val liked: Boolean, val offered: Boolean) {
+    /** Shown when it may be liked, or someone has. */
+    val shown: Boolean
+        get() = offered || count > 0
+
+    companion object {
+        val None = CommentLikes(0, liked = false, offered = false)
+    }
+}
+
+/**
+ * The like button (filled in the like colour once [likes] says liked), at the size of the Reply text beside it on a full-size touch target,
+ * and the count after it; on the viewer's own comment, which can't be liked, the icon and count alone.
+ */
+@Composable
+private fun CommentLikeControl(likes: CommentLikes, onLike: () -> Unit) {
+    val tint = if (likes.liked) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+    val label = CommentsTexts.likeLabel(likes.liked).string()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .clip(MaterialTheme.shapes.small)
+                .then(
+                    if (likes.offered)
+                        Modifier.clickable(role = Role.Button, onClick = onLike).semantics {
+                            contentDescription = label
+                            selected = likes.liked
+                        }
+                    else Modifier,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            PlatformIcon(AppIcon.Like, contentDescription = null, filled = likes.liked, tint = tint, size = 18.dp)
+        }
+        if (likes.count > 0) {
+            val spoken = CommentsTexts.likeCount(likes.count).string()
+            Text(
+                formatWhole(likes.count),
+                Modifier.semantics { contentDescription = spoken },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}

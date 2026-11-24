@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalBlocks
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -85,6 +86,8 @@ fun rememberComments(subject: AtUri, viewer: Did, loadKey: Int, feed: FeedReposi
     // A change, from this screen or any other, shows at once; so does a block or mute.
     val changes by local.entries.collectAsState()
     val blocked by feed.localBlocks.entries.collectAsState()
+    // A like or unlike of a comment, from this screen or any other, moves its count at once (feed/comment-likes).
+    val likes by feed.likeOverrides.collectAsState()
     val threads =
         rememberRetainedPaging(subject, loadKey, idOf = ThreadView::uri) { cursor -> flow { emit(feed.commentsPage(subject, cursor)) } }
     val served = threads.state
@@ -97,10 +100,12 @@ fun rememberComments(subject: AtUri, viewer: Did, loadKey: Int, feed: FeedReposi
 
     val sent = remember(changes) { local.sent(subject) }
     val shown =
-        remember(changes, blocked, served, replyStates, sent) {
+        remember(changes, blocked, likes, served, replyStates, sent) {
             val sentReplies = sent.mapNotNull { s -> s.root?.let { it to s } }.groupBy({ it.first }, { it.second })
             // The changes as collected, never the live ones: a change undone before the next collection would stay shown.
-            shownThreads(served.items, replyStates, sentReplies) { feed.localBlocks.applyTo(local.applyTo(it, changes), blocked) }
+            shownThreads(served.items, replyStates, sentReplies) {
+                    feed.localBlocks.applyTo(local.applyTo(it, changes), blocked).withLikeOverrides(likes)
+                }
                 .toImmutableList()
         }
     return Comments(
@@ -181,3 +186,7 @@ private fun shownThreads(
 
 /** Whether thread [uri] has replies left to load. */
 private fun List<CommentThread>.hasMoreReplies(uri: AtUri): Boolean = any { it.uri == uri && it.moreReplies > 0 }
+
+/** [CommentView.withLikeOverrides] on a thread's top-level comment and its replies. */
+private fun ThreadView.withLikeOverrides(likes: Map<String, AtUri?>): ThreadView =
+    if (likes.isEmpty()) this else copy(root = root?.withLikeOverrides(likes), replies = replies.map { it.withLikeOverrides(likes) })
