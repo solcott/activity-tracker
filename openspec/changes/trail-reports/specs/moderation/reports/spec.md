@@ -1,0 +1,43 @@
+## MODIFIED Requirements
+
+### Requirement: Report entry points
+Clients SHALL offer Report on any activity, on each photo in the media gallery, on any comment, on any post, on any trail report and each of its photos, and on any athlete's profile, when someone other than the viewer wrote it. They SHALL NOT offer Report on the viewer's own content or profile, or to a signed-out viewer.
+
+#### Scenario: Report a comment
+- **WHEN** alice opens the menu on bob's comment
+- **THEN** Report is offered
+
+#### Scenario: Report a post
+- **WHEN** alice opens the menu on bob's post in her timeline
+- **THEN** Report is offered
+
+#### Scenario: Report a trail report
+- **WHEN** alice opens the menu on bob's trail report in the reports list
+- **THEN** Report is offered
+
+#### Scenario: Own activity
+- **WHEN** alice opens the menu on her own activity
+- **THEN** Report is not offered
+
+#### Scenario: Account the viewer blocks
+- **WHEN** alice opens the profile of bob, whom alice blocks
+- **THEN** Report is offered next to Unblock
+
+### Requirement: Report subject
+A report on an activity, comment, post or trail report SHALL name it by `com.atproto.repo.strongRef`, using the URI and CID its view carries. A report on a photo SHALL name the activity or trail report holding it, and the note SHALL say which photo by its position. A report on an account SHALL name its DID by `com.atproto.admin.defs#repoRef`.
+
+#### Scenario: Photo report
+- **WHEN** alice reports the third photo of bob's activity
+- **THEN** the report's subject is the activity's URI and CID, and the note names photo 3
+
+#### Scenario: Trail photo report
+- **WHEN** alice reports the second photo of bob's trail report from the photo viewer
+- **THEN** the report's subject is the trail report's URI and CID, and the note names photo 2
+
+#### Scenario: Post report
+- **WHEN** alice reports bob's post
+- **THEN** the report's subject is the post's URI and CID, not the proposal it shares
+
+#### Scenario: Account report
+- **WHEN** alice reports bob's profile
+- **THEN** the report's subject is bob's DID
