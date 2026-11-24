@@ -179,4 +179,14 @@ class TrailAttributeCombinerTest {
             TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), trailClass = 3, openFrom = "06-01", openUntil = "09-30")
         assertEquals(TrailAttributes(surfaces = listOf(TrailSurface("dirt", 100)), trailClass = 3, seasonal = true), osm.filledFrom(agency))
     }
+
+    @Test
+    fun openDatesCountTheirDaysInALeapYear() {
+        assertEquals(1, OpenDates("01-01", "01-01").days())
+        assertEquals(122, OpenDates("06-01", "09-30").days())
+        assertEquals(31, OpenDates("02-01", "03-02").days(), "29 February counts")
+        assertEquals(1, OpenDates("02-29", "02-29").days())
+        assertEquals(91, OpenDates("12-01", "02-29").days(), "wraps past the new year")
+        assertEquals(366, OpenDates("01-01", "12-31").days())
+    }
 }

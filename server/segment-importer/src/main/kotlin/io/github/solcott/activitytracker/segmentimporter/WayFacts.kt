@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrailSmoothness
 import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
 import io.github.solcott.activitytracker.lexicon.app.TrailWheelchair
+import java.time.MonthDay
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -64,9 +65,11 @@ internal data class OpenDates(val from: String, val until: String) {
 
     private companion object {
         const val YEAR_DAYS = 366
-        val BEFORE = intArrayOf(0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
 
-        fun dayOfYear(monthDay: String): Int = BEFORE[monthDay.take(2).toInt() - 1] + monthDay.takeLast(2).toInt()
+        /** Its day in a leap year, so 29 February has one and every later day counts it. */
+        const val LEAP_YEAR = 2000
+
+        fun dayOfYear(monthDay: String): Int = MonthDay.parse("--$monthDay").atYear(LEAP_YEAR).dayOfYear
     }
 }
 
