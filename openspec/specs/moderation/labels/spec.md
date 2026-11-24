@@ -47,15 +47,19 @@ A label with `neg: true` SHALL remove the matching label (same source, subject a
 - **THEN** bob's account shows no warning
 
 ### Requirement: Label subjects
-A label on an account DID SHALL apply to the account's profile, avatar, activities, comments, posts and reposts. A label on a record URI SHALL apply to that record, at any CID unless the label names one. A label on an activity SHALL apply to all of its photos, and a label on a profile record to its avatar. Labels SHALL NOT target a single photo.
+A label on an account DID SHALL apply to the account's profile, avatar, activities, comments, posts, reposts and trail reports. A label on a record URI SHALL apply to that record, at any CID unless the label names one. A label on an activity SHALL apply to all of its photos, a label on a trail report to all of its photos, and a label on a profile record to its avatar. Labels SHALL NOT target a single photo.
 
 #### Scenario: Account label covers content
 - **WHEN** bob's DID carries `!hide`
-- **THEN** bob's profile, activities, comments, posts and reposts are all hidden
+- **THEN** bob's profile, activities, comments, posts, reposts and trail reports are all hidden
 
 #### Scenario: Activity label covers its photos
 - **WHEN** the labeler labels bob's activity `graphic-media`
 - **THEN** every photo of that activity is blurred
+
+#### Scenario: Trail report label covers its photos
+- **WHEN** the labeler labels bob's trail report `graphic-media`
+- **THEN** every photo of that report is blurred, in the segment's strip, the trail's strip and the viewer
 
 #### Scenario: Label pinned to a version
 - **WHEN** a label on bob's activity names a CID, and bob then edits the activity so its CID changes
