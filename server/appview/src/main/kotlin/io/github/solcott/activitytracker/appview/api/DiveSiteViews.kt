@@ -9,13 +9,12 @@ import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
-import io.github.solcott.activitytracker.appview.index.DAILY_DIVE_SITE_LIMIT
 import io.github.solcott.activitytracker.appview.index.diveSiteDuplicatesOf
-import io.github.solcott.activitytracker.appview.index.diveSitesCreatedSince
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.mayPropose
+import io.github.solcott.activitytracker.appview.segments.requireImporter
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -42,7 +41,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.pointE7
-import io.ktor.http.HttpStatusCode
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.time.Clock
@@ -186,8 +184,7 @@ class DiveSiteViews(
         return db.tx {
             val uris = diveSiteDuplicatesOf(pointE7(input.lat, input.lng))
             val rows = servedSites(viewer, uris)
-            val created = if (viewer == segmentImporter) 0 else diveSitesCreatedSince(viewer, now)
-            val remaining = (DAILY_DIVE_SITE_LIMIT - created).coerceAtLeast(0).toInt()
+            val remaining = remainingCreations(DiveSitePlace, viewer, segmentImporter, now)
             CheckDiveSite.Output(diveSiteViews(uris.mapNotNull { rows[it] }, avatars), remaining)
         }
     }
@@ -197,8 +194,7 @@ class DiveSiteViews(
      * live sites served to it that each duplicates. Writes nothing. `NotImporter` for anyone else.
      */
     suspend fun checkImported(caller: Did, input: CheckDiveSites.Input): CheckDiveSites.Output {
-        if (segmentImporter == null || caller != segmentImporter)
-            throw XrpcError(HttpStatusCode.Forbidden.value, SegmentCandidates.NOT_IMPORTER, "Only the segment importer may check sites")
+        segmentImporter.requireImporter(caller, "check sites")
         if (input.sites.size > SegmentCandidates.MAX_BATCH)
             invalidRequest("At most ${SegmentCandidates.MAX_BATCH} sites per call, not ${input.sites.size}")
         for (site in input.sites) {

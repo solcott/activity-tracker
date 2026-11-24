@@ -2,12 +2,14 @@
 
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.api.DiveSitePlace
+import io.github.solcott.activitytracker.appview.api.countCreation
 import io.github.solcott.activitytracker.appview.db.DiveSiteCells
-import io.github.solcott.activitytracker.appview.db.DiveSiteCreations
 import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.DiveSites
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
+import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -25,13 +27,10 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -70,7 +69,7 @@ internal fun JdbcTransaction.upsertDiveSite(
     val attribution = runCatching { validAttribution(record.attribution) }.getOrNull()
 
     val old = DiveSites.selectAll().where { DiveSites.uri eq uri.value }.firstOrNull()
-    if (old == null && author != importer) countCreation(author, uri, now)
+    if (old == null && !importer.isImporter(author)) countCreation(DiveSitePlace, author, uri.value, now)
     val centre = pointE7(record.lat, record.lng)
     val moved = old == null || old[DiveSites.latE7] != record.lat || old[DiveSites.lngE7] != record.lng
     val resized = moved || old[DiveSites.radiusM] != record.radius
@@ -138,24 +137,7 @@ private fun requireValidSite(record: DiveSiteRecord) {
     require(record.source in KNOWN_SOURCES) { "unknown source ${record.source}" }
 }
 
-/** Counts [author]'s new site at [uri] against their daily allowance; throws once it's used up. */
-private fun JdbcTransaction.countCreation(author: Did, uri: AtUri, now: Long) {
-    require(diveSitesCreatedSince(author, now) < DAILY_DIVE_SITE_LIMIT) { "over the daily limit of new dive sites" }
-    DiveSiteCreations.deleteWhere { (authorDid eq author.value) and (createdAt lessEq now - CREATION_WINDOW_MS) }
-    DiveSiteCreations.insert {
-        it[authorDid] = author.value
-        it[siteUri] = uri.value
-        it[createdAt] = now
-    }
-}
-
 private val KNOWN_SOURCES = setOf(SegmentSource.ATHLETE, SegmentSource.OSM, SegmentSource.AGENCY)
-
-/** How many dive sites [author] had indexed new in the [CREATION_WINDOW_MS] before [now], deleted ones included. */
-internal fun JdbcTransaction.diveSitesCreatedSince(author: Did, now: Long): Long =
-    DiveSiteCreations.select(DiveSiteCreations.createdAt)
-        .where { (DiveSiteCreations.authorDid eq author.value) and (DiveSiteCreations.createdAt greater now - CREATION_WINDOW_MS) }
-        .count()
 
 /**
  * The live ([LIVE_STATUSES]) dive sites whose centre lies within [CheckDiveSite.DUPLICATE_METERS] of [centre], earliest first indexed

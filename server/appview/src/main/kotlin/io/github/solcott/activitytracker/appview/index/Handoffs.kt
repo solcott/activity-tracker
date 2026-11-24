@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.isDiveSiteUri
+import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.appview.segments.recomputeTrailCommunity
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -67,7 +68,7 @@ internal fun JdbcTransaction.stageSegmentHandoffs(uris: List<String>, importer: 
                     not(labelled(Segments.uri, LabelValues.TAKEDOWN, Segments.cid)) and
                     not(labelled(Segments.authorDid, LabelValues.TAKEDOWN))
             }
-            .filter { importer == null || it[Segments.authorDid] != importer.value }
+            .filter { !importer.isImporter(it[Segments.authorDid]) }
     for (row in rows) {
         val uri = row[Segments.uri]
         SubjectHandoffs.upsert {
@@ -101,7 +102,7 @@ internal fun JdbcTransaction.stageSiteHandoffs(uris: List<String>, importer: Did
                     not(labelled(DiveSites.uri, LabelValues.TAKEDOWN, DiveSites.cid)) and
                     not(labelled(DiveSites.authorDid, LabelValues.TAKEDOWN))
             }
-            .filter { importer == null || it[DiveSites.authorDid] != importer.value }
+            .filter { !importer.isImporter(it[DiveSites.authorDid]) }
     for (row in rows) {
         val uri = row[DiveSites.uri]
         SubjectHandoffs.upsert {
@@ -239,7 +240,7 @@ private fun JdbcTransaction.moveNames(from: String, to: String) {
  */
 internal fun JdbcTransaction.handoffOnIndex(uri: AtUri, author: Did, importer: Did?, duplicateOf: String?) {
     linkHandoff(uri.value, uri.value)
-    val rkey = uri.rkey?.takeIf { importer != null && author == importer }
+    val rkey = uri.rkey?.takeIf { importer.isImporter(author) }
     val handoff = rkey?.let { id ->
         SubjectHandoffs.select(SubjectHandoffs.oldUri, SubjectHandoffs.kind).where { SubjectHandoffs.id eq id }.firstOrNull()
     }
@@ -250,7 +251,7 @@ internal fun JdbcTransaction.handoffOnIndex(uri: AtUri, author: Did, importer: D
 /** Whether [uri], the importer's record, republishes a handoff: a site indexed under one is active at once (dive-sites/site-handoffs). */
 internal fun JdbcTransaction.isHandoffRecord(uri: AtUri, author: Did, importer: Did?): Boolean {
     val rkey = uri.rkey ?: return false
-    return importer != null && author == importer && SubjectHandoffs.select(SubjectHandoffs.id).where { SubjectHandoffs.id eq rkey }.any()
+    return importer.isImporter(author) && SubjectHandoffs.select(SubjectHandoffs.id).where { SubjectHandoffs.id eq rkey }.any()
 }
 
 /**

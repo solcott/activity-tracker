@@ -2,16 +2,18 @@
 
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.api.SegmentPlace
 import io.github.solcott.activitytracker.appview.api.TrailAttributesSanitizer
+import io.github.solcott.activitytracker.appview.api.countCreation
 import io.github.solcott.activitytracker.appview.db.BoxedLineTable
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
-import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.applyPinsNaming
 import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
 import io.github.solcott.activitytracker.appview.segments.deleteTrailDetails
+import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.appview.segments.recordPriorStatus
 import io.github.solcott.activitytracker.appview.segments.statusPinFor
@@ -33,14 +35,11 @@ import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -61,7 +60,7 @@ internal val LIVE_STATUSES = listOf(SegmentStatus.PROPOSED, SegmentStatus.ACTIVE
  * ride or dive it.
  */
 internal fun liveStatus(author: String, importer: Did?): String =
-    if (importer != null && author == importer.value) SegmentStatus.ACTIVE else SegmentStatus.PROPOSED
+    if (importer.isImporter(author)) SegmentStatus.ACTIVE else SegmentStatus.PROPOSED
 
 internal const val MAX_NAME_LENGTH = 1000
 private const val MAX_NAME_GRAPHEMES = 100
@@ -92,7 +91,7 @@ internal fun JdbcTransaction.upsertSegment(
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
     val name = validName(record.name)
     val line = validLine(record.sport, record.line)
-    val kind = validKind(record.sport, record.kind, fromImporter = author == importer)
+    val kind = validKind(record.sport, record.kind, fromImporter = importer.isImporter(author))
     // Only a credit: an out-of-bounds one is dropped, not the segment.
     val attribution = runCatching { validAttribution(record.attribution) }.getOrNull()
 
@@ -102,15 +101,7 @@ internal fun JdbcTransaction.upsertSegment(
             .firstOrNull()
     val relined = old == null || old[Segments.line] != record.line
     // A re-lined segment is matched afresh like a new one, so it counts the same; deleting one frees nothing (SegmentCreations).
-    if (relined && author != importer) {
-        require(segmentsCreatedSince(author, now) < DAILY_SEGMENT_LIMIT) { "over the daily limit of new segments" }
-        SegmentCreations.deleteWhere { (authorDid eq author.value) and (createdAt lessEq now - CREATION_WINDOW_MS) }
-        SegmentCreations.insert {
-            it[authorDid] = author.value
-            it[segmentUri] = uri.value
-            it[createdAt] = now
-        }
-    }
+    if (relined && !importer.isImporter(author)) countCreation(SegmentPlace, author, uri.value, now)
     val changed = relined || old[Segments.sport] != record.sport || old[Segments.kind] != kind
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
     val placed =
@@ -127,7 +118,7 @@ internal fun JdbcTransaction.upsertSegment(
         it[Segments.kind] = kind
         it[Segments.line] = record.line
         // Only the importer's trail attributes are ever served, so no one else's is kept (segments/trail-attributes).
-        val trail = if (author == importer) TrailAttributesSanitizer.clean(record.trail) else null
+        val trail = if (importer.isImporter(author)) TrailAttributesSanitizer.clean(record.trail) else null
         it[Segments.record] =
             AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution, trail = trail))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
@@ -233,12 +224,6 @@ internal fun validLine(sport: String, encoded: String): List<GeoPoint> {
     }
     return line
 }
-
-/** How many segments [author] had indexed new or re-lined in the [CREATION_WINDOW_MS] before [now], deleted ones included. */
-internal fun JdbcTransaction.segmentsCreatedSince(author: Did, now: Long): Long =
-    SegmentCreations.select(SegmentCreations.createdAt)
-        .where { (SegmentCreations.authorDid eq author.value) and (SegmentCreations.createdAt greater now - CREATION_WINDOW_MS) }
-        .count()
 
 /**
  * The live ([LIVE_STATUSES]) segments of [sport] and [kind] that [line] duplicates ([SegmentGeometry.duplicates]), earliest first indexed

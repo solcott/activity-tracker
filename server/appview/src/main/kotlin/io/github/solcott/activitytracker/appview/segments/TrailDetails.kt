@@ -161,7 +161,7 @@ internal fun JdbcTransaction.effectiveTrailOf(segment: String, importer: Did?): 
         .firstOrNull()
         ?.let { row ->
             val imported =
-                if (importer != null && row[Segments.authorDid] == importer.value)
+                if (importer.isImporter(row[Segments.authorDid]))
                     runCatching { AtJson.decodeFromString(SegmentRecord.serializer(), row[Segments.record]).trail }
                         .getOrNull()
                         ?.let(TrailAttributesSanitizer::clean)

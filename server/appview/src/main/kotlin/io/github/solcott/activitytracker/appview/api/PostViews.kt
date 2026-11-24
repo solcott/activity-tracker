@@ -18,7 +18,6 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.QuotedPost
-import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
@@ -143,17 +142,7 @@ private fun JdbcTransaction.proposalEmbeds(rows: List<ResultRow>, viewer: Did?):
 private fun segmentsAmong(subjects: Collection<String>, viewer: Did?): Map<String, SegmentViewBasic> =
     Segments.selectAll()
         .where { (Segments.uri inList subjects.filterNot(::isDiveSiteUri)) and SegmentPlace.servedTo(viewer) }
-        .associate {
-            it[Segments.uri] to
-                SegmentViewBasic(
-                    AtUri(it[Segments.uri]),
-                    it[Segments.currentName],
-                    it[Segments.sport],
-                    it[Segments.distanceM],
-                    status = it[Segments.status],
-                    kind = it[Segments.kind].takeIf { k -> k != SegmentKind.RUN },
-                )
-        }
+        .associate { it[Segments.uri] to it.segmentViewBasic() }
 
 /** Brief views of the dive sites among [subjects] served to [viewer], by URI. */
 private fun sitesAmong(subjects: Collection<String>, viewer: Did?): Map<String, DiveSiteViewBasic> =

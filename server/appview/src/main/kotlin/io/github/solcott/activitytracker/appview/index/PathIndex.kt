@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -56,7 +57,7 @@ internal fun JdbcTransaction.upsertPath(
     now: Long,
     importer: Did?,
 ) {
-    if (importer == null || author != importer) return
+    if (!importer.isImporter(author)) return
     val record = AtJson.decodeFromJsonElement(PathRecord.serializer(), json)
     val name = validName(record.name)
     require(record.kind in PathKind.all) { "unknown kind ${record.kind}" }

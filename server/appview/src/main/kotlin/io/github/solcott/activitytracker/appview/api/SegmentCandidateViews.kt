@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.appview.index.validKind
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.requireImporter
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -37,7 +38,6 @@ import io.github.solcott.activitytracker.lexicon.app.SubjectHandoff
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
-import io.ktor.http.HttpStatusCode
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -316,13 +316,7 @@ class SegmentCandidateViews(
     }
 
     private fun requireImporter(caller: Did) {
-        if (importer == null || caller != importer) {
-            throw XrpcError(
-                HttpStatusCode.Forbidden.value,
-                SegmentCandidates.NOT_IMPORTER,
-                "Only the segment importer may use candidate calls",
-            )
-        }
+        importer.requireImporter(caller, "use candidate calls")
     }
 
     private fun requireRun(region: String, revision: String) {

@@ -15,7 +15,6 @@ import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.groupKey
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
-import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -25,6 +24,7 @@ import io.github.solcott.activitytracker.appview.segments.closedDetailsFor
 import io.github.solcott.activitytracker.appview.segments.communityOf
 import io.github.solcott.activitytracker.appview.segments.confirmationsOf
 import io.github.solcott.activitytracker.appview.segments.effectiveTrail
+import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.appview.segments.isRegular
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.plausibleEffort
@@ -853,8 +853,7 @@ class SegmentViews(
             val uris = duplicatesOf(input.sport, SegmentKind.RUN, line)
             val rows =
                 Segments.selectAll().where { (Segments.uri inList uris) and SegmentPlace.servedTo(viewer) }.associateBy { it[Segments.uri] }
-            val created = if (viewer == segmentImporter) 0 else segmentsCreatedSince(viewer, now)
-            val remaining = (DAILY_SEGMENT_LIMIT - created).coerceAtLeast(0).toInt()
+            val remaining = remainingCreations(SegmentPlace, viewer, segmentImporter, now)
             CheckSegment.Output(views(uris.mapNotNull { rows[it] }), remaining)
         }
     }
@@ -889,15 +888,7 @@ class SegmentViews(
         return rows.map {
             val elapsed = it[SegmentEfforts.elapsedS]
             EffortView(
-                segment =
-                    SegmentViewBasic(
-                        AtUri(it[Segments.uri]),
-                        it[Segments.currentName],
-                        it[Segments.sport],
-                        it[Segments.distanceM],
-                        status = it[Segments.status],
-                        kind = it[Segments.kind].takeIf { k -> k != SegmentKind.RUN },
-                    ),
+                segment = it.segmentViewBasic(),
                 activity = AtUri(it[SegmentEfforts.activityUri]),
                 startOffset = it[SegmentEfforts.startOffsetS],
                 elapsed = elapsed,
@@ -1116,7 +1107,7 @@ class SegmentViews(
     /**
      * Whether [author] is the segment importer, whose segments alone may be served one-way or with a climb (segments/segment-direction).
      */
-    private fun byImporter(author: String): Boolean = segmentImporter != null && author == segmentImporter.value
+    private fun byImporter(author: String): Boolean = segmentImporter.isImporter(author)
 
     private fun JdbcTransaction.views(rows: List<ResultRow>): List<SegmentView> {
         val creators = basicProfiles(rows.map { it[Segments.authorDid] }, avatars)
@@ -1403,3 +1394,14 @@ private fun JdbcTransaction.hasEffortSince(segment: String, viewer: Did, since: 
         }
         .limit(1)
         .any()
+
+/** The brief view of a [Segments] row: its current name, and its kind only when it isn't a run. */
+internal fun ResultRow.segmentViewBasic(): SegmentViewBasic =
+    SegmentViewBasic(
+        AtUri(this[Segments.uri]),
+        this[Segments.currentName],
+        this[Segments.sport],
+        this[Segments.distanceM],
+        status = this[Segments.status],
+        kind = this[Segments.kind].takeIf { it != SegmentKind.RUN },
+    )
