@@ -135,7 +135,7 @@ internal fun JdbcTransaction.effectiveTrailOf(segment: String, importer: Did?): 
             effectiveTrail(imported, communityOf(row[Segments.trailCommunity]))
         }
 
-/** Suggestions with no `!hide` or `!takedown` on their record (at the stored version) or their author's account. */
+/** Suggestions with no `!hide` or `!takedown` on their record (at any version) or their author's account. */
 internal fun unlabelledSuggestion(): Op<Boolean> = notLabelled(LabelValues.HIDE) and notLabelled(LabelValues.TAKEDOWN)
 
 /** The open suggestions a list shows [viewer]: as [listedProposal] for names, their own staying listed to them under `!hide`. */
@@ -146,8 +146,12 @@ internal fun listedSuggestion(viewer: Did?): Op<Boolean> {
         served(viewer?.let { stringParam(it.value) }, TrailDetailSuggestions.authorDid, null, null)
 }
 
+/**
+ * No [value] label on the suggestion, at any version (a same-value rewrite keeps the stored CID, so a label on the new one must still
+ * count), nor on its author.
+ */
 private fun notLabelled(value: String): Op<Boolean> =
-    not(labelled(TrailDetailSuggestions.uri, value, TrailDetailSuggestions.cid)) and not(labelled(TrailDetailSuggestions.authorDid, value))
+    not(labelled(TrailDetailSuggestions.uri, value)) and not(labelled(TrailDetailSuggestions.authorDid, value))
 
 /** Whether [segment] may take trail detail suggestions: an active run segment, never a lift (as names, [nameable]). */
 internal fun JdbcTransaction.suggestable(segment: String): Boolean =
