@@ -17,11 +17,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +31,6 @@ import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.edit.EditMedia
-import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -43,7 +38,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.details_add_photos
 import io.github.solcott.activitytracker.composeApp.resources.details_description_label
@@ -54,13 +48,6 @@ import io.github.solcott.activitytracker.composeApp.resources.details_preparing_
 import io.github.solcott.activitytracker.composeApp.resources.details_remove_photo
 import io.github.solcott.activitytracker.composeApp.resources.details_title_label
 import io.github.solcott.activitytracker.textfield.TextFieldState
-import io.github.vinceglb.filekit.dialogs.FileKitMode
-import io.github.vinceglb.filekit.dialogs.FileKitType
-import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import io.github.vinceglb.filekit.readBytes
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
-import kotlinx.io.bytestring.ByteString
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -139,23 +126,9 @@ fun ActivityDescriptionField(state: TextFieldState, modifier: Modifier = Modifie
 /** The photos, each with a remove button, and a tile to pick more. */
 @Composable
 private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier: Modifier = Modifier) {
-    val scope = rememberCoroutineScope()
-    var preparing by remember { mutableStateOf(false) }
-    val remaining = (fields.maxMedia - fields.media.size).coerceIn(1, MAX_PICK)
-    val pick =
-        rememberFilePickerLauncher(type = FileKitType.Image, mode = FileKitMode.Multiple(maxItems = remaining)) { files ->
-            if (files.isNullOrEmpty()) return@rememberFilePickerLauncher
-            scope.launch {
-                preparing = true
-                val photos = files.mapNotNull { file ->
-                    runSuspendCatching { compressPhoto(file.readBytes()) }
-                        .getOrNull()
-                        ?.let { PickedPhoto(ByteString(it.bytes), it.mimeType, it.width, it.height) }
-                }
-                preparing = false
-                if (photos.isNotEmpty()) fields.eventSink(DetailsEvent.PhotosPicked(photos.toImmutableList()))
-            }
-        }
+    val remaining = fields.maxMedia - fields.media.size
+    val picks = rememberPhotoPicks(remaining) { fields.eventSink(DetailsEvent.PhotosPicked(it)) }
+    val preparing = picks.preparing
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(Res.string.details_photos_heading), style = MaterialTheme.typography.labelLarge)
@@ -170,7 +143,7 @@ private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier:
                 PhotoTile(media, onRemove = { fields.eventSink(DetailsEvent.RemoveMedia(index)) }, enabled = enabled)
             }
             if (fields.canAddMedia) {
-                AddPhotosTile(onClick = { pick.launch() }, enabled = enabled && !preparing, preparing = preparing)
+                AddPhotosTile(onClick = { picks.choose() }, enabled = enabled && !preparing, preparing = preparing)
             }
         }
         if (preparing) {
@@ -231,6 +204,3 @@ private fun AddPhotosTile(onClick: () -> Unit, enabled: Boolean, preparing: Bool
 
 private val TILE_SIZE = 96.dp
 private val TILE_SHAPE = RoundedCornerShape(8.dp)
-
-/** FileKit's limit for one pick. */
-private const val MAX_PICK = 50

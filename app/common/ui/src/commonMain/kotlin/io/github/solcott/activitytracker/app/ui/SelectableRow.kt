@@ -25,15 +25,17 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 
 /**
  * A row of a list that shares a selection with a map of lines (segments/segment-browse, segments/path-page, dive-sites/site-browse): its
  * [rating]'s swatch when it is rated, beside its [name]'s first line, then under the name its [details] line and an [extra] line when
- * given, and [trailing] at its end (a Trail row's leader). It's marked while [selected] or under the mouse pointer (here or on its line:
- * [hover] holds its [key]), and a mouse over it puts its [key] in [hover], so the map highlights its line. A tap on a touch screen calls
- * [onTap], which selects it or opens it once selected; a click with a pointer calls [onOpen]. [indent] moves its content in under a
- * heading, while its mark still fills the list's width.
+ * given, a [closed] line in the error colour when riders say it's closed, and [trailing] at its end (a Trail row's leader). It's marked
+ * while [selected] or under the mouse pointer (here or on its line: [hover] holds its [key]), and a mouse over it puts its [key] in
+ * [hover], so the map highlights its line. A tap on a touch screen calls [onTap], which selects it or opens it once selected; a click with
+ * a pointer calls [onOpen]. [indent] moves its content in under a heading, while its mark still fills the list's width.
  */
 @Composable
 fun SelectableRow(
@@ -49,6 +51,7 @@ fun SelectableRow(
     indent: Dp = 0.dp,
     extra: AppText? = null,
     trailing: (@Composable () -> Unit)? = null,
+    closed: AppText? = null,
 ) {
     val touch = LocalUiPlatform.current.isMobile
     val nameStyle = MaterialTheme.typography.titleMedium
@@ -79,6 +82,13 @@ fun SelectableRow(
             Text(name.string(), style = nameStyle)
             Text(details.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (extra != null) Text(extra.string(), style = MaterialTheme.typography.bodyMedium)
+            if (closed != null) {
+                // Riders say it's closed (segments/trail-reports): the icon too, so it reads without colour.
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    PlatformIcon(AppIcon.Lock, null, tint = MaterialTheme.colorScheme.error, size = 16.dp)
+                    Text(closed.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
         trailing?.invoke()
     }

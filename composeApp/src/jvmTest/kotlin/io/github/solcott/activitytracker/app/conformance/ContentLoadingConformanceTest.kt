@@ -85,6 +85,9 @@ import io.github.solcott.activitytracker.app.segment.SegmentSamples
 import io.github.solcott.activitytracker.app.segment.SegmentUi
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsSamples
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsUi
+import io.github.solcott.activitytracker.app.segment.TrailPhotosUi
+import io.github.solcott.activitytracker.app.segment.TrailReportSamples
+import io.github.solcott.activitytracker.app.segment.TrailReportsUi
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesSamples
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesUi
 import io.github.solcott.activitytracker.app.settings.SportZonesSamples
@@ -138,6 +141,8 @@ class ContentLoadingConformanceTest {
             entry({ SegmentSamples.all }, "Ride · Active") { SegmentUi(it) },
             entry({ SegmentMapSamples.all }, null) { SegmentMapUi(it) },
             entry({ PathSamples.all }, null) { PathUi(it) },
+            entry({ TrailReportSamples.reportsAll }, "Maya Chen") { TrailReportsUi(it) },
+            entry({ mapOf(SampleKind.LOADED to TrailReportSamples.photos) }, "Maya Chen") { TrailPhotosUi(it) },
             entry({ SegmentLeaderboardSamples.all }, "Carol") { SegmentLeaderboardUi(it) },
             entry({ SegmentMayorsSamples.all }, "Bob") { SegmentMayorsUi(it) },
             entry({ StarredSegmentsSamples.all }, "Flagstaff Climb") { StarredSegmentsUi(it) },

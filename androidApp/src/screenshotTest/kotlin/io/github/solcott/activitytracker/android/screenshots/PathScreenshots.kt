@@ -23,3 +23,11 @@ private fun PathStates(@PreviewParameter(PathStates::class) state: PathState) {
 }
 
 class PathStates : OtherSamples<PathState>(PathSamples.variants)
+
+/** The Trail page with its segments' conditions (segments/trail-reports): the card at the head of the list and Closed on the map. */
+@PreviewTest
+@PreviewScreenSizes
+@Composable
+private fun PathConditions() {
+    ScreenPreview { PathUi(PathSamples.conditions) }
+}

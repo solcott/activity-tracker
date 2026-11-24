@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -17,6 +18,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.MapSegmentLine
@@ -25,6 +28,7 @@ import io.github.solcott.activitytracker.app.SegmentsMap
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.ui.map.TrailRatingColors
 import io.github.solcott.activitytracker.location.GeoPoint
+import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -79,7 +83,27 @@ internal fun SegmentsPreview(
             }
             marker?.let { drawMarker(at(it), highlight, ringColor) }
         }
+        ClosedLabels(segments, map, Modifier.matchParentSize())
         RatingLegend(map.legend, Modifier.align(Alignment.TopStart).padding(8.dp))
+    }
+}
+
+/** A [ClosedMapLabel] centred on each closed line's middle, placed by the same fit the canvas draws the lines with. */
+@Composable
+private fun ClosedLabels(segments: ImmutableList<MapSegmentLine>, map: SegmentsMap, modifier: Modifier = Modifier) {
+    val closed = remember(segments) { segments.mapNotNull(::closedLabelAt) }
+    val allPoints = remember(map) { map.allPoints }
+    if (closed.isEmpty()) return
+    Layout(content = { closed.forEach { _ -> ClosedMapLabel() } }, modifier = modifier) { measurables, constraints ->
+        val at = canvasFit(allPoints, Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat()), pad = 16.dp.toPx())
+        val placeables = measurables.map { it.measure(Constraints()) }
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            if (at == null) return@layout
+            placeables.forEachIndexed { i, label ->
+                val centre = at(closed[i])
+                label.place((centre.x - label.width / 2f).roundToInt(), (centre.y - label.height / 2f).roundToInt())
+            }
+        }
     }
 }
 

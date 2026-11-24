@@ -6,6 +6,7 @@ import com.android.tools.screenshot.PreviewTest
 import io.github.solcott.activitytracker.app.segment.SegmentSamples
 import io.github.solcott.activitytracker.app.segment.SegmentState
 import io.github.solcott.activitytracker.app.segment.SegmentUi
+import io.github.solcott.activitytracker.app.segment.TrailReportSamples
 
 @PreviewTest
 @PreviewScreenSizes
@@ -53,4 +54,17 @@ private fun SegmentLayout(@PreviewParameter(SegmentLayoutStates::class) state: S
 class SegmentLayoutStates :
     OtherSamples<SegmentState>(
         SegmentSamples.variants.filterKeys { it in setOf(SegmentSamples.OPEN_STREET_MAP, SegmentSamples.BOARDS_FAILED) },
+    )
+
+/** The Conditions card (segments/trail-reports): Muddy leading with photos, Closed in the error colour, and asking a recent rider. */
+@PreviewTest
+@PreviewTallPhoneSize
+@Composable
+private fun SegmentConditions(@PreviewParameter(SegmentConditionsStates::class) state: SegmentState) {
+    ScreenPreview { SegmentUi(state) }
+}
+
+class SegmentConditionsStates :
+    OtherSamples<SegmentState>(
+        TrailReportSamples.all.filterKeys { it in setOf(TrailReportSamples.CONDITIONS, TrailReportSamples.CLOSED, TrailReportSamples.ASK) },
     )

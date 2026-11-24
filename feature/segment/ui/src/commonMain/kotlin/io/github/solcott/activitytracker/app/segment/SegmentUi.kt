@@ -51,7 +51,8 @@ import kotlinx.collections.immutable.toImmutableList
 
 /**
  * A segment: a star to keep it in the viewer's starred list, its line on a map, its original name when renamed, its length, sport group and
- * creator, its community names (segments/segment-names), then the viewer's own efforts on it, fastest first.
+ * creator, what it's like now (segments/trail-reports), its community names (segments/segment-names), then the viewer's own efforts on it,
+ * fastest first.
  */
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
@@ -87,6 +88,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
     }
     SegmentNameDialogs(state)
     TrailContributionSheets(state.trail)
+    TrailReportSheets(state.reports, segment?.currentName.orEmpty())
 }
 
 /**
@@ -153,6 +155,8 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             state.group?.takeIf { it.offered }?.let { group -> item { GroupChoices(group, state.eventSink) } }
             item { Figures(state.figures(units).toImmutableList()) }
             state.profile?.let { profile -> item { ProfileCard(profile) } }
+            // What it's like now (segments/trail-reports).
+            state.reports.card?.let { card -> item { ConditionsCard(card, state.reports.eventSink) } }
             if (state.showsBoards) item { Boards(state) }
             // After a recent ride, the details riders check (segments/trail-detail-suggestions).
             state.trail.quickCheck?.let { check -> item { QuickCheckCard(check, state.trail.eventSink) } }

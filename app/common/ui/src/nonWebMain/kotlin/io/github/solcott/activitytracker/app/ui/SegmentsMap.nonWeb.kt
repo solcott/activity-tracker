@@ -149,6 +149,8 @@ private fun SegmentsMapLibre(
     val liftColor = MaterialTheme.colorScheme.outline
     val selectedColor = MaterialTheme.colorScheme.tertiary
     val markerRing = MaterialTheme.colorScheme.surface
+    // Closed lines' labels (segments/trail-reports), placed on the map's overlay so they follow the camera.
+    val closed = remember(segments) { segments.mapNotNull(::closedLabelAt) }
     val currentOnSelect by rememberUpdatedState(onSelect)
     val currentOnHover by rememberUpdatedState(onHover)
     val currentOnViewport by rememberUpdatedState(onViewport)
@@ -276,6 +278,7 @@ private fun SegmentsMapLibre(
         state = mapState,
         interactions = interactions,
         overlay = {
+            closed.forEach { at -> ClosedMapLabel(Modifier.placedAt(Position(at.lng, at.lat))) }
             RouteMapOverlay(mapState, bottom = coveredBottom) { buttonModifier ->
                 // Zoom without gestures: for a mouse without a wheel, a simulator, or anyone who can't pinch.
                 Column(buttonModifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -184,6 +184,8 @@ private fun PathList(
         item(key = "profile") { profile() }
         item(key = "header") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                // What its segments are like now (segments/trail-reports), at the head of the list.
+                state.conditions?.let { card -> PathConditions(card, state.eventSink, Modifier.padding(bottom = 12.dp)) }
                 state.summary(units)?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium) }
                 state.credit?.let { Credit(it) }
                 if (state.offersDetails) DetailsFold(state)
@@ -295,6 +297,7 @@ private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseH
             indent = indent,
             extra = leader?.let(PathTexts::yours),
             trailing = leader?.let { { LeaderColumn(it) } },
+            closed = state.conditions?.closedLine(group.shown.uri.value),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
