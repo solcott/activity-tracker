@@ -19,11 +19,13 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.NewPhoto
+import io.github.solcott.activitytracker.data.activity.photoCid
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.ReportPhoto
 import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
@@ -35,6 +37,9 @@ import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /**
  * [segment]'s trail reports as its page shows them (segments/trail-reports), with the sink for every [ReportEvent]: the Conditions card,
@@ -201,35 +206,43 @@ internal data class Picked(val key: String, val photo: ReportPhoto, val choice: 
 internal data class RideSource(val title: AppText, val visibility: AppText, val picks: List<Picked>)
 
 /**
- * The viewer's own activities behind [efforts], newest first, with their photos, read while [adding]; each photo keyed by its blob CID. An
- * activity that fails to load is left out.
+ * The viewer's own activities behind [efforts], newest first and at most [RIDES_OFFERED], with their photos, read at once while [adding];
+ * each photo keyed by its blob CID and shown from the AppView's view of that blob. An activity that fails to load is left out.
  */
 @Composable
 private fun rememberRides(adding: Boolean, efforts: ImmutableList<EffortView>, feed: FeedRepository): List<RideSource> {
     var rides by rememberRetained { mutableStateOf<List<RideSource>>(emptyList()) }
-    val activities = remember(efforts) { efforts.sortedByDescending { it.startedOn }.map { it.activity }.distinct() }
+    val activities = remember(efforts) { efforts.sortedByDescending { it.startedOn }.map { it.activity }.distinct().take(RIDES_OFFERED) }
     LaunchedEffect(adding, activities) {
         if (!adding) return@LaunchedEffect
-        rides = activities.mapNotNull { uri ->
-            val activity = runSuspendCatching { feed.activity(uri) }.getOrNull() ?: return@mapNotNull null
-            val images = activity.record.media.orEmpty().filterIsInstance<ActivityMedia.Image>()
-            val views = activity.media.orEmpty().filterIsInstance<ActivityMediaView.Image>()
-            if (images.isEmpty()) return@mapNotNull null
-            val visibility = activity.visibilityOrPublic
-            val title =
-                activity.record.title?.takeIf { it.isNotBlank() }?.let { AppText.written(it) } ?: AppText.written(activity.record.sport)
-            RideSource(
-                title = title,
-                visibility = VisibilityTexts.badge(visibility) ?: AppText.named("visibility_public"),
-                picks =
-                    images.mapIndexed { index, image ->
-                        val key = image.image.ref.link
-                        val url = views.getOrNull(index)?.fullsize ?: HeldPhotos.url(key)
-                        val shared = ReportPhoto.Shared(image, visibility)
-                        Picked(key, shared, ReportPhotoChoice(key, url, image.alt, shared.fromNonPublic))
-                    },
-            )
-        }
+        rides =
+            coroutineScope {
+                activities.map { uri -> async { runSuspendCatching { feed.activity(uri) }.getOrNull()?.let(::rideOf) } }.awaitAll()
+            }
+                .filterNotNull()
     }
     return rides
 }
+
+/** [activity] as a ride to share photos from, or null when it has none. */
+private fun rideOf(activity: ActivityView): RideSource? {
+    val images = activity.record.media.orEmpty().filterIsInstance<ActivityMedia.Image>()
+    if (images.isEmpty()) return null
+    // The AppView may leave out a photo it doesn't serve, so its views are matched by blob CID, never by position.
+    val urls = activity.media.orEmpty().filterIsInstance<ActivityMediaView.Image>().associate { photoCid(it.fullsize) to it.fullsize }
+    val visibility = activity.visibilityOrPublic
+    val title = activity.record.title?.takeIf { it.isNotBlank() }?.let { AppText.written(it) } ?: AppText.written(activity.record.sport)
+    return RideSource(
+        title = title,
+        visibility = VisibilityTexts.badge(visibility) ?: AppText.named("visibility_public"),
+        picks =
+            images.map { image ->
+                val key = image.image.ref.link
+                val shared = ReportPhoto.Shared(image, visibility)
+                Picked(key, shared, ReportPhotoChoice(key, urls[key] ?: HeldPhotos.url(key), image.alt, shared.fromNonPublic))
+            },
+    )
+}
+
+/** How many of the viewer's latest rides on the segment the photo picker offers. */
+private const val RIDES_OFFERED = 10
