@@ -128,7 +128,7 @@ private fun Lead(lead: AppText, closed: Boolean, line: AppText?) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val color = if (closed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-            if (closed) PlatformIcon(AppIcon.Lock, null, tint = color, size = 24.dp)
+            if (closed) PlatformIcon(AppIcon.Closed, null, tint = color, size = 24.dp)
             Text(lead.string(), style = MaterialTheme.typography.headlineSmall, color = color)
         }
         line?.let { Text(it.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -153,7 +153,7 @@ internal fun ConditionChip(text: AppText, modifier: Modifier = Modifier, closed:
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            if (closed) PlatformIcon(AppIcon.Lock, null, size = 14.dp)
+            if (closed) PlatformIcon(AppIcon.Closed, null, size = 14.dp)
             Text(text.string(), style = MaterialTheme.typography.labelLarge)
         }
     }

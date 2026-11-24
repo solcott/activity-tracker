@@ -156,7 +156,7 @@ private fun TagGroup(title: String, tags: ImmutableList<TagToggle>, send: (Repor
                     selected = tag.selected,
                     onClick = { send(ReportEvent.Toggle(tag.value)) },
                     label = { Text(tag.label.string(), color = if (tag.warns) warn else Color.Unspecified) },
-                    leadingIcon = if (tag.warns) ({ PlatformIcon(AppIcon.Lock, null, tint = warn, size = 18.dp) }) else null,
+                    leadingIcon = if (tag.warns) ({ PlatformIcon(AppIcon.Closed, null, tint = warn, size = 18.dp) }) else null,
                 )
             }
         }

@@ -85,7 +85,7 @@ fun SelectableRow(
             if (closed != null) {
                 // Riders say it's closed (segments/trail-reports): the icon too, so it reads without colour.
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    PlatformIcon(AppIcon.Lock, null, tint = MaterialTheme.colorScheme.error, size = 16.dp)
+                    PlatformIcon(AppIcon.Closed, null, tint = MaterialTheme.colorScheme.error, size = 16.dp)
                     Text(closed.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
             }
