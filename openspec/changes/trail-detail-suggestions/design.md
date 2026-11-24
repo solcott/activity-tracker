@@ -40,6 +40,8 @@ This reuses the existing vocabulary, validation and texts. Two alternatives were
 - One record holding many details: one bad value would block all the others, and votes would need per-field subjects.
 - A string value per detail: it would duplicate the vocabulary.
 
+Season is suggested as one season or as "seasonal". Open dates aren't offered in the picker, since they aren't a list to pick from; the record and the AppView accept them, so a later date picker needs no lexicon change.
+
 Width is suggested as a kind and stored as a representative `widthCm`: singletrack 100, doubletrack 200, road width 400. These land in the ranges the Width row already maps back to words.
 
 ### Confirmations and votes share one private record
@@ -53,18 +55,16 @@ Naming the value makes a confirmation stop counting when the value changes, with
 ### Storage and the adoption pass
 
 - **Tables:**
-  - `trail_detail_suggestions`: uri, cid, author, segment, detail, value JSON, state, opened_at, closed_at, final totals.
-  - `trail_detail_votes`: uri, voter, subject suggestion uri/cid or (segment, detail, value hash), direction, created_at.
-  - `segment_trail_adopted`: segment, detail, suggestion uri, value JSON, adopted_at, riders.
+  - `trail_detail_suggestions`: uri, cid, author, segment, detail, normalized value JSON, state, opened_at, closed_at, final totals, record_gone. An adopted suggestion keeps its row, as names do, so there is no separate adopted table.
+  - `trail_detail_votes`: uri, voter, either the suggestion's uri and cid or the segment, detail and normalized value, direction, indexed_at.
 - **The adoption pass:**
-  - `TrailDetailAdoption` runs beside `SegmentNaming` after the status pass.
-  - It shares the rider count (riders in the last 365 days), the label filter and the vote-counting query shape.
-  - Its thresholds live in a `TrailDetailRules`, so they can differ from `SegmentNameRules`: 3 up votes, not 5, and a 30-day cooldown, not 90.
+  - `TrailDetailAdoption` runs after the naming pass, from `SegmentMatcher` and `SegmentPasses` (so the admin site's one-segment passes can call it too).
+  - It shares the rider count (riders in the last 365 days), the label filter's shape and the vote counting with `SegmentNaming`.
+  - Its thresholds live in a `TrailDetailRules` (`TRAIL_DETAIL_*`), so they can differ from `SegmentNameRules`: 3 up votes, not 5, and a 30-day cooldown, not 90.
   - It groups by (segment, detail).
 - **Effective values:**
-  - The pass recomputes each touched segment's effective values into a `segments.trail_effective` JSON column, along with the source of each value.
-  - `SegmentViews` reads that column instead of merging per request, as `current_name` works.
-  - Importer record changes (`refine`) and label changes trigger the same recompute.
+  - `recomputeTrailCommunity` writes each detail's latest adopted value in effect, with the up votes that adopted it, into a `segments.trail_community` JSON column, after the pass, a label change and a handoff.
+  - `SegmentViews` lays that over the importer's record `trail` per row (`effectiveTrail`), which is cheap, so a re-import needs no recompute: the community value simply wins.
 
 ### Sources
 
