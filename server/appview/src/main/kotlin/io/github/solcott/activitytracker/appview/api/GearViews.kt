@@ -94,7 +94,7 @@ internal fun JdbcTransaction.gearOf(
         .toList()
         .groupBy { it[ActivityGear.activityUri] }
         .mapValues { (_, rows) ->
-            val narrowest = rows.maxBy { Visibility.rank(it[ActivityGear.visibility]) }
+            val narrowest = Visibility.narrowestBy(rows) { it[ActivityGear.visibility] }
             rows
                 .filter {
                     it[ActivityGear.origin] == narrowest[ActivityGear.origin] &&

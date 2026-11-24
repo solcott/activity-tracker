@@ -53,7 +53,13 @@ internal fun JdbcTransaction.partnersOf(
             .where {
                 (mine inList activities) and
                     rule and
-                    visibleTo(viewer, visibility = theirTier) and
+                    visibleTo(
+                        viewer,
+                        visibility = theirTier,
+                        author = Activities.authorDid,
+                        record = Activities.uri,
+                        cid = Activities.cid,
+                    ) and
                     accountShownTo(viewer, theirAuthor) and
                     notMuted(viewer, theirAuthor)
             }
@@ -69,7 +75,14 @@ internal fun JdbcTransaction.partnersOf(
             .where {
                 (mine inList activities) and
                     inviteRule and
-                    ((member and served(viewer, theirAuthor, theirs, Activities.cid)) or visibleTo(viewer, visibility = theirTier)) and
+                    ((member and served(viewer, theirAuthor, theirs, Activities.cid)) or
+                        visibleTo(
+                            viewer,
+                            visibility = theirTier,
+                            author = Activities.authorDid,
+                            record = Activities.uri,
+                            cid = Activities.cid,
+                        )) and
                     accountShownTo(viewer, theirAuthor) and
                     notMuted(viewer, theirAuthor)
             }
@@ -105,7 +118,7 @@ internal fun JdbcTransaction.partnersOf(
  * Anyone, and no block between them. `GroupPairing.mayPair` is the same rule for the indexer, which has the two modes in hand; both build
  * on [groupingIn], [effectivelyFollows] and [blocked].
  */
-private fun pairRuleHolds(): Op<Boolean> {
+internal fun pairRuleHolds(): Op<Boolean> {
     fun modeIn(author: Column<String>, modes: List<String>): Op<Boolean> =
         exists(GroupPrefs.select(GroupPrefs.did).where { groupingIn(author, modes) })
     val a = ActivityGroupPairs.authorA

@@ -72,7 +72,7 @@ internal fun JdbcTransaction.takeShadow(uri: AtUri): ResultRow? {
     val next =
         RecordShadows.selectAll()
             .where { RecordShadows.uri eq uri.value }
-            .maxByOrNull { Visibility.rank(Placement.of(it[RecordShadows.origin]).visibility) } ?: return null
+            .let { shadows -> Visibility.narrowestByOrNull(shadows) { Placement.of(it[RecordShadows.origin]).visibility } } ?: return null
     RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq next[RecordShadows.origin]) }
     return next
 }
@@ -94,7 +94,7 @@ internal fun JdbcTransaction.place(
 ) {
     val held = heldCopy(collection, uri)
     if (held != null && held.origin != placement.origin) {
-        if (Visibility.rank(held.visibility) >= Visibility.rank(visibility)) {
+        if (Visibility.isNoWiderThan(held.visibility, visibility)) {
             shadow(uri, placement.origin, collection, visibility, cid, AtJson.encodeToString(JsonObject.serializer(), json), now)
             return
         }

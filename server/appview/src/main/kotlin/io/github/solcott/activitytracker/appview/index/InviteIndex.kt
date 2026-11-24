@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.appview.api.isBlocked
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
 import io.github.solcott.activitytracker.appview.db.ActivityInvites
+import io.github.solcott.activitytracker.appview.segments.ActivityTiers
+import io.github.solcott.activitytracker.appview.segments.activityTiers
 import io.github.solcott.activitytracker.appview.segments.pairVisibility
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -133,7 +135,7 @@ internal fun JdbcTransaction.copyIndexed(copy: AtUri, author: Did, copyOf: Strin
         !ActivityInvitePairs.select(ActivityInvitePairs.copyUri)
             .where { (ActivityInvitePairs.copyUri eq copy.value) and (ActivityInvitePairs.originalUri eq original.value) }
             .empty()
-    if (paired) return retierInvitePairs(copyRow)
+    if (paired) return retierInvitePairs(activityTiers(copyRow))
     val invite =
         ActivityInvites.selectAll()
             .where {
@@ -179,15 +181,15 @@ private fun JdbcTransaction.pair(invite: ResultRow, original: ResultRow, copy: R
         it[inviterDid] = inviter
         it[inviteeDid] = invite[ActivityInvites.inviteeDid]
         it[inviteRkey] = rkey
-        it[originalVisibility] = pairVisibility(original)
-        it[copyVisibility] = pairVisibility(copy)
+        it[originalVisibility] = pairVisibility(activityTiers(original))
+        it[copyVisibility] = pairVisibility(activityTiers(copy))
         it[pairedAt] = now
     }
 }
 
 /** Sets [activity]'s side of each invite pair it's in to its current partner tier ([pairVisibility]). */
-internal fun JdbcTransaction.retierInvitePairs(activity: ResultRow) {
-    val uri = activity[Activities.uri]
+internal fun JdbcTransaction.retierInvitePairs(activity: ActivityTiers) {
+    val uri = activity.row[Activities.uri]
     val inPair =
         !ActivityInvitePairs.select(ActivityInvitePairs.copyUri)
             .where { (ActivityInvitePairs.originalUri eq uri) or (ActivityInvitePairs.copyUri eq uri) }

@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.appview.api.combinedIntoOf
 import io.github.solcott.activitytracker.appview.api.follows
 import io.github.solcott.activitytracker.appview.api.isBlocked
 import io.github.solcott.activitytracker.appview.db.Activities
-import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityGroupPairs
 import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
@@ -13,18 +12,14 @@ import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.groupableTracks
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GroupMode
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
-import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.location.TimedPoint
 import kotlin.time.Clock
@@ -137,7 +132,8 @@ internal class GroupPairing(private val db: Database, private val blobs: SpaceBl
         val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport])?.group ?: return null
         // Lift-served skiing matches alpine segments but is never paired (feed/group-activities): a resort day crosses strangers' all day.
         if (group == SegmentSportGroup.ALPINE) return null
-        val exact = exactRecord(row)
+        val tiers = activityTiers(row)
+        val exact = tiers.exactRecord
         return Side(
             trackUri = trackUri,
             author = Did(track[SegmentTracks.authorDid]),
@@ -147,7 +143,7 @@ internal class GroupPairing(private val db: Database, private val blobs: SpaceBl
             mode = track[GroupPrefs.mode],
             start = exact.startedAt.toEpochMilliseconds() / MS_PER_S,
             elapsed = exact.elapsedTime.toDouble(),
-            visibility = pairVisibility(row),
+            visibility = pairVisibility(tiers),
         )
     }
 
@@ -202,24 +198,14 @@ internal fun JdbcTransaction.mayPair(a: String, modeA: String, b: String, modeB:
 }
 
 /** [activity]'s record with every indexed details record laid over it, widest first: its exact start and elapsed time. */
-internal fun JdbcTransaction.exactRecord(activity: ResultRow): ActivityRecord {
-    val record = AtJson.decodeFromString(ActivityRecord.serializer(), activity[Activities.record])
-    val details =
-        ActivityDetails.select(ActivityDetails.visibility, ActivityDetails.record)
-            .where { ActivityDetails.activityUri eq activity[Activities.uri] }
-            .map { Visibility.rank(it[ActivityDetails.visibility]) to it[ActivityDetails.record] }
-            .sortedBy { it.first }
-            .map { AtJson.decodeFromString(ActivityDetailsRecord.serializer(), it.second) }
-    return effectiveRecord(record, details)
-}
+internal fun JdbcTransaction.exactRecord(activity: ResultRow): ActivityRecord = activityTiers(activity).exactRecord
 
 /** The tier [activity] is shown as a partner at: the narrowest of its visibility and its Start time and Map categories'. */
-internal fun JdbcTransaction.pairVisibility(activity: ResultRow): String =
-    narrowestOf(activity, DetailCategory.START_TIME, DetailCategory.MAP)
+internal fun pairVisibility(activity: ActivityTiers): String = activity.narrowestOf(DetailCategory.START_TIME, DetailCategory.MAP)
 
 /** Sets [activity]'s side of each of its pairs to its current [pairVisibility]. */
-internal fun JdbcTransaction.retierPairs(activity: ResultRow) {
-    val uri = activity[Activities.uri]
+internal fun JdbcTransaction.retierPairs(activity: ActivityTiers) {
+    val uri = activity.row[Activities.uri]
     val visibility = pairVisibility(activity)
     ActivityGroupPairs.update({ ActivityGroupPairs.activityA eq uri }) { it[visibilityA] = visibility }
     ActivityGroupPairs.update({ ActivityGroupPairs.activityB eq uri }) { it[visibilityB] = visibility }

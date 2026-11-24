@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.activityTiers
 import io.github.solcott.activitytracker.appview.segments.exactRecord
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -56,7 +57,7 @@ internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInpu
         dropInvitePairsOf(activity)
         return
     }
-    Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()?.let { retierInvitePairs(it) }
+    Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()?.let { retierInvitePairs(activityTiers(it)) }
     if (matchable(activity)) {
         val moved = before == null || before.sport != after.sport || before.subSport != after.subSport || before.start != after.start
         if (moved) jobs.enqueueTrack(trackOf(activity), now) else jobs.enqueueTiers(activity, now)

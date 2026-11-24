@@ -3,8 +3,6 @@ package io.github.solcott.activitytracker.appview.segments
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
 import io.github.solcott.activitytracker.appview.api.combinedIntoOf
 import io.github.solcott.activitytracker.appview.db.Activities
-import io.github.solcott.activitytracker.appview.db.ActivityDetails
-import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.DiveSiteCells
 import io.github.solcott.activitytracker.appview.db.DiveSiteVisits
 import io.github.solcott.activitytracker.appview.db.DiveSites
@@ -30,23 +28,20 @@ import io.github.solcott.activitytracker.appview.index.recheckDiveSiteDuplicates
 import io.github.solcott.activitytracker.appview.index.siteCentre
 import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
+import io.github.solcott.activitytracker.appview.ops.attempt
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
-import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
-import io.github.solcott.activitytracker.lexicon.app.TierChannels
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.location.GainLoss
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -65,7 +60,6 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -539,7 +533,7 @@ class SegmentMatcher(
                     .withDistinct()
                     .map { Triple(it[Segments.uri], it[Segments.line], it[Segments.kind]) }
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
-        val visibility = effortVisibility(activity)
+        val visibility = effortVisibility(activityTiers(activity))
         val startedOn = startedOn(activity)
         // Passes starting in the same second on one segment are one effort, and that second is part of its id.
         val efforts =
@@ -664,7 +658,7 @@ class SegmentMatcher(
                 ?.first
                 ?.get(DiveSites.uri) ?: return
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
-        val tiers = visitTiers(activity)
+        val tiers = visitTiers(activityTiers(activity))
         DiveSiteVisits.insert {
             it[activityUri] = track.activity
             it[siteUri] = site
@@ -680,10 +674,10 @@ class SegmentMatcher(
      * Sets a dive-site visit's tiered columns from [activity], as written and as re-tiered: its tier (the narrowest of the activity's and
      * its Map category's), and the dive's conditions from every held tier with its Dive category's tier, the only tier they're served at.
      */
-    private fun JdbcTransaction.visitTiers(activity: ResultRow): (UpdateBuilder<*>) -> Unit {
-        val conditions = exactRecord(activity).dive ?: ActivityDive()
-        val visitTier = narrowestOf(activity, DetailCategory.MAP)
-        val diveTier = narrowestOf(activity, DetailCategory.DIVE)
+    private fun visitTiers(activity: ActivityTiers): (UpdateBuilder<*>) -> Unit {
+        val conditions = activity.exactRecord.dive ?: ActivityDive()
+        val visitTier = activity.narrowestOf(DetailCategory.MAP)
+        val diveTier = activity.narrowestOf(DetailCategory.DIVE)
         return {
             it[DiveSiteVisits.visibility] = visitTier
             it[DiveSiteVisits.minTemperature] = conditions.minTemperature
@@ -769,18 +763,18 @@ class SegmentMatcher(
             dropPairsOfActivities(listOf(activity))
             return
         }
-        val visibility = effortVisibility(row)
+        val tiers = activityTiers(row)
+        val visibility = effortVisibility(tiers)
         SegmentEfforts.update({ SegmentEfforts.activityUri eq activity }) { it[SegmentEfforts.visibility] = visibility }
         if (!DiveSiteVisits.select(DiveSiteVisits.activityUri).where { DiveSiteVisits.activityUri eq activity }.empty()) {
-            val tiers = visitTiers(row)
-            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) { tiers(it) }
+            val visits = visitTiers(tiers)
+            DiveSiteVisits.update({ DiveSiteVisits.activityUri eq activity }) { visits(it) }
         }
-        retierPairs(row)
+        retierPairs(tiers)
     }
 
     /** The narrowest of the activity's visibility and its Map and Pace/Speed categories', from the indexed rows. */
-    private fun JdbcTransaction.effortVisibility(activity: ResultRow): String =
-        narrowestOf(activity, DetailCategory.MAP, DetailCategory.SPEED)
+    private fun effortVisibility(activity: ActivityTiers): String = activity.narrowestOf(DetailCategory.MAP, DetailCategory.SPEED)
 
     /** The activity's local date, from its start and UTC offset. */
     private fun startedOn(activity: ResultRow): String {
@@ -794,15 +788,7 @@ class SegmentMatcher(
         private var failed = false
 
         suspend operator fun invoke(what: String, block: suspend () -> Unit) {
-            try {
-                block()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                failed = true
-                worker.failure(e)
-                log.warn("{} failed; retrying: {}", what, e.message)
-            }
+            if (worker.attempt(log, what, block) == null) failed = true
         }
 
         suspend fun round(block: suspend () -> Unit) {
@@ -831,36 +817,6 @@ class SegmentMatcher(
         private val BACKOFF_MAX = 1.hours
         private const val BACKOFF_DOUBLINGS = 8
     }
-}
-
-/**
- * The narrowest of [activity]'s visibility and those of its [categories], from the indexed record, details and streams rows: the tier its
- * efforts (Map, Pace/Speed) or its pairs (Start time, Map) are served at.
- */
-internal fun JdbcTransaction.narrowestOf(activity: ResultRow, vararg categories: String): String {
-    val uri = activity[Activities.uri]
-    val tier = activity[Activities.visibility]
-    val record = AtJson.decodeFromString(ActivityRecord.serializer(), activity[Activities.record])
-    val details =
-        ActivityDetails.select(ActivityDetails.visibility, ActivityDetails.record)
-            .where { ActivityDetails.activityUri eq uri }
-            .map {
-                DetailsView(
-                    it[ActivityDetails.visibility],
-                    AtJson.decodeFromString(ActivityDetailsRecord.serializer(), it[ActivityDetails.record]),
-                )
-            }
-    val parts =
-        ActivityStreams.select(ActivityStreams.visibility, ActivityStreams.channels)
-            .where { ActivityStreams.activityUri eq uri }
-            .map {
-                TierChannels(
-                    it[ActivityStreams.visibility],
-                    AtJson.decodeFromString(ListSerializer(String.serializer()), it[ActivityStreams.channels]),
-                )
-            }
-    val tiers = DetailCategory.currentTiersOfChannels(tier, record, details, parts)
-    return categories.map { tiers[it] ?: tier }.fold(tier, Visibility::narrower)
 }
 
 /**

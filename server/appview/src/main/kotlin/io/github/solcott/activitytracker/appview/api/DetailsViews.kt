@@ -28,4 +28,4 @@ internal fun JdbcTransaction.detailsOf(activities: List<String>, viewer: Did?): 
             record?.let { row[ActivityDetails.activityUri] to DetailsView(row[ActivityDetails.visibility], it) }
         }
         .groupBy({ it.first }, { it.second })
-        .mapValues { (_, views) -> views.sortedBy { Visibility.rank(it.visibility) } }
+        .mapValues { (_, views) -> Visibility.widestFirst(views) { it.visibility } }

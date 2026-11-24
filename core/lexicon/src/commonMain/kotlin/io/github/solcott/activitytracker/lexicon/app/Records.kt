@@ -2387,8 +2387,20 @@ object Visibility {
     /** [value]'s place in [all], 0 the widest. An unknown value ranks as [SELF], so it is never shown wider than intended. */
     fun rank(value: String): Int = all.indexOf(value).takeIf { it >= 0 } ?: all.lastIndex
 
+    /** Whether [a] is no wider than [b]: as narrow, or narrower. */
+    fun isNoWiderThan(a: String, b: String): Boolean = rank(a) >= rank(b)
+
     /** The narrower of [a] and [b]. */
-    fun narrower(a: String, b: String): String = if (rank(a) >= rank(b)) a else b
+    fun narrower(a: String, b: String): String = if (isNoWiderThan(a, b)) a else b
+
+    /** The first of [items] whose [visibility] is the narrowest; [items] must not be empty. */
+    fun <T> narrowestBy(items: Iterable<T>, visibility: (T) -> String): T = items.maxBy { rank(visibility(it)) }
+
+    /** The first of [items] whose [visibility] is the narrowest, or null when there are none. */
+    fun <T> narrowestByOrNull(items: Iterable<T>, visibility: (T) -> String): T? = items.maxByOrNull { rank(visibility(it)) }
+
+    /** [items] widest first by [visibility], keeping the order of those at one tier. */
+    fun <T> widestFirst(items: Iterable<T>, visibility: (T) -> String): List<T> = items.sortedBy { rank(visibility(it)) }
 
     /** [value], narrowed to [cap] if it's wider: a detail category is never more visible than its activity. */
     fun capped(value: String, cap: String): String = narrower(value, cap)
