@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
@@ -143,7 +145,12 @@ private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier:
                 PhotoTile(media, onRemove = { fields.eventSink(DetailsEvent.RemoveMedia(index)) }, enabled = enabled)
             }
             if (fields.canAddMedia) {
-                AddPhotosTile(onClick = { picks.choose() }, enabled = enabled && !preparing, preparing = preparing)
+                AddPhotosTile(
+                    stringResource(Res.string.details_add_photos),
+                    onClick = { picks.choose() },
+                    enabled = enabled && !preparing,
+                    preparing = preparing,
+                )
             }
         }
         if (preparing) {
@@ -153,8 +160,8 @@ private fun PhotoGrid(fields: ActivityDetailsFields, enabled: Boolean, modifier:
 }
 
 @Composable
-private fun PhotoTile(media: EditMedia, onRemove: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
-    Box(modifier.size(TILE_SIZE).clip(TILE_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant)) {
+private fun PhotoTile(media: EditMedia, onRemove: () -> Unit, enabled: Boolean) {
+    RemovablePhotoTile(stringResource(Res.string.details_remove_photo), onRemove, enabled = enabled) {
         val model: Any =
             when (media) {
                 is EditMedia.Existing ->
@@ -164,9 +171,24 @@ private fun PhotoTile(media: EditMedia, onRemove: () -> Unit, enabled: Boolean, 
                 is EditMedia.Picked -> remember(media) { media.photo.bytes.toByteArray() }
             }
         AsyncImage(model, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    }
+}
+
+/** A photo a form will carry, drawn by [image], [size] square with a remove button ([removeLabel]) in its corner. */
+@Composable
+fun RemovablePhotoTile(
+    removeLabel: String,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    size: Dp = PHOTO_TILE_SIZE,
+    image: @Composable BoxScope.() -> Unit,
+) {
+    Box(modifier.size(size).clip(TILE_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        image()
         AppIconButton(
             AppIcon.Close,
-            contentDescription = stringResource(Res.string.details_remove_photo),
+            contentDescription = removeLabel,
             onClick = onRemove,
             enabled = enabled,
             tint = Color.White,
@@ -176,11 +198,19 @@ private fun PhotoTile(media: EditMedia, onRemove: () -> Unit, enabled: Boolean, 
     }
 }
 
+/** The outlined tile beside a form's photos that picks more: the add-photo icon over [label], or a spinner while [preparing]. */
 @Composable
-private fun AddPhotosTile(onClick: () -> Unit, enabled: Boolean, preparing: Boolean, modifier: Modifier = Modifier) {
+fun AddPhotosTile(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    preparing: Boolean = false,
+    size: Dp = PHOTO_TILE_SIZE,
+) {
     Box(
         modifier
-            .size(TILE_SIZE)
+            .size(size)
             .clip(TILE_SHAPE)
             .border(1.dp, MaterialTheme.colorScheme.outline, TILE_SHAPE)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
@@ -192,15 +222,12 @@ private fun AddPhotosTile(onClick: () -> Unit, enabled: Boolean, preparing: Bool
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 PlatformIcon(AppIcon.AddPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    stringResource(Res.string.details_add_photos),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
 }
 
-private val TILE_SIZE = 96.dp
+/** The side of a form's photo tiles. */
+val PHOTO_TILE_SIZE = 96.dp
 private val TILE_SHAPE = RoundedCornerShape(8.dp)

@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,14 +31,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import io.github.solcott.activitytracker.app.ui.AddPhotosTile
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.RemovablePhotoTile
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
@@ -169,35 +169,16 @@ private fun TagGroup(title: String, tags: ImmutableList<TagToggle>, send: (Repor
 private fun PickedPhotos(sheet: ReportSheet, send: (ReportEvent) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         sheet.photos.forEach { photo ->
-            Box(Modifier.size(SHEET_TILE).clip(THUMB_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant)) {
+            RemovablePhotoTile(
+                stringResource(Res.string.trail_report_remove_picked),
+                onRemove = { send(ReportEvent.RemovePhoto(photo.key)) },
+                size = SHEET_TILE,
+            ) {
                 AsyncImage(photo.url, contentDescription = photo.alt, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                AppIconButton(
-                    AppIcon.Close,
-                    contentDescription = stringResource(Res.string.trail_report_remove_picked),
-                    onClick = { send(ReportEvent.RemovePhoto(photo.key)) },
-                    tint = Color.White,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(2.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)),
-                )
             }
         }
         if (sheet.canAddPhotos) {
-            Box(
-                Modifier.size(SHEET_TILE)
-                    .clip(THUMB_SHAPE)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, THUMB_SHAPE)
-                    .clickable(role = Role.Button) { send(ReportEvent.OpenAddPhotos) }
-                    .handCursor(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    PlatformIcon(AppIcon.AddPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(
-                        stringResource(Res.string.trail_add_photos),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
+            AddPhotosTile(stringResource(Res.string.trail_add_photos), onClick = { send(ReportEvent.OpenAddPhotos) }, size = SHEET_TILE)
         }
     }
 }
