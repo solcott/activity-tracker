@@ -143,8 +143,8 @@ data class ActivityDetailPage(
      */
     val partners: ImmutableList<GroupPartner> = persistentListOf(),
     /**
-     * On the owner's own activity, leaving its group while it lists a partner, or rejoining once it left; null on anyone else's, on one done
-     * alone, or when it can't be offered now.
+     * On the owner's own activity, leaving its group while it lists a partner, or rejoining once it left; null on anyone else's, on one
+     * done alone, or when it can't be offered now.
      */
     val ownGroup: OwnGroupState? = null,
     /** The owner may add people who follow them to this activity (feed/activity-invites). */
