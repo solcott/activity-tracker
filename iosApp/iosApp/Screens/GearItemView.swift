@@ -176,7 +176,7 @@ struct GearItemView: View {
             Button(.gearComponentReplace) { send(GearEvent.Replace(uri: uri)) }
             Button(.gearComponentUnmount) { send(GearEvent.Unmount(uri: uri)) }
         } label: {
-            Image(.more).imageScale(.large).frame(minWidth: 44, minHeight: 44)
+            AppIconLabel(.more).imageScale(.large)
         }
         .accessibilityLabel(Text(GearPageTexts.shared.componentActions(component: component)))
         .disabled(!state.mountEnabled)

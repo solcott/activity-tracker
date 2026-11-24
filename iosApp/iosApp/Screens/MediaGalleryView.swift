@@ -42,7 +42,7 @@ struct MediaGalleryView: View {
             Button {
                 send(MediaGalleryEvent.Back.shared)
             } label: {
-                Image(.close).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                AppIconLabel(.close)
             }
             .accessibilityLabel(Text(texts.close))
             Spacer(minLength: 8)
@@ -57,7 +57,7 @@ struct MediaGalleryView: View {
                         Text(texts.reportPhoto)
                     }
                 } label: {
-                    Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    AppIconLabel(.more)
                 }
                 .accessibilityLabel(Text(texts.more))
             }

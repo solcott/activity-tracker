@@ -80,7 +80,7 @@ struct PostCardView: View {
                         Text(content.menuItem())
                     }
                 } label: {
-                    Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    AppIconLabel(.more)
                 }
                 .accessibilityLabel(Text(PostCardContent.Companion.shared.more()))
             }

@@ -29,7 +29,7 @@ struct ActivityPageMenu: View {
                     }
                 }
             } label: {
-                Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                AppIconLabel(.more)
             }
             .disabled(!texts.menuEnabled(manage: manage))
             .accessibilityLabel(Text(texts.more))
@@ -72,7 +72,7 @@ struct ActivityPageMenu: View {
                     Text(texts.report)
                 }
             } label: {
-                Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                AppIconLabel(.more)
             }
             .accessibilityLabel(Text(texts.more))
         }

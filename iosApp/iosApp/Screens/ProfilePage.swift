@@ -138,7 +138,7 @@ struct ProfilePage: View {
                     }
                 }
             } label: {
-                Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                AppIconLabel(.more)
             }
             .accessibilityLabel(Text(ProfileTexts.shared.more))
         }

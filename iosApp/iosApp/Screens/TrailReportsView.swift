@@ -118,7 +118,7 @@ private struct TrailReportRowView: View {
                 }
             }
         } label: {
-            Image(AppIcon.more).foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+            AppIconLabel(.more).foregroundStyle(.secondary)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(Text(MediaGalleryTexts.shared.more))
@@ -184,7 +184,7 @@ struct TrailPhotosView: View {
             Button {
                 send(TrailPhotosEvent.Back.shared)
             } label: {
-                Image(.close).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                AppIconLabel(.close)
             }
             .accessibilityLabel(Text(MediaGalleryTexts.shared.close))
             Spacer(minLength: 8)
@@ -212,7 +212,7 @@ struct TrailPhotosView: View {
                         }
                     }
                 } label: {
-                    Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    AppIconLabel(.more)
                 }
                 .accessibilityLabel(Text(MediaGalleryTexts.shared.more))
             }
