@@ -6,6 +6,7 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.boards.BoardChoice
 import io.github.solcott.activitytracker.app.boards.RankBoardTexts
+import io.github.solcott.activitytracker.app.boards.RankBoards
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.RegularsMeta
 import io.github.solcott.activitytracker.lexicon.Did
@@ -46,7 +47,7 @@ data class DiveSiteRegularsState(
     fun accents(entry: DiveSiteRegularEntry): Boolean = entry.rank == 1
 
     /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
-    fun isOwn(entry: DiveSiteRegularEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
+    fun isOwn(entry: DiveSiteRegularEntry): Boolean = RankBoards.isOwn((entries.meta?.viewer ?: viewerEntry)?.athlete, entry.athlete)
 }
 
 sealed interface DiveSiteRegularsEvent {

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.boards.RankBoards
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.BoardMeta
@@ -38,7 +39,7 @@ data class SegmentLeaderboardState(
     fun accents(entry: LeaderboardEntry): Boolean = entry.rank <= PODIUM
 
     /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
-    fun isOwn(entry: LeaderboardEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
+    fun isOwn(entry: LeaderboardEntry): Boolean = RankBoards.isOwn((entries.meta?.viewer ?: viewerEntry)?.athlete, entry.athlete)
 
     /**
      * How far the pinned [viewerEntry]'s time is behind the board's first, as filtered ("51 s behind 1st"); null while there is no pinned
@@ -46,8 +47,8 @@ data class SegmentLeaderboardState(
      */
     val gap: AppText?
         get() {
-            val own = viewerEntry?.takeIf { it.rank != 1 } ?: return null
-            val first = entries.items.firstOrNull()?.takeIf { it.rank == 1 } ?: return null
+            val own = viewerEntry ?: return null
+            val first = entries.items.firstOrNull()?.takeIf { RankBoards.showsGap(own.rank, it.rank) } ?: return null
             return BoardGapTexts.behindFirst(own.effort.elapsed - first.effort.elapsed)
         }
 }

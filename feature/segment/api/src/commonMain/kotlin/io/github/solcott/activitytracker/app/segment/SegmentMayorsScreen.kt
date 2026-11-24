@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.boards.RankBoards
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.BoardMeta
@@ -42,7 +43,7 @@ data class SegmentMayorsState(
     fun crowned(entry: MayorEntry): Boolean = entry.rank == 1
 
     /** Whether [entry] is the viewer's own, marked as theirs wherever it shows. */
-    fun isOwn(entry: MayorEntry): Boolean = (entries.meta?.viewer ?: viewerEntry)?.athlete?.did == entry.athlete.did
+    fun isOwn(entry: MayorEntry): Boolean = RankBoards.isOwn((entries.meta?.viewer ?: viewerEntry)?.athlete, entry.athlete)
 
     /**
      * What the pinned [viewerEntry] needs to be Mayor ("8 more efforts to be Mayor"): the first entry's count less theirs, plus one, since
@@ -50,8 +51,8 @@ data class SegmentMayorsState(
      */
     val gap: AppText?
         get() {
-            val own = viewerEntry?.takeIf { it.rank != 1 } ?: return null
-            val first = entries.items.firstOrNull()?.takeIf { it.rank == 1 } ?: return null
+            val own = viewerEntry ?: return null
+            val first = entries.items.firstOrNull()?.takeIf { RankBoards.showsGap(own.rank, it.rank) } ?: return null
             return BoardGapTexts.moreToBeMayor(first.efforts - own.efforts + 1)
         }
 }
