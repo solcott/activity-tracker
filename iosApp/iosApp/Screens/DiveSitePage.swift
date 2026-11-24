@@ -67,19 +67,17 @@ struct DiveSitePage: View {
 
     /// A dive as the shared page shows it: no author link and no Like, its photos opening the dive as the card does.
     private func card(_ dive: ActivityView) -> some View {
-        let uri = dive.uri.value
-        return ActivityCardView(
-            content: ActivityCardContent.Companion.shared.of(activity: dive, viewerDid: state.viewerDid),
+        ActivityCardView(
+            activity: dive,
+            viewerDid: state.viewerDid,
+            revealed: state.revealed,
             authorClickable: false,
-            revealed: state.revealed.contains(key: uri),
-            likeable: false,
-            send: { event in
-                if event is ActivityListEvent.Open || event is ActivityListEvent.OpenMedia {
-                    send(DiveSiteEvent.OpenDive(uri: dive.uri))
-                }
-            },
-            reveal: { state.revealed.eventSink(uri) }
-        )
+            likeable: false
+        ) { event in
+            if event is ActivityListEvent.Open || event is ActivityListEvent.OpenMedia {
+                send(DiveSiteEvent.OpenDive(uri: dive.uri))
+            }
+        }
     }
 
     private func retry() {
@@ -121,16 +119,9 @@ private struct DiveSiteAbout: View {
             Text(license).font(.footnote).foregroundStyle(.secondary)
         }
         if let help = texts.statusHelp(site: site) {
-            VStack(alignment: .leading, spacing: 2) {
-                if let status = texts.status(site: site) {
-                    Text(status).font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
-                }
-                Text(help).font(.footnote).foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-            if texts.offersOriginal(site: site) {
-                Button(action: openOriginal) { Text(PlaceTexts.shared.openOriginal) }
-            }
+            PlaceStatusHelp(
+                status: texts.status(site: site), help: help, offersOriginal: texts.offersOriginal(site: site),
+                openOriginal: openOriginal)
         }
     }
 }

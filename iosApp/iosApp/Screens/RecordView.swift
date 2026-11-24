@@ -43,16 +43,9 @@ struct RecordView: View {
             }
             ActivityDescriptionSection(state: state.about, enabled: enabled)
             Section { GearFieldRow(field: state.gear, enabled: enabled) }
-            VisibilityFormSections(
-                fields: state.visibility, heading: Text(.activityVisibilityHeading),
-                activityEnabled: enabled && state.visibility.canChoose, categoriesEnabled: enabled
-            ) {
-                Text(VisibilityTexts.shared.activityNote(fields: state.visibility))
-            } detailsNote: {
-                EmptyView()
-            }
+            ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { controls }
+        .pageBar(edge: .bottom) { controls }
         .pageTitle(Text(texts.title), back: { send(RecordEvent.Back.shared) })
         .confirmationDialog(Text(texts.discardConfirm), isPresented: $confirmingDiscard, titleVisibility: .visible) {
             Button(role: .destructive) {
@@ -75,7 +68,7 @@ struct RecordView: View {
             Section { Text(texts.recovered) }
         }
         if state.saveFailed {
-            Section { Text(texts.saveFailed).foregroundStyle(.red) }
+            Section { ErrorMessage(texts.saveFailed, layout: .row) }
         }
         if refused && !state.hasPermission {
             Section {
@@ -125,7 +118,6 @@ struct RecordView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.bar)
     }
 
     @ViewBuilder private func button(_ control: RecordControl) -> some View {

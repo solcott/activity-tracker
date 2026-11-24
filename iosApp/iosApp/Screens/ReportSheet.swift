@@ -58,20 +58,12 @@ struct ReportSheet: View {
     /// A reason, checked once chosen; a tap chooses it, as the shared sheet's chip does.
     private func reasonRow(_ choice: ReportReasonChoice) -> some View {
         let chosen = state.chose(choice: choice)
-        return Button {
+        return AppCheckRow(checked: chosen) {
             send(ReportEvent.PickReason(reason: choice.reason))
         } label: {
-            HStack {
-                Text(choice.label).foregroundStyle(Color.primary)
-                Spacer()
-                if chosen {
-                    Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(Color.accentColor)
-                }
-            }
-            .contentShape(Rectangle())
+            Text(choice.label)
         }
         .disabled(state.sending)
-        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 
     @ToolbarContentBuilder private var bar: some ToolbarContent {
@@ -163,24 +155,16 @@ private struct ReportingModifier: ViewModifier {
 
     /// Open while the page holds a sheet, in a page the host draws. A swipe down tells the page the sheet closed, as the shared sheet does.
     private var presented: Binding<Bool> {
-        Binding(
-            get: { record != nil && reporting.sheet != nil },
-            set: { isShown in
-                if !isShown && reporting.sheet != nil {
-                    reporting.eventSink(ReportingEvent.Sheet(event: ReportOuterEvent.Closed.shared))
-                }
-            })
+        .shown(record != nil && reporting.sheet != nil) {
+            reporting.eventSink(ReportingEvent.Sheet(event: ReportOuterEvent.Closed.shared))
+        }
     }
 
     private var confirming: Binding<Bool> {
-        Binding(
-            get: { reporting.confirmBlock != nil && shown == nil },
-            set: { isShown in
-                // A tap on either button answers already; this is for the alert going some other way.
-                if !isShown && reporting.confirmBlock != nil {
-                    reporting.eventSink(ReportingEvent.ConfirmBlock(confirmed: false))
-                }
-            })
+        // A tap on either button answers already; this is for the alert going some other way.
+        .shown(reporting.confirmBlock != nil && shown == nil) {
+            reporting.eventSink(ReportingEvent.ConfirmBlock(confirmed: false))
+        }
     }
 
     private func outer(_ event: any SubCircuitOuterEvent) {

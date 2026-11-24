@@ -84,9 +84,7 @@ private struct ActivityPageBody: View {
         }
         .alert(
             Text(page.combineSuggestion.map { texts.combineCue(cue: $0.cue) } ?? texts.title),
-            isPresented: Binding(
-                get: { page.combineSuggestion?.asPrompt == true },
-                set: { shown in if !shown { send(ActivityDetailEvent.NotNowSuggestion.shared) } })
+            isPresented: .shown(page.combineSuggestion?.asPrompt == true) { send(ActivityDetailEvent.NotNowSuggestion.shared) }
         ) {
             Button {
                 send(ActivityDetailEvent.CombineSuggested.shared)
@@ -589,30 +587,10 @@ private struct SegmentEffortRowView: View {
     let open: () -> Void
 
     var body: some View {
-        let texts = EffortTexts.shared
-        let effort = row.effort
         Button(action: open) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: row.label)
-                        ForEach(
-                            Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()),
-                            id: \.offset
-                        ) {
-                            _, note in Text(note).font(.footnote).foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if let rank = texts.rank(effort: effort) {
-                        Text(rank).font(.footnote.weight(.bold)).foregroundStyle(.tint)
-                    }
-                    if let pr = texts.pr(effort: effort) {
-                        Text(pr).font(.footnote.weight(.bold)).foregroundStyle(Color(.like))
-                    }
-                    Text(verbatim: texts.time(effort: effort)).fontWeight(.medium).monospacedDigit()
-                }
-                .padding(.leading, CGFloat(row.depth) * EffortGuides.indent)
+                EffortLine(effort: row.effort, label: Text(verbatim: row.label))
+                    .padding(.leading, CGFloat(row.depth) * EffortGuides.indent)
                 if let start = row.spanStart, let end = row.spanEnd {
                     EffortSpanBar(start: CGFloat(start), end: CGFloat(end))
                         .padding(.leading, barIndent)

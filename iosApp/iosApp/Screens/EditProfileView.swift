@@ -7,7 +7,6 @@ import SwiftUI
 /// the need to sign in again shows at the top. It is pushed over the athlete's own profile.
 struct EditProfileView: View {
     let state: EditProfileState
-    @Environment(\.clock) private var clock
 
     @State private var displayName: TextFieldModel
     @State private var bio: TextFieldModel
@@ -19,11 +18,9 @@ struct EditProfileView: View {
     @State private var heightInches: TextFieldModel
     /// Self-describe was chosen and no known gender since, so its field stays while it is empty.
     @State private var choseSelfDescribe = false
-    @State private var pickingBirthDate = false
     @State private var choosingCountry = false
     @State private var photoItem: PhotosPickerItem?
     @State private var countries = CountryNames()
-    @Environment(\.calendar) private var calendar
 
     init(state: EditProfileState) {
         self.state = state
@@ -149,39 +146,11 @@ struct EditProfileView: View {
 
     /// The birthdate written out (Kotlin's), from a calendar of past days in a popover, and clearing it.
     private var birthDate: some View {
-        HStack(spacing: 12) {
-            Text(.editProfileBirthDate).frame(maxWidth: .infinity, alignment: .leading)
-            if let shown = EditProfileTexts.shared.birthDate(state: state) {
-                Button {
-                    pickingBirthDate = true
-                } label: {
-                    Text(shown)
-                }
-                .accessibilityHint(Text(.editProfileBirthDateChoose))
-                AppIconButton(.clear, label: .editProfileClear) { send(EditProfileEvent.BirthDateChanged(value: "")) }
-                    .foregroundStyle(.secondary)
-            } else {
-                AppIconButton(.calendar, label: .editProfileBirthDateChoose) { pickingBirthDate = true }
-            }
-        }
-        .buttonStyle(.borderless)
-        .popover(isPresented: $pickingBirthDate) {
-            DatePicker(
-                selection: Binding(
-                    get: { state.birthDay.map { CalendarDay($0).date(in: calendar) } ?? clock.date },
-                    set: { picked in
-                        pickingBirthDate = false
-                        send(EditProfileEvent.BirthDateChanged(date: CalendarDay(picked, in: calendar).localDate))
-                    }),
-                in: ...clock.date, displayedComponents: .date
-            ) {
-                Text(.editProfileBirthDate)
-            }
-            .datePickerStyle(.graphical)
-            .padding()
-            .frame(minWidth: 320)
-            .presentationCompactAdaptation(.popover)
-        }
+        OptionalDayRow(
+            label: .editProfileBirthDate, shown: EditProfileTexts.shared.birthDate(state: state), day: state.birthDay,
+            chooseLabel: .editProfileBirthDateChoose, clearLabel: .editProfileClear,
+            pick: { send(EditProfileEvent.BirthDateChanged(date: $0)) },
+            clear: { send(EditProfileEvent.BirthDateChanged(value: "")) })
     }
 
     /// The gender's choice, and the athlete's own words when they describe it themselves.

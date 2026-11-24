@@ -387,8 +387,7 @@ nonisolated final class SwiftFitDecoder: KotlinBase, FitDecoder {
 
     /// The bytes as Swift's `Data`, copied in bulk through kotlinx-io: reading `bytes[i]` would cross into Kotlin once per byte.
     static func data(from bytes: KotlinByteArray) -> Data {
-        let byteString = ExportedKotlinPackages.kotlinx.io.bytestring.ByteString(data: bytes, startIndex: 0, endIndex: bytes.size)
-        return ExportedKotlinPackages.kotlinx.io.bytestring.toNSData(byteString) as Data
+        KotlinByteString(data: bytes, startIndex: 0, endIndex: bytes.size).data
     }
 
     private static func fileId(_ m: FileIdMesg) -> DecodedSource {

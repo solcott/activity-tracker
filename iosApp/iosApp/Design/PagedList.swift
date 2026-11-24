@@ -62,7 +62,7 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
             List {
                 top
                 if let below = shown.below {
-                    status(below, layout: .stacked, firstPage: true)
+                    FirstLoadStatus(error: below.failedError, inList: true, retry: retry)
                 }
             }
             .listStyle(.insetGrouped)
@@ -72,14 +72,9 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     }
 
     @ViewBuilder private func firstPage(_ status: PagedShown.Status?) -> some View {
-        switch status?.sealedType() {
-        case .progress:
-            AppProgress().frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .failure(let failure):
-            ErrorMessage(failure.value.error, retry: retry)
-                .padding(24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        case nil:
+        if let status {
+            FirstLoadStatus(error: status.failedError, retry: retry)
+        } else {
             // A list that isn't loading yet: nothing.
             Color.clear
         }
@@ -93,7 +88,7 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
         return List {
             top
             if let above = shown.above {
-                status(above, layout: .row)
+                PagedStatusRow(status: above, layout: .row, retry: retry)
             }
             ForEach(groups, id: \.id) { group in
                 Section {
@@ -113,7 +108,7 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
                 empty.listStatusRow()
             }
             if let below = shown.below {
-                status(below, layout: .stacked)
+                PagedStatusRow(status: below, retry: retry)
             }
         }
         .listStyle(.insetGrouped)
@@ -126,15 +121,6 @@ struct PagedList<Item, Top: View, Row: View, After: View, Empty: View>: View {
     private struct Identified {
         let id: String
         let item: Item
-    }
-
-    @ViewBuilder private func status(_ status: PagedShown.Status, layout: ErrorMessage.Layout, firstPage: Bool = false) -> some View {
-        switch status.sealedType() {
-        case .progress:
-            AppProgress(small: !firstPage).frame(maxWidth: .infinity).padding(.vertical, firstPage ? 24 : 0).listStatusRow()
-        case .failure(let failure):
-            ErrorMessage(failure.value.error, layout: layout, retry: retry).frame(maxWidth: .infinity).listStatusRow()
-        }
     }
 }
 

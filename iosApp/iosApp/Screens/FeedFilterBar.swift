@@ -17,31 +17,29 @@ struct FeedFilterBar: View {
             if let leading {
                 leading
             }
-            ChipButton(filled: filter.types.size > 0) {
+            AppChip(filled: filter.types.size > 0) {
                 state.eventSink(FeedFilterEvent.OpenTypes.shared)
             } label: {
-                Text(FeedFilterTexts.shared.types(filter: filter))
+                HStack(spacing: 4) {
+                    Text(FeedFilterTexts.shared.types(filter: filter))
+                    Image(systemName: "chevron.down").font(.caption.weight(.semibold)).accessibilityHidden(true)
+                }
             }
             DateChip(state: state)
             if filter.isNarrowed {
                 AppTextButton(.feedFilterClear) { state.eventSink(FeedFilterEvent.Clear.shared) }
             }
         }
-        .sheet(isPresented: shown(state.typePicker != nil, dismiss: FeedFilterEvent.DismissTypes.shared)) {
+        .sheet(isPresented: .shown(state.typePicker != nil) { state.eventSink(FeedFilterEvent.DismissTypes.shared) }) {
             if let picker = state.typePicker {
                 TypePickerSheet(picker: picker, eventSink: state.eventSink)
             }
         }
-        .sheet(isPresented: shown(state.customRange != nil, dismiss: FeedFilterEvent.DismissCustomRange.shared)) {
+        .sheet(isPresented: .shown(state.customRange != nil) { state.eventSink(FeedFilterEvent.DismissCustomRange.shared) }) {
             if let range = state.customRange {
                 CustomRangeSheet(range: range, eventSink: state.eventSink)
             }
         }
-    }
-
-    /// A sheet shown while the state holds it, which sends `dismiss` when the athlete swipes it away.
-    private func shown(_ isShown: Bool, dismiss: any FeedFilterEvent) -> Binding<Bool> {
-        Binding(get: { isShown }, set: { if !$0 && isShown { state.eventSink(dismiss) } })
     }
 }
 
@@ -70,7 +68,7 @@ private struct DateChip: View {
             }
             .chipLabel(filled: range != nil)
         }
-        .chip(filled: range != nil)
+        .chipStyle(filled: range != nil)
     }
 
     private func pick(_ index: Int, _ choices: [DateRangeChoice]) {
@@ -78,39 +76,6 @@ private struct DateChip: View {
             state.eventSink(FeedFilterEvent.SetRange(range: choices[index].range))
         } else {
             state.eventSink(FeedFilterEvent.OpenCustomRange.shared)
-        }
-    }
-}
-
-/// A capsule button, filled while its choice narrows the list, as the shared filter chip is selected.
-private struct ChipButton<Label: View>: View {
-    let filled: Bool
-    let action: () -> Void
-    @ViewBuilder let label: () -> Label
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                label().lineLimit(1)
-                Image(systemName: "chevron.down").font(.caption.weight(.semibold)).accessibilityHidden(true)
-            }
-            .chipLabel(filled: filled)
-        }
-        .chip(filled: filled)
-    }
-}
-
-extension View {
-    fileprivate func chipLabel(filled: Bool) -> some View {
-        font(.subheadline.weight(.medium))
-            .foregroundStyle(filled ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
-    }
-
-    @ViewBuilder fileprivate func chip(filled: Bool) -> some View {
-        if filled {
-            buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
-        } else {
-            buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
         }
     }
 }
@@ -157,38 +122,24 @@ struct TypePickerSheet: View {
                 if groups.isEmpty {
                     Text(.sportPickerNoMatches).foregroundStyle(.secondary)
                 }
-                ForEach(groups, id: \.category) { group in
-                    Section {
-                        ForEach(group.rows.elements(as: SportTypeRow.self), id: \.type.key) { sport in
-                            let nested = sport.nested.elements(as: KotlinActivityType.self)
-                            if nested.isEmpty {
-                                typeRow(sport.type)
-                            } else {
-                                // A search shows every match, so none hides behind a collapsed sport.
-                                DisclosureGroup(isExpanded: searching ? .constant(true) : isExpanded(sport.type.sport)) {
-                                    ForEach(nested, id: \.key) { typeRow($0) }
-                                } label: {
-                                    typeRow(sport.type)
-                                }
+                SportTypeGroupsList(groups: groups, searching: searching, expanded: $expanded) { group in
+                    if searching {
+                        // A category would pick types the search hides, so its header is plain.
+                        Text(group.label)
+                    } else {
+                        Button {
+                            eventSink(FeedFilterEvent.ToggleCategory(category: group.category))
+                        } label: {
+                            HStack {
+                                Text(group.label)
+                                Spacer()
+                                SelectionMark(selection: picker.selectionOf(category: group.category))
                             }
                         }
-                    } header: {
-                        if searching {
-                            // A category would pick types the search hides, so its header is plain.
-                            Text(group.label)
-                        } else {
-                            Button {
-                                eventSink(FeedFilterEvent.ToggleCategory(category: group.category))
-                            } label: {
-                                HStack {
-                                    Text(group.label)
-                                    Spacer()
-                                    SelectionMark(selection: picker.selectionOf(category: group.category))
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        .buttonStyle(.plain)
                     }
+                } row: { type, _ in
+                    typeRow(type)
                 }
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(.sportPickerSearch))
@@ -203,12 +154,6 @@ struct TypePickerSheet: View {
                 }
             }
         }
-    }
-
-    private func isExpanded(_ sport: String) -> Binding<Bool> {
-        Binding(
-            get: { expanded.contains(sport) },
-            set: { open in if open { expanded.insert(sport) } else { expanded.remove(sport) } })
     }
 
     /// A type's row, marked by how much of it the draft holds: a sport with only some of its sub-sports picked shows the part mark.

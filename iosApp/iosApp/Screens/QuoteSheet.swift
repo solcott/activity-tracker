@@ -23,9 +23,7 @@ private struct QuoteSheetModifier: ViewModifier {
     private func sheets(_ content: Content, _ fields: QuoteFields) -> some View {
         content
             .sheet(
-                isPresented: Binding(
-                    get: { fields.quoting != nil },
-                    set: { if !$0 && fields.quoting != nil { fields.eventSink(QuoteEvent.Cancel.shared) } })
+                isPresented: .shown(fields.quoting != nil) { fields.eventSink(QuoteEvent.Cancel.shared) }
             ) {
                 if fields.quoting != nil {
                     QuoteSheet(fields: fields)
@@ -33,9 +31,7 @@ private struct QuoteSheetModifier: ViewModifier {
             }
             .alert(
                 Text(QuoteSheetTexts.shared.deleteTitle),
-                isPresented: Binding(
-                    get: { fields.confirmDelete != nil },
-                    set: { if !$0 && fields.confirmDelete != nil { fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: false)) } })
+                isPresented: .shown(fields.confirmDelete != nil) { fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: false)) }
             ) {
                 Button(role: .destructive) {
                     fields.eventSink(QuoteEvent.ConfirmDelete(confirmed: true))

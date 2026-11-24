@@ -257,26 +257,12 @@ private struct SegmentFooter: View {
         let texts = SegmentPageTexts.shared
         Text(PlaceTexts.shared.createdBy(handle: segment.creator.handle.value)).font(.subheadline).foregroundStyle(.secondary)
         if let credit = state.credit {
-            let links = SegmentCreditTexts.shared.links(credit: credit)
-            ForEach(Array(SegmentCreditTexts.shared.lines(credit: credit).enumerated()), id: \.offset) { index, line in
-                if index == 0, links, let url = URL(string: PlaceTexts.shared.OSM_COPYRIGHT_URL) {
-                    Link(destination: url) { Text(line) }
-                } else {
-                    Text(line).font(.footnote).foregroundStyle(.secondary)
-                }
-            }
+            CreditLines(credit: credit)
         }
         if let help = texts.statusHelp(segment: segment) {
-            VStack(alignment: .leading, spacing: 2) {
-                if let status = PlaceTexts.shared.status(status: segment.status) {
-                    Text(status).font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
-                }
-                Text(help).font(.footnote).foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-            if texts.offersOriginal(segment: segment) {
-                Button(action: openOriginal) { Text(PlaceTexts.shared.openOriginal) }
-            }
+            PlaceStatusHelp(
+                status: PlaceTexts.shared.status(status: segment.status), help: help,
+                offersOriginal: texts.offersOriginal(segment: segment), openOriginal: openOriginal)
         }
     }
 }
@@ -304,35 +290,43 @@ struct EffortRowView: View {
     let open: () -> Void
 
     var body: some View {
-        let texts = EffortTexts.shared
         Button(action: open) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(texts.date(effort: effort))
-                    ForEach(Array(notes.enumerated()), id: \.offset) { _, note in
-                        Text(note).font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if let rank = texts.rank(effort: effort) {
-                    Text(rank).font(.footnote.weight(.bold)).foregroundStyle(.tint)
-                }
-                if let pr = texts.pr(effort: effort) {
-                    Text(pr).font(.footnote.weight(.bold)).foregroundStyle(Color(.like))
-                }
-                Text(verbatim: texts.time(effort: effort)).fontWeight(.medium).monospacedDigit()
-            }
-            .foregroundStyle(.primary)
-            .contentShape(Rectangle())
+            EffortLine(effort: effort, label: Text(EffortTexts.shared.date(effort: effort)))
+                .foregroundStyle(.primary)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
+}
 
-    private var notes: [any AppText] {
+/// An effort's line, as a segment's efforts and an activity's list it: `label` (its date, or the segment's name) with why leaderboards
+/// don't rank it and e-bike under it, its rank in the top 10, PR on the athlete's fastest, and its time. Its words are Kotlin's
+/// (`EffortTexts`), as the shared rows' are.
+struct EffortLine: View {
+    let effort: EffortView
+    let label: Text
+
+    var body: some View {
         let texts = EffortTexts.shared
-        return [texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                label
+                ForEach(Array([texts.notRanked(effort: effort), texts.eBike(effort: effort)].compactMap { $0 }.enumerated()), id: \.offset)
+                {
+                    _, note in Text(note).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let rank = texts.rank(effort: effort) {
+                Text(rank).font(.footnote.weight(.bold)).foregroundStyle(.tint)
+            }
+            if let pr = texts.pr(effort: effort) {
+                Text(pr).font(.footnote.weight(.bold)).foregroundStyle(Color(.like))
+            }
+            Text(verbatim: texts.time(effort: effort)).fontWeight(.medium).monospacedDigit()
+        }
     }
 }
 

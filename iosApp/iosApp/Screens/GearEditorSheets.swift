@@ -57,31 +57,12 @@ struct TypeChoiceList: View {
 
     var body: some View {
         List {
-            ForEach(groups, id: \.category) { group in
-                Section {
-                    ForEach(group.rows.elements(as: SportTypeRow.self), id: \.type.key) { row in
-                        let nested = row.nested.elements(as: KotlinActivityType.self)
-                        if nested.isEmpty {
-                            choice(row.type)
-                        } else {
-                            DisclosureGroup(isExpanded: isExpanded(row.type.sport)) {
-                                ForEach(nested, id: \.key) { choice($0) }
-                            } label: {
-                                choice(row.type)
-                            }
-                        }
-                    }
-                } header: {
-                    Text(group.label)
-                }
+            SportTypeGroupsList(groups: groups, expanded: $expanded) { group in
+                Text(group.label)
+            } row: { type, _ in
+                choice(type)
             }
         }
-    }
-
-    private func isExpanded(_ sport: String) -> Binding<Bool> {
-        Binding(
-            get: { expanded.contains(sport) },
-            set: { open in if open { expanded.insert(sport) } else { expanded.remove(sport) } })
     }
 
     private func choice(_ type: KotlinActivityType) -> some View {
@@ -93,11 +74,6 @@ struct TypeChoiceList: View {
             Text(LabelText.shared.activityType(type: type)).foregroundStyle(.primary)
         }
     }
-}
-
-extension KotlinActivityType {
-    /// What tells one type from another in a list.
-    var key: String { "\(sport)/\(subSport ?? "")" }
 }
 
 /// The gear form's photo at 72 points: the saved photo from its URL, the picked one from its bytes, or the placeholder.
@@ -124,11 +100,6 @@ struct GearPhotoView: View {
     }
 }
 
-extension KotlinByteString {
-    /// The bytes as Swift's `Data`.
-    var data: Data { ExportedKotlinPackages.kotlinx.io.bytestring.toNSData(self) as Data }
-}
-
 /// A native form's photo pick (dev/ios-swift-interop): the picked image's bytes compressed for upload, then sent in the form's event.
 /// Bytes that aren't a picture send nothing. `Photo` is what the compression gives: an activity or gear photo (`PhotoPick`, compressed
 /// in Swift with libwebp through Kotlin's steps) or a profile photo's JPEG (`AvatarPick`, Kotlin's).
@@ -151,7 +122,7 @@ extension PhotoPickOf where Photo == PickedPhoto {
         PhotoPick { data in
             guard let photo = await PhotoCompressor.compress(data) else { return nil }
             return PickedPhoto(
-                bytes: ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(photo.bytes as NSData), mimeType: "image/webp",
+                bytes: photo.bytes.kotlinByteString, mimeType: "image/webp",
                 width: Int32(photo.width), height: Int32(photo.height))
         }
     }

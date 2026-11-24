@@ -48,7 +48,7 @@ struct EditCombinationSheet: View {
             }
             .alert(
                 Text(removing.map { texts.remove(member: $0) } ?? texts.title),
-                isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })
+                isPresented: .shown(removing != nil) { removing = nil }
             ) {
                 if let member = removing {
                     Button(role: .destructive) {

@@ -54,8 +54,7 @@ struct ImportActivityView: View {
             }
             .listStyle(.insetGrouped)
             .sheet(
-                isPresented: Binding(
-                    get: { state.batch?.preview != nil }, set: { shown in if !shown { send(ImportActivityEvent.ItemClosed.shared) } })
+                isPresented: .shown(state.batch?.preview != nil) { send(ImportActivityEvent.ItemClosed.shared) }
             ) {
                 if let item = state.batch?.preview {
                     ImportItemSheet(state: state, item: item).id(item.index)
@@ -295,7 +294,7 @@ struct ImportFormSections: View {
         }
         NewDevicesSections(fields: state.newDevices, enabled: enabled)
         if !state.addsRecording {
-            ImportVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
+            ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
         }
         if state.saving {
             Section { AppProgress().frame(maxWidth: .infinity) }
@@ -340,23 +339,6 @@ struct GearSection: View {
             }
         } footer: {
             if let footer { Text(footer) }
-        }
-    }
-}
-
-/// Who may see the activity, or the batch's: the visibility sections every activity form places.
-struct ImportVisibilitySections: View {
-    let fields: VisibilityFields
-    let heading: Text
-    let enabled: Bool
-
-    var body: some View {
-        VisibilityFormSections(
-            fields: fields, heading: heading, activityEnabled: enabled && fields.canChoose, categoriesEnabled: enabled
-        ) {
-            Text(VisibilityTexts.shared.activityNote(fields: fields))
-        } detailsNote: {
-            EmptyView()
         }
     }
 }
@@ -481,7 +463,7 @@ struct AfterImportList: View {
             Section {
                 Text(texts.afterTitle).font(.headline)
                 if after.linksNotSaved {
-                    Text(texts.afterLinksNotSaved).font(.subheadline).foregroundStyle(.red)
+                    ErrorMessage(texts.afterLinksNotSaved, layout: .row).font(.subheadline)
                 }
             }
             if let past = after.pastImports {

@@ -54,27 +54,19 @@ struct ActivityCardView: View {
     }
 
     @ViewBuilder private var author: some View {
-        let line = HStack(spacing: 8) {
-            Avatar(url: content.activity.author.avatar, name: AppStrings.string(content.author()), size: 32)
-                .blur(radius: content.avatarBlur == nil ? 0 : 6)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(content.author()).font(.subheadline.weight(.semibold))
-                    if let badge = content.badge() {
-                        Text(badge)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                            .accessibilityLabel(content.badgeDescription().map { Text($0) } ?? Text(badge))
-                    }
-                }
-                clock.text(content.start(now: clock.now, zone: clock.kotlinZone))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                if let together = content.together() {
-                    Text(together).font(.footnote).foregroundStyle(.secondary)
-                }
+        let line = CardAuthorLine(avatar: content.activity.author.avatar, name: content.author(), blurred: content.avatarBlur != nil) {
+            if let badge = content.badge() {
+                Text(badge)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(.secondarySystemFill), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .accessibilityLabel(content.badgeDescription().map { Text($0) } ?? Text(badge))
+            }
+        } lines: {
+            clock.text(content.start(now: clock.now, zone: clock.kotlinZone))
+            if let together = content.together() {
+                Text(together)
             }
         }
         if authorClickable {
@@ -188,3 +180,51 @@ struct CardStats: View {
         .environment(\.clock, Samples.clock)
     }
 #endif
+
+extension ActivityCardView {
+    /// The card for `activity` as `viewerDid` sees it, its photos revealed by and revealing through the page's `revealed`.
+    init(
+        activity: ActivityView, viewerDid: String, revealed: Revealed, authorClickable: Bool = true, likeable: Bool = true,
+        send: @escaping (any ActivityListEvent) -> Void
+    ) {
+        let uri = activity.uri.value
+        self.init(
+            content: ActivityCardContent.Companion.shared.of(activity: activity, viewerDid: viewerDid),
+            authorClickable: authorClickable,
+            revealed: revealed.contains(key: uri),
+            likeable: likeable,
+            send: send,
+            reveal: { revealed.eventSink(uri) }
+        )
+    }
+}
+
+/// A card's author line (an activity's, a post's, an import's): the avatar (blurred while a label hides it), the name with what the card
+/// adds beside it (`badge`: a non-public tier's), and the card's `lines` under it in small secondary text (when, with whom, for whom).
+struct CardAuthorLine<Badge: View, Lines: View>: View {
+    let avatar: String?
+    let name: any AppText
+    var blurred = false
+    @ViewBuilder let badge: () -> Badge
+    @ViewBuilder let lines: () -> Lines
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Avatar(url: avatar, name: AppStrings.string(name), size: 32).blur(radius: blurred ? 6 : 0)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(name).font(.subheadline.weight(.semibold))
+                    badge()
+                }
+                lines().font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+extension CardAuthorLine where Badge == EmptyView {
+    /// An author line with nothing beside the name.
+    init(avatar: String?, name: any AppText, blurred: Bool = false, @ViewBuilder lines: @escaping () -> Lines) {
+        self.init(avatar: avatar, name: name, blurred: blurred, badge: { EmptyView() }, lines: lines)
+    }
+}

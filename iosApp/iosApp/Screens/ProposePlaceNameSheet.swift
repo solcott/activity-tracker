@@ -138,23 +138,15 @@ private struct PlaceNamesModifier: ViewModifier {
     }
 
     private var presented: Binding<Bool> {
-        Binding(
-            get: { record != nil && fields.sheet != nil },
-            set: { isShown in
-                if !isShown && fields.sheet != nil {
-                    fields.eventSink(PlaceNameEvent.Sheet(event: ProposePlaceNameOuterEvent.Closed.shared))
-                }
-            })
+        .shown(record != nil && fields.sheet != nil) {
+            fields.eventSink(PlaceNameEvent.Sheet(event: ProposePlaceNameOuterEvent.Closed.shared))
+        }
     }
 
     private var confirming: Binding<Bool> {
-        Binding(
-            get: { fields.confirmDelete != nil && shown == nil },
-            set: { isShown in
-                if !isShown && fields.confirmDelete != nil {
-                    fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed: false))
-                }
-            })
+        .shown(fields.confirmDelete != nil && shown == nil) {
+            fields.eventSink(PlaceNameEvent.ConfirmDelete(confirmed: false))
+        }
     }
 
     private func outer(_ event: any SubCircuitOuterEvent) {

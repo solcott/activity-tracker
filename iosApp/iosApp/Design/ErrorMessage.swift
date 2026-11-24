@@ -9,7 +9,7 @@ struct ErrorMessage: View {
         case row
     }
 
-    private let text: String
+    private let text: Text
     private let layout: Layout
     private let retry: (() -> Void)?
 
@@ -19,7 +19,21 @@ struct ErrorMessage: View {
 
     /// For a failure whose text the screen has already built.
     init(text: String, layout: Layout = .stacked, retry: (() -> Void)? = nil) {
-        self.text = text
+        self.init(message: Text(verbatim: text), layout: layout, retry: retry)
+    }
+
+    /// For a failure Kotlin words itself (a save that failed, an overlap).
+    init(_ text: any AppText, layout: Layout = .stacked, retry: (() -> Void)? = nil) {
+        self.init(message: Text(text), layout: layout, retry: retry)
+    }
+
+    /// For a failure only the iOS app words (a limit reached).
+    init(_ text: LocalizedStringResource, layout: Layout = .stacked, retry: (() -> Void)? = nil) {
+        self.init(message: Text(text), layout: layout, retry: retry)
+    }
+
+    private init(message: Text, layout: Layout, retry: (() -> Void)?) {
+        text = message
         self.layout = layout
         self.retry = retry
     }
@@ -40,7 +54,7 @@ struct ErrorMessage: View {
     }
 
     private var message: some View {
-        Text(verbatim: text).foregroundStyle(.red)
+        text.foregroundStyle(.red)
     }
 
     @ViewBuilder private var retryButton: some View {

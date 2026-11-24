@@ -43,7 +43,7 @@ struct TrailDetailsSection: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: segment.name)
-                        Text(verbatim: "\(AppStrings.string(segment.value)) · \(AppStrings.string(segment.source))")
+                        Text(segment.detail)
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     .padding(.leading, 16)
@@ -95,7 +95,7 @@ private struct TrailDetailRow: View {
                 LabeledContent {
                     HStack(spacing: 6) {
                         value
-                        Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                        DisclosureMark()
                     }
                 } label: {
                     label

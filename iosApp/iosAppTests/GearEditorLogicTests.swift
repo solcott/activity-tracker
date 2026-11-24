@@ -82,7 +82,7 @@ struct TickedItemsTests {
 @MainActor
 struct PhotoPickTests {
     private let photo = AppPackage.edit.PickedPhoto(
-        bytes: ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(Data([1, 2, 3]) as NSData), mimeType: "image/webp", width: 1,
+        bytes: Data([1, 2, 3]).kotlinByteString, mimeType: "image/webp", width: 1,
         height: 1)
 
     private func jpeg() throws -> Data {

@@ -70,10 +70,7 @@ struct AppItemRow<Leading: View, Trailing: View>: View {
 
     @ViewBuilder private var disclosureMark: some View {
         if disclosure {
-            Image(systemName: "chevron.forward")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
+            DisclosureMark()
         }
     }
 

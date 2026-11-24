@@ -66,7 +66,7 @@ enum RemoteImages {
     /// The bytes of the held photo at `url`, or an error when the session doesn't hold it (or no one is signed in).
     static func heldBytes(_ url: String) throws -> Data {
         guard let bytes = IosApp.shared.heldPhoto(url: url) else { throw NotHeld() }
-        return ExportedKotlinPackages.kotlinx.io.bytestring.toNSData(bytes) as Data
+        return bytes.data
     }
 
     struct NotHeld: Error {}

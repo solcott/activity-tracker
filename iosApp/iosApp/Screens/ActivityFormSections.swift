@@ -319,29 +319,16 @@ struct ActivityTypeRow: View {
             FlowRow {
                 ForEach(choices, id: \.key) { type in
                     let chosen = type.key == selected.key
-                    Button {
+                    AppChip(filled: chosen) {
                         field.eventSink(ActivityTypeEvent.Select(type: type))
                     } label: {
                         Text(LabelText.shared.activityType(type: type))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(chosen ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
                     }
-                    .typeChip(chosen: chosen)
                     .accessibilityAddTraits(chosen ? .isSelected : [])
                 }
             }
             .disabled(!enabled)
             .padding(.vertical, 4)
-        }
-    }
-}
-
-extension View {
-    @ViewBuilder fileprivate func typeChip(chosen: Bool) -> some View {
-        if chosen {
-            buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
-        } else {
-            buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
         }
     }
 }
@@ -381,26 +368,10 @@ struct ActivityTypeSheet: View {
                 if groups.isEmpty {
                     Text(.sportPickerNoMatches).foregroundStyle(.secondary)
                 }
-                ForEach(groups, id: \.category) { group in
-                    Section {
-                        ForEach(group.rows.elements(as: SportTypeRow.self), id: \.type.key) { sport in
-                            let nested = sport.nested.elements(as: KotlinActivityType.self)
-                            if nested.isEmpty {
-                                choice(sport.type)
-                            } else {
-                                // A search shows every match, so none hides behind a collapsed sport.
-                                DisclosureGroup(isExpanded: searching ? .constant(true) : isExpanded(sport.type.sport)) {
-                                    ForEach(nested, id: \.key) { choice($0) }
-                                } label: {
-                                    choice(
-                                        sport.type,
-                                        hidden: searching || expanded.contains(sport.type.sport) ? nil : hiddenChoice(in: nested))
-                                }
-                            }
-                        }
-                    } header: {
-                        Text(group.label)
-                    }
+                SportTypeGroupsList(groups: groups, searching: searching, expanded: $expanded) { group in
+                    Text(group.label)
+                } row: { type, collapsed in
+                    choice(type, hidden: hiddenChoice(in: collapsed))
                 }
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: Text(.sportPickerSearch))
@@ -419,12 +390,6 @@ struct ActivityTypeSheet: View {
     /// The chosen type when it is one of `nested`, which a collapsed sport names under its label.
     private func hiddenChoice(in nested: [KotlinActivityType]) -> KotlinActivityType? {
         nested.first { $0.key == field.selected.key }
-    }
-
-    private func isExpanded(_ sport: String) -> Binding<Bool> {
-        Binding(
-            get: { expanded.contains(sport) },
-            set: { open in if open { expanded.insert(sport) } else { expanded.remove(sport) } })
     }
 
     private func choice(_ type: KotlinActivityType, hidden: KotlinActivityType? = nil) -> some View {

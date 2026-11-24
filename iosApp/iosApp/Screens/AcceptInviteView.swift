@@ -46,7 +46,7 @@ struct AcceptInviteView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(AcceptInviteTexts.shared.intro(invite: invite))
                 if state.overlaps {
-                    Text(AcceptInviteTexts.shared.overlap).foregroundStyle(.red)
+                    ErrorMessage(AcceptInviteTexts.shared.overlap, layout: .row)
                 }
             }
         }
@@ -54,14 +54,7 @@ struct AcceptInviteView: View {
             AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
                 .disabled(state.busy)
         }
-        VisibilityFormSections(
-            fields: state.visibility, heading: Text(.activityVisibilityHeading),
-            activityEnabled: !state.busy && state.visibility.canChoose, categoriesEnabled: !state.busy
-        ) {
-            Text(VisibilityTexts.shared.activityNote(fields: state.visibility))
-        } detailsNote: {
-            EmptyView()
-        }
+        ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: !state.busy)
         if let error = state.error {
             Section {
                 ErrorMessage(error, layout: .row)

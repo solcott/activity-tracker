@@ -42,8 +42,8 @@ struct PickedPhotoThumbnailTests {
     @Test func pickedThumbnailIsMadeOncePerPhotoAndSize() throws {
         let data = try jpeg(width: 640, height: 480)
         // Two Kotlin byte strings of the same bytes, as a state rebuilt by the presenter hands over.
-        let first = ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
-        let second = ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
+        let first = data.kotlinByteString
+        let second = data.kotlinByteString
         let made = try #require(PickedPhotoThumbnails.thumbnail(of: first, filling: 216))
         #expect(PickedPhotoThumbnails.thumbnail(of: second, filling: 216) === made)
         #expect(PickedPhotoThumbnails.thumbnail(of: first, filling: 264) !== made)

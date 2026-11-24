@@ -51,10 +51,7 @@ struct AppListRow<Trailing: View>: View {
             HStack(spacing: 6) {
                 summary?.foregroundStyle(.secondary).multilineTextAlignment(.trailing)
                 if opens != nil {
-                    Image(systemName: "chevron.forward")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
+                    DisclosureMark()
                 } else {
                     trailing
                 }

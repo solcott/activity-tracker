@@ -55,7 +55,7 @@ private struct CreateDiveSiteForm: View {
                 Section { ErrorMessage(error, layout: .row) }
             }
             if state.limitReached {
-                Section { Text(.createDiveSiteLimit).foregroundStyle(.red) }
+                Section { ErrorMessage(.createDiveSiteLimit, layout: .row) }
             }
             if !duplicates.isEmpty {
                 Section {

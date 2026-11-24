@@ -35,14 +35,12 @@ struct ImportBatchView: View {
     }
 
     private func card(_ activity: ActivityView) -> some View {
-        let uri = activity.uri.value
-        return ActivityCardView(
-            content: ActivityCardContent.Companion.shared.of(activity: activity, viewerDid: state.viewerDid),
-            authorClickable: false,
-            revealed: state.revealed.contains(key: uri),
-            send: { send(ImportBatchEvent.Activity(event: $0)) },
-            reveal: { state.revealed.eventSink(uri) }
-        )
+        ActivityCardView(
+            activity: activity,
+            viewerDid: state.viewerDid,
+            revealed: state.revealed,
+            authorClickable: false
+        ) { send(ImportBatchEvent.Activity(event: $0)) }
     }
 
     private func send(_ event: any ImportBatchEvent) {

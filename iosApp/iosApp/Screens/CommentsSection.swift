@@ -48,7 +48,7 @@ struct CommentsSection: View {
             if wants { send(CommentEvent.LoadMore.shared) }
         }
         .alert(
-            confirmTitle, isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }), presenting: confirming
+            confirmTitle, isPresented: .shown(confirming != nil) { confirming = nil }, presenting: confirming
         ) { confirmation in
             Button(role: .destructive) {
                 if let event = confirmation.item.event() { send(event) }

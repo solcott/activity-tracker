@@ -26,11 +26,9 @@ struct ContentStateView<Value, Content: View>: View {
     var body: some View {
         switch ContentShown.Companion.shared.of(state: state, errorKind: errorKind).sealedType() {
         case .progress:
-            AppProgress().frame(maxWidth: .infinity, maxHeight: .infinity)
+            FirstLoadStatus(error: nil, retry: retry)
         case .failure(let failure):
-            ErrorMessage(failure.value.error, retry: retry)
-                .padding(24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            FirstLoadStatus(error: failure.value.error, retry: retry)
         case .content:
             if let content = content() {
                 content

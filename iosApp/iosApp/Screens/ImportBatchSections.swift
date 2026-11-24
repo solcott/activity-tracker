@@ -45,7 +45,7 @@ struct ImportBatchSections: View {
             }
         }
         NewDevicesSections(fields: state.newDevices, enabled: enabled)
-        ImportVisibilitySections(fields: state.visibility, heading: Text(texts.batchVisibilityHeading), enabled: enabled)
+        ActivityVisibilitySections(fields: state.visibility, heading: Text(texts.batchVisibilityHeading), enabled: enabled)
         Section {
             if let failure = texts.saveFailure(state: state, batch: batch) {
                 Text(failure).font(.subheadline).foregroundStyle(.red)
@@ -406,12 +406,11 @@ struct NewDeviceSection: View {
                         FlowRow {
                             ForEach(collections, id: \.rkey) { collection in
                                 let selected = chosen.contains(collection.rkey)
-                                Button {
+                                AppChip(filled: selected) {
                                     send(NewDeviceEvent.ToggleCollection(id: id, rkey: collection.rkey))
                                 } label: {
-                                    Text(verbatim: collection.name).font(.subheadline)
+                                    Text(verbatim: collection.name)
                                 }
-                                .collectionChip(selected: selected)
                                 .accessibilityAddTraits(selected ? .isSelected : [])
                             }
                         }
@@ -421,15 +420,5 @@ struct NewDeviceSection: View {
             }
         }
         .disabled(!enabled)
-    }
-}
-
-extension View {
-    @ViewBuilder fileprivate func collectionChip(selected: Bool) -> some View {
-        if selected {
-            buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small)
-        } else {
-            buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
-        }
     }
 }

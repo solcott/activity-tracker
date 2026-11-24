@@ -18,7 +18,7 @@ struct GearCollectionView: View {
         .pageTitle(Text(state.title)) { actions }
         .alert(
             Text(.gearCollectionDeleteTitle),
-            isPresented: Binding(get: { state.confirmingDelete }, set: { if !$0 { send(GearCollectionEvent.DismissDelete.shared) } })
+            isPresented: .shown(state.confirmingDelete) { send(GearCollectionEvent.DismissDelete.shared) }
         ) {
             Button(.gearCollectionDelete, role: .destructive) { send(GearCollectionEvent.ConfirmDelete.shared) }
             Button(.actionCancel, role: .cancel) {}

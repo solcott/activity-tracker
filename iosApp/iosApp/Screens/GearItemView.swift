@@ -21,14 +21,14 @@ struct GearItemView: View {
                 }
             }
             .sheet(
-                isPresented: Binding(get: { state.picker != nil }, set: { if !$0 { send(GearEvent.DismissMount.shared) } })
+                isPresented: .shown(state.picker != nil) { send(GearEvent.DismissMount.shared) }
             ) {
                 if let picker = state.picker {
                     MountSheet(picker: picker, send: send)
                 }
             }
             .sheet(
-                isPresented: Binding(get: { state.unmounting != nil }, set: { if !$0 { send(GearEvent.DismissUnmount.shared) } })
+                isPresented: .shown(state.unmounting != nil) { send(GearEvent.DismissUnmount.shared) }
             ) {
                 if let firstDay = state.unmountFirstDay(zone: clock.kotlinZone) {
                     UnmountSheet(
@@ -188,14 +188,8 @@ struct GearItemView: View {
         if !sensors.isEmpty {
             Section {
                 ForEach(sensors, id: \.id) { sensor in
-                    AppItemRow(
-                        Text(LinkedSensorTexts.shared.name(sensor: sensor)),
-                        lines: LinkedSensorTexts.shared.detail(sensor: sensor).map { [Text($0)] } ?? []
-                    ) {
-                        EmptyView()
-                    } trailing: {
-                        AppSecondaryButton(.gearUnlink, small: true) { send(GearEvent.UnlinkSensor(id: sensor.id)) }
-                            .accessibilityLabel(Text(LinkedSensorTexts.shared.unlink(sensor: sensor)))
+                    LinkedSensorRow(sensor: sensor, action: .gearUnlink, actionLabel: LinkedSensorTexts.shared.unlink(sensor: sensor)) {
+                        send(GearEvent.UnlinkSensor(id: sensor.id))
                     }
                 }
             } header: {
@@ -258,14 +252,12 @@ struct GearItemView: View {
     }
 
     private func card(_ activity: ActivityView) -> some View {
-        let uri = activity.uri.value
-        return ActivityCardView(
-            content: ActivityCardContent.Companion.shared.of(activity: activity, viewerDid: state.viewerDid),
-            authorClickable: state.authorClickable,
-            revealed: state.revealed.contains(key: uri),
-            send: { send(GearEvent.Activity(event: $0)) },
-            reveal: { state.revealed.eventSink(uri) }
-        )
+        ActivityCardView(
+            activity: activity,
+            viewerDid: state.viewerDid,
+            revealed: state.revealed,
+            authorClickable: state.authorClickable
+        ) { send(GearEvent.Activity(event: $0)) }
     }
 
     private func retry() {

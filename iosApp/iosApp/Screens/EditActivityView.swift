@@ -26,7 +26,7 @@ struct EditActivityView: View {
         }
         .alert(
             Text(.editDiscardTitle),
-            isPresented: Binding(get: { state.confirmDiscard }, set: { if !$0 { send(EditActivityEvent.KeepEditing.shared) } })
+            isPresented: .shown(state.confirmDiscard) { send(EditActivityEvent.KeepEditing.shared) }
         ) {
             Button(.editDiscard, role: .destructive) { send(EditActivityEvent.Discard.shared) }
             Button(.actionCancel, role: .cancel) {}
@@ -35,7 +35,7 @@ struct EditActivityView: View {
         }
         .alert(
             Text(.activityVisibilityNarrowingTitle),
-            isPresented: Binding(get: { state.confirmNarrowing }, set: { if !$0 { send(EditActivityEvent.CancelNarrowing.shared) } })
+            isPresented: .shown(state.confirmNarrowing) { send(EditActivityEvent.CancelNarrowing.shared) }
         ) {
             Button(.activityVisibilityNarrowingConfirm) { send(EditActivityEvent.ConfirmNarrowing.shared) }
             Button(.actionCancel, role: .cancel) {}
@@ -44,8 +44,7 @@ struct EditActivityView: View {
         }
         .alert(
             Text(.coreChartsWideningTitle),
-            isPresented: Binding(
-                get: { state.confirmCoreCharts != nil }, set: { if !$0 { send(EditActivityEvent.CancelCoreCharts.shared) } }),
+            isPresented: .shown(state.confirmCoreCharts != nil) { send(EditActivityEvent.CancelCoreCharts.shared) },
             presenting: state.confirmCoreCharts
         ) { _ in
             Button(.coreChartsWideningConfirm) { send(EditActivityEvent.ConfirmCoreCharts.shared) }
@@ -78,14 +77,7 @@ private struct EditActivityForm: View {
                 Section { GearFieldRow(field: gear, enabled: enabled) }
             }
             if let visibility = state.visibility {
-                VisibilityFormSections(
-                    fields: visibility, heading: Text(.activityVisibilityHeading),
-                    activityEnabled: enabled && visibility.canChoose, categoriesEnabled: enabled
-                ) {
-                    Text(VisibilityTexts.shared.activityNote(fields: visibility))
-                } detailsNote: {
-                    EmptyView()
-                }
+                ActivityVisibilitySections(fields: visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
             }
             if let excluded = state.leaderboardExclusion {
                 Section {

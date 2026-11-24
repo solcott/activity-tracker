@@ -28,14 +28,10 @@ struct IgnoredSensorsView: View {
             } else {
                 Section {
                     ForEach(sensors, id: \.id) { sensor in
-                        AppItemRow(
-                            Text(LinkedSensorTexts.shared.name(sensor: sensor)),
-                            lines: LinkedSensorTexts.shared.detail(sensor: sensor).map { [Text($0)] } ?? []
+                        LinkedSensorRow(
+                            sensor: sensor, action: .gearUnignore, actionLabel: LinkedSensorTexts.shared.unignore(sensor: sensor)
                         ) {
-                            EmptyView()
-                        } trailing: {
-                            AppSecondaryButton(.gearUnignore, small: true) { send(IgnoredSensorsEvent.Unignore(id: sensor.id)) }
-                                .accessibilityLabel(Text(LinkedSensorTexts.shared.unignore(sensor: sensor)))
+                            send(IgnoredSensorsEvent.Unignore(id: sensor.id))
                         }
                     }
                 }
@@ -46,6 +42,26 @@ struct IgnoredSensorsView: View {
 
     private func send(_ event: any IgnoredSensorsEvent) {
         state.eventSink(event)
+    }
+}
+
+/// A device as a row: its maker and model, with the end of its serial or that it may match other units, and one action at its trailing
+/// end (Unlink on a gear page, Un-ignore among the ignored devices), which VoiceOver names with the device (`actionLabel`).
+struct LinkedSensorRow: View {
+    let sensor: LinkedSensor
+    let action: LocalizedStringResource
+    let actionLabel: any AppText
+    let perform: () -> Void
+
+    var body: some View {
+        AppItemRow(
+            Text(LinkedSensorTexts.shared.name(sensor: sensor)),
+            lines: LinkedSensorTexts.shared.detail(sensor: sensor).map { [Text($0)] } ?? []
+        ) {
+            EmptyView()
+        } trailing: {
+            AppSecondaryButton(action, small: true, action: perform).accessibilityLabel(Text(actionLabel))
+        }
     }
 }
 

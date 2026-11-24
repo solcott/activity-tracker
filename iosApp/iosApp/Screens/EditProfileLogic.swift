@@ -9,7 +9,7 @@ extension PhotoPickOf where Photo == KotlinByteString {
     /// Compresses with `IosApp.compressAvatar`.
     static var avatar: AvatarPick {
         AvatarPick { data in
-            nonisolated(unsafe) let bytes = ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
+            nonisolated(unsafe) let bytes = data.kotlinByteString
             return try? await IosApp.shared.compressAvatar(image: bytes)
         }
     }

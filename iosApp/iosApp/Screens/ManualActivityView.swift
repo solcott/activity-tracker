@@ -60,14 +60,7 @@ struct ManualActivityView: View {
             }
             .disabled(!enabled)
             Section { GearFieldRow(field: state.gear, enabled: enabled) }
-            VisibilityFormSections(
-                fields: state.visibility, heading: Text(.activityVisibilityHeading),
-                activityEnabled: enabled && state.visibility.canChoose, categoriesEnabled: enabled
-            ) {
-                Text(VisibilityTexts.shared.activityNote(fields: state.visibility))
-            } detailsNote: {
-                EmptyView()
-            }
+            ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
             if state.saving {
                 Section { AppProgress().frame(maxWidth: .infinity) }
             }

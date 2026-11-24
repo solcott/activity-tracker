@@ -84,13 +84,13 @@ struct MissingDetailsSection: View {
 extension View {
     /// Shows `TrailFields`' detail sheet and picker over the page, each SwiftUI's own sheet, sending the close event on a swipe down.
     func trailSheets(_ fields: TrailFields) -> some View {
-        sheet(isPresented: Binding(get: { fields.sheet != nil }, set: { if !$0 { fields.eventSink(TrailEvent.Close.shared) } })) {
+        sheet(isPresented: .shown(fields.sheet != nil) { fields.eventSink(TrailEvent.Close.shared) }) {
             if let sheet = fields.sheet {
                 TrailSheetView(sheet: sheet, fields: fields)
             }
         }
         .sheet(
-            isPresented: Binding(get: { fields.picker != nil }, set: { if !$0 { fields.eventSink(TrailEvent.ClosePicker.shared) } })
+            isPresented: .shown(fields.picker != nil) { fields.eventSink(TrailEvent.ClosePicker.shared) }
         ) {
             if let picker = fields.picker {
                 TrailPickerView(picker: picker, send: fields.eventSink)

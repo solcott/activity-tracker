@@ -35,7 +35,7 @@ struct ProfilePosts: View {
             let shown = PagedShown.Companion.shared.of(state: state.posts, errorKind: .LoadPosts)
             let posts = state.posts.items.compactMap { $0 as? PostView }
             if let above = shown.above {
-                status(above)
+                PagedStatusRow(status: above, layout: .row) { send(ProfileEvent.RetryPosts.shared) }
             }
             ForEach(posts, id: \.uri.value) { post in
                 Section {
@@ -50,22 +50,12 @@ struct ProfilePosts: View {
                 EmptyMessage(ProfileTexts.shared.postsEmpty).listStatusRow()
             }
             if let below = shown.below {
-                status(below)
+                PagedStatusRow(status: below, layout: .row) { send(ProfileEvent.RetryPosts.shared) }
             }
             Color.clear.frame(height: 0).listStatusRow()
                 .onChange(of: lastShown && state.posts.canLoadMore, initial: true) { _, wants in
                     if wants { send(ProfileEvent.LoadMorePosts.shared) }
                 }
-        }
-    }
-
-    @ViewBuilder private func status(_ status: PagedShown.Status) -> some View {
-        switch status.sealedType() {
-        case .progress:
-            AppProgress(small: true).frame(maxWidth: .infinity).listStatusRow()
-        case .failure(let failure):
-            ErrorMessage(failure.value.error, layout: .row) { send(ProfileEvent.RetryPosts.shared) }.frame(maxWidth: .infinity)
-                .listStatusRow()
         }
     }
 }

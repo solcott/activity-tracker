@@ -8,7 +8,7 @@ import Testing
 struct SwiftFitDecoderTests {
     /// `data` as a Kotlin `ByteArray`, as `FitDecoder.decode` receives it.
     private func kotlinBytes(_ data: Data) -> KotlinByteArray {
-        ExportedKotlinPackages.kotlinx.io.bytestring.toByteString(data as NSData)
+        data.kotlinByteString
             .toByteArray(startIndex: 0, endIndex: Int32(data.count))
     }
 

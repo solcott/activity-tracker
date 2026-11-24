@@ -56,7 +56,7 @@ private struct CreateSegmentForm: View {
                 Section { ErrorMessage(error, layout: .row) }
             }
             if state.limitReached {
-                Section { Text(.segmentCreateLimit).foregroundStyle(.red) }
+                Section { ErrorMessage(.segmentCreateLimit, layout: .row) }
             }
             if !duplicates.isEmpty {
                 Section {

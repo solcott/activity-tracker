@@ -16,7 +16,7 @@ struct UploadsView: View {
         .pageTitle(Text(.uploadsTitle)) { clear }
         .alert(
             Text(.uploadsCancelTitle),
-            isPresented: Binding(get: { state.confirmingCancel != nil }, set: { if !$0 { send(UploadsEvent.Dismiss.shared) } }),
+            isPresented: .shown(state.confirmingCancel != nil) { send(UploadsEvent.Dismiss.shared) },
             presenting: state.confirmingCancel
         ) { rkey in
             Button(.uploadsCancelConfirm, role: .destructive) { send(UploadsEvent.ConfirmCancel(rkey: rkey)) }
@@ -26,7 +26,7 @@ struct UploadsView: View {
         }
         .alert(
             Text(.uploadsCancelRestTitle),
-            isPresented: Binding(get: { state.confirmingCancelRest != nil }, set: { if !$0 { send(UploadsEvent.Dismiss.shared) } }),
+            isPresented: .shown(state.confirmingCancelRest != nil) { send(UploadsEvent.Dismiss.shared) },
             presenting: state.confirmingCancelRest
         ) { batchId in
             Button(.uploadsCancelRest, role: .destructive) { send(UploadsEvent.ConfirmCancelRest(batchId: batchId)) }

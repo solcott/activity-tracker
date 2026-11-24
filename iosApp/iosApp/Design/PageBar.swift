@@ -133,16 +133,17 @@ extension View {
         }
     }
 
-    /// Places `bar` over the top of this view's scrolling content, which scrolls under it as it does under the system's bar: with the
-    /// scroll edge effect on iOS 26, and over the bar material with a hairline before it, as bars of those versions look.
-    @ViewBuilder fileprivate func pageBar(@ViewBuilder _ bar: () -> some View) -> some View {
+    /// Places `bar` over the top (or, given `.bottom`, under the bottom) of this view's scrolling content, which scrolls under it as it
+    /// does under the system's bars: with the scroll edge effect on iOS 26, and over the bar material with a hairline between them
+    /// before, as bars of those versions look. A page's title bar, a board's chips, a composer or controls fixed to the bottom.
+    @ViewBuilder func pageBar(edge: VerticalEdge = .top, @ViewBuilder _ bar: () -> some View) -> some View {
         if #available(iOS 26.0, *) {
-            safeAreaBar(edge: .top, spacing: 0, content: bar)
+            safeAreaBar(edge: edge, spacing: 0, content: bar)
         } else {
-            safeAreaInset(edge: .top, spacing: 0) {
+            safeAreaInset(edge: edge, spacing: 0) {
                 bar()
-                    .background { Rectangle().fill(.bar).ignoresSafeArea(edges: .top) }
-                    .overlay(alignment: .bottom) { Divider() }
+                    .background { Rectangle().fill(.bar).ignoresSafeArea(edges: edge == .top ? .top : .bottom) }
+                    .overlay(alignment: edge == .top ? .bottom : .top) { Divider() }
             }
         }
     }

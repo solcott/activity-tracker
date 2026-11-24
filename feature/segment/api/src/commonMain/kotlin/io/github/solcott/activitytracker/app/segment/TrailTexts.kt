@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.segment
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DateText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
 import io.github.solcott.activitytracker.lexicon.app.TrailDog
@@ -53,7 +52,12 @@ data class TrailDetail(
 }
 
 /** A segment whose community value of a detail differs from its trail's: its [name], [value] and [source], opening its page by [uri]. */
-@Immutable data class VaryingSegment(val uri: String, val name: String, val value: AppText, val source: AppText)
+@Immutable
+data class VaryingSegment(val uri: String, val name: String, val value: AppText, val source: AppText) {
+    /** The line under its name, both UIs': its [value] then its [source], "Gravel · Community". */
+    val detail: AppText
+        get() = AppText.named("segment_browse_details", value, source)
+}
 
 /**
  * One card of a Trail details section (segments/trail-attributes): its [title] and its [rows], in the section's order. Swift reads
@@ -141,7 +145,7 @@ object TrailTexts {
             word("trail_detail_grooming", trail.pisteGrooming?.takeIf { fits.grooming }, TrailPisteGrooming.all, "trail_grooming_"),
             trail.trailClass
                 ?.takeIf { it in 1..TrailAttributes.MAX_TRAIL_CLASS }
-                ?.let { row("trail_detail_class", named("trail_class_value", whole(it), named("trail_class_$it"))) },
+                ?.let { row("trail_detail_class", named("trail_class_value", AppText.whole(it), named("trail_class_$it"))) },
             word("trail_detail_visibility", trail.visibility, TrailVisibility.all, "trail_visibility_"),
         )
 
@@ -149,7 +153,7 @@ object TrailTexts {
     private fun measures(trail: TrailAttributes, fits: ScaleFilter): List<TrailDetail> =
         listOfNotNull(
             trail.widthCm?.takeIf { it > 0 && fits.widthKind }?.let { row("trail_detail_width", width(it)) },
-            trail.gradePercent?.takeIf { it >= 0 }?.let { row("trail_detail_grade", named("unit_percent", whole(it))) },
+            trail.gradePercent?.takeIf { it >= 0 }?.let { row("trail_detail_grade", named("unit_percent", AppText.whole(it))) },
         )
 
     /** Lighting, dogs, horses, accessibility, the season, who maintains it and its website. */
@@ -234,7 +238,7 @@ object TrailTexts {
     }
 
     private fun share(surface: TrailSurface): AppText =
-        named("trail_surface_share", whole(surface.percent), named("trail_surface_${surface.surface}"))
+        named("trail_surface_share", AppText.whole(surface.percent), named("trail_surface_${surface.surface}"))
 
     private fun monthDay(text: String?): AppText? {
         if (text == null || !TrailAttributes.isMonthDay(text)) return null
@@ -272,8 +276,6 @@ object TrailTexts {
     private fun joined(first: AppText, next: AppText): AppText = named("segment_browse_details", first, next)
 
     private fun named(name: String, vararg args: AppText): AppText = AppText.named(name, *args)
-
-    private fun whole(value: Int): AppText = AppText.written(formatWhole(value.toLong()))
 
     private const val PERCENT = 100
     private const val SUMMARY_VALUES = 3

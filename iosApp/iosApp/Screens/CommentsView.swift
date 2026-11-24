@@ -20,7 +20,7 @@ struct CommentsView: View {
                     CommentsSection(state: page.comments, reporting: state.reporting)
                 }
                 .listStyle(.insetGrouped)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
+                .pageBar(edge: .bottom) {
                     CommentComposer(state: page.comments, focused: $fieldFocused)
                 }
                 .onChange(of: page.comments.replyingTo?.uri.value) { _, replying in
@@ -77,8 +77,6 @@ struct CommentComposer: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
     }
 
     private func send(_ event: any CommentEvent) {
@@ -96,7 +94,7 @@ struct CommentsPreviewRows: View {
         let open = { preview.eventSink(CommentsPreviewEvent.OpenAll.shared) }
         if let loading = preview.loadingText {
             HStack(spacing: 8) {
-                ProgressView()
+                AppProgress()
                 Text(loading).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)

@@ -39,24 +39,43 @@ struct AppMenuChip<Value: Hashable>: View {
                 Text(verbatim: shown).lineLimit(1)
                 Image(systemName: "chevron.down").font(.caption.weight(.semibold)).accessibilityHidden(true)
             }
-            .font(.subheadline.weight(.medium))
-            // On the fill, the colour that reads on it, as `AppButton`'s label (the system's white doesn't on the dark theme's violet).
-            .foregroundStyle(filled ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
+            .chipLabel(filled: filled)
         }
         .chipStyle(filled: filled)
-        .fixedSize()
         .accessibilityLabel(Text(verbatim: name ?? shown))
         .accessibilityValue(Text(verbatim: name == nil ? "" : shown))
     }
 }
 
+/// A filter chip that acts rather than opens a menu (ui/ios-design-system): a capsule button, filled while `filled` (its choice narrows
+/// the list, or it is the one chosen), as the shared filter chip is selected or not. A chip that opens a menu is `AppMenuChip`.
+struct AppChip<Label: View>: View {
+    let filled: Bool
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        Button(action: action) {
+            label().lineLimit(1).chipLabel(filled: filled)
+        }
+        .chipStyle(filled: filled)
+    }
+}
+
 extension View {
-    /// A capsule button, filled in the app's colour or tinted, as a filter chip is drawn.
-    @ViewBuilder fileprivate func chipStyle(filled: Bool) -> some View {
+    /// A chip's label: on the fill the colour that reads on it, as `AppButton`'s label (the system's white doesn't on the dark theme's
+    /// violet), else the tint.
+    func chipLabel(filled: Bool) -> some View {
+        font(.subheadline.weight(.medium))
+            .foregroundStyle(filled ? AnyShapeStyle(Color(.onAccent)) : AnyShapeStyle(.tint))
+    }
+
+    /// A capsule button at its own size, filled in the app's colour or tinted, as a filter chip is drawn.
+    @ViewBuilder func chipStyle(filled: Bool) -> some View {
         if filled {
-            buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small)
+            buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
         } else {
-            buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
+            buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small).fixedSize()
         }
     }
 }

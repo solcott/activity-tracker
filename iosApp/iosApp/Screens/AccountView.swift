@@ -50,20 +50,12 @@ struct AccountView: View {
             // Apart from Sign out and from the server's page, where the account itself is deleted (auth/leaving).
             Section {
                 // Its summary is a sentence, which reads under the title rather than squeezed in beside it, as a row's value is.
-                Button {
-                    state.eventSink(AccountEvent.Leave.shared)
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(.leaveTitle)
-                            Text(.accountLeaveSummary(state.handle)).font(.footnote).foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                    }
-                    .contentShape(Rectangle())
+                AppItemRow(
+                    Text(.leaveTitle), lines: [Text(.accountLeaveSummary(state.handle))],
+                    opens: { state.eventSink(AccountEvent.Leave.shared) }
+                ) {
+                    EmptyView()
                 }
-                .tint(.primary)
                 .disabled(state.ending)
             } header: {
                 Text(.accountSectionLeave)
@@ -73,7 +65,7 @@ struct AccountView: View {
         .pageTitle(Text(.accountTitle))
         .alert(
             Text(state.confirming.map { AccountTexts.shared.endTitle(ending: $0) } ?? TextPackage.AppText.Written(text: "")),
-            isPresented: Binding(get: { state.confirming != nil }, set: { if !$0 { state.eventSink(AccountEvent.Dismiss.shared) } }),
+            isPresented: .shown(state.confirming != nil) { state.eventSink(AccountEvent.Dismiss.shared) },
             presenting: state.confirming
         ) { ending in
             Button(role: .destructive) {

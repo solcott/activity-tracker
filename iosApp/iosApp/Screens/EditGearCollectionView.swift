@@ -143,19 +143,13 @@ struct AddItemsList: View {
                 Text(.gearCollectionNoMoreItems).foregroundStyle(.secondary)
             }
             ForEach(others, id: \.rkey) { row in
-                let isTicked = ticked.isTicked(row.rkey)
-                Button {
+                AppCheckRow(checked: ticked.isTicked(row.rkey), spacing: 12) {
                     ticked.toggle(row.rkey)
                 } label: {
                     AppItemRow(Text(verbatim: row.name), lines: [Text(GearListTexts.shared.detail(row: row, showRetired: true))]) {
                         Thumbnail(url: row.photoUrl)
-                    } trailing: {
-                        Image(systemName: "checkmark").foregroundStyle(.tint).opacity(isTicked ? 1 : 0).accessibilityHidden(true)
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isTicked ? .isSelected : [])
             }
         }
     }

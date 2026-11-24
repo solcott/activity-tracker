@@ -64,12 +64,8 @@ struct PostCardView: View {
             Button {
                 send(PostEvent.OpenAuthor(post: post))
             } label: {
-                HStack(spacing: 8) {
-                    Avatar(url: post.author.avatar, name: AppStrings.string(content.author()), size: 32)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(content.author()).font(.subheadline.weight(.semibold))
-                        Text(content.audience()).font(.footnote).foregroundStyle(.secondary)
-                    }
+                CardAuthorLine(avatar: post.author.avatar, name: content.author()) {
+                    Text(content.audience())
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())

@@ -86,19 +86,7 @@ extension View {
                 .padding(.vertical, 8)
         }
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        return contentMargins(.top, 4, for: .scrollContent).chipBar(row)
-    }
-
-    @ViewBuilder fileprivate func chipBar(_ row: some View) -> some View {
-        if #available(iOS 26.0, *) {
-            safeAreaBar(edge: .top, spacing: 0) { row }
-        } else {
-            safeAreaInset(edge: .top, spacing: 0) {
-                row
-                    .background { Rectangle().fill(.bar).ignoresSafeArea(edges: .top) }
-                    .overlay(alignment: .bottom) { Divider() }
-            }
-        }
+        return contentMargins(.top, 4, for: .scrollContent).pageBar { row }
     }
 }
 
@@ -193,8 +181,8 @@ struct RankRow: View {
     }
 }
 
-/// The viewer's own place under "Your place", in a bar fixed to the bottom of a board while they aren't among the entries loaded: the
-/// system's bar material with a hairline above it, which the list scrolls under and insets to.
+/// The viewer's own place under "Your place", in a bar fixed to the bottom of a board while they aren't among the entries loaded
+/// (`pinnedPlace`, a `pageBar`), which the list scrolls under and insets to.
 struct YourPlace<Row: View>: View {
     private let row: Row
 
@@ -211,15 +199,13 @@ struct YourPlace<Row: View>: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
     }
 }
 
 extension View {
     /// This board with the viewer's own place, when `own` is set, pinned under it in a `YourPlace` bar.
     func pinnedPlace<Row: View>(_ own: Bool, @ViewBuilder row: @escaping () -> Row) -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) {
+        pageBar(edge: .bottom) {
             if own {
                 YourPlace(row: row)
             }
@@ -271,8 +257,7 @@ struct LeaderCardView: View {
                         Text(own).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
-                Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+                DisclosureMark()
             }
             .foregroundStyle(.primary)
             .contentShape(Rectangle())

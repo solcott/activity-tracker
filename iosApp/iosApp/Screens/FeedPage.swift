@@ -23,9 +23,9 @@ struct FeedPage: View {
             filterBar.listStatusRow()
             switch shown.sealedType() {
             case .progress:
-                AppProgress().frame(maxWidth: .infinity).padding(.vertical, 24).listStatusRow()
+                FirstLoadStatus(error: nil, inList: true, retry: refresh)
             case .failure(let failure):
-                ErrorMessage(failure.value.error, retry: refresh).frame(maxWidth: .infinity).padding(.vertical, 24).listStatusRow()
+                FirstLoadStatus(error: failure.value.error, inList: true, retry: refresh)
             case .content:
                 loaded
             }
@@ -155,13 +155,11 @@ struct FeedPage: View {
 
     @ViewBuilder private func row(_ item: Any) -> some View {
         if let activity = item as? TimelineItem.Activity {
-            let uri = activity.view.uri.value
             ActivityCardView(
-                content: ActivityCardContent.Companion.shared.of(activity: activity.view, viewerDid: state.viewerDid),
-                revealed: state.revealed.contains(key: uri),
-                send: { send(FeedEvent.Activity(event: $0)) },
-                reveal: { state.revealed.eventSink(uri) }
-            )
+                activity: activity.view,
+                viewerDid: state.viewerDid,
+                revealed: state.revealed
+            ) { send(FeedEvent.Activity(event: $0)) }
         } else if let card = item as? TimelineItem.ImportCard {
             FeedImportCard(card: card.card) { send(FeedEvent.OpenImportBatch(card: card.card)) }
         } else if let post = item as? TimelineItem.Post {
@@ -229,13 +227,11 @@ struct FeedImportCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Avatar(url: card.author.avatar, name: AppStrings.string(ImportCardTexts.shared.author(card: card)), size: 32)
-                    .blur(radius: ImportCardTexts.shared.avatarBlurred(card: card) ? 6 : 0)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ImportCardTexts.shared.author(card: card)).font(.subheadline.weight(.semibold))
-                    Text(ImportCardTexts.shared.range(card: card, zone: clock.kotlinZone)).font(.footnote).foregroundStyle(.secondary)
-                }
+            CardAuthorLine(
+                avatar: card.author.avatar, name: ImportCardTexts.shared.author(card: card),
+                blurred: ImportCardTexts.shared.avatarBlurred(card: card)
+            ) {
+                Text(ImportCardTexts.shared.range(card: card, zone: clock.kotlinZone))
             }
             Text(ImportCardTexts.shared.title(card: card)).font(.headline)
             Text(ImportCardTexts.shared.summary(card: card, units: stats.units)).font(.subheadline)

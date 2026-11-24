@@ -61,15 +61,8 @@ struct CreditBox: View {
     let credit: SegmentCredit
 
     var body: some View {
-        let links = SegmentCreditTexts.shared.links(credit: credit)
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(SegmentCreditTexts.shared.lines(credit: credit).enumerated()), id: \.offset) { index, line in
-                if index == 0, links, let url = URL(string: PlaceTexts.shared.OSM_COPYRIGHT_URL) {
-                    Link(destination: url) { Text(line) }.font(.footnote)
-                } else {
-                    Text(line).font(.caption).foregroundStyle(.secondary)
-                }
-            }
+            CreditLines(credit: credit, compact: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

@@ -113,7 +113,7 @@ private fun TrailDetailRow(row: TrailDetail, onOpen: (String) -> Unit, onOpenSeg
                         Column(Modifier.weight(1f)) {
                             Text(segment.name, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "${segment.value.string()} · ${segment.source.string()}",
+                                segment.detail.string(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

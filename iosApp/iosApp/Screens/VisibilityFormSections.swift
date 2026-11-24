@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Who an activity and each of its detail categories are shown to, as two sections of a grouped form (feed/activity-visibility,
 /// feed/detail-visibility), drawn from Kotlin's `VisibilityFields`: the activity's visibility, then each category's, offering only the
-/// activity's visibility or narrower. What they say that follows a rule is Kotlin's (`VisibilityTexts`). Activity defaults and Accept
-/// invite place them, each with its own heading and notes under the sections.
+/// activity's visibility or narrower. What they say that follows a rule is Kotlin's (`VisibilityTexts`). Activity defaults and every
+/// activity form (`ActivityVisibilitySections`) place them, each with its own heading and notes under the sections.
 struct VisibilityFormSections<ActivityNote: View, DetailsNote: View>: View {
     let fields: VisibilityFields
     let heading: Text
@@ -85,5 +85,23 @@ struct VisibilityFormSections<ActivityNote: View, DetailsNote: View>: View {
 
     @ViewBuilder private func note(_ text: (any AppText)?) -> some View {
         if let text { Text(text) }
+    }
+}
+
+/// Who may see the activity, or the batch's: the visibility sections every activity form places (import, edit, manual entry,
+/// recording, accepting an invite), with the activity's note under them.
+struct ActivityVisibilitySections: View {
+    let fields: VisibilityFields
+    let heading: Text
+    let enabled: Bool
+
+    var body: some View {
+        VisibilityFormSections(
+            fields: fields, heading: heading, activityEnabled: enabled && fields.canChoose, categoriesEnabled: enabled
+        ) {
+            Text(VisibilityTexts.shared.activityNote(fields: fields))
+        } detailsNote: {
+            EmptyView()
+        }
     }
 }

@@ -7,7 +7,6 @@ import SwiftUI
 /// and a failed save shows at the top. It opens full width over Settings.
 struct EditGearView: View {
     let state: EditGearState
-    @Environment(\.clock) private var clock
 
     @State private var name: TextFieldModel
     @State private var brand: TextFieldModel
@@ -17,9 +16,7 @@ struct EditGearView: View {
     @State private var startingTime: TextFieldModel
     @State private var notes: TextFieldModel
     @State private var choosing: TypeChoice?
-    @State private var pickingDate = false
     @State private var photoItem: PhotosPickerItem?
-    @Environment(\.calendar) private var calendar
 
     init(state: EditGearState) {
         self.state = state
@@ -46,7 +43,7 @@ struct EditGearView: View {
         }
         .alert(
             Text(.gearDeleteTitle),
-            isPresented: Binding(get: { state.confirmingDelete }, set: { if !$0 { send(EditGearEvent.DismissDelete.shared) } })
+            isPresented: .shown(state.confirmingDelete) { send(EditGearEvent.DismissDelete.shared) }
         ) {
             Button(.gearRetire) { send(EditGearEvent.Retire.shared) }
             Button(.gearDelete, role: .destructive) { send(EditGearEvent.ConfirmDelete.shared) }
@@ -148,38 +145,11 @@ struct EditGearView: View {
 
     /// The day the athlete got the item, from a calendar of past days in a popover, and clearing it.
     private var acquired: some View {
-        HStack(spacing: 12) {
-            Text(.gearAcquired).frame(maxWidth: .infinity, alignment: .leading)
-            if let date = state.acquiredOn {
-                Button {
-                    pickingDate = true
-                } label: {
-                    Text(EditGearTexts.shared.date(date: date))
-                }
-                .accessibilityHint(Text(.gearAcquiredChoose))
-                AppIconButton(.clear, label: .gearAcquiredClear) { send(EditGearEvent.AcquiredChanged(date: nil)) }
-                    .foregroundStyle(.secondary)
-            } else {
-                AppIconButton(.calendar, label: .gearAcquiredChoose) { pickingDate = true }
-            }
-        }
-        .popover(isPresented: $pickingDate) {
-            DatePicker(
-                selection: Binding(
-                    get: { state.acquiredOn.map { CalendarDay($0).date(in: calendar) } ?? clock.date },
-                    set: { picked in
-                        pickingDate = false
-                        send(EditGearEvent.AcquiredChanged(date: CalendarDay(picked, in: calendar).localDate))
-                    }),
-                in: ...clock.date, displayedComponents: .date
-            ) {
-                Text(.gearAcquired)
-            }
-            .datePickerStyle(.graphical)
-            .padding()
-            .frame(minWidth: 320)
-            .presentationCompactAdaptation(.popover)
-        }
+        OptionalDayRow(
+            label: .gearAcquired, shown: state.acquiredOn.map { EditGearTexts.shared.date(date: $0) }, day: state.acquiredOn,
+            chooseLabel: .gearAcquiredChoose, clearLabel: .gearAcquiredClear,
+            pick: { send(EditGearEvent.AcquiredChanged(date: $0)) },
+            clear: { send(EditGearEvent.AcquiredChanged(date: nil)) })
     }
 
     /// The photo as it is now, picked from the library, changed or removed.
