@@ -32,6 +32,15 @@ sealed interface ReportTarget {
     /** A post (feed/posts), by the URI and CID its view carries: the post itself, not the proposal it shares. */
     data class Post(val uri: AtUri, val cid: Cid, override val author: Did) : ReportTarget
 
+    /** A trail report (segments/trail-reports), by the URI and CID its view carries. */
+    data class TrailReport(val uri: AtUri, val cid: Cid, override val author: Did) : ReportTarget
+
+    /** One photo of a trail report: the report names the trail report and the note says which photo. */
+    data class TrailPhoto(val report: TrailReport, val position: Int) : ReportTarget {
+        override val author: Did
+            get() = report.author
+    }
+
     data class Account(val did: Did) : ReportTarget {
         override val author: Did
             get() = did
@@ -89,6 +98,8 @@ class ReportRepository(private val clients: SessionClients) {
                 is ReportTarget.Photo -> subjectOf(target.activity)
                 is ReportTarget.Comment -> ReportSubject.Record(target.uri, target.cid)
                 is ReportTarget.Post -> ReportSubject.Record(target.uri, target.cid)
+                is ReportTarget.TrailReport -> ReportSubject.Record(target.uri, target.cid)
+                is ReportTarget.TrailPhoto -> subjectOf(target.report)
                 is ReportTarget.Account -> ReportSubject.Repo(target.did)
             }
 
@@ -96,6 +107,7 @@ class ReportRepository(private val clients: SessionClients) {
         internal fun reasonText(target: ReportTarget, note: String): String? =
             when (target) {
                 is ReportTarget.Photo -> listOf("Photo ${target.position}", note).filter(String::isNotEmpty).joinToString("\n\n")
+                is ReportTarget.TrailPhoto -> listOf("Photo ${target.position}", note).filter(String::isNotEmpty).joinToString("\n\n")
                 else -> note.ifEmpty { null }
             }
     }

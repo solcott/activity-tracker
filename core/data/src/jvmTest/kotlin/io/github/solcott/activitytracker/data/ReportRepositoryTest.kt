@@ -102,6 +102,16 @@ class ReportRepositoryTest {
     }
 
     @Test
+    fun aTrailReportAndItsPhotoAreNamedByTheReport() = runTest {
+        val report = ReportTarget.TrailReport(AtUri.of(bob, Nsid.FEED_TRAIL_REPORT, "3r"), Cid("bafyreport"), bob)
+        reports().report(report, ReportReason.SPAM)
+        assertEquals(ReportSubject.Record(report.uri, report.cid), sent.subject)
+        reports().report(ReportTarget.TrailPhoto(report, 2), ReportReason.SEXUAL)
+        assertEquals(ReportSubject.Record(report.uri, report.cid), sent.subject)
+        assertEquals("Photo 2", sent.reason)
+    }
+
+    @Test
     fun anAccountIsNamedByRepoRef() = runTest {
         reports().report(ReportTarget.Account(bob), ReportReason.MISLEADING)
         assertEquals(ReportSubject.Repo(bob), sent.subject)
