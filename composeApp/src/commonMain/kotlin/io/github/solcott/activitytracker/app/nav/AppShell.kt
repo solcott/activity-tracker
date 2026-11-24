@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,9 +28,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.runtime.Navigator
@@ -77,9 +83,14 @@ fun AppShell(
             null -> screens(Modifier.fillMaxSize())
             NavigationStyle.Bar ->
                 Column(Modifier.fillMaxSize()) {
-                    // The bar pads itself clear of the home indicator / gesture area, so screens above it mustn't.
-                    screens(Modifier.weight(1f).consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)))
-                    BottomBar(current, select)
+                    // The bar pads itself clear of the home indicator / gesture area, so screens above it mustn't: they lose
+                    // the bar's height from every bottom inset, so the keyboard's (which starts at the window's bottom too) is
+                    // left as only what covers them, and a field padded by it sits just above the keyboard. Consuming
+                    // safeDrawing instead would take the keyboard's inset with the gesture area's.
+                    val density = LocalDensity.current
+                    var barHeight by remember { mutableStateOf(0.dp) }
+                    screens(Modifier.weight(1f).consumeWindowInsets(PaddingValues(bottom = barHeight)))
+                    BottomBar(current, select, Modifier.onSizeChanged { barHeight = with(density) { it.height.toDp() } })
                 }
             NavigationStyle.Rail ->
                 Row(Modifier.fillMaxSize()) {
@@ -115,8 +126,8 @@ private enum class NavigationStyle {
 
 /** Material's navigation bar. */
 @Composable
-private fun BottomBar(current: TopLevelDestination?, select: (TopLevelDestination) -> Unit) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+private fun BottomBar(current: TopLevelDestination?, select: (TopLevelDestination) -> Unit, modifier: Modifier = Modifier) {
+    NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
                 selected = destination == current,
