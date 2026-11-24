@@ -28,7 +28,6 @@ import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
@@ -63,8 +62,7 @@ internal val Roots = Comments.alias("roots")
  */
 internal fun commentsVisibleTo(viewer: Did?, subject: Subject): Op<Boolean> =
     subject.visibleTo(Comments.authorDid) and
-        visibleTo(viewer, visibility = Comments.audience, author = subject.author, record = subject.uri, cid = subject.cid) and
-        rootAdmits(viewer, subject) and
+        commentAudienceAdmits(viewer, subject) and
         notBlocked(viewer, Comments.authorDid) and
         notMuted(viewer, Comments.authorDid) and
         served(viewer, Comments.authorDid, Comments.uri, Comments.cid) and
@@ -72,19 +70,10 @@ internal fun commentsVisibleTo(viewer: Did?, subject: Subject): Op<Boolean> =
 
 /**
  * The tier a [row] of [admittedComments] is served at, as [commentsVisibleTo] admits it: the narrowest of its [subject]'s visibility, its
- * audience and, for a reply, its thread's root's audience while the root is indexed on the same subject ([rootAdmits]).
+ * audience and, for a reply, its thread's root's audience while the root is indexed on the same subject ([commentAudienceAdmits]).
  */
 internal fun commentTier(row: ResultRow, subject: Subject): String =
     listOfNotNull(row[subject.visibility], row[Comments.audience], row.getOrNull(Roots[Comments.audience])).reduce(Visibility::narrower)
-
-/**
- * A reply is also capped by its thread's top-level comment's audience while that's indexed on the subject: clients cap a reply by its
- * parent, so an honest chain only narrows, and a reply from a client that doesn't still never reaches past the root's audience. Only the
- * root, not every ancestor, is checked. A top-level comment joins itself, which adds nothing.
- */
-private fun rootAdmits(viewer: Did?, subject: Subject): Op<Boolean> =
-    Roots[Comments.uri].isNull() or
-        visibleTo(viewer, visibility = Roots[Comments.audience], author = subject.author, record = subject.uri, cid = subject.cid)
 
 /**
  * The subject's author hid the comment (`feed.commentHide`), from their repo or their interactions space. Checked here rather than at index
