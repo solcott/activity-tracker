@@ -40,7 +40,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.trail_report_delete
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -103,7 +102,7 @@ private fun ReportRow(row: TrailReportRow, state: TrailReportsState) {
                 }
                 if (row.tags.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.tags.forEach { ConditionChip(it, closed = it == CLOSED) }
+                        row.tags.forEach { ConditionChip(it, closed = TrailReportTexts.isClosed(it)) }
                     }
                 }
                 row.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
@@ -148,6 +147,5 @@ private fun RowMenu(row: TrailReportRow, state: TrailReportsState) {
     }
 }
 
-private val CLOSED = TrailReportTexts.tag(TrailCondition.CLOSED)
 private val AVATAR_SIZE = 40.dp
 private val ROW_PHOTO = 72.dp

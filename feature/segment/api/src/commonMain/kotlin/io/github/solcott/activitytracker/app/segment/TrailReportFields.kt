@@ -220,6 +220,9 @@ object TrailReportTexts {
     /** A condition tag's name ("Downed tree"). */
     fun tag(value: String): AppText = AppText.named("trail_condition_$value")
 
+    /** Whether [tag] is Closed's name, which both UIs mark in the error colour wherever a tag is listed. */
+    fun isClosed(tag: AppText): Boolean = tag == tag(TrailCondition.CLOSED)
+
     /** [tags] by name, joined ("Muddy, Downed tree"). */
     fun tags(values: List<String>): AppText? = AppText.joined(values.map(::tag))
 

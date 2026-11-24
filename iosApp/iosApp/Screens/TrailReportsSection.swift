@@ -133,11 +133,24 @@ struct ConditionTags: View {
     var body: some View {
         FlowRow(spacing: 6, lineSpacing: 6) {
             ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
-                Text(tag)
-                    .font(.footnote)
+                // Closed in red with its symbol, as the lead and the Compose chips draw it, so it never reads as just another tag.
+                if TrailReportTexts.shared.isClosed(tag: tag) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+                        Text(tag)
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.red)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color(.tertiarySystemFill), in: Capsule())
+                    .background(Color.red.opacity(0.15), in: Capsule())
+                } else {
+                    Text(tag)
+                        .font(.footnote)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                }
             }
         }
     }
