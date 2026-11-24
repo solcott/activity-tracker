@@ -17,7 +17,6 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlin.math.roundToInt
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What a segment's leaderboard and Mayors board offer and say (segments/segment-leaderboards, segments/segment-mayors,
@@ -75,7 +74,7 @@ object SegmentBoardTexts {
     fun efforts(entry: MayorEntry): AppText = efforts(entry.efforts)
 
     /** A count of efforts: "14 efforts", grouped from a thousand (ui/number-format). */
-    fun efforts(count: Int): AppText = AppText.Plural("mayor_efforts", count, persistentListOf(AppText.whole(count)))
+    fun efforts(count: Int): AppText = AppText.count("mayor_efforts", count)
 }
 
 /**
@@ -92,7 +91,7 @@ object BoardGapTexts {
         else AppText.named("leaderboard_behind_first", AppText.written(StatText.duration(seconds)))
 
     /** What it takes to be Mayor, [count] more efforts: "8 more efforts to be Mayor". */
-    fun moreToBeMayor(count: Int): AppText = AppText.Plural("mayors_more_to_be_mayor", count, persistentListOf(AppText.whole(count)))
+    fun moreToBeMayor(count: Int): AppText = AppText.count("mayors_more_to_be_mayor", count)
 }
 
 private const val SECONDS_PER_MINUTE = 60L

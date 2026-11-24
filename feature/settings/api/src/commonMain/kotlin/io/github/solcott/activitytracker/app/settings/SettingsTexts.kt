@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What Settings' list and its native pages say that follows a rule, chosen here for the shared and the native UI (dev/shared-display-text).
@@ -21,9 +20,7 @@ object SettingsTexts {
     /** The Privacy zones row: how many zones the athlete keeps, and that route ends are hidden when they are. */
     fun privacyZones(count: Int?, hidesRouteEnds: Boolean): AppText? {
         if (count == null) return null
-        val zones =
-            if (count == 0) AppText.named("settings_privacy_zones_none")
-            else AppText.Plural("settings_privacy_zones_count", count, persistentListOf(AppText.whole(count)))
+        val zones = if (count == 0) AppText.named("settings_privacy_zones_none") else AppText.count("settings_privacy_zones_count", count)
         return if (hidesRouteEnds) AppText.named("settings_privacy_zones_ends", zones) else zones
     }
 

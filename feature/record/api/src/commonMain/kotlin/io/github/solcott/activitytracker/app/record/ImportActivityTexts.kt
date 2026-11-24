@@ -196,9 +196,9 @@ object ImportActivityTexts {
         listOfNotNull(
                 AppText.named("import_duplicates_checking").takeIf { check == DuplicateCheck.Checking },
                 AppText.named("import_duplicates_failed").takeIf { check == DuplicateCheck.Failed },
-                plural("import_duplicates_existing", existing).takeIf { existing > 0 },
-                plural("import_duplicates_in_file", inFile).takeIf { inFile > 0 },
-                plural("import_duplicates_copies", copies).takeIf { copies > 0 },
+                AppText.count("import_duplicates_existing", existing).takeIf { existing > 0 },
+                AppText.count("import_duplicates_in_file", inFile).takeIf { inFile > 0 },
+                AppText.count("import_duplicates_copies", copies).takeIf { copies > 0 },
                 AppText.named("import_duplicates_unchecked").takeIf { existing + inFile > 0 },
             )
             .takeIf { it.isNotEmpty() }
@@ -216,7 +216,7 @@ object ImportActivityTexts {
     fun offersRetry(check: DuplicateCheck): Boolean = check == DuplicateCheck.Failed
 
     /** "5 activities found". */
-    fun found(batch: ImportBatch): AppText = plural("import_batch_found", batch.rows.size)
+    fun found(batch: ImportBatch): AppText = AppText.count("import_batch_found", batch.rows.size)
 
     /** What an account export brings, and whether it says who could see each activity. */
     fun exportNote(export: BatchExport): AppText =
@@ -243,10 +243,10 @@ object ImportActivityTexts {
                     AppText.written(file.name),
                 )
             }
-        return AppText.named("text_space_pair", plural("import_batch_skipped", batch.skipped.size), commaList(names))
+        return AppText.named("text_space_pair", AppText.count("import_batch_skipped", batch.skipped.size), commaList(names))
     }
 
-    fun ignored(batch: ImportBatch): AppText? = plural("import_batch_ignored", batch.ignoredFiles).takeIf { batch.ignoredFiles > 0 }
+    fun ignored(batch: ImportBatch): AppText? = AppText.count("import_batch_ignored", batch.ignoredFiles).takeIf { batch.ignoredFiles > 0 }
 
     fun originalsTooLarge(batch: ImportBatch): AppText? =
         batch.originalsTooLarge
@@ -337,7 +337,7 @@ object ImportActivityTexts {
             progress != null -> AppText.named("import_batch_saving", AppText.whole(progress.queued), AppText.whole(progress.total))
             state.saving -> AppText.named("action_saving")
             batch.selectedCount == 0 -> AppText.named("import_dives_none")
-            else -> plural("import_batch_save", batch.selectedCount)
+            else -> AppText.count("import_batch_save", batch.selectedCount)
         }
     }
 
@@ -385,8 +385,8 @@ object ImportActivityTexts {
     fun batchSaved(result: BatchSaved, mobile: Boolean): AppText =
         spaced(
             listOfNotNull(
-                plural("import_batch_saved", result.saved),
-                plural("import_batch_saved_skipped", result.skipped).takeIf { result.skipped > 0 },
+                AppText.count("import_batch_saved", result.saved),
+                AppText.count("import_batch_saved_skipped", result.skipped).takeIf { result.skipped > 0 },
                 uploadingNote(mobile),
             ),
         )
@@ -517,8 +517,6 @@ object ImportActivityTexts {
 
     /** "May 12, 2024 at 7:02 AM", on the clock of the zone it's read in; the time on the device's 12- or 24-hour clock. */
     fun start(start: ImportStart): AppText = DateText.at(start.epochSeconds, start.utcOffsetMinutes)
-
-    private fun plural(name: String, count: Int): AppText = AppText.Plural(name, count, persistentListOf(AppText.whole(count)))
 
     private fun spaced(texts: List<AppText>): AppText = texts.reduce { a, b -> AppText.named("text_space_pair", a, b) }
 

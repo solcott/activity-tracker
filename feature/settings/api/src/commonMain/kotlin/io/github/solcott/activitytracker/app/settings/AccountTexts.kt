@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What the Account page says that follows a rule (auth/account-page, auth/data-export), chosen here for the shared and the native UI
@@ -110,8 +109,7 @@ object AccountTexts {
     fun endAction(ending: EndingSession): AppText =
         AppText.named(if (ending.signInAgain) "account_end_sign_in_again_anyway" else "account_end_sign_out_anyway")
 
-    private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
+    private fun count(name: String, quantity: Int): AppText? = if (quantity > 0) AppText.count(name, quantity) else null
 
     private val GrantFeature.textName: String
         get() =

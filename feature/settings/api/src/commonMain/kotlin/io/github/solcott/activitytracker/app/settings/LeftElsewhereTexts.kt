@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
 import io.github.solcott.activitytracker.app.text.AppText
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What the choice after leaving on another device says that follows a rule (auth/leaving), chosen here for the shared and the native UI
@@ -15,7 +14,7 @@ object LeftElsewhereTexts {
     fun lines(state: LeftElsewhereState): List<AppText> =
         listOfNotNull(
             if (state.changes > 0) {
-                AppText.Plural("left_elsewhere_changes", state.changes, persistentListOf(AppText.whole(state.changes)))
+                AppText.count("left_elsewhere_changes", state.changes)
             } else {
                 null
             },

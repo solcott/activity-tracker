@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What a segment's page says, for both UIs (segments/segment-page, segments/segment-efforts, segments/segment-elevation,
@@ -96,8 +95,7 @@ object SegmentPageTexts {
     fun mayorValue(entry: MayorEntry): AppText = SegmentBoardTexts.efforts(entry)
 
     /** The viewer's own count on the card ("You: 3 efforts"). */
-    fun mayorYours(entry: MayorEntry): AppText =
-        AppText.Plural("segment_mayor_yours", entry.efforts, persistentListOf(AppText.whole(entry.efforts)))
+    fun mayorYours(entry: MayorEntry): AppText = AppText.count("segment_mayor_yours", entry.efforts)
 
     /** The efforts' heading: Your rides on a [lift], else Your efforts. */
     fun efforts(lift: Boolean): AppText = AppText.named(if (lift) "segment_your_rides" else "segment_your_efforts")

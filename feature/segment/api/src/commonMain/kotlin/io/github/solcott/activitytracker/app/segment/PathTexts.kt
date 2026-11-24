@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathView
-import kotlinx.collections.immutable.persistentListOf
 
 /** What the Trail page says (segments/path-page, dev/shared-display-text), chosen here for the shared and the native UI. */
 @Suppress("TooManyFunctions") // One per line and choice of the page, so both UIs read the same words.
@@ -60,7 +59,7 @@ object PathTexts {
         AppText.named(
             "segment_browse_details",
             SegmentBrowseTexts.details(section.summary, units),
-            AppText.Plural("path_segment_count", section.rows.size, persistentListOf(AppText.whole(section.rows.size))),
+            AppText.count("path_segment_count", section.rows.size),
         )
 
     /** What a section's row does when tapped, for assistive technology: "Collapse Through the Trees Trail", "Expand …". */

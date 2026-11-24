@@ -125,8 +125,7 @@ object CommentsTexts {
         get() = AppText.named("detail_section_comments")
 
     /** "3 comments", hidden ones left out. */
-    fun count(state: CommentsState): AppText =
-        AppText.Plural("detail_comment_count", state.count.toInt(), persistentListOf(AppText.whole(state.count)))
+    fun count(state: CommentsState): AppText = AppText.count("detail_comment_count", state.count)
 
     /**
      * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own
@@ -216,7 +215,7 @@ object CommentsTexts {
     fun offersLike(comment: CommentView, viewer: Did): Boolean = comment.author.did != viewer && comment.hidden != true
 
     /** "3 likes": a comment's like count, spoken. */
-    fun likeCount(count: Long): AppText = AppText.Plural("like_count", count.toInt(), persistentListOf(AppText.whole(count)))
+    fun likeCount(count: Long): AppText = AppText.count("like_count", count)
 
     /** The like button's name: Like comment, or Unlike comment once [liked]. */
     fun likeLabel(liked: Boolean): AppText = AppText.named(if (liked) "comment_unlike" else "comment_like")
@@ -232,13 +231,11 @@ object CommentsTexts {
         val today = at.toLocalDateTime(zone).date == now.toLocalDateTime(zone).date
         return when {
             ago < 1.minutes -> AppText.named("posted_just_now")
-            today && ago < 1.hours -> agoText("posted_minutes_ago", ago.inWholeMinutes)
-            today -> agoText("posted_hours_ago", ago.inWholeHours)
+            today && ago < 1.hours -> AppText.count("posted_minutes_ago", ago.inWholeMinutes)
+            today -> AppText.count("posted_hours_ago", ago.inWholeHours)
             else -> DayText.dayAndTime(at, now, zone)
         }
     }
-
-    private fun agoText(name: String, count: Long): AppText = AppText.Plural(name, count.toInt(), persistentListOf(AppText.whole(count)))
 
     /**
      * The key prefix of [thread]'s rows: `<prefix>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more` follow it. AT-URIs never hold a `|`.
@@ -267,7 +264,7 @@ object CommentsTexts {
     }
 
     /** "View 3 more replies". */
-    fun moreReplies(count: Int): AppText = AppText.Plural("view_more_replies", count, persistentListOf(AppText.whole(count.toLong())))
+    fun moreReplies(count: Int): AppText = AppText.count("view_more_replies", count)
 
     val unavailable: AppText
         get() = AppText.named("comment_unavailable")

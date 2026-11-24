@@ -47,6 +47,12 @@ sealed interface AppText {
         /** [value] as a whole number, grouped as the device groups thousands ([formatWhole]). */
         fun whole(value: Long): AppText = written(formatWhole(value))
 
+        /** The shared plural [name] for [count], with [count] grouped ([whole]) in its placeholder: "1 like", "1,204 efforts". */
+        fun count(name: String, count: Int): AppText = Plural(name, count, persistentListOf(whole(count)))
+
+        /** The shared plural [name] for [count], with [count] grouped ([whole]) in its placeholder. */
+        fun count(name: String, count: Long): AppText = Plural(name, count.toInt(), persistentListOf(whole(count)))
+
         /** [texts] as a list, each next one joined on by `text_list_pair` ("Ride, Run, Swim"); null for none. */
         fun joined(texts: List<AppText>): AppText? = texts.reduceOrNull { list, next -> named("text_list_pair", list, next) }
 

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
@@ -125,7 +126,7 @@ private fun rowOf(report: TrailReportView, now: Instant, zone: TimeZone, self: S
     TrailReportRow(
         uri = report.uri.value,
         cid = report.cid.value,
-        author = TrailReportTexts.nameOf(report.author),
+        author = report.author.shownName,
         authorDid = report.author.did.value,
         avatar = report.author.avatar,
         age = TrailReportTexts.age(report.indexedAt, now, zone),

@@ -166,10 +166,10 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
     fun counts(): AppText =
         AppText.named(
             "post_card_counts",
-            plural("like_count", post.likeCount),
-            plural("comments_count", post.commentCount),
-            plural("repost_count", post.repostCount),
-            plural("quote_count", post.quoteCount),
+            AppText.count("like_count", post.likeCount),
+            AppText.count("comments_count", post.commentCount),
+            AppText.count("repost_count", post.repostCount),
+            AppText.count("quote_count", post.quoteCount),
         )
 
     /** Delete is offered on the viewer's own quote, after a confirmation (feed/quote-posts). */
@@ -217,8 +217,6 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
         fun showQuotes(): AppText = AppText.named("post_show_quotes")
 
         private fun proposesName(name: String): AppText = AppText.named("post_card_proposes", AppText.written(name))
-
-        private fun plural(name: String, count: Long): AppText = AppText.Plural(name, count.toInt(), persistentListOf(AppText.whole(count)))
 
         private fun status(status: String): AppText =
             AppText.named(

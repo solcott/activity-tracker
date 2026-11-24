@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.settings
 
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.auth.LeaveStep
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * What Leave Activity Tracker says that follows a rule (auth/leaving), chosen here for the shared and the native UI
@@ -96,6 +95,5 @@ object LeaveTexts {
             },
         )
 
-    private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
+    private fun count(name: String, quantity: Int): AppText? = if (quantity > 0) AppText.count(name, quantity) else null
 }

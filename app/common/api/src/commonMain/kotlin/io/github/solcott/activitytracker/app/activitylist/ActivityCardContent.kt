@@ -129,12 +129,8 @@ class ActivityCardContent(val activity: ActivityView, val isOwn: Boolean) {
     fun counts(): AppText =
         AppText.named(
             "activity_card_counts",
-            AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.whole(activity.likeCount))),
-            AppText.Plural(
-                "comments_count",
-                activity.commentCount.toInt(),
-                persistentListOf(AppText.whole(activity.commentCount)),
-            ),
+            AppText.count("like_count", activity.likeCount),
+            AppText.count("comments_count", activity.commentCount),
         )
 
     override fun equals(other: Any?): Boolean = other is ActivityCardContent && other.activity == activity && other.isOwn == isOwn

@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.record
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
-import kotlinx.collections.immutable.persistentListOf
 
 /** What the activity forms' gear picker says (gear/activity-gear), chosen here for the shared and the native picker. */
 object GearFieldTexts {
@@ -25,14 +24,9 @@ object GearFieldTexts {
         AppText.named(
             "page_gear_item_value",
             AppText.written(collection.name),
-            AppText.Plural(
-                "gear_collection_count",
-                collection.count,
-                persistentListOf(AppText.whole(collection.count.toLong())),
-            ),
+            AppText.count("gear_collection_count", collection.count),
         )
 
     /** How many of the last added collection's items the activity's gear limit left out; null when none were. */
-    fun notAdded(field: GearField): AppText? =
-        field.notAdded.takeIf { it > 0 }?.let { AppText.Plural("gear_field_not_added", it, persistentListOf(AppText.whole(it.toLong()))) }
+    fun notAdded(field: GearField): AppText? = field.notAdded.takeIf { it > 0 }?.let { AppText.count("gear_field_not_added", it) }
 }

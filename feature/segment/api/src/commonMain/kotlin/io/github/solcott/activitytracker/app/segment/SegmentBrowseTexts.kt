@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.SegmentDirection
-import kotlinx.collections.immutable.persistentListOf
 
 /** What segment browse says (segments/segment-browse, dev/shared-display-text), chosen here for the shared and the native UI. */
 @Suppress("TooManyFunctions") // Every line browse shows: its choices, its rows' names and details, and its messages.
@@ -112,7 +111,7 @@ private fun joined(row: BrowseRow, metersAway: Int?, units: UnitSystem): AppText
                 listOf(SegmentBrowseTexts.kind(row), StatText.distance(row.path.lengthMeters.toDouble(), units)) +
                     pathSportParts(row.path, sports) +
                     listOfNotNull(
-                        AppText.Plural("path_segment_count", count, persistentListOf(AppText.whole(count))),
+                        AppText.count("path_segment_count", count),
                         metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
                     )
             parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }

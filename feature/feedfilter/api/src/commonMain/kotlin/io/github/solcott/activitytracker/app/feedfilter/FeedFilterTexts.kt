@@ -32,8 +32,7 @@ object FeedFilterTexts {
     fun range(range: DateRange?): AppText =
         when (range) {
             null -> AppText.named("feed_filter_any_time")
-            is DateRange.LastDays ->
-                AppText.Plural("feed_filter_last_days", range.days, persistentListOf(AppText.whole(range.days.toLong())))
+            is DateRange.LastDays -> AppText.count("feed_filter_last_days", range.days)
             DateRange.ThisYear -> AppText.named("feed_filter_this_year")
             is DateRange.Custom ->
                 AppText.named(

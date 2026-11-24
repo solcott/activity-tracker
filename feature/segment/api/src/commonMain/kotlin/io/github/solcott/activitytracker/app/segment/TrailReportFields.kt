@@ -4,10 +4,10 @@ import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.lexicon.app.TrailConditions
@@ -239,9 +239,9 @@ object TrailReportTexts {
         return when {
             days == 0 -> AppText.named("trail_age_today")
             days == 1 -> AppText.named("trail_age_yesterday")
-            days < WEEKS_FROM -> plural("trail_age_days", days)
-            days < MONTHS_FROM -> plural("trail_age_weeks", days / DAYS_PER_WEEK)
-            else -> plural("trail_age_months", days / DAYS_PER_MONTH)
+            days < WEEKS_FROM -> AppText.count("trail_age_days", days)
+            days < MONTHS_FROM -> AppText.count("trail_age_weeks", days / DAYS_PER_WEEK)
+            else -> AppText.count("trail_age_months", days / DAYS_PER_MONTH)
         }
     }
 
@@ -263,7 +263,7 @@ object TrailReportTexts {
             leadLine = conditions?.takeIf { current }?.let { leadLine(it, now, zone) },
             tags = tagCounts(conditions),
             note = conditions?.latestNote?.let { note(it, now, zone) },
-            count = reports?.takeIf { it > 0 }?.let { plural("trail_reports_count", it) },
+            count = reports?.takeIf { it > 0 }?.let { AppText.count("trail_reports_count", it) },
             empty = AppText.named("trail_conditions_none").takeUnless { current },
             emptyDetail = conditions?.takeUnless { current }?.let { lastReport(it, now, zone) },
             photos = photos.map(::thumb).toImmutableList(),
@@ -293,7 +293,7 @@ object TrailReportTexts {
 
     /** A report's note line. */
     fun note(report: TrailReportView, now: Instant, zone: TimeZone): ReportNote? =
-        report.note?.let { ReportNote(nameOf(report.author), age(report.indexedAt, now, zone), it) }
+        report.note?.let { ReportNote(report.author.shownName, age(report.indexedAt, now, zone), it) }
 
     /** A strip photo, blurred behind its label's reason when the report or its author carries a media label. */
     fun thumb(photo: TrailPhotoView): PhotoThumb =
@@ -331,13 +331,8 @@ object TrailReportTexts {
     fun noteCount(length: Int): AppText =
         AppText.named("trail_report_note_count", AppText.whole(length), AppText.whole(TrailReportRecord.MAX_NOTE_GRAPHEMES))
 
-    /** An author's display name, else their handle. */
-    fun nameOf(author: ProfileViewBasic): String = author.displayName?.takeIf { it.isNotBlank() } ?: author.handle.value
-
     /** Whether [report] is still in the conditions window at [now]: as the AppView says, or 14 days since it was indexed. */
     fun isCurrent(report: TrailReportView, now: Instant): Boolean = report.current && now - report.indexedAt < CURRENT
-
-    private fun plural(name: String, count: Int) = AppText.Plural(name, count, persistentListOf(AppText.whole(count)))
 
     private val CURRENT = 14.days
     private const val WEEKS_FROM = 14

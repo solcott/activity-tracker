@@ -312,7 +312,7 @@ object TrailContributionTexts {
     private fun varied(key: String, row: TrailDetail, segments: List<VaryingSegment>): TrailDetail =
         row.copy(
             value = if (key == Detail.SURFACE) row.value else AppText.named("trail_varies"),
-            note = AppText.Plural("trail_changed_on", segments.size, persistentListOf(AppText.whole(segments.size))),
+            note = AppText.count("trail_changed_on", segments.size),
             varying = segments.toImmutableList(),
         )
 
@@ -434,8 +434,7 @@ object TrailContributionTexts {
 
     /** A row's source caption: the importer's source, or the community with its riders. */
     fun sourceText(source: String, riders: Int?): AppText =
-        if (source == TrailSource.COMMUNITY)
-            AppText.Plural("trail_source_community", riders ?: 0, persistentListOf(AppText.whole(riders ?: 0)))
+        if (source == TrailSource.COMMUNITY) AppText.count("trail_source_community", riders ?: 0)
         else AppText.named("trail_source_${source.takeIf { it in SOURCES } ?: TrailSource.IMPORTED}")
 
     private fun annotated(
@@ -450,7 +449,7 @@ object TrailContributionTexts {
         val note =
             when {
                 info?.mayHaveChanged == true -> AppText.named("trail_may_have_changed")
-                suggestions > 0 -> AppText.Plural("trail_suggestions", suggestions, persistentListOf(AppText.whole(suggestions)))
+                suggestions > 0 -> AppText.count("trail_suggestions", suggestions)
                 else -> null
             }
         return row.copy(
@@ -479,7 +478,7 @@ object TrailContributionTexts {
         return AppText.named(
             "segment_browse_details",
             from,
-            AppText.Plural("trail_confirmed_count", confirmed, persistentListOf(AppText.whole(confirmed))),
+            AppText.count("trail_confirmed_count", confirmed),
         )
     }
 

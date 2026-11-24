@@ -104,6 +104,5 @@ object GearListTexts {
     fun total(row: GearRow, units: UnitSystem): AppText? = row.totals?.let { GearTexts.mainTotal(row.mainTotal, it, units) }
 
     /** How many of a collection's items still exist: "4 items". */
-    fun collectionCount(row: GearCollectionRow): AppText =
-        AppText.Plural("gear_collection_count", row.count, persistentListOf(AppText.whole(row.count)))
+    fun collectionCount(row: GearCollectionRow): AppText = AppText.count("gear_collection_count", row.count)
 }

@@ -167,8 +167,5 @@ object ProfileTexts {
     val postsEmpty: AppText
         get() = AppText.named("profile_posts_empty")
 
-    private fun countText(name: String, count: Long?): AppText {
-        val n = count ?: 0L
-        return AppText.Plural(name, n.toInt(), persistentListOf(AppText.whole(n)))
-    }
+    private fun countText(name: String, count: Long?): AppText = AppText.count(name, count ?: 0L)
 }

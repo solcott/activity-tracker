@@ -209,8 +209,7 @@ object ThresholdHistoryTexts {
         )
     }
 
-    private fun count(name: String, quantity: Int): AppText =
-        AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity.toLong())))
+    private fun count(name: String, quantity: Int): AppText = AppText.count(name, quantity)
 
     private const val DETAILED_TOP = 0.22
     private const val DETAILED_BOTTOM = 0.16

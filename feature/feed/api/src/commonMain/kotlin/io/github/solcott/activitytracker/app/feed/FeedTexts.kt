@@ -13,7 +13,6 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.CardRoute
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import kotlin.time.Instant
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -95,8 +94,7 @@ object FeedTexts {
 object FeedUploadTexts {
     /** "2 changes couldn't be published", while the server refused any; null otherwise. */
     fun refused(uploads: UploadSummary): AppText? =
-        if (uploads.refused > 0) AppText.Plural("feed_rejected_changes", uploads.refused, persistentListOf(AppText.whole(uploads.refused)))
-        else null
+        if (uploads.refused > 0) AppText.count("feed_rejected_changes", uploads.refused) else null
 
     /**
      * What is uploading, by activity, while anything is: "Uploading 1 activity and 950 imported · 3 other changes". Imports the athlete
@@ -104,8 +102,8 @@ object FeedUploadTexts {
      */
     fun uploading(uploads: UploadSummary): AppText? {
         if (!uploads.uploading) return null
-        val own = count("feed_uploading_activities", uploads.own)
-        val imported = count("feed_uploading_imported", uploads.imported)
+        val own = AppText.count("feed_uploading_activities", uploads.own)
+        val imported = AppText.count("feed_uploading_imported", uploads.imported)
         val activities =
             when {
                 uploads.own > 0 && uploads.imported > 0 ->
@@ -115,11 +113,11 @@ object FeedUploadTexts {
                 uploads.imported > 0 -> AppText.named("feed_uploading", imported)
                 else -> null
             }
-        val other = count("feed_other_changes", uploads.other)
+        val other = AppText.count("feed_other_changes", uploads.other)
         return when {
             activities != null && uploads.other > 0 -> AppText.named("feed_uploading_with_other", activities, other)
             activities != null -> activities
-            else -> count("feed_pending_writes", uploads.other)
+            else -> AppText.count("feed_pending_writes", uploads.other)
         }
     }
 
@@ -135,8 +133,6 @@ object FeedUploadTexts {
         uploads.serverPausedUntil
             ?.takeIf { uploads.uploading }
             ?.let { DayText.until(it, now, zone, today = "feed_upload_paused", tomorrow = "feed_upload_paused_tomorrow") }
-
-    private fun count(name: String, quantity: Int): AppText = AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity)))
 }
 
 /**
@@ -153,7 +149,7 @@ object ImportCardTexts {
     /** "Imported 312 activities". */
     fun title(card: ImportCardView): AppText {
         val count = card.count.toInt()
-        return AppText.Plural("import_card_title", count, persistentListOf(AppText.whole(count)))
+        return AppText.count("import_card_title", count)
     }
 
     /** "Nov 2019 – Oct 2026": the months of its first and last start, in the viewer's [zone]. */

@@ -29,7 +29,7 @@ data class CommentsPreview(
 ) {
     /** "14 comments": the comment count's spoken name beside its icon. */
     val countText: AppText
-        get() = AppText.Plural("detail_comment_count", count.toInt(), persistentListOf(AppText.whole(count)))
+        get() = AppText.count("detail_comment_count", count)
 
     /** The count alone, "14", shown beside the comment icon. */
     val countNumber: String

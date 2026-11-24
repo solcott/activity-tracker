@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.fixtures.PagedStates
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -239,7 +240,7 @@ object TrailReportSamples {
         TrailReportRow(
             uri = report.uri.value,
             cid = report.cid.value,
-            author = TrailReportTexts.nameOf(report.author),
+            author = report.author.shownName,
             authorDid = report.author.did.value,
             avatar = null,
             age = TrailReportTexts.age(report.indexedAt, Fixed.NOW, zone),

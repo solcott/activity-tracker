@@ -148,6 +148,5 @@ object UploadImportTexts {
             .reduce { joined, next -> AppText.named("uploads_list_pair", joined, next) }
             .let { head -> AppText.named("uploads_list_last", head, AppText.written(names.last())) }
 
-    private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
+    private fun count(name: String, quantity: Int): AppText? = if (quantity > 0) AppText.count(name, quantity) else null
 }

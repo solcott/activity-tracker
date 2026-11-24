@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
@@ -82,7 +83,7 @@ fun TrailPhotosPresenter(
                             url = photo.image.fullsize,
                             alt = photo.image.alt,
                             blur = TrailReportTexts.thumb(photo).blur,
-                            author = TrailReportTexts.nameOf(photo.author),
+                            author = photo.author.shownName,
                             age = TrailReportTexts.age(photo.indexedAt, now, zone),
                             tags = TrailReportTexts.tags(photo.conditions),
                             report = photo.report.value,
@@ -115,7 +116,7 @@ fun TrailPhotosPresenter(
                 val photo = shownPhoto()?.takeIf { it.author.did.value != self } ?: return@TrailPhotosState
                 val report = ReportTarget.TrailReport(photo.report, photo.cid, photo.author.did)
                 reporting.eventSink(
-                    ReportingEvent.Open(ReportTarget.TrailPhoto(report, photo.position), TrailReportTexts.nameOf(photo.author)),
+                    ReportingEvent.Open(ReportTarget.TrailPhoto(report, photo.position), photo.author.shownName),
                 )
             }
             TrailPhotosEvent.Block -> {

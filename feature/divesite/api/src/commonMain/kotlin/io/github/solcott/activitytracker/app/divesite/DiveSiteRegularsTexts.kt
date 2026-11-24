@@ -6,7 +6,6 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.RegularsPeriod
-import kotlinx.collections.immutable.persistentListOf
 
 /** What a dive site's Regulars board offers and says (dive-sites/site-regulars, dev/shared-display-text). */
 object DiveSiteRegularsTexts {
@@ -29,5 +28,5 @@ object DiveSiteRegularsTexts {
     fun visits(entry: DiveSiteRegularEntry): AppText = visits(entry.visits)
 
     /** A count of dives: "31 dives", grouped from a thousand (ui/number-format). */
-    fun visits(count: Int): AppText = AppText.Plural("dive_site_visits", count, persistentListOf(AppText.whole(count)))
+    fun visits(count: Int): AppText = AppText.count("dive_site_visits", count)
 }
