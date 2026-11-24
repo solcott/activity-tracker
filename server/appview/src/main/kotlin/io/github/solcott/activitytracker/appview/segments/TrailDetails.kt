@@ -374,6 +374,9 @@ internal fun JdbcTransaction.recomputeTrailCommunity(segment: String) {
             .distinctBy { it.detail }
             .sortedBy { TrailDetail.all.indexOf(it.detail) }
     val column = adopted.ifEmpty { null }?.let { AtJson.encodeToString(COMMUNITY, it) }
+    // Written only when it changed, so the hourly backstop rewrites nothing that stayed the same.
+    val stored = Segments.select(Segments.trailCommunity).where { Segments.uri eq segment }.firstOrNull() ?: return
+    if (stored[Segments.trailCommunity] == column) return
     Segments.update({ Segments.uri eq segment }) { it[trailCommunity] = column }
 }
 
