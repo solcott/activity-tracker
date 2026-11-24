@@ -111,8 +111,8 @@ Finishing a recording SHALL keep it on the device until its activity is queued f
 
 ### Requirement: The recording screen is native on iOS
 On iOS the recording screen SHALL be drawn natively: the elapsed time with the distance, the sport's rate and the climb in the athlete's
-units, the activity type (outdoor types only, fixed once recording starts), the title, the gear and who sees it, any failed finish, a
-recording offered back after the app stopped, and a change not saved on the device.
+units, the activity type (outdoor types only, fixed once recording starts), the title, the description, the gear and who sees it, any
+failed finish, a recording offered back after the app stopped, and a change not saved on the device.
 
 #### Scenario: Offered back
 - **WHEN** the app stopped during alice's ride and she opens Record again
@@ -141,3 +141,14 @@ given. When access was refused it SHALL say that location is off and offer to op
 #### Scenario: Access refused
 - **WHEN** alice has refused location access and opens Record
 - **THEN** the screen says location is off for the app and offers Open Settings
+
+### Requirement: A recording is saved with its description
+The recording screen SHALL offer the details form's description field under the title, on every platform. Finishing SHALL save what is typed there, trimmed, as the activity's description; a blank one SHALL save none.
+
+#### Scenario: Described ride
+- **WHEN** alice types "Dusty climbs, then a tailwind home." on the recording screen and finishes her ride
+- **THEN** the saved ride's description is "Dusty climbs, then a tailwind home."
+
+#### Scenario: Nothing written
+- **WHEN** alice finishes a ride with only spaces in the description
+- **THEN** the saved ride has no description
