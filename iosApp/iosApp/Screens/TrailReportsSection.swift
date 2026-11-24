@@ -189,21 +189,12 @@ struct TrailPhotoStrip: View {
             .overlay { RemoteImage(photo.url, maxSize: CGSize(width: size, height: size)) { Color(.secondarySystemFill) } }
             .clipped()
         if let blur = photo.blur, !revealed.contains(index) {
-            Button {
+            CoveredPhoto(reason: Text(blur), show: Text(.trailPhotoHidden), style: .smallTile) {
                 revealed.insert(index)
-            } label: {
-                ZStack {
-                    picture.blur(radius: 16).accessibilityHidden(true)
-                    Color(.secondarySystemBackground).opacity(0.8)
-                    VStack(spacing: 2) {
-                        Text(blur).font(.caption2.weight(.semibold)).multilineTextAlignment(.center).lineLimit(3)
-                        Text(.trailPhotoHidden).font(.caption2).foregroundStyle(.tint)
-                    }
-                    .padding(4)
-                }
-                .clipShape(shape)
+            } picture: {
+                picture
             }
-            .buttonStyle(.borderless)
+            .clipShape(shape)
         } else {
             let last = index == photos.count - 1
             Button {

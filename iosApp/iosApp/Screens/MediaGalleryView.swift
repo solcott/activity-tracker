@@ -38,31 +38,16 @@ struct MediaGalleryView: View {
     /// Close, and the counter and photo menu at the other end.
     private var bar: some View {
         let texts = MediaGalleryTexts.shared
-        return HStack(spacing: 12) {
+        return GalleryChrome(
+            counter: texts.counter(state: state), showsMenu: texts.offersReport(state: state),
+            close: { send(MediaGalleryEvent.Back.shared) }
+        ) {
             Button {
-                send(MediaGalleryEvent.Back.shared)
+                send(MediaGalleryEvent.ReportPhoto.shared)
             } label: {
-                AppIconLabel(.close)
-            }
-            .accessibilityLabel(Text(texts.close))
-            Spacer(minLength: 8)
-            if let counter = texts.counter(state: state) {
-                Text(counter).font(.subheadline.monospacedDigit())
-            }
-            if texts.offersReport(state: state) {
-                Menu {
-                    Button {
-                        send(MediaGalleryEvent.ReportPhoto.shared)
-                    } label: {
-                        Text(texts.reportPhoto)
-                    }
-                } label: {
-                    AppIconLabel(.more)
-                }
-                .accessibilityLabel(Text(texts.more))
+                Text(texts.reportPhoto)
             }
         }
-        .foregroundStyle(.white)
     }
 
     /// A page per photo, swiped, bound to the state's page; while one is zoomed it alone shows, so a pan moves the photo, not the pager.
@@ -105,19 +90,9 @@ private struct GalleryPhoto: View {
             Text(texts.takenDown).foregroundStyle(.white).multilineTextAlignment(.center).padding(24)
         } else if let cover = texts.cover(state: state) {
             // Covered, the photo is neither seen nor reachable: a tap reveals it.
-            Button(action: tap) {
-                ZStack {
-                    RemoteImage(photo.url, fits: true) { Color.clear }.blur(radius: 40).accessibilityHidden(true)
-                    Color.black.opacity(0.6)
-                    VStack(spacing: 6) {
-                        Text(cover).font(.headline).multilineTextAlignment(.center)
-                        Text(texts.show).font(.subheadline).foregroundStyle(.tint)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(24)
-                }
+            CoveredPhoto(reason: Text(cover), show: Text(texts.show), style: .screen, reveal: tap) {
+                RemoteImage(photo.url, fits: true) { Color.clear }
             }
-            .buttonStyle(.plain)
         } else {
             RemoteImage(photo.url, fits: true) { Color.clear }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -180,44 +180,28 @@ struct TrailPhotosView: View {
 
     /// Close, and the position and the photo's menu at the other end.
     private func bar(_ page: TrailPhotoPage?) -> some View {
-        HStack(spacing: 12) {
-            Button {
-                send(TrailPhotosEvent.Back.shared)
-            } label: {
-                AppIconLabel(.close)
-            }
-            .accessibilityLabel(Text(MediaGalleryTexts.shared.close))
-            Spacer(minLength: 8)
-            if let position = state.position {
-                Text(position).font(.subheadline.monospacedDigit())
-            }
+        GalleryChrome(counter: state.position, showsMenu: page != nil, close: { send(TrailPhotosEvent.Back.shared) }) {
             if let page {
-                Menu {
-                    if page.own {
-                        Button(role: .destructive) {
-                            send(TrailPhotosEvent.Remove.shared)
-                        } label: {
-                            Text(.trailPhotoRemove)
-                        }
-                    } else {
-                        Button {
-                            send(TrailPhotosEvent.Report.shared)
-                        } label: {
-                            Text(.actionReport)
-                        }
-                        Button(role: .destructive) {
-                            confirmingBlock = true
-                        } label: {
-                            Text(.actionBlock)
-                        }
+                if page.own {
+                    Button(role: .destructive) {
+                        send(TrailPhotosEvent.Remove.shared)
+                    } label: {
+                        Text(.trailPhotoRemove)
                     }
-                } label: {
-                    AppIconLabel(.more)
+                } else {
+                    Button {
+                        send(TrailPhotosEvent.Report.shared)
+                    } label: {
+                        Text(.actionReport)
+                    }
+                    Button(role: .destructive) {
+                        confirmingBlock = true
+                    } label: {
+                        Text(.actionBlock)
+                    }
                 }
-                .accessibilityLabel(Text(MediaGalleryTexts.shared.more))
             }
         }
-        .foregroundStyle(.white)
     }
 
     /// Who took it and when, with which tags; its alt text; and See report and See segment.
@@ -252,21 +236,11 @@ struct TrailPhotosView: View {
     /// A page: the photo fitted to the screen, or its label's cover with Show.
     @ViewBuilder private func photo(_ page: TrailPhotoPage, index: Int) -> some View {
         if let blur = page.blur, !revealed.contains(index) {
-            Button {
+            CoveredPhoto(reason: Text(blur), show: Text(.trailPhotoHidden), style: .screen) {
                 revealed.insert(index)
-            } label: {
-                ZStack {
-                    RemoteImage(page.url, fits: true) { Color.clear }.blur(radius: 40).accessibilityHidden(true)
-                    Color.black.opacity(0.6)
-                    VStack(spacing: 6) {
-                        Text(blur).font(.headline).multilineTextAlignment(.center)
-                        Text(.trailPhotoHidden).font(.subheadline).foregroundStyle(.tint)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(24)
-                }
+            } picture: {
+                RemoteImage(page.url, fits: true) { Color.clear }
             }
-            .buttonStyle(.plain)
         } else {
             RemoteImage(page.url, fits: true) { Color.clear }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

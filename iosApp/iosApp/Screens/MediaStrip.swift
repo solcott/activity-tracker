@@ -71,23 +71,12 @@ struct MediaStrip: View {
                 .clipShape(tile)
         } else if let label = content.blurLabel(), !revealed {
             // Covered, the photo is neither seen nor reachable: a tap reveals rather than opens it.
-            Button(action: reveal) {
-                ZStack {
-                    RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
-                        .frame(width: frame, height: Self.height)
-                        .blur(radius: 24)
-                        .accessibilityHidden(true)
-                    Color(.secondarySystemBackground).opacity(0.85)
-                    VStack(spacing: 4) {
-                        Text(label).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
-                        Text(.labelShow).font(.footnote).foregroundStyle(.tint)
-                    }
-                    .padding(8)
-                }
-                .frame(width: frame, height: Self.height)
-                .clipShape(tile)
+            CoveredPhoto(reason: Text(label), show: Text(.labelShow), style: .tile, reveal: reveal) {
+                RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
+                    .frame(width: frame, height: Self.height)
             }
-            .buttonStyle(.borderless)
+            .frame(width: frame, height: Self.height)
+            .clipShape(tile)
         } else {
             Button {
                 open(index)
