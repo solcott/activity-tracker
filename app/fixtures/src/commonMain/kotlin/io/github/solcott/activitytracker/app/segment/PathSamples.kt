@@ -100,6 +100,20 @@ object PathSamples {
     val loaded: PathState
         get() = page(ContentStates.loaded(content))
 
+    /** [loaded] with its segments' conditions (segments/trail-reports): Ridge Run closed, on the map too. */
+    val conditions: PathState
+        get() {
+            // The roll-up's closed segment is this page's stretch, so its row and its line show it.
+            val stretch = groups[1].shown
+            val card = TrailReportSamples.pathCard
+            val rows =
+                card.segments.mapIndexed { i, row -> if (i == 0) row.copy(uri = stretch.uri.value, name = stretch.currentName) else row }
+            return loaded.copy(
+                conditions = card.copy(segments = rows.toImmutableList()),
+                mapLines = loaded.mapLines.map { if (it.uri == stretch.uri.value) it.copy(closed = true) else it }.toImmutableList(),
+            )
+        }
+
     /** The stretch selected on the map, marked in the list. */
     val selected: PathState
         get() = loaded.copy(selected = groups[1].shown.uri)
@@ -347,6 +361,7 @@ object PathSamples {
                     SECTIONS to sections,
                     "sectionsCollapsed" to sectionsCollapsed,
                     TRAIL to trail,
+                    CONDITIONS to conditions,
                     TRAIL_EXPANDED to trailExpanded,
                     TRAIL_VARYING to trailVarying,
                     FILTERS to filters,
@@ -361,6 +376,7 @@ object PathSamples {
     const val SECTIONS = "sections"
 
     const val TRAIL = "trail"
+    const val CONDITIONS = "conditions"
     const val TRAIL_EXPANDED = "trailExpanded"
     const val TRAIL_VARYING = "trailVarying"
     const val FILTERS = "filters"

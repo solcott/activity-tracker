@@ -56,6 +56,9 @@
     <string name="error_vote_segment_name">Couldn't send your vote</string>
     <string name="error_suggest_trail_detail">Couldn\'t send your suggestion</string>
     <string name="error_vote_trail_detail">Couldn\'t send your answer</string>
+    <string name="error_post_trail_report">Couldn\'t post your report</string>
+    <string name="error_delete_trail_report">Couldn\'t delete it</string>
+    <string name="error_load_trail_reports">Couldn\'t load reports</string>
     <string name="error_delete_segment_name">Couldn't delete the proposal</string>
     <string name="error_load_blocks">Couldn't load blocked accounts</string>
     <string name="error_load_mutes">Couldn't load muted accounts</string>
@@ -1121,6 +1124,82 @@
     <string name="trail_suggested_heading">Suggested by riders</string>
     <string name="trail_suggested_by">Suggested by %1$s</string>
     <string name="trail_vote_totals">%1$s agree · %2$s disagree</string>
+    <!-- Trail reports (segments/trail-reports) -->
+    <string name="trail_condition_dry">Dry</string>
+    <string name="trail_condition_tacky">Tacky</string>
+    <string name="trail_condition_wet">Wet</string>
+    <string name="trail_condition_muddy">Muddy</string>
+    <string name="trail_condition_snow">Snow</string>
+    <string name="trail_condition_ice">Ice</string>
+    <string name="trail_condition_downedTree">Downed tree</string>
+    <string name="trail_condition_overgrown">Overgrown</string>
+    <string name="trail_condition_washedOut">Washed out</string>
+    <string name="trail_condition_closed">Closed</string>
+    <string name="trail_condition_count">%1$s · %2$s</string>
+    <string name="trail_conditions_title">Conditions</string>
+    <plurals name="trail_conditions_riders">
+        <item quantity="one">%1$s rider · latest %2$s</item>
+        <item quantity="other">%1$s riders · latest %2$s</item>
+    </plurals>
+    <plurals name="trail_reports_count">
+        <item quantity="one">%1$s report</item>
+        <item quantity="other">%1$s reports</item>
+    </plurals>
+    <string name="trail_conditions_none">No reports in the last 14 days</string>
+    <string name="trail_conditions_last">Last report: %1$s, %2$s</string>
+    <string name="trail_conditions_ask">You rode it %1$s. How was it?</string>
+    <string name="trail_age_today">today</string>
+    <string name="trail_age_yesterday">yesterday</string>
+    <plurals name="trail_age_days">
+        <item quantity="one">%1$s day ago</item>
+        <item quantity="other">%1$s days ago</item>
+    </plurals>
+    <plurals name="trail_age_weeks">
+        <item quantity="one">%1$s week ago</item>
+        <item quantity="other">%1$s weeks ago</item>
+    </plurals>
+    <plurals name="trail_age_months">
+        <item quantity="one">%1$s month ago</item>
+        <item quantity="other">%1$s months ago</item>
+    </plurals>
+    <string name="trail_report_conditions">Report conditions</string>
+    <string name="trail_add_photos">Add photos</string>
+    <string name="trail_photos_title">Photos</string>
+    <string name="trail_photos_see_all">See all %1$s</string>
+    <string name="trail_photos_more">+%1$s</string>
+    <string name="trail_report_sheet_title">How's the trail?</string>
+    <string name="trail_report_rode">%1$s · you rode it %2$s</string>
+    <string name="trail_report_surface">Surface</string>
+    <string name="trail_report_on_trail">On the trail</string>
+    <string name="trail_report_note">Note (optional)</string>
+    <string name="trail_report_note_count">%1$s / %2$s</string>
+    <string name="trail_report_public">Posted publicly with your name. Conditions show for 14 days; photos stay on the trail until you delete them.</string>
+    <string name="trail_report_post">Post report</string>
+    <string name="trail_report_remove_picked">Remove photo</string>
+    <string name="trail_report_share_title">Share a photo from a non-public ride?</string>
+    <string name="trail_report_share_body">The copy on the trail will be public, with your name. The ride itself stays as it is.</string>
+    <string name="trail_report_share_confirm">Share and post</string>
+    <string name="trail_photos_take">Take photo</string>
+    <string name="trail_photos_choose">Choose from library</string>
+    <string name="trail_photos_from_rides">From your rides here</string>
+    <string name="trail_photos_from_rides_detail">Photos on your activities that passed %1$s</string>
+    <string name="trail_photos_limit">Up to 4 photos per report. Alt text carries over from the ride.</string>
+    <string name="trail_photos_add">Add %1$s</string>
+    <string name="trail_reports_recent">Last 14 days</string>
+    <string name="trail_reports_older">Older</string>
+    <string name="trail_report_delete">Delete</string>
+    <string name="trail_photo_remove">Remove from trail</string>
+    <string name="trail_photo_position">%1$s of %2$s</string>
+    <string name="trail_photo_with_report">%1$s · with a report: %2$s</string>
+    <string name="trail_photo_see_report">See report</string>
+    <string name="trail_photo_see_segment">See segment</string>
+    <string name="trail_photo_hidden">Show</string>
+    <plurals name="path_conditions_summary">
+        <item quantity="one">Reports on %1$s of %2$s segment, last 14 days</item>
+        <item quantity="other">Reports on %1$s of %2$s segments, last 14 days</item>
+    </plurals>
+    <string name="path_photos_title">Photos from all segments</string>
+    <string name="path_segment_condition">%1$s · %2$s</string>
     <string name="trail_agree">Agree</string>
     <string name="trail_disagree">Disagree</string>
     <string name="trail_votes_private">A suggestion takes over once enough riders agree. Only totals are shown; your vote stays private.</string>

@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
+import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
 import io.github.solcott.activitytracker.app.text.AppText
 
 /**
@@ -56,7 +57,8 @@ enum class TopLevelDestination {
                 top !is EditActivityScreen &&
                 top !is MediaGalleryScreen &&
                 top !is RouteMapScreen &&
-                top !is SegmentMapScreen
+                top !is SegmentMapScreen &&
+                top !is TrailPhotosScreen
 
         private val FullScreenFlows = setOf(RecordScreen, ManualActivityScreen, EditProfileScreen)
     }

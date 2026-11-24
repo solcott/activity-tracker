@@ -42,6 +42,8 @@ import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
+import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
+import io.github.solcott.activitytracker.app.segment.TrailReportsScreen
 import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen
@@ -97,6 +99,8 @@ val linkSamples: Map<String, LinkSample> =
             ),
             LinkSample(SegmentMayorsScreen(SEG, "Hill"), "/segment/did:plc:carol/3kseg/mayors", SegmentMayorsScreen(SEG)),
             LinkSample(PathScreen("at://did:plc:imp/${Nsid.FEED_PATH}/3kpath", "ride"), "/trail/did:plc:imp/3kpath?sport=ride"),
+            LinkSample(TrailReportsScreen(SEG, "Hill"), "/segment/did:plc:carol/3kseg/reports", TrailReportsScreen(SEG)),
+            LinkSample(TrailPhotosScreen(segment = SEG, start = 3), "/segment/did:plc:carol/3kseg/photos/3"),
             LinkSample(DiveSiteScreen(SITE), "/dive-site/did:plc:carol/3ksite"),
             LinkSample(DiveSiteRegularsScreen(SITE, "Blue Hole"), "/dive-site/did:plc:carol/3ksite/regulars", DiveSiteRegularsScreen(SITE)),
             LinkSample(StarredSegmentsScreen, "/starred-segments"),

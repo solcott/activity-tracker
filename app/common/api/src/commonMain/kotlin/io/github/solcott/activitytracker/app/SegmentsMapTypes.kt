@@ -17,6 +17,8 @@ data class MapSegmentLine(
     val lift: Boolean = false,
     val rating: TrailRating? = null,
     val trail: Boolean = true,
+    /** Riders' newest report says it's closed (segments/trail-reports): the map marks it "Closed", in words as well as colour. */
+    val closed: Boolean = false,
 )
 
 /**

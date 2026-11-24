@@ -12,6 +12,7 @@ import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.names.PlaceNameEvent
 import io.github.solcott.activitytracker.app.segment.PathScreen
+import io.github.solcott.activitytracker.app.segment.ReportEvent
 import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
@@ -30,14 +31,18 @@ import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.data.segments.TrailContributions
+import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
+import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.TrackMath
@@ -173,6 +178,8 @@ class SegmentPresenterTest {
     private lateinit var db: AppDatabase
     private lateinit var names: SegmentNames
     private lateinit var trail: TrailContributions
+    private lateinit var feed: FeedRepository
+    private lateinit var reports: TrailReports
     /** Extra fields of the served segment view, after `status`: its names, proposals and viewer flags. */
     private var naming = ""
     /** The output's `elevationProfile` field, with its leading comma; empty for none. */
@@ -191,7 +198,7 @@ class SegmentPresenterTest {
             ""","groupMembers":[${member("3krunb", "run", back)},${member("3khikef", "hike", line)},${member("3khikeb", "hike", back)}]"""
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val loaded = awaitUntil { it.group != null }
             val group = assertNotNull(loaded.group)
             assertTrue(group.offered)
@@ -223,7 +230,7 @@ class SegmentPresenterTest {
     fun aRunSegmentShowsTheTrailDetailsThatFitIt() = runTest {
         naming = ""","trail":{"mtbScale":2,"sacScale":"mountain_hiking","dog":"leashed"}"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val rows = awaitUntil { it.segment != null }.trailDetails()
             assertEquals(
                 listOf("trail_detail_hiking", "trail_detail_dog"),
@@ -237,7 +244,7 @@ class SegmentPresenterTest {
     @Test
     fun aSegmentWithoutTrailAttributesHasNoTrailDetails() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             assertTrue(awaitUntil { it.segment != null }.trailDetails().isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
@@ -246,7 +253,7 @@ class SegmentPresenterTest {
     @Test
     fun aSegmentAloneOffersNoSwitch() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             assertFalse(assertNotNull(awaitUntil { it.group != null }.group).offered)
             cancelAndIgnoreRemainingEvents()
         }
@@ -256,7 +263,7 @@ class SegmentPresenterTest {
     fun aLoneOneWaySegmentOffersItsOneDirectionOnly() = runTest {
         naming = ""","oneWay":true,"elevationGain":120,"elevationLoss":0"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val group = assertNotNull(awaitUntil { it.group != null }.group)
             assertTrue(group.offered && group.oneWay)
             assertFalse(group.showsSports, "nothing else to switch to")
@@ -271,7 +278,7 @@ class SegmentPresenterTest {
         naming = ""","elevationGain":120,"elevationLoss":0"""
         routeField = ""","groupMembers":[${member("3krunb", "run", back)}]"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val group = assertNotNull(awaitUntil { it.group != null }.group)
             assertFalse(group.oneWay)
             assertEquals(listOf("northbound", "southbound"), group.directions.map { it.heading.word }, "ordered by heading")
@@ -286,13 +293,15 @@ class SegmentPresenterTest {
         val stars = SegmentStars(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System)
         names = SegmentNames(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System)
         trail = TrailContributions(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System, db)
+        feed = FeedRepository(db, clients, LocalLikes(), Logger)
+        reports = TrailReports(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System, feed)
         return SegmentRepository(clients) to stars
     }
 
     @Test
     fun loadsTheSegmentItsLineAndTheViewersEffortsFastestFirst() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             assertEquals(true, awaitItem().content.isLoading)
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertEquals("Hill", state.segment?.record?.name)
@@ -309,7 +318,7 @@ class SegmentPresenterTest {
         val heights = List(6) { 10_000 } + listOf(10_120, 10_240, 10_360, 10_480, 10_600)
         profileField = ""","elevationProfile":{"heights":${heights.joinToString(",", "[", "]")}}"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val profile = assertNotNull(awaitUntil { it.profile != null }.profile)
             assertEquals(heights.map { it / 10.0 }, profile.heightsM)
             assertEquals(100.0, profile.spacingMeters)
@@ -322,7 +331,7 @@ class SegmentPresenterTest {
     @Test
     fun aSegmentWithoutAProfileHasNone() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             assertNull(state.profile)
             cancelAndIgnoreRemainingEvents()
@@ -333,7 +342,7 @@ class SegmentPresenterTest {
     fun aFailedLoadIsAnErrorThatRetries() = runTest {
         failSegment = true
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val failed = awaitUntil { it.content.errorOrNull != null }
             assertEquals(DataError.Api(listOf("Segment not found"), code = "NotFound"), failed.content.errorOrNull)
             assertEquals(false, failed.content.isLoading)
@@ -353,7 +362,7 @@ class SegmentPresenterTest {
     fun effortsThatFailShowTheSegmentWithoutThemOrAnError() = runTest {
         failEfforts = true
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && !it.content.isLoading }
             assertEquals("Hill", state.segment?.record?.name)
             assertEquals(emptyList(), state.efforts)
@@ -371,7 +380,8 @@ class SegmentPresenterTest {
             {
                 withCompositionLocals(LocalRetainedStateRegistry provides registry) {
                     // A stand-in for the screen it opened while it's on the back stack.
-                    if (shown) SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) else SegmentState()
+                    if (shown) SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System)
+                    else SegmentState()
                 }
             },
         ) {
@@ -394,7 +404,7 @@ class SegmentPresenterTest {
     fun anEffortOpensItsActivity() = runTest {
         val navigator = FakeNavigator(screen)
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.efforts.isNotEmpty() }
             state.eventSink(SegmentEvent.OpenActivity(state.efforts.first().activity))
             assertEquals(ActivityDetailScreen("at://$alice/${Nsid.FEED_ACTIVITY}/3ka1"), navigator.awaitNextScreen())
@@ -409,7 +419,7 @@ class SegmentPresenterTest {
         duplicateOf = ""","duplicateOf":"$original""""
         val navigator = FakeNavigator(screen)
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             assertEquals("duplicate", state.segment?.status)
             state.eventSink(SegmentEvent.OpenOriginal)
@@ -422,7 +432,7 @@ class SegmentPresenterTest {
     fun theMapOpensTheEnlargedMap() = runTest {
         val navigator = FakeNavigator(screen)
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenMap)
             assertEquals(SegmentMapScreen(uri), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -490,7 +500,7 @@ class SegmentPresenterTest {
         status = "active"
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
             assertEquals(SegmentLeaderboardScreen(uri, "Hill"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -501,7 +511,7 @@ class SegmentPresenterTest {
     fun aProposedSegmentHasNoLeaderboard() = runTest {
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
             navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
@@ -513,7 +523,7 @@ class SegmentPresenterTest {
         status = "active"
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.mayor != null }
             assertEquals("bob.test", state.mayor?.leader?.athlete?.handle?.value)
             assertEquals(14, state.mayor?.leader?.efforts)
@@ -534,7 +544,7 @@ class SegmentPresenterTest {
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
         val canoe = SegmentScreen(uri, board = "canoe")
-        presenterTestOf({ SegmentPresenter(canoe, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(canoe, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.mayor != null }
             assertEquals("canoe", mayorsRequested.single()["board"])
             state.eventSink(SegmentEvent.OpenMayors)
@@ -551,7 +561,7 @@ class SegmentPresenterTest {
         mayors = ""
         ownMayor = null
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.mayor != null }
             assertNull(state.mayor?.leader)
             assertNull(state.mayor?.viewer)
@@ -564,7 +574,7 @@ class SegmentPresenterTest {
         status = "active"
         mayors = null
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && !it.content.isLoading }
             // A failure changes nothing, so there's no state to wait for: only the request, then no state may carry a Mayor.
             mayorsAsked.await()
@@ -580,7 +590,7 @@ class SegmentPresenterTest {
     fun aProposedSegmentHasNoMayor() = runTest {
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertNull(state.mayor)
             assertEquals(emptyList(), mayorsRequested)
@@ -594,7 +604,7 @@ class SegmentPresenterTest {
     fun anActiveSegmentShowsItsLeaderAndTheViewersPlace() = runTest {
         status = "active"
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.leaderboard != null }
             assertEquals("kate.test", state.leaderboard?.leader?.athlete?.handle?.value)
             assertEquals(252L, state.leaderboard?.leader?.effort?.elapsed)
@@ -614,7 +624,7 @@ class SegmentPresenterTest {
         leaders = ""
         ownLeader = null
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.leaderboard != null }
             assertNull(state.leaderboard?.leader)
             assertNull(state.leaderboard?.viewer)
@@ -628,7 +638,7 @@ class SegmentPresenterTest {
         leaders = null
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && !it.content.isLoading }
             leadersAsked.await()
             assertNull(state.leaderboard)
@@ -644,7 +654,21 @@ class SegmentPresenterTest {
     fun aCarriedTypeReachesTheLeaderboardCard() = runTest {
         status = "active"
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(SegmentScreen(uri, board = "eBike"), FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf(
+            {
+                SegmentPresenter(
+                    SegmentScreen(uri, board = "eBike"),
+                    FakeNavigator(screen),
+                    segments,
+                    stars,
+                    names,
+                    trail,
+                    reports,
+                    feed,
+                    Clock.System,
+                )
+            },
+        ) {
             awaitUntil { it.leaderboard != null }
             assertEquals("eBike", leadersRequested.single()["board"])
             cancelAndIgnoreRemainingEvents()
@@ -654,7 +678,7 @@ class SegmentPresenterTest {
     @Test
     fun aProposedSegmentReadsNoLeaderboard() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertNull(state.leaderboard)
             assertEquals(emptyList(), leadersRequested)
@@ -668,7 +692,9 @@ class SegmentPresenterTest {
         paths = """["$trail"]"""
         val (segments, stars) = session()
         val navigator = FakeNavigator(screen)
-        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars, names, this@SegmentPresenterTest.trail) }) {
+        presenterTestOf(
+            { SegmentPresenter(screen, navigator, segments, stars, names, this@SegmentPresenterTest.trail, reports, feed, Clock.System) },
+        ) {
             val state = awaitUntil { it.trails.isNotEmpty() }
             assertEquals(listOf("Hogback Ridge Trail"), state.trails.map { it.name })
             assertEquals(listOf(listOf(trail)), pathsRequested)
@@ -681,7 +707,7 @@ class SegmentPresenterTest {
     @Test
     fun aSegmentOnNoTrailReadsNoTrails() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertTrue(state.trails.isEmpty())
             assertEquals(emptyList(), pathsRequested)
@@ -694,7 +720,7 @@ class SegmentPresenterTest {
         paths = """["at://did:plc:importer/${Nsid.FEED_PATH}/hogback"]"""
         failPaths = true
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertTrue(state.trails.isEmpty())
             assertNull(state.content.errorOrNull)
@@ -706,7 +732,7 @@ class SegmentPresenterTest {
     fun theStarShowsWhatSelfHolds() = runTest {
         storedStar = """{"subject":{"uri":"$uri","cid":"bafyseg"},"createdAt":"2026-10-21T12:00:00Z"}"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             assertEquals(true, awaitUntil { it.starred != null }.starred)
             cancelAndIgnoreRemainingEvents()
         }
@@ -716,7 +742,7 @@ class SegmentPresenterTest {
     fun anUnreadableStarIsntShownAsUnstarred() = runTest {
         pdsDown = true
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertNull(state.starred)
             cancelAndIgnoreRemainingEvents()
@@ -726,7 +752,7 @@ class SegmentPresenterTest {
     @Test
     fun aSessionWithoutTheGrantIsntOfferedTheStar() = runTest {
         val (segments, stars) = session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertNull(state.starred)
             assertEquals("Hill", state.segment?.record?.name, "the segment shows as usual")
@@ -737,7 +763,7 @@ class SegmentPresenterTest {
     @Test
     fun togglingStarsAtOnceAndQueuesOneWrite() = runTest {
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val unstarred = awaitUntil { it.segment != null && it.starred == false }
             unstarred.eventSink(SegmentEvent.ToggleStar)
             unstarred.eventSink(SegmentEvent.ToggleStar)
@@ -759,7 +785,7 @@ class SegmentPresenterTest {
     fun unstarringQueuesTheDelete() = runTest {
         storedStar = """{"subject":{"uri":"$uri","cid":"bafyseg"},"createdAt":"2026-10-21T12:00:00Z"}"""
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             awaitUntil { it.segment != null && it.starred == true }.eventSink(SegmentEvent.ToggleStar)
             assertEquals(false, awaitUntil { it.starred == false }.starred)
             db.outbox().count(alice.value).first { it > 0 }
@@ -778,7 +804,7 @@ class SegmentPresenterTest {
         this.attribution = attribution
         val (segments, stars) = session()
         var credit: SegmentCredit? = null
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             credit = awaitUntil { it.segment != null }.credit
             cancelAndIgnoreRemainingEvents()
         }
@@ -841,7 +867,7 @@ class SegmentPresenterTest {
     fun aRenamedSegmentShowsItsCurrentAndOriginalNames() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             assertEquals("Wiggly Woods", state.segment?.currentName)
             assertEquals("Hill", state.originalName)
@@ -855,7 +881,7 @@ class SegmentPresenterTest {
     fun anUpVoteShowsAtOnceAndCountsOnceWhenTheAppViewCatchesUp() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val loaded = awaitUntil { it.segment != null }
             assertTrue(loaded.canVote && loaded.names.canVoteHere)
             loaded.names.eventSink(PlaceNameEvent.Vote(AtUri(bobsProposal), SegmentNameVoteDirection.UP))
@@ -876,7 +902,7 @@ class SegmentPresenterTest {
     fun aSessionWithoutVotesInItsGrantCantVote() = runTest {
         renamed()
         val (segments, stars) = session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             assertTrue(state.canVote)
             assertFalse(state.names.canVoteHere)
@@ -888,7 +914,7 @@ class SegmentPresenterTest {
     fun proposeIsOfferedOnlyWhenTheViewerMayPropose() = runTest {
         renamed(canPropose = false)
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             assertFalse(state.canPropose)
             state.names.eventSink(PlaceNameEvent.ProposeName)
@@ -898,7 +924,7 @@ class SegmentPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         renamed(canPropose = true)
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment?.viewer?.canProposeName == true }
             state.names.eventSink(PlaceNameEvent.ProposeName)
             val sheet = awaitUntil { it.names.sheet != null }.names.sheet!!
@@ -912,7 +938,7 @@ class SegmentPresenterTest {
     fun deletingOnesOwnProposalAsksFirstThenHidesIt() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             state.names.eventSink(PlaceNameEvent.DeleteProposal(AtUri(alicesProposal)))
             val asking = awaitUntil { it.names.confirmDelete != null }
@@ -929,7 +955,7 @@ class SegmentPresenterTest {
     fun editingOnesOwnProposalOpensTheSheetWithItsName() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             state.names.eventSink(PlaceNameEvent.EditProposal(AtUri(alicesProposal)))
             val sheet = awaitUntil { it.names.sheet != null }.names.sheet!!
@@ -943,7 +969,7 @@ class SegmentPresenterTest {
     fun someoneElsesProposalOffersNoEditOrDelete() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             state.names.eventSink(PlaceNameEvent.EditProposal(AtUri(bobsProposal)))
             state.names.eventSink(PlaceNameEvent.DeleteProposal(AtUri(bobsProposal)))
@@ -959,7 +985,7 @@ class SegmentPresenterTest {
     fun anAdoptedNameOffersNoEdit() = runTest {
         renamed()
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val state = awaitUntil { it.segment != null }
             // Alice's adopted "Wiggly Woods" is in the history only, not among the open proposals.
             state.names.eventSink(PlaceNameEvent.EditProposal(AtUri("at://$alice/${Nsid.FEED_SEGMENT_NAME_PROPOSAL}/3kadopted")))
@@ -982,7 +1008,7 @@ class SegmentPresenterTest {
     fun aRiderConfirmsAndAgreesThroughThePicker() = runTest {
         naming = ridersTrail
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val loaded = awaitUntil { it.segment != null }
             assertTrue(loaded.trailGroups().flatMap { it.rows }.single { it.key == "dog" }.opens)
             loaded.trail.eventSink(TrailEvent.Open("dog"))
@@ -1007,12 +1033,46 @@ class SegmentPresenterTest {
     fun theQuickCheckShowsToARecentRiderUntilPutOff() = runTest {
         naming = ridersTrail
         val (segments, stars) = session()
-        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail) }) {
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
             val check = awaitUntil { it.trail.quickCheck != null }
             assertEquals(listOf("dog"), check.trail.quickCheck!!.rows.map { it.key })
             check.trail.eventSink(TrailEvent.NotNow)
             awaitUntil { it.trail.quickCheck == null }
             assertFalse(trail.quickCheckDue(AtUri(uri)))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-reports: a recent rider reports conditions, which show on the card at once; Post waits for a tag or a photo. */
+    @Test
+    fun aRecentRiderReportsConditions() = runTest {
+        naming = ""","viewer":{"canReportConditions":true,"lastEffortAt":"2026-11-22T10:00:00Z"}"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
+            val loaded = awaitUntil { it.reports.card != null }
+            assertTrue(loaded.reports.card!!.offersReport)
+            loaded.reports.eventSink(ReportEvent.Open)
+            val sheet = awaitUntil { it.reports.sheet != null }
+            assertFalse(sheet.reports.sheet!!.canPost, "nothing chosen yet")
+            sheet.reports.eventSink(ReportEvent.Toggle(TrailCondition.MUDDY))
+            val chosen = awaitUntil { it.reports.sheet?.canPost == true }
+            chosen.reports.eventSink(ReportEvent.Post)
+            val posted = awaitUntil { it.reports.sheet == null && it.segment?.conditions?.lead == TrailCondition.MUDDY }
+            assertEquals(AppText.named("trail_condition_muddy"), posted.reports.card?.lead)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** segments/trail-reports: a viewer who hasn't ridden it lately gets no card and no sheet. */
+    @Test
+    fun aViewerWhoMayNotReportGetsNoSheet() = runTest {
+        naming = ""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
+            val loaded = awaitUntil { it.segment != null }
+            assertNull(loaded.reports.card)
+            loaded.reports.eventSink(ReportEvent.Open)
+            expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -12,18 +13,23 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.browse.MapSelection
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
+import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPathConditions
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.textfield.clearText
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
+import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
@@ -39,7 +45,14 @@ import kotlinx.collections.immutable.toPersistentSet
 @CircuitInject(PathScreen::class, SessionScope::class)
 @Composable
 @Suppress("CyclomaticComplexMethod") // One branch per page event; the choices are PathChoices'.
-fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRepository, units: UnitsRepository): PathState {
+fun PathPresenter(
+    screen: PathScreen,
+    navigator: Navigator,
+    segments: SegmentRepository,
+    units: UnitsRepository,
+    reports: TrailReports,
+    clock: Clock,
+): PathState {
     val choices = rememberRetained { PathChoices(screen.sport) }
     val sport = choices.sport
     val filter = choices.filter
@@ -71,10 +84,19 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
     val typed = query.text.toString()
     val shown = remember(content.data, filter, typed, sport, unitSystem) { filter.apply(content.data, typed, sport, unitSystem) }
 
+    // The trail's conditions are extra (segments/trail-reports): the page shows without them, and no error, when they fail to load.
+    val zone = remember { TimeZones.device() }
+    var rollUp by rememberRetained { mutableStateOf<GetPathConditions.Output?>(null) }
+    LaunchedEffect(screen.uri, retry) { runSuspendCatching { reports.pathConditions(AtUri(screen.uri)) }.onSuccess { rollUp = it } }
+    val conditions = remember(rollUp) { rollUp?.let { PathConditionsTexts.card(it, clock.now(), zone) } }
+    val closed = remember(conditions) { conditions?.segments.orEmpty().filter { it.closed }.map { it.uri }.toSet() }
+
     val mapLines =
-        remember(content.data.path, shown) {
+        remember(content.data.path, shown, closed) {
             (content.data.path?.let { BrowseRow.Path(it).mapSegmentLines() }.orEmpty().map { it.muted() } +
-                    shown.groups.mapNotNull { it.shown.mapSegmentLine() })
+                    shown.groups.mapNotNull {
+                        it.shown.mapSegmentLine()?.let { line -> if (line.uri in closed) line.copy(closed = true) else line }
+                    })
                 .toImmutableList()
         }
 
@@ -117,6 +139,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
         detailsExpanded = detailsExpanded,
         profileBase = profileBase,
         profileChart = profileChart,
+        conditions = conditions,
     ) { event ->
         if (choices.on(event)) return@PathState
         when (event) {
@@ -132,6 +155,7 @@ fun PathPresenter(screen: PathScreen, navigator: Navigator, segments: SegmentRep
             is PathEvent.SetAllSections ->
                 collapsed = if (event.expanded) persistentSetOf() else shown.sections.map { it.name }.toPersistentSet()
             PathEvent.ToggleDetails -> detailsExpanded = !detailsExpanded
+            is PathEvent.OpenPhoto -> navigator.goTo(TrailPhotosScreen(path = screen.uri, start = event.index))
             is PathEvent.Open -> open(event.uri)
             is PathEvent.TapRow ->
                 if (event.uri == selection.selected) {

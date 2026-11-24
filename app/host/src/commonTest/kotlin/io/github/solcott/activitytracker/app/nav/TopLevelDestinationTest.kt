@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
+import io.github.solcott.activitytracker.app.segment.TrailReportsScreen
 import io.github.solcott.activitytracker.app.text.AppText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,5 +57,10 @@ class TopLevelDestinationTest {
         assertFalse(TopLevelDestination.showsNavigation(EditProfileScreen))
         assertTrue(TopLevelDestination.showsNavigation(SegmentScreen("at://did:plc:a/app.activitytracker.feed.segment/1")))
         assertFalse(TopLevelDestination.showsNavigation(SegmentMapScreen("at://did:plc:a/app.activitytracker.feed.segment/1")))
+        // Trail photos full screen (segments/trail-reports), like the activity's gallery.
+        assertFalse(TopLevelDestination.showsNavigation(TrailPhotosScreen(segment = "at://did:plc:a/app.activitytracker.feed.segment/1")))
+        assertTrue(
+            TopLevelDestination.showsNavigation(TrailReportsScreen("at://did:plc:a/app.activitytracker.feed.segment/1", "Wiggly Woods")),
+        )
     }
 }

@@ -12,6 +12,10 @@ import io.github.solcott.activitytracker.app.profile.BlockListScreen
 import io.github.solcott.activitytracker.app.profile.FollowListKind
 import io.github.solcott.activitytracker.app.profile.FollowListScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.segment.PathScreen
+import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
+import io.github.solcott.activitytracker.app.segment.TrailReportsScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
@@ -86,6 +90,8 @@ class LinkRoundTripTest {
         assertNull(open("/segment/did:plc:carol"))
         assertNull(open("/profile/$BOB/activity/3kact/elsewhere"))
         assertNull(open("/profile/$BOB/activity/3kact/media/x"))
+        assertNull(open("/segment/did:plc:carol/3kseg/photos/-1"))
+        assertNull(open("/trail/did:plc:imp/3kpath/elsewhere"))
         assertNull(open("/settings/account/more"))
         assertNull(open("/search/more"))
     }
@@ -109,5 +115,16 @@ class LinkRoundTripTest {
             open("/settings/gear/collection/3kcol/edit"),
         )
         assertEquals("/settings/gear/collection/3kcol/edit", AppLinkRoutes.linkOf(EditGearCollectionScreen("3kcol"))?.path)
+        val path = "at://did:plc:imp/${Nsid.FEED_PATH}/3kpath"
+        assertEquals(
+            LinkPlan(LinkTab.Current, listOf(PathScreen(path, "ride"), TrailPhotosScreen(path = path, start = 2))),
+            open("/trail/did:plc:imp/3kpath/photos/2?sport=ride"),
+        )
+        assertEquals("/trail/did:plc:imp/3kpath/photos/2", AppLinkRoutes.linkOf(TrailPhotosScreen(path = path, start = 2))?.path)
+        val segment = "at://did:plc:carol/${Nsid.FEED_SEGMENT}/3kseg"
+        assertEquals(
+            listOf(SegmentScreen(segment), TrailReportsScreen(segment)),
+            open("/segment/did:plc:carol/3kseg/reports")?.chain,
+        )
     }
 }

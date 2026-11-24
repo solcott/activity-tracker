@@ -45,6 +45,8 @@ import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
+import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
+import io.github.solcott.activitytracker.app.segment.TrailReportsScreen
 import io.github.solcott.activitytracker.app.settings.AccountScreen
 import io.github.solcott.activitytracker.app.settings.ActivityDefaultsScreen
 import io.github.solcott.activitytracker.app.settings.LeaveScreen
@@ -115,7 +117,7 @@ object AppLinkRoutes {
             SEARCH -> LinkPlan(LinkTab.Search, emptyList()).takeIf { rest.isEmpty() }
             PROFILE -> profile(rest, viewer, resolve)
             SEGMENT -> place(rest, Nsid.FEED_SEGMENT, resolve) { uri, tail -> segment(uri, tail, query) }
-            TRAIL -> place(rest, Nsid.FEED_PATH, resolve) { uri, tail -> listOf(PathScreen(uri, query[SPORT])).takeIf { tail.isEmpty() } }
+            TRAIL -> place(rest, Nsid.FEED_PATH, resolve) { uri, tail -> trail(uri, tail, query) }
             DIVE_SITE -> place(rest, Nsid.FEED_DIVE_SITE, resolve) { uri, tail -> diveSite(uri, tail) }
             STARRED_SEGMENTS -> you(StarredSegmentsScreen).takeIf { rest.isEmpty() }
             FOLLOW_REQUESTS -> you(FollowRequestsScreen).takeIf { rest.isEmpty() }
@@ -163,6 +165,8 @@ object AppLinkRoutes {
             is SegmentLeaderboardScreen -> placed(screen.uri, Nsid.FEED_SEGMENT, SEGMENT, LEADERBOARD, query = mapOf(BOARD to screen.board))
             is SegmentMayorsScreen -> placed(screen.uri, Nsid.FEED_SEGMENT, SEGMENT, MAYORS, query = mapOf(BOARD to screen.board))
             is PathScreen -> placed(screen.uri, Nsid.FEED_PATH, TRAIL, query = mapOf(SPORT to screen.sport))
+            is TrailReportsScreen -> placed(screen.segment, Nsid.FEED_SEGMENT, SEGMENT, REPORTS)
+            is TrailPhotosScreen -> trailPhotosLink(screen)
             is DiveSiteScreen -> placed(screen.uri, Nsid.FEED_DIVE_SITE, DIVE_SITE)
             is DiveSiteRegularsScreen -> placed(screen.uri, Nsid.FEED_DIVE_SITE, DIVE_SITE, REGULARS)
             StarredSegmentsScreen -> AppLink.of(STARRED_SEGMENTS)
@@ -285,9 +289,24 @@ object AppLinkRoutes {
             listOf(MAP) -> listOf(SegmentScreen(uri), SegmentMapScreen(uri))
             listOf(LEADERBOARD) -> listOf(SegmentScreen(uri, board), SegmentLeaderboardScreen(uri, board = board))
             listOf(MAYORS) -> listOf(SegmentScreen(uri, board), SegmentMayorsScreen(uri, board = board))
-            else -> null
+            listOf(REPORTS) -> listOf(SegmentScreen(uri, board), TrailReportsScreen(uri))
+            else -> photoStart(tail)?.let { listOf(SegmentScreen(uri, board), TrailPhotosScreen(segment = uri, start = it)) }
         }
     }
+
+    private fun trail(uri: String, tail: List<String>, query: Map<String, String>): List<Screen>? {
+        val path = PathScreen(uri, query[SPORT])
+        return if (tail.isEmpty()) listOf(path) else photoStart(tail)?.let { listOf(path, TrailPhotosScreen(path = uri, start = it)) }
+    }
+
+    /** The photo a `photos/{start}` tail opens at, from 0. */
+    private fun photoStart(tail: List<String>): Int? =
+        tail.takeIf { it.size == 2 && it[0] == PHOTOS }?.get(1)?.toIntOrNull()?.takeIf { it >= 0 }
+
+    /** A segment's or a trail's photos, under its page: `…/photos/{start}`. */
+    private fun trailPhotosLink(screen: TrailPhotosScreen): AppLink? =
+        screen.segment?.let { placed(it, Nsid.FEED_SEGMENT, SEGMENT, PHOTOS, screen.start.toString()) }
+            ?: screen.path?.let { placed(it, Nsid.FEED_PATH, TRAIL, PHOTOS, screen.start.toString()) }
 
     private fun diveSite(uri: String, tail: List<String>): List<Screen>? =
         when (tail) {
@@ -428,6 +447,8 @@ object AppLinkRoutes {
     private const val COMMENTS = "comments"
     private const val LEADERBOARD = "leaderboard"
     private const val MAYORS = "mayors"
+    private const val REPORTS = "reports"
+    private const val PHOTOS = "photos"
     private const val REGULARS = "regulars"
     private const val ACCOUNT = "account"
     private const val ACTIVITY_DEFAULTS = "activity-defaults"

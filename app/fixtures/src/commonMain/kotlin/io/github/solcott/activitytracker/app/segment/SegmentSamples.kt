@@ -155,7 +155,7 @@ object SegmentSamples {
                 TRAIL_SUGGEST to trailSuggest,
                 TRAIL_QUICK_CHECK to trailQuickCheck,
                 TRAIL_INVITE to trailInvite,
-            )
+            ) + TrailReportSamples.all
 
     const val LIFT = "lift"
     const val TRAIL = "trail"

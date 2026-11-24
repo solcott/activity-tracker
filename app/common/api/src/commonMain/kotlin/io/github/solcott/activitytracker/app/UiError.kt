@@ -71,6 +71,15 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** A vote on a trail detail suggestion, or a confirmation of a trail detail, wasn't sent. */
         VoteTrailDetail,
 
+        /** A trail report wasn't posted (segments/trail-reports). */
+        PostTrailReport,
+
+        /** A trail report, or one of its photos, wasn't deleted. */
+        DeleteTrailReport,
+
+        /** A segment's trail reports or photos couldn't be loaded. */
+        LoadTrailReports,
+
         /** How the athlete's proposal is shared to the feed couldn't be read, so its sharing can't be changed (feed/posts). */
         LoadPostShare,
 

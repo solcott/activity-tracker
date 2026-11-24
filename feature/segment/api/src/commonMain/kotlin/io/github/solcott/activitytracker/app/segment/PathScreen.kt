@@ -116,6 +116,8 @@ data class PathState(
     val profileBase: LineChart? = null,
     /** [profileBase] with the listed rows' stretches marked and the selected one's shaded. */
     val profileChart: LineChart? = null,
+    /** The trail's conditions rolled up from its segments (segments/trail-reports); null while none of them has reports or photos. */
+    val conditions: PathConditionsCard? = null,
     val eventSink: (PathEvent) -> Unit = {},
 ) : CircuitUiState {
     /** What the list and map show: [filtered], or all of [content] while nothing narrows it. */
@@ -349,4 +351,42 @@ sealed interface PathEvent {
 
     /** A tap on the Trail details control: unfolds the cards, or folds them. */
     data object ToggleDetails : PathEvent
+
+    /** Opens photo [index] (from 0) of the Conditions card's strip in the viewer (segments/trail-reports). */
+    data class OpenPhoto(val index: Int) : PathEvent
 }
+
+/**
+ * The Trail page's Conditions card (segments/trail-reports): [summary] ("Reports on 3 of 8 segments, last 14 days"), each segment with
+ * current conditions, closed ones first, and the trail's photo strip.
+ */
+@Immutable
+data class PathConditionsCard(
+    val summary: AppText?,
+    val segments: ImmutableList<PathConditionRow> = persistentListOf(),
+    val photos: ImmutableList<PhotoThumb> = persistentListOf(),
+    val morePhotos: AppText? = null,
+    val seeAll: AppText? = null,
+) {
+    val shownSegments: List<PathConditionRow>
+        get() = segments.toList()
+
+    val shownPhotos: List<PhotoThumb>
+        get() = photos.toList()
+
+    /** The list row's line for [uri] when its segment is closed ("Closed · 1 day ago"), else null. */
+    fun closedLine(uri: String): AppText? = segments.firstOrNull { it.uri == uri && it.closed }?.let { it.closedLine }
+}
+
+/**
+ * One segment in the Trail page's Conditions card: its [name], [lead] tags ("Muddy · Downed tree"), [riders] line, and whether [closed].
+ */
+@Immutable
+data class PathConditionRow(
+    val uri: String,
+    val name: String,
+    val lead: AppText?,
+    val riders: AppText?,
+    val closed: Boolean,
+    val closedLine: AppText?,
+)

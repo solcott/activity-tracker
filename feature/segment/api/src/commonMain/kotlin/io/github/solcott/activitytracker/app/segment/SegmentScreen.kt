@@ -71,6 +71,8 @@ data class SegmentState(
     val shown: AtUri? = null,
     /** Keeping its trail details true (segments/trail-detail-suggestions): the sheet, the picker, the quick check and their events. */
     val trail: TrailFields = TrailFields(),
+    /** What the segment is like now (segments/trail-reports): the Conditions card, the report sheet, adding photos and their events. */
+    val reports: ReportFields = ReportFields(),
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */

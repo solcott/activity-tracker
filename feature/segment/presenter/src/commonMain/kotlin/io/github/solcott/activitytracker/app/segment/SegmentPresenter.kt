@@ -17,10 +17,12 @@ import io.github.solcott.activitytracker.app.names.sharedPlaceOf
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.data.segments.TrailContributions
+import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
@@ -35,6 +37,7 @@ import io.github.solcott.dataresult.dataOrNull
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentStates
 import io.github.solcott.uistate.contentStatesOf
+import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -51,6 +54,9 @@ fun SegmentPresenter(
     stars: SegmentStars,
     names: SegmentNames,
     trailContributions: TrailContributions,
+    trailReports: TrailReports,
+    feed: FeedRepository,
+    clock: Clock,
 ): SegmentState {
     // The segment shown: the screen's, or another of its segment group chosen on the page (segments/segment-groups), swapped in place so
     // the page
@@ -70,8 +76,12 @@ fun SegmentPresenter(
         ) {
             combineOutcomes(
                 // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
-                combine(segments.segmentDetailOutcome(uri), names.changes, trailContributions.changes) { outcome, _, _ ->
-                    outcome.mapData { it.copy(segment = trailContributions.applyTo(names.applyTo(it.segment))) }
+                combine(segments.segmentDetailOutcome(uri), names.changes, trailContributions.changes, trailReports.changes) {
+                    outcome,
+                    _,
+                    _,
+                    _ ->
+                    outcome.mapData { it.copy(segment = trailReports.applyTo(trailContributions.applyTo(names.applyTo(it.segment)))) }
                 },
                 segments.ownEffortsOutcome(uri).map { outcome ->
                     outcome.mapData { efforts -> efforts.sortedBy { it.elapsed }.toImmutableList() }
@@ -104,6 +114,7 @@ fun SegmentPresenter(
         )
 
     val trail = rememberTrailFields(segment, trailContributions)
+    val reports = rememberReportFields(segment, ownEfforts.data, trailReports, feed, clock) { navigator.goTo(it) }
 
     return SegmentState(
         content = content,
@@ -120,6 +131,7 @@ fun SegmentPresenter(
         group = group,
         shown = uri,
         trail = trail,
+        reports = reports,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()

@@ -15,10 +15,15 @@ import io.github.solcott.activitytracker.app.segment.SortOption
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.segment.contentOf
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.TrainingNarrowing
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
+import io.github.solcott.activitytracker.data.segments.TrailReports
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -29,6 +34,7 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPathConditions
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathView
@@ -37,6 +43,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailCondition
+import io.github.solcott.activitytracker.lexicon.app.TrailConditions
 import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -50,6 +58,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -113,6 +122,8 @@ class PathPresenterTest {
 
     /** What the AppView answers. */
     private var output = GetPath.Output(anns, listOf(stretch, wholeRide, wholeRun))
+    /** What `getPathConditions` answers (segments/trail-reports); null answers not found, which the page shows without. */
+    private var rollUp: GetPathConditions.Output? = null
 
     /** How many times the page asked for the path. */
     private val pathLoads = AtomicInteger()
@@ -130,6 +141,9 @@ class PathPresenterTest {
                             headers = json,
                         )
                     }
+                    Nsid.FEED_GET_PATH_CONDITIONS ->
+                        rollUp?.let { respond(AtJson.encodeToString(GetPathConditions.Output.serializer(), it), headers = json) }
+                            ?: respond("", HttpStatusCode.NotFound)
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             },
@@ -138,10 +152,13 @@ class PathPresenterTest {
         }
 
     private suspend fun test(screen: PathScreen, navigator: FakeNavigator, block: suspend CircuitReceiveTurbine<PathState>.() -> Unit) {
-        val (_, _, clients) = signedInTestSession(http, did = Did("did:plc:alice"))
+        val (db, _, clients) = signedInTestSession(http, did = Did("did:plc:alice"))
         val units =
             UnitsRepository(ProfileRepository(clients, Clock.System, Logger, TrainingNarrowing {}), Clock.System, Logger, UnitSystem.Metric)
-        presenterTestOf({ PathPresenter(screen, navigator, SegmentRepository(clients), units) }, block = block)
+        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
+        val reports =
+            TrailReports(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), Clock.System, feed)
+        presenterTestOf({ PathPresenter(screen, navigator, SegmentRepository(clients), units, reports, Clock.System) }, block = block)
     }
 
     @Test
@@ -479,5 +496,30 @@ class PathPresenterTest {
         val state = PathState(ContentState(contentOf(single, null)))
         assertEquals(1, state.sections.size)
         assertTrue(!state.offersAllSections)
+    }
+
+    /** segments/trail-reports: the Trail page lists its segments' conditions, closed first, and marks a closed line on its map. */
+    @Test
+    fun conditionsListClosedFirstAndMarkTheMap() = runTest {
+        fun conditions(lead: String) =
+            TrailConditions(lead = lead, leadRiders = 1, riders = 1, latestAt = Clock.System.now(), tags = emptyList(), photoCount = 0)
+        rollUp =
+            GetPathConditions.Output(
+                segments =
+                    listOf(
+                        GetPathConditions.SegmentConditions(stretch.uri, stretch.currentName, conditions(TrailCondition.CLOSED)),
+                        GetPathConditions.SegmentConditions(wholeRide.uri, wholeRide.currentName, conditions(TrailCondition.MUDDY)),
+                    ),
+                segmentCount = 3,
+                photoCount = 0,
+            )
+        val screen = PathScreen(anns.uri.value)
+        test(screen, FakeNavigator(screen)) {
+            val loaded = awaitUntil { it.path != null && it.conditions != null }
+            assertEquals(listOf(stretch.uri.value, wholeRide.uri.value), loaded.conditions!!.segments.map { it.uri })
+            assertNotNull(loaded.conditions!!.closedLine(stretch.uri.value))
+            assertEquals(listOf(stretch.uri.value), loaded.mapLines.filter { it.closed }.map { it.uri })
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

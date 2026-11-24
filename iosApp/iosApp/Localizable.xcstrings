@@ -5490,6 +5490,17 @@
         }
       }
     },
+    "error_delete_trail_report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete it"
+          }
+        }
+      }
+    },
     "error_discard_change" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6062,6 +6073,17 @@
         }
       }
     },
+    "error_load_trail_reports" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load reports"
+          }
+        }
+      }
+    },
     "error_load_uploads" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6157,6 +6179,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't change whether imports upload"
+          }
+        }
+      }
+    },
+    "error_post_trail_report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't post your report"
           }
         }
       }
@@ -15566,6 +15599,39 @@
         }
       }
     },
+    "path_conditions_summary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Reports on %2$@ of %3$@ segment, last 14 days"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Reports on %2$@ of %3$@ segments, last 14 days"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "path_filter_described" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15742,6 +15808,17 @@
         }
       }
     },
+    "path_photos_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos from all segments"
+          }
+        }
+      }
+    },
     "path_profile_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15804,6 +15881,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expand all"
+          }
+        }
+      }
+    },
+    "path_segment_condition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
           }
         }
       }
@@ -23299,6 +23387,138 @@
         }
       }
     },
+    "trail_add_photos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add photos"
+          }
+        }
+      }
+    },
+    "trail_age_days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ day ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ days ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_age_months" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ month ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ months ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_age_today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "today"
+          }
+        }
+      }
+    },
+    "trail_age_weeks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ week ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ weeks ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_age_yesterday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "yesterday"
+          }
+        }
+      }
+    },
     "trail_agree" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23438,6 +23658,204 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "trail_condition_closed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "trail_condition_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "trail_condition_downedTree" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downed tree"
+          }
+        }
+      }
+    },
+    "trail_condition_dry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dry"
+          }
+        }
+      }
+    },
+    "trail_condition_ice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ice"
+          }
+        }
+      }
+    },
+    "trail_condition_muddy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muddy"
+          }
+        }
+      }
+    },
+    "trail_condition_overgrown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrown"
+          }
+        }
+      }
+    },
+    "trail_condition_snow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snow"
+          }
+        }
+      }
+    },
+    "trail_condition_tacky" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tacky"
+          }
+        }
+      }
+    },
+    "trail_condition_washedOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Washed out"
+          }
+        }
+      }
+    },
+    "trail_condition_wet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wet"
+          }
+        }
+      }
+    },
+    "trail_conditions_ask" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You rode it %1$@. How was it?"
+          }
+        }
+      }
+    },
+    "trail_conditions_last" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last report: %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "trail_conditions_none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reports in the last 14 days"
+          }
+        }
+      }
+    },
+    "trail_conditions_riders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ rider · latest %3$@"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ riders · latest %3$@"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_conditions_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conditions"
           }
         }
       }
@@ -24223,6 +24641,171 @@
         }
       }
     },
+    "trail_photo_hidden" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show"
+          }
+        }
+      }
+    },
+    "trail_photo_position" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "trail_photo_remove" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from trail"
+          }
+        }
+      }
+    },
+    "trail_photo_see_report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See report"
+          }
+        }
+      }
+    },
+    "trail_photo_see_segment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See segment"
+          }
+        }
+      }
+    },
+    "trail_photo_with_report" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · with a report: %2$@"
+          }
+        }
+      }
+    },
+    "trail_photos_add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add %1$@"
+          }
+        }
+      }
+    },
+    "trail_photos_choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose from library"
+          }
+        }
+      }
+    },
+    "trail_photos_from_rides" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From your rides here"
+          }
+        }
+      }
+    },
+    "trail_photos_from_rides_detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos on your activities that passed %1$@"
+          }
+        }
+      }
+    },
+    "trail_photos_limit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up to 4 photos per report. Alt text carries over from the ride."
+          }
+        }
+      }
+    },
+    "trail_photos_more" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%1$@"
+          }
+        }
+      }
+    },
+    "trail_photos_see_all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See all %1$@"
+          }
+        }
+      }
+    },
+    "trail_photos_take" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take photo"
+          }
+        }
+      }
+    },
+    "trail_photos_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos"
+          }
+        }
+      }
+    },
     "trail_piste_advanced" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -24417,6 +25000,215 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unrated"
+          }
+        }
+      }
+    },
+    "trail_report_conditions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report conditions"
+          }
+        }
+      }
+    },
+    "trail_report_delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        }
+      }
+    },
+    "trail_report_note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note (optional)"
+          }
+        }
+      }
+    },
+    "trail_report_note_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "trail_report_on_trail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the trail"
+          }
+        }
+      }
+    },
+    "trail_report_post" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Post report"
+          }
+        }
+      }
+    },
+    "trail_report_public" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posted publicly with your name. Conditions show for 14 days; photos stay on the trail until you delete them."
+          }
+        }
+      }
+    },
+    "trail_report_remove_picked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove photo"
+          }
+        }
+      }
+    },
+    "trail_report_rode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · you rode it %2$@"
+          }
+        }
+      }
+    },
+    "trail_report_share_body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The copy on the trail will be public, with your name. The ride itself stays as it is."
+          }
+        }
+      }
+    },
+    "trail_report_share_confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share and post"
+          }
+        }
+      }
+    },
+    "trail_report_share_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share a photo from a non-public ride?"
+          }
+        }
+      }
+    },
+    "trail_report_sheet_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How's the trail?"
+          }
+        }
+      }
+    },
+    "trail_report_surface" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surface"
+          }
+        }
+      }
+    },
+    "trail_reports_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ report"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ reports"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_reports_older" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Older"
+          }
+        }
+      }
+    },
+    "trail_reports_recent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last 14 days"
           }
         }
       }
