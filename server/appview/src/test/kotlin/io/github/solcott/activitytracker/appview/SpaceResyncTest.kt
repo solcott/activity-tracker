@@ -59,7 +59,7 @@ class SpaceResyncTest : SpaceSyncFixture() {
         runBlocking { syncer.resyncAccount(Did(bob)) }
         // A sync running when the resync was forced stores its set hash again, then the forced backfill fails.
         runBlocking { db.tx { SpaceSync.update({ SpaceSync.space eq bobInteractions.value }) { it[setHash] = hash } } }
-        pds.duringNextListing = { error("The PDS went away mid-listing") }
+        pds.duringNextListing[bobInteractions] = { error("The PDS went away mid-listing") }
         runDue()
         assertEquals(setOf("3kk1", "3kk2"), likes().keys, "nothing dropped by a failed backfill")
 
