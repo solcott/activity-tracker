@@ -30,6 +30,7 @@ struct SegmentPage: View {
             }
         }
         .placeNames(state.names)
+        .trailSheets(state.trail)
     }
 
     private func loaded(_ segment: SegmentView) -> some View {
@@ -67,7 +68,16 @@ struct SegmentPage: View {
                     SegmentBoards(state: state, send: send)
                 }
             }
-            TrailDetailsSection(groups: state.trailGroups())
+            // After a recent ride, the details riders check (segments/trail-detail-suggestions).
+            if let check = state.trail.quickCheck {
+                QuickCheckSection(check: check, send: state.trail.eventSink)
+            }
+            TrailDetailsSection(
+                groups: state.trailGroups(), lastConfirmed: state.trailLastConfirmed,
+                open: { state.trail.eventSink(TrailEvent.Open(key: $0)) })
+            if state.invitesTrailDetails || state.offersMissingDetail {
+                MissingDetailsSection(fields: state.trail, invite: state.invitesTrailDetails)
+            }
             if !lift {
                 PlaceNamesSection(
                     fields: state.names, proposals: segment.nameProposals, history: segment.nameHistory,

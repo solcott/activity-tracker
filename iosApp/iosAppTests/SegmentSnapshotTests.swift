@@ -12,7 +12,7 @@ import Testing
 struct SegmentSnapshotTests {
     nonisolated private static let samples = [
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "renamed", "votingUnavailable", "lift", "elevation",
-        "elevationFromEfforts", "trail",
+        "elevationFromEfforts", "trail", "trailCommunity", "trailQuickCheck", "trailInvite",
     ]
     nonisolated private static let variants = [
         "openStreetMap", "boardsFailed", "duplicate", "group", "oneWay", "groupByClimb",
@@ -34,6 +34,23 @@ struct SegmentSnapshotTests {
     func segmentVariant(sample: String) throws {
         let state = try #require(Samples.segmentVariants[sample])
         assertAppSnapshot(of: page(state), size: Self.tall, named: sample, precision: Snapshots.barButtons)
+    }
+
+    /// A detail's sheet and the suggest picker (segments/trail-detail-suggestions), drawn alone as their sheets show them.
+    @Test func trailSheet() throws {
+        let state = try #require(Samples.segment["trailSheet"])
+        let sheet = try #require(state.trail.sheet)
+        assertAppSnapshot(
+            of: TrailSheetView(sheet: sheet, fields: state.trail), size: CGSize(width: 393, height: 700), named: "trailSheet",
+            precision: Snapshots.barButtons)
+    }
+
+    @Test func trailPicker() throws {
+        let state = try #require(Samples.segment["trailSuggest"])
+        let picker = try #require(state.trail.picker)
+        assertAppSnapshot(
+            of: TrailPickerView(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 700), named: "trailPicker",
+            precision: Snapshots.barButtons)
     }
 
     @Test func imperialProfile() throws {

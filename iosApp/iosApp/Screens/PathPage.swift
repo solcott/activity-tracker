@@ -177,7 +177,9 @@ struct PathPage: View {
                 if state.offersDetails {
                     detailsFold
                     if state.detailsExpanded {
-                        TrailDetailsSection(groups: state.trailGroups(), headingsAsRows: true)
+                        TrailDetailsSection(
+                            groups: state.trailGroups(), headingsAsRows: true,
+                            openSegment: { state.eventSink(state.openSegmentEvent(uri: $0)) })
                     }
                 }
                 ForEach(state.items.map(Entry.init)) { entry in

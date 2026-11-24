@@ -9,6 +9,12 @@ struct TrailDetailsSection: View {
     /// Whether the headings are rows that scroll with the list rather than section headers: a plain list (the Trail page's) pins its
     /// section headers over the rows below them, so its headings are rows.
     var headingsAsRows = false
+    /// "Riders confirmed these in Nov 2026", under the section's title (segments/trail-detail-suggestions).
+    var lastConfirmed: (any AppText)?
+    /// Opens a row's sheet, for a row that `opens`.
+    var open: (String) -> Void = { _ in }
+    /// Opens a segment a Trail page row lists as varying.
+    var openSegment: (String) -> Void = { _ in }
 
     var body: some View {
         ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
@@ -29,7 +35,21 @@ struct TrailDetailsSection: View {
 
     private func rows(_ group: TrailDetailGroup) -> some View {
         ForEach(Array(group.shownRows.enumerated()), id: \.offset) { _, row in
-            TrailDetailRow(row: row)
+            TrailDetailRow(row: row, open: open)
+            // On the Trail page, the segments riders changed this detail on (segments/trail-attributes).
+            ForEach(row.shownVarying, id: \.uri) { segment in
+                Button {
+                    openSegment(segment.uri)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: segment.name)
+                        Text(verbatim: "\(AppStrings.string(segment.value)) · \(AppStrings.string(segment.source))")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 16)
+                }
+                .foregroundStyle(.primary)
+            }
         }
     }
 
@@ -38,6 +58,14 @@ struct TrailDetailsSection: View {
         VStack(alignment: .leading, spacing: 4) {
             if first {
                 Text(TrailTexts.shared.title).font(.headline).foregroundStyle(.primary).textCase(nil)
+                if let lastConfirmed {
+                    Label {
+                        Text(lastConfirmed)
+                    } icon: {
+                        Image(AppIcon.check)
+                    }
+                    .font(.footnote).foregroundStyle(.secondary).textCase(nil)
+                }
             }
             // The card's heading, darker and heavier than its rows' labels, as the shared cards draw it.
             Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).textCase(nil)
@@ -46,9 +74,11 @@ struct TrailDetailsSection: View {
     }
 }
 
-/// One Trail details row: its label leading and what the data says trailing, a Website row opening its link.
+/// One Trail details row: its label leading and what the data says trailing with where it came from under it (segments/trail-detail-suggestions),
+/// a Website row opening its link, and a row a rider may change opening its sheet.
 private struct TrailDetailRow: View {
     let row: TrailDetail
+    let open: (String) -> Void
 
     var body: some View {
         // Labels medium weight in the secondary colour, values regular in the primary one, as the shared rows read.
@@ -56,13 +86,55 @@ private struct TrailDetailRow: View {
             LabeledContent {
                 Link(destination: url) { Text(row.value) }
             } label: {
-                Text(row.label).fontWeight(.medium).foregroundStyle(.secondary)
+                label
             }
+        } else if row.opens, let key = row.key {
+            Button {
+                open(key)
+            } label: {
+                LabeledContent {
+                    HStack(spacing: 6) {
+                        value
+                        Image(systemName: "chevron.forward").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
+                } label: {
+                    label
+                }
+            }
+            .foregroundStyle(.primary)
         } else {
             LabeledContent {
-                Text(row.value).foregroundStyle(.primary).multilineTextAlignment(.trailing)
+                value
             } label: {
-                Text(row.label).fontWeight(.medium).foregroundStyle(.secondary)
+                label
+            }
+        }
+    }
+
+    private var label: some View {
+        Text(row.label).fontWeight(.medium).foregroundStyle(.secondary)
+    }
+
+    private var value: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(row.value)
+                .italic(row.question)
+                .foregroundStyle(row.question ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                .multilineTextAlignment(.trailing)
+            if let source = row.source {
+                if row.community {
+                    Label {
+                        Text(source)
+                    } icon: {
+                        Image(systemName: "person.2.fill")
+                    }
+                    .font(.footnote).foregroundStyle(.tint)
+                } else {
+                    Text(source).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            if let note = row.note {
+                Text(note).font(.footnote.weight(.medium)).foregroundStyle(.tint)
             }
         }
     }

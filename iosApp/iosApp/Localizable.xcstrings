@@ -6491,6 +6491,17 @@
         }
       }
     },
+    "error_suggest_trail_detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't send your suggestion"
+          }
+        }
+      }
+    },
     "error_too_many_zones" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6597,6 +6608,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't send your vote"
+          }
+        }
+      }
+    },
+    "error_vote_trail_detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't send your answer"
           }
         }
       }
@@ -23123,6 +23145,94 @@
         }
       }
     },
+    "trail_add_missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a missing detail"
+          }
+        }
+      }
+    },
+    "trail_agree" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agree"
+          }
+        }
+      }
+    },
+    "trail_answer_changed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: it's changed"
+          }
+        }
+      }
+    },
+    "trail_answer_still" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: still right"
+          }
+        }
+      }
+    },
+    "trail_changed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It's changed"
+          }
+        }
+      }
+    },
+    "trail_changed_on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Riders changed this on %2$@ segment"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Riders changed this on %2$@ segments"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "trail_class_1" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23185,6 +23295,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "trail_confirmed_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ rider confirmed it this year"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ riders confirmed it this year"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -23332,6 +23475,17 @@
         }
       }
     },
+    "trail_detail_smoothness" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smoothness"
+          }
+        }
+      }
+    },
     "trail_detail_surface" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23420,6 +23574,17 @@
         }
       }
     },
+    "trail_disagree" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disagree"
+          }
+        }
+      }
+    },
     "trail_dog_leashed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23449,6 +23614,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dogs allowed"
+          }
+        }
+      }
+    },
+    "trail_empty_body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add its surface, difficulty or access so other athletes know what to expect."
+          }
+        }
+      }
+    },
+    "trail_empty_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody has described this segment yet."
+          }
+        }
+      }
+    },
+    "trail_from" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From %1$@"
           }
         }
       }
@@ -23651,6 +23849,17 @@
         }
       }
     },
+    "trail_last_confirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riders confirmed these in %1$@"
+          }
+        }
+      }
+    },
     "trail_lit_no" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23691,6 +23900,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Longest jump %1$@"
+          }
+        }
+      }
+    },
+    "trail_may_have_changed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riders report this may have changed"
+          }
+        }
+      }
+    },
+    "trail_month_year" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
           }
         }
       }
@@ -23838,6 +24069,28 @@
         }
       }
     },
+    "trail_pending_progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested · %1$@ agree"
+          }
+        }
+      }
+    },
+    "trail_pending_question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@?"
+          }
+        }
+      }
+    },
     "trail_piste_advanced" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23911,6 +24164,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Novice"
+          }
+        }
+      }
+    },
+    "trail_quick_all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All still right"
+          }
+        }
+      }
+    },
+    "trail_quick_body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help the next rider: is this still how it is?"
+          }
+        }
+      }
+    },
+    "trail_quick_later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not now"
+          }
+        }
+      }
+    },
+    "trail_quick_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You rode this recently"
           }
         }
       }
@@ -24311,6 +24608,237 @@
         }
       }
     },
+    "trail_source_blm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BLM"
+          }
+        }
+      }
+    },
+    "trail_source_community" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Community · %2$@ rider"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Community · %2$@ riders"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "trail_source_imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported"
+          }
+        }
+      }
+    },
+    "trail_source_nps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Park Service"
+          }
+        }
+      }
+    },
+    "trail_source_osm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenStreetMap"
+          }
+        }
+      }
+    },
+    "trail_source_usfs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forest Service"
+          }
+        }
+      }
+    },
+    "trail_still_right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still right"
+          }
+        }
+      }
+    },
+    "trail_suggest_already" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already suggested · choosing it adds your agree vote"
+          }
+        }
+      }
+    },
+    "trail_suggest_current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current"
+          }
+        }
+      }
+    },
+    "trail_suggest_different" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggest a different value"
+          }
+        }
+      }
+    },
+    "trail_suggest_now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now: %1$@, from %2$@"
+          }
+        }
+      }
+    },
+    "trail_suggest_public" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your suggestion is public and shows your name. It replaces the current value once enough riders agree, no sooner than 7 days from now."
+          }
+        }
+      }
+    },
+    "trail_suggest_send" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggest"
+          }
+        }
+      }
+    },
+    "trail_suggest_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggest: %1$@"
+          }
+        }
+      }
+    },
+    "trail_suggested_by" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested by %1$@"
+          }
+        }
+      }
+    },
+    "trail_suggested_heading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested by riders"
+          }
+        }
+      }
+    },
+    "trail_suggestions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@quantity@"
+          },
+          "substitutions" : {
+            "quantity" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ suggestion"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%2$@ suggestions"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "trail_surface_compacted" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -24542,6 +25070,61 @@
         }
       }
     },
+    "trail_varies" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Varies along the trail"
+          }
+        }
+      }
+    },
+    "trail_vary_dog" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dogs vary"
+          }
+        }
+      }
+    },
+    "trail_vary_season" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Season varies"
+          }
+        }
+      }
+    },
+    "trail_vary_surface" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surface varies"
+          }
+        }
+      }
+    },
+    "trail_vary_width" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Width varies"
+          }
+        }
+      }
+    },
     "trail_visibility_bad" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -24604,6 +25187,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No visible trail"
+          }
+        }
+      }
+    },
+    "trail_vote_totals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ agree · %2$@ disagree"
+          }
+        }
+      }
+    },
+    "trail_votes_private" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A suggestion takes over once enough riders agree. Only totals are shown; your vote stays private."
+          }
+        }
+      }
+    },
+    "trail_was_it_right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was it right when you rode?"
           }
         }
       }
