@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.api.labelled
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
+import io.github.solcott.activitytracker.appview.utcDate
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -17,8 +18,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrailDetailInfo
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailViewerVote
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.TrailSource
-import java.time.Instant
-import java.time.ZoneOffset
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import org.jetbrains.exposed.v1.core.Op
@@ -294,11 +293,7 @@ internal fun JdbcTransaction.confirmationsOf(
         val own = viewer?.let { counted[detail to it.value] }
         DetailConfirmations(
             confirmations = stills.size,
-            confirmedMonth =
-                stills
-                    .takeIf { it.size >= MONTH_AFTER }
-                    ?.maxOf { it.at }
-                    ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString().take(MONTH_TEXT) },
+            confirmedMonth = stills.takeIf { it.size >= MONTH_AFTER }?.maxOf { it.at }?.let { utcDate(it).toString().take(MONTH_TEXT) },
             mayHaveChanged = changed >= DOUBTERS && changed > recent.count { it.still },
             viewerConfirmation =
                 own?.let {

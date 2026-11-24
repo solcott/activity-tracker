@@ -7,10 +7,8 @@ import io.github.solcott.activitytracker.appview.api.notBlocked
 import io.github.solcott.activitytracker.appview.api.notMuted
 import io.github.solcott.activitytracker.appview.api.served
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.utcDate
 import io.github.solcott.activitytracker.lexicon.Did
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Expression
@@ -303,7 +301,7 @@ internal class ProposalAdoption(
     /** Runs the pass over every subject with open proposals, or only [only]. */
     suspend fun update(only: String?) {
         val now = clock.now().toEpochMilliseconds()
-        val since = LocalDate.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC).minusDays(RIDER_WINDOW_DAYS - 1).toString()
+        val since = utcDate(now).minusDays(RIDER_WINDOW_DAYS - 1).toString()
         val topic = kind.topic
         db.tx {
             kind.table

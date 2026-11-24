@@ -5,14 +5,13 @@ import io.github.solcott.activitytracker.appview.db.TrailReportBlobs
 import io.github.solcott.activitytracker.appview.db.TrailReportTags
 import io.github.solcott.activitytracker.appview.db.TrailReports
 import io.github.solcott.activitytracker.appview.segments.suggestable
+import io.github.solcott.activitytracker.appview.utcDate
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.lexicon.app.TrailReportRecord
-import java.time.Instant
-import java.time.ZoneOffset
 import kotlin.time.Duration.Companion.days
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.and
@@ -71,7 +70,7 @@ internal fun JdbcTransaction.upsertTrailReport(json: JsonObject, author: Did, ur
         it[note] = record.note?.trim()?.let { ActivityRecord.clampText(it, TrailReportRecord.MAX_NOTE_GRAPHEMES) }?.ifEmpty { null }
         it[hasConditions] = tags.isNotEmpty()
         it[TrailReports.indexedAt] = indexedAt
-        it[dayUtc] = stored?.get(TrailReports.dayUtc) ?: dayOf(now)
+        it[dayUtc] = stored?.get(TrailReports.dayUtc) ?: utcDate(now).toString()
     }
     TrailReportTags.deleteWhere { reportUri eq uri.value }
     TrailReportTags.batchInsert(tags) { tag ->
@@ -109,7 +108,9 @@ internal fun JdbcTransaction.deleteTrailReportsBy(author: Did) =
  * that UTC day. The indexer and `getSegment`'s flag both ask this.
  */
 internal fun JdbcTransaction.mayReport(segment: String, did: String, now: Long): Boolean =
-    suggestable(segment) && lastEffortAt(segment, did, now) != null && reportsOn(segment, did, dayOf(now)) < TRAIL_REPORTS_PER_DAY
+    suggestable(segment) &&
+        lastEffortAt(segment, did, now) != null &&
+        reportsOn(segment, did, utcDate(now).toString()) < TRAIL_REPORTS_PER_DAY
 
 /** When [did]'s newest effort on [segment] began, only when within [TRAIL_REPORT_RIDE_WINDOW] of [now]. */
 internal fun JdbcTransaction.lastEffortAt(segment: String, did: String, now: Long): Long? {
@@ -129,6 +130,3 @@ private fun JdbcTransaction.reportsOn(segment: String, did: String, day: String)
     TrailReports.selectAll()
         .where { (TrailReports.authorDid eq did) and (TrailReports.segmentUri eq segment) and (TrailReports.dayUtc eq day) }
         .count()
-
-/** [epochMs]'s UTC date, `YYYY-MM-DD`. */
-internal fun dayOf(epochMs: Long): String = Instant.ofEpochMilli(epochMs).atOffset(ZoneOffset.UTC).toLocalDate().toString()

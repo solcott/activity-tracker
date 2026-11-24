@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.requireImporter
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
+import io.github.solcott.activitytracker.appview.todayUtc
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -41,8 +42,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.pointE7
-import java.time.LocalDate
-import java.time.ZoneOffset
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Expression
@@ -261,7 +260,7 @@ class DiveSiteViews(
     private fun regularsWindow(period: String?): DateWindow {
         val chosen = period ?: RegularsPeriod.ALL_TIME
         if (chosen !in RegularsPeriod.all) invalidRequest("Unknown period $chosen")
-        return boardWindow(chosen, today())
+        return boardWindow(chosen, clock.todayUtc())
     }
 
     /** The visits a Regulars board counts. */
@@ -301,8 +300,6 @@ class DiveSiteViews(
         if (uris.isEmpty()) emptyMap()
         else
             DiveSites.selectAll().where { (DiveSites.uri inList uris) and DiveSitePlace.servedTo(viewer) }.associateBy { it[DiveSites.uri] }
-
-    private fun today(): LocalDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
 
     private companion object {
         val VISITS = DiveSiteVisits.activityUri.count()

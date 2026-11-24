@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.appview.segments.servedElevation
 import io.github.solcott.activitytracker.appview.segments.suggestable
 import io.github.solcott.activitytracker.appview.segments.terrainProfile
+import io.github.solcott.activitytracker.appview.todayUtc
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -86,7 +87,6 @@ import io.github.solcott.activitytracker.location.SegmentHeading
 import io.github.solcott.activitytracker.location.e7ToDegrees
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.cos
 import kotlin.math.roundToLong
@@ -186,7 +186,7 @@ class SegmentViews(
                 canSuggestTrailDetails = suggestable(uri) && isRegular(uri, it.value, trailDetails),
                 closedTrailDetails = closedDetailsFor(uri, it.value, now, trailDetails),
                 canVoteOnTrailDetails = rider,
-                recentEffort = hasEffortSince(uri, it, today().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
+                recentEffort = hasEffortSince(uri, it, clock.todayUtc().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
                 // The same rules the indexer applies to a report (segments/trail-reports).
                 canReportConditions = mayReport(uri, it.value, now),
                 lastEffortAt = lastEffortAt(uri, it.value, now)?.let(Instant::fromEpochMilliseconds),
@@ -908,7 +908,7 @@ class SegmentViews(
     suspend fun mayors(viewer: Did?, params: GetSegmentMayors.Params): GetSegmentMayors.Output {
         val period = params.period ?: MayorPeriod.LAST_90_DAYS
         if (period !in MayorPeriod.all) invalidRequest("Unknown period $period")
-        val (since, until) = boardWindow(period, today())
+        val (since, until) = boardWindow(period, clock.todayUtc())
         val following = followingScope(viewer, params.scope)
         val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
@@ -1154,7 +1154,7 @@ class SegmentViews(
     private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<DateWindow, Boolean> {
         val period = LeaderboardPeriod.current(params.period ?: LeaderboardPeriod.ALL_TIME)
         if (period !in LeaderboardPeriod.all) invalidRequest("Unknown period $period")
-        return boardWindow(period, today()) to followingScope(viewer, params.scope)
+        return boardWindow(period, clock.todayUtc()) to followingScope(viewer, params.scope)
     }
 
     /**
@@ -1181,9 +1181,6 @@ class SegmentViews(
             },
         )
     }
-
-    /** The AppView's current date in UTC, which board periods and windows are counted from. */
-    private fun today(): LocalDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
 
     private fun effortsVisibleTo(viewer: Did?): Op<Boolean> =
         SegmentEfforts.rowsVisibleTo(viewer) and visibleTo(viewer) and SegmentPlace.servedTo(viewer)
