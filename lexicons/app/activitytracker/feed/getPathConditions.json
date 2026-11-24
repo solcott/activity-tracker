@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getPathConditions",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A trail or road's conditions rolled up from its segments (segments/trail-reports): each listed segment with current conditions, those leading with closed first, then by their newest counted report, newest first; and the trail's photos.",
+      "parameters": {
+        "type": "params",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["segments", "segmentCount", "photoCount"],
+          "properties": {
+            "segments": { "type": "array", "items": { "type": "ref", "ref": "#segmentConditions" } },
+            "segmentCount": { "type": "integer", "minimum": 0, "description": "How many segments the trail lists for the viewer, for \"Reports on 3 of 8 segments\"." },
+            "photoCount": { "type": "integer", "minimum": 0 },
+            "photos": { "type": "array", "maxLength": 5, "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailPhotoView" }, "description": "The trail's 5 newest photos." }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The path isn't indexed." }]
+    },
+    "segmentConditions": {
+      "type": "object",
+      "required": ["segment", "name", "conditions"],
+      "properties": {
+        "segment": { "type": "string", "format": "at-uri" },
+        "name": { "type": "string", "description": "The segment's current name." },
+        "conditions": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailConditions" }
+      }
+    }
+  }
+}

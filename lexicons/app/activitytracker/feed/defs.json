@@ -406,6 +406,7 @@
         "trail": { "type": "ref", "ref": "#trailAttributes", "description": "The segment's effective trail details (segments/trail-detail-suggestions): each adopted community value over the importer's value, the importer's taken from feed.segment#trail only for the segment importer's segment, with any value outside its vocabulary or range dropped. Absent when nothing is known." },
         "trailDetails": { "type": "array", "maxLength": 32, "items": { "type": "ref", "ref": "#trailDetailInfo" }, "description": "One entry per detail trail holds: where it came from and, from getSegment, how riders confirmed it." },
         "trailSuggestions": { "type": "array", "maxLength": 200, "items": { "type": "ref", "ref": "#trailDetailSuggestionView" }, "description": "Open trail detail suggestions the viewer may see. Served by app.activitytracker.feed.getSegment only." },
+        "conditions": { "type": "ref", "ref": "#trailConditions", "description": "What riders reported about the segment (segments/trail-reports), as the viewer may see it. Its photos are served by app.activitytracker.feed.getSegment only. Absent when it has no reports the viewer may see." },
         "elevationSource": {
           "type": "string",
           "maxLength": 16,
@@ -482,7 +483,75 @@
         "canSuggestTrailDetails": { "type": "boolean", "description": "The viewer may suggest trail detail values (segments/trail-detail-suggestions): the segment is active, not a lift, and they're a regular. Served by getSegment only; absent means false." },
         "closedTrailDetails": { "type": "array", "maxLength": 32, "items": { "type": "string", "maxLength": 32 }, "description": "Details the viewer may not suggest now: in a cooldown after an adoption, or holding their own open suggestion. Served by getSegment only." },
         "canVoteOnTrailDetails": { "type": "boolean", "description": "The viewer may confirm trail details and vote on suggestions: they have an effort on the segment. Served by getSegment only; absent means false." },
-        "recentEffort": { "type": "boolean", "description": "The viewer has an effort on the segment dated in the last 14 days. Served by getSegment only; absent means false." }
+        "recentEffort": { "type": "boolean", "description": "The viewer has an effort on the segment dated in the last 14 days. Served by getSegment only; absent means false." },
+        "canReportConditions": { "type": "boolean", "description": "The viewer may post a trail report on the segment now (segments/trail-reports): it is active and not a lift, they have an effort on it that began in the last 30 days, and they haven't reached today's limit. Served by getSegment only; absent means false." },
+        "lastEffortAt": { "type": "string", "format": "datetime", "description": "When the viewer's newest effort on the segment began, only when that was in the last 30 days. Served by getSegment only." }
+      }
+    },
+    "trailConditions": {
+      "type": "object",
+      "description": "A segment's conditions from trail reports (segments/trail-reports). Current conditions come from reports in the last 14 days, counting each rider's latest report with tags.",
+      "required": ["riders", "tags", "photoCount"],
+      "properties": {
+        "lead": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "The tag the summary leads with (feed.trailReport#conditions): closed when the newest counted report names it, otherwise the surface tag (dry, tacky, wet, muddy, snow, ice) counted by the most riders, the newest breaking a tie. Absent when no current report names one."
+        },
+        "leadRiders": { "type": "integer", "minimum": 0, "description": "How many riders' counted reports name lead." },
+        "riders": { "type": "integer", "minimum": 0, "description": "How many riders' reports count now." },
+        "latestAt": { "type": "string", "format": "datetime", "description": "When the newest counted report was indexed. Absent when none counts." },
+        "tags": { "type": "array", "maxLength": 16, "items": { "type": "ref", "ref": "#trailConditionTag" }, "description": "Every current tag but lead with its riders, most riders first, ties in the tag order of feed.trailReport#conditions." },
+        "latestNote": { "type": "ref", "ref": "#trailReportView", "description": "The newest current report with a note." },
+        "lastReportAt": { "type": "string", "format": "datetime", "description": "When there are no current conditions: when the newest older report with tags was indexed." },
+        "lastReportTags": { "type": "array", "maxLength": 10, "items": { "type": "string", "maxLength": 32 }, "description": "The tags of the report lastReportAt dates." },
+        "photoCount": { "type": "integer", "minimum": 0 },
+        "photos": { "type": "array", "maxLength": 4, "items": { "type": "ref", "ref": "#trailPhotoView" }, "description": "The 4 newest photos. Served by app.activitytracker.feed.getSegment only." }
+      }
+    },
+    "trailConditionTag": {
+      "type": "object",
+      "required": ["value", "riders"],
+      "properties": {
+        "value": { "type": "string", "maxLength": 32 },
+        "riders": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "trailReportView": {
+      "type": "object",
+      "description": "A trail report (feed.trailReport) as the viewer may see it.",
+      "required": ["uri", "cid", "segment", "author", "conditions", "images", "indexedAt", "current"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "segment": { "type": "string", "format": "at-uri" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "conditions": { "type": "array", "maxLength": 10, "items": { "type": "string", "maxLength": 32 }, "description": "Its known tags, in the order of feed.trailReport#conditions." },
+        "note": { "type": "string" },
+        "images": { "type": "array", "maxLength": 4, "items": { "type": "ref", "ref": "#imageView" } },
+        "indexedAt": { "type": "string", "format": "datetime", "description": "When the AppView first indexed it, which dates it." },
+        "current": { "type": "boolean", "description": "Indexed in the last 14 days." },
+        "labels": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
+          "description": "Labels on the report, which apply to each of its photos too; the author's account labels are on author. Absent when there are none."
+        }
+      }
+    },
+    "trailPhotoView": {
+      "type": "object",
+      "description": "One photo of a trail report.",
+      "required": ["image", "report", "cid", "position", "segment", "author", "indexedAt"],
+      "properties": {
+        "image": { "type": "ref", "ref": "#imageView" },
+        "report": { "type": "string", "format": "at-uri", "description": "The feed.trailReport holding it." },
+        "cid": { "type": "string", "format": "cid", "description": "The report's CID, for a report on the photo." },
+        "position": { "type": "integer", "minimum": 1, "description": "Its place among the report's photos, from 1." },
+        "segment": { "type": "string", "format": "at-uri" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "conditions": { "type": "array", "maxLength": 10, "items": { "type": "string", "maxLength": 32 }, "description": "The report's known tags." },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "labels": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" }, "description": "The report's labels." }
       }
     },
     "segmentViewBasic": {

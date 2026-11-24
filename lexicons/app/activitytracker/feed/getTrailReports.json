@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getTrailReports",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A segment's trail reports the viewer may see (segments/trail-reports), newest first by when the AppView first indexed them. Leaves out reports in a block with the viewer either way, by an author the viewer mutes, and those labelled !hide or !takedown (on the record or its author) unless the viewer wrote them.",
+      "parameters": {
+        "type": "params",
+        "required": ["segment"],
+        "properties": {
+          "segment": { "type": "string", "format": "at-uri" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["reports"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "reports": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailReportView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The segment isn't indexed, or isn't served (as for getSegment)." }]
+    }
+  }
+}

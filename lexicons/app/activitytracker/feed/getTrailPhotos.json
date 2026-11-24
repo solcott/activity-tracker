@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getTrailPhotos",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Photos of the trail reports the viewer may see (as app.activitytracker.feed.getTrailReports lists them) on one segment, or on every segment of one trail or road, newest first, a report's photos in its order.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "segment": { "type": "string", "format": "at-uri", "description": "One segment. Exactly one of segment and path." },
+          "path": { "type": "string", "format": "at-uri", "description": "A trail or road (app.activitytracker.feed.path): the photos on every segment it lists." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["photos"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "photos": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailPhotoView" } }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotFound", "description": "The segment or path isn't indexed, or isn't served." },
+        { "name": "InvalidRequest", "description": "Neither or both of segment and path." }
+      ]
+    }
+  }
+}

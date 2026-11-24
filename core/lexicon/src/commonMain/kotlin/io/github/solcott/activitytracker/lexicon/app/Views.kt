@@ -295,6 +295,8 @@ data class SegmentView(
     val trailDetails: List<TrailDetailInfo> = emptyList(),
     /** Open trail detail suggestions the viewer may see; only from `getSegment`. */
     val trailSuggestions: List<TrailDetailSuggestionView> = emptyList(),
+    /** What riders reported (segments/trail-reports), as the viewer may see it; its photos only from `getSegment`. Null with no reports. */
+    val conditions: TrailConditions? = null,
     /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].
@@ -407,6 +409,10 @@ data class SegmentViewerState(
     val canVoteOnTrailDetails: Boolean = false,
     /** The viewer has an effort on the segment dated in the last 14 days; only from `getSegment`. */
     val recentEffort: Boolean = false,
+    /** The viewer may post a trail report on the segment now (segments/trail-reports); only from `getSegment`. */
+    val canReportConditions: Boolean = false,
+    /** When the viewer's newest effort on the segment began, only when in the last 30 days; only from `getSegment`. */
+    val lastEffortAt: Instant? = null,
 )
 
 /**

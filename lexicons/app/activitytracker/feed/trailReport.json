@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.trailReport",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "What a segment is like now, from a rider who was just on it (segments/trail-reports): condition tags, a short note and photos. Public: stored only in the author's repo, never in a space, and names its author. The AppView accepts a new one only while the segment is active and not a lift, from an athlete with an effort on it that began in the 30 days before it was indexed, at most 5 per author and segment in a UTC day, and only when it holds a known tag or a photo. A rewrite keeps its first indexing time.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["segment", "createdAt"],
+        "properties": {
+          "segment": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The app.activitytracker.feed.segment reported on." },
+          "conditions": {
+            "type": "array",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "knownValues": ["dry", "tacky", "wet", "muddy", "snow", "ice", "downedTree", "overgrown", "washedOut", "closed"]
+            },
+            "description": "Condition tags: dry to ice describe the surface, the rest what is on the trail. Unknown values are ignored."
+          },
+          "note": { "type": "string", "maxLength": 3000, "maxGraphemes": 300 },
+          "images": {
+            "type": "array",
+            "maxLength": 4,
+            "items": { "type": "ref", "ref": "app.activitytracker.feed.activity#image" },
+            "description": "Photos, re-encoded by the client without their metadata, location included."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

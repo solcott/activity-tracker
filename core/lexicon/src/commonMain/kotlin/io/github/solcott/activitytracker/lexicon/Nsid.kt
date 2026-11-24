@@ -121,6 +121,14 @@ object Nsid {
      * ([SPACE_ATHLETE]) and indexed only from there, so it isn't in [indexedCollections].
      */
     const val FEED_TRAIL_DETAIL_VOTE = "$NAMESPACE.feed.trailDetailVote"
+    /**
+     * A rider's report of a segment's conditions, with photos (segments/trail-reports), kept only in the author's repo and indexed from the
+     * firehose; a copy in a space is ignored.
+     */
+    const val FEED_TRAIL_REPORT = "$NAMESPACE.feed.trailReport"
+    const val FEED_GET_TRAIL_REPORTS = "$NAMESPACE.feed.getTrailReports"
+    const val FEED_GET_TRAIL_PHOTOS = "$NAMESPACE.feed.getTrailPhotos"
+    const val FEED_GET_PATH_CONDITIONS = "$NAMESPACE.feed.getPathConditions"
     const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
     const val FEED_SEARCH_SEGMENT_NAMES = "$NAMESPACE.feed.searchSegmentNames"
@@ -235,6 +243,7 @@ object Nsid {
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
             FEED_TRAIL_DETAIL_SUGGESTION,
+            FEED_TRAIL_REPORT,
             FEED_DIVE_SITE,
             FEED_PATH,
             GEAR_ITEM,
