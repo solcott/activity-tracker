@@ -190,9 +190,16 @@ internal fun JdbcTransaction.inDetailCooldown(segment: String, detail: String, n
 internal fun JdbcTransaction.openSuggestionOf(segment: String, detail: String, did: String): String? =
     openProposalBy(TRAIL_SUGGESTIONS, segment, detail, did)
 
-/** Whether [did] is a regular of [segment]: efforts on it on [TrailDetailRules.suggesterDays] distinct dates, within the speed cap. */
-internal fun JdbcTransaction.isRegular(segment: String, did: String, rules: TrailDetailRules): Boolean =
-    proposerDays(segment, did) >= rules.suggesterDays
+/**
+ * Whether [did] is a regular of [segment]: efforts on it on [TrailDetailRules.suggesterDays] distinct dates, within the speed cap ([days],
+ * [proposerDays] unless the caller already read it).
+ */
+internal fun JdbcTransaction.isRegular(
+    segment: String,
+    did: String,
+    rules: TrailDetailRules,
+    days: () -> Long = { proposerDays(segment, did) },
+): Boolean = days() >= rules.suggesterDays
 
 /**
  * Whether [did] may suggest a value for [segment]'s [detail] at [now]: a suggestable detail of an active run segment, outside the detail's

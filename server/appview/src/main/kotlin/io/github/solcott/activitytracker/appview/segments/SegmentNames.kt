@@ -177,16 +177,17 @@ internal fun JdbcTransaction.nameable(place: NamedPlace): Boolean =
 internal fun JdbcTransaction.recentLocals(place: NamedPlace, since: String): Long =
     when (place) {
         is NamedPlace.Segment ->
-            SegmentEfforts.select(SegmentEfforts.authorDid)
-                .where { (SegmentEfforts.segmentUri eq place.uri) and (SegmentEfforts.startedOn greaterEq since) }
-                .withDistinct()
-                .count()
+            SegmentEfforts.select(SegmentEfforts.authorDid).where { effortsOnSince(place.uri, since) }.withDistinct().count()
         is NamedPlace.DiveSite ->
             DiveSiteVisits.select(DiveSiteVisits.authorDid)
                 .where { (DiveSiteVisits.siteUri eq place.uri) and (DiveSiteVisits.startedOn greaterEq since) }
                 .withDistinct()
                 .count()
     }
+
+/** Efforts on [segment] dated [since] (a local date, `YYYY-MM-DD`) or later, of every visibility. */
+internal fun effortsOnSince(segment: String, since: String): Op<Boolean> =
+    (SegmentEfforts.segmentUri eq segment) and (SegmentEfforts.startedOn greaterEq since)
 
 /**
  * How many distinct local dates [did] has efforts on [segment] within its sport group's speed cap, or visits to it for a dive site, of
@@ -269,14 +270,21 @@ internal fun JdbcTransaction.nameTaken(segment: String, name: String, except: St
 /**
  * Whether [did] may propose a name for [segment] at [now]: it's an active run (never a lift, segments/segment-lifts) with no pinned name
  * (segments/segment-pins), outside a cooldown, they have no open proposal on it, and they have efforts on it on
- * [SegmentNameRules.proposerDays] dates. The indexer and `getSegment`'s flag both ask this.
+ * [SegmentNameRules.proposerDays] dates ([days], [proposerDays] unless the caller already read it). The indexer and `getSegment`'s flag
+ * both ask this.
  */
-internal fun JdbcTransaction.mayPropose(segment: String, did: String, now: Long, rules: SegmentNameRules): Boolean =
+internal fun JdbcTransaction.mayPropose(
+    segment: String,
+    did: String,
+    now: Long,
+    rules: SegmentNameRules,
+    days: () -> Long = { proposerDays(segment, did) },
+): Boolean =
     nameable(NamedPlace.of(segment)) &&
         !hasNamePin(segment) &&
         !inCooldown(segment, now, rules) &&
         openProposalOf(segment, did) == null &&
-        proposerDays(segment, did) >= rules.proposerDays
+        days() >= rules.proposerDays
 
 /**
  * The counted votes on each of [proposals] (all on [segment]), by [countedVotes]: per voter, their latest vote by first indexing, counted

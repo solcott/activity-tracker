@@ -27,10 +27,12 @@ import io.github.solcott.activitytracker.appview.segments.closedDetailsFor
 import io.github.solcott.activitytracker.appview.segments.communityOf
 import io.github.solcott.activitytracker.appview.segments.confirmationsOf
 import io.github.solcott.activitytracker.appview.segments.effectiveTrail
+import io.github.solcott.activitytracker.appview.segments.effortsOnSince
 import io.github.solcott.activitytracker.appview.segments.isImporter
 import io.github.solcott.activitytracker.appview.segments.isRegular
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.plausibleEffort
+import io.github.solcott.activitytracker.appview.segments.proposerDays
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.appview.segments.servedElevation
 import io.github.solcott.activitytracker.appview.segments.suggestable
@@ -178,18 +180,21 @@ class SegmentViews(
         val now = clock.now().toEpochMilliseconds()
         val state = viewer?.let {
             val rider = ridersAmong(uri, listOf(it.value)).isNotEmpty()
+            // Facts about the viewer's rides that several flags ask, each read at most once.
+            val days = lazy { proposerDays(uri, it.value) }
+            val lastEffort = lazy { lastEffortAt(uri, it.value, now) }
             SegmentViewerState(
                 best = best,
-                canProposeName = mayPropose(uri, it.value, now, names),
+                canProposeName = mayPropose(uri, it.value, now, names) { days.value },
                 canVoteOnNames = rider,
                 // The same rules the indexer applies to a suggestion (segments/trail-detail-suggestions).
-                canSuggestTrailDetails = suggestable(uri) && isRegular(uri, it.value, trailDetails),
+                canSuggestTrailDetails = suggestable(uri) && isRegular(uri, it.value, trailDetails) { days.value },
                 closedTrailDetails = closedDetailsFor(uri, it.value, now, trailDetails),
                 canVoteOnTrailDetails = rider,
                 recentEffort = hasEffortSince(uri, it, clock.todayUtc().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
                 // The same rules the indexer applies to a report (segments/trail-reports).
-                canReportConditions = mayReport(uri, it.value, now),
-                lastEffortAt = lastEffortAt(uri, it.value, now)?.let(Instant::fromEpochMilliseconds),
+                canReportConditions = mayReport(uri, it.value, now) { lastEffort.value },
+                lastEffortAt = lastEffort.value?.let(Instant::fromEpochMilliseconds),
             )
         }
         val base = views(listOf(row), viewer, withPhotos = true).single()
@@ -1470,11 +1475,7 @@ private fun JdbcTransaction.segmentIndexed(uri: String): Boolean = Segments.sele
 /** Whether [viewer] has an effort on [segment] dated [since] or later, of any visibility: told only to them. */
 private fun JdbcTransaction.hasEffortSince(segment: String, viewer: Did, since: String): Boolean =
     SegmentEfforts.select(SegmentEfforts.id)
-        .where {
-            (SegmentEfforts.segmentUri eq segment) and
-                (SegmentEfforts.authorDid eq viewer.value) and
-                (SegmentEfforts.startedOn greaterEq since)
-        }
+        .where { effortsOnSince(segment, since) and (SegmentEfforts.authorDid eq viewer.value) }
         .limit(1)
         .any()
 

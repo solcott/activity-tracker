@@ -105,12 +105,14 @@ internal fun JdbcTransaction.deleteTrailReportsBy(author: Did) =
 /**
  * Whether [did] may report on [segment] at [now]: it's an active run segment, never a lift ([suggestable]), they have an effort on it, of
  * any visibility, that began within [TRAIL_REPORT_RIDE_WINDOW] of [now], and they have fewer than [TRAIL_REPORTS_PER_DAY] accepted on it
- * that UTC day. The indexer and `getSegment`'s flag both ask this.
+ * that UTC day. [lastEffort] is [lastEffortAt] unless the caller already read it. The indexer and `getSegment`'s flag both ask this.
  */
-internal fun JdbcTransaction.mayReport(segment: String, did: String, now: Long): Boolean =
-    suggestable(segment) &&
-        lastEffortAt(segment, did, now) != null &&
-        reportsOn(segment, did, utcDate(now).toString()) < TRAIL_REPORTS_PER_DAY
+internal fun JdbcTransaction.mayReport(
+    segment: String,
+    did: String,
+    now: Long,
+    lastEffort: () -> Long? = { lastEffortAt(segment, did, now) },
+): Boolean = suggestable(segment) && lastEffort() != null && reportsOn(segment, did, utcDate(now).toString()) < TRAIL_REPORTS_PER_DAY
 
 /** When [did]'s newest effort on [segment] began, only when within [TRAIL_REPORT_RIDE_WINDOW] of [now]. */
 internal fun JdbcTransaction.lastEffortAt(segment: String, did: String, now: Long): Long? {
