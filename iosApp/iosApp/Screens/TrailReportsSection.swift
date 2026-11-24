@@ -313,10 +313,7 @@ struct TrailReportSheetView: View {
             picked = []
             preparing = true
             Task {
-                var photos: [PickedPhoto] = []
-                for item in items {
-                    await PhotoPick.app.pick({ try await item.loadTransferable(type: Data.self) }) { photos.append($0) }
-                }
+                let photos = await PhotoPick.app.pickAll(items)
                 preparing = false
                 if !photos.isEmpty { send(TrailReportEvent.AddPicked(photos: photos)) }
             }
