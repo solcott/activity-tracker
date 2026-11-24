@@ -138,7 +138,7 @@ The hero and the stats list SHALL show elevation gain only when it is recorded, 
 - **THEN** the stats list has no Elevation group
 
 ### Requirement: Layout by window width
-The page SHALL arrange the same content by its window's width, on every platform alike. Below 600dp: one column of hero, map, training load card, metric cards, stats list and comments. From 600dp to under 840dp: hero and map side by side, cards two to a row, laps full width. From 840dp: a side pane with the map, hero and avg/max table beside the cards, the map staying in view as the cards scroll.
+The page SHALL arrange the same content by its window's width, on every platform alike. Below 600dp: one column of hero, map, likes and comments block, training load card, metric cards and stats list. From 600dp to under 840dp: hero and map side by side, then likes and the comments block, cards two to a row, laps full width. From 840dp: a side pane with the map, hero, likes, comments block and avg/max table beside the cards, the map staying in view as the cards scroll.
 
 #### Scenario: Phone
 - **WHEN** the page is shown on a 390dp-wide iPhone or a 412dp-wide Android phone
@@ -151,6 +151,10 @@ The page SHALL arrange the same content by its window's width, on every platform
 #### Scenario: Wide desktop window
 - **WHEN** the page is shown in a 1280dp-wide desktop or web window
 - **THEN** the map, hero and avg/max table sit in a side pane, the cards beside them, and the map stays in view while the cards scroll
+
+#### Scenario: Comments before the cards
+- **WHEN** a ride with eight metric cards and 14 comments is shown on a phone
+- **THEN** the comments block shows right after the likes, before the training load card and the metric cards
 
 ### Requirement: Avg and max table
 From 600dp wide, the page SHALL show a table with one row per metric that has an average or maximum the viewer was served (heart rate, power, speed or pace, cadence, temperature), and columns Avg and Max. When the viewer was served a temperature stream, the table SHALL also have a Min column between Avg and Max, giving the lowest temperature, with an empty cell for every other metric. Below 600dp the page SHALL NOT show the table.
@@ -383,26 +387,26 @@ Moving a chart's readout SHALL redraw only the readout, not the chart beneath it
 - **THEN** the line, its fill, the elevation, the average line and the axes do not move or flicker
 
 ### Requirement: The activity page is native on iOS
-On iOS an activity's page SHALL be drawn with the system's own list and bar, in the shared page's words, its loading and failures as `ui/content-loading` says, with the sections the shared page has: header, route and photos, hero, likes, Together with, training load, metric cards with their charts, zones and laps, segment efforts and lifts, stats and comments.
+On iOS an activity's page SHALL be drawn with the system's own list and bar, in the shared page's words, its loading and failures as `ui/content-loading` says, with the sections the shared page has: header, route and photos, hero, likes, comments block, Together with, training load, metric cards with their charts, zones and laps, segment efforts and lifts, and stats.
 
 #### Scenario: A ride with charts
 - **WHEN** an athlete on iOS opens a ride with a route, heart rate, power and elevation streams and a comment
-- **THEN** the page shows the ride's map, its hero figures, a native chart in each of those cards, and the comment, drawn natively
+- **THEN** the page shows the ride's map, its hero figures, the comment in the comments block, and a native chart in each of those cards, drawn natively
 
 #### Scenario: Failed load
 - **WHEN** the activity fails to load on iOS
 - **THEN** the page says why with Retry, as other native pages do
 
 ### Requirement: The native activity page lays out by width
-On iOS, in a regular-width window, the native page SHALL put the map, header, hero, likes, Together with, avg/max table, training load, stats and comments in a side pane beside the metric cards, segment efforts and lifts, each scrolling on its own; in a compact window it SHALL show one list in the shared page's compact order.
+On iOS, in a regular-width window, the native page SHALL put the map, header, hero, likes, comments block, Together with, avg/max table, training load and stats in a side pane beside the metric cards, segment efforts and lifts, each scrolling on its own; in a compact window it SHALL show one list in the shared page's compact order.
 
 #### Scenario: iPad
 - **WHEN** an activity with cards is opened on an iPad at full screen
-- **THEN** its map and stats show in a pane beside its cards
+- **THEN** its map, comments block and stats show in a pane beside its cards
 
 #### Scenario: iPhone
 - **WHEN** the same activity is opened on an iPhone
-- **THEN** it shows as one list, the cards after the hero, likes and training load
+- **THEN** it shows as one list, the cards after the hero, likes, comments block and training load
 
 ### Requirement: The native activity page offers what the shared page offers
 On iOS the owner's page SHALL offer in its bar the shared owner's menu, asking before Split and Delete as the shared page does, and someone else's page SHALL offer Report through the native report sheet. Export SHALL hand the built file to the system's share sheet. Whatever the page opens SHALL be the same screen the shared page opens.

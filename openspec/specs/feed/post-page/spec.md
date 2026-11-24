@@ -26,11 +26,11 @@ Defines the post page: the one place a post is shown with everything around it, 
 - **THEN** the answer is `NotFound`
 
 ### Requirement: The post page shows the post and its comments
-The post page SHALL show the post's card, with its proposal, votes, counts and like button working as they do in the timeline, followed by its comment field and its comment threads. It SHALL load in the content-loading pattern. A post that can't be loaded SHALL show its error with a retry, and a `NotFound` post SHALL show that the post isn't available.
+The post page SHALL show the post's card, with its proposal, votes and like, repost and quote buttons working as they do in the timeline, followed by its social card: the like, repost, quote and comment counts on one row (likes and reposts showing who gave them, quotes opening the quotes), which the card itself then leaves out, and the comments block. It SHALL load in the content-loading pattern. A post that can't be loaded SHALL show its error with a retry, and a `NotFound` post SHALL show that the post isn't available.
 
 #### Scenario: Loads
 - **WHEN** bob opens alice's post page
-- **THEN** he sees loading, then the card followed by its comments
+- **THEN** he sees loading, then the card followed by its comments block
 
 #### Scenario: Gone
 - **WHEN** alice withdraws her proposal while bob's link to the post page is still around, and bob opens it
@@ -41,7 +41,7 @@ The post page SHALL show the post's card, with its proposal, votes, counts and l
 - **THEN** he sees the error with a retry
 
 ### Requirement: The post page lists comments as the activity page does
-The post page's comments SHALL work as on an activity's detail screen:
+The post page's comments block SHALL work as an activity page's, and the post's Comments screen SHALL work as an activity's:
 - threads are listed a page at a time, oldest first, each with its first replies and the rest a page at a time;
 - a failed page keeps what's listed;
 - a sent comment or reply shows at once;
@@ -49,12 +49,12 @@ The post page's comments SHALL work as on an activity's detail screen:
 - Report, Block and Mute are offered on others' comments.
 
 #### Scenario: Next page
-- **WHEN** bob scrolls to the end of a post's first page of threads
+- **WHEN** bob scrolls to the end of the first page of threads on a post's Comments screen
 - **THEN** the next page is loaded and listed below it
 
 #### Scenario: Reply shows at once
-- **WHEN** bob replies to carol's comment on alice's post
-- **THEN** his reply is listed at the end of carol's thread at once, and the comment count goes up by one
+- **WHEN** bob replies to carol's comment on alice's post's Comments screen
+- **THEN** his reply is listed at the end of carol's thread at once, and the comment count goes up by one there and on the post page
 
 ### Requirement: The post page lists who liked it
 The post page SHALL show the post's like count. Tapping it SHALL list the athletes who liked the post that the viewer is shown, from `feed.getLikes`, as for an activity.
@@ -86,11 +86,11 @@ The post page SHALL show the post's quote count and offer Quote as the card does
 - **THEN** his quote is listed first, even before the AppView has indexed it
 
 ### Requirement: The post page is native on iOS
-On iOS the post page SHALL be drawn natively in the shared page's words and order: the post's native card, a failed action, Show likes and Show reposts with their lists, Show quotes, and the comments (the count, the threads with their replies, the viewer's just-sent comments, the next page as the viewer scrolls, and the field). A post the AppView doesn't serve SHALL say it isn't available.
+On iOS the post page SHALL be drawn natively in the shared page's words and order: the post's native card, a failed action, the counts row with the likers and reposters lists once shown, and the comments block (the preview or "Loading comments…", View all and Add a comment), which opens the native Comments screen. A post the AppView doesn't serve SHALL say it isn't available.
 
 #### Scenario: Opening a post
 - **WHEN** alice opens bob's post on iOS
-- **THEN** she sees loading, then the native card followed by its comments, and its comments' next page loads as she scrolls
+- **THEN** she sees loading, then the native card followed by its comments block, and "View all" opens the native Comments screen
 
 #### Scenario: Gone
 - **WHEN** alice opens a post on iOS that the AppView no longer serves her
