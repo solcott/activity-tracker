@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlin.time.Instant
@@ -83,12 +84,17 @@ internal fun isMember(): Op<Boolean> {
     )
 }
 
-/** Each of [combined]'s members whose claim counts, oldest first, keyed by the combined activity's URI. */
-internal fun JdbcTransaction.membersOf(combined: Collection<String>): Map<String, List<MemberView>> =
+/**
+ * Each of [combined]'s members whose claim counts and that is [served] to [viewer] (a taken-down member is listed only to its author),
+ * oldest first, keyed by the combined activity's URI.
+ */
+internal fun JdbcTransaction.membersOf(combined: Collection<String>, viewer: Did?): Map<String, List<MemberView>> =
     if (combined.isEmpty()) {
         emptyMap()
     } else {
-        validMemberRows { ActivityMembers.combinedUri inList combined }
+        validMemberRows {
+                (ActivityMembers.combinedUri inList combined) and served(viewer, Activities.authorDid, Activities.uri, Activities.cid)
+            }
             .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
             .toList()
             .groupBy({ it[ActivityMembers.combinedUri] }) {
@@ -113,9 +119,9 @@ internal fun JdbcTransaction.combinedIntoOf(members: Collection<String>): Map<St
             .associate { it[ActivityMembers.memberUri] to it[ActivityMembers.combinedUri] }
     }
 
-/** The URIs whose likes and comments count as [uri]'s: itself and, for a combined activity, its members. */
-internal fun JdbcTransaction.interactionSubjects(uri: String): List<String> =
-    listOf(uri) + membersOf(listOf(uri))[uri].orEmpty().map { it.uri.value }
+/** The URIs whose likes and comments count as [uri]'s for [viewer]: itself and, for a combined activity, the members it lists them. */
+internal fun JdbcTransaction.interactionSubjects(uri: String, viewer: Did?): List<String> =
+    listOf(uri) + membersOf(listOf(uri), viewer)[uri].orEmpty().map { it.uri.value }
 
 /** Member rows (an [Activities] row joined to its claim) whose claim counts, among the claims [where] picks. */
 private fun validMemberRows(where: () -> Op<Boolean>) =

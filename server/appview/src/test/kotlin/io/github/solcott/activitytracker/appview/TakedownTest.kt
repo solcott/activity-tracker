@@ -3,10 +3,13 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.labels.Label
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.ktor.client.HttpClient
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.encodeURLParameter
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,6 +36,52 @@ class TakedownTest : ModerationTestBase() {
         label(activityUri(bob, "3kb"), "!takedown", neg = true)
         assertEquals(HttpStatusCode.OK, client.activityStatus(activityUri(bob, "3kb"), null), "served again once negated")
     }
+
+    @Test
+    fun aTakenDownRecordingIsNotListedUnderItsPrimary() = testApplication {
+        start()
+        listOf(alice, bob).forEach(::profile)
+        post(bob, "3kb")
+        val recording =
+            """{"sport":"run","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,"createdAt":"2026-10-02T07:31:00Z",""" +
+                """"device":"Watch","recordingOf":"${activityUri(bob, "3kb")}"}"""
+        commit(bob, Nsid.FEED_ACTIVITY, "3kr", recording)
+        assertEquals(listOf("3kr"), client.recordings(activityUri(bob, "3kb"), alice))
+        label(activityUri(bob, "3kr"), "!takedown")
+
+        assertEquals(emptyList(), client.recordings(activityUri(bob, "3kb"), alice))
+        assertEquals(emptyList(), client.recordings(activityUri(bob, "3kb"), null), "signed out too")
+        assertEquals(listOf("3kr"), client.recordings(activityUri(bob, "3kb"), bob), "bob still sees his")
+    }
+
+    @Test
+    fun aTakenDownMemberIsNotListedUnderItsCombinedActivity() = testApplication {
+        start()
+        listOf(alice, bob, carol).forEach(::profile)
+        follow(alice, bob)
+        post(bob, "3kw")
+        post(bob, "3ke")
+        val combined =
+            """{"sport":"run","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,"createdAt":"2026-10-02T07:31:00Z",""" +
+                """"combined":{"members":["${activityUri(bob, "3kw")}","${activityUri(bob, "3ke")}"],"sources":[]}}"""
+        commit(bob, Nsid.FEED_ACTIVITY, "3kc", combined)
+        like(carol, bob, "3ke")
+        assertEquals(listOf("3ke", "3kw"), client.members(activityUri(bob, "3kc"), alice))
+        assertEquals(listOf(carol), client.likers(activityUri(bob, "3kc"), alice), "a member's likes count as the combined one's")
+        label(activityUri(bob, "3ke"), "!takedown")
+
+        assertEquals(listOf("3kw"), client.members(activityUri(bob, "3kc"), alice))
+        assertEquals(listOf("3kw"), client.members(activityUri(bob, "3kc"), null), "signed out too")
+        assertEquals(emptyList(), client.likers(activityUri(bob, "3kc"), alice), "nor do its likes count")
+        assertEquals(listOf("3ke", "3kw"), client.members(activityUri(bob, "3kc"), bob), "bob still sees his")
+        assertEquals(listOf(activityUri(bob, "3kc")), client.timeline(alice).filter { it.startsWith("at://$bob") })
+    }
+
+    private suspend fun HttpClient.recordings(uri: String, viewer: String?): List<String> =
+        query(GetActivity.method, viewer, "?uri=${uri.encodeURLParameter()}").activity.recordings.orEmpty().map { it.uri.rkey!! }
+
+    private suspend fun HttpClient.members(uri: String, viewer: String?): List<String> =
+        query(GetActivity.method, viewer, "?uri=${uri.encodeURLParameter()}").activity.members.orEmpty().map { it.uri.rkey!! }.sorted()
 
     @Test
     fun aLabelPinnedToAVersionDoesntFollowAnEdit() = testApplication {

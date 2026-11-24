@@ -425,7 +425,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
-        val members = membersOf(uris)
+        val members = membersOf(uris, viewer)
         val combinedInto = combinedIntoOf(uris)
         // A combined activity's likes and comments include its members': each subject counts toward the activity it's shown as.
         val countedAs = uris.associateWith { it } + members.flatMap { (combined, its) -> its.map { it.uri.value to combined } }
@@ -436,7 +436,10 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val viewerLikes = viewer?.let { viewerLikes(it, uris) }.orEmpty()
 
         val recordings =
-            recordingsOf(rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] })
+            recordingsOf(
+                rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] },
+                viewer,
+            )
         val details = detailsOf(uris, viewer)
         val gear = gearOf(uris, viewer, mediaUrls, mediaViewer)
         val labels = labelViews(rows.associate { it[Activities.uri] to it[Activities.cid] })
@@ -472,14 +475,17 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     /**
      * Each of [primaries]' other recordings, oldest first, given each primary's visibility: a recording counts only at its primary's
-     * visibility, so it never shows anyone more than the primary does.
+     * visibility, so it never shows anyone more than the primary does, and only while it's [served] to [viewer] (a taken-down recording is
+     * listed only to its author).
      */
-    private fun JdbcTransaction.recordingsOf(primaries: Map<String, String>): Map<String, List<RecordingView>> =
+    private fun JdbcTransaction.recordingsOf(primaries: Map<String, String>, viewer: Did?): Map<String, List<RecordingView>> =
         if (primaries.isEmpty()) {
             emptyMap()
         } else {
             Activities.select(Activities.uri, Activities.recordingOf, Activities.startedAt, Activities.record, Activities.visibility)
-                .where { Activities.recordingOf inList primaries.keys }
+                .where {
+                    (Activities.recordingOf inList primaries.keys) and served(viewer, Activities.authorDid, Activities.uri, Activities.cid)
+                }
                 .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
                 .filter { primaries[it[Activities.recordingOf]] == it[Activities.visibility] }
                 .groupBy({ it[Activities.recordingOf].orEmpty() }) {
@@ -574,7 +580,8 @@ private class Interactable(val subject: Subject, val author: String, val uris: L
  */
 private fun JdbcTransaction.requireInteractable(uri: AtUri, viewer: Did?): Interactable =
     when (Subject.of(uri)) {
-        Subject.ACTIVITY -> Interactable(Subject.ACTIVITY, requireVisibleActivity(uri.value, viewer), interactionSubjects(uri.value))
+        Subject.ACTIVITY ->
+            Interactable(Subject.ACTIVITY, requireVisibleActivity(uri.value, viewer), interactionSubjects(uri.value, viewer))
         Subject.POST -> Interactable(Subject.POST, requireVisiblePost(uri.value, viewer), listOf(uri.value))
         null -> throw notFound()
     }
