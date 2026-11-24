@@ -46,8 +46,15 @@ class CsvTest {
     }
 
     @Test
-    fun malformedFileHasNoRows() {
+    fun malformedRowsAreDropped() {
         assertTrue(Csv.parse("Name,Note\nA,\"never closed\n").rows.isEmpty())
         assertTrue(Csv.parse("Name,Note\n\"A\"b,c\n").rows.isEmpty())
+    }
+
+    @Test
+    fun oneMalformedRowKeepsTheOthers() {
+        val csv = Csv.parse("Name,Note\nMorning,\"Windy, cold\"\n\"Bad\"row,x\nEvening,calm\n")
+        assertEquals(listOf("Morning", "Evening"), csv.rows.map { csv.value(it, "Name") })
+        assertEquals("Windy, cold", csv.value(csv.rows[0], "Note"))
     }
 }

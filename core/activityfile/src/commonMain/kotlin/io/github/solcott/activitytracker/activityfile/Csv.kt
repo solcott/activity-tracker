@@ -20,13 +20,17 @@ internal class Csv private constructor(private val columns: Map<String, Int>, va
     fun has(name: String): Boolean = name.normalized() in columns
 
     companion object {
-        /** [text]'s rows, or none when it isn't well-formed CSV (a quote left open, or text after a closing one). */
+        /**
+         * [text]'s rows. When it isn't well-formed CSV (a quote left open, or text after a closing one), each line is read on its own and
+         * only the lines that are well-formed are kept, so one bad row doesn't lose the rest (a quoted field spanning lines is lost then).
+         */
         fun parse(text: String): Csv {
+            val body = text.removePrefix("\uFEFF")
             val records =
                 try {
-                    READER.readAll(text.removePrefix("\uFEFF"))
+                    READER.readAll(body)
                 } catch (_: MalformedCsvException) {
-                    emptyList()
+                    body.lineSequence().mapNotNull(::wellFormedLine).toList()
                 }
             val header = records.firstOrNull().orEmpty()
             val columns = mutableMapOf<String, Int>()
@@ -38,6 +42,16 @@ internal class Csv private constructor(private val columns: Map<String, Int>, va
         }
 
         private fun String.normalized() = trim().lowercase()
+
+        /** [line]'s fields when it's a well-formed CSV record on its own, else null. */
+        private fun wellFormedLine(line: String): List<String>? =
+            if (line.isBlank()) null
+            else
+                try {
+                    READER.readAll(line).singleOrNull()
+                } catch (_: MalformedCsvException) {
+                    null
+                }
 
         /** RFC 4180, with a row shorter than the header padded and a longer one cut to it. */
         private val READER = csvReader {
