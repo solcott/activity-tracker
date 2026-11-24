@@ -8,13 +8,19 @@ import io.github.solcott.activitytracker.appview.db.Paths
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.db.TrailReports
 import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
+import io.github.solcott.activitytracker.appview.index.TRAIL_REPORTS_PER_DAY
+import io.github.solcott.activitytracker.appview.index.dayOf
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.groupKey
+import io.github.solcott.activitytracker.appview.index.lastEffortAt
+import io.github.solcott.activitytracker.appview.index.reportsOn
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
+import io.github.solcott.activitytracker.appview.index.rodeRecently
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -42,11 +48,14 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.ElevationProfile
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPathConditions
 import io.github.solcott.activitytracker.lexicon.app.GetPaths
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
+import io.github.solcott.activitytracker.lexicon.app.GetTrailPhotos
+import io.github.solcott.activitytracker.lexicon.app.GetTrailReports
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
@@ -71,6 +80,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.location.E7_PER_DEGREE
 import io.github.solcott.activitytracker.location.SegmentClimb
 import io.github.solcott.activitytracker.location.SegmentDirection
@@ -149,6 +159,8 @@ class SegmentViews(
      * (`SEGMENT_ACTIVE_ATHLETES`).
      */
     private val activeAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+    /** Links to trail report photos (segments/trail-reports), through the media redirect. */
+    private val media: MediaUrls = MediaUrls(""),
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         // A handed-off segment's old URI serves its successor (segments/segment-handoffs).
@@ -178,9 +190,13 @@ class SegmentViews(
                 closedTrailDetails = closedDetailsFor(uri, it.value, now, trailDetails),
                 canVoteOnTrailDetails = rider,
                 recentEffort = hasEffortSince(uri, it, today().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
+                // The same rules the indexer applies to a report (segments/trail-reports).
+                canReportConditions =
+                    suggestable(uri) && rodeRecently(uri, it.value, now) && reportsOn(uri, it.value, dayOf(now)) < TRAIL_REPORTS_PER_DAY,
+                lastEffortAt = lastEffortAt(uri, it.value, now)?.let(Instant::fromEpochMilliseconds),
             )
         }
-        val base = views(listOf(row)).single()
+        val base = views(listOf(row), viewer, withPhotos = true).single()
         // How riders see each detail: counts, a month, a doubt and the viewer's own, never who (segments/trail-detail-suggestions).
         val confirmations = confirmationsOf(uri, base.trail, viewer, now)
         val view =
@@ -285,7 +301,7 @@ class SegmentViews(
                     exhausted -> null
                     else -> cursor
                 }
-            SearchSegments.Output(views(shown + groupMatesOf(shown, inArea).filter(::crossesBox)), next)
+            SearchSegments.Output(views(shown + groupMatesOf(shown, inArea).filter(::crossesBox), viewer), next)
         }
     }
 
@@ -356,7 +372,7 @@ class SegmentViews(
             val place = groups.withIndex().associate { (i, group) -> group to i }
             val ordered = members.sortedBy { place.getValue(it[Segments.groupUri] ?: it[Segments.uri]) }
             val shown = box?.let { b -> ordered.filter { crosses(it[Segments.line], b.minLat, b.minLng, b.maxLat, b.maxLng) } } ?: ordered
-            SearchSegmentNames.Output(views(shown), nextOffset(offset, limit, groups.size))
+            SearchSegmentNames.Output(views(shown, viewer), nextOffset(offset, limit, groups.size))
         }
     }
 
@@ -364,6 +380,81 @@ class SegmentViews(
      * A trail or road and every run segment on it search would list to [viewer] (segments/segment-paths), with its terrain profile and the
      * stretch of each of those along it (segments/path-profile); `NotFound` when not indexed.
      */
+    /** A segment's trail reports [viewer] is listed, newest first (segments/trail-reports). */
+    suspend fun trailReports(viewer: Did?, params: GetTrailReports.Params): GetTrailReports.Output = db.tx {
+        val segment = servedSegment(viewer, params.segment.value)
+        val limit = Paging.clamp(params.limit)
+        val rows =
+            TrailReports.selectAll()
+                .where {
+                    (TrailReports.segmentUri eq segment) and
+                        reportsListedTo(viewer) and
+                        keysetBefore(TrailReports.indexedAt, TrailReports.uri, params.cursor)
+                }
+                .orderBy(TrailReports.indexedAt to SortOrder.DESC, TrailReports.uri to SortOrder.DESC)
+                .limit(limit)
+                .toList()
+        GetTrailReports.Output(
+            trailReportViews(rows, clock.now().toEpochMilliseconds(), avatars, media),
+            nextCursor(rows, limit) { "${it[TrailReports.indexedAt]}::${it[TrailReports.uri]}" },
+        )
+    }
+
+    /** The photos of one segment's reports, or of those on every segment a trail lists to [viewer] (segments/trail-reports). */
+    suspend fun trailPhotos(viewer: Did?, params: GetTrailPhotos.Params): GetTrailPhotos.Output = db.tx {
+        val segment = params.segment
+        val path = params.path
+        val where =
+            when {
+                segment != null && path == null -> TrailReports.segmentUri eq servedSegment(viewer, segment.value)
+                path != null && segment == null -> TrailReports.segmentUri inList listedOnPath(viewer, path.value)
+                else -> invalidRequest("Give exactly one of segment and path")
+            }
+        trailPhotos(where, viewer, Paging.clamp(params.limit), params.cursor, avatars, media)
+    }
+
+    /** A trail's conditions rolled up from the segments it lists to [viewer] (segments/trail-reports). */
+    suspend fun pathConditions(viewer: Did?, params: GetPathConditions.Params): GetPathConditions.Output = db.tx {
+        val path = params.path.value
+        val listed = listedOnPath(viewer, path)
+        val names =
+            if (listed.isEmpty()) emptyMap()
+            else
+                Segments.select(Segments.uri, Segments.currentName)
+                    .where { Segments.uri inList listed }
+                    .associate { it[Segments.uri] to it[Segments.currentName] }
+        val conditions = conditionsOf(listed, viewer, clock.now().toEpochMilliseconds(), avatars, media, withPhotos = false)
+        val segments =
+            conditions
+                .filterValues { it.riders > 0 }
+                .map { (uri, c) -> GetPathConditions.SegmentConditions(AtUri(uri), names[uri].orEmpty(), c) }
+                .sortedWith(
+                    compareByDescending<GetPathConditions.SegmentConditions> { it.conditions.lead == TrailCondition.CLOSED }
+                        .thenByDescending { it.conditions.latestAt },
+                )
+        val onPath = if (listed.isEmpty()) Op.FALSE else TrailReports.segmentUri inList listed
+        GetPathConditions.Output(
+            segments = segments,
+            segmentCount = listed.size,
+            photoCount = photoCount(onPath, viewer),
+            photos = trailPhotos(onPath, viewer, PATH_PHOTOS, null, avatars, media).photos,
+        )
+    }
+
+    /** [uri] if it's a segment served to [viewer], else `NotFound`. */
+    private fun JdbcTransaction.servedSegment(viewer: Did?, uri: String): String =
+        Segments.select(Segments.uri).where { (Segments.uri eq uri) and SegmentPlace.servedTo(viewer) }.firstOrNull()?.get(Segments.uri)
+            ?: throw notFound("Segment not found")
+
+    /** The segments [path] lists to [viewer], as [path] (the Trail page) does; `NotFound` for a path that isn't indexed. */
+    private fun JdbcTransaction.listedOnPath(viewer: Did?, path: String): List<String> {
+        if (Paths.select(Paths.uri).where { Paths.uri eq path }.empty()) throw notFound("Path not found")
+        return Segments.join(PathSegments, JoinType.INNER, Segments.uri, PathSegments.segmentUri)
+            .select(Segments.uri)
+            .where { (PathSegments.pathUri eq path) and onPathListed(viewer) }
+            .map { it[Segments.uri] }
+    }
+
     suspend fun path(viewer: Did?, params: GetPath.Params): GetPath.Output = db.tx {
         val row = Paths.selectAll().where { Paths.uri eq params.uri.value }.firstOrNull() ?: throw notFound("Path not found")
         val segments =
@@ -372,7 +463,7 @@ class SegmentViews(
                 .where { (PathSegments.pathUri eq params.uri.value) and onPathListed(viewer) }
                 .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
                 .toList()
-        val views = views(segments)
+        val views = views(segments, viewer)
         val profile =
             pathProfile(params.uri.value, row[Paths.lines], segments.map { ListedLine(AtUri(it[Segments.uri]), it[Segments.line]) })
         val leaders =
@@ -641,7 +732,7 @@ class SegmentViews(
                         .groupBy { it[Segments.groupUri] ?: it[Segments.uri] }
             val results = page.mapNotNull { hit ->
                 if (hit.path) pathViews[hit.key]?.let { SearchPathNames.Result(path = it) }
-                else members[hit.key]?.let { SearchPathNames.Result(group = views(it)) }
+                else members[hit.key]?.let { SearchPathNames.Result(group = views(it, viewer)) }
             }
             SearchPathNames.Output(results, (offset + limit).toString().takeIf { ranked.size > offset + limit })
         }
@@ -854,7 +945,7 @@ class SegmentViews(
             val rows =
                 Segments.selectAll().where { (Segments.uri inList uris) and SegmentPlace.servedTo(viewer) }.associateBy { it[Segments.uri] }
             val remaining = remainingCreations(SegmentPlace, viewer, segmentImporter, now)
-            CheckSegment.Output(views(uris.mapNotNull { rows[it] }), remaining)
+            CheckSegment.Output(views(uris.mapNotNull { rows[it] }, viewer), remaining)
         }
     }
 
@@ -1109,8 +1200,9 @@ class SegmentViews(
      */
     private fun byImporter(author: String): Boolean = segmentImporter.isImporter(author)
 
-    private fun JdbcTransaction.views(rows: List<ResultRow>): List<SegmentView> {
+    private fun JdbcTransaction.views(rows: List<ResultRow>, viewer: Did?, withPhotos: Boolean = false): List<SegmentView> {
         val creators = basicProfiles(rows.map { it[Segments.authorDid] }, avatars)
+        val conditions = conditionsOf(rows.map { it[Segments.uri] }, viewer, clock.now().toEpochMilliseconds(), avatars, media, withPhotos)
         val onPaths = pathsOf(rows.map { it[Segments.uri] })
         return rows.map {
             val author = it[Segments.authorDid]
@@ -1144,6 +1236,7 @@ class SegmentViews(
                 // on any segment (segments/trail-detail-suggestions).
                 trail = effective.trail,
                 trailDetails = effective.details,
+                conditions = conditions[it[Segments.uri]],
             )
         }
     }

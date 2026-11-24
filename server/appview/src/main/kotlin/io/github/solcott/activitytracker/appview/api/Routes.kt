@@ -49,6 +49,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetPath
+import io.github.solcott.activitytracker.lexicon.app.GetPathConditions
 import io.github.solcott.activitytracker.lexicon.app.GetPaths
 import io.github.solcott.activitytracker.lexicon.app.GetPost
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
@@ -62,6 +63,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegmentLines
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.GetTrailPhotos
+import io.github.solcott.activitytracker.lexicon.app.GetTrailReports
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -149,6 +152,9 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }
     xrpcQuery(GetSegmentMayors.method, verifier) { params, viewer -> segments.mayors(viewer, params) }
+    xrpcQuery(GetTrailReports.method, verifier) { params, viewer -> segments.trailReports(viewer, params) }
+    xrpcQuery(GetTrailPhotos.method, verifier) { params, viewer -> segments.trailPhotos(viewer, params) }
+    xrpcQuery(GetPathConditions.method, verifier) { params, viewer -> segments.pathConditions(viewer, params) }
     xrpcProcedure(CheckSegment.method, verifier) { input, caller -> segments.check(requireViewer(caller), input) }
 }
 

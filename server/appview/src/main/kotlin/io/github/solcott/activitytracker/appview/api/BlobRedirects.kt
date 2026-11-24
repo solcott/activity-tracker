@@ -193,7 +193,9 @@ private fun JdbcTransaction.isCurrentAvatar(did: String, cid: String): Boolean =
  * fetch from the PDS.
  */
 private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boolean =
-    !mediaRows(did, cid) { visibleTo(null) }.empty() || !gearPhotoRows(did, cid) { gearVisibleTo(null) }.empty()
+    !mediaRows(did, cid) { visibleTo(null) }.empty() ||
+        !gearPhotoRows(did, cid) { gearVisibleTo(null) }.empty() ||
+        isServedTrailReportPhoto(did, cid)
 
 /**
  * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one, or that a moderator was shown with a subject they

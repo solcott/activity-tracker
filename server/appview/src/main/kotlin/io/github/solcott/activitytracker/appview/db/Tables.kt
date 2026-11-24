@@ -427,6 +427,42 @@ object TrailDetailVotes : Table("trail_detail_votes") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/** Trail reports (`feed.trailReport`, segments/trail-reports), indexed from repos only. */
+object TrailReports : Table("trail_reports") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val segmentUri = varchar("segment_uri", 512)
+    val note = text("note").nullable()
+    /** Whether it holds a known tag, so only these count toward conditions. */
+    val hasConditions = bool("has_conditions")
+    /** When first indexed, epoch milliseconds, which dates it; a rewrite keeps it. */
+    val indexedAt = long("indexed_at")
+    /** [indexedAt]'s UTC date, `YYYY-MM-DD`, for the per-day limit. */
+    val dayUtc = varchar("day_utc", 10)
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** Each trail report's known condition tags. */
+object TrailReportTags : Table("trail_report_tags") {
+    val reportUri = varchar("report_uri", 512)
+    val tag = varchar("tag", 32)
+    override val primaryKey = PrimaryKey(reportUri, tag)
+}
+
+/** Each trail report's photos in order, which `/img/media` serves while the report and its author are served. */
+object TrailReportBlobs : Table("trail_report_blobs") {
+    val reportUri = varchar("report_uri", 512)
+    val sortIndex = integer("sort_index")
+    val authorDid = varchar("author_did", 255)
+    val cid = varchar("cid", 255)
+    val mimeType = varchar("mime_type", 64)
+    val alt = text("alt").nullable()
+    val width = integer("width").nullable()
+    val height = integer("height").nullable()
+    override val primaryKey = PrimaryKey(reportUri, sortIndex)
+}
+
 /** A trail or road (`feed.path`, segments/segment-paths), indexed only from the segment importer's repo. */
 object Paths : BoxedLineTable("paths") {
     val uri = varchar("uri", 512)

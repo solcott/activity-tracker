@@ -446,6 +446,7 @@ private fun Route.publicRoutes(
             names = config.segmentNames,
             trailDetails = config.trailDetails,
             activeAthletes = config.segmentActiveAthletes,
+            media = MediaUrls(config.publicUrl),
         ),
         verifier,
     )

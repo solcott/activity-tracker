@@ -45,6 +45,8 @@ import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
+import io.github.solcott.activitytracker.appview.db.TrailReportBlobs
+import io.github.solcott.activitytracker.appview.db.TrailReports
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -488,6 +490,11 @@ class Indexer(
                 if (placement.origin != Origins.REPO) upsertTrailVote(json, author, uri, now)
             }
 
+            // Public, so from the repo only; a copy in a space is ignored (segments/trail-reports).
+            Nsid.FEED_TRAIL_REPORT -> {
+                if (placement.origin == Origins.REPO) upsertTrailReport(json, author, uri, cid, now)
+            }
+
             // Private, so from the self space only (spaceCollections); the firehose never delivers it (indexedCollections).
             Nsid.FEED_ACTIVITY_INVITE -> {
                 if (placement.origin != Origins.REPO)
@@ -593,6 +600,10 @@ class Indexer(
                 if (placement.origin != Origins.REPO) deleteTrailVote(uri)
             }
 
+            Nsid.FEED_TRAIL_REPORT -> {
+                if (placement.origin == Origins.REPO) deleteTrailReports(listOf(uri.value))
+            }
+
             Nsid.FEED_PATH -> {
                 if (placement.origin == Origins.REPO) deletePath(uri)
             }
@@ -672,6 +683,7 @@ class Indexer(
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
         deleteTrailDetailsBy(did)
+        deleteTrailReportsBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
@@ -755,6 +767,8 @@ class Indexer(
                 SegmentNameVotes to "deleteSegmentNamesBy",
                 TrailDetailSuggestions to "deleteTrailDetailsBy",
                 TrailDetailVotes to "deleteTrailDetailsBy",
+                TrailReports to "deleteTrailReportsBy",
+                TrailReportBlobs to "deleteTrailReportsBy",
                 Segments to "deleteSegmentsBy",
                 DiveSites to "deleteDiveSitesBy",
                 Paths to "deletePathsBy",
