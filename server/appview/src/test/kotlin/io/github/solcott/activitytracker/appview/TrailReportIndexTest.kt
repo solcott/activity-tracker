@@ -154,6 +154,16 @@ class TrailReportIndexTest : TrailReportTestBase() {
     }
 
     @Test
+    fun rewriteNamingAnotherSegmentIsIgnored() {
+        activeSegment("3kt")
+        effort(alice)
+        report("3kr", tags = listOf("muddy"))
+        report("3kr", tags = listOf("closed"), segment = segmentUri("3kt", importer))
+        assertEquals(seg, stored("3kr")!![TrailReports.segmentUri])
+        assertEquals(setOf("muddy"), tagsOf("3kr"))
+    }
+
+    @Test
     fun rewriteAfterTheRideWindowIsStillAccepted() {
         effort(alice, 29.days)
         report("3kr", tags = listOf("muddy"))

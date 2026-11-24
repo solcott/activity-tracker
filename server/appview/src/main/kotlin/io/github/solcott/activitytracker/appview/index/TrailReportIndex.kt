@@ -42,19 +42,25 @@ internal const val TRAIL_REPORTS_PER_DAY = 5
  * A report from [author]'s repo. A new one is stored only when it names an indexed active segment that isn't a lift, holds a known tag or a
  * photo, [author] has an effort on it that began within [TRAIL_REPORT_RIDE_WINDOW] of [now], and they have fewer than
  * [TRAIL_REPORTS_PER_DAY] accepted on it today; anything else is dropped for good. A rewrite of a stored report replaces its tags, note and
- * photos and keeps its first indexing time, and a rewrite left with neither tags nor photos deletes it.
+ * photos and keeps its first indexing time, and a rewrite left with neither tags nor photos deletes it; one naming another segment is
+ * ignored, since it would skip those checks.
  */
 @Suppress("ReturnCount") // Each reason a report is dropped.
 internal fun JdbcTransaction.upsertTrailReport(json: JsonObject, author: Did, uri: AtUri, cid: String, now: Long) {
     val record = AtJson.decodeFromJsonElement(TrailReportRecord.serializer(), json)
     val tags = TrailCondition.known(record.conditions.take(TrailCondition.MAX))
     val photos = boundedPhotos(record.images.take(TrailReportRecord.MAX_IMAGES)).orEmpty()
-    val stored = TrailReports.select(TrailReports.indexedAt, TrailReports.dayUtc).where { TrailReports.uri eq uri.value }.firstOrNull()
+    val stored =
+        TrailReports.select(TrailReports.indexedAt, TrailReports.dayUtc, TrailReports.segmentUri)
+            .where { TrailReports.uri eq uri.value }
+            .firstOrNull()
+    val segment = record.segment.uri
+    // A report stays on the segment it was accepted for: a rewrite naming another would skip the checks below, so it's ignored.
+    if (stored != null && stored[TrailReports.segmentUri] != segment.value.take(MAX_URI_LENGTH)) return
     if (tags.isEmpty() && photos.isEmpty()) {
         if (stored != null) deleteTrailReports(listOf(uri.value))
         return
     }
-    val segment = record.segment.uri
     if (stored == null) {
         if (segment.collection != Nsid.FEED_SEGMENT || !suggestable(segment.value)) return
         if (!rodeRecently(segment.value, author.value, now)) return
