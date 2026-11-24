@@ -265,54 +265,49 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
         }
     }
 
-    private fun FlowContent.retryingList(kind: String?, page: QueuePage<RetryingJob>, csrf: String?) {
-        if (page.items.isEmpty()) return p { +"No retrying jobs." }
+    private fun FlowContent.retryingList(kind: String?, page: QueuePage<RetryingJob>, csrf: String?) =
+        jobList(
+            RETRYING,
+            kind,
+            page.items.map { JobRow(it.kind, it.subject, it.attempts, it.lastError, it.firstFailedAt, it.dueAt) },
+            page.cursor,
+            csrf,
+        )
+
+    private fun FlowContent.failedList(kind: String?, page: QueuePage<FailedJob>, csrf: String?) =
+        jobList(
+            FAILED,
+            kind,
+            page.items.map { JobRow(it.kind, it.subject, it.attempts, it.lastError, it.firstFailedAt, it.failedAt) },
+            page.cursor,
+            csrf,
+        )
+
+    /** One page of [spec]'s list of jobs, each with its [JobListSpec.action] and Drop buttons for an operator ([csrf] given). */
+    private fun FlowContent.jobList(spec: JobListSpec, kind: String?, rows: List<JobRow>, cursor: String?, csrf: String?) {
+        if (rows.isEmpty()) return p { +spec.empty }
         val now = clock.now()
         val headers =
-            listOf("Kind", "Subject", "Attempts", "Last error", "Failing since", "Next due") + if (csrf != null) listOf("") else emptyList()
+            listOf("Kind", "Subject", "Attempts", "Last error", spec.sinceHeader, spec.atHeader) +
+                if (csrf != null) listOf("") else emptyList()
         dataTable(headers, numeric = setOf("Attempts")) {
-            page.items.forEach { job ->
+            rows.forEach { job ->
                 tr {
                     td { +job.kind }
                     td { +job.subject }
                     num(job.attempts)
                     td { +job.lastError.orEmpty() }
                     timeCell(instantOfMs(job.firstFailedAt), now)
-                    timeCell(instantOfMs(job.dueAt), now)
+                    timeCell(instantOfMs(job.at), now)
                     if (csrf != null)
                         td {
-                            jobButton(csrf, "retry", "Retry now", job.kind, job.subject)
-                            jobButton(csrf, "drop", "Drop", job.kind, job.subject, list = "retrying")
+                            jobButton(csrf, spec.action, spec.actionLabel, job.kind, job.subject)
+                            jobButton(csrf, "drop", "Drop", job.kind, job.subject, list = spec.list)
                         }
                 }
             }
         }
-        olderLink("retrying", kind, page.cursor)
-    }
-
-    private fun FlowContent.failedList(kind: String?, page: QueuePage<FailedJob>, csrf: String?) {
-        if (page.items.isEmpty()) return p { +"No jobs gave up." }
-        val now = clock.now()
-        val headers =
-            listOf("Kind", "Subject", "Attempts", "Last error", "First failure", "Gave up") + if (csrf != null) listOf("") else emptyList()
-        dataTable(headers, numeric = setOf("Attempts")) {
-            page.items.forEach { job ->
-                tr {
-                    td { +job.kind }
-                    td { +job.subject }
-                    num(job.attempts)
-                    td { +job.lastError }
-                    timeCell(instantOfMs(job.firstFailedAt), now)
-                    timeCell(instantOfMs(job.failedAt), now)
-                    if (csrf != null)
-                        td {
-                            jobButton(csrf, "requeue", "Requeue", job.kind, job.subject)
-                            jobButton(csrf, "drop", "Drop", job.kind, job.subject, list = "failed")
-                        }
-                }
-            }
-        }
-        olderLink("failed", kind, page.cursor)
+        olderLink(spec.list, kind, cursor)
     }
 
     /** A button posting [action] for one job; htmx puts the outcome in its place. Drop is destructive, so it asks first. */
@@ -462,3 +457,27 @@ class JobQueuesPage(private val queue: SegmentQueue, private val clock: Clock = 
         }
     }
 }
+
+/** A job row as a list shows it: [at] is when it's next due, or when it gave up. */
+private class JobRow(
+    val kind: String,
+    val subject: String,
+    val attempts: Int,
+    val lastError: String?,
+    val firstFailedAt: Long,
+    val at: Long,
+)
+
+/** What tells the retrying and failed lists apart: the [list]'s name, its empty text, two time headers and its own action. */
+private class JobListSpec(
+    val list: String,
+    val empty: String,
+    val sinceHeader: String,
+    val atHeader: String,
+    val action: String,
+    val actionLabel: String,
+)
+
+private val RETRYING = JobListSpec("retrying", "No retrying jobs.", "Failing since", "Next due", "retry", "Retry now")
+
+private val FAILED = JobListSpec("failed", "No jobs gave up.", "First failure", "Gave up", "requeue", "Requeue")
