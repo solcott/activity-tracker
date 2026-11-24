@@ -5,7 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.interactions.CommentsState
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.QuoteFields
@@ -15,7 +15,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.uistate.ContentState
 
-/** A post's page (feed/post-page): its card, who liked and reposted it, and its comment threads. [uri] is the `feed.post`'s AT-URI. */
+/** A post's page (feed/post-page): its card, who liked and reposted it, and its comments block. [uri] is the `feed.post`'s AT-URI. */
 @CircuitSerializable(SessionScope::class) data class PostPageScreen(val uri: String) : Screen
 
 /**
@@ -45,12 +45,13 @@ data class PostPageState(
 @Immutable
 data class PostPage(
     val post: PostView,
-    val comments: CommentsState,
+    /** The comments block under the card (feed/comments): the count and the first comments, which open the Comments screen. */
+    val comments: CommentsPreview,
     val viewerDid: Did,
     val likesList: LikesList? = null,
     val repostsList: LikesList? = null,
     val error: UiError? = null,
-    /** Report on someone else's post and on others' comments. */
+    /** Report on someone else's post. */
     val reporting: Reporting = Reporting(),
     /** The quote sheet and the delete confirmation (feed/quote-posts). */
     val quote: QuoteFields = QuoteFields(),
@@ -86,4 +87,7 @@ sealed interface PostPageEvent {
 
     /** Opens the list of the post's quotes (feed/quote-posts). */
     data object OpenQuotes : PostPageEvent
+
+    /** Opens the post's Comments screen, its field focused when the viewer chose to add a comment ([focus]). */
+    data class OpenComments(val focus: Boolean = false) : PostPageEvent
 }

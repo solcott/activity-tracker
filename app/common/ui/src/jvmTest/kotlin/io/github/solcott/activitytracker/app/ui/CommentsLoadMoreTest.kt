@@ -68,7 +68,6 @@ class CommentsLoadMoreTest {
         assertEquals(CommentsTexts.sentKey(sent.uri), sentRow)
         assertTrue(CommentsTexts.wantsMore(listOf(sentRow), state()))
         assertTrue(CommentsTexts.wantsMore(listOf(CommentsTexts.LOADING_KEY), state()))
-        assertTrue(CommentsTexts.wantsMore(listOf(CommentsTexts.FIELD_KEY), state()))
     }
 
     @Test

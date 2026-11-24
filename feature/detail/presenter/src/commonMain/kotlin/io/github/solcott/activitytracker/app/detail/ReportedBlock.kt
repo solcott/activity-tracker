@@ -2,35 +2,20 @@ package io.github.solcott.activitytracker.app.detail
 
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.interactions.CommentActions
-import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.app.launchAction
-import io.github.solcott.activitytracker.data.feed.asSubject
-import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
-import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.Did
 
 /** The single-flight key of blocking the activity's author from the report sheet. */
 private object BlockReportedAuthor
 
 /**
- * The report sheet's block of [target]'s author, after its confirmation: for a reported comment it goes the way the comment menu's does, so
- * their comments leave the list with their count; the activity's author is blocked directly. A failure, or null once it's done, goes to
- * [onError].
+ * The report sheet's block of the reported [author], after its confirmation: the activity's author, blocked directly (its comments are
+ * reported from the Comments screen). A failure, or null once it's done, goes to [onError].
  */
-internal fun SingleFlight.blockReported(
-    target: ReportTarget,
-    current: ActivityView?,
-    commentActions: (ActivityView) -> CommentActions,
-    blocks: BlockRepository,
-    onError: (UiError?) -> Unit,
-) {
-    if (target is ReportTarget.Comment && current != null) {
-        commentActions(current).on(CommentEvent.BlockAuthor(target.uri), current.asSubject())
-        return
-    }
+internal fun SingleFlight.blockReported(author: Did, blocks: BlockRepository, onError: (UiError?) -> Unit) {
     launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, onError) {
-        blocks.setBlocked(target.author, true)
+        blocks.setBlocked(author, true)
         onError(null)
     }
 }

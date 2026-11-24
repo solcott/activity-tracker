@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.links
 
 import com.slack.circuit.runtime.screen.Screen
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
 import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
@@ -75,6 +76,7 @@ val linkSamples: Map<String, LinkSample> =
             LinkSample(FollowListScreen(BOB, FollowListKind.Followers), "/profile/$BOB/followers"),
             LinkSample(ActivityDetailScreen(ACT, suggestOnOpen = true), "/profile/$BOB/activity/3kact", ActivityDetailScreen(ACT)),
             LinkSample(RouteMapScreen(ACT), "/profile/$BOB/activity/3kact/map"),
+            LinkSample(CommentsScreen(ACT), "/profile/$BOB/activity/3kact/comments"),
             LinkSample(MediaGalleryScreen(ACT, 2), "/profile/$BOB/activity/3kact/media/2"),
             LinkSample(EditActivityScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/edit"),
             LinkSample(AddPeopleScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/people"),
@@ -83,6 +85,7 @@ val linkSamples: Map<String, LinkSample> =
             LinkSample(CreateDiveSiteScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/new-dive-site"),
             LinkSample(PostPageScreen("at://$BOB/${Nsid.FEED_POST}/3kpost"), "/profile/$BOB/post/3kpost"),
             LinkSample(PostQuotesScreen("at://$BOB/${Nsid.FEED_POST}/3kpost"), "/profile/$BOB/post/3kpost/quotes"),
+            LinkSample(CommentsScreen("at://$BOB/${Nsid.FEED_POST}/3kpost"), "/profile/$BOB/post/3kpost/comments"),
             LinkSample(GearScreen("at://$BOB/${Nsid.GEAR_ITEM}/3kgear"), "/profile/$BOB/gear/3kgear"),
             LinkSample(ImportBatchScreen(BOB, "3m5batch", "Bob"), "/profile/$BOB/batch/3m5batch", ImportBatchScreen(BOB, "3m5batch")),
             LinkSample(SegmentScreen(SEG, "run"), "/segment/did:plc:carol/3kseg?board=run"),

@@ -17,7 +17,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.app.interactions.CommentThread
-import io.github.solcott.activitytracker.app.interactions.CommentsPaging
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.activity.DataKind
@@ -32,8 +32,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentKind
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.activitytracker.textfield.textFieldStateOf
-import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -41,24 +39,19 @@ import kotlinx.collections.immutable.toImmutableList
 object ActivityDetailSamples {
     val activity: ActivityView = fakeActivity()
 
-    /**
-     * A page of [activity] as someone else sees it, with one comment, one segment effort and one athlete it was done with. A new draft each
-     * time.
-     */
+    /** A page of [activity] as someone else sees it, with one comment, one segment effort and one athlete it was done with. */
     val page: ActivityDetailPage
         get() {
             val comment = fakeComment()
             return ActivityDetailPage(
                 activity = activity,
                 comments =
-                    CommentsPaging(
-                        items = persistentListOf(CommentThread(comment.uri, comment, persistentListOf())),
-                        refresh = LoadStatus.Idle,
-                        hasAnswer = true,
-                        endReached = true,
+                    CommentsPreview.of(
+                        activity.commentCount,
+                        listOf(CommentThread(comment.uri, comment, persistentListOf())),
+                        sent = emptyList(),
+                        viewer = Fixed.BOB,
                     ),
-                sentComments = persistentListOf(),
-                draftComment = textFieldStateOf(),
                 viewerDid = Fixed.BOB,
                 isOwn = false,
                 likesList = null,

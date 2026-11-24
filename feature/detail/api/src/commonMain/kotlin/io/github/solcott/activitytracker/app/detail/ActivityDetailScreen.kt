@@ -6,9 +6,7 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.interactions.CommentEvent
-import io.github.solcott.activitytracker.app.interactions.CommentsPaging
-import io.github.solcott.activitytracker.app.interactions.CommentsState
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
 import io.github.solcott.activitytracker.app.interactions.LikesList
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.Reporting
@@ -18,14 +16,11 @@ import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.MemberView
-import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -49,16 +44,14 @@ data class ActivityDetailState(
 /** The loaded activity page, as the viewer left it. */
 @Immutable
 data class ActivityDetailPage(
-    /** Its comment count already moved by the viewer's own comment changes the AppView hasn't caught up with. */
+    /**
+     * Its comment count already moved by the viewer's own comment changes, here or on its Comments screen, the AppView hasn't caught up
+     * with.
+     */
     val activity: ActivityView,
-    /** The threads loaded so far, oldest first, as the viewer left them. */
-    val comments: CommentsPaging,
-    /** The viewer's top-level comments the AppView doesn't list yet, shown after [comments]; sent replies are in their thread. */
-    val sentComments: ImmutableList<SentComment>,
-    val draftComment: TextFieldState,
-    /** The listed comment or reply [draftComment] answers; null while it's a top-level comment. */
-    val replyingTo: CommentView? = null,
-    /** The signed-in athlete, who may delete the comments they wrote and no others. */
+    /** The comments block after the likes (feed/comments): the count and the first comments, which open the Comments screen. */
+    val comments: CommentsPreview,
+    /** The signed-in athlete. */
     val viewerDid: Did,
     /** The activity is the signed-in athlete's own, so it can't be liked. */
     val isOwn: Boolean,
@@ -66,11 +59,8 @@ data class ActivityDetailPage(
     val likesList: LikesList?,
     /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
     val likeError: UiError? = null,
-    /**
-     * Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment] and [replyingTo] kept; or why a delete
-     * failed.
-     */
-    val commentError: UiError? = null,
+    /** Why blocking the activity's author from the report sheet failed. */
+    val blockError: UiError? = null,
     val eventSink: (ActivityDetailEvent) -> Unit,
     /** Null while loading, and when there are no streams or the viewer may not see them. */
     val charts: ActivityCharts? = null,
@@ -258,55 +248,6 @@ data class ActivityExportState(
 /** An imported activity's original file: its [name] as picked and its [format] (a `feed.activitySource#format` token). */
 @Immutable data class OriginalFile(val name: String, val format: String)
 
-/** The page's comments as the shared comment list shows them, its events sent on as the page's own. */
-val ActivityDetailPage.commentsState: CommentsState
-    get() =
-        CommentsState(
-            paging = comments,
-            sent = sentComments,
-            draft = draftComment,
-            replyingTo = replyingTo,
-            viewerDid = viewerDid,
-            author = activity.author,
-            isOwn = isOwn,
-            count = activity.commentCount,
-            error = commentError,
-            eventSink = { eventSink(it.asDetailEvent()) },
-        )
-
-/** [this] as the activity page's own event. */
-fun CommentEvent.asDetailEvent(): ActivityDetailEvent =
-    when (this) {
-        CommentEvent.LoadMore -> ActivityDetailEvent.LoadMoreComments
-        CommentEvent.Retry -> ActivityDetailEvent.RetryComments
-        CommentEvent.Send -> ActivityDetailEvent.SendComment
-        is CommentEvent.ReplyTo -> ActivityDetailEvent.ReplyTo(uri)
-        CommentEvent.CancelReply -> ActivityDetailEvent.CancelReply
-        is CommentEvent.LoadMoreReplies -> ActivityDetailEvent.LoadMoreReplies(thread)
-        is CommentEvent.Delete -> ActivityDetailEvent.DeleteComment(uri)
-        is CommentEvent.Hide -> ActivityDetailEvent.HideComment(uri)
-        is CommentEvent.Unhide -> ActivityDetailEvent.UnhideComment(uri)
-        is CommentEvent.BlockAuthor -> ActivityDetailEvent.BlockCommenter(uri)
-        is CommentEvent.MuteAuthor -> ActivityDetailEvent.MuteCommenter(uri)
-    }
-
-/** The activity page's comment event as the shared comment list's, or null for any other. */
-fun ActivityDetailEvent.asCommentEvent(): CommentEvent? =
-    when (this) {
-        ActivityDetailEvent.LoadMoreComments -> CommentEvent.LoadMore
-        ActivityDetailEvent.RetryComments -> CommentEvent.Retry
-        ActivityDetailEvent.SendComment -> CommentEvent.Send
-        is ActivityDetailEvent.ReplyTo -> CommentEvent.ReplyTo(uri)
-        ActivityDetailEvent.CancelReply -> CommentEvent.CancelReply
-        is ActivityDetailEvent.LoadMoreReplies -> CommentEvent.LoadMoreReplies(thread)
-        is ActivityDetailEvent.DeleteComment -> CommentEvent.Delete(uri)
-        is ActivityDetailEvent.HideComment -> CommentEvent.Hide(uri)
-        is ActivityDetailEvent.UnhideComment -> CommentEvent.Unhide(uri)
-        is ActivityDetailEvent.BlockCommenter -> CommentEvent.BlockAuthor(uri)
-        is ActivityDetailEvent.MuteCommenter -> CommentEvent.MuteAuthor(uri)
-        else -> null
-    }
-
 sealed interface ActivityDetailEvent {
     data object Back : ActivityDetailEvent
 
@@ -336,38 +277,8 @@ sealed interface ActivityDetailEvent {
     /** On the owner's own copy of another's activity, leaves its group for good: the copy no longer names the original. */
     data object LeaveCopyGroup : ActivityDetailEvent
 
-    /** Sends the draft: a reply to [ActivityDetailPage.replyingTo] when set, else a top-level comment. */
-    data object SendComment : ActivityDetailEvent
-
-    /** The viewer scrolled near the end of the listed comments: the next page loads, unless one is loading, failed or none is left. */
-    data object LoadMoreComments : ActivityDetailEvent
-
-    /** Loads again the page of comments that failed. */
-    data object RetryComments : ActivityDetailEvent
-
-    /** The viewer replies to the listed comment or reply [uri]: the comment field answers it until it's sent or [CancelReply]. */
-    data class ReplyTo(val uri: AtUri) : ActivityDetailEvent
-
-    /** The comment field goes back to a top-level comment, keeping its text. */
-    data object CancelReply : ActivityDetailEvent
-
-    /** Loads the next page of [thread]'s replies, or again the one that failed, unless one is loading or none is left. */
-    data class LoadMoreReplies(val thread: AtUri) : ActivityDetailEvent
-
-    /** The viewer deletes their own comment [uri], listed or just sent, confirmed. */
-    data class DeleteComment(val uri: AtUri) : ActivityDetailEvent
-
-    /** The owner hides someone else's comment [uri] on their activity: it stays listed for them, marked, and leaves the count. */
-    data class HideComment(val uri: AtUri) : ActivityDetailEvent
-
-    /** The owner unhides a comment [uri] they hid. */
-    data class UnhideComment(val uri: AtUri) : ActivityDetailEvent
-
-    /** The viewer blocks the author of someone else's comment [uri], confirmed: all their comments leave the list at once. */
-    data class BlockCommenter(val uri: AtUri) : ActivityDetailEvent
-
-    /** The viewer mutes the author of someone else's comment [uri]: their comments leave the viewer's list at once. */
-    data class MuteCommenter(val uri: AtUri) : ActivityDetailEvent
+    /** Opens the activity's Comments screen, its field focused when the viewer chose to add a comment ([focus]). */
+    data class OpenComments(val focus: Boolean = false) : ActivityDetailEvent
 
     /** Opens the training zones screen, to set the thresholds zone charts need. */
     data object OpenTrainingZones : ActivityDetailEvent

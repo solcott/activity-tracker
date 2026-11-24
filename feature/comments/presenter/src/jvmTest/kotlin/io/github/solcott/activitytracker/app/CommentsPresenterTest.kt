@@ -7,8 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withCompositionLocals
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
-import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
+import io.github.solcott.activitytracker.app.comments.CommentsScreenEvent
+import io.github.solcott.activitytracker.app.comments.CommentsScreenState
+import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -23,17 +24,17 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
-/** The detail screen's comments: paging, sending, deleting, hiding and unhiding, and the count through all of them. */
-class ActivityDetailCommentsTest : ActivityDetailTestBase() {
+/** The Comments screen's comments: paging, sending, deleting, hiding and unhiding, and the count through all of them. */
+class CommentsPresenterTest : CommentsTestBase() {
     @Test
     fun commentsOnAFollowersActivityOnceForADoubleTap() = runTest {
         visibility = "followers"
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitLoaded()
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
-            loaded.eventSink(ActivityDetailEvent.SendComment)
-            loaded.eventSink(ActivityDetailEvent.SendComment)
+            loaded.eventSink(CommentEvent.Send)
+            loaded.eventSink(CommentEvent.Send)
             // The write is queued off the composition; it's the only thing that reaches the outbox here.
             r.db.outbox().count(alice.value).first { it > 0 }
             val queued = r.queuedComments()
@@ -49,10 +50,10 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         visibility = "followers"
         // Signed in before the interactions space's declaration listed comments.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitLoaded()
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
-            loaded.eventSink(ActivityDetailEvent.SendComment)
+            loaded.eventSink(CommentEvent.Send)
             val refused = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals("Nice", refused.draftComment.text.toString(), "what was typed isn't lost")
@@ -73,19 +74,19 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         visibility = "followers"
         commentsFromAppView = listOf(comment(staleAlice, alice.value, "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertEquals(alice, loaded.viewerDid)
             val mine = loaded.comments.roots.first().uri
-            loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
-            loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
+            loaded.eventSink(CommentEvent.Delete(mine))
+            loaded.eventSink(CommentEvent.Delete(mine))
             val after = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             assertEquals(listOf("did:plc:carol"), after.comments.roots.map { it.author.did.value }, "gone at once, and the count with it")
             r.db.outbox().count(alice.value).first { it >= 2 }
             assertEquals(listOf(null to "3kc1", AthleteSpace.INTERACTIONS to "3kc1"), r.queuedCommentDeletes(), "one pair of deletes")
 
             // A reload while the AppView still lists it keeps it hidden.
-            after.eventSink(ActivityDetailEvent.Retry)
+            after.eventSink(CommentsScreenEvent.Retry)
             val reloaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             assertEquals(listOf("did:plc:carol"), reloaded.comments.roots.map { it.author.did.value })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
@@ -97,11 +98,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aFailedDeletePutsTheCommentBackWithTheError() = runTest {
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc0"), comment(staleAlice, alice.value, "3kc1"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             // Queueing the delete fails once the database is gone.
             r.db.close()
-            loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.roots.last().uri))
+            loaded.eventSink(CommentEvent.Delete(loaded.comments.roots.last().uri))
             // The comment comes back through the local changes' flow, so it can show a frame after the error does.
             val failed = awaitUntil { it.page()?.let { l -> l.commentError != null && l.comments.roots.size == 2 } == true }.page()!!
             assertEquals(UiError.Kind.DeleteComment, failed.commentError?.kind)
@@ -121,15 +122,15 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun blockingACommenterTakesTheirCommentsOutAtOnceAndAcrossAReload() = runTest {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
-            val count = loaded.activity.commentCount
+            val count = loaded.count
             val bobs = loaded.comments.roots.first().uri
-            loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
-            loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
+            loaded.eventSink(CommentEvent.BlockAuthor(bobs))
+            loaded.eventSink(CommentEvent.BlockAuthor(bobs))
             val blocked =
                 awaitUntil {
-                    it.page()?.let { l -> l.comments.roots.size == 1 && l.activity.commentCount == count - 1 } == true
+                    it.page()?.let { l -> l.comments.roots.size == 1 && l.count == count - 1 } == true
                 }
                     .page()!!
             assertEquals("did:plc:carol", blocked.comments.roots.single().author.did.value, "the count drops with it")
@@ -148,19 +149,19 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         author = staleAlice
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertTrue(loaded.isOwn)
             val bobs = loaded.comments.roots.first().uri
-            loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
-            loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
+            loaded.eventSink(CommentEvent.Hide(bobs))
+            loaded.eventSink(CommentEvent.Hide(bobs))
             val hidden = awaitUntil { it.page()?.comments?.roots?.first()?.hidden == true }.page()!!
             assertEquals(listOf(true, null), hidden.comments.roots.map { it.hidden }, "still listed for the athlete, marked")
             r.db.outbox().count(alice.value).first { it >= 1 }
             assertEquals(listOf(OutboxProcessor.OP_PUT to null), r.queuedHides(), "one hide, in the repo")
 
             // A reload while the AppView still shows it keeps it hidden, and out of the count.
-            hidden.eventSink(ActivityDetailEvent.Retry)
+            hidden.eventSink(CommentsScreenEvent.Retry)
             val reloaded = awaitUntil { it.page()?.comments?.roots?.firstOrNull()?.hidden == true }.page()!!
             assertEquals(listOf(true, null), reloaded.comments.roots.map { it.hidden })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
@@ -174,10 +175,10 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         visibility = "followers"
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", hidden = true), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertEquals(true, loaded.comments.roots.first().hidden)
-            loaded.eventSink(ActivityDetailEvent.UnhideComment(loaded.comments.roots.first().uri))
+            loaded.eventSink(CommentEvent.Unhide(loaded.comments.roots.first().uri))
             val shown = awaitUntil { it.page()?.comments?.roots?.first()?.hidden == null }.page()!!
             assertEquals(listOf(null, null), shown.comments.roots.map { it.hidden })
             r.db.outbox().count(alice.value).first { it >= 2 }
@@ -198,9 +199,9 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
         // Signed in before the interactions space's declaration listed comment hides.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_COMMENT}")
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
-            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
+            loaded.eventSink(CommentEvent.Hide(loaded.comments.roots.single().uri))
             val refused = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals(listOf(null), refused.comments.roots.map { it.hidden }, "not marked")
@@ -214,11 +215,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         author = staleAlice
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             // Queueing the hide fails once the database is gone.
             r.db.close()
-            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
+            loaded.eventSink(CommentEvent.Hide(loaded.comments.roots.single().uri))
             // The mark comes off through the local changes' flow, so it can show a frame after the error does.
             val failed =
                 awaitUntil { it.page()?.let { l -> l.commentError != null && l.comments.roots.single().hidden == null } == true }.page()!!
@@ -232,22 +233,22 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun loadsCommentsAPageAtATimeAsTheViewerScrolls() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            assertEquals(45, first.activity.commentCount, "the count is the whole activity's")
+            assertEquals(45, first.count, "the count is the whole activity's")
             assertEquals(false, first.comments.endReached)
 
             commentsGate = CompletableDeferred()
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             awaitUntil { it.loaded()?.comments?.isLoading == true }
             // Reaching the end again while the page loads loads it once.
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             commentsGate!!.complete(Unit)
             val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(true, all.comments.endReached)
             assertEquals((0 until 45).map { "3kc" + it.toString().padStart(3, '0') }, all.comments.roots.map { it.uri.rkey })
 
-            all.eventSink(ActivityDetailEvent.LoadMoreComments)
+            all.eventSink(CommentEvent.LoadMore)
             assertEquals(listOf(null, "30"), pageRequests, "nothing more once every page is loaded")
             cancelAndIgnoreRemainingEvents()
         }
@@ -257,17 +258,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aPageThatFailsKeepsWhatsListedAndCanBeTriedAgain() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             failComments = true
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
             assertEquals(UiError.Kind.LoadComments, failed.comments.error?.kind)
             assertEquals(30, failed.comments.roots.size, "what's listed stays")
 
-            failed.eventSink(ActivityDetailEvent.LoadMoreComments)
+            failed.eventSink(CommentEvent.LoadMore)
             failComments = false
-            failed.eventSink(ActivityDetailEvent.RetryComments)
+            failed.eventSink(CommentEvent.Retry)
             val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             assertEquals(null, all.comments.error)
             assertEquals(listOf(null, "30", "30"), pageRequests, "no page asked for while failed but the retry")
@@ -280,13 +281,13 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(3)
         failComments = true
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
-            assertEquals(3, failed.activity.commentCount)
+            assertEquals(3, failed.count)
             assertEquals(emptyList(), failed.comments.roots)
             failComments = false
-            failed.eventSink(ActivityDetailEvent.RetryComments)
-            assertEquals(3, awaitUntil { it.loaded()?.comments?.roots?.size == 3 }.loaded()!!.activity.commentCount)
+            failed.eventSink(CommentEvent.Retry)
+            assertEquals(3, awaitUntil { it.loaded()?.comments?.roots?.size == 3 }.loaded()!!.count)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -295,25 +296,25 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aSentCommentShowsAtOnceAfterTheLoadedOnesUntilTheAppViewListsIt() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
-            first.eventSink(ActivityDetailEvent.SendComment)
-            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 46L }.loaded()!!
+            first.eventSink(CommentEvent.Send)
+            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.count == 46L }.loaded()!!
             assertEquals("Mine", sent.sentComments.single().text)
-            assertEquals(46, sent.activity.commentCount, "counted at once")
+            assertEquals(46, sent.count, "counted at once")
             assertEquals(30, sent.comments.roots.size, "nothing loaded again")
 
             // Loading more before the AppView has it lists the new page before it.
-            sent.eventSink(ActivityDetailEvent.LoadMoreComments)
+            sent.eventSink(CommentEvent.LoadMore)
             val more = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             assertEquals(listOf("Mine"), more.sentComments.map { it.text })
-            assertEquals(46, more.activity.commentCount)
+            assertEquals(46, more.count)
 
             // The AppView indexes it: after a reload it's listed once, in its place, and counted once.
             val rkey = sent.sentComments.single().uri.rkey!!
             commentsFromAppView = commentsFromAppView + comment(staleAlice, alice.value, rkey)
-            more.eventSink(ActivityDetailEvent.Retry)
+            more.eventSink(CommentsScreenEvent.Retry)
             val reloaded =
                 awaitUntil {
                     it.loaded()?.comments?.roots?.size == 30 &&
@@ -321,8 +322,8 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                         it.loaded()?.sentComments?.isEmpty() == true
                 }
                     .loaded()!!
-            assertEquals(46, reloaded.activity.commentCount)
-            reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
+            assertEquals(46, reloaded.count)
+            reloaded.eventSink(CommentEvent.LoadMore)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
             assertEquals(rkey, end.comments.roots.last().uri.rkey)
             assertEquals(1, end.comments.roots.count { it.uri.rkey == rkey } + end.sentComments.size)
@@ -334,18 +335,18 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aPageListingASentCommentDoesntMoveTheCountAgain() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
-            first.eventSink(ActivityDetailEvent.SendComment)
-            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 46L }.loaded()!!
+            first.eventSink(CommentEvent.Send)
+            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.count == 46L }.loaded()!!
 
             // The AppView indexes it, and the next page lists it: shown in its place, and still counted once.
             commentsFromAppView = commentsFromAppView + comment(staleAlice, alice.value, sent.sentComments.single().uri.rkey!!)
-            sent.eventSink(ActivityDetailEvent.LoadMoreComments)
+            sent.eventSink(CommentEvent.LoadMore)
             val listed = awaitUntil { it.loaded()?.comments?.roots?.size == 46 && it.loaded()?.sentComments?.isEmpty() == true }.loaded()!!
             assertEquals(emptyList(), listed.sentComments)
-            assertEquals(46, listed.activity.commentCount)
+            assertEquals(46, listed.count)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -354,14 +355,14 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun deletingAJustSentCommentTakesItOffTheListAndTheCount() = runTest {
         commentsFromAppView = manyComments(2)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.roots?.size == 2 }.loaded()!!
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Oops")
-            loaded.eventSink(ActivityDetailEvent.SendComment)
-            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 3L }.loaded()!!
-            sent.eventSink(ActivityDetailEvent.DeleteComment(sent.sentComments.single().uri))
+            loaded.eventSink(CommentEvent.Send)
+            val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.count == 3L }.loaded()!!
+            sent.eventSink(CommentEvent.Delete(sent.sentComments.single().uri))
             // Gone from the list and the count; nothing else moves it.
-            val gone = awaitUntil { it.loaded()?.sentComments?.isEmpty() == true && it.loaded()?.activity?.commentCount == 2L }.loaded()!!
+            val gone = awaitUntil { it.loaded()?.sentComments?.isEmpty() == true && it.loaded()?.count == 2L }.loaded()!!
             assertEquals(2, gone.comments.roots.size)
             cancelAndIgnoreRemainingEvents()
         }
@@ -371,19 +372,19 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aDeleteOnTheSecondPageHoldsAfterAReload() = runTest {
         commentsFromAppView = manyComments(45, own = 40)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             val mine = all.comments.roots.single { it.author.did == alice }.uri
-            all.eventSink(ActivityDetailEvent.DeleteComment(mine))
-            val after = awaitUntil { it.loaded()?.comments?.roots?.size == 44 && it.loaded()?.activity?.commentCount == 44L }.loaded()!!
+            all.eventSink(CommentEvent.Delete(mine))
+            val after = awaitUntil { it.loaded()?.comments?.roots?.size == 44 && it.loaded()?.count == 44L }.loaded()!!
 
             // Reloaded before the AppView drops it: the count still leaves it out, though it's on a page not loaded yet.
-            after.eventSink(ActivityDetailEvent.Retry)
+            after.eventSink(CommentsScreenEvent.Retry)
             val reloaded = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            assertEquals(44, reloaded.activity.commentCount)
-            reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
+            assertEquals(44, reloaded.count)
+            reloaded.eventSink(CommentEvent.LoadMore)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
             assertTrue(end.comments.roots.none { it.uri == mine })
             cancelAndIgnoreRemainingEvents()
@@ -395,20 +396,18 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         author = staleAlice
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             val target = all.comments.roots[35].uri
-            all.eventSink(ActivityDetailEvent.HideComment(target))
-            val hidden =
-                awaitUntil { it.loaded()?.comments?.roots?.get(35)?.hidden == true && it.loaded()?.activity?.commentCount == 44L }
-                    .loaded()!!
+            all.eventSink(CommentEvent.Hide(target))
+            val hidden = awaitUntil { it.loaded()?.comments?.roots?.get(35)?.hidden == true && it.loaded()?.count == 44L }.loaded()!!
 
-            hidden.eventSink(ActivityDetailEvent.Retry)
+            hidden.eventSink(CommentsScreenEvent.Retry)
             val reloaded = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            assertEquals(44, reloaded.activity.commentCount)
-            reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
+            assertEquals(44, reloaded.count)
+            reloaded.eventSink(CommentEvent.LoadMore)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
             assertEquals(true, end.comments.roots.single { it.uri == target }.hidden, "marked when its page is listed")
             cancelAndIgnoreRemainingEvents()
@@ -419,11 +418,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aReloadKeepsTheThreadsUntilItsFirstPageAnswers() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
-            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(ActivityDetailEvent.LoadMoreComments)
+        commentsOf(r) {
+            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(CommentEvent.LoadMore)
             val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             val gate = CompletableDeferred<Unit>().also { commentsGate = it }
-            all.eventSink(ActivityDetailEvent.Retry)
+            all.eventSink(CommentsScreenEvent.Retry)
             val reloading = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Loading }.loaded()!!
             assertEquals(45, reloading.comments.roots.size, "the threads listed stay while the reload runs")
 
@@ -438,10 +437,10 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
     fun aFailedReloadKeepsTheCommentsAndSaysWhy() = runTest {
         commentsFromAppView = manyComments(45)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.let { c -> c.roots.size == 30 && !c.isLoading } == true }.loaded()!!
             failComments = true
-            loaded.eventSink(ActivityDetailEvent.Retry)
+            loaded.eventSink(CommentsScreenEvent.Retry)
             val failed = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Failed }.loaded()!!
             assertEquals(30, failed.comments.roots.size, "the comments listed stay")
             assertEquals(UiError.Kind.LoadComments, failed.comments.error?.kind)
@@ -458,13 +457,9 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
         presenterTestOf(
-            {
-                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                    if (shown) presenter() else ActivityDetailState(eventSink = {})
-                }
-            },
+            { withCompositionLocals(LocalRetainedStateRegistry provides registry) { if (shown) presenter() else CommentsScreenState() } },
         ) {
-            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(ActivityDetailEvent.LoadMoreComments)
+            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(CommentEvent.LoadMore)
             awaitUntil { it.loaded()?.comments?.roots?.size == 45 }
             registry.saveAll()
             shown = false

@@ -5,6 +5,7 @@ import AppCommonApi
 import ComSlackCircuitCircuitRuntime
 import ComSlackCircuitCircuitxSubcircuit
 import CoreTextfield
+import FeatureCommentsApi
 import FeatureDetailApi
 import FeatureDivesiteApi
 import FeatureEditApi
@@ -363,7 +364,7 @@ typealias BlurReason = ExportedKotlinPackages.io.github.solcott.activitytracker.
 typealias ModerationTexts = AppPackage.moderation.ModerationTexts
 
 // Posts (ios-native-post-card): the post card's content and events, the quote sheet, the comment list, the post page and the quotes
-// list, and the profile's Posts tab. Kotlin's loaded `PostPage` is `LoadedPostPage` here, beside the native `PostPage` view.
+// list, the comments block and Comments screen, and the profile's Posts tab. Kotlin's loaded `PostPage` is `LoadedPostPage` here, beside the native `PostPage` view.
 typealias PostsPackage = AppPackage.posts
 typealias PostPackage = AppPackage.post
 typealias InteractionsPackage = AppPackage.interactions
@@ -385,6 +386,14 @@ typealias CommentMenuItem = InteractionsPackage.CommentMenuItem
 typealias CommentConfirmation = InteractionsPackage.CommentConfirmation
 typealias CommentAction = InteractionsPackage.CommentAction
 typealias LikesList = InteractionsPackage.LikesList
+typealias CommentsPreview = InteractionsPackage.CommentsPreview
+typealias CommentPreviewRow = InteractionsPackage.CommentPreviewRow
+typealias CommentsPreviewEvent = InteractionsPackage.CommentsPreviewEvent
+typealias CommentsPackage = AppPackage.comments
+typealias CommentsScreen = CommentsPackage.CommentsScreen
+typealias CommentsScreenState = CommentsPackage.CommentsScreenState
+typealias CommentsScreenEvent = CommentsPackage.CommentsScreenEvent
+typealias CommentsPage = CommentsPackage.CommentsPage
 typealias PostPageScreen = PostPackage.PostPageScreen
 typealias PostPageState = PostPackage.PostPageState
 typealias PostPageEvent = PostPackage.PostPageEvent

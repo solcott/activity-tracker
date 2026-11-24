@@ -28,6 +28,8 @@ kotlin {
             implementation(projects.appCommonUi)
             implementation(projects.composeApp)
             implementation(projects.coreData)
+            implementation(projects.featureCommentsPresenter)
+            implementation(projects.featureCommentsUi)
             implementation(projects.featureDetailPresenter)
             implementation(projects.featureDetailUi)
             implementation(projects.featureDivesitePresenter)

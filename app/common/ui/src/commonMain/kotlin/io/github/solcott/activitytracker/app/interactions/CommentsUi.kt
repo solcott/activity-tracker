@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
@@ -23,6 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
@@ -31,6 +35,8 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.LocalClock
+import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -45,13 +51,13 @@ import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_rep
 import io.github.solcott.activitytracker.composeApp.resources.comment_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_replying_to
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
-import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
@@ -73,12 +79,12 @@ fun LoadMoreNearTheEnd(listState: LazyListState, state: CommentsState) {
  * The comment count (hidden ones left out), then the threads loaded so far, oldest first: each top-level comment, or a placeholder when it
  * isn't listed, with its replies indented under it, the viewer's just-sent replies, and a row to view the rest. Each comment has Reply, and
  * a menu to delete the viewer's own or hide others' on their own subject. Rows are padded [horizontal] from the list's edges. Then the
- * viewer's just-sent comments, a row while more load or when they couldn't, and a field to add one, saying which comment it answers, and
- * why the last one couldn't be sent, deleted, hidden or unhidden. A hidden comment, listed only for the subject's author and its commenter,
- * is dimmed and says so. Report on others' comments opens [reporting]'s sheet.
+ * viewer's just-sent comments, and a row while more load or when they couldn't. The field to add one is [CommentComposer], which the
+ * Comments screen keeps at its foot. A hidden comment, listed only for the subject's author and its commenter, is dimmed and says so.
+ * Report on others' comments opens [reporting]'s sheet.
  */
 fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizontal: Dp = CARD_PADDING) {
-    item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = horizontal)) }
+    item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = horizontal).padding(bottom = 8.dp)) }
     val top = Modifier.padding(horizontal = horizontal)
     val reply = Modifier.padding(start = horizontal + REPLY_INDENT, end = horizontal)
     for (thread in state.paging.items) {
@@ -98,19 +104,17 @@ fun LazyListScope.comments(state: CommentsState, reporting: Reporting, horizonta
     }
     items(state.sent, key = { CommentsTexts.sentKey(it.uri) }) { SentCommentRow(it, state, top) }
     item(key = CommentsTexts.LOADING_KEY) { CommentsLoading(state, top) }
-    item(key = CommentsTexts.FIELD_KEY) { CommentField(state, top) }
 }
 
+/** The count over the threads, as a list section's heading reads (`AppListSection`); the screen's bar already says they're comments. */
 @Composable
 private fun CommentsHeader(state: CommentsState, modifier: Modifier = Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        Text(
-            CommentsTexts.count(state).string(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    Text(
+        CommentsTexts.count(state).string(),
+        modifier.padding(top = 4.dp),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable
@@ -125,6 +129,7 @@ private fun CommentRow(
     CommentRow(
         author = comment.author.shownName,
         text = comment.text,
+        createdAt = comment.createdAt,
         hidden = comment.hidden == true,
         actions = actions,
         uri = comment.uri,
@@ -141,6 +146,7 @@ private fun SentCommentRow(comment: SentComment, state: CommentsState, modifier:
     CommentRow(
         author = comment.author.shownName,
         text = comment.text,
+        createdAt = comment.createdAt,
         hidden = false,
         actions = persistentSetOf(CommentAction.Delete),
         uri = comment.uri,
@@ -153,6 +159,7 @@ private fun SentCommentRow(comment: SentComment, state: CommentsState, modifier:
 private fun CommentRow(
     author: String,
     text: String,
+    createdAt: Instant,
     hidden: Boolean,
     actions: ImmutableSet<CommentAction>,
     uri: AtUri,
@@ -165,7 +172,7 @@ private fun CommentRow(
 ) {
     Row(modifier, verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f).alpha(if (hidden) HIDDEN_ALPHA else 1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(author, style = MaterialTheme.typography.labelLarge)
+            CommentAuthorLine(author, createdAt)
             ModerationNotice(decision, isOwn = false)
             Text(text, style = MaterialTheme.typography.bodyMedium)
             if (hidden) {
@@ -176,7 +183,8 @@ private fun CommentRow(
                 )
             }
             if (CommentAction.Reply in actions) {
-                AppTextButton(onClick = { state.eventSink(CommentEvent.ReplyTo(uri)) }) {
+                // Pulled back by the button's own inset, so "Reply" starts in line with the comment's text.
+                AppTextButton(onClick = { state.eventSink(CommentEvent.ReplyTo(uri)) }, Modifier.offset(x = -TEXT_BUTTON_INSET)) {
                     Text(stringResource(Res.string.comment_reply), style = MaterialTheme.typography.labelMedium)
                 }
             }
@@ -207,8 +215,12 @@ private fun CommentsLoading(state: CommentsState, modifier: Modifier = Modifier)
     }
 }
 
+/**
+ * The field to add a comment (feed/comments), at the Comments screen's foot: which comment it answers, with a way back to a top-level one,
+ * the field and Send, and why the last send, delete, hide or block failed. [focusRequester] lets the screen put the cursor in it.
+ */
 @Composable
-private fun CommentField(state: CommentsState, modifier: Modifier = Modifier) {
+fun CommentComposer(state: CommentsState, modifier: Modifier = Modifier, focusRequester: FocusRequester = remember { FocusRequester() }) {
     Column(modifier) {
         state.replyingTo?.let { parent ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -229,7 +241,7 @@ private fun CommentField(state: CommentsState, modifier: Modifier = Modifier) {
             AppTextField(
                 state = state.draft,
                 placeholder = stringResource(Res.string.detail_comment_placeholder),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).focusRequester(focusRequester),
             )
             AppIconButton(
                 AppIcon.Send,
@@ -246,3 +258,31 @@ private val REPLY_INDENT = 32.dp
 
 /** How strongly a hidden comment shows, to the only two who see it. */
 private const val HIDDEN_ALPHA = 0.55f
+
+/**
+ * A comment's author and, after them, when it was written ([CommentsTexts.posted]: "5 minutes ago" today, "Yesterday at 6:12 PM" before),
+ * on [LocalClock] in [LocalTimeZone]. The name gives way first when the line is short.
+ */
+@Composable
+internal fun CommentAuthorLine(author: String, createdAt: Instant, modifier: Modifier = Modifier) {
+    val posted = CommentsTexts.posted(createdAt, LocalClock.current.now(), LocalTimeZone.current).string()
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            author,
+            Modifier.weight(1f, fill = false).alignByBaseline(),
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            posted,
+            Modifier.alignByBaseline(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+}
+
+/** A text button's own start padding (Material's 12dp), which a button lined up with text above it is pulled back by. */
+private val TEXT_BUTTON_INSET = 12.dp

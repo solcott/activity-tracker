@@ -42,7 +42,8 @@ import kotlinx.collections.immutable.persistentListOf
  * post one level deep, and its like, comment, repost and quote counts, with like and repost buttons on someone else's post and Quote on
  * any. A tap opens the post page (feed/post-page); the segment or dive site line opens that, the quoted post its page, and the author their
  * profile. In a timeline through a repost (feed/reposts), [reason] heads it with who reposted it, which opens their profile. [canReport]
- * offers Report on someone else's post; the viewer's own quote offers Delete. [onQuoteCount], on the post page, lists its quotes.
+ * offers Report on someone else's post; the viewer's own quote offers Delete. Without [showCounts] (the post page, whose social card has
+ * them) the buttons stand alone.
  */
 @Composable
 fun PostCard(
@@ -52,7 +53,7 @@ fun PostCard(
     onEvent: (PostEvent) -> Unit,
     modifier: Modifier = Modifier,
     reason: ReasonRepost? = null,
-    onQuoteCount: (() -> Unit)? = null,
+    showCounts: Boolean = true,
 ) {
     val content = remember(post, viewerDid, reason) { PostCardContent.of(post, viewerDid, reason) }
     val openLabel = PostCardContent.open().string()
@@ -70,7 +71,7 @@ fun PostCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Counts(content, onEvent, onQuoteCount)
+            Counts(content, onEvent, showCounts)
         }
     }
 }
@@ -93,10 +94,10 @@ private fun RepostedBy(content: PostCardContent, text: String, onEvent: (PostEve
 
 /**
  * The like and repost buttons on someone else's post, Quote on any, and the post's like, comment, repost and quote counts as the viewer is
- * shown them; the quote count lists the quotes when [onQuoteCount] is given.
+ * shown them, unless not [showCounts].
  */
 @Composable
-private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, onQuoteCount: (() -> Unit)?) {
+private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, showCounts: Boolean) {
     val post = content.post
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (content.offersLike) {
@@ -127,16 +128,7 @@ private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, onQuo
                 modifier = Modifier.testTag(TestTags.POST_QUOTE),
             )
         }
-        Text(
-            content.counts().string(),
-            modifier =
-                if (onQuoteCount == null) Modifier
-                else
-                    Modifier.testTag(TestTags.POST_QUOTE_COUNT)
-                        .clickable(onClickLabel = PostCardContent.showQuotes().string()) { onQuoteCount() }
-                        .handCursor(),
-            style = MaterialTheme.typography.bodySmall,
-        )
+        if (showCounts) Text(content.counts().string(), style = MaterialTheme.typography.bodySmall)
     }
 }
 

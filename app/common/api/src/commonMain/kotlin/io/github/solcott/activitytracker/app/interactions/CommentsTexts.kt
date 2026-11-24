@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.moderation.ModerationTexts
 import io.github.solcott.activitytracker.app.moderation.NoticeText
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
@@ -13,11 +14,16 @@ import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /** What a row of a subject's comment list is (`CommentRow`). */
 enum class CommentRowKind {
@@ -72,6 +78,8 @@ data class CommentRow(
     val comment: CommentView? = null,
     val author: AppText? = null,
     val text: String? = null,
+    /** When it was written, for a comment or a just-sent one; [posted] says it. */
+    val createdAt: Instant? = null,
     /** Hidden by the subject's author: dimmed, with [hiddenNote]. */
     val hidden: Boolean = false,
     val hiddenNote: AppText? = null,
@@ -84,7 +92,10 @@ data class CommentRow(
     val more: AppText? = null,
     val repliesLoading: Boolean = false,
     val repliesError: UiError? = null,
-)
+) {
+    /** When it was written, beside its author ([CommentsTexts.posted]): "5 minutes ago", "Yesterday at 6:12 PM". */
+    fun posted(now: Instant, zone: TimeZone): AppText? = createdAt?.let { CommentsTexts.posted(it, now, zone) }
+}
 
 /**
  * What a subject's comment list says and offers (feed/comments), decided once for the shared and the native list (dev/shared-display-text).
@@ -180,6 +191,26 @@ object CommentsTexts {
         .toImmutableList()
 
     /**
+     * When a comment written [at] was, beside its author. Earlier on [now]'s day in [zone], how long ago: "Just now" under a minute, then
+     * "5 minutes ago", then "3 hours ago". Before today, its day and time as an activity's start reads on its page and in the feed
+     * ("Yesterday at 6:12 PM", "October 27, 2026 at 11:47 AM"). A time ahead of [now] (a device clock behind the author's) reads "Just
+     * now".
+     */
+    fun posted(at: Instant, now: Instant, zone: TimeZone): AppText {
+        val ago = now - at
+        val today = at.toLocalDateTime(zone).date == now.toLocalDateTime(zone).date
+        return when {
+            ago < 1.minutes -> AppText.named("posted_just_now")
+            today && ago < 1.hours -> agoText("posted_minutes_ago", ago.inWholeMinutes)
+            today -> agoText("posted_hours_ago", ago.inWholeHours)
+            else -> DayText.dayAndTime(at, now, zone)
+        }
+    }
+
+    private fun agoText(name: String, count: Long): AppText =
+        AppText.Plural(name, count.toInt(), persistentListOf(AppText.written(formatWhole(count))))
+
+    /**
      * The key prefix of [thread]'s rows: `<prefix>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more` follow it. AT-URIs never hold a `|`.
      */
     fun threadKey(thread: AtUri): String = "$THREAD_KEY${thread.value}"
@@ -189,9 +220,6 @@ object CommentsTexts {
 
     /** The key of the row after the comments that shows the next page loading or failing ([loading], [loadFailure]). */
     const val LOADING_KEY: String = "comments/loading"
-
-    /** The key of the field to add a comment, the list's last row. */
-    const val FIELD_KEY: String = "comments/field"
 
     /**
      * Whether the rows [shown] on screen, by key, ask for the next page of threads: one of the last [LOAD_MORE_AHEAD] threads listed, or
@@ -203,7 +231,6 @@ object CommentsTexts {
         val lastThreads = state.paging.items.takeLast(LOAD_MORE_AHEAD).mapTo(HashSet()) { it.uri.value }
         return shown.any { key ->
             key == LOADING_KEY ||
-                key == FIELD_KEY ||
                 key.startsWith(SENT_KEY) ||
                 (key.startsWith(THREAD_KEY) && key.removePrefix(THREAD_KEY).substringBefore('|') in lastThreads)
         }
@@ -282,6 +309,7 @@ object CommentsTexts {
             comment = comment,
             author = AppText.written(comment.author.shownName),
             text = comment.text,
+            createdAt = comment.createdAt,
             hidden = hidden,
             hiddenNote = if (hidden) hiddenNote(state) else null,
             offersReply = CommentAction.Reply in actions,
@@ -298,6 +326,7 @@ object CommentsTexts {
             uri = comment.uri,
             author = AppText.written(comment.author.shownName),
             text = comment.text,
+            createdAt = comment.createdAt,
             menu = menu(setOf(CommentAction.Delete), comment.uri),
         )
 }

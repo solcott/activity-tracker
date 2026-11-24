@@ -42,6 +42,7 @@ kotlin {
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
             implementation(projects.coreLocation)
+            implementation(projects.featureCommentsPresenter)
             // Every feature's presenters, so the iOS graph aggregates their factories. No UI module: the iOS graph binds none.
             implementation(projects.featureDetailPresenter)
             implementation(projects.featureDivesitePresenter)

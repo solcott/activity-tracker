@@ -13,6 +13,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.coreLexicon)
+            api(projects.featureCommentsApi)
             api(projects.featureDetailApi)
             api(projects.featureDivesiteApi)
             api(projects.featureEditApi)

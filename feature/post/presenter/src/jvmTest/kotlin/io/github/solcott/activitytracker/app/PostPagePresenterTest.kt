@@ -4,9 +4,8 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.test.FakeNavigator
-import io.github.solcott.activitytracker.app.interactions.CommentAction
-import io.github.solcott.activitytracker.app.interactions.CommentEvent
-import io.github.solcott.activitytracker.app.interactions.CommentsTexts
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
+import io.github.solcott.activitytracker.app.interactions.CommentsPreviewEvent
 import io.github.solcott.activitytracker.app.post.PostPage
 import io.github.solcott.activitytracker.app.post.PostPageEvent
 import io.github.solcott.activitytracker.app.post.PostPagePresenter
@@ -32,16 +31,13 @@ import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-/**
- * The post page's presenter (feed/post-page): loading the post, NotFound, retry, liking, reposting, commenting and replying, and hiding.
- */
+/** The post page's presenter (feed/post-page): loading the post, NotFound, retry, liking, reposting, its comments block, and quotes. */
 class PostPagePresenterTest : ActivityTestBase() {
     private val postUri = "at://did:plc:bob/${Nsid.FEED_POST}/3kpost"
     private val screen = PostPageScreen(postUri)
@@ -76,10 +72,11 @@ class PostPagePresenterTest : ActivityTestBase() {
         postFromAppView = post()
         val r = repos()
         presenterTestOf(presenterOf(r)) {
-            val page = awaitPage { it.comments.paging.refresh is LoadStatus.Idle && it.comments.paging.items.isNotEmpty() }
+            val page = awaitPage { it.comments.rows.isNotEmpty() }
             assertEquals("Why", page.post.text)
             assertEquals(1, page.post.commentCount)
-            assertEquals(commentUri("did:plc:carol", "3kc1"), page.comments.paging.items.single().uri.value)
+            assertEquals(1, page.comments.count)
+            assertEquals(commentUri("did:plc:carol", "3kc1"), page.comments.rows.single().key)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -161,54 +158,30 @@ class PostPagePresenterTest : ActivityTestBase() {
     }
 
     @Test
-    fun aCommentIsWrittenForThePostsAudienceAndCountedAtOnce() = runTest {
-        postFromAppView = post(visibility = "followers")
+    fun theCommentsBlockOpensTheCommentsScreenFocusedToAddOne() = runTest {
+        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
+        postFromAppView = post()
         val r = repos()
-        presenterTestOf(presenterOf(r)) {
-            val page = awaitPage { it.comments.paging.refresh is LoadStatus.Idle }
-            page.comments.draft.setTextAndPlaceCursorAtEnd("Agreed")
-            page.comments.eventSink(CommentEvent.Send)
-            page.comments.eventSink(CommentEvent.Send)
-            val sent = awaitPage { it.comments.sent.isNotEmpty() }
-            assertEquals(1, sent.post.commentCount)
-            val queued = r.queued(Nsid.FEED_COMMENT).single()
-            assertEquals("interactions", queued.first)
-            assertTrue("\"audience\":\"followers\"" in queued.second, queued.second)
-            assertTrue(postUri in queued.second)
+        val navigator = FakeNavigator(screen)
+        presenterTestOf(presenterOf(r, navigator)) {
+            val page = awaitPage { it.comments.rows.isNotEmpty() }
+            page.comments.eventSink(CommentsPreviewEvent.OpenAll)
+            assertEquals(CommentsScreen(postUri), navigator.awaitNextScreen())
+            page.comments.eventSink(CommentsPreviewEvent.Compose)
+            assertEquals(CommentsScreen(postUri, focus = true), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun aReplyAnswersTheListedComment() = runTest {
-        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
-        postFromAppView = post(visibility = "followers")
+    fun aCommentSentOnTheCommentsScreenMovesThePagesCount() = runTest {
+        postFromAppView = post()
         val r = repos()
         presenterTestOf(presenterOf(r)) {
-            val page = awaitPage { it.comments.paging.items.isNotEmpty() }
-            page.comments.eventSink(CommentEvent.ReplyTo(page.comments.paging.items.single().uri))
-            val replying = awaitPage { it.comments.replyingTo != null }
-            replying.comments.draft.setTextAndPlaceCursorAtEnd("Me too")
-            replying.comments.eventSink(CommentEvent.Send)
-            awaitPage { it.comments.paging.items.single().sentReplies.isNotEmpty() }
-            val queued = r.queued(Nsid.FEED_COMMENT).single()
-            assertEquals("interactions", queued.first)
-            assertTrue("\"reply\"" in queued.second && commentUri("did:plc:carol", "3kc1") in queued.second, queued.second)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun theAuthorHidesACommentOnTheirPost() = runTest {
-        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
-        postFromAppView = post(visibility = "public", author = staleAlice)
-        val r = repos()
-        presenterTestOf(presenterOf(r)) {
-            val page = awaitPage { it.comments.paging.items.isNotEmpty() }
-            assertTrue(page.comments.isOwn)
-            page.comments.eventSink(CommentEvent.Hide(page.comments.paging.items.single().uri))
-            val hidden = awaitPage { it.comments.paging.items.single().root?.hidden == true }
-            assertEquals(0, hidden.post.commentCount)
+            awaitPage { it.comments.count == 0L }
+            // What the Comments screen's actions record as they're made.
+            r.feed.commentMoves.move(AtUri(postUri), 1)
+            assertEquals(1, awaitPage { it.comments.count == 1L }.post.commentCount)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -244,26 +217,6 @@ class PostPagePresenterTest : ActivityTestBase() {
             val sheet = awaitPage { it.reporting.sheet != null }.reporting.sheet!!
             assertEquals(ReportTarget.Post(AtUri(postUri), Cid("bafypost"), Did("did:plc:bob")), sheet.target)
             assertEquals("Bob", sheet.authorName)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun aCommentsReportOpensTheSheetForTheComment() = runTest {
-        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
-        postFromAppView = post()
-        val r = repos()
-        presenterTestOf(presenterOf(r)) {
-            val page = awaitPage { it.comments.paging.items.isNotEmpty() }
-            val row = CommentsTexts.rows(page.comments, page.reporting.available).single()
-            val report = row.menu.single { it.action == CommentAction.Report }
-            assertEquals(null, report.event(), "Report opens the sheet rather than sending a comment event")
-            page.reporting.eventSink(page.reporting.reportComment(row.comment!!, "@carol.test"))
-            val sheet = awaitPage { it.reporting.sheet != null }.reporting.sheet!!
-            val comment = page.comments.paging.items.single().root!!
-            assertEquals(ReportTarget.Comment(comment.uri, comment.cid, Did("did:plc:carol")), sheet.target)
-            assertEquals("@carol.test", sheet.authorName)
-            assertTrue(sheet.offerBlock)
             cancelAndIgnoreRemainingEvents()
         }
     }

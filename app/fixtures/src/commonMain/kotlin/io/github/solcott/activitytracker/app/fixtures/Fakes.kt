@@ -106,13 +106,14 @@ fun fakeComment(
     rkey: String = "3kcomment1",
     author: ProfileViewBasic = fakeProfileBasic(Fixed.BOB),
     text: String = "Great ride!",
+    createdAt: Instant = Fixed.CREATED_AT,
 ): CommentView =
     CommentView(
         uri = Fixed.uri(author.did, Nsid.FEED_COMMENT, rkey),
         cid = Fixed.cid(rkey),
         author = author,
         text = text,
-        createdAt = Fixed.CREATED_AT,
+        createdAt = createdAt,
     )
 
 fun fakeGearItem(

@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// An activity's page (feed/activity-page-layout), drawn from the states `ActivityDetailPresenter` publishes: who, when and what, the
-/// route on the native map (expanding to the enlarged map) with the photos, the hero figures, likes and who liked it, Together with,
-/// the training load, a card per metric with its native charts, zones and laps, the segment efforts and lifts, every figure in the
-/// stats list, and the comments (`CommentsSection`). The owner's menu and Report on someone else's activity are in the bar
+/// route on the native map (expanding to the enlarged map) with the photos, the hero figures, likes and who liked it with the comments
+/// in brief in one section (`CommentsPreviewRows`, which open the Comments screen), Together with, the training load, a card per metric with its
+/// native charts, zones and laps, the segment efforts and lifts, and every figure in the stats list. The owner's menu and Report on someone else's activity are in the bar
 /// (`ActivityPageMenu`), the report sheet over it (`reporting(_:)`). From a regular width of 840 points the map, header and stats sit in
 /// a 400-point pane beside the cards, as the shared page lays it out from 840dp. Every word and condition is Kotlin's
 /// (`ActivityPageTexts`, `FigureTexts`, `CardLines`, `ActivityCardContent`), shared with the Compose page.
@@ -123,20 +123,19 @@ private struct ActivityColumn: View {
             sections.header
             sections.media
             sections.hero
-            sections.likes
+            sections.social
             sections.group
             sections.trainingLoad
             sections.cards
             sections.segments
             sections.stats
-            sections.comments
         }
         .listStyle(.insetGrouped)
     }
 }
 
-/// From 840 points at a regular width: a 400-point pane with the map, header, hero, likes, group, avg/max table, training load, stats
-/// and comments, each scrolling on its own, beside the cards, segments and lifts.
+/// From 840 points at a regular width: a 400-point pane with the map, header, hero, likes and comments, group, avg/max table,
+/// training load and stats, each scrolling on its own, beside the cards, segments and lifts.
 private struct ActivityPanes: View {
     let page: ActivityDetailPage
     let content: KotlinContentState
@@ -150,12 +149,11 @@ private struct ActivityPanes: View {
                 sections.media
                 sections.header
                 sections.hero
-                sections.likes
+                sections.social
                 sections.group
                 AvgMaxSection(content: page.page)
                 sections.trainingLoad
                 sections.stats
-                sections.comments
             }
             .listStyle(.insetGrouped)
             .frame(width: 400)
@@ -223,8 +221,12 @@ private struct ActivitySections {
         }
     }
 
-    var likes: some View {
-        Section { ActivityLikes(page: page) }
+    /// Everything social about the activity in one section: its counts and likers, then its comments in brief.
+    var social: some View {
+        Section {
+            ActivityLikes(page: page)
+            CommentsPreviewRows(preview: page.comments)
+        }
     }
 
     @ViewBuilder var group: some View {
@@ -297,9 +299,6 @@ private struct ActivitySections {
         StatsSections(groups: page.page.stats.elements(as: StatsGroup.self)) { send(ActivityDetailEvent.OpenGear(uri: $0)) }
     }
 
-    var comments: some View {
-        CommentsSection(state: DetailPackage.getCommentsState(page), reporting: page.reporting)
-    }
 }
 
 /// Who, when and what: the labels' notices, the author with the tier's badge, the start (with its lock), the title and type, the dive
@@ -494,40 +493,31 @@ private struct CombineBanner: View {
     }
 }
 
-/// The like count or button, Show likes, why a like couldn't be given, and who liked it once shown.
+/// The counts row (the like count, after the like button on someone else's, which shows or hides who liked it, and the comment count),
+/// why a like couldn't be given, and who liked it once shown.
 private struct ActivityLikes: View {
     let page: ActivityDetailPage
 
     var body: some View {
         let texts = ActivityPageTexts.shared
-        HStack {
-            if page.isOwn {
-                Text(texts.likeCount(activity: page.activity))
-            } else {
-                let liked = page.activity.viewer?.like != nil
-                Button {
-                    send(ActivityDetailEvent.ToggleLike.shared)
-                } label: {
-                    Label {
-                        Text(texts.likeButton(activity: page.activity))
-                    } icon: {
-                        Image(.like)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(liked ? Color("LikeColor") : Color.accentColor)
-            }
-            Spacer(minLength: 8)
-            if texts.showsLikesToggle(page: page) {
-                Button {
-                    send(ActivityDetailEvent.ToggleLikesList.shared)
-                } label: {
-                    Text(texts.likesToggle(shown: page.likesList != nil))
-                }
-                .buttonStyle(.borderless)
-            }
+        let toggles = texts.showsLikesToggle(page: page)
+        SocialCountsRow {
+            SocialCount(
+                icon: .like,
+                count: texts.likeNumber(activity: page.activity),
+                label: texts.likeCount(activity: page.activity),
+                actionLabel: texts.likesToggle(shown: page.likesList != nil),
+                action: toggles ? { send(ActivityDetailEvent.ToggleLikesList.shared) } : nil,
+                filled: page.activity.viewer?.like != nil,
+                iconLabel: texts.like,
+                iconAction: page.isOwn ? nil : { send(ActivityDetailEvent.ToggleLike.shared) }
+            )
+            CommentCount(preview: page.comments)
         }
         if let error = page.likeError {
+            ErrorMessage(error, layout: .row)
+        }
+        if let error = page.blockError {
             ErrorMessage(error, layout: .row)
         }
         if let likers = page.likesList {

@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.post
 
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.data.units.formatWhole
+import kotlinx.collections.immutable.persistentListOf
 
 /** What the post page and the quotes list (feed/post-page, feed/quote-posts) say, for the shared and the native pages. */
 object PostPageTexts {
@@ -16,6 +18,13 @@ object PostPageTexts {
 
     /** Show reposts, or Hide reposts while they're [shown]. */
     fun repostsToggle(shown: Boolean): AppText = AppText.named(if (shown) "post_hide_reposts" else "post_show_reposts")
+
+    /** "3 likes", "1 repost", "2 quotes": a count's spoken name in the counts row, by its plural [name]. */
+    fun count(name: String, count: Long): AppText =
+        AppText.Plural(name, count.toInt(), persistentListOf(AppText.written(formatWhole(count))))
+
+    /** A count alone, "3", beside its icon in the counts row. */
+    fun number(count: Long): String = formatWhole(count)
 
     val showQuotes: AppText
         get() = AppText.named("post_show_quotes")

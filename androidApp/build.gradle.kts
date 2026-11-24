@@ -33,6 +33,7 @@ android {
             dependencies {
                 implementation(projects.appCommonUi)
                 implementation(projects.appFixtures)
+                implementation(projects.featureCommentsUi)
                 implementation(projects.featureDetailUi)
                 implementation(projects.featureDivesiteUi)
                 implementation(projects.featureEditUi)

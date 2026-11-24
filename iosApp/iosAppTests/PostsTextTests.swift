@@ -47,16 +47,16 @@ struct PostsTextTests {
     }
 
     @Test func commentRowsReadInOrder() throws {
-        let state = try #require(Samples.postPageVariants["moreReplies"]?.page)
+        let state = try #require(Samples.commentsVariants["moreReplies"]?.page)
         let rows = CommentsTexts.shared.rows(state: state.comments, reportAvailable: false).elements(as: CommentRow.self)
         #expect(rows.map(\.kind) == [.Comment, .Comment, .MoreReplies, .Unavailable, .Comment, .MoreReplies])
         #expect(read(rows[2].more) == "View 3 more replies")
         #expect(rows[5].repliesError != nil)
-        #expect(read(CommentsTexts.shared.count(state: state.comments)) == "2 comments")
+        #expect(read(CommentsTexts.shared.count(state: state.comments)) == "3 comments")
     }
 
     @Test func aHiddenCommentOnTheViewersOwnPost() throws {
-        let state = try #require(Samples.postPageVariants["ownHidden"]?.page)
+        let state = try #require(Samples.commentsVariants["ownHidden"]?.page)
         let row = try #require(CommentsTexts.shared.rows(state: state.comments, reportAvailable: false).elements(as: CommentRow.self).first)
         #expect(row.hidden && !row.offersReply)
         #expect(read(row.hiddenNote) == "Hidden. Only you and its author can see it.")
@@ -75,15 +75,16 @@ struct PostsTextTests {
     }
 
     @Test func othersCommentsOfferReportWithALabeler() throws {
-        let page = try #require(Samples.postPageVariants["reportable"]?.page)
-        #expect(page.reporting.available)
-        let rows = CommentsTexts.shared.rows(state: page.comments, reportAvailable: page.reporting.available).elements(as: CommentRow.self)
+        let state = try #require(Samples.commentsVariants["reportable"])
+        let page = try #require(state.page)
+        #expect(state.reporting.available)
+        let rows = CommentsTexts.shared.rows(state: page.comments, reportAvailable: state.reporting.available).elements(as: CommentRow.self)
         for row in rows {
             #expect(
                 row.menu.elements(as: CommentMenuItem.self).map { read($0.label) } == ["Mute author", "Block author", "Report comment"])
         }
         let carols = try #require(rows.first?.comment)
-        let open = page.reporting.reportComment(comment: carols, authorName: "Carol")
+        let open = state.reporting.reportComment(comment: carols, authorName: "Carol")
         #expect(open.authorName == "Carol" && open.offerBlock)
     }
 

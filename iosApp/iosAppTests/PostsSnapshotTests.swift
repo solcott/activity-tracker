@@ -5,8 +5,8 @@ import Testing
 
 /// The native post card in each case it draws differently, the post page, the quotes list and the quote sheet in each of their states,
 /// against their references (ui/ios-design-system, feed/post-page, feed/quote-posts, dev/ios-snapshot-tests). The samples hold no picture
-/// URLs that load, so avatars are their initials. `reportable` cards and pages have a labeler configured, so others' posts and comments
-/// show their menus with Report.
+/// URLs that load, so avatars are their initials. `reportable` cards and pages have a labeler configured, so others' posts show their
+/// menus with Report. The post's comments are `CommentsSnapshotTests`'.
 @MainActor
 @Suite(.enabled(if: Snapshots.comparesHere, Snapshots.skipped))
 struct PostsSnapshotTests {
@@ -18,7 +18,7 @@ struct PostsSnapshotTests {
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "notFound", "reposters", "ownQuote",
     ]
     nonisolated private static let pageVariants = [
-        "likers", "actionFailed", "ownHidden", "replying", "moreReplies", "commentsFailed", "quoting", "confirmDelete", "reportable",
+        "likers", "actionFailed", "noComments", "commentsLoading", "quoting", "confirmDelete", "reportable",
     ]
     nonisolated private static let quotes = [
         "loading", "failed", "empty", "loaded", "refreshing", "refreshFailed", "loadingMore", "pageFailed", "end", "notFound",
@@ -71,7 +71,7 @@ struct PostsSnapshotTests {
     @Test(arguments: pages + pageVariants)
     func postPage(sample: String) throws {
         let state = try #require(Samples.postPage[sample] ?? Samples.postPageVariants[sample])
-        assertAppSnapshot(of: NavigationStack { PostPage(state: state) }, named: sample)
+        assertAppSnapshot(of: NavigationStack { PostPage(state: state) }.environment(\.clock, Samples.clock), named: sample)
     }
 
     @Test(arguments: quotes)

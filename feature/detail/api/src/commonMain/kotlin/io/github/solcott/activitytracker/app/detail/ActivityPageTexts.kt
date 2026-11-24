@@ -81,7 +81,13 @@ object ActivityPageTexts {
     fun likeButton(activity: ActivityView): AppText =
         AppText.named(if (activity.viewer?.like != null) "detail_liked" else "detail_like", AppText.written("${activity.likeCount}"))
 
-    /** "3 likes", on the owner's own. */
+    /** Like, the like icon's name on someone else's activity in the counts row. */
+    val like: AppText = AppText.named("like_content_description")
+
+    /** The like count alone, "3", beside the like icon in the counts row. */
+    fun likeNumber(activity: ActivityView): String = formatWhole(activity.likeCount)
+
+    /** "3 likes": the like count's spoken name, and the owner's count. */
     fun likeCount(activity: ActivityView): AppText =
         AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.written(formatWhole(activity.likeCount))))
 

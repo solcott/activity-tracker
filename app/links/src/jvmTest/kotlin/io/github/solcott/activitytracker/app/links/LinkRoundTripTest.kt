@@ -1,15 +1,19 @@
 package io.github.solcott.activitytracker.app.links
 
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.gear.EditGearCollectionScreen
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.GearCollectionScreen
 import io.github.solcott.activitytracker.app.gear.GearListScreen
+import io.github.solcott.activitytracker.app.post.PostPageScreen
 import io.github.solcott.activitytracker.app.profile.BlockListKind
 import io.github.solcott.activitytracker.app.profile.BlockListScreen
 import io.github.solcott.activitytracker.app.profile.FollowListKind
 import io.github.solcott.activitytracker.app.profile.FollowListScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
+import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -30,6 +34,15 @@ class LinkRoundTripTest {
             assertEquals(sample.path, AppLinkRoutes.linkOf(sample.canonical)?.path, "$name's canonical path")
             assertEquals(sample.canonical, open(sample.path)?.chain?.lastOrNull() ?: tabRoot(sample.path), "$name read back")
         }
+    }
+
+    @Test
+    fun aCommentsLinkOpensOverItsSubjectsPageAndLeavesOutTheFocus() = runTest {
+        val post = "at://$BOB/${Nsid.FEED_POST}/3kpost"
+        val activity = "at://$BOB/${Nsid.FEED_ACTIVITY}/3kact"
+        assertEquals(listOf(ActivityDetailScreen(activity), CommentsScreen(activity)), open("/profile/$BOB/activity/3kact/comments")?.chain)
+        assertEquals(listOf(PostPageScreen(post), CommentsScreen(post)), open("/profile/$BOB/post/3kpost/comments")?.chain)
+        assertEquals("/profile/$BOB/activity/3kact/comments", AppLinkRoutes.linkOf(CommentsScreen(activity, focus = true))?.path)
     }
 
     /** A link to a tab's first screen opens it with nothing above: the sample's screen stands in for the tab's root. */

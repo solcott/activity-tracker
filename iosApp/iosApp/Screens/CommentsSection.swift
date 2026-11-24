@@ -3,7 +3,7 @@ import SwiftUI
 /// A subject's comments (feed/comments) as sections of a native `List`, in the order and words of the shared list, all Kotlin's
 /// (`CommentsTexts.rows`): the count, each thread's comment or "Comment unavailable" with its replies indented under it, the viewer's
 /// just-sent replies and comments, "View n more replies", hidden comments dimmed with their note, Reply, and a menu whose Delete and
-/// Block author ask first; then the next page's progress or failure and the field, saying which comment it answers.
+/// Block author ask first; then the next page's progress or failure. The field is `CommentComposer`, at the Comments screen's foot.
 ///
 /// It asks for the next page once a row of one of the last five threads, a just-sent comment or the rows after them shows, as the shared
 /// list does. Given the page's `Reporting`, others' comments offer Report where a labeler is configured, sending the comment's
@@ -12,14 +12,12 @@ import SwiftUI
 struct CommentsSection: View {
     let state: CommentsState
     let reporting: Reporting?
-    @State private var draft: TextFieldModel
     @State private var onScreen: Set<String> = []
     @State private var confirming: Confirmation?
 
     init(state: CommentsState, reporting: Reporting? = nil) {
         self.state = state
         self.reporting = reporting
-        _draft = State(initialValue: TextFieldModel(state.draft))
     }
 
     /// A chosen item that asks first, with what it asks (`CommentsTexts.confirmation`).
@@ -42,11 +40,9 @@ struct CommentsSection: View {
                 .onAppear { onScreen.insert(CommentsTexts.shared.LOADING_KEY) }
                 .onDisappear { onScreen.remove(CommentsTexts.shared.LOADING_KEY) }
         } header: {
-            HStack {
-                Text(CommentsTexts.shared.title)
-                Spacer()
-                Text(CommentsTexts.shared.count(state: state))
-            }
+            // The screen's bar already says they're comments. At a grouped list's usual header size: the first header under a bar would
+            // otherwise draw large.
+            Text(CommentsTexts.shared.count(state: state)).font(.footnote)
         }
         .onChange(of: wantsMore, initial: true) { _, wants in
             if wants { send(CommentEvent.LoadMore.shared) }
@@ -66,11 +62,6 @@ struct CommentsSection: View {
         } message: { confirmation in
             Text(confirmation.texts.message)
         }
-        Section {
-            field
-                .onAppear { onScreen.insert(CommentsTexts.shared.FIELD_KEY) }
-                .onDisappear { onScreen.remove(CommentsTexts.shared.FIELD_KEY) }
-        }
     }
 
     private var confirmTitle: Text {
@@ -83,27 +74,6 @@ struct CommentsSection: View {
             ErrorMessage(failure, layout: .row) { send(CommentEvent.Retry.shared) }.listStatusRow()
         } else if CommentsTexts.shared.loading(state: state) {
             AppProgress(small: true).frame(maxWidth: .infinity).listStatusRow()
-        }
-    }
-
-    private var field: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let replying = CommentsTexts.shared.replyingTo(state: state) {
-                HStack {
-                    Text(replying).font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    AppIconButton(.close, label: CommentsTexts.shared.cancelReply) { send(CommentEvent.CancelReply.shared) }
-                }
-            }
-            HStack(spacing: 4) {
-                AppTextField(
-                    label: CommentsTexts.shared.placeholder, model: draft, state: state.draft, layout: .bare,
-                    hint: Text(CommentsTexts.shared.placeholder), onSubmit: { send(CommentEvent.Send.shared) })
-                AppIconButton(.send, label: CommentsTexts.shared.send) { send(CommentEvent.Send.shared) }
-            }
-            if let error = state.error {
-                ErrorMessage(error, layout: .row)
-            }
         }
     }
 
@@ -162,7 +132,7 @@ struct CommentRowView: View {
         let author = row.author ?? AppText.Companion.shared.written(text: "")
         return HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(author).font(.subheadline.weight(.semibold))
+                CommentAuthorLine(author: Text(author)) { row.posted(now: $0.now, zone: $0.kotlinZone) }
                 notices
                 if let text = row.text {
                     Text(verbatim: text)
@@ -207,6 +177,23 @@ struct CommentRowView: View {
                 Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
             }
             .accessibilityLabel(Text(CommentsTexts.shared.more))
+        }
+    }
+}
+
+/// A comment's author and, after them, when it was written (`posted`, Kotlin's `CommentsTexts.posted`: "5 minutes ago" today, "Yesterday at
+/// 6:12 PM" before), on the environment's clock, so previews and snapshots fix it. The name gives way first.
+struct CommentAuthorLine: View {
+    let author: Text
+    let posted: (ShownClock) -> (any AppText)?
+    @Environment(\.clock) private var clock
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            author.font(.subheadline.weight(.semibold)).lineLimit(1)
+            if let posted = posted(clock) {
+                clock.text(posted).font(.footnote).foregroundStyle(.secondary).lineLimit(1).layoutPriority(1)
+            }
         }
     }
 }

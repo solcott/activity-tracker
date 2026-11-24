@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// A post's page (feed/post-page), drawn from the states `PostPagePresenter` publishes: the post's native card, a failed action, Show
-/// likes and Show reposts with who liked and reposted it, Show quotes, and its comments (`CommentsSection`). A post the AppView doesn't
+/// likes and Show reposts with who liked and reposted it, Show quotes, and its comments in brief (`CommentsPreviewRows`), all in one section, which open the Comments screen. A post the AppView doesn't
 /// serve the viewer says it isn't available. The quote sheet and the delete confirmation are the page's `QuoteFields`; Report on the
-/// post and on others' comments opens the native report sheet from its `Reporting` (`reporting(_:)`). Every word and condition is
+/// post opens the native report sheet from its `Reporting` (`reporting(_:)`). Every word and condition is
 /// Kotlin's (`PostPageTexts`, `PostPage`'s getters, `PostCardContent`, `CommentsTexts`), shared with the Compose page.
 /// Named `PostPage`, so Kotlin's loaded page is `LoadedPostPage` here.
 struct PostPage: View {
@@ -35,38 +35,43 @@ struct PostPage: View {
                 PostCardView(
                     content: PostCardContent.Companion.shared.of(post: page.post, viewerDid: page.viewerDid.value, reason: nil),
                     send: { send(PostPageEvent.Post(event: $0)) },
-                    openQuotes: { send(PostPageEvent.OpenQuotes.shared) }, canReport: page.reporting.available)
+                    showsCounts: false, canReport: page.reporting.available)
             }
             if let error = page.error {
                 ErrorMessage(error, layout: .row).listStatusRow()
             }
-            if page.showsLikesToggle || page.showsRepostsToggle || page.showsQuotes {
-                Section {
-                    if page.showsLikesToggle {
-                        toggle(PostPageTexts.shared.likesToggle(shown: page.likesList != nil)) {
-                            send(PostPageEvent.ToggleLikesList.shared)
-                        }
-                        if let likers = page.likesList { people(likers) }
-                    }
-                    if page.showsRepostsToggle {
-                        toggle(PostPageTexts.shared.repostsToggle(shown: page.repostsList != nil)) {
-                            send(PostPageEvent.ToggleRepostsList.shared)
-                        }
-                        if let reposters = page.repostsList { people(reposters) }
-                    }
-                    if page.showsQuotes {
-                        AppListRow(Text(PostPageTexts.shared.showQuotes)) { send(PostPageEvent.OpenQuotes.shared) }
-                    }
-                }
+            // Everything social about the post in one section: its counts on one row, who liked and reposted it once shown, then its
+            // comments in brief. Liking, reposting and quoting stay on the card.
+            Section {
+                counts(page)
+                if let likers = page.likesList { people(likers) }
+                if let reposters = page.repostsList { people(reposters) }
+                CommentsPreviewRows(preview: page.comments)
             }
-            CommentsSection(state: page.comments, reporting: page.reporting)
         }
         .listStyle(.insetGrouped)
         .reporting(page.reporting)
     }
 
-    private func toggle(_ label: any AppText, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Text(label) }
+    /// The like, repost, quote and comment counts: the first two show or hide who liked and reposted it, the quotes open its quotes.
+    private func counts(_ page: LoadedPostPage) -> some View {
+        let texts = PostPageTexts.shared
+        let post = page.post
+        return SocialCountsRow {
+            SocialCount(
+                icon: .like, count: texts.number(count: post.likeCount), label: texts.count(name: "like_count", count: post.likeCount),
+                actionLabel: texts.likesToggle(shown: page.likesList != nil),
+                action: page.showsLikesToggle ? { send(PostPageEvent.ToggleLikesList.shared) } : nil)
+            SocialCount(
+                icon: .repost, count: texts.number(count: post.repostCount),
+                label: texts.count(name: "repost_count", count: post.repostCount),
+                actionLabel: texts.repostsToggle(shown: page.repostsList != nil),
+                action: page.showsRepostsToggle ? { send(PostPageEvent.ToggleRepostsList.shared) } : nil)
+            SocialCount(
+                icon: .quote, count: texts.number(count: post.quoteCount), label: texts.count(name: "quote_count", count: post.quoteCount),
+                actionLabel: texts.showQuotes, action: page.showsQuotes ? { send(PostPageEvent.OpenQuotes.shared) } : nil)
+            CommentCount(preview: page.comments)
+        }
     }
 
     /// Who liked or reposted it: progress, why it couldn't load, the empty message, or a row per athlete opening their profile.

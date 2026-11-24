@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.slack.circuit.runtime.CircuitUiState
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.comments.CommentsSamples
+import io.github.solcott.activitytracker.app.comments.CommentsUi
 import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
 import io.github.solcott.activitytracker.app.detail.ActivityDetailUi
 import io.github.solcott.activitytracker.app.detail.CombinePickerSamples
@@ -147,6 +149,7 @@ class ContentLoadingConformanceTest {
             entry({ CreateDiveSiteSamples.all }, null) { CreateDiveSiteUi(it) },
             entry({ ActivityDetailSamples.all }, "Morning Ride") { ActivityDetailUi(it) },
             entry({ CombinePickerSamples.all }, "Ride (watch)") { CombinePickerUi(it) },
+            entry({ CommentsSamples.all }, "Legs were cooked by the top.") { CommentsUi(it) },
             entry({ RouteMapSamples.all }, null) { RouteMapUi(it) },
             entry({ MediaGallerySamples.all }, null) { MediaGalleryUi(it) },
             entry({ ProfileSamples.all }, "Trail runner and weekend rider.") { ProfileUi(it) },

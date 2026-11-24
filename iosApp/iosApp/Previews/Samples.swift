@@ -104,6 +104,9 @@
         static var postPage: [String: PostPageState] { PostPackage.PostPageSamples.shared.all }
         static var postPageVariants: [String: PostPageState] { PostPackage.PostPageSamples.shared.variants }
         static var postQuotes: [String: PostQuotesState] { PostPackage.PostQuotesSamples.shared.all }
+        /// A subject's Comments screen (feed/comments) in each state it shows, states beyond content loading apart.
+        static var comments: [String: CommentsScreenState] { CommentsPackage.CommentsSamples.shared.all }
+        static var commentsVariants: [String: CommentsScreenState] { CommentsPackage.CommentsSamples.shared.variants }
         static var quoteSheet: [String: QuoteFields] {
             PostsPackage.QuoteSheetSamples.shared.all.merging(PostsPackage.QuoteSheetSamples.shared.variants) { first, _ in first }
         }

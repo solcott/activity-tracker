@@ -3,8 +3,10 @@ plugins { id("activitytracker.feature.presenter") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // Screens the activity opens: editing, gear, adding people, the route map and gallery, profiles, adding a recording, segments
+            // Screens the activity opens: its comments, editing, gear, adding people, the route map and gallery, profiles, adding a
+            // recording, segments
             // and training zones.
+            implementation(projects.featureCommentsApi)
             implementation(projects.featureDivesiteApi)
             implementation(projects.featureEditApi)
             implementation(projects.featureGearApi)

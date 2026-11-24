@@ -22,4 +22,5 @@ private fun PostPageStates(@PreviewParameter(PostPageStates::class) state: PostP
     ScreenPreview { PostPageUi(state) }
 }
 
-class PostPageStates : OtherSamples<PostPageState>(PostPageSamples.all + mapOf("likers" to PostPageSamples.likers))
+class PostPageStates :
+    OtherSamples<PostPageState>(PostPageSamples.all + PostPageSamples.variants.filterKeys { it in setOf("likers", "commentsLoading") })

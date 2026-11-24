@@ -87,7 +87,11 @@ data class CommentsPaging(
     val canLoadMore: Boolean = false,
     /** Every page is loaded. */
     val endReached: Boolean = false,
-)
+) {
+    /** The first page is on its way and nothing has answered yet: not once it failed, which the Comments screen says. */
+    val loadingFirstPage: Boolean
+        get() = !hasAnswer && refresh !is LoadStatus.Failed
+}
 
 /**
  * A thread, as the viewer left it: a top-level comment and its replies, indented under it. Threads are one level deep, so a reply to a

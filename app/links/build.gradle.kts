@@ -11,6 +11,7 @@ kotlin {
             api(libs.circuit.runtime)
 
             implementation(projects.appCommonApi)
+            implementation(projects.featureCommentsApi)
             implementation(projects.featureDetailApi)
             implementation(projects.featureDivesiteApi)
             implementation(projects.featureEditApi)

@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.dataresult.DataError
@@ -134,10 +136,13 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
     @Test
     fun aCountMovedByTheViewerIsntMovedAgainByTheReload() = runTest {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
-        detail(repos()) {
-            val loaded = awaitUntil { it.settled() && it.page()?.comments?.roots?.size == 2 }.page()!!
+        val r = repos()
+        detail(r) {
+            val loaded = awaitUntil { it.settled() && it.page()?.comments?.rows?.size == 2 }.page()!!
             val count = loaded.activity.commentCount
-            loaded.eventSink(ActivityDetailEvent.BlockCommenter(loaded.comments.roots.first().uri))
+            // What blocking bob from the Comments screen does: the block, and the move it records.
+            r.blocks.setBlocked(Did("did:plc:bob"), true)
+            r.feed.commentMoves.move(AtUri(activityUri), -1)
             val moved = awaitUntil { it.page()?.activity?.commentCount == count - 1 }
             // The AppView still lists the comment: the reload's answer counts the block itself.
             val gate = CompletableDeferred<Unit>().also { activityGate = it }
@@ -170,11 +175,8 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
         streams = heartRate
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
         presenterTestOf(presenterOf(repos(), ActivityDetailScreen(activityUri, suggestOnOpen = true))) {
-            val page = awaitUntil { it.page()?.let { p -> p.charts != null && p.comments.roots.size == 1 } == true }.page()!!
-            assertNull(
-                page.comments.refresh as? io.github.solcott.uistate.LoadStatus.Failed,
-                "read again once the AppView had the activity",
-            )
+            // Read again once the AppView had the activity, so its first comment shows in the block.
+            awaitUntil { it.page()?.let { p -> p.charts != null && p.comments.rows.size == 1 } == true }
             cancelAndIgnoreRemainingEvents()
         }
     }

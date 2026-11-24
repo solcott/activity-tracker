@@ -25,6 +25,8 @@ import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
+import io.github.solcott.activitytracker.app.interactions.CommentsTexts
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
 import io.github.solcott.activitytracker.app.record.GearCollectionOption
 import io.github.solcott.activitytracker.app.record.GearField
@@ -370,6 +372,16 @@ class SharedTextNamesTest {
                 )
             },
         )
+    }
+
+    @Test
+    fun everyCommentsBlockWordNamesAString() {
+        val block = CommentsPreview(count = 14)
+        val loading = CommentsPreview(count = 14, loading = true)
+        val now = Instant.parse("2026-06-01T21:00:00Z")
+        val zone = TimeZone.UTC
+        val posted = listOf(now, now - 5.minutes, now - 3.hours).map { CommentsTexts.posted(it, now, zone) }
+        assertAllExist(listOfNotNull(block.countText, block.viewAll, block.addComment, loading.loadingText) + posted)
     }
 
     @Test

@@ -93,6 +93,9 @@ class FeedRepository(
     /** Comments the viewer sent, deleted, hid or unhid this session, shown so until the AppView catches up. */
     val localComments = LocalComments()
 
+    /** How far the viewer's comment actions have moved each subject's count this session, from any screen. */
+    val commentMoves = CommentCountMoves()
+
     /** Accounts the viewer blocked, muted or let back this session, laid over every read until the AppView catches up. */
     val localBlocks = LocalBlocks()
 

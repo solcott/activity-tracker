@@ -7,8 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withCompositionLocals
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
-import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
+import io.github.solcott.activitytracker.app.comments.CommentsScreenEvent
+import io.github.solcott.activitytracker.app.comments.CommentsScreenState
+import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.app.interactions.RepliesState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -25,7 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** The detail screen's replies: replying, threads with their first replies, the rest a page at a time, and sent replies. */
-class ActivityDetailRepliesTest : ActivityDetailTestBase() {
+class CommentsRepliesTest : CommentsTestBase() {
     /** Bob's comment `3kroot` and [count] replies to it from carol, `3kr00`…, oldest first. */
     private fun bobsThread(count: Int): List<String> {
         val root = commentUri("did:plc:bob", "3kroot")
@@ -43,17 +44,17 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun repliesToAComment() = runTest {
         commentsFromAppView = bobsThread(2)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             val bobs = loaded.comments.items.single().root!!
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(bobs.uri))
+            loaded.eventSink(CommentEvent.ReplyTo(bobs.uri))
             val replying = awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!
             assertEquals(bobs, replying.replyingTo)
             replying.draftComment.setTextAndPlaceCursorAtEnd("Agreed")
-            replying.eventSink(ActivityDetailEvent.SendComment)
+            replying.eventSink(CommentEvent.Send)
 
             val sent = awaitUntil { it.loaded()?.comments?.items?.single()?.sentReplies?.size == 1 && it.loaded()?.replyingTo == null }
-            assertEquals(4, sent.loaded()!!.activity.commentCount, "counted at once")
+            assertEquals(4, sent.loaded()!!.count, "counted at once")
             assertEquals(emptyList(), sent.loaded()!!.sentComments, "in its thread, not after the threads")
             r.db.outbox().count(alice.value).first { it > 0 }
             assertEquals("3kroot" to "3kroot", r.queuedReply(), "bob's comment is both its parent and its thread's root")
@@ -65,13 +66,13 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun repliesToAReplyInTheSameThread() = runTest {
         commentsFromAppView = bobsThread(2)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             val carols = loaded.comments.items.single().replies.last()
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(carols.uri))
+            loaded.eventSink(CommentEvent.ReplyTo(carols.uri))
             val replying = awaitUntil { it.loaded()?.replyingTo == carols }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Me too")
-            replying.eventSink(ActivityDetailEvent.SendComment)
+            replying.eventSink(CommentEvent.Send)
             r.db.outbox().count(alice.value).first { it > 0 }
             assertEquals("3kroot" to "3kr01", r.queuedReply())
             cancelAndIgnoreRemainingEvents()
@@ -82,15 +83,15 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun cancellingAReplyKeepsTheText() = runTest {
         commentsFromAppView = bobsThread(0)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(loaded.comments.items.single().uri))
+            loaded.eventSink(CommentEvent.ReplyTo(loaded.comments.items.single().uri))
             val replying = awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Half a th")
-            replying.eventSink(ActivityDetailEvent.CancelReply)
+            replying.eventSink(CommentEvent.CancelReply)
             val cancelled = awaitUntil { it.loaded()?.replyingTo == null }.loaded()!!
             assertEquals("Half a th", cancelled.draftComment.text.toString())
-            cancelled.eventSink(ActivityDetailEvent.SendComment)
+            cancelled.eventSink(CommentEvent.Send)
             r.db.outbox().count(alice.value).first { it > 0 }
             assertEquals(null, r.queuedReply(), "a top-level comment")
             cancelAndIgnoreRemainingEvents()
@@ -102,15 +103,15 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         author = staleAlice
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", hidden = true), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 2 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(loaded.comments.roots.first().uri))
+            loaded.eventSink(CommentEvent.ReplyTo(loaded.comments.roots.first().uri))
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Mine")
-            loaded.eventSink(ActivityDetailEvent.SendComment)
+            loaded.eventSink(CommentEvent.Send)
             val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 }.loaded()!!
             assertEquals(null, sent.replyingTo, "not the hidden one")
-            sent.eventSink(ActivityDetailEvent.ReplyTo(sent.sentComments.single().uri))
-            sent.eventSink(ActivityDetailEvent.ReplyTo(AtUri(commentUri("did:plc:carol", "3kc2"))))
+            sent.eventSink(CommentEvent.ReplyTo(sent.sentComments.single().uri))
+            sent.eventSink(CommentEvent.ReplyTo(AtUri(commentUri("did:plc:carol", "3kc2"))))
             // Only carol's listed comment took: the sent one was ignored.
             assertEquals("3kc2", awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!.replyingTo!!.uri.rkey)
             cancelAndIgnoreRemainingEvents()
@@ -122,14 +123,14 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         // A Followers comment on an activity since made Public: the reply is for Followers.
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", audience = "followers"))
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(loaded.comments.items.single().uri))
+            loaded.eventSink(CommentEvent.ReplyTo(loaded.comments.items.single().uri))
             val replying = awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Agreed")
-            replying.eventSink(ActivityDetailEvent.SendComment)
+            replying.eventSink(CommentEvent.Send)
             // Not counted once the refusal settles.
-            val refused = awaitUntil { it.loaded()?.commentError != null && it.loaded()?.activity?.commentCount == 1L }.loaded()!!
+            val refused = awaitUntil { it.loaded()?.commentError != null && it.loaded()?.count == 1L }.loaded()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals("Agreed", refused.draftComment.text.toString())
             assertEquals("3kc1", refused.replyingTo?.uri?.rkey, "still a reply to bob's comment")
@@ -144,7 +145,7 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         commentsFromAppView =
             bobsThread(5) + comment(carol, "did:plc:carol", "3kc2") + (0 until 2).map { comment(bob, "did:plc:bob", "3kt$it", root = two) }
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 2 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             val (five, twoReplies) = loaded.comments.items
             assertEquals(listOf("3kr00", "3kr01", "3kr02"), five.replies.map { it.uri.rkey })
@@ -160,7 +161,7 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         // Bob's comment isn't listed; carol's reply to it is.
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kr00", root = commentUri("did:plc:bob", "3kroot")))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val thread = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!.comments.items.single()
             assertEquals(null, thread.root)
             assertEquals(commentUri("did:plc:bob", "3kroot"), thread.uri.value)
@@ -173,13 +174,13 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun viewsTheRestOfAThreadsRepliesOnceForADoubleTap() = runTest {
         commentsFromAppView = bobsThread(5)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             val thread = loaded.comments.items.single().uri
             repliesGate = CompletableDeferred()
-            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(thread))
+            loaded.eventSink(CommentEvent.LoadMoreReplies(thread))
             awaitUntil { it.loaded()?.comments?.items?.single()?.repliesState == RepliesState.Loading }
-            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(thread))
+            loaded.eventSink(CommentEvent.LoadMoreReplies(thread))
             repliesGate!!.complete(Unit)
             val all = awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }.loaded()!!.comments.items.single()
             assertEquals((0 until 5).map { "3kr0$it" }, all.replies.map { it.uri.rkey }, "the 4th and 5th after the 3rd")
@@ -194,12 +195,12 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun viewsManyRepliesAPageAtATime() = runTest {
         commentsFromAppView = bobsThread(80)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             var state = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             assertEquals(77, state.comments.items.single().moreReplies)
             while (state.comments.items.single().moreReplies > 0) {
                 val shown = state.comments.items.single().replies.size
-                state.eventSink(ActivityDetailEvent.LoadMoreReplies(state.comments.items.single().uri))
+                state.eventSink(CommentEvent.LoadMoreReplies(state.comments.items.single().uri))
                 state = awaitUntil { (it.loaded()?.comments?.items?.single()?.replies?.size ?: 0) > shown }.loaded()!!
             }
             assertEquals(
@@ -215,11 +216,11 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun viewingMoreRepliesThatFailsKeepsThemAndCanBeTriedAgain() = runTest {
         commentsFromAppView = bobsThread(5)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
             val thread = loaded.comments.items.single().uri
             failReplies = true
-            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(thread))
+            loaded.eventSink(CommentEvent.LoadMoreReplies(thread))
             val failed = awaitUntil { it.loaded()?.comments?.items?.single()?.repliesState is RepliesState.Failed }.loaded()!!
             val shown = failed.comments.items.single()
             assertEquals(UiError.Kind.LoadReplies, (shown.repliesState as RepliesState.Failed).error.kind)
@@ -227,7 +228,7 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
             assertEquals(2, shown.moreReplies)
 
             failReplies = false
-            failed.eventSink(ActivityDetailEvent.LoadMoreReplies(thread))
+            failed.eventSink(CommentEvent.LoadMoreReplies(thread))
             val all = awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }.loaded()!!.comments.items.single()
             assertEquals(RepliesState.Idle, all.repliesState)
             assertEquals(listOf("3", "3"), replyRequests.map { it.second }, "tried the same page again")
@@ -239,15 +240,13 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun aSentReplyShowsAtTheEndOfItsThread() = runTest {
         commentsFromAppView = bobsThread(5)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(loaded.comments.items.single().uri))
+            loaded.eventSink(CommentEvent.ReplyTo(loaded.comments.items.single().uri))
             val replying = awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Agreed")
-            replying.eventSink(ActivityDetailEvent.SendComment)
-            val sent =
-                awaitUntil { it.loaded()?.comments?.items?.single()?.sentReplies?.size == 1 && it.loaded()?.activity?.commentCount == 7L }
-                    .loaded()!!
+            replying.eventSink(CommentEvent.Send)
+            val sent = awaitUntil { it.loaded()?.comments?.items?.single()?.sentReplies?.size == 1 && it.loaded()?.count == 7L }.loaded()!!
             val thread = sent.comments.items.single()
             assertEquals(3, thread.replies.size, "after the three shown")
             assertEquals(listOf("Agreed"), thread.sentReplies.map { it.text })
@@ -260,25 +259,25 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun aSentReplyOnALaterPageShowsOnceItsThreadIsLoaded() = runTest {
         commentsFromAppView = manyComments(35)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            first.eventSink(ActivityDetailEvent.LoadMoreComments)
+            first.eventSink(CommentEvent.LoadMore)
             val all = awaitUntil { it.loaded()?.comments?.items?.size == 35 }.loaded()!!
-            all.eventSink(ActivityDetailEvent.ReplyTo(all.comments.items[32].uri))
+            all.eventSink(CommentEvent.ReplyTo(all.comments.items[32].uri))
             val replying = awaitUntil { it.loaded()?.replyingTo != null }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Agreed")
-            replying.eventSink(ActivityDetailEvent.SendComment)
+            replying.eventSink(CommentEvent.Send)
             val sent = awaitUntil { it.loaded()?.comments?.items?.get(32)?.sentReplies?.size == 1 }.loaded()!!
 
             // Reloaded before the AppView indexes it: counted, but shown only once its thread's page is loaded.
-            sent.eventSink(ActivityDetailEvent.Retry)
+            sent.eventSink(CommentsScreenEvent.Retry)
             val reloaded = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
-            assertEquals(36, reloaded.activity.commentCount)
+            assertEquals(36, reloaded.count)
             assertTrue(reloaded.comments.items.all { it.sentReplies.isEmpty() } && reloaded.sentComments.isEmpty())
-            reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
+            reloaded.eventSink(CommentEvent.LoadMore)
             val end = awaitUntil { it.loaded()?.comments?.items?.size == 35 }.loaded()!!
             assertEquals(listOf("Agreed"), end.comments.items[32].sentReplies.map { it.text })
-            assertEquals(36, end.activity.commentCount)
+            assertEquals(36, end.count)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -288,19 +287,19 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         author = staleAlice
         commentsFromAppView = listOf(comment(staleAlice, alice.value, "3kmine"), comment(bob, "did:plc:bob", "3kbobs"))
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 2 }.loaded()!!
             val (mine, bobs) = loaded.comments.roots
-            loaded.eventSink(ActivityDetailEvent.ReplyTo(mine.uri))
+            loaded.eventSink(CommentEvent.ReplyTo(mine.uri))
             val replying = awaitUntil { it.loaded()?.replyingTo == mine }.loaded()!!
             replying.draftComment.setTextAndPlaceCursorAtEnd("Kept")
-            replying.eventSink(ActivityDetailEvent.DeleteComment(mine.uri))
+            replying.eventSink(CommentEvent.Delete(mine.uri))
             val deleted = awaitUntil { it.loaded()?.replyingTo == null }.loaded()!!
             assertEquals("Kept", deleted.draftComment.text.toString(), "back to a top-level comment, keeping the text")
 
-            deleted.eventSink(ActivityDetailEvent.ReplyTo(bobs.uri))
+            deleted.eventSink(CommentEvent.ReplyTo(bobs.uri))
             val replyingToBob = awaitUntil { it.loaded()?.replyingTo == bobs }.loaded()!!
-            replyingToBob.eventSink(ActivityDetailEvent.HideComment(bobs.uri))
+            replyingToBob.eventSink(CommentEvent.Hide(bobs.uri))
             assertEquals(null, awaitUntil { it.loaded()?.replyingTo == null }.loaded()!!.replyingTo, "a hidden comment can't be answered")
             cancelAndIgnoreRemainingEvents()
         }
@@ -310,12 +309,12 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
     fun extraRepliesStayThroughAReloadUntilItsThreadsAnswer() = runTest {
         commentsFromAppView = bobsThread(5)
         val r = repos()
-        detail(r) {
+        commentsOf(r) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(loaded.comments.items.single().uri))
+            loaded.eventSink(CommentEvent.LoadMoreReplies(loaded.comments.items.single().uri))
             val all = awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }.loaded()!!
             val gate = CompletableDeferred<Unit>().also { commentsGate = it }
-            all.eventSink(ActivityDetailEvent.Retry)
+            all.eventSink(CommentsScreenEvent.Retry)
             val reloading = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Loading }.loaded()!!
             assertEquals(5, reloading.comments.items.single().replies.size, "the extra replies stay while the reload runs")
 
@@ -337,14 +336,10 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
         var shown by mutableStateOf(true)
         val presenter = presenterOf(r)
         presenterTestOf(
-            {
-                withCompositionLocals(LocalRetainedStateRegistry provides registry) {
-                    if (shown) presenter() else ActivityDetailState(eventSink = {})
-                }
-            },
+            { withCompositionLocals(LocalRetainedStateRegistry provides registry) { if (shown) presenter() else CommentsScreenState() } },
         ) {
             val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
-            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(loaded.comments.items.single().uri))
+            loaded.eventSink(CommentEvent.LoadMoreReplies(loaded.comments.items.single().uri))
             awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }
             registry.saveAll()
             shown = false

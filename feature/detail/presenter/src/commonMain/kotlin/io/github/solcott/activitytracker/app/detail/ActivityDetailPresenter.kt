@@ -17,11 +17,15 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
 import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
-import io.github.solcott.activitytracker.app.interactions.CommentActions
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
+import io.github.solcott.activitytracker.app.interactions.CommentsPreviewEvent
+import io.github.solcott.activitytracker.app.interactions.rememberCommentChanges
+import io.github.solcott.activitytracker.app.interactions.rememberCommentCountMoved
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
@@ -46,7 +50,6 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
-import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -58,13 +61,11 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
-import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
-import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.persistentListOf
@@ -93,9 +94,7 @@ fun ActivityDetailPresenter(
 ): ActivityDetailState {
     val uri = AtUri(screen.uri)
     var likeError by remember { mutableStateOf<UiError?>(null) }
-    var commentError by remember { mutableStateOf<UiError?>(null) }
-    val draft = rememberTextFieldState()
-    val replying = remember { mutableStateOf<CommentView?>(null) }
+    var blockError by remember { mutableStateOf<UiError?>(null) }
     // Retained with the page: the page's load is keyed on it.
     var loadKey by rememberRetained { mutableIntStateOf(0) }
     // Bumped when the activity loads only after waiting for the AppView to index it.
@@ -114,9 +113,9 @@ fun ActivityDetailPresenter(
             feed.activityOutcome(uri).awaitIndexed(indexed = { indexedLate++ }) { justWritten(screen, feed) }
         }
     val activity = content.data
-    // How far the viewer's comment actions have moved the count since [activity] loaded: a reload's answer counts them itself.
-    var commentMoves by rememberRetained { mutableStateOf<CommentMoves?>(null) }
-    val moves = commentMoves.over(activity)
+    // How far the viewer's comment actions, here or on the Comments screen, have moved the count since [activity] loaded: a reload's answer
+    // counts them itself.
+    val moves = rememberCommentCountMoved(uri, activity, feed.commentMoves)
 
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
     val rewrite by remember(screen.uri) { feed.rewrites.observe(uri) }.collectAsState(null)
@@ -129,7 +128,8 @@ fun ActivityDetailPresenter(
     DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(uri) } }
     val sitesCreated by diveSites.createdFrom.collectAsState()
     DisposableEffect(screen.uri) { onDispose { diveSites.dismissCreated(uri) } }
-    val comments = rememberComments(uri, profiles.did, extrasKey, feed)
+    // The block's first page, loaded again after each comment action on the Comments screen.
+    val comments = rememberComments(uri, profiles.did, extrasKey + rememberCommentChanges(uri, feed.commentMoves), feed)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = activity?.let {
         shown(it, moves, rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
@@ -160,13 +160,7 @@ fun ActivityDetailPresenter(
     // A like toggles as it does in a list, one at a time per activity.
     val likes = rememberActivityListEventSink(navigator, activities) { likeError = it }
 
-    val commentActions = { current: ActivityView ->
-        CommentActions(draft, flights, activities, blocks, comments, replying, { e -> commentError = e }) { moved ->
-            commentMoves = commentMoves.plus(content.data, moved)
-        }
-    }
-    val reporting =
-        rememberReporting(reports) { _, target -> flights.blockReported(target, activity, commentActions, blocks) { commentError = it } }
+    val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { blockError = it } }
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -205,19 +199,7 @@ fun ActivityDetailPresenter(
                 current?.let { likes(ActivityListEvent.ToggleLike(it)) }
             }
 
-            ActivityDetailEvent.LoadMoreComments,
-            ActivityDetailEvent.RetryComments,
-            ActivityDetailEvent.SendComment,
-            is ActivityDetailEvent.ReplyTo,
-            ActivityDetailEvent.CancelReply,
-            is ActivityDetailEvent.LoadMoreReplies,
-            is ActivityDetailEvent.DeleteComment,
-            is ActivityDetailEvent.HideComment,
-            is ActivityDetailEvent.UnhideComment,
-            is ActivityDetailEvent.BlockCommenter,
-            is ActivityDetailEvent.MuteCommenter -> {
-                current?.let { commentActions(it).on(requireNotNull(event.asCommentEvent()), it.asSubject()) }
-            }
+            is ActivityDetailEvent.OpenComments -> navigator.goTo(CommentsScreen(screen.uri, focus = event.focus))
 
             is ActivityDetailEvent.Delete,
             ActivityDetailEvent.Ungroup,
@@ -254,15 +236,21 @@ fun ActivityDetailPresenter(
     val page = shown?.let {
         ActivityDetailPage(
             activity = it,
-            comments = comments.paging,
-            sentComments = comments.sent,
-            draftComment = draft,
-            replyingTo = replying.value,
+            comments =
+                CommentsPreview.of(
+                    it.commentCount,
+                    comments.paging.items,
+                    comments.sent,
+                    profiles.did,
+                    loading = comments.paging.loadingFirstPage,
+                ) { e ->
+                    sink(ActivityDetailEvent.OpenComments(focus = e == CommentsPreviewEvent.Compose))
+                },
             viewerDid = profiles.did,
             isOwn = isOwn,
             likesList = likesList,
             likeError = likeError,
-            commentError = commentError,
+            blockError = blockError,
             eventSink = sink,
             charts = shownCharts,
             poolLength = poolLength(it.record.poolLength),

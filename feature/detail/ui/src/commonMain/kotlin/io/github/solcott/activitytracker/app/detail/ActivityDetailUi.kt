@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,9 +39,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.interactions.CommentCount
+import io.github.solcott.activitytracker.app.interactions.CommentsPreviewBlock
 import io.github.solcott.activitytracker.app.interactions.LikersList
-import io.github.solcott.activitytracker.app.interactions.LoadMoreNearTheEnd
-import io.github.solcott.activitytracker.app.interactions.comments
+import io.github.solcott.activitytracker.app.interactions.SocialCount
+import io.github.solcott.activitytracker.app.interactions.SocialCountsRow
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
@@ -54,12 +57,12 @@ import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.AppVerticalScrollbar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
@@ -150,8 +153,8 @@ private fun LoadedContent(
 }
 
 /**
- * Under 840dp: one list. Compact windows stack the hero, map, training load, cards, stats and comments; medium ones put the hero and the
- * map side by side, add the avg/max table, and set the cards and stats two to a row.
+ * Under 840dp: one list. Compact windows stack the hero, map, likes and comments card, training load, cards and stats; medium ones put the
+ * hero and the map side by side, add the avg/max table, and set the cards and stats two to a row.
  */
 @Composable
 private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues, width: WindowWidth) {
@@ -182,7 +185,7 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
                 item(key = "hero") { HeroRow(page.hero) }
                 item(key = "media") { PageMedia(state) }
             }
-            item(key = "likes") { Likes(state) }
+            item(key = "social") { Social(state) }
             if (state.showsGroup) item(key = "group") { TogetherWith(state) }
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
             metricCards(state, columns = if (medium) 2 else 1)
@@ -191,15 +194,13 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
             item(key = "stats") {
                 StatsList(page.stats, columns = if (medium) 2 else 1, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) })
             }
-            comments(state.commentsState, state.reporting)
         }
     }
-    LoadMoreNearTheEnd(listState, state.commentsState)
 }
 
 /**
- * From 840dp: a side pane with the map, hero, avg/max table, training load, stats and comments, scrolling on its own so the map stays in
- * view, beside the cards, two to a row once their pane has room.
+ * From 840dp: a side pane with the map, hero, likes and comments card, avg/max table, training load and stats, scrolling on its own so the
+ * map stays in view, beside the cards, two to a row once their pane has room.
  */
 @Composable
 private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues) {
@@ -222,12 +223,11 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
                 item(key = "media") { PageMedia(state) }
                 item(key = "header") { Header(state) }
                 item(key = "hero") { HeroRow(page.hero) }
-                item(key = "likes") { Likes(state) }
+                item(key = "social") { Social(state) }
                 if (state.showsGroup) item(key = "group") { TogetherWith(state) }
                 item(key = "avgMax") { AvgMaxTable(page.avgMax) }
                 item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
                 item(key = "stats") { StatsList(page.stats, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) }) }
-                comments(state.commentsState, state.reporting)
             }
             AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
@@ -246,7 +246,6 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
     }
-    LoadMoreNearTheEnd(paneState, state.commentsState)
 }
 
 /** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
@@ -370,33 +369,45 @@ private fun PageMedia(state: ActivityDetailPage, modifier: Modifier = Modifier, 
     }
 }
 
-/** The like count or button, the toggle for who liked it, why a like couldn't be given, and the list once shown. */
+/**
+ * Everything social about the activity in one card: its counts on one line (likes, with the like button on someone else's, and comments),
+ * who liked it once shown and why a like couldn't be given, then, over a hairline, its comments in brief (feed/comments), which open the
+ * Comments screen.
+ */
 @Composable
-private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LikeButton(state, Modifier.weight(1f))
-            // Hiding stays available if the last like goes away while the list is open.
-            if (ActivityPageTexts.showsLikesToggle(state)) {
-                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLikesList) }) {
-                    Text(ActivityPageTexts.likesToggle(shown = state.likesList != null).string())
-                }
+private fun Social(state: ActivityDetailPage, modifier: Modifier = Modifier) {
+    AppCard(modifier) {
+        Column(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
+            SocialCountsRow {
+                LikeCount(state)
+                CommentCount(state.comments)
             }
+            val inset = Modifier.padding(horizontal = 12.dp)
+            state.likeError?.let { ErrorText(it, inset) }
+            state.blockError?.let { ErrorText(it, inset) }
+            state.likesList?.let { list -> LikersList(list, { state.eventSink(ActivityDetailEvent.OpenProfile(it)) }, inset) }
+            HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            CommentsPreviewBlock(state.comments, Modifier.padding(bottom = 8.dp))
         }
-        state.likeError?.let { ErrorText(it) }
-        state.likesList?.let { list -> LikersList(list, { state.eventSink(ActivityDetailEvent.OpenProfile(it)) }) }
     }
 }
 
+/**
+ * The like count, which shows or hides who liked it while anyone has (hiding stays offered if the last like goes while the list is open),
+ * after the like button on someone else's activity.
+ */
 @Composable
-private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    if (state.isOwn) {
-        Text(ActivityPageTexts.likeCount(state.activity).string(), modifier.padding(vertical = 12.dp))
-    } else {
-        Box(modifier) {
-            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLike) }) {
-                Text(ActivityPageTexts.likeButton(state.activity).string())
-            }
-        }
-    }
+private fun LikeCount(state: ActivityDetailPage) {
+    val activity = state.activity
+    val toggles = ActivityPageTexts.showsLikesToggle(state)
+    SocialCount(
+        AppIcon.Like,
+        ActivityPageTexts.likeNumber(activity),
+        ActivityPageTexts.likeCount(activity).string(),
+        onClickLabel = ActivityPageTexts.likesToggle(shown = state.likesList != null).string(),
+        onClick = if (toggles) ({ state.eventSink(ActivityDetailEvent.ToggleLikesList) }) else null,
+        filled = activity.viewer?.like != null,
+        iconLabel = ActivityPageTexts.like.string(),
+        onIconClick = if (state.isOwn) null else ({ state.eventSink(ActivityDetailEvent.ToggleLike) }),
+    )
 }

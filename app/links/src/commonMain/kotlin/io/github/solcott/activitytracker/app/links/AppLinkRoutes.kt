@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.links
 
 import com.slack.circuit.runtime.screen.Screen
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
 import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
@@ -151,6 +152,10 @@ object AppLinkRoutes {
             is CreateDiveSiteScreen -> activity(screen.diveUri, NEW_DIVE_SITE)
             is PostPageScreen -> owned(screen.uri, Nsid.FEED_POST, POST)
             is PostQuotesScreen -> owned(screen.uri, Nsid.FEED_POST, POST, QUOTES)
+            // Under its subject's link; how it was reached (its field focused) isn't part of it.
+            is CommentsScreen ->
+                if (AtUri.parseOrNull(screen.subject)?.collection == Nsid.FEED_POST) owned(screen.subject, Nsid.FEED_POST, POST, COMMENTS)
+                else activity(screen.subject, COMMENTS)
             is GearScreen -> owned(screen.uri, Nsid.GEAR_ITEM, GEAR)
             is ImportBatchScreen -> AppLink.of(PROFILE, screen.actor, BATCH, screen.batch)
             is SegmentScreen -> placed(screen.uri, Nsid.FEED_SEGMENT, SEGMENT, query = mapOf(BOARD to screen.board))
@@ -230,6 +235,7 @@ object AppLinkRoutes {
             when (tail) {
                 emptyList<String>() -> null
                 listOf(MAP) -> RouteMapScreen(uri)
+                listOf(COMMENTS) -> CommentsScreen(uri)
                 listOf(NEW_SEGMENT) -> CreateSegmentScreen(uri)
                 listOf(NEW_DIVE_SITE) -> CreateDiveSiteScreen(uri)
                 // The owner's forms: anyone else gets the activity itself.
@@ -251,6 +257,7 @@ object AppLinkRoutes {
         when (tail) {
             emptyList<String>() -> listOf(PostPageScreen(uri))
             listOf(QUOTES) -> listOf(PostPageScreen(uri), PostQuotesScreen(uri))
+            listOf(COMMENTS) -> listOf(PostPageScreen(uri), CommentsScreen(uri))
             else -> null
         }
 
@@ -418,6 +425,7 @@ object AppLinkRoutes {
     private const val NEW_SEGMENT = "new-segment"
     private const val NEW_DIVE_SITE = "new-dive-site"
     private const val QUOTES = "quotes"
+    private const val COMMENTS = "comments"
     private const val LEADERBOARD = "leaderboard"
     private const val MAYORS = "mayors"
     private const val REGULARS = "regulars"

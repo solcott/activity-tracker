@@ -12,8 +12,8 @@ import SwiftUI
 struct PostCardView: View {
     let content: PostCardContent
     let send: (any PostEvent) -> Void
-    /// Given on the post page, where the counts list the post's quotes.
-    var openQuotes: (() -> Void)?
+    /// Off on the post page, whose social section has the counts: the buttons stand alone there.
+    var showsCounts = true
     /// A labeler is configured (`Reporting.available`), so someone else's post offers Report. Off where the caller doesn't say.
     var canReport = false
 
@@ -181,11 +181,7 @@ struct PostCardView: View {
             if content.offersQuote {
                 AppIconButton(.quote, label: PostCardContent.Companion.shared.quote()) { send(PostEvent.Quote(post: post)) }
             }
-            if let openQuotes {
-                Button(action: openQuotes) { Text(content.counts()).font(.footnote).multilineTextAlignment(.leading) }
-                    .buttonStyle(.borderless)
-                    .accessibilityHint(Text(PostCardContent.Companion.shared.showQuotes()))
-            } else {
+            if showsCounts {
                 Text(content.counts()).font(.footnote)
             }
         }

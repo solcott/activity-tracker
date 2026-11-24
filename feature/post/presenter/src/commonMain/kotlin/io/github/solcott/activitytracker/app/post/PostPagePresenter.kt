@@ -11,9 +11,11 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.interactions.CommentActions
-import io.github.solcott.activitytracker.app.interactions.CommentEvent
-import io.github.solcott.activitytracker.app.interactions.CommentsState
+import io.github.solcott.activitytracker.app.comments.CommentsScreen
+import io.github.solcott.activitytracker.app.interactions.CommentsPreview
+import io.github.solcott.activitytracker.app.interactions.CommentsPreviewEvent
+import io.github.solcott.activitytracker.app.interactions.rememberCommentChanges
+import io.github.solcott.activitytracker.app.interactions.rememberCommentCountMoved
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.interactions.rememberRepostsList
@@ -29,19 +31,15 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.QuotePosts
-import io.github.solcott.activitytracker.data.feed.asSubject
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.feed.withQuoteOverrides
 import io.github.solcott.activitytracker.data.feed.withRepostOverrides
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
-import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.PostView
-import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState
@@ -49,9 +47,9 @@ import io.github.solcott.uistate.hasLoaded
 
 /**
  * The post page (feed/post-page): the post as the viewer left it (their votes, likes, reposts and comment changes laid over it), its
- * comment threads a page at a time, who liked or reposted it once asked, and its quotes on their own screen ([PostQuotesScreen]). Comment
- * actions are the activity page's ([CommentActions]); the card's events are the timeline's ([rememberPostEventSink]), except that opening
- * the post again does nothing.
+ * comments block, who liked or reposted it once asked, and its quotes on their own screen ([PostQuotesScreen]); its comments are on their
+ * own screen ([CommentsScreen]); the card's events are the timeline's ([rememberPostEventSink]), except that opening the post again does
+ * nothing.
  */
 @CircuitInject(PostPageScreen::class, SessionScope::class)
 @Composable
@@ -70,23 +68,21 @@ fun PostPagePresenter(
     val uri = AtUri(screen.uri)
     var loadKey by rememberRetained { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    var commentError by remember { mutableStateOf<UiError?>(null) }
     var showLikes by remember { mutableStateOf(false) }
     var showReposts by remember { mutableStateOf(false) }
-    val draft = rememberTextFieldState()
-    val replying = remember { mutableStateOf<CommentView?>(null) }
     val flights = rememberSingleFlight()
 
     val content = produceRetainedContentState<PostView?>(null, loadKey) { feed.postOutcome(uri) }
     val loaded = content.data
-    // How far the viewer's comment actions have moved the count since [loaded] loaded: a reload's answer counts them itself.
-    var moves by rememberRetained { mutableStateOf<CountMoves?>(null) }
+    // How far the viewer's comment actions on the Comments screen have moved the count since [loaded] loaded: a reload's answer counts
+    // them itself.
+    val moved = rememberCommentCountMoved(uri, loaded, feed.commentMoves)
     val nameChanges by names.changes.collectAsState()
     val likeOverrides by feed.likeOverrides.collectAsState()
     val repostOverrides by feed.localReposts.overrides.collectAsState()
     val quoteOverrides by feed.localQuotes.overrides.collectAsState()
     val post =
-        remember(loaded, moves, nameChanges, likeOverrides, repostOverrides, quoteOverrides) {
+        remember(loaded, moved, nameChanges, likeOverrides, repostOverrides, quoteOverrides) {
             loaded?.let { view ->
                 val shown =
                     names
@@ -94,26 +90,17 @@ fun PostPagePresenter(
                         .withLikeOverrides(likeOverrides)
                         .withRepostOverrides(repostOverrides)
                         .withQuoteOverrides(quoteOverrides)
-                val moved = moves.over(view)
                 if (moved == 0) shown else shown.copy(commentCount = (shown.commentCount + moved).coerceAtLeast(0))
             }
         }
 
-    val comments = rememberComments(uri, profiles.did, loadKey, feed)
-    val commentActions =
-        CommentActions(draft, flights, activities, blocks, comments, replying, { commentError = it }) { moved ->
-            moves = loaded?.let { CountMoves(it, moves.over(it) + moved) }
-        }
+    // The block's first page, loaded again after each comment action on the Comments screen.
+    val comments = rememberComments(uri, profiles.did, loadKey + rememberCommentChanges(uri, feed.commentMoves), feed)
     val reporting =
-        rememberReporting(reports) { author, target ->
-            val current = post
-            if (target is ReportTarget.Comment && current != null) {
-                commentActions.on(CommentEvent.BlockAuthor(target.uri), current.asSubject())
-            } else {
-                flights.launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, { error = it }) {
-                    blocks.setBlocked(author, true)
-                    error = null
-                }
+        rememberReporting(reports) { author, _ ->
+            flights.launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, { error = it }) {
+                blocks.setBlocked(author, true)
+                error = null
             }
         }
     // Deleting the page's own quote leaves the page, which would only say it's gone.
@@ -132,6 +119,7 @@ fun PostPagePresenter(
             PostPageEvent.ToggleRepostsList -> showReposts = !showReposts
             is PostPageEvent.OpenProfile -> navigator.goTo(ProfileScreen(event.did.value))
             PostPageEvent.OpenQuotes -> navigator.goTo(PostQuotesScreen(screen.uri))
+            is PostPageEvent.OpenComments -> navigator.goTo(CommentsScreen(screen.uri, focus = event.focus))
         }
     }
     val failure = (content.status as? LoadStatus.Failed)?.error
@@ -139,18 +127,15 @@ fun PostPagePresenter(
         PostPage(
             post = it,
             comments =
-                CommentsState(
-                    paging = comments.paging,
-                    sent = comments.sent,
-                    draft = draft,
-                    replyingTo = replying.value,
-                    viewerDid = profiles.did,
-                    author = it.author,
-                    isOwn = it.author.did == profiles.did,
-                    count = it.commentCount,
-                    error = commentError,
-                    eventSink = { e -> commentActions.on(e, it.asSubject()) },
-                ),
+                CommentsPreview.of(
+                    it.commentCount,
+                    comments.paging.items,
+                    comments.sent,
+                    profiles.did,
+                    loading = comments.paging.loadingFirstPage,
+                ) { e ->
+                    sink(PostPageEvent.OpenComments(focus = e == CommentsPreviewEvent.Compose))
+                },
             viewerDid = profiles.did,
             likesList = likesList,
             repostsList = repostsList,
@@ -165,11 +150,6 @@ fun PostPagePresenter(
         eventSink = sink,
     )
 }
-
-/** How far the viewer's comment actions moved [base]'s count: [base] is the very view loaded, so a reload's answer starts again. */
-private class CountMoves(val base: PostView, val moves: Int)
-
-private fun CountMoves?.over(view: PostView): Int = this?.takeIf { it.base === view }?.moves ?: 0
 
 /** The single-flight key of blocking the post's author from the report sheet. */
 private object BlockReportedAuthor

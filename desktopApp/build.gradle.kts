@@ -19,6 +19,8 @@ dependencies {
     implementation(projects.composeApp)
     implementation(projects.coreData)
     implementation(projects.coreLocation)
+    implementation(projects.featureCommentsPresenter)
+    implementation(projects.featureCommentsUi)
     implementation(projects.featureDetailPresenter)
     implementation(projects.featureDetailUi)
     implementation(projects.featureDivesitePresenter)
