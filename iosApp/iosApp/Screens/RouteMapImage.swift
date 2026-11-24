@@ -115,7 +115,7 @@ enum RouteMapImages {
 
         func draw(in context: CGContext, at point: (CLLocationCoordinate2D) -> CGPoint, traits: UITraitCollection) {
             let accent = (UIColor(named: "AccentColor") ?? .tintColor).resolvedColor(with: traits)
-            let highlightColor = (UIColor(named: "LikeColor") ?? .systemPink).resolvedColor(with: traits)
+            let highlightColor = UIColor(resource: .like).resolvedColor(with: traits)
             let breakColor = UIColor(RouteMarkerStyle.breakColor)
             for line in pieces {
                 stroke(line, in: context, at: point, color: accent, width: RouteMarkerStyle.line.lineWidth)

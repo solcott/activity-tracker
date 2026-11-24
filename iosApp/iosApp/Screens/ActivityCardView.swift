@@ -127,10 +127,9 @@ struct ActivityCardView: View {
     private var likes: some View {
         HStack(spacing: 0) {
             if likeable && content.offersLike {
-                AppIconButton(.like, label: .likeContentDescription, filled: content.liked) {
+                LikeButton(liked: content.liked, label: .likeContentDescription) {
                     send(ActivityListEvent.ToggleLike(activity: content.activity))
                 }
-                .foregroundStyle(content.liked ? Color("LikeColor") : Color.accentColor)
             }
             Text(content.counts()).font(.footnote)
         }

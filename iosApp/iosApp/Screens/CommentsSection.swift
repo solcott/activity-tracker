@@ -163,19 +163,13 @@ struct CommentRowView: View {
     /// The like button (filled in the like colour once liked) and the count after it (feed/comment-likes); on the viewer's own comment,
     /// which can't be liked, the icon and count alone.
     @ViewBuilder private var likes: some View {
-        let tint = row.liked ? Color("LikeColor") : Color.secondary
         HStack(spacing: 4) {
             if row.offersLike {
-                Button {
+                LikeButton(liked: row.liked, label: row.likeLabel, compact: true) {
                     send(CommentEvent.Like(uri: row.uri))
-                } label: {
-                    Image(.like, filled: row.liked).foregroundStyle(tint)
                 }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(Text(row.likeLabel))
-                .accessibilityAddTraits(row.liked ? .isSelected : [])
             } else if row.likeCount > 0 {
-                Image(.like).foregroundStyle(tint).accessibilityHidden(true)
+                Image(.like).likeTint(row.liked).accessibilityHidden(true)
             }
             if let number = row.likeNumber {
                 Text(verbatim: number).foregroundStyle(.secondary).accessibilityLabel(Text(row.likeCountText))
